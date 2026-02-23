@@ -1,10 +1,11 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
 
 from gabion.analysis.json_types import JSONObject
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 class RewritePlanKind(StrEnum):
@@ -124,7 +125,7 @@ def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
 
 
 def normalize_rewrite_plan_order(plans: list[JSONObject]) -> list[JSONObject]:
-    return ordered_or_sorted(
+    return sort_once(
         plans,
         source="normalize_rewrite_plan_order",
         key=lambda entry: (

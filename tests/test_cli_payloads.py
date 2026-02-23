@@ -190,6 +190,62 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
     assert payload["baseline_write"] is False
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_build_check_execution_plan_request_sets_write_baseline_mode::cli.py::gabion.cli.build_check_execution_plan_request
+def test_build_check_execution_plan_request_sets_write_baseline_mode() -> None:
+    baseline = Path("baselines/dataflow_baseline.txt")
+    request = cli.build_check_execution_plan_request(
+        payload={"analysis_timeout_ticks": 11, "analysis_timeout_tick_ns": 22},
+        report=Path("artifacts/audit_reports/dataflow_report.md"),
+        decision_snapshot=None,
+        baseline=baseline,
+        baseline_write=True,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=False,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        ),
+        profile="raw",
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        emit_test_obsolescence_delta=False,
+        emit_test_annotation_drift_delta=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+    )
+    payload = request.to_payload()
+    policy_metadata = payload["policy_metadata"]
+    assert isinstance(policy_metadata, dict)
+    assert policy_metadata["baseline_mode"] == "write"
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_build_check_execution_plan_request_sets_read_baseline_mode::cli.py::gabion.cli.build_check_execution_plan_request
+def test_build_check_execution_plan_request_sets_read_baseline_mode() -> None:
+    baseline = Path("baselines/dataflow_baseline.txt")
+    request = cli.build_check_execution_plan_request(
+        payload={"analysis_timeout_ticks": 11, "analysis_timeout_tick_ns": 22},
+        report=Path("artifacts/audit_reports/dataflow_report.md"),
+        decision_snapshot=None,
+        baseline=baseline,
+        baseline_write=False,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=False,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        ),
+        profile="raw",
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        emit_test_obsolescence_delta=False,
+        emit_test_annotation_drift_delta=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+    )
+    payload = request.to_payload()
+    policy_metadata = payload["policy_metadata"]
+    assert isinstance(policy_metadata, dict)
+    assert policy_metadata["baseline_mode"] == "read"
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_dataflow_audit_payload_parsing() -> None:
     opts = cli.parse_dataflow_args_or_exit(
@@ -473,10 +529,12 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["payload"]["write_ambiguity_baseline"] is False
     execution_plan_request = captured["payload"].get("execution_plan_request")
     assert isinstance(execution_plan_request, dict)
-    assert execution_plan_request["requested_operations"] == [
-        cli.DATAFLOW_COMMAND,
-        "gabion.check",
-    ]
+    assert execution_plan_request["requested_operations"] == sorted(
+        [
+            cli.DATAFLOW_COMMAND,
+            "gabion.check",
+        ]
+    )
     assert execution_plan_request["derived_artifacts"]
     assert captured["root"] == tmp_path
 

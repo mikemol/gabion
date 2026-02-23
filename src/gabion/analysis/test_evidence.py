@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import ast
@@ -12,7 +13,7 @@ from typing import Iterable
 
 from gabion.analysis import evidence_keys
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
@@ -64,19 +65,19 @@ def build_test_evidence_payload(
         entries.extend(_extract_file_evidence(path, root))
 
     test_ids = [entry.test_id for entry in entries]
-    duplicates = sorted(
+    duplicates = sort_once(
         {
             test_id
             for test_id, count in Counter(test_ids).items()
             if count > 1
-        }
-    )
+        }, 
+    source = 'src/gabion/analysis/test_evidence.py:67')
     if duplicates:
         preview = ", ".join(duplicates[:5])
         suffix = "" if len(duplicates) <= 5 else f" (+{len(duplicates) - 5} more)"
         raise ValueError(f"Duplicate test_id entries found: {preview}{suffix}")
 
-    tests_sorted = sorted(entries, key=lambda entry: entry.test_id)
+    tests_sorted = sort_once(entries, key=lambda entry: entry.test_id, source = 'src/gabion/analysis/test_evidence.py:79')
     tests_payload = []
     evidence_index: dict[str, dict[str, object]] = {}
     for entry in tests_sorted:
@@ -105,9 +106,9 @@ def build_test_evidence_payload(
             record["tests"].append(entry.test_id)
 
     evidence_payload = []
-    for identity in sorted(evidence_index):
+    for identity in sort_once(evidence_index, source = 'src/gabion/analysis/test_evidence.py:108'):
         record = evidence_index[identity]
-        tests = sorted(record["tests"])
+        tests = sort_once(record["tests"], source = 'src/gabion/analysis/test_evidence.py:110')
         evidence_payload.append(
             {
                 "key": record["key"],
@@ -121,7 +122,7 @@ def build_test_evidence_payload(
         "scope": {
             "root": display_root,
             "include": include_list,
-            "exclude": sorted(exclude_set),
+            "exclude": sort_once(exclude_set, source = 'src/gabion/analysis/test_evidence.py:124'),
         },
         "tests": tests_payload,
         "evidence_index": evidence_payload,
@@ -142,7 +143,7 @@ def collect_test_tags(
     entries: list[TestEvidenceTag] = []
     for path in files:
         entries.extend(_extract_file_tags(path, root))
-    return sorted(entries, key=lambda entry: entry.test_id)
+    return sort_once(entries, key=lambda entry: entry.test_id, source = 'src/gabion/analysis/test_evidence.py:145')
 
 
 def write_test_evidence(
@@ -151,7 +152,7 @@ def write_test_evidence(
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
 
@@ -166,7 +167,7 @@ def _collect_test_files(
     files: list[Path] = []
     for path in paths:
         if path.is_dir():
-            for candidate in ordered_or_sorted(
+            for candidate in sort_once(
                 path.rglob("test_*.py"),
                 source="_collect_test_files.candidates",
                 key=lambda item: str(item),
@@ -278,7 +279,12 @@ def _normalize_evidence_items(values: Iterable[str]) -> tuple[EvidenceItem, ...]
         if evidence_keys.is_opaque(key):
             rendered = display
         items.append(EvidenceItem(key=key, display=rendered))
-    items.sort(key=lambda item: item.identity)
+    items = sort_once(
+        items,
+        source="test_evidence._normalize_evidence_items.items",
+        # Lexical evidence identity key stabilizes normalized evidence rows.
+        key=lambda item: item.identity,
+    )
     return tuple(items)
 
 

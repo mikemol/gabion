@@ -30,3 +30,11 @@ def test_require_not_none_env_strict() -> None:
     with env_scope({"GABION_PROOF_MODE": "strict"}):
         with pytest.raises(NeverThrown):
             invariants.require_not_none(None)
+
+
+def test_decision_and_boundary_markers_return_original_callable() -> None:
+    def _sample() -> str:
+        return "ok"
+
+    assert invariants.decision_protocol(_sample) is _sample
+    assert invariants.boundary_normalization(_sample) is _sample

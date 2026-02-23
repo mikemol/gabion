@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -18,7 +19,7 @@ def load_json(path: str | Path) -> Mapping[str, JSONValue]:
 
 def write_json(path: str | Path, payload: Mapping[str, JSONValue]) -> None:
     Path(path).write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
 

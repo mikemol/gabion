@@ -1,157 +1,26 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import concurrent.futures
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import time
-from typing import Callable, Literal, Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
-from gabion.tooling import (
-    ambiguity_delta_advisory,
-    ambiguity_delta_emit,
-    ambiguity_delta_gate,
-    annotation_drift_delta_advisory,
-    annotation_drift_delta_emit,
-    annotation_drift_orphaned_gate,
-    docflow_delta_advisory,
-    docflow_delta_emit,
-    docflow_delta_gate,
-    obsolescence_delta_advisory,
-    obsolescence_delta_emit,
-    obsolescence_delta_gate,
-    obsolescence_delta_unmapped_gate,
-)
+from gabion.runtime import env_policy
 from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling import tool_specs
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
+StepKind = tool_specs.StepKind
+StepSpec = tool_specs.ToolSpec
 
-StepKind = Literal["emit", "advisory", "gate"]
+_triplet_resume_checkpoint_path = tool_specs.triplet_resume_checkpoint_path
+_run_obsolescence_emit = tool_specs.run_obsolescence_emit
+_run_annotation_drift_emit = tool_specs.run_annotation_drift_emit
+_run_ambiguity_emit = tool_specs.run_ambiguity_emit
 
-
-@dataclass(frozen=True)
-class StepSpec:
-    id: str
-    label: str
-    kind: StepKind
-    run: Callable[[], int]
-
-
-def _triplet_resume_checkpoint_path(triplet_name: str) -> Path:
-    normalized = triplet_name.strip().lower().replace("-", "_")
-    return Path("artifacts/audit_reports") / f"dataflow_resume_checkpoint_ci_{normalized}.json"
-
-
-def _run_obsolescence_emit(
-    *,
-    run_emit: Callable[..., int] = obsolescence_delta_emit.main,
-) -> int:
-    return run_emit(resume_checkpoint=_triplet_resume_checkpoint_path("obsolescence"))
-
-
-def _run_annotation_drift_emit(
-    *,
-    run_emit: Callable[..., int] = annotation_drift_delta_emit.main,
-) -> int:
-    return run_emit(resume_checkpoint=_triplet_resume_checkpoint_path("annotation_drift"))
-
-
-def _run_ambiguity_emit(
-    *,
-    run_emit: Callable[..., int] = ambiguity_delta_emit.main,
-) -> int:
-    return run_emit(resume_checkpoint=_triplet_resume_checkpoint_path("ambiguity"))
-
-
-TRIPLETS: dict[str, tuple[StepSpec, ...]] = {
-    "obsolescence": (
-        StepSpec(
-            id="obsolescence_delta_emit",
-            label="obsolescence_delta_emit",
-            kind="emit",
-            run=_run_obsolescence_emit,
-        ),
-        StepSpec(
-            id="obsolescence_delta_advisory",
-            label="obsolescence_delta_advisory",
-            kind="advisory",
-            run=obsolescence_delta_advisory.main,
-        ),
-        StepSpec(
-            id="obsolescence_delta_gate",
-            label="obsolescence_delta_gate",
-            kind="gate",
-            run=obsolescence_delta_gate.main,
-        ),
-        StepSpec(
-            id="obsolescence_delta_unmapped_gate",
-            label="obsolescence_delta_unmapped_gate",
-            kind="gate",
-            run=obsolescence_delta_unmapped_gate.main,
-        ),
-    ),
-    "annotation_drift": (
-        StepSpec(
-            id="annotation_drift_delta_emit",
-            label="annotation_drift_delta_emit",
-            kind="emit",
-            run=_run_annotation_drift_emit,
-        ),
-        StepSpec(
-            id="annotation_drift_delta_advisory",
-            label="annotation_drift_delta_advisory",
-            kind="advisory",
-            run=annotation_drift_delta_advisory.main,
-        ),
-        StepSpec(
-            id="annotation_drift_orphaned_gate",
-            label="annotation_drift_orphaned_gate",
-            kind="gate",
-            run=annotation_drift_orphaned_gate.main,
-        ),
-    ),
-    "ambiguity": (
-        StepSpec(
-            id="ambiguity_delta_emit",
-            label="ambiguity_delta_emit",
-            kind="emit",
-            run=_run_ambiguity_emit,
-        ),
-        StepSpec(
-            id="ambiguity_delta_advisory",
-            label="ambiguity_delta_advisory",
-            kind="advisory",
-            run=ambiguity_delta_advisory.main,
-        ),
-        StepSpec(
-            id="ambiguity_delta_gate",
-            label="ambiguity_delta_gate",
-            kind="gate",
-            run=ambiguity_delta_gate.main,
-        ),
-    ),
-    "docflow": (
-        StepSpec(
-            id="docflow_delta_emit",
-            label="docflow_delta_emit",
-            kind="emit",
-            run=docflow_delta_emit.main,
-        ),
-        StepSpec(
-            id="docflow_delta_advisory",
-            label="docflow_delta_advisory",
-            kind="advisory",
-            run=docflow_delta_advisory.main,
-        ),
-        StepSpec(
-            id="docflow_delta_gate",
-            label="docflow_delta_gate",
-            kind="gate",
-            run=docflow_delta_gate.main,
-        ),
-    ),
-}
+TRIPLETS: dict[str, tuple[StepSpec, ...]] = tool_specs.triplet_specs_map()
 
 _DEFAULT_TRIPLET_TIMEOUT_TICKS = 120_000
 _DEFAULT_TRIPLET_TIMEOUT_TICK_NS = 1_000_000
@@ -170,7 +39,7 @@ def _deadline_scope():
 
 
 def _heartbeat_seconds(env_name: str, default_value: float) -> float:
-    raw = os.getenv(env_name, "").strip()
+    raw = env_policy.env_text(env_name)
     if not raw:
         return default_value
     try:
@@ -317,7 +186,7 @@ def main(
                 )
                 if not done:
                     pending_names = ", ".join(
-                        ordered_or_sorted(
+                        sort_once(
                             (futures[future] for future in pending),
                             source="main.pending_triplet_names",
                         )

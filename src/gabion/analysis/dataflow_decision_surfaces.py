@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 """Decision-surface helpers extracted from ``dataflow_audit``.
 
 These helpers are intentionally dependency-light and receive runtime hooks
@@ -12,6 +14,7 @@ from collections.abc import Callable, Iterable
 import re
 
 from gabion.analysis.json_types import JSONObject
+from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind,
     attach_plan_schema,
@@ -56,6 +59,7 @@ def compute_fingerprint_coherence(
     ordered_or_sorted: Callable[..., list],
 ) -> list[JSONObject]:
     check_deadline()
+    sort_values = ordered_or_sorted
     witnesses: list[JSONObject] = []
     for entry in entries:
         check_deadline()
@@ -82,7 +86,7 @@ def compute_fingerprint_coherence(
                     "ctor_keys": ctor_keys,
                     "synth_version": synth_version,
                 },
-                "alternatives": ordered_or_sorted(
+                "alternatives": sort_values(
                     set(str(m) for m in matches),
                     source="_compute_fingerprint_coherence.alternatives",
                 ),
@@ -93,7 +97,7 @@ def compute_fingerprint_coherence(
                 "provenance_id": provenance_id,
             }
         )
-    return ordered_or_sorted(
+    return sort_values(
         witnesses,
         source="_compute_fingerprint_coherence.witnesses",
         key=lambda entry: (
@@ -144,6 +148,7 @@ def compute_fingerprint_rewrite_plans(
     site_from_payload: Callable[[JSONObject], object | None],
 ) -> list[JSONObject]:
     check_deadline()
+    sort_values = ordered_or_sorted
     coherence_map: dict[tuple[str, str, str], JSONObject] = {}
     for entry in coherence:
         check_deadline()
@@ -186,7 +191,7 @@ def compute_fingerprint_rewrite_plans(
         bundle_key = site.bundle_key()
         coherence_entry = coherence_map.get(site.key())
         coherence_id = coherence_entry.get("coherence_id") if coherence_entry else None
-        candidates = ordered_or_sorted(
+        candidates = sort_values(
             set(str(m) for m in matches),
             source="_compute_fingerprint_rewrite_plans.candidates",
         )

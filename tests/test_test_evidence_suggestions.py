@@ -286,6 +286,30 @@ def test_skips_mapped_entries() -> None:
     assert summary.skipped_mapped == 1
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+def test_skips_mapped_entries_short_circuits_graph_phase() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
+        file="tests/test_baseline_ratchet.py",
+        line=2,
+        evidence=("E:baseline/ratchet_monotonicity",),
+        status="mapped",
+    )
+
+    def _unexpected_graph(*args: object, **kwargs: object) -> tuple[dict[str, object], set[str]]:
+        raise AssertionError("graph suggestion phase should be skipped for mapped-only input")
+
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        [entry],
+        root=Path("."),
+        forest=Forest(),
+        graph_suggestions_fn=_unexpected_graph,
+    )
+    assert suggestions == []
+    assert summary.total == 1
+    assert summary.skipped_mapped == 1
+
+
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
 def test_load_test_evidence_payload(tmp_path: Path) -> None:
     payload = {

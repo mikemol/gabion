@@ -88,6 +88,12 @@ jobs:
           PY
       - name: Install package
         run: mise exec -- python -m pip install -e .
+      - name: Policy check (no monkeypatch)
+        run: mise exec -- python scripts/no_monkeypatch_policy_check.py --root .
+      - name: Policy check (branchless)
+        run: mise exec -- python scripts/branchless_policy_check.py --root .
+      - name: Policy check (defensive fallback)
+        run: mise exec -- python scripts/defensive_fallback_policy_check.py --root .
       - name: Select impacted tests
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -129,6 +135,7 @@ jobs:
               "-m",
               "pytest",
               "--cov=src/gabion",
+              "--cov-branch",
               "--cov-report=term-missing",
               "--cov-report=xml:artifacts/test_runs/coverage.xml",
               "--cov-report=html:artifacts/test_runs/htmlcov",

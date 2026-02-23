@@ -1,18 +1,24 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
-import os
 import select
 import subprocess
 import sys
 import time
-from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Callable, Mapping
 
-from gabion.json_types import JSONObject
+from gabion.commands import (
+    boundary_order,
+    command_envelope,
+    command_ids,
+    direct_dispatch,
+    payload_codec,
+)
 from gabion import server
 from gabion.analysis.timeout_context import (
     Deadline,
@@ -22,7 +28,8 @@ from gabion.analysis.timeout_context import (
 )
 from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
-from gabion.order_contract import ordered_or_sorted
+from gabion.json_types import JSONObject
+from gabion.runtime import env_policy
 
 
 class LspClientError(RuntimeError):
@@ -38,137 +45,30 @@ class CommandRequest:
 def _normalized_command_payload(
     request: CommandRequest,
 ) -> tuple[list[JSONObject], dict[str, object]]:
-    command_args = list(request.arguments)
-    if not command_args:
-        never("missing command payload arguments", command=request.command)
-    payload_arg = command_args[0]
-    if not isinstance(payload_arg, dict):
-        never(
-            "command payload must be a dict",
-            command=request.command,
-            payload_type=type(payload_arg).__name__,
-        )
-    payload = dict(payload_arg)
-    command_args[0] = payload
-    return command_args, payload
+    envelope = command_envelope.command_payload_envelope(
+        command=request.command,
+        arguments=request.arguments,
+    )
+    return list(envelope.command_args), envelope.payload
 
 
 def _has_env_timeout() -> bool:
-    return any(
-        os.getenv(key, "").strip()
-        for key in (
-            "GABION_LSP_TIMEOUT_TICKS",
-            "GABION_LSP_TIMEOUT_TICK_NS",
-            "GABION_LSP_TIMEOUT_MS",
-            "GABION_LSP_TIMEOUT_SECONDS",
-        )
-    )
+    return env_policy.lsp_timeout_env_present()
 
 
 def _env_timeout_ticks() -> tuple[int, int]:
-    raw_ticks = os.getenv("GABION_LSP_TIMEOUT_TICKS", "").strip()
-    raw_tick_ns = os.getenv("GABION_LSP_TIMEOUT_TICK_NS", "").strip()
-    if raw_ticks:
-        try:
-            ticks = int(raw_ticks)
-        except ValueError:
-            ticks = -1
-        if ticks > 0:
-            if not raw_tick_ns:
-                never("missing env timeout tick_ns", ticks=raw_ticks)
-            try:
-                tick_ns = int(raw_tick_ns)
-            except ValueError:
-                tick_ns = -1
-            if tick_ns > 0:
-                return ticks, tick_ns
-            never("invalid env timeout tick_ns", tick_ns=raw_tick_ns)
-        never("invalid env timeout ticks", ticks=raw_ticks)
-    raw_ms = os.getenv("GABION_LSP_TIMEOUT_MS", "").strip()
-    if raw_ms:
-        try:
-            ticks = int(raw_ms)
-        except ValueError:
-            ticks = -1
-        if ticks > 0:
-            return ticks, 1_000_000
-        never("invalid env timeout ms", ms=raw_ms)
-    raw_seconds = os.getenv("GABION_LSP_TIMEOUT_SECONDS", "").strip()
-    if raw_seconds:
-        try:
-            seconds = Decimal(raw_seconds)
-        except (InvalidOperation, ValueError):
-            seconds = Decimal(-1)
-        if seconds > 0:
-            millis = int(seconds * Decimal(1000))
-            if millis > 0:
-                return millis, 1_000_000
-        never("invalid env timeout seconds", seconds=raw_seconds)
-    never("missing env timeout configuration")
+    return env_policy.timeout_ticks_from_env()
 
 
 def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
-    return any(
-        payload.get(key) not in (None, "")
-        for key in (
-            "analysis_timeout_ticks",
-            "analysis_timeout_tick_ns",
-            "analysis_timeout_ms",
-            "analysis_timeout_seconds",
-        )
-    )
+    return payload_codec.has_analysis_timeout(payload)
 
 
 def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
-    existing_ticks = payload.get("analysis_timeout_ticks")
-    existing_tick_ns = payload.get("analysis_timeout_tick_ns")
-    if existing_ticks not in (None, "") or existing_tick_ns not in (None, ""):
-        if existing_ticks in (None, "") or existing_tick_ns in (None, ""):
-            never(
-                "missing analysis timeout tick_ns",
-                ticks=existing_ticks,
-                tick_ns=existing_tick_ns,
-            )
-        try:
-            ticks_value = int(existing_ticks)
-            tick_ns_value = int(existing_tick_ns)
-        except (TypeError, ValueError):
-            never(
-                "invalid analysis timeout ticks",
-                ticks=existing_ticks,
-                tick_ns=existing_tick_ns,
-            )
-        if ticks_value <= 0 or tick_ns_value <= 0:
-            never(
-                "invalid analysis timeout ticks",
-                ticks=existing_ticks,
-                tick_ns=existing_tick_ns,
-            )
-        return ticks_value * tick_ns_value
-    existing_ms = payload.get("analysis_timeout_ms")
-    if existing_ms not in (None, ""):
-        try:
-            ms_value = int(existing_ms)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout ms", ms=existing_ms)
-        if ms_value <= 0:
-            never("invalid analysis timeout ms", ms=existing_ms)
-        return ms_value * 1_000_000
-    existing_seconds = payload.get("analysis_timeout_seconds")
-    if existing_seconds not in (None, ""):
-        try:
-            seconds_value = Decimal(str(existing_seconds))
-        except (InvalidOperation, ValueError):
-            never("invalid analysis timeout seconds", seconds=existing_seconds)
-        if seconds_value <= 0:
-            never("invalid analysis timeout seconds", seconds=existing_seconds)
-        return int(seconds_value * Decimal(1_000_000_000))
-    never(
-        "missing analysis timeout",
-        payload_keys=ordered_or_sorted(
-            (str(key) for key in payload.keys()),
-            source="_analysis_timeout_ns.payload_keys",
-        ),
+    return payload_codec.analysis_timeout_total_ns(
+        payload,
+        source="_analysis_timeout_ns.payload_keys",
+        reject_sub_millisecond_seconds=False,
     )
 
 
@@ -255,7 +155,11 @@ def _read_rpc(stream, deadline_ns: int) -> JSONObject:
 
 
 def _write_rpc(stream, message: JSONObject) -> None:
-    payload = json.dumps(message).encode("utf-8")
+    ordered_message = boundary_order.normalize_boundary_mapping_once(
+        message,
+        source="lsp_client._write_rpc.message",
+    )
+    payload = json.dumps(ordered_message, sort_keys=False).encode("utf-8")
     header = f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8")
     stream.write(header + payload)
     stream.flush()
@@ -335,10 +239,10 @@ def run_command(
             _write_rpc(
                 proc.stdin,
                 {
-                    "jsonrpc": "2.0",
                     "id": initialize_id,
+                    "jsonrpc": "2.0",
                     "method": "initialize",
-                    "params": {"rootUri": root_uri, "capabilities": {}},
+                    "params": {"capabilities": {}, "rootUri": root_uri},
                 },
             )
             _read_response(
@@ -355,15 +259,22 @@ def run_command(
                 target_ns = min(analysis_target_ns, remaining_ns)
                 tick_ns_value = min(tick_ns_value, target_ns)
                 ticks_value = max(1, target_ns // tick_ns_value)
-                payload["analysis_timeout_ticks"] = int(ticks_value)
-                payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
+                payload = boundary_order.apply_boundary_updates_once(
+                    payload,
+                    {
+                        "analysis_timeout_tick_ns": int(tick_ns_value),
+                        "analysis_timeout_ticks": int(ticks_value),
+                    },
+                    source=f"lsp_client.run_command.{request.command}.timeout_payload_update",
+                )
+                command_args[0] = payload
             _write_rpc(
                 proc.stdin,
                 {
-                    "jsonrpc": "2.0",
                     "id": cmd_id,
+                    "jsonrpc": "2.0",
                     "method": "workspace/executeCommand",
-                    "params": {"command": request.command, "arguments": command_args},
+                    "params": {"arguments": command_args, "command": request.command},
                 },
             )
             response = _read_response(
@@ -376,7 +287,7 @@ def run_command(
             shutdown_id = 3
             _write_rpc(
                 proc.stdin,
-                {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"},
+                {"id": shutdown_id, "jsonrpc": "2.0", "method": "shutdown"},
             )
             _read_response(
                 proc.stdout,
@@ -402,9 +313,12 @@ def run_command(
                 if detail:
                     raise LspClientError(f"LSP server error output: {detail}")
             result = response.get("result", {})
-            if not isinstance(result, dict):
+            if not isinstance(result, Mapping):
                 raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
-            return result
+            return boundary_order.normalize_boundary_mapping_once(
+                result,
+                source=f"lsp_client.run_command.{request.command}.result",
+            )
 
 
 def run_command_direct(
@@ -428,28 +342,30 @@ def run_command_direct(
             return
         if not isinstance(params, Mapping):
             return
+        ordered_params = boundary_order.normalize_boundary_mapping_once(
+            params,
+            source=f"lsp_client.run_command_direct.{request.command}.notification",
+        )
         notification_callback(
             {
                 "jsonrpc": "2.0",
                 "method": str(method),
-                "params": {str(key): params[key] for key in params},
+                "params": ordered_params,
             }
         )
 
     ls = SimpleNamespace(workspace=workspace, send_notification=_send_notification)
-    if request.command == server.DATAFLOW_COMMAND:
-        execute_fn = execute_dataflow_fn or server.execute_command
-        return execute_fn(ls, payload)
-    if request.command == server.STRUCTURE_DIFF_COMMAND:
-        return server.execute_structure_diff(ls, payload)
-    if request.command == server.STRUCTURE_REUSE_COMMAND:
-        return server.execute_structure_reuse(ls, payload)
-    if request.command == server.DECISION_DIFF_COMMAND:
-        return server.execute_decision_diff(ls, payload)
-    if request.command == server.SYNTHESIS_COMMAND:
-        return server.execute_synthesis(ls, payload)
-    if request.command == server.REFACTOR_COMMAND:
-        return server.execute_refactor(ls, payload)
-    if request.command == server.IMPACT_COMMAND:
-        return server.execute_impact(ls, payload)
-    raise LspClientError(f"Unsupported direct command: {request.command}")
+    execute_fn = direct_dispatch.direct_executor(request.command)
+    if request.command in {command_ids.CHECK_COMMAND, command_ids.DATAFLOW_COMMAND}:
+        execute_fn = execute_dataflow_fn or execute_fn
+    if execute_fn is None:
+        raise LspClientError(f"Unsupported direct command: {request.command}")
+    raw_result = execute_fn(ls, payload)
+    if not isinstance(raw_result, Mapping):
+        raise LspClientError(
+            f"Unexpected direct command payload: {type(raw_result).__name__}"
+        )
+    return boundary_order.normalize_boundary_mapping_once(
+        raw_result,
+        source=f"lsp_client.run_command_direct.{request.command}.result",
+    )

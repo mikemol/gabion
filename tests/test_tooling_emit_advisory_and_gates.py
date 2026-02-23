@@ -11,18 +11,13 @@ import pytest
 
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
 from gabion.exceptions import NeverThrown
-from gabion.tooling import ambiguity_delta_advisory
-from gabion.tooling import ambiguity_delta_emit
 from gabion.tooling import ambiguity_delta_gate
-from gabion.tooling import annotation_drift_delta_advisory
-from gabion.tooling import annotation_drift_delta_emit
 from gabion.tooling import annotation_drift_orphaned_gate
 from gabion.tooling import deadline_runtime
-from gabion.tooling import docflow_delta_advisory
+from gabion.tooling import delta_advisory
+from gabion.tooling import delta_state_emit
 from gabion.tooling import docflow_delta_emit
 from gabion.tooling import docflow_delta_gate
-from gabion.tooling import obsolescence_delta_advisory
-from gabion.tooling import obsolescence_delta_emit
 from gabion.tooling import obsolescence_delta_gate
 from gabion.tooling import obsolescence_delta_unmapped_gate
 from tests.env_helpers import env_scope
@@ -38,22 +33,22 @@ def _cwd(path: Path):
         os.chdir(previous)
 
 
-# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit._build_payload::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit._build_payload::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit._build_payload
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults::delta_state_emit.py::gabion.tooling.delta_state_emit._build_payload_for_emitter
 @pytest.mark.parametrize(
-    ("module", "state_path", "state_key"),
+    ("emitter_id", "state_path", "state_key"),
     [
         (
-            obsolescence_delta_emit,
+            "obsolescence_delta_emit",
             Path("artifacts/out/test_obsolescence_state.json"),
             "test_obsolescence_state",
         ),
         (
-            annotation_drift_delta_emit,
+            "annotation_drift_delta_emit",
             Path("artifacts/out/test_annotation_drift.json"),
             "test_annotation_drift_state",
         ),
         (
-            ambiguity_delta_emit,
+            "ambiguity_delta_emit",
             Path("artifacts/out/ambiguity_state.json"),
             "ambiguity_state",
         ),
@@ -61,7 +56,7 @@ def _cwd(path: Path):
 )
 def test_emit_build_payload_handles_state_resume_and_timeout_defaults(
     tmp_path: Path,
-    module: Any,
+    emitter_id: str,
     state_path: Path,
     state_key: str,
 ) -> None:
@@ -72,35 +67,45 @@ def test_emit_build_payload_handles_state_resume_and_timeout_defaults(
                 "GABION_LSP_TIMEOUT_TICK_NS": "bad",
             }
         ):
-            payload = module._build_payload()
-        assert payload["analysis_timeout_ticks"] == int(module._DEFAULT_TIMEOUT_TICKS)
-        assert payload["analysis_timeout_tick_ns"] == int(module._DEFAULT_TIMEOUT_TICK_NS)
+            payload = delta_state_emit._build_payload_for_emitter(emitter_id)
+        assert payload["analysis_timeout_ticks"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
+        assert payload["analysis_timeout_tick_ns"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
         assert payload.get(state_key) is None
         assert payload["resume_checkpoint"] is False
 
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text("{}\n", encoding="utf-8")
-        module._DEFAULT_RESUME_CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        module._DEFAULT_RESUME_CHECKPOINT_PATH.write_text("{}\n", encoding="utf-8")
-        payload = module._build_payload()
+        delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH.write_text("{}\n", encoding="utf-8")
+        payload = delta_state_emit._build_payload_for_emitter(emitter_id)
         assert payload[state_key] == str(state_path)
-        assert payload["resume_checkpoint"] == str(module._DEFAULT_RESUME_CHECKPOINT_PATH)
+        assert payload["resume_checkpoint"] == str(delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH)
 
-        override_resume = tmp_path / f"{module.__name__}.resume.json"
-        payload = module._build_payload(resume_checkpoint=override_resume)
+        override_resume = tmp_path / f"{emitter_id}.resume.json"
+        payload = delta_state_emit._build_payload_for_emitter(
+            emitter_id,
+            resume_checkpoint=override_resume,
+        )
         assert payload["resume_checkpoint"] == str(override_resume)
-        payload = module._build_payload(resume_checkpoint=False)
+        payload = delta_state_emit._build_payload_for_emitter(
+            emitter_id,
+            resume_checkpoint=False,
+        )
         assert payload["resume_checkpoint"] is False
 
 
-# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit.main::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit.main::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit.main
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
 @pytest.mark.parametrize(
-    "module",
-    [obsolescence_delta_emit, annotation_drift_delta_emit, ambiguity_delta_emit],
+    "run_main",
+    [
+        delta_state_emit.obsolescence_main,
+        delta_state_emit.annotation_drift_main,
+        delta_state_emit.ambiguity_main,
+    ],
 )
 def test_emit_main_covers_exit_and_missing_output_branches(
     tmp_path: Path,
-    module: Any,
+    run_main,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     delta_path = tmp_path / "delta.json"
@@ -113,7 +118,7 @@ def test_emit_main_covers_exit_and_missing_output_branches(
         assert root == tmp_path
         return {"exit_code": 3}
 
-    assert module.main(
+    assert run_main(
         run_command_direct_fn=_ok,
         root_path=tmp_path,
         delta_path=delta_path,
@@ -121,13 +126,13 @@ def test_emit_main_covers_exit_and_missing_output_branches(
     assert "missing output" in capsys.readouterr().out
 
     delta_path.write_text("{}\n", encoding="utf-8")
-    assert module.main(
+    assert run_main(
         run_command_direct_fn=_ok,
         root_path=tmp_path,
         delta_path=delta_path,
     ) == 0
 
-    assert module.main(
+    assert run_main(
         run_command_direct_fn=_fail,
         root_path=tmp_path,
         delta_path=delta_path,
@@ -135,12 +140,12 @@ def test_emit_main_covers_exit_and_missing_output_branches(
     assert "failed (exit 3)" in capsys.readouterr().out
 
 
-# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error::obsolescence_delta_advisory.py::gabion.tooling.obsolescence_delta_advisory.main::docflow_delta_advisory.py::gabion.tooling.docflow_delta_advisory.main
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
 @pytest.mark.parametrize(
-    ("module", "default_delta_path", "payload", "env_flag"),
+    ("run_main", "default_delta_path", "payload", "env_flag"),
     [
         (
-            obsolescence_delta_advisory,
+            delta_advisory.obsolescence_main,
             Path("artifacts/out/test_obsolescence_delta.json"),
             {
                 "summary": {
@@ -152,10 +157,10 @@ def test_emit_main_covers_exit_and_missing_output_branches(
                     "opaque_evidence": {"baseline": 0, "current": 1, "delta": 1},
                 }
             },
-            obsolescence_delta_advisory.ENV_FLAG,
+            delta_advisory.OBSOLESCENCE_ENV_FLAG,
         ),
         (
-            annotation_drift_delta_advisory,
+            delta_advisory.annotation_drift_main,
             Path("artifacts/out/test_annotation_drift_delta.json"),
             {
                 "summary": {
@@ -164,10 +169,10 @@ def test_emit_main_covers_exit_and_missing_output_branches(
                     "delta": {"orphaned": 1},
                 }
             },
-            annotation_drift_delta_advisory.ENV_FLAG,
+            delta_advisory.ANNOTATION_DRIFT_ENV_FLAG,
         ),
         (
-            ambiguity_delta_advisory,
+            delta_advisory.ambiguity_main,
             Path("artifacts/out/ambiguity_delta.json"),
             {
                 "summary": {
@@ -179,10 +184,10 @@ def test_emit_main_covers_exit_and_missing_output_branches(
                     },
                 }
             },
-            ambiguity_delta_advisory.ENV_FLAG,
+            delta_advisory.AMBIGUITY_ENV_FLAG,
         ),
         (
-            docflow_delta_advisory,
+            delta_advisory.docflow_main,
             Path("artifacts/out/docflow_compliance_delta.json"),
             {
                 "summary": {
@@ -197,7 +202,7 @@ def test_emit_main_covers_exit_and_missing_output_branches(
 )
 def test_advisory_main_covers_missing_summary_skip_and_error(
     tmp_path: Path,
-    module: Any,
+    run_main: Any,
     default_delta_path: Path,
     payload: dict[str, object],
     env_flag: str,
@@ -205,14 +210,14 @@ def test_advisory_main_covers_missing_summary_skip_and_error(
 ) -> None:
     with _cwd(tmp_path):
         # Missing file branch.
-        assert module.main() == 0
+        assert run_main() == 0
         missing_output = capsys.readouterr().out
         assert "missing" in missing_output.lower()
 
         # Skip-by-env branch for env-gated advisories.
         if env_flag:
             with env_scope({env_flag: "1"}):
-                assert module.main() == 0
+                assert run_main() == 0
             skip_output = capsys.readouterr().out
             assert "skipped" in skip_output
 
@@ -220,14 +225,14 @@ def test_advisory_main_covers_missing_summary_skip_and_error(
         default_delta_path.parent.mkdir(parents=True, exist_ok=True)
         default_delta_path.write_text(json.dumps(payload), encoding="utf-8")
         with env_scope({env_flag: "0"} if env_flag else {}):
-            assert module.main() == 0
+            assert run_main() == 0
         summary_output = capsys.readouterr().out
         assert "summary" in summary_output.lower()
 
         # Exception branch.
         default_delta_path.write_text("{bad", encoding="utf-8")
         with env_scope({env_flag: "0"} if env_flag else {}):
-            assert module.main() == 0
+            assert run_main() == 0
         error_output = capsys.readouterr().out
         assert "error" in error_output.lower()
 
@@ -317,6 +322,41 @@ def test_docflow_delta_emit_main_covers_all_paths(tmp_path: Path) -> None:
     counts, missing = docflow_delta_emit._load_summary(tmp_path / "missing.json")
     assert missing is True
     assert counts["compliant"] == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_load_summary_handles_non_mapping_summary::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._load_summary
+def test_docflow_delta_emit_load_summary_handles_non_mapping_summary(tmp_path: Path) -> None:
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(json.dumps({"summary": []}), encoding="utf-8")
+    counts, missing = docflow_delta_emit._load_summary(summary_path)
+    assert missing is False
+    assert counts == {
+        "compliant": 0,
+        "contradicts": 0,
+        "excess": 0,
+        "proposed": 0,
+    }
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_env_gate_without_skip_message::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
+def test_advisory_main_env_gate_without_skip_message() -> None:
+    original = delta_advisory._ADVISORY_CONFIGS["docflow"]
+    delta_advisory._ADVISORY_CONFIGS["docflow"] = delta_advisory.AdvisoryConfig(
+        id="docflow",
+        delta_path=original.delta_path,
+        missing_message=original.missing_message,
+        error_prefix=original.error_prefix,
+        summary_renderer=original.summary_renderer,
+        env_flag="GABION_TEST_ADVISORY_FLAG",
+        skip_message=None,
+    )
+    lines: list[str] = []
+    try:
+        with env_scope({"GABION_TEST_ADVISORY_FLAG": "1"}):
+            assert delta_advisory.main_for_advisory("docflow", print_fn=lines.append) == 0
+        assert lines == []
+    finally:
+        delta_advisory._ADVISORY_CONFIGS["docflow"] = original
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.check_gate

@@ -89,6 +89,8 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   CLI remains a thin LSP client.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used.
+- Prefer impossible-by-construction contracts over sentinel parse outcomes;
+  after ingress validation, invalid states must be discharged via `never()`.
 - Treat docflow as repo-local convenience only; do not project it as a
   general Gabion feature without explicit policy change.
 - Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit
@@ -188,4 +190,3 @@ entries.append(outcome.entry)
 ```
 
 When introducing new logic, prefer adding a small Protocol/dataclass at boundaries instead of widening dynamic `if/elif` trees inside core analysis paths.
-

@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -13,7 +15,7 @@ from gabion.analysis.projection_normalize import spec_hash as projection_spec_ha
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def emit_wl_refinement_facets(
@@ -85,7 +87,7 @@ def emit_wl_refinement_facets(
         on_violation=_on_determinism_violation,
         spec_name=spec.name,
     )
-    target_nodes = ordered_or_sorted(
+    target_nodes = sort_once(
         raw_targets,
         source="emit_wl_refinement_facets.target_nodes",
         key=lambda node_id: node_id.sort_key(),
@@ -146,7 +148,7 @@ def emit_wl_refinement_facets(
                 spec_name=spec.name,
                 node=node_id.sort_key(),
             )
-            neighbors = ordered_or_sorted(
+            neighbors = sort_once(
                 raw_neighbors,
                 source="emit_wl_refinement_facets.neighbors",
                 key=lambda item: item.sort_key(),
@@ -168,7 +170,7 @@ def emit_wl_refinement_facets(
                     counts[label_index] = (label, 1)
                 else:
                     counts[label_index] = (previous[0], previous[1] + 1)
-            ordered_multiset_pairs = ordered_or_sorted(
+            ordered_multiset_pairs = sort_once(
                 counts.items(),
                 source="emit_wl_refinement_facets.multiset_pairs",
                 key=lambda item: item[0],
@@ -212,7 +214,7 @@ def emit_wl_refinement_facets(
             check_deadline()
             label_index = encode_canon(step_labels[node_id])
             class_members.setdefault(label_index, []).append(node_id)
-        ordered_class_indices = ordered_or_sorted(
+        ordered_class_indices = sort_once(
             class_members,
             source="emit_wl_refinement_facets.class_indices",
         )

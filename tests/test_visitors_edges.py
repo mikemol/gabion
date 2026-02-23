@@ -149,6 +149,18 @@ def test_attribute_and_subscript_aliases() -> None:
     assert any(slot == "arg[0]" for _, slot in use_map["b"].direct_forward)
     assert use_map["a"].non_forward is True
 
+
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_assign_alias_branches_for_non_name_attribute_and_subscript_targets::visitors.py::gabion.analysis.visitors.UseVisitor.visit_Assign
+def test_assign_alias_branches_for_non_name_attribute_and_subscript_targets() -> None:
+    code = (
+        "def f(a):\n"
+        "    obj.attr.more = a\n"
+        "    obj.attr['k'] = a\n"
+    )
+    tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
+    visitor.visit(tree)
+    assert use_map["a"].non_forward is True
+
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_check_write_clears_attr_and_key_aliases() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
@@ -569,3 +581,14 @@ def test_subscript_name_bound_key_tracks_forward_and_unknown_key_state() -> None
     visitor.visit(tree)
     assert ("sink", "arg[0]") in use_map["a"].direct_forward
     assert use_map["a"].unknown_key_carrier is True
+
+
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_mark_unknown_key_carrier_skips_non_matching_alias_entries::visitors.py::gabion.analysis.visitors.UseVisitor._mark_unknown_key_carrier
+def test_mark_unknown_key_carrier_skips_non_matching_alias_entries() -> None:
+    code = "def f(a, b):\n    return a\n"
+    _tree, visitor, use_map, _ = _make_use_visitor(code, ["a", "b"], strictness="low")
+    visitor._key_alias_to_param[("b", ("literal", "str", "k"))] = "b"
+    node = ast.parse("missing_key").body[0].value
+    assert isinstance(node, ast.Name)
+    visitor._mark_unknown_key_carrier("a", node)
+    assert use_map["b"].unknown_key_carrier is False

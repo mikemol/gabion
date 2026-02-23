@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import argparse
@@ -17,37 +19,13 @@ from types import FrameType
 from typing import Any, Callable, Mapping, Sequence
 
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
-from gabion.order_contract import ordered_or_sorted
-from gabion.tooling import (
-    ambiguity_delta_gate,
-    annotation_drift_orphaned_gate,
-    obsolescence_delta_gate,
-    obsolescence_delta_unmapped_gate,
-)
-
+from gabion.order_contract import sort_once
+from gabion.runtime import env_policy, json_io
+from gabion.tooling import tool_specs
 from gabion.tooling.deadline_runtime import deadline_scope_from_lsp_env
 
 _STAGE_SEQUENCE: tuple[str, ...] = ("run",)
-
-
-@dataclass(frozen=True)
-class DeltaGateSpec:
-    id: str
-    run: Callable[[], int]
-
-
-_DELTA_GATE_STEPS: tuple[DeltaGateSpec, ...] = (
-    DeltaGateSpec("obsolescence_delta_gate", obsolescence_delta_gate.main),
-    DeltaGateSpec(
-        "obsolescence_delta_unmapped_gate",
-        obsolescence_delta_unmapped_gate.main,
-    ),
-    DeltaGateSpec(
-        "annotation_drift_orphaned_gate",
-        annotation_drift_orphaned_gate.main,
-    ),
-    DeltaGateSpec("ambiguity_delta_gate", ambiguity_delta_gate.main),
-)
+_DELTA_GATE_STEPS: tuple[tool_specs.ToolSpec, ...] = tool_specs.dataflow_stage_gate_specs()
 _DELTA_GATE_REGISTRY: dict[str, Callable[[], int]] = {
     spec.id: spec.run for spec in _DELTA_GATE_STEPS
 }
@@ -99,15 +77,7 @@ class DebugDumpState:
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text())
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    return {str(key): payload[key] for key in payload}
+    return json_io.load_json_object_path(path)
 
 
 def _analysis_state(timeout_progress_path: Path) -> str:
@@ -242,7 +212,12 @@ def _obligation_rows_from_timeout_payload(
                 "phase": phase,
             }
         )
-    rows.sort(key=lambda row: str(row["id"]))
+    rows = sort_once(
+        rows,
+        source="run_dataflow_stage._collect_incremental_obligations.rows",
+        # Lexical obligation-id order stabilizes obligation trace rows.
+        key=lambda row: str(row["id"]),
+    )
     markers: list[str] = []
     if timeout_payload.get("cleanup_truncated"):
         markers.append("cleanup_truncated")
@@ -255,7 +230,12 @@ def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, objec
         for result in deadline_loop_iter(results)
         for row in deadline_loop_iter(result.obligation_rows)
     ]
-    obligations.sort(key=lambda row: (str(row.get("id", "")), str(row.get("stage_id", ""))))
+    obligations = sort_once(
+        obligations,
+        source="run_dataflow_stage._obligation_trace_payload.obligations",
+        # Lexical (id, stage_id) order stabilizes merged cross-stage trace payload.
+        key=lambda row: (str(row.get("id", "")), str(row.get("stage_id", ""))),
+    )
     markers = {
         marker
         for result in deadline_loop_iter(results)
@@ -277,7 +257,7 @@ def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, objec
     return {
         "trace_version": 1,
         "complete": not markers,
-        "incompleteness_markers": ordered_or_sorted(
+        "incompleteness_markers": sort_once(
             markers,
             source="_obligation_trace_payload.incompleteness_markers",
         ),
@@ -289,7 +269,7 @@ def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, objec
 def _write_obligation_trace(path: Path, results: Sequence[StageResult]) -> dict[str, object]:
     payload = _obligation_trace_payload(results)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     return payload
 
 
@@ -562,7 +542,7 @@ def _install_signal_debug_dump_handler(
 
 
 def _env_int(name: str, default: int) -> int:
-    text = os.getenv(name, "").strip()
+    text = env_policy.env_text(name)
     if not text:
         return default
     try:
@@ -1148,5 +1128,3 @@ def main(
         finally:
             restore_signal_handler()
     return 0
-
-

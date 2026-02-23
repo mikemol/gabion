@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections import defaultdict
@@ -8,7 +10,7 @@ import re
 from . import evidence_keys
 from .json_types import JSONObject
 from .pattern_schema import pattern_schema_id
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 _DECISION_LINE_RE = re.compile(
     r"^(?P<path>[^:]+):(?P<qual>[^ ]+) (?P<mode>value-encoded decision|decision surface) params: (?P<params>[^()]+)"
@@ -64,7 +66,7 @@ def build_decision_tables(
         parsed = parse_decision_surface_line(raw)
         if parsed is None:
             continue
-        evidence_refs = ordered_or_sorted(
+        evidence_refs = sort_once(
             [
                 evidence_keys.render_display(
                     evidence_keys.make_decision_surface_key(
@@ -93,7 +95,7 @@ def build_decision_tables(
                 ],
             }
         )
-    return ordered_or_sorted(
+    return sort_once(
         tables,
         source="decision_flow.build_decision_tables.tables",
         key=lambda item: (
@@ -118,7 +120,7 @@ def detect_repeated_guard_bundles(tables: Iterable[JSONObject]) -> list[JSONObje
     for params, members in grouped.items():
         if len(members) < 2:
             continue
-        member_ids = ordered_or_sorted(
+        member_ids = sort_once(
             [str(item.get("decision_id", "")) for item in members],
             source="decision_flow.detect_repeated_guard_bundles.member_ids",
             policy=OrderPolicy.SORT,
@@ -137,7 +139,7 @@ def detect_repeated_guard_bundles(tables: Iterable[JSONObject]) -> list[JSONObje
                 "checklist_nodes": ["docs/sppf_checklist.md#decision-flow-tier2"],
             }
         )
-    return ordered_or_sorted(
+    return sort_once(
         bundles,
         source="decision_flow.detect_repeated_guard_bundles.bundles",
         key=lambda item: (
@@ -222,7 +224,7 @@ def enforce_decision_protocol_contracts(
                     }
                 )
 
-    return ordered_or_sorted(
+    return sort_once(
         violations,
         source="decision_flow.enforce_decision_protocol_contracts.violations",
         key=lambda item: str(item.get("violation_id", "")),

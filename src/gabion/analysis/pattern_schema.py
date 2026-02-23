@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ from typing import Mapping, Sequence
 
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 class PatternAxis(StrEnum):
@@ -24,7 +25,7 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
     check_deadline()
     if isinstance(value, dict):
         normalized: JSONObject = {}
-        for key in ordered_or_sorted(
+        for key in sort_once(
             value,
             source="pattern_schema._normalize_signature_value.dict_keys",
         ):
@@ -40,9 +41,9 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
                 sortable = False
                 break
         if sortable:
-            return ordered_or_sorted(
+            return sort_once(
                 normalized_items,
-                key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+                key=lambda item: json.dumps(item, sort_keys=False, separators=(",", ":")),
                 source="pattern_schema._normalize_signature_value.list_items",
             )
         return normalized_items
@@ -52,7 +53,7 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
 def normalize_signature(signature: Mapping[str, JSONValue]) -> JSONObject:
     check_deadline()
     normalized: JSONObject = {}
-    for key in ordered_or_sorted(
+    for key in sort_once(
         signature,
         source="pattern_schema.normalize_signature.signature_keys",
     ):
@@ -75,7 +76,7 @@ def _canonical_schema_identity_payload(
             "kind": kind,
             "signature": normalized,
         },
-        sort_keys=True,
+        sort_keys=False,
         separators=(",", ":"),
     )
 
@@ -100,7 +101,7 @@ def legacy_pattern_schema_id(*, axis: PatternAxis, kind: str, signature: Mapping
             "kind": kind,
             "signature": normalized,
         },
-        sort_keys=True,
+        sort_keys=False,
         separators=(",", ":"),
     )
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]

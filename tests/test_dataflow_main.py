@@ -30,6 +30,27 @@ def test_dataflow_audit_main_executes(tmp_path: Path) -> None:
         sys.argv = original_argv
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_main.py::test_dataflow_audit_run_dot_only_returns_success::dataflow_audit.py::gabion.analysis.dataflow_audit.run
+def test_dataflow_audit_run_dot_only_returns_success(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    dot_path = tmp_path / "sample.dot"
+    sample.write_text("def f(a, b):\n    return a + b\n", encoding="utf-8")
+
+    exit_code = da.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--dot",
+            str(dot_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert dot_path.exists()
+    assert dot_path.read_text(encoding="utf-8").startswith("digraph dataflow_grammar")
+
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_main.py::test_dataflow_audit_parser_accepts_tick_options::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser
 def test_dataflow_audit_parser_accepts_tick_options() -> None:
     parser = da._build_parser()

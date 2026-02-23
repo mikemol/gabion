@@ -2088,6 +2088,47 @@ def test_analyze_paths_emits_profiling_v1(tmp_path: Path) -> None:
     assert "file_stage_timings_v1_by_path" in analysis.profiling_v1
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analyze_paths_fingerprint_annotations_zero_of_zero_marker::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::dataflow_audit.py::gabion.analysis.dataflow_audit.build_fingerprint_registry::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_analyze_paths_fingerprint_annotations_zero_of_zero_marker(tmp_path: Path) -> None:
+    da = _load()
+    registry, index = da.build_fingerprint_registry({"user_context": ["int"]})
+    assert index
+    post_markers: list[str] = []
+
+    def _on_phase_progress(
+        phase: str,
+        _groups_by_path,
+        report_carrier,
+        _work_done: int,
+        _work_total: int,
+    ) -> None:
+        if phase != "post":
+            return
+        marker = str(getattr(report_carrier, "progress_marker", "") or "")
+        if marker:
+            post_markers.append(marker)
+
+    da.analyze_paths(
+        forest=da.Forest(),
+        paths=[],
+        file_paths_override=[],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=False,
+        config=da.AuditConfig(
+            project_root=tmp_path,
+            fingerprint_registry=registry,
+            fingerprint_index=index,
+        ),
+        on_phase_progress=_on_phase_progress,
+    )
+    assert "fingerprint:annotations:0/0" in post_markers
+
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analyze_paths_hydrates_file_stage_timings_from_resume::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._write
 def test_analyze_paths_hydrates_file_stage_timings_from_resume(tmp_path: Path) -> None:
     da = _load()
@@ -2435,6 +2476,16 @@ def test_deserialize_param_use_filters_malformed_values() -> None:
 def test_normalize_key_expr_unary_non_int_literal_is_none() -> None:
     da = _load()
     node = ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=1.5))
+    assert da._normalize_key_expr(node, const_bindings={}) is None
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_normalize_key_expr_unary_non_literal_eval_error_returns_none::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_key_expr::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_normalize_key_expr_unary_non_literal_eval_error_returns_none() -> None:
+    da = _load()
+    node = ast.UnaryOp(
+        op=ast.USub(),
+        operand=ast.Name(id="dynamic_key", ctx=ast.Load()),
+    )
     assert da._normalize_key_expr(node, const_bindings={}) is None
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_deserialize_call_args_handles_invalid_shapes::dataflow_audit.py::gabion.analysis.dataflow_audit._deserialize_call_args::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load

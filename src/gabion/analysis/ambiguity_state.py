@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from gabion.analysis.projection_registry import (
 )
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 STATE_VERSION = 1
 
@@ -75,7 +76,7 @@ def _normalize_witnesses(
         if not isinstance(entry, Mapping):
             continue
         witnesses.append({str(k): entry[k] for k in entry})
-    return ordered_or_sorted(
+    return sort_once(
         witnesses,
         source="_normalize_witnesses.witnesses",
         key=_witness_sort_key,

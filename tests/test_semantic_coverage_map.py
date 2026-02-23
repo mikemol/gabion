@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gabion.analysis import semantic_coverage_map, test_evidence
+from gabion.analysis import evidence_keys, semantic_coverage_map, test_evidence
 
 
 def _write_test_module(root: Path) -> Path:
@@ -209,3 +209,72 @@ def test_semantic_coverage_indexes_handle_invalid_and_fallback_records(tmp_path:
     )
     identities = semantic_coverage_map._artifact_evidence_index(records_path)
     assert len(identities) == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_falls_back_to_opaque_identity_when_display_not_parseable::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.SemanticCoverageEntry
+def test_semantic_coverage_falls_back_to_opaque_identity_when_display_not_parseable() -> None:
+    entry = semantic_coverage_map.SemanticCoverageEntry(
+        obligation="invariant.x",
+        obligation_kind="invariant",
+        evidence_display="opaque evidence display",
+    )
+    assert entry.evidence_identity
+
+
+# gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_indexes_fallback_for_unparseable_displays::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index
+def test_semantic_coverage_indexes_fallback_for_unparseable_displays(tmp_path: Path) -> None:
+    tags = [
+        test_evidence.TestEvidenceTag(
+            test_id="tests/test_semantic_case.py::test_fallback",
+            path="tests/test_semantic_case.py",
+            line=1,
+            tags=("opaque display",),
+        )
+    ]
+    annotation_index = semantic_coverage_map._annotation_index(tags)
+    assert annotation_index
+    assert list(annotation_index.values()) == [{"tests/test_semantic_case.py::test_fallback"}]
+
+    records_path = tmp_path / "records_evidence_fallback.json"
+    records_path.write_text(
+        json.dumps({"evidence_index": [{"display": "opaque display"}]}),
+        encoding="utf-8",
+    )
+    identities = semantic_coverage_map._artifact_evidence_index(records_path)
+    assert len(identities) == 1
+
+
+# gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_uses_parsed_identity_for_parseable_displays::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.SemanticCoverageEntry::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index
+def test_semantic_coverage_uses_parsed_identity_for_parseable_displays(tmp_path: Path) -> None:
+    parsed_display = evidence_keys.render_display(
+        evidence_keys.make_function_site_key(path="src/app.py", qual="mod.fn")
+    )
+    parsed_key = evidence_keys.parse_display(parsed_display)
+    assert isinstance(parsed_key, dict)
+    expected_identity = evidence_keys.key_identity(evidence_keys.normalize_key(parsed_key))
+
+    entry = semantic_coverage_map.SemanticCoverageEntry(
+        obligation="invariant.parsed",
+        obligation_kind="invariant",
+        evidence_display=parsed_display,
+    )
+    assert entry.evidence_identity == expected_identity
+
+    tags = [
+        test_evidence.TestEvidenceTag(
+            test_id="tests/test_semantic_case.py::test_parsed",
+            path="tests/test_semantic_case.py",
+            line=1,
+            tags=(parsed_display,),
+        )
+    ]
+    annotation_index = semantic_coverage_map._annotation_index(tags)
+    assert annotation_index[expected_identity] == {"tests/test_semantic_case.py::test_parsed"}
+
+    records_path = tmp_path / "records_evidence_parsed.json"
+    records_path.write_text(
+        json.dumps({"evidence_index": [{"display": parsed_display}]}),
+        encoding="utf-8",
+    )
+    identities = semantic_coverage_map._artifact_evidence_index(records_path)
+    assert expected_identity in identities

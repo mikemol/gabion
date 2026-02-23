@@ -683,6 +683,44 @@ def test_record_deadline_check_resolves_project_root_once_and_caches_it(
     assert int(snapshot.get("checks_total", 0) or 0) == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_reuses_existing_site_id_without_reallocating::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+def test_record_deadline_check_reuses_existing_site_id_without_reallocating() -> None:
+    def _constant_site_key(_frame: object, *, project_root: Path | None) -> tuple[str, str]:
+        _ = project_root
+        return ("tests/test_timeout_context.py", "constant.qual")
+
+    def _site_a() -> None:
+        _record_deadline_check(
+            project_root=None,
+            frame_getter=inspect.currentframe,
+            profile_site_key_fn=_constant_site_key,
+        )
+
+    def _site_b() -> None:
+        _record_deadline_check(
+            project_root=None,
+            frame_getter=inspect.currentframe,
+            profile_site_key_fn=_constant_site_key,
+        )
+
+    with _deadline_test_scope(
+        deadline=Deadline.from_timeout_ms(1_000),
+        clock=GasMeter(limit=16),
+    ):
+        with deadline_profile_scope(enabled=True):
+            _site_a()
+            state = timeout_context._deadline_profile_var.get()
+            assert state is not None
+            state.frame_site_cache.clear()
+            _site_b()
+            snapshot = _deadline_profile_snapshot()
+
+    assert isinstance(snapshot, dict)
+    sites = snapshot.get("sites", [])
+    assert isinstance(sites, list)
+    assert len(sites) == 1
+
+
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_sampling_preserves_total_checks_with_pending_tail::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
 def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() -> None:
     with _deadline_test_scope(

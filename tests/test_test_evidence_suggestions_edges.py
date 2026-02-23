@@ -119,6 +119,20 @@ def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
     assert resolved == set()
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._graph_suggestions
+def test_graph_suggestions_empty_entries_short_circuits(tmp_path: Path) -> None:
+    suggestions, resolved = test_evidence_suggestions._graph_suggestions(
+        [],
+        root=tmp_path,
+        paths=[tmp_path],
+        forest=Forest(),
+        config=None,
+        max_depth=1,
+    )
+    assert suggestions == {}
+    assert resolved == set()
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
 def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
     app = tmp_path / "app.py"

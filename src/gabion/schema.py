@@ -116,6 +116,8 @@ class DataflowAuditResponseDTO(BaseModel):
     exit_code: int = 0
     timeout: bool = False
     analysis_state: Optional[str] = None
+    classification: Optional[str] = None
+    error_kind: Optional[str] = None
     errors: List[str] = []
     lint_lines: List[str] = []
     lint_entries: List[LintEntryDTO] = []

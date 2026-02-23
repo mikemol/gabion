@@ -1,10 +1,11 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Mapping
 
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def coerce_int(value: object, default: int = 0) -> int:
@@ -44,7 +45,7 @@ def count_delta(
     current: Mapping[str, object],
 ) -> dict[str, dict[str, int]]:
     check_deadline(allow_frame_fallback=True)
-    keys = ordered_or_sorted(
+    keys = sort_once(
         {*baseline.keys(), *current.keys()},
         source="delta_tools.count_delta.keys",
     )

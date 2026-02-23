@@ -1,5 +1,5 @@
 ---
-doc_revision: 94
+doc_revision: 96
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -140,9 +140,40 @@ sequence in order:
    change did not add new ambiguous unions, sentinel branches, or fallback-only
    control paths.
 
+## Construction-first callback and decode seams (normative)
+- Test seams must be DI-based; avoid runtime patch mutation and callable-probe fallback logic.
+- Normalize optional boundary inputs once; internal decode/analysis paths should consume validated shapes.
+- Do not use sentinel parse outcomes for control decisions in core flows.
+- If an internal state is impossible after ingress validation, enforce it with `never()`.
+
+## Sortedness Disclosure Ratchet (normative)
+When sortedness is enforced, it must be treated as part of semantic behavior.
+
+1. **Ingress:** normalize ordered carriers before entering functional code.
+2. **Core:** preserve ordering through functional paths; do not actively sort a
+   carrier that was already normalized.
+3. **Egress:** enforce ordering at protocol/artifact boundaries before
+   externalization; do not use serializer-level fallback sorting for already
+   canonical carriers.
+4. **Single-sort lifetime rule:** each carrier may consume active sorting at
+   most once; subsequent active sorting is a contract violation.
+5. **Disclosure:** every enforced sort must document:
+   * sort key/function (or comparator tuple shape),
+   * lexical vs non-lexical semantics, and
+   * rationale for that ordering.
+6. **Shared helper usage:** if a shared helper enforces ordering, document the
+   sort contract once at the helper and reuse it; do not introduce conflicting
+   callsite-specific semantics.
+
 ## Pull request checklist (normative)
 - [ ] Describe where ambiguity was discharged and what deterministic contract
       replaced it (Protocol, Decision Protocol, or equivalent typed boundary).
+- [ ] For each new/modified ordered surface, describe the sort key/function (or
+      comparator), whether it is lexical/non-lexical, and why that ordering is
+      semantically required.
+- [ ] Confirm each ordered carrier consumes active sorting at most once, and
+      that egress paths enforce order without serializer `sort_keys=True`
+      fallback for canonical carriers.
 
 ## Branching model (normative)
 - Routine work goes to `stage`; CI runs on every `stage` push and must be green.

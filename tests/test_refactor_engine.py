@@ -465,3 +465,94 @@ def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
     async_updated = async_transformer.leave_AsyncFunctionDef(async_node, async_node)
     assert isinstance(async_updated, cst.FunctionDef)
     assert async_transformer.plan_entries
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_shapes::engine.py::gabion.refactor.engine._has_contextvars_import::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call::engine.py::gabion.refactor.engine._AmbientSafetyVisitor.visit_AssignTarget::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+def test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_shapes() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    token_only = cst.parse_module("from contextvars import Token\n")
+    assert refactor_engine._has_contextvars_import(token_only.body) is False
+
+    dotted_alias_stmt = cst.SimpleStatementLine(
+        body=[
+            cst.ImportFrom(
+                module=cst.Name("contextvars"),
+                names=[
+                    cst.ImportAlias(
+                        name=cst.Attribute(
+                            value=cst.Name("pkg"),
+                            attr=cst.Name("ContextVar"),
+                        )
+                    )
+                ],
+            )
+        ]
+    )
+    assert refactor_engine._has_contextvars_import([dotted_alias_stmt]) is False
+
+    rewriter = refactor_engine._AmbientArgThreadingRewriter(
+        targets={"sink"},
+        context_name="ctx",
+        current="route",
+    )
+    call_with_non_name_func = cst.parse_expression("(factory())(ctx)")
+    assert rewriter.leave_Call(call_with_non_name_func, call_with_non_name_func) is call_with_non_name_func
+
+    safety = refactor_engine._AmbientSafetyVisitor("ctx")
+    cst.parse_module("other = 1\n").visit(safety)
+    assert safety.reasons == []
+
+    simple_suite_module = cst.parse_module(
+        "def route(ctx: CtxBundle | None = None): return sink(ctx)\n"
+    )
+    simple_suite_node = simple_suite_module.body[0]
+    assert isinstance(simple_suite_node, cst.FunctionDef)
+    simple_suite_transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    simple_suite_updated = simple_suite_transformer._rewrite_function(simple_suite_node)
+    assert isinstance(simple_suite_updated, cst.FunctionDef)
+    assert isinstance(simple_suite_updated.body, cst.SimpleStatementSuite)
+
+    annotated_module = cst.parse_module(
+        "def route(ctx: CtxBundle | None = None):\n"
+        "    return sink(ctx)\n"
+    )
+    annotated_node = annotated_module.body[0]
+    assert isinstance(annotated_node, cst.FunctionDef)
+    annotated_transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle[",
+    )
+    annotated_updated = annotated_transformer._rewrite_function(annotated_node)
+    assert isinstance(annotated_updated, cst.FunctionDef)
+    assert "ctx: CtxBundle | None = None" in cst.Module(body=[annotated_updated]).code
+
+    empty_body_node = annotated_node.with_changes(body=cst.IndentedBlock(body=()))
+    empty_body_transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    empty_body_updated = empty_body_transformer._rewrite_function(empty_body_node)
+    assert isinstance(empty_body_updated, cst.FunctionDef)
+
+    branchy_module = cst.parse_module(
+        "def route(ctx: CtxBundle | None = None):\n"
+        "    if True:\n"
+        "        return sink(ctx)\n"
+    )
+    branchy_node = branchy_module.body[0]
+    assert isinstance(branchy_node, cst.FunctionDef)
+    branchy_transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    branchy_updated = branchy_transformer._rewrite_function(branchy_node)
+    assert isinstance(branchy_updated, cst.FunctionDef)

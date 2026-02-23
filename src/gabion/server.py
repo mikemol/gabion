@@ -1,4 +1,6 @@
 from __future__ import annotations
+# gabion:decision_protocol_module
+# gabion:boundary_normalization_module
 
 import ast
 import hashlib
@@ -34,6 +36,7 @@ from lsprotocol.types import (
 )
 
 from gabion.json_types import JSONObject, JSONValue
+from gabion.commands import boundary_order, command_ids, payload_codec
 from gabion.plan import (
     ExecutionPlan,
     ExecutionPlanObligations,
@@ -75,7 +78,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
-from gabion.analysis.aspf import Forest
+from gabion.analysis.aspf import Forest, NodeId, structural_key_atom
 from gabion.analysis import ambiguity_delta
 from gabion.analysis import ambiguity_state
 from gabion.analysis import call_cluster_consolidation
@@ -106,8 +109,9 @@ from gabion.analysis.timeout_context import (
     set_deadline,
     set_deadline_clock,
 )
-from gabion.invariants import never
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.exceptions import NeverThrown
+from gabion.invariants import decision_protocol, never
+from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -151,13 +155,14 @@ from gabion.schema import (
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 
 server = LanguageServer("gabion", "0.1.0")
-DATAFLOW_COMMAND = "gabion.dataflowAudit"
-SYNTHESIS_COMMAND = "gabion.synthesisPlan"
-REFACTOR_COMMAND = "gabion.refactorProtocol"
-STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
-STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
-DECISION_DIFF_COMMAND = "gabion.decisionDiff"
-IMPACT_COMMAND = "gabion.impactQuery"
+CHECK_COMMAND = command_ids.CHECK_COMMAND
+DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
+SYNTHESIS_COMMAND = command_ids.SYNTHESIS_COMMAND
+REFACTOR_COMMAND = command_ids.REFACTOR_COMMAND
+STRUCTURE_DIFF_COMMAND = command_ids.STRUCTURE_DIFF_COMMAND
+STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
+DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
+IMPACT_COMMAND = command_ids.IMPACT_COMMAND
 
 _IMPACT_CHANGE_RE = re.compile(r"^(?P<path>.+?)(?::(?P<start>\d+)(?:-(?P<end>\d+))?)?$")
 _IMPACT_DIFF_FILE_RE = re.compile(r"^\+\+\+\s+(?:a/|b/)?(?P<path>.+)$")
@@ -204,6 +209,10 @@ _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 _DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL = 16
 _DEFAULT_PROGRESS_HEARTBEAT_SECONDS = 55.0
 _MIN_PROGRESS_HEARTBEAT_SECONDS = 5.0
+_PROGRESS_DEADLINE_FLUSH_SECONDS = 5.0
+_PROGRESS_DEADLINE_WATCHDOG_SECONDS = 10.0
+_PROGRESS_HEARTBEAT_POLL_SECONDS = 0.05
+_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = 0.5
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
@@ -377,17 +386,17 @@ def _resolve_analysis_resume_checkpoint_path(
 
 def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
     return {
-        "exclude_dirs": ordered_or_sorted(
+        "exclude_dirs": sort_once(
             config.exclude_dirs,
             source="_analysis_witness_config_payload.exclude_dirs",
         ),
-        "ignore_params": ordered_or_sorted(
+        "ignore_params": sort_once(
             config.ignore_params,
             source="_analysis_witness_config_payload.ignore_params",
         ),
         "strictness": config.strictness,
         "external_filter": config.external_filter,
-        "transparent_decorators": ordered_or_sorted(
+        "transparent_decorators": sort_once(
             config.transparent_decorators or [],
             source="_analysis_witness_config_payload.transparent_decorators",
         ),
@@ -472,7 +481,7 @@ def _externalize_collection_resume_states(
             }
             summary["processed_functions_count"] = len(processed_functions)
             summary["processed_functions_digest"] = hashlib.sha1(
-                _canonical_json_text(sorted(processed_functions)).encode("utf-8")
+                _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:480')).encode("utf-8")
             ).hexdigest()
         else:
             raw_processed_digest = state_payload.get("processed_functions_digest")
@@ -825,7 +834,7 @@ def _analysis_input_witness(
             }
         if isinstance(value, dict):
             normalized: JSONObject = {}
-            for key in ordered_or_sorted(
+            for key in sort_once(
                 value.keys(),
                 source="server._normalize_ast_value.dict_keys",
                 key=lambda item: str(item),
@@ -836,22 +845,47 @@ def _analysis_input_witness(
             return normalized
         if isinstance(value, set):
             items = [_normalize_ast_value(item) for item in value]
-            items.sort(key=_canonical_json_text)
+            items = sort_once(
+                items,
+                source="server._normalize_ast_value.set_items",
+                # Non-lexical comparator: canonical JSON text for mixed scalar/JSON-ish values.
+                key=_canonical_json_text,
+            )
             return {"_py": "set", "items": items}
         if isinstance(value, frozenset):
             items = [_normalize_ast_value(item) for item in value]
-            items.sort(key=_canonical_json_text)
+            items = sort_once(
+                items,
+                source="server._normalize_ast_value.frozenset_items",
+                # Non-lexical comparator: canonical JSON text for mixed scalar/JSON-ish values.
+                key=_canonical_json_text,
+            )
             return {"_py": "frozenset", "items": items}
         return _normalize_scalar(value)
 
     ast_intern_table: JSONObject = {}
+    ast_identity_forest = Forest()
+    ast_ref_by_node_id: dict[NodeId, str] = {}
+    ast_ref_counter = 0
 
     def _intern_ast(normalized_tree: JSONValue) -> str:
-        witness_text = _canonical_json_text(normalized_tree)
-        witness_key = hashlib.sha1(witness_text.encode("utf-8")).hexdigest()
-        if witness_key not in ast_intern_table:
-            ast_intern_table[witness_key] = cast(JSONValue, normalized_tree)
-        return witness_key
+        nonlocal ast_ref_counter
+        structural_identity = structural_key_atom(
+            normalized_tree,
+            source="server._analysis_input_witness.ast",
+        )
+        node_id = ast_identity_forest.add_node(
+            "AstWitness",
+            (structural_identity,),
+        )
+        cached_ref = ast_ref_by_node_id.get(node_id)
+        if cached_ref is not None:
+            return cached_ref
+        ast_ref_counter += 1
+        ast_ref = f"ast:{ast_ref_counter}"
+        ast_ref_by_node_id[node_id] = ast_ref
+        ast_intern_table[ast_ref] = cast(JSONValue, normalized_tree)
+        return ast_ref
 
     files: list[JSONObject] = []
     for path in file_paths:
@@ -909,7 +943,7 @@ def _analysis_input_witness(
 
 
 def _canonical_json_text(payload: object) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
 
 def _load_analysis_resume_checkpoint(
@@ -1052,7 +1086,7 @@ def _write_analysis_resume_checkpoint(
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_text_profiled(
         path,
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         io_name="analysis_resume.checkpoint_write",
     )
 
@@ -1154,6 +1188,7 @@ def _build_phase_progress_v2(
     *,
     phase: str,
     collection_progress: Mapping[str, JSONValue],
+    semantic_progress: Mapping[str, JSONValue] | None = None,
     work_done: object | None,
     work_total: object | None,
     phase_progress_v2: Mapping[str, JSONValue] | None = None,
@@ -1240,6 +1275,46 @@ def _build_phase_progress_v2(
                 dimensions[dim_name] = {"done": dim_done, "total": dim_total}
     if primary_unit not in dimensions:
         dimensions[primary_unit] = {"done": primary_done, "total": primary_total}
+    if phase == "collection" and isinstance(semantic_progress, Mapping):
+        raw_cumulative_new = semantic_progress.get("cumulative_new_processed_functions")
+        raw_cumulative_completed = semantic_progress.get("cumulative_completed_files_delta")
+        raw_cumulative_hydrated = semantic_progress.get("cumulative_hydrated_paths_delta")
+        raw_cumulative_regressed = semantic_progress.get("cumulative_regressed_functions")
+        semantic_new = (
+            max(int(raw_cumulative_new), 0)
+            if isinstance(raw_cumulative_new, int) and not isinstance(raw_cumulative_new, bool)
+            else 0
+        )
+        semantic_completed = (
+            max(int(raw_cumulative_completed), 0)
+            if isinstance(raw_cumulative_completed, int)
+            and not isinstance(raw_cumulative_completed, bool)
+            else 0
+        )
+        semantic_hydrated = (
+            max(int(raw_cumulative_hydrated), 0)
+            if isinstance(raw_cumulative_hydrated, int)
+            and not isinstance(raw_cumulative_hydrated, bool)
+            else 0
+        )
+        semantic_regressed = (
+            max(int(raw_cumulative_regressed), 0)
+            if isinstance(raw_cumulative_regressed, int)
+            and not isinstance(raw_cumulative_regressed, bool)
+            else 0
+        )
+        if semantic_hydrated > 0 or semantic_regressed > 0:
+            dimensions["hydrated_paths_delta"] = {
+                "done": semantic_hydrated,
+                "total": semantic_hydrated + semantic_regressed,
+            }
+        semantic_done = semantic_new + semantic_completed + semantic_hydrated
+        semantic_total = semantic_done + semantic_regressed
+        if semantic_done > 0 or semantic_regressed > 0:
+            dimensions["semantic_progress_points"] = {
+                "done": semantic_done,
+                "total": semantic_total,
+            }
     normalized["dimensions"] = dimensions
     raw_inventory = normalized.get("inventory")
     inventory: JSONObject = {}
@@ -1312,7 +1387,7 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
     processed_functions = _state_processed_functions(state)
     if processed_functions:
         return hashlib.sha1(
-            _canonical_json_text(sorted(processed_functions)).encode("utf-8")
+            _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:1371')).encode("utf-8")
         ).hexdigest()
     raw_digest = state.get("processed_functions_digest")
     if isinstance(raw_digest, str) and raw_digest:
@@ -1359,7 +1434,7 @@ def _analysis_index_resume_hydrated_digest(
     hydrated = _analysis_index_resume_hydrated_paths(collection_resume)
     if hydrated:
         return hashlib.sha1(
-            _canonical_json_text(sorted(hydrated)).encode("utf-8")
+            _canonical_json_text(sort_once(hydrated, source = 'src/gabion/server.py:1418')).encode("utf-8")
         ).hexdigest()
     if not isinstance(collection_resume, Mapping):
         return hashlib.sha1(b"[]").hexdigest()
@@ -1798,7 +1873,7 @@ def _write_report_section_journal(
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_text_profiled(
         path,
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         io_name="report_section_journal.write",
     )
 
@@ -1865,7 +1940,7 @@ def _write_report_phase_checkpoint(
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_text_profiled(
         path,
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         io_name="report_phase_checkpoint.write",
     )
 
@@ -2004,7 +2079,7 @@ def _write_bootstrap_incremental_artifacts(
                     "projection_rows": rows_payload,
                 },
                 indent=2,
-                sort_keys=True,
+                sort_keys=False,
             )
             + "\n",
             io_name="report_section_journal.write",
@@ -2016,7 +2091,7 @@ def _write_bootstrap_incremental_artifacts(
         "completed_files": 0,
         "in_progress_files": 0,
         "remaining_files": 0,
-        "section_ids": sorted(sections),
+        "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
     }
     _write_report_phase_checkpoint(
         path=report_phase_checkpoint_path,
@@ -2194,7 +2269,10 @@ def _phase_progress_dimensions_summary(
     if not isinstance(raw_dimensions, Mapping):
         return ""
     fragments: list[str] = []
-    dim_names = sorted(name for name in raw_dimensions if isinstance(name, str))
+    dim_names = sort_once(
+        (name for name in raw_dimensions if isinstance(name, str)),
+        source="src/gabion/server.py:2253",
+    )
     for dim_name in dim_names:
         raw_payload = raw_dimensions.get(dim_name)
         if not isinstance(raw_payload, Mapping):
@@ -2355,7 +2433,7 @@ def _append_phase_timeline_event(
     with markdown_path.open("a", encoding="utf-8") as handle:
         handle.write(row_line + "\n")
     with jsonl_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(progress_value, sort_keys=True) + "\n")
+        handle.write(json.dumps(progress_value, sort_keys=False) + "\n")
     return header_block, row_line
 
 
@@ -2942,9 +3020,10 @@ def _require_payload(
             command=command,
             payload_type=type(payload).__name__,
         )
-    if isinstance(payload, dict):
-        return payload
-    return {str(key): payload[key] for key in payload}
+    return boundary_order.normalize_boundary_mapping_once(
+        payload,
+        source=f"server._require_payload.{command}",
+    )
 
 
 def _require_optional_payload(
@@ -2958,6 +3037,17 @@ def _require_optional_payload(
             payload_type="NoneType",
         )
     return _require_payload(payload, command=command)
+
+
+def _ordered_command_response(
+    response: Mapping[str, object],
+    *,
+    command: str,
+) -> dict[str, object]:
+    return boundary_order.normalize_boundary_mapping_once(
+        response,
+        source=f"server._ordered_command_response.{command}",
+    )
 
 
 def _parse_lint_line(line: str) -> LintEntryDTO | None:
@@ -3024,7 +3114,10 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     normalized["errors"] = base.errors
     normalized["lint_lines"] = base.lint_lines
     normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
-    return normalized
+    return boundary_order.canonicalize_boundary_mapping(
+        normalized,
+        source="server._normalize_dataflow_response",
+    )
 
 
 def _truthy_flag(value: object) -> bool:
@@ -3063,94 +3156,17 @@ def _server_deadline_overhead_ns(
 
 
 def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
-    timeout_ticks = payload.get("analysis_timeout_ticks")
-    timeout_tick_ns = payload.get("analysis_timeout_tick_ns")
-    timeout_ms = payload.get("analysis_timeout_ms")
-    timeout_seconds = payload.get("analysis_timeout_seconds")
-    if timeout_ticks not in (None, ""):
-        try:
-            ticks_value = int(timeout_ticks)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout ticks", ticks=timeout_ticks)
-        if ticks_value <= 0:
-            never("invalid analysis timeout ticks", ticks=timeout_ticks)
-        if timeout_tick_ns in (None, ""):
-            never("missing analysis timeout tick_ns", ticks=ticks_value)
-        try:
-            tick_ns_value = int(timeout_tick_ns)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
-        if tick_ns_value <= 0:
-            never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
-        return ticks_value * tick_ns_value
-    if timeout_ms not in (None, ""):
-        try:
-            ms_value = int(timeout_ms)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout ms", ms=timeout_ms)
-        if ms_value <= 0:
-            never("invalid analysis timeout ms", ms=timeout_ms)
-        return ms_value * 1_000_000
-    if timeout_seconds not in (None, ""):
-        # Deprecated: prefer analysis_timeout_ticks / analysis_timeout_tick_ns.
-        try:
-            seconds_value = Decimal(str(timeout_seconds))
-        except (InvalidOperation, ValueError):
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        if seconds_value <= 0:
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        timeout_ns = int(seconds_value * Decimal(1_000_000_000))
-        # Reject sub-millisecond timeout payloads; they truncate to unstable
-        # sub-tick budgets and violate the integer tick contract.
-        if timeout_ns < 1_000_000:
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        return timeout_ns
-    never(
-        "missing analysis timeout",
-        payload_keys=ordered_or_sorted(
-            payload.keys(),
-            source="server._analysis_timeout_total_ns.payload_keys",
-        ),
+    return payload_codec.analysis_timeout_total_ns(
+        payload,
+        source="server._analysis_timeout_total_ns.payload_keys",
+        reject_sub_millisecond_seconds=True,
     )
 
 
 def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
-    timeout_ticks = payload.get("analysis_timeout_ticks")
-    timeout_ms = payload.get("analysis_timeout_ms")
-    timeout_seconds = payload.get("analysis_timeout_seconds")
-    if timeout_ticks not in (None, ""):
-        try:
-            ticks_value = int(timeout_ticks)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout ticks", ticks=timeout_ticks)
-        if ticks_value <= 0:
-            never("invalid analysis timeout ticks", ticks=timeout_ticks)
-        return ticks_value
-    if timeout_ms not in (None, ""):
-        try:
-            ms_value = int(timeout_ms)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout ms", ms=timeout_ms)
-        if ms_value <= 0:
-            never("invalid analysis timeout ms", ms=timeout_ms)
-        return ms_value
-    if timeout_seconds not in (None, ""):
-        try:
-            seconds_value = Decimal(str(timeout_seconds))
-        except (InvalidOperation, ValueError):
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        if seconds_value <= 0:
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        ticks_value = int(seconds_value * Decimal(1000))
-        if ticks_value <= 0:
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        return ticks_value
-    never(
-        "missing analysis timeout",
-        payload_keys=ordered_or_sorted(
-            payload.keys(),
-            source="server._analysis_timeout_total_ticks.payload_keys",
-        ),
+    return payload_codec.analysis_timeout_total_ticks(
+        payload,
+        source="server._analysis_timeout_total_ticks.payload_keys",
     )
 
 
@@ -3433,18 +3449,18 @@ def _diagnostics_for_path(
             param_spans = span_map.get(fn_name, {})
             for bundle in group_list:
                 check_deadline()
-                ordered_bundle = ordered_or_sorted(
+                ordered_bundle = sort_once(
                     bundle,
                     source="server._lint_bundles.bundle",
                     key=str,
                 )
-                ordered_bundle = ordered_or_sorted(
+                ordered_bundle = sort_once(
                     ordered_bundle,
                     source="server._lint_bundles.bundle_enforce",
                     policy=OrderPolicy.ENFORCE,
                 )
                 message = f"Implicit bundle detected: {', '.join(ordered_bundle)}"
-                for name in ordered_or_sorted(
+                for name in sort_once(
                     ordered_bundle,
                     source="server._lint_bundles.bundle_loop",
                     policy=OrderPolicy.ENFORCE,
@@ -3571,13 +3587,62 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
     )
 
 
+def _invariant_error_message(error: NeverThrown) -> str:
+    message = str(error).strip()
+    if message:
+        return message
+    return "invariant violation"
+
+
+@decision_protocol
+def _invariant_failure_dataflow_response(
+    *,
+    command: str,
+    error: NeverThrown,
+) -> dict[str, object]:
+    normalized = _normalize_dataflow_response(
+        {
+            "exit_code": 2,
+            "timeout": False,
+            "analysis_state": "failed",
+            "classification": "failed",
+            "error_kind": "invariant_violation",
+            "errors": [_invariant_error_message(error)],
+            "lint_lines": [],
+            "lint_entries": [],
+        }
+    )
+    return _ordered_command_response(normalized, command=command)
+
+
+@decision_protocol
+def _execute_dataflow_command_boundary(
+    ls: LanguageServer,
+    payload: dict | None,
+    *,
+    deps: ExecuteCommandDeps | None = None,
+) -> dict:
+    try:
+        normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
+        normalized_result = _execute_command_total(ls, normalized_payload, deps=deps)
+        return _ordered_command_response(
+            normalized_result,
+            command=DATAFLOW_COMMAND,
+        )
+    except NeverThrown as error:
+        return _invariant_failure_dataflow_response(
+            command=DATAFLOW_COMMAND,
+            error=error,
+        )
+
+
+@server.command(CHECK_COMMAND)
 @server.command(DATAFLOW_COMMAND)
 def execute_command(
     ls: LanguageServer,
     payload: dict | None = None,
 ) -> dict:
-    normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
-    return _execute_command_total(ls, normalized_payload)
+    return _execute_dataflow_command_boundary(ls, payload)
 
 
 def execute_command_with_deps(
@@ -3586,8 +3651,7 @@ def execute_command_with_deps(
     *,
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
-    normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
-    return _execute_command_total(ls, normalized_payload, deps=deps)
+    return _execute_dataflow_command_boundary(ls, payload, deps=deps)
 
 
 def _execute_command_total(
@@ -3596,2258 +3660,9 @@ def _execute_command_total(
     *,
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
-    execute_deps = deps or _default_execute_command_deps()
-    execution_plan = _materialize_execution_plan(payload)
-    payload = dict(execution_plan.inputs)
-    write_execution_plan_artifact(
-        execution_plan,
-        root=Path(str(payload.get("root") or ls.workspace.root_path or ".")),
-    )
-    profile_enabled = _truthy_flag(payload.get("deadline_profile"))
-    profile_root_value = payload.get("root") or ls.workspace.root_path or "."
-    initial_root = Path(str(profile_root_value))
-    initial_report_path = payload.get("report")
-    initial_report_path_text = (
-        str(initial_report_path) if isinstance(initial_report_path, str) else None
-    )
-    timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
-        payload
-    )
-    timeout_total_ticks = _analysis_timeout_total_ticks(payload)
-    explicit_tick_limit_value = payload.get("analysis_tick_limit")
-    if explicit_tick_limit_value not in (None, ""):
-        try:
-            explicit_tick_limit = int(explicit_tick_limit_value)
-        except (TypeError, ValueError):
-            never("invalid analysis tick limit", tick_limit=explicit_tick_limit_value)
-        if explicit_tick_limit <= 0:
-            never("invalid analysis tick limit", tick_limit=explicit_tick_limit_value)
-        timeout_total_ticks = min(timeout_total_ticks, explicit_tick_limit)
-    timeout_start_ns = time.monotonic_ns()
-    timeout_hard_deadline_ns = timeout_start_ns + timeout_total_ns
-    analysis_deadline_ns = timeout_start_ns + analysis_window_ns
-    deadline_token = set_deadline(Deadline(deadline_ns=analysis_deadline_ns))
-    deadline_clock_token = set_deadline_clock(GasMeter(limit=timeout_total_ticks))
-    profile_token = set_deadline_profile(
-        project_root=initial_root,
-        enabled=profile_enabled,
-        sample_interval=_deadline_profile_sample_interval(payload),
-    )
-    forest = Forest()
-    forest_token = set_forest(forest)
-    explicit_resume_checkpoint = payload.get("resume_checkpoint") not in (None, False, "")
-    analysis_resume_checkpoint_path: Path | None = _resolve_analysis_resume_checkpoint_path(
-        payload.get("resume_checkpoint"),
-        root=initial_root,
-    )
-    analysis_resume_input_witness: JSONObject | None = None
-    analysis_resume_input_manifest_digest: str | None = None
-    analysis_resume_total_files = 0
-    analysis_resume_reused_files = 0
-    analysis_resume_checkpoint_status: str | None = None
-    analysis_resume_checkpoint_compatibility_status: str | None = None
-    analysis_resume_intro_payload: JSONObject | None = None
-    analysis_resume_intro_timeline_header: str | None = None
-    analysis_resume_intro_timeline_row: str | None = None
-    report_section_witness_digest: str | None = None
-    report_output_path = _resolve_report_output_path(
-        root=initial_root,
-        report_path=initial_report_path_text,
-    )
-    report_section_journal_path = _resolve_report_section_journal_path(
-        root=initial_root,
-        report_path=initial_report_path_text,
-    )
-    report_phase_checkpoint_path = _resolve_report_phase_checkpoint_path(
-        root=initial_root,
-        report_path=initial_report_path_text,
-    )
-    projection_rows: list[JSONObject] = (
-        execute_deps.report_projection_spec_rows_fn() if report_output_path else []
-    )
-    enable_phase_projection_checkpoints = False
-    phase_checkpoint_state: JSONObject = {}
-    last_collection_resume_payload: JSONObject | None = None
-    report_sections_cache: dict[str, list[str]] = {}
-    report_sections_cache_reason: str | None = None
-    report_sections_cache_loaded = False
-    semantic_progress_cumulative: JSONObject | None = None
-    latest_collection_progress: JSONObject = {
-        "completed_files": 0,
-        "in_progress_files": 0,
-        "remaining_files": 0,
-        "total_files": analysis_resume_total_files,
-    }
+    from gabion.server_core.command_orchestrator import execute_command_total
 
-    def _emit_lsp_progress(**_kwargs: object) -> None:
-        return
-
-    def _ensure_report_sections_cache() -> tuple[dict[str, list[str]], str | None]:
-        nonlocal report_sections_cache
-        nonlocal report_sections_cache_reason
-        nonlocal report_sections_cache_loaded
-        if not report_sections_cache_loaded:
-            report_sections_cache, report_sections_cache_reason = (
-                execute_deps.load_report_section_journal_fn(
-                path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
-                )
-            )
-            report_sections_cache_loaded = True
-        return report_sections_cache, report_sections_cache_reason
-
-    raw_initial_paths = payload.get("paths")
-    initial_paths_count = len(raw_initial_paths) if isinstance(raw_initial_paths, list) else 1
-    execute_deps.write_bootstrap_incremental_artifacts_fn(
-        report_output_path=report_output_path,
-        report_section_journal_path=report_section_journal_path,
-        report_phase_checkpoint_path=report_phase_checkpoint_path,
-        witness_digest=report_section_witness_digest,
-        root=initial_root,
-        paths_requested=initial_paths_count,
-        projection_rows=projection_rows,
-        phase_checkpoint_state=phase_checkpoint_state,
-    )
-    try:
-        root = payload.get("root") or ls.workspace.root_path or "."
-        config_path = payload.get("config")
-        defaults = dataflow_defaults(
-            Path(root), Path(config_path) if config_path else None
-        )
-        deadline_roots = set(dataflow_deadline_roots(defaults))
-        decision_section = decision_defaults(
-            Path(root), Path(config_path) if config_path else None
-        )
-        decision_tiers = decision_tier_map(decision_section)
-        decision_require = decision_require_tiers(decision_section)
-        exception_section = exception_defaults(
-            Path(root), Path(config_path) if config_path else None
-        )
-        never_exceptions = set(exception_never_list(exception_section))
-        fingerprint_section = fingerprint_defaults(
-            Path(root), Path(config_path) if config_path else None
-        )
-        synth_min_occurrences = 0
-        synth_version = "synth@1"
-        try:
-            synth_min_occurrences = int(
-                fingerprint_section.get("synth_min_occurrences", 0) or 0
-            )
-        except (TypeError, ValueError):
-            synth_min_occurrences = 0
-        synth_version = str(
-            fingerprint_section.get("synth_version", synth_version) or synth_version
-        )
-        fingerprint_registry: PrimeRegistry | None = None
-        fingerprint_index: dict[Fingerprint, set[str]] = {}
-        constructor_registry: TypeConstructorRegistry | None = None
-        fingerprint_spec: dict[str, JSONValue] = {
-            key: value
-            for key, value in fingerprint_section.items()
-            if not str(key).startswith("synth_")
-        }
-        if fingerprint_spec:
-            registry, index = build_fingerprint_registry(fingerprint_spec)
-            if index:
-                fingerprint_registry = registry
-                fingerprint_index = index
-                constructor_registry = TypeConstructorRegistry(registry)
-        payload = merge_payload(payload, defaults)
-        deadline_roots = set(payload.get("deadline_roots", deadline_roots))
-
-        raw_paths = payload.get("paths") or []
-        if raw_paths:
-            paths = [Path(p) for p in raw_paths]
-        else:
-            paths = [Path(root)]
-        root = payload.get("root") or root
-        report_path = payload.get("report")
-        report_path_text = str(report_path) if isinstance(report_path, str) else None
-        report_output_path = _resolve_report_output_path(
-            root=Path(root),
-            report_path=report_path_text,
-        )
-        report_section_journal_path = _resolve_report_section_journal_path(
-            root=Path(root),
-            report_path=report_path_text,
-        )
-        report_phase_checkpoint_path = _resolve_report_phase_checkpoint_path(
-            root=Path(root),
-            report_path=report_path_text,
-        )
-        projection_rows = (
-            execute_deps.report_projection_spec_rows_fn() if report_output_path else []
-        )
-        emit_timeout_progress_report = _truthy_flag(
-            payload.get("emit_timeout_progress_report")
-        )
-        resume_on_timeout_raw = payload.get("resume_on_timeout")
-        try:
-            resume_on_timeout_attempts = int(resume_on_timeout_raw or 0)
-        except (TypeError, ValueError):
-            resume_on_timeout_attempts = 0
-        enable_phase_projection_checkpoints = bool(report_output_path) and (
-            emit_timeout_progress_report or resume_on_timeout_attempts > 0
-        )
-        emit_checkpoint_intro_timeline = _checkpoint_intro_timeline_enabled(payload)
-        checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
-        phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
-        phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=Path(root))
-        progress_heartbeat_seconds = _progress_heartbeat_seconds(payload)
-        dot_path = payload.get("dot")
-        fail_on_violations = payload.get("fail_on_violations", False)
-        no_recursive = payload.get("no_recursive", False)
-        max_components = payload.get("max_components", 10)
-        type_audit = payload.get("type_audit", False)
-        type_audit_report = payload.get("type_audit_report", False)
-        type_audit_max = payload.get("type_audit_max", 50)
-        fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
-        lint = bool(payload.get("lint", False))
-        name_filter_bundle = DataflowNameFilterBundle.from_payload(
-            payload=payload,
-            defaults=defaults,
-            decision_section=decision_section,
-        )
-        allow_external = payload.get("allow_external", False)
-        strictness = payload.get("strictness", "high")
-        if strictness not in {"high", "low"}:
-            never("invalid strictness", strictness=str(strictness))
-        baseline_path = resolve_baseline_path(payload.get("baseline"), Path(root))
-        baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
-        synthesis_plan_path = payload.get("synthesis_plan")
-        synthesis_report = payload.get("synthesis_report", False)
-        structure_tree_path = payload.get("structure_tree")
-        structure_metrics_path = payload.get("structure_metrics")
-        decision_snapshot_path = payload.get("decision_snapshot")
-        emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
-        emit_test_obsolescence_state = bool(
-            payload.get("emit_test_obsolescence_state", False)
-        )
-        test_obsolescence_state_path = payload.get("test_obsolescence_state")
-        emit_test_obsolescence_delta = bool(
-            payload.get("emit_test_obsolescence_delta", False)
-        )
-        write_test_obsolescence_baseline = bool(
-            payload.get("write_test_obsolescence_baseline", False)
-        )
-        emit_test_evidence_suggestions = bool(
-            payload.get("emit_test_evidence_suggestions", False)
-        )
-        emit_call_clusters = bool(payload.get("emit_call_clusters", False))
-        emit_call_cluster_consolidation = bool(
-            payload.get("emit_call_cluster_consolidation", False)
-        )
-        emit_test_annotation_drift = bool(
-            payload.get("emit_test_annotation_drift", False)
-        )
-        emit_semantic_coverage_map = bool(
-            payload.get("emit_semantic_coverage_map", False)
-        )
-        test_annotation_drift_state_path = payload.get("test_annotation_drift_state")
-        semantic_coverage_mapping_path = payload.get("semantic_coverage_mapping")
-        emit_test_annotation_drift_delta = bool(
-            payload.get("emit_test_annotation_drift_delta", False)
-        )
-        write_test_annotation_drift_baseline = bool(
-            payload.get("write_test_annotation_drift_baseline", False)
-        )
-        emit_ambiguity_delta = bool(payload.get("emit_ambiguity_delta", False))
-        emit_ambiguity_state = bool(payload.get("emit_ambiguity_state", False))
-        ambiguity_state_path = payload.get("ambiguity_state")
-        write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
-        synthesis_max_tier = payload.get("synthesis_max_tier", 2)
-        synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
-        synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
-        synthesis_protocols_path = payload.get("synthesis_protocols")
-        synthesis_protocols_kind = payload.get("synthesis_protocols_kind", "dataclass")
-        refactor_plan = payload.get("refactor_plan", False)
-        refactor_plan_json = payload.get("refactor_plan_json")
-        fingerprint_synth_json = payload.get("fingerprint_synth_json")
-        fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
-        fingerprint_deadness_json = payload.get("fingerprint_deadness_json")
-        fingerprint_coherence_json = payload.get("fingerprint_coherence_json")
-        fingerprint_rewrite_plans_json = payload.get("fingerprint_rewrite_plans_json")
-        fingerprint_exception_obligations_json = payload.get(
-            "fingerprint_exception_obligations_json"
-        )
-        fingerprint_handledness_json = payload.get("fingerprint_handledness_json")
-
-        config = AuditConfig(
-            project_root=Path(root),
-            exclude_dirs=name_filter_bundle.exclude_dirs,
-            ignore_params=name_filter_bundle.ignore_params,
-            decision_ignore_params=name_filter_bundle.decision_ignore_params,
-            external_filter=not allow_external,
-            strictness=strictness,
-            transparent_decorators=name_filter_bundle.transparent_decorators,
-            decision_tiers=decision_tiers,
-            decision_require_tiers=decision_require,
-            never_exceptions=never_exceptions,
-            deadline_roots=deadline_roots,
-            fingerprint_registry=fingerprint_registry,
-            fingerprint_index=fingerprint_index,
-            constructor_registry=constructor_registry,
-            fingerprint_synth_min_occurrences=synth_min_occurrences,
-            fingerprint_synth_version=synth_version,
-        )
-        if fail_on_type_ambiguities:
-            type_audit = True
-        include_decisions = bool(report_path) or bool(decision_snapshot_path) or bool(
-            fail_on_violations
-        )
-        if decision_tiers:
-            include_decisions = True
-        include_rewrite_plans = bool(report_path) or bool(fingerprint_rewrite_plans_json)
-        include_exception_obligations = bool(report_path) or bool(
-            fingerprint_exception_obligations_json
-        )
-        include_handledness_witnesses = bool(report_path) or bool(
-            fingerprint_handledness_json
-        )
-        include_never_invariants = bool(report_path)
-        include_wl_refinement = _truthy_flag(payload.get("include_wl_refinement"))
-        include_ambiguities = bool(report_path) or lint or emit_ambiguity_state
-        if (emit_ambiguity_delta or write_ambiguity_baseline) and not ambiguity_state_path:
-            include_ambiguities = True
-        include_coherence = (
-            bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
-        )
-        needs_analysis = (
-            bool(report_path)
-            or bool(dot_path)
-            or bool(structure_tree_path)
-            or bool(structure_metrics_path)
-            or bool(decision_snapshot_path)
-            or bool(synthesis_plan_path)
-            or bool(synthesis_report)
-            or bool(synthesis_protocols_path)
-            or bool(refactor_plan)
-            or bool(refactor_plan_json)
-            or bool(fingerprint_synth_json)
-            or bool(fingerprint_provenance_json)
-            or bool(fingerprint_deadness_json)
-            or bool(fingerprint_coherence_json)
-            or bool(fingerprint_rewrite_plans_json)
-            or bool(fingerprint_exception_obligations_json)
-            or bool(fingerprint_handledness_json)
-            or bool(type_audit)
-            or bool(type_audit_report)
-            or bool(fail_on_type_ambiguities)
-            or bool(fail_on_violations)
-            or baseline_path is not None
-            or bool(lint)
-            or bool(emit_test_evidence_suggestions)
-            or bool(include_ambiguities)
-        )
-        file_paths_for_run: list[Path] | None = None
-        collection_resume_payload: JSONObject | None = None
-        if needs_analysis:
-            file_paths_for_run = resolve_analysis_paths(paths, config=config)
-            analysis_resume_total_files = len(file_paths_for_run)
-            analysis_resume_checkpoint_path = _resolve_analysis_resume_checkpoint_path(
-                payload.get("resume_checkpoint"),
-                root=Path(root),
-            )
-            if analysis_resume_checkpoint_path is not None:
-                input_manifest = execute_deps.analysis_input_manifest_fn(
-                    root=Path(root),
-                    file_paths=file_paths_for_run,
-                    recursive=not no_recursive,
-                    include_invariant_propositions=bool(report_path),
-                    include_wl_refinement=include_wl_refinement,
-                    config=config,
-                )
-                analysis_resume_input_manifest_digest = (
-                    execute_deps.analysis_input_manifest_digest_fn(
-                    input_manifest
-                    )
-                )
-                manifest_resume = execute_deps.load_analysis_resume_checkpoint_manifest_fn(
-                    path=analysis_resume_checkpoint_path,
-                    manifest_digest=analysis_resume_input_manifest_digest,
-                )
-                analysis_resume_checkpoint_status = (
-                    _analysis_resume_checkpoint_compatibility(
-                        path=analysis_resume_checkpoint_path,
-                        manifest_digest=analysis_resume_input_manifest_digest,
-                    )
-                )
-                analysis_resume_checkpoint_compatibility_status = (
-                    analysis_resume_checkpoint_status
-                )
-                if manifest_resume is not None:
-                    checkpoint_witness, checkpoint_resume = manifest_resume
-                    if checkpoint_witness is not None:
-                        analysis_resume_input_witness = checkpoint_witness
-                    collection_resume_payload = checkpoint_resume
-                    analysis_resume_reused_files = _analysis_resume_progress(
-                            collection_resume=checkpoint_resume,
-                            total_files=analysis_resume_total_files,
-                        )["completed_files"]
-                    analysis_resume_checkpoint_status = "checkpoint_loaded"
-                if (
-                    collection_resume_payload is None
-                    and analysis_resume_input_manifest_digest is not None
-                ):
-                    seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
-                    collection_resume_payload = (
-                        execute_deps.build_analysis_collection_resume_seed_fn(
-                        in_progress_paths=seed_paths
-                    )
-                    )
-                    execute_deps.write_analysis_resume_checkpoint_fn(
-                        path=analysis_resume_checkpoint_path,
-                        input_witness=analysis_resume_input_witness,
-                        input_manifest_digest=analysis_resume_input_manifest_digest,
-                        collection_resume=collection_resume_payload,
-                    )
-                    analysis_resume_checkpoint_status = "checkpoint_seeded"
-                    if emit_checkpoint_intro_timeline:
-                        (
-                            analysis_resume_intro_timeline_header,
-                            analysis_resume_intro_timeline_row,
-                        ) = _append_checkpoint_intro_timeline_row(
-                            path=checkpoint_intro_timeline_path,
-                            collection_resume=collection_resume_payload,
-                            total_files=analysis_resume_total_files,
-                            checkpoint_path=analysis_resume_checkpoint_path,
-                            checkpoint_status=analysis_resume_checkpoint_status,
-                            checkpoint_reused_files=analysis_resume_reused_files,
-                            checkpoint_total_files=analysis_resume_total_files,
-                        )
-                if explicit_resume_checkpoint:
-                    analysis_resume_intro_payload = {
-                        "checkpoint_path": str(analysis_resume_checkpoint_path),
-                        "status": analysis_resume_checkpoint_status or "unknown",
-                        "reused_files": analysis_resume_reused_files,
-                        "total_files": analysis_resume_total_files,
-                    }
-            if file_paths_for_run is not None and analysis_resume_input_manifest_digest is None:
-                input_manifest = execute_deps.analysis_input_manifest_fn(
-                    root=Path(root),
-                    file_paths=file_paths_for_run,
-                    recursive=not no_recursive,
-                    include_invariant_propositions=bool(report_path),
-                    include_wl_refinement=include_wl_refinement,
-                    config=config,
-                )
-                analysis_resume_input_manifest_digest = (
-                    execute_deps.analysis_input_manifest_digest_fn(input_manifest)
-                )
-            report_section_witness_digest = _report_witness_digest(
-                input_witness=analysis_resume_input_witness,
-                manifest_digest=analysis_resume_input_manifest_digest,
-            )
-            if report_output_path is not None:
-                phase_checkpoint_state = execute_deps.load_report_phase_checkpoint_fn(
-                    path=report_phase_checkpoint_path,
-                    witness_digest=report_section_witness_digest,
-                )
-        last_collection_resume_payload = collection_resume_payload
-        if isinstance(collection_resume_payload, Mapping):
-            raw_semantic_progress = collection_resume_payload.get("semantic_progress")
-            if isinstance(raw_semantic_progress, Mapping):
-                semantic_progress_cumulative = {
-                    str(key): raw_semantic_progress[key]
-                    for key in raw_semantic_progress
-                }
-        last_collection_intro_signature: tuple[int, int, int, int] | None = None
-        last_collection_semantic_witness_digest: str | None = None
-        last_collection_checkpoint_flush_ns = 0
-        last_analysis_index_resume_signature: tuple[
-            int, str, int, int, str, str
-        ] | None = None
-        last_collection_report_flush_ns = 0
-        last_collection_report_flush_completed = -1
-        phase_progress_signatures: dict[str, tuple[object, ...]] = {}
-        phase_progress_last_flush_ns: dict[str, int] = {}
-        profiling_stage_ns: dict[str, int] = {
-            "server.analysis_call": 0,
-            "server.projection_emit": 0,
-        }
-        profiling_counters: dict[str, int] = {
-            "server.collection_resume_persist_calls": 0,
-            "server.projection_emit_calls": 0,
-        }
-        progress_event_seq = 0
-        progress_state_lock = threading.Lock()
-        last_progress_template: dict[str, object] | None = None
-        last_progress_change_ns = 0
-        last_progress_notification_ns = 0
-        phase_timeline_header_emitted = False
-        heartbeat_stop_event = threading.Event()
-        heartbeat_thread: threading.Thread | None = None
-        send_notification = getattr(ls, "send_notification", None)
-
-        def _emit_lsp_progress(
-            *,
-            phase: Literal["collection", "forest", "edge", "post"],
-            collection_progress: Mapping[str, JSONValue],
-            semantic_progress: Mapping[str, JSONValue] | None,
-            work_done: int | None = None,
-            work_total: int | None = None,
-            include_timing: bool = False,
-            done: bool = False,
-            analysis_state: str | None = None,
-            classification: str | None = None,
-            resume_checkpoint: Mapping[str, JSONValue] | None = None,
-            checkpoint_intro_timeline_header: str | None = None,
-            checkpoint_intro_timeline_row: str | None = None,
-            phase_progress_v2: Mapping[str, JSONValue] | None = None,
-            progress_marker: str | None = None,
-            event_kind: Literal["progress", "heartbeat", "terminal", "checkpoint"] = "progress",
-            stale_for_s: float | None = None,
-            record_for_heartbeat: bool = True,
-        ) -> None:
-            nonlocal progress_event_seq
-            nonlocal last_progress_template
-            nonlocal last_progress_change_ns
-            nonlocal last_progress_notification_ns
-            nonlocal phase_timeline_header_emitted
-            semantic_payload: JSONObject = {}
-            if isinstance(semantic_progress, Mapping):
-                for raw_key, raw_value in semantic_progress.items():
-                    if not isinstance(raw_key, str):
-                        continue
-                    if raw_key == "substantive_progress" or raw_key.startswith(
-                        "cumulative_"
-                    ):
-                        semantic_payload[raw_key] = raw_value
-            if "substantive_progress" not in semantic_payload:
-                semantic_payload["substantive_progress"] = False
-            progress_value: JSONObject = {
-                "format_version": 1,
-                "schema": "gabion/dataflow_progress_v1",
-                "phase": phase,
-                "completed_files": int(collection_progress.get("completed_files", 0)),
-                "in_progress_files": int(
-                    collection_progress.get("in_progress_files", 0)
-                ),
-                "remaining_files": int(collection_progress.get("remaining_files", 0)),
-                "total_files": int(collection_progress.get("total_files", 0)),
-                "semantic_deltas": semantic_payload,
-            }
-            normalized_phase_progress_v2, primary_done, primary_total = _build_phase_progress_v2(
-                phase=phase,
-                collection_progress=collection_progress,
-                work_done=work_done,
-                work_total=work_total,
-                phase_progress_v2=phase_progress_v2,
-            )
-            progress_value["phase_progress_v2"] = normalized_phase_progress_v2
-            progress_value["work_done"] = primary_done
-            progress_value["work_total"] = primary_total
-            progress_value["telemetry_semantics_version"] = 2
-            progress_value["event_kind"] = event_kind
-            progress_value["ts_utc"] = datetime.now(timezone.utc).isoformat(
-                timespec="seconds"
-            ).replace("+00:00", "Z")
-            if isinstance(progress_marker, str) and progress_marker:
-                progress_value["progress_marker"] = progress_marker
-            if isinstance(stale_for_s, (int, float)):
-                progress_value["stale_for_s"] = max(float(stale_for_s), 0.0)
-            if include_timing:
-                progress_value["profiling_v1"] = {
-                    "format_version": 1,
-                    "server": {
-                        "stage_ns": dict(profiling_stage_ns),
-                        "counters": dict(profiling_counters),
-                    },
-                }
-            if done:
-                progress_value["done"] = True
-            if isinstance(analysis_state, str) and analysis_state:
-                progress_value["analysis_state"] = analysis_state
-            if isinstance(classification, str) and classification:
-                progress_value["classification"] = classification
-            if isinstance(resume_checkpoint, Mapping):
-                progress_value["resume_checkpoint"] = {
-                    str(key): resume_checkpoint[key] for key in resume_checkpoint
-                }
-            if (
-                isinstance(checkpoint_intro_timeline_header, str)
-                and checkpoint_intro_timeline_header
-            ):
-                progress_value["checkpoint_intro_timeline_header"] = (
-                    checkpoint_intro_timeline_header
-                )
-            if (
-                isinstance(checkpoint_intro_timeline_row, str)
-                and checkpoint_intro_timeline_row
-            ):
-                progress_value["checkpoint_intro_timeline_row"] = (
-                    checkpoint_intro_timeline_row
-                )
-            if not callable(send_notification):
-                return
-            now_ns = time.monotonic_ns()
-            with progress_state_lock:
-                progress_event_seq += 1
-                progress_value["event_seq"] = progress_event_seq
-                phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
-                    markdown_path=phase_timeline_markdown_path,
-                    jsonl_path=phase_timeline_jsonl_path,
-                    progress_value=progress_value,
-                )
-                if not phase_timeline_header_emitted:
-                    progress_value["phase_timeline_header"] = (
-                        phase_timeline_header
-                        if isinstance(phase_timeline_header, str) and phase_timeline_header
-                        else _phase_timeline_header_block()
-                    )
-                    phase_timeline_header_emitted = True
-                progress_value["phase_timeline_row"] = phase_timeline_row
-                send_notification(
-                    _LSP_PROGRESS_NOTIFICATION_METHOD,
-                    {
-                        "token": _LSP_PROGRESS_TOKEN,
-                        "value": progress_value,
-                    },
-                )
-                last_progress_notification_ns = now_ns
-                if done:
-                    last_progress_template = None
-                elif record_for_heartbeat and event_kind != "heartbeat":
-                    last_progress_template = {
-                        "phase": phase,
-                        "collection_progress": {
-                            str(key): collection_progress[key] for key in collection_progress
-                        },
-                        "semantic_progress": (
-                            {str(key): semantic_progress[key] for key in semantic_progress}
-                            if isinstance(semantic_progress, Mapping)
-                            else None
-                        ),
-                        "work_done": primary_done,
-                        "work_total": primary_total,
-                        "include_timing": include_timing,
-                        "analysis_state": analysis_state,
-                        "classification": classification,
-                        "resume_checkpoint": (
-                            {str(key): resume_checkpoint[key] for key in resume_checkpoint}
-                            if isinstance(resume_checkpoint, Mapping)
-                            else None
-                        ),
-                        "checkpoint_intro_timeline_header": checkpoint_intro_timeline_header,
-                        "checkpoint_intro_timeline_row": checkpoint_intro_timeline_row,
-                        "phase_progress_v2": {
-                            str(key): normalized_phase_progress_v2[key]
-                            for key in normalized_phase_progress_v2
-                        },
-                        "progress_marker": progress_marker,
-                    }
-                    last_progress_change_ns = now_ns
-
-        def _progress_heartbeat_loop() -> None:
-            heartbeat_interval_ns = int(progress_heartbeat_seconds * 1_000_000_000)
-            while not heartbeat_stop_event.wait(1.0):
-                with progress_state_lock:
-                    template = (
-                        dict(last_progress_template)
-                        if isinstance(last_progress_template, dict)
-                        else None
-                    )
-                    notification_ns = int(last_progress_notification_ns)
-                    change_ns = int(last_progress_change_ns)
-                if template and notification_ns > 0 and change_ns > 0:
-                    now_ns = time.monotonic_ns()
-                    if now_ns - notification_ns < heartbeat_interval_ns:
-                        continue
-                    stale_seconds = max(0.0, (now_ns - change_ns) / 1_000_000_000.0)
-                    _emit_lsp_progress(
-                        phase=cast(
-                            Literal["collection", "forest", "edge", "post"],
-                            str(template.get("phase", "collection")),
-                        ),
-                        collection_progress=cast(
-                            Mapping[str, JSONValue],
-                            template.get("collection_progress", {}),
-                        ),
-                        semantic_progress=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("semantic_progress"),
-                        ),
-                        work_done=cast(int | None, template.get("work_done")),
-                        work_total=cast(int | None, template.get("work_total")),
-                        include_timing=bool(template.get("include_timing", False)),
-                        done=False,
-                        analysis_state=cast(str | None, template.get("analysis_state")),
-                        classification=cast(str | None, template.get("classification")),
-                        resume_checkpoint=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("resume_checkpoint"),
-                        ),
-                        checkpoint_intro_timeline_header=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_header"),
-                        ),
-                        checkpoint_intro_timeline_row=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_row"),
-                        ),
-                        phase_progress_v2=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("phase_progress_v2"),
-                        ),
-                        progress_marker=cast(str | None, template.get("progress_marker")),
-                        event_kind="heartbeat",
-                        stale_for_s=stale_seconds,
-                        record_for_heartbeat=False,
-                    )
-
-        if callable(send_notification) and progress_heartbeat_seconds > 0:
-            heartbeat_thread = threading.Thread(
-                target=_progress_heartbeat_loop,
-                name="gabion-progress-heartbeat",
-                daemon=True,
-            )
-            heartbeat_thread.start()
-
-        if analysis_resume_intro_payload is not None and callable(
-            getattr(ls, "send_notification", None)
-        ):
-            _emit_lsp_progress(
-                phase="collection",
-                collection_progress={
-                    "completed_files": analysis_resume_reused_files,
-                    "in_progress_files": 0,
-                    "remaining_files": max(
-                        analysis_resume_total_files - analysis_resume_reused_files,
-                        0,
-                    ),
-                    "total_files": analysis_resume_total_files,
-                },
-                semantic_progress=None,
-                work_done=analysis_resume_reused_files,
-                work_total=analysis_resume_total_files,
-                include_timing=profile_enabled,
-                analysis_state="analysis_collection_bootstrap",
-                classification="resume_checkpoint_detected",
-                resume_checkpoint=analysis_resume_intro_payload,
-                checkpoint_intro_timeline_header=analysis_resume_intro_timeline_header,
-                checkpoint_intro_timeline_row=analysis_resume_intro_timeline_row,
-                event_kind="checkpoint",
-            )
-
-        def _persist_collection_resume(progress_payload: JSONObject) -> None:
-            profiling_counters["server.collection_resume_persist_calls"] += 1
-            nonlocal last_collection_resume_payload
-            nonlocal semantic_progress_cumulative
-            nonlocal last_collection_intro_signature
-            nonlocal last_collection_semantic_witness_digest
-            nonlocal last_collection_checkpoint_flush_ns
-            nonlocal last_analysis_index_resume_signature
-            nonlocal last_collection_report_flush_ns
-            nonlocal last_collection_report_flush_completed
-            nonlocal report_sections_cache_reason
-            nonlocal latest_collection_progress
-            semantic_progress = execute_deps.collection_semantic_progress_fn(
-                previous_collection_resume=last_collection_resume_payload,
-                collection_resume=progress_payload,
-                total_files=analysis_resume_total_files,
-                cumulative=semantic_progress_cumulative,
-            )
-            semantic_progress_cumulative = semantic_progress
-            persisted_progress_payload: JSONObject = {
-                str(key): progress_payload[key] for key in progress_payload
-            }
-            persisted_progress_payload["semantic_progress"] = semantic_progress
-            last_collection_resume_payload = persisted_progress_payload
-            collection_progress = _analysis_resume_progress(
-                collection_resume=persisted_progress_payload,
-                total_files=analysis_resume_total_files,
-            )
-            latest_collection_progress = dict(collection_progress)
-            _emit_lsp_progress(
-                phase="collection",
-                collection_progress=collection_progress,
-                semantic_progress=semantic_progress,
-                work_done=collection_progress.get("completed_files"),
-                work_total=collection_progress.get("total_files"),
-                include_timing=profile_enabled,
-            )
-            collection_intro_signature = (
-                collection_progress["completed_files"],
-                collection_progress["in_progress_files"],
-                collection_progress["remaining_files"],
-                _analysis_index_resume_hydrated_count(persisted_progress_payload),
-            )
-            semantic_witness_digest = semantic_progress.get("current_witness_digest")
-            if not isinstance(semantic_witness_digest, str):
-                semantic_witness_digest = None
-            analysis_index_signature = _analysis_index_resume_signature(
-                persisted_progress_payload
-            )
-            intro_changed = collection_intro_signature != last_collection_intro_signature
-            semantic_changed = (
-                semantic_witness_digest != last_collection_semantic_witness_digest
-            )
-            analysis_index_changed = (
-                analysis_index_signature != last_analysis_index_resume_signature
-            )
-            raw_substantive_progress = semantic_progress.get("substantive_progress")
-            semantic_substantive_progress = (
-                raw_substantive_progress
-                if isinstance(raw_substantive_progress, bool)
-                else False
-            )
-            now_ns = time.monotonic_ns()
-            if (
-                analysis_resume_checkpoint_path is not None
-                and analysis_resume_input_manifest_digest is not None
-                and (intro_changed or semantic_changed or analysis_index_changed)
-            ):
-                if execute_deps.collection_checkpoint_flush_due_fn(
-                    intro_changed=intro_changed,
-                    remaining_files=collection_progress["remaining_files"],
-                    semantic_substantive_progress=semantic_substantive_progress,
-                    now_ns=now_ns,
-                    last_flush_ns=last_collection_checkpoint_flush_ns,
-                ):
-                    execute_deps.write_analysis_resume_checkpoint_fn(
-                        path=analysis_resume_checkpoint_path,
-                        input_witness=analysis_resume_input_witness,
-                        input_manifest_digest=analysis_resume_input_manifest_digest,
-                        collection_resume=persisted_progress_payload,
-                    )
-                    last_collection_checkpoint_flush_ns = now_ns
-                    checkpoint_timeline_header: str | None = None
-                    checkpoint_timeline_row: str | None = None
-                    if emit_checkpoint_intro_timeline:
-                        (
-                            checkpoint_timeline_header,
-                            checkpoint_timeline_row,
-                        ) = _append_checkpoint_intro_timeline_row(
-                            path=checkpoint_intro_timeline_path,
-                            collection_resume=persisted_progress_payload,
-                            total_files=analysis_resume_total_files,
-                            checkpoint_path=analysis_resume_checkpoint_path,
-                            checkpoint_status=analysis_resume_checkpoint_status,
-                            checkpoint_reused_files=analysis_resume_reused_files,
-                            checkpoint_total_files=analysis_resume_total_files,
-                        )
-                    if checkpoint_timeline_row is not None:
-                        _emit_lsp_progress(
-                            phase="collection",
-                            collection_progress=collection_progress,
-                            semantic_progress=semantic_progress,
-                            work_done=collection_progress.get("completed_files"),
-                            work_total=collection_progress.get("total_files"),
-                            include_timing=profile_enabled,
-                            analysis_state="analysis_collection_checkpoint_serialized",
-                            classification="checkpoint_serialized",
-                            resume_checkpoint=analysis_resume_intro_payload,
-                            checkpoint_intro_timeline_header=checkpoint_timeline_header,
-                            checkpoint_intro_timeline_row=checkpoint_timeline_row,
-                            event_kind="checkpoint",
-                        )
-            last_collection_semantic_witness_digest = semantic_witness_digest
-            last_analysis_index_resume_signature = analysis_index_signature
-            if not intro_changed:
-                return
-            last_collection_intro_signature = collection_intro_signature
-            if not report_output_path or not projection_rows:
-                return
-            completed_files = collection_progress["completed_files"]
-            if not _collection_report_flush_due(
-                completed_files=completed_files,
-                remaining_files=collection_progress["remaining_files"],
-                now_ns=now_ns,
-                last_flush_ns=last_collection_report_flush_ns,
-                last_flush_completed=last_collection_report_flush_completed,
-            ):
-                return
-            last_collection_report_flush_ns = now_ns
-            last_collection_report_flush_completed = completed_files
-            sections, journal_reason = _ensure_report_sections_cache()
-            sections["intro"] = _collection_progress_intro_lines(
-                collection_resume=persisted_progress_payload,
-                total_files=analysis_resume_total_files,
-                resume_checkpoint_intro=analysis_resume_intro_payload,
-            )
-            if enable_phase_projection_checkpoints:
-                preview_groups_by_path = _groups_by_path_from_collection_resume(
-                    persisted_progress_payload
-                )
-                preview_report = ReportCarrier(
-                    forest=forest,
-                    parse_failure_witnesses=[],
-                )
-                preview_sections = execute_deps.project_report_sections_fn(
-                    preview_groups_by_path,
-                    preview_report,
-                    max_phase="post",
-                    include_previews=True,
-                    preview_only=True,
-                )
-                sections.update(preview_sections)
-            sections.setdefault(
-                "components",
-                _collection_components_preview_lines(
-                    collection_resume=persisted_progress_payload,
-                ),
-            )
-            partial_report, pending_reasons = _render_incremental_report(
-                analysis_state="analysis_collection_in_progress",
-                progress_payload=persisted_progress_payload,
-                projection_rows=projection_rows,
-                sections=sections,
-            )
-            pending_reasons.pop("intro", None)
-            _apply_journal_pending_reason(
-                projection_rows=projection_rows,
-                sections=sections,
-                pending_reasons=pending_reasons,
-                journal_reason=journal_reason,
-            )
-            report_output_path.parent.mkdir(parents=True, exist_ok=True)
-            _write_text_profiled(
-                report_output_path,
-                partial_report,
-                io_name="report_markdown.write",
-            )
-            _write_report_section_journal(
-                path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
-                projection_rows=projection_rows,
-                sections=sections,
-                pending_reasons=pending_reasons,
-            )
-            report_sections_cache_reason = None
-            phase_checkpoint_state["collection"] = {
-                "status": "checkpointed",
-                "work_done": collection_progress["completed_files"],
-                "work_total": collection_progress["total_files"],
-                "completed_files": collection_progress["completed_files"],
-                "in_progress_files": collection_progress["in_progress_files"],
-                "remaining_files": collection_progress["remaining_files"],
-                "total_files": collection_progress["total_files"],
-                "section_ids": sorted(sections),
-            }
-            _write_report_phase_checkpoint(
-                path=report_phase_checkpoint_path,
-                witness_digest=report_section_witness_digest,
-                phases=phase_checkpoint_state,
-            )
-
-        def _projection_phase_signature(
-            phase: Literal["collection", "forest", "edge", "post"],
-            groups_by_path: Mapping[Path, dict[str, list[set[str]]]],
-            report_carrier: ReportCarrier,
-        ) -> tuple[int, ...]:
-            check_deadline()
-            return (
-                len(groups_by_path),
-                len(report_carrier.forest.nodes),
-                len(report_carrier.forest.alts),
-                len(report_carrier.bundle_sites_by_path),
-                len(report_carrier.type_suggestions),
-                len(report_carrier.type_ambiguities),
-                len(report_carrier.type_callsite_evidence),
-                len(report_carrier.constant_smells),
-                len(report_carrier.unused_arg_smells),
-                len(report_carrier.deadness_witnesses),
-                len(report_carrier.coherence_witnesses),
-                len(report_carrier.rewrite_plans),
-                len(report_carrier.exception_obligations),
-                len(report_carrier.never_invariants),
-                len(report_carrier.ambiguity_witnesses),
-                len(report_carrier.handledness_witnesses),
-                len(report_carrier.decision_surfaces),
-                len(report_carrier.value_decision_surfaces),
-                len(report_carrier.decision_warnings),
-                len(report_carrier.fingerprint_warnings),
-                len(report_carrier.fingerprint_matches),
-                len(report_carrier.fingerprint_synth),
-                len(report_carrier.fingerprint_provenance),
-                len(report_carrier.context_suggestions),
-                len(report_carrier.invariant_propositions),
-                len(report_carrier.value_decision_rewrites),
-                len(report_carrier.deadline_obligations),
-                len(report_carrier.parse_failure_witnesses),
-                report_projection_phase_rank(phase),
-            )
-
-        def _persist_projection_phase(
-            phase: Literal["collection", "forest", "edge", "post"],
-            groups_by_path: dict[Path, dict[str, list[set[str]]]],
-            report_carrier: ReportCarrier,
-            work_done: int,
-            work_total: int,
-        ) -> None:
-            nonlocal report_sections_cache_reason
-            progress_marker = str(getattr(report_carrier, "progress_marker", "") or "")
-            progress_analysis_state = f"analysis_{phase}_in_progress"
-            phase_progress_v2 = (
-                report_carrier.phase_progress_v2
-                if isinstance(report_carrier.phase_progress_v2, Mapping)
-                else None
-            )
-            _emit_lsp_progress(
-                phase=phase,
-                collection_progress=latest_collection_progress,
-                semantic_progress=semantic_progress_cumulative,
-                work_done=work_done,
-                work_total=work_total,
-                include_timing=profile_enabled,
-                analysis_state=progress_analysis_state,
-                phase_progress_v2=phase_progress_v2,
-                progress_marker=progress_marker,
-            )
-            if not report_output_path or not projection_rows:
-                return
-            projection_started_ns = time.monotonic_ns()
-            phase_signature = _projection_phase_signature(
-                phase,
-                groups_by_path,
-                report_carrier,
-            ) + (int(work_done), int(work_total), progress_marker)
-            if phase_progress_signatures.get(phase) == phase_signature:
-                return
-            phase_progress_signatures[phase] = phase_signature
-            now_ns = time.monotonic_ns()
-            last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
-            if not _projection_phase_flush_due(
-                phase=phase,
-                now_ns=now_ns,
-                last_flush_ns=last_flush_ns,
-            ):
-                return
-            phase_progress_last_flush_ns[phase] = now_ns
-            available_sections = execute_deps.project_report_sections_fn(
-                groups_by_path,
-                report_carrier,
-                max_phase="post",
-                include_previews=True,
-                preview_only=True,
-            )
-            sections, journal_reason = _ensure_report_sections_cache()
-            sections.update(available_sections)
-            partial_report, pending_reasons = _render_incremental_report(
-                analysis_state=progress_analysis_state,
-                progress_payload={
-                    "phase": phase,
-                    "work_done": int(work_done),
-                    "work_total": int(work_total),
-                    "event_kind": "progress",
-                    "progress_marker": progress_marker,
-                    "phase_progress_v2": (
-                        {
-                            str(key): phase_progress_v2[key]
-                            for key in phase_progress_v2
-                        }
-                        if isinstance(phase_progress_v2, Mapping)
-                        else None
-                    ),
-                },
-                projection_rows=projection_rows,
-                sections=sections,
-            )
-            _apply_journal_pending_reason(
-                projection_rows=projection_rows,
-                sections=sections,
-                pending_reasons=pending_reasons,
-                journal_reason=journal_reason,
-            )
-            report_output_path.parent.mkdir(parents=True, exist_ok=True)
-            _write_text_profiled(
-                report_output_path,
-                partial_report,
-                io_name="report_markdown.write",
-            )
-            _write_report_section_journal(
-                path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
-                projection_rows=projection_rows,
-                sections=sections,
-                pending_reasons=pending_reasons,
-            )
-            report_sections_cache_reason = None
-            phase_checkpoint_state[phase] = {
-                "status": "checkpointed",
-                "work_done": int(work_done),
-                "work_total": int(work_total),
-                "section_ids": sorted(sections),
-                "resolved_sections": len(sections),
-            }
-            _write_report_phase_checkpoint(
-                path=report_phase_checkpoint_path,
-                witness_digest=report_section_witness_digest,
-                phases=phase_checkpoint_state,
-            )
-            profiling_stage_ns["server.projection_emit"] += (
-                time.monotonic_ns() - projection_started_ns
-            )
-            profiling_counters["server.projection_emit_calls"] += 1
-
-        if needs_analysis and file_paths_for_run is not None:
-            bootstrap_collection_resume = collection_resume_payload
-            if bootstrap_collection_resume is None:
-                seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
-                bootstrap_collection_resume = (
-                    execute_deps.build_analysis_collection_resume_seed_fn(
-                    in_progress_paths=seed_paths
-                )
-                )
-            _persist_collection_resume(bootstrap_collection_resume)
-
-        if needs_analysis:
-            analysis_started_ns = time.monotonic_ns()
-            analysis = execute_deps.analyze_paths_fn(
-                paths,
-                forest=forest,
-                recursive=not no_recursive,
-                type_audit=type_audit or type_audit_report,
-                type_audit_report=type_audit_report,
-                type_audit_max=type_audit_max,
-                include_constant_smells=bool(report_path),
-                include_unused_arg_smells=bool(report_path),
-                include_deadness_witnesses=bool(report_path)
-                or bool(fingerprint_deadness_json),
-                include_coherence_witnesses=include_coherence,
-                include_rewrite_plans=include_rewrite_plans,
-                include_exception_obligations=include_exception_obligations,
-                include_handledness_witnesses=include_handledness_witnesses,
-                include_never_invariants=include_never_invariants,
-                include_wl_refinement=include_wl_refinement,
-                include_deadline_obligations=bool(report_path) or lint,
-                include_decision_surfaces=include_decisions,
-                include_value_decision_surfaces=include_decisions,
-                include_invariant_propositions=bool(report_path),
-                include_lint_lines=lint,
-                include_ambiguities=include_ambiguities,
-                include_bundle_forest=True,
-                config=config,
-                file_paths_override=file_paths_for_run,
-                collection_resume=collection_resume_payload,
-                on_collection_progress=_persist_collection_resume,
-                on_phase_progress=(
-                    _persist_projection_phase
-                    if enable_phase_projection_checkpoints
-                    else None
-                ),
-            )
-            profiling_stage_ns["server.analysis_call"] += (
-                time.monotonic_ns() - analysis_started_ns
-            )
-        else:
-            analysis = AnalysisResult(
-                groups_by_path={},
-                param_spans_by_path={},
-                bundle_sites_by_path={},
-                type_suggestions=[],
-                type_ambiguities=[],
-                type_callsite_evidence=[],
-                constant_smells=[],
-                unused_arg_smells=[],
-                forest=forest,
-            )
-        response: dict = {
-            "type_suggestions": analysis.type_suggestions,
-            "type_ambiguities": analysis.type_ambiguities,
-            "type_callsite_evidence": analysis.type_callsite_evidence,
-            "unused_arg_smells": analysis.unused_arg_smells,
-            "decision_surfaces": analysis.decision_surfaces,
-            "value_decision_surfaces": analysis.value_decision_surfaces,
-            "value_decision_rewrites": analysis.value_decision_rewrites,
-            "decision_warnings": analysis.decision_warnings,
-            "fingerprint_warnings": analysis.fingerprint_warnings,
-            "fingerprint_matches": analysis.fingerprint_matches,
-            "fingerprint_synth": analysis.fingerprint_synth,
-            "fingerprint_synth_registry": analysis.fingerprint_synth_registry,
-            "fingerprint_provenance": analysis.fingerprint_provenance,
-            "fingerprint_deadness": analysis.deadness_witnesses,
-            "fingerprint_coherence": analysis.coherence_witnesses,
-            "fingerprint_rewrite_plans": analysis.rewrite_plans,
-            "fingerprint_exception_obligations": analysis.exception_obligations,
-            "fingerprint_handledness": analysis.handledness_witnesses,
-            "never_invariants": analysis.never_invariants,
-            "deadline_obligations": analysis.deadline_obligations,
-            "ambiguity_witnesses": analysis.ambiguity_witnesses,
-            "invariant_propositions": [
-                prop.as_dict() for prop in analysis.invariant_propositions
-            ],
-            "context_suggestions": analysis.context_suggestions,
-        }
-        if analysis_resume_checkpoint_path is not None:
-            cache_verdict = _analysis_resume_cache_verdict(
-                status=analysis_resume_checkpoint_status,
-                reused_files=analysis_resume_reused_files,
-                compatibility_status=analysis_resume_checkpoint_compatibility_status,
-            )
-            response["analysis_resume"] = {
-                "checkpoint_path": str(analysis_resume_checkpoint_path),
-                "reused_files": analysis_resume_reused_files,
-                "total_files": analysis_resume_total_files,
-                "remaining_files": max(
-                    analysis_resume_total_files - analysis_resume_reused_files, 0
-                ),
-                "status": analysis_resume_checkpoint_status,
-                "compatibility_status": analysis_resume_checkpoint_compatibility_status,
-                "cache_verdict": cache_verdict,
-            }
-        profiling_v1: JSONObject = {
-            "format_version": 1,
-            "server": {
-                "stage_ns": profiling_stage_ns,
-                "counters": profiling_counters,
-            },
-        }
-        if isinstance(analysis.profiling_v1, Mapping):
-            profiling_v1["analysis"] = {
-                str(key): analysis.profiling_v1[key] for key in analysis.profiling_v1
-            }
-        response["profiling_v1"] = profiling_v1
-        if lint:
-            response["lint_lines"] = analysis.lint_lines
-
-        synthesis_plan: JSONObject | None = None
-        if synthesis_plan_path or synthesis_report or synthesis_protocols_path:
-            try:
-                synthesis_plan = build_synthesis_plan(
-                    analysis.groups_by_path,
-                    project_root=Path(root),
-                    max_tier=synthesis_max_tier,
-                    min_bundle_size=synthesis_min_bundle_size,
-                    allow_singletons=synthesis_allow_singletons,
-                    merge_overlap_threshold=payload.get("merge_overlap_threshold", None),
-                    config=config,
-                )
-            except (TypeError, ValueError, OSError) as exc:
-                response.setdefault("synthesis_errors", []).append(str(exc))
-            if synthesis_plan is not None:
-                if synthesis_plan_path:
-                    output = json.dumps(synthesis_plan, indent=2, sort_keys=True)
-                    if _is_stdout_target(synthesis_plan_path):
-                        response["synthesis_plan"] = synthesis_plan
-                    else:
-                        Path(synthesis_plan_path).write_text(output)
-                if synthesis_report:
-                    response["synthesis_plan"] = synthesis_plan
-        if synthesis_protocols_path and synthesis_plan is not None:
-            output = render_protocol_stubs(
-                synthesis_plan,
-                kind=synthesis_protocols_kind,
-            )
-            if _is_stdout_target(synthesis_protocols_path):
-                response["synthesis_protocols"] = output
-            else:
-                Path(synthesis_protocols_path).write_text(output)
-        if refactor_plan or refactor_plan_json:
-            plan_payload = build_refactor_plan(
-                analysis.groups_by_path,
-                paths,
-                config=config,
-            )
-            if refactor_plan_json:
-                if _is_stdout_target(refactor_plan_json):
-                    response["refactor_plan"] = plan_payload
-                else:
-                    Path(refactor_plan_json).write_text(
-                        json.dumps(plan_payload, indent=2, sort_keys=True)
-                    )
-            if refactor_plan:
-                response["refactor_plan"] = plan_payload
-
-        if decision_snapshot_path is not None:
-            payload_value = render_decision_snapshot(
-                surfaces=DecisionSnapshotSurfaces(
-                    decision_surfaces=analysis.decision_surfaces,
-                    value_decision_surfaces=analysis.value_decision_surfaces,
-                ),
-                forest=analysis.forest,
-                project_root=Path(root),
-                groups_by_path=analysis.groups_by_path,
-            )
-            if _is_stdout_target(decision_snapshot_path):
-                response["decision_snapshot"] = payload_value
-            else:
-                Path(decision_snapshot_path).write_text(
-                    json.dumps(payload_value, indent=2, sort_keys=True)
-                )
-
-        if structure_tree_path is not None:
-            payload_value = render_structure_snapshot(
-                analysis.groups_by_path,
-                forest=analysis.forest,
-                project_root=Path(root),
-                invariant_propositions=analysis.invariant_propositions,
-            )
-            if _is_stdout_target(structure_tree_path):
-                response["structure_tree"] = payload_value
-            else:
-                Path(structure_tree_path).write_text(
-                    json.dumps(payload_value, indent=2, sort_keys=True)
-                )
-
-        if structure_metrics_path is not None:
-            metrics = compute_structure_metrics(
-                analysis.groups_by_path,
-                forest=analysis.forest,
-            )
-            if _is_stdout_target(structure_metrics_path):
-                response["structure_metrics"] = metrics
-            else:
-                Path(structure_metrics_path).write_text(
-                    json.dumps(metrics, indent=2, sort_keys=True)
-                )
-
-        if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
-            never(
-                "conflicting obsolescence flags",
-                emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-                write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-            )
-        if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
-            never(
-                "conflicting annotation drift flags",
-                emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-                write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-            )
-        if emit_ambiguity_delta and write_ambiguity_baseline:
-            never(
-                "conflicting ambiguity flags",
-                emit_ambiguity_delta=emit_ambiguity_delta,
-                write_ambiguity_baseline=write_ambiguity_baseline,
-            )
-        if emit_test_obsolescence_state and test_obsolescence_state_path:
-            never(
-                "conflicting obsolescence state flags",
-                emit_test_obsolescence_state=emit_test_obsolescence_state,
-                test_obsolescence_state_path=test_obsolescence_state_path,
-            )
-        if emit_ambiguity_state and ambiguity_state_path:
-            never(
-                "conflicting ambiguity state flags",
-                emit_ambiguity_state=emit_ambiguity_state,
-                ambiguity_state_path=ambiguity_state_path,
-            )
-
-        if emit_test_evidence_suggestions:
-            report_root = Path(root)
-            evidence_path = report_root / "out" / "test_evidence.json"
-            entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
-            suggestions, summary = test_evidence_suggestions.suggest_evidence(
-                entries,
-                root=report_root,
-                paths=paths,
-                forest=analysis.forest,
-                config=config,
-            )
-            suggestions_payload = test_evidence_suggestions.render_json_payload(
-                suggestions, summary
-            )
-            report_md = test_evidence_suggestions.render_markdown(suggestions, summary)
-            out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = json.dumps(suggestions_payload, indent=2, sort_keys=True) + "\n"
-            (artifact_dir / "test_evidence_suggestions.json").write_text(report_json)
-            (out_dir / "test_evidence_suggestions.md").write_text(report_md)
-            response["test_evidence_suggestions_summary"] = (
-                suggestions_payload.get("summary", {})
-            )
-        if emit_call_clusters:
-            report_root = Path(root)
-            evidence_path = report_root / "out" / "test_evidence.json"
-            clusters_payload = call_clusters.build_call_clusters_payload(
-                paths,
-                root=report_root,
-                evidence_path=evidence_path,
-                config=config,
-            )
-            report_md = call_clusters.render_markdown(clusters_payload)
-            out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = json.dumps(clusters_payload, indent=2, sort_keys=True) + "\n"
-            (artifact_dir / "call_clusters.json").write_text(report_json)
-            (out_dir / "call_clusters.md").write_text(report_md)
-            response["call_clusters_summary"] = clusters_payload.get("summary", {})
-        if emit_call_cluster_consolidation:
-            report_root = Path(root)
-            evidence_path = report_root / "out" / "test_evidence.json"
-            consolidation_payload = (
-                call_cluster_consolidation.build_call_cluster_consolidation_payload(
-                    evidence_path=evidence_path,
-                )
-            )
-            report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
-            out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = (
-                json.dumps(consolidation_payload, indent=2, sort_keys=True) + "\n"
-            )
-            (artifact_dir / "call_cluster_consolidation.json").write_text(report_json)
-            (out_dir / "call_cluster_consolidation.md").write_text(report_md)
-            response["call_cluster_consolidation_summary"] = consolidation_payload.get(
-                "summary", {}
-            )
-        drift_payload = None
-        if test_annotation_drift_state_path:
-            state_path = Path(test_annotation_drift_state_path)
-            if not state_path.exists():
-                never("annotation drift state not found", path=str(state_path))
-            payload_value = json.loads(state_path.read_text(encoding="utf-8"))
-            if not isinstance(payload_value, dict):
-                never("annotation drift state must be a JSON object")
-            drift_payload = payload_value
-        elif (
-            emit_test_annotation_drift
-            or emit_test_annotation_drift_delta
-            or write_test_annotation_drift_baseline
-        ):
-            report_root = Path(root)
-            evidence_path = report_root / "out" / "test_evidence.json"
-            drift_payload = test_annotation_drift.build_annotation_drift_payload(
-                paths,
-                root=report_root,
-                evidence_path=evidence_path,
-            )
-        if drift_payload is not None and (
-            emit_test_annotation_drift
-            or emit_test_annotation_drift_delta
-            or write_test_annotation_drift_baseline
-        ):
-            report_root = Path(root)
-            out_dir, artifact_dir = _output_dirs(report_root)
-            if emit_test_annotation_drift:
-                report_json = json.dumps(drift_payload, indent=2, sort_keys=True) + "\n"
-                report_md = test_annotation_drift.render_markdown(drift_payload)
-                (artifact_dir / "test_annotation_drift.json").write_text(report_json)
-                (out_dir / "test_annotation_drift.md").write_text(report_md)
-                response["test_annotation_drift_summary"] = drift_payload.get(
-                    "summary", {}
-                )
-            if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
-                summary = drift_payload.get("summary", {})
-                baseline_payload = test_annotation_drift_delta.build_baseline_payload(
-                    summary if isinstance(summary, dict) else {}
-                )
-                baseline_path = test_annotation_drift_delta.resolve_baseline_path(
-                    report_root
-                )
-                response["test_annotation_drift_baseline_path"] = str(baseline_path)
-                if write_test_annotation_drift_baseline:
-                    baseline_path.parent.mkdir(parents=True, exist_ok=True)
-                    test_annotation_drift_delta.write_baseline(
-                        str(baseline_path), baseline_payload
-                    )
-                    response["test_annotation_drift_baseline_written"] = True
-                else:
-                    response["test_annotation_drift_baseline_written"] = False
-                if emit_test_annotation_drift_delta:
-                    if not baseline_path.exists():
-                        never("annotation drift baseline not found", path=str(baseline_path))
-                    baseline = test_annotation_drift_delta.load_baseline(
-                        str(baseline_path)
-                    )
-                    current = test_annotation_drift_delta.parse_baseline_payload(
-                        baseline_payload
-                    )
-                    delta_payload = test_annotation_drift_delta.build_delta_payload(
-                        baseline, current, baseline_path=str(baseline_path)
-                    )
-                    report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
-                    report_md = test_annotation_drift_delta.render_markdown(delta_payload)
-                    (artifact_dir / "test_annotation_drift_delta.json").write_text(
-                        report_json
-                    )
-                    (out_dir / "test_annotation_drift_delta.md").write_text(report_md)
-                    response["test_annotation_drift_delta_summary"] = delta_payload.get(
-                        "summary", {}
-                    )
-        obsolescence_candidates: list[dict[str, object]] | None = None
-        obsolescence_summary: dict[str, int] | None = None
-        obsolescence_baseline_payload: dict[str, object] | None = None
-        obsolescence_baseline: test_obsolescence_delta.ObsolescenceBaseline | None = None
-        if test_obsolescence_state_path:
-            state_path = Path(test_obsolescence_state_path)
-            if not state_path.exists():
-                never("test obsolescence state not found", path=str(state_path))
-            state = test_obsolescence_state.load_state(str(state_path))
-            obsolescence_candidates = [
-                {str(k): entry[k] for k in entry} for entry in state.candidates
-            ]
-            obsolescence_summary = state.baseline.summary
-            obsolescence_baseline_payload = {
-                str(k): state.baseline_payload[k] for k in state.baseline_payload
-            }
-            obsolescence_baseline = state.baseline
-        elif (
-            emit_test_obsolescence
-            or emit_test_obsolescence_delta
-            or write_test_obsolescence_baseline
-            or emit_test_obsolescence_state
-        ):
-            report_root = Path(root)
-            evidence_path = report_root / "out" / "test_evidence.json"
-            risk_registry_path = report_root / "out" / "evidence_risk_registry.json"
-            evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
-                str(evidence_path)
-            )
-            risk_registry = test_obsolescence.load_risk_registry(str(risk_registry_path))
-            candidates, summary_counts = test_obsolescence.classify_candidates(
-                evidence_by_test, status_by_test, risk_registry
-            )
-            obsolescence_candidates = candidates
-            obsolescence_summary = summary_counts
-            obsolescence_baseline_payload = test_obsolescence_delta.build_baseline_payload(
-                evidence_by_test, status_by_test, candidates, summary_counts
-            )
-            obsolescence_baseline = test_obsolescence_delta.parse_baseline_payload(
-                obsolescence_baseline_payload
-            )
-            if emit_test_obsolescence_state:
-                out_dir, artifact_dir = _output_dirs(report_root)
-                state_payload = test_obsolescence_state.build_state_payload(
-                    evidence_by_test,
-                    status_by_test,
-                    candidates,
-                    summary_counts,
-                )
-                (artifact_dir / "test_obsolescence_state.json").write_text(
-                    json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
-                )
-
-        if emit_semantic_coverage_map:
-            report_root = Path(root)
-            _out_dir, artifact_dir = _output_dirs(report_root)
-            mapping_path = (
-                Path(str(semantic_coverage_mapping_path))
-                if semantic_coverage_mapping_path
-                else report_root / "out" / "semantic_coverage_mapping.json"
-            )
-            evidence_path = report_root / "out" / "test_evidence.json"
-            semantic_payload = semantic_coverage_map.build_semantic_coverage_payload(
-                paths=paths,
-                root=Path(root),
-                mapping_path=mapping_path,
-                evidence_path=evidence_path,
-                exclude=name_filter_bundle.exclude_dirs,
-            )
-            report_md = semantic_coverage_map.render_markdown(semantic_payload)
-            semantic_coverage_map.write_semantic_coverage(
-                semantic_payload,
-                output_path=artifact_dir / "semantic_coverage_map.json",
-            )
-            (report_root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
-            (report_root / "artifacts" / "audit_reports" / "semantic_coverage_map.md").write_text(report_md)
-            response["semantic_coverage_map_summary"] = semantic_payload.get("summary", {})
-
-        if emit_test_obsolescence and obsolescence_candidates is not None:
-            report_root = Path(root)
-            report_payload = test_obsolescence.render_json_payload(
-                obsolescence_candidates, obsolescence_summary or {}
-            )
-            out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"
-            report_md = test_obsolescence.render_markdown(
-                obsolescence_candidates, obsolescence_summary or {}
-            )
-            (artifact_dir / "test_obsolescence_report.json").write_text(report_json)
-            (out_dir / "test_obsolescence_report.md").write_text(report_md)
-            response["test_obsolescence_summary"] = obsolescence_summary or {}
-
-        if (
-            emit_test_obsolescence_delta or write_test_obsolescence_baseline
-        ) and obsolescence_baseline_payload is not None:
-            report_root = Path(root)
-            baseline_path = test_obsolescence_delta.resolve_baseline_path(report_root)
-            response["test_obsolescence_baseline_path"] = str(baseline_path)
-            if write_test_obsolescence_baseline:
-                baseline_path.parent.mkdir(parents=True, exist_ok=True)
-                test_obsolescence_delta.write_baseline(
-                    str(baseline_path), obsolescence_baseline_payload
-                )
-                response["test_obsolescence_baseline_written"] = True
-            else:
-                response["test_obsolescence_baseline_written"] = False
-            if emit_test_obsolescence_delta:
-                if not baseline_path.exists():
-                    never("test obsolescence baseline not found", path=str(baseline_path))
-                baseline = test_obsolescence_delta.load_baseline(str(baseline_path))
-                current = (
-                    obsolescence_baseline
-                    if obsolescence_baseline is not None
-                    else test_obsolescence_delta.parse_baseline_payload(
-                        obsolescence_baseline_payload
-                    )
-                )
-                delta_payload = test_obsolescence_delta.build_delta_payload(
-                    baseline, current, baseline_path=str(baseline_path)
-                )
-                out_dir, artifact_dir = _output_dirs(report_root)
-                report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
-                report_md = test_obsolescence_delta.render_markdown(delta_payload)
-                (artifact_dir / "test_obsolescence_delta.json").write_text(report_json)
-                (out_dir / "test_obsolescence_delta.md").write_text(report_md)
-                response["test_obsolescence_delta_summary"] = delta_payload.get(
-                    "summary", {}
-                )
-
-        ambiguity_witnesses: list[dict[str, object]] | None = None
-        ambiguity_baseline_payload: dict[str, object] | None = None
-        ambiguity_baseline: ambiguity_delta.AmbiguityBaseline | None = None
-        if ambiguity_state_path:
-            state_path = Path(ambiguity_state_path)
-            if not state_path.exists():
-                never("ambiguity state not found", path=str(state_path))
-            state = ambiguity_state.load_state(
-                str(state_path),
-            )
-            ambiguity_witnesses = [
-                {str(k): entry[k] for k in entry} for entry in state.witnesses
-            ]
-            ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
-                ambiguity_witnesses,
-            )
-            ambiguity_baseline = state.baseline
-        elif emit_ambiguity_delta or write_ambiguity_baseline or emit_ambiguity_state:
-            ambiguity_witnesses = [
-                {str(k): entry[k] for k in entry} for entry in analysis.ambiguity_witnesses
-            ]
-            if emit_ambiguity_state:
-                report_root = Path(root)
-                out_dir, artifact_dir = _output_dirs(report_root)
-                state_payload = ambiguity_state.build_state_payload(
-                    ambiguity_witnesses,
-                )
-                (artifact_dir / "ambiguity_state.json").write_text(
-                    json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
-                )
-            ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
-                ambiguity_witnesses,
-            )
-            ambiguity_baseline = ambiguity_delta.parse_baseline_payload(
-                ambiguity_baseline_payload,
-            )
-        if (
-            emit_ambiguity_delta or write_ambiguity_baseline
-        ) and ambiguity_baseline_payload is not None:
-            report_root = Path(root)
-            baseline_path = ambiguity_delta.resolve_baseline_path(report_root)
-            response["ambiguity_baseline_path"] = str(baseline_path)
-            if write_ambiguity_baseline:
-                baseline_path.parent.mkdir(parents=True, exist_ok=True)
-                ambiguity_delta.write_baseline(
-                    str(baseline_path), ambiguity_baseline_payload
-                )
-                response["ambiguity_baseline_written"] = True
-            else:
-                response["ambiguity_baseline_written"] = False
-            if emit_ambiguity_delta:
-                if not baseline_path.exists():
-                    never("ambiguity baseline not found", path=str(baseline_path))
-                baseline = ambiguity_delta.load_baseline(str(baseline_path))
-                current = (
-                    ambiguity_baseline
-                    if ambiguity_baseline is not None
-                    else ambiguity_delta.parse_baseline_payload(
-                        ambiguity_baseline_payload
-                    )
-                )
-                delta_payload = ambiguity_delta.build_delta_payload(
-                    baseline, current, baseline_path=str(baseline_path)
-                )
-                out_dir, artifact_dir = _output_dirs(report_root)
-                report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
-                report_md = ambiguity_delta.render_markdown(delta_payload)
-                (artifact_dir / "ambiguity_delta.json").write_text(report_json)
-                (out_dir / "ambiguity_delta.md").write_text(report_md)
-                response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
-
-        report: str | None = None
-        violations: list[str] = []
-        effective_violations: list[str] | None = None
-        baseline_entries: list[str] = []
-        if report_path:
-            report_carrier = ReportCarrier.from_analysis_result(analysis)
-            report_markdown, _ = render_report(
-                analysis.groups_by_path,
-                max_components,
-                report=report_carrier,
-            )
-            resolved_sections_for_obligations = extract_report_sections(report_markdown)
-            pending_projection_reasons: dict[str, str] = {}
-            for row in projection_rows:
-                check_deadline()
-                section_id = str(row.get("section_id", "") or "")
-                if not section_id or section_id in resolved_sections_for_obligations:
-                    continue
-                pending_projection_reasons[section_id] = "missing_dep"
-            success_progress_payload: JSONObject = {
-                "classification": "succeeded",
-                "resume_supported": analysis_resume_reused_files > 0,
-            }
-            runtime_obligations = _incremental_progress_obligations(
-                analysis_state="succeeded",
-                progress_payload=success_progress_payload,
-                resume_checkpoint_path=analysis_resume_checkpoint_path,
-                partial_report_written=False,
-                report_requested=bool(report_path),
-                projection_rows=projection_rows,
-                sections=resolved_sections_for_obligations,
-                pending_reasons=pending_projection_reasons,
-            )
-            (
-                report_carrier.resumability_obligations,
-                report_carrier.incremental_report_obligations,
-            ) = _split_incremental_obligations(runtime_obligations)
-            report_markdown, violations = render_report(
-                analysis.groups_by_path,
-                max_components,
-                report=report_carrier,
-            )
-            report = report_markdown
-            if baseline_path is not None:
-                baseline_entries = load_baseline(baseline_path)
-                if baseline_write:
-                    write_baseline(baseline_path, violations)
-                    effective_violations = []
-                else:
-                    effective_violations, _ = apply_baseline(violations, baseline_entries)
-            if report_output_path and projection_rows:
-                resolved_sections = extract_report_sections(report_markdown)
-                _write_report_section_journal(
-                    path=report_section_journal_path,
-                    witness_digest=report_section_witness_digest,
-                    projection_rows=projection_rows,
-                    sections=resolved_sections,
-                )
-                phase_checkpoint_state["post"] = {
-                    "status": "final",
-                    "work_done": 1,
-                    "work_total": 1,
-                    "section_ids": sorted(resolved_sections),
-                    "resolved_sections": len(resolved_sections),
-                }
-                _write_report_phase_checkpoint(
-                    path=report_phase_checkpoint_path,
-                    witness_digest=report_section_witness_digest,
-                    phases=phase_checkpoint_state,
-                )
-            if decision_snapshot_path:
-                decision_payload = render_decision_snapshot(
-                    surfaces=DecisionSnapshotSurfaces(
-                        decision_surfaces=analysis.decision_surfaces,
-                        value_decision_surfaces=analysis.value_decision_surfaces,
-                    ),
-                    forest=analysis.forest,
-                    project_root=Path(root),
-                    groups_by_path=analysis.groups_by_path,
-                )
-                report = report + "\n" + json.dumps(
-                    decision_payload, indent=2, sort_keys=True
-                )
-            if structure_tree_path:
-                structure_payload = render_structure_snapshot(
-                    analysis.groups_by_path,
-                    forest=analysis.forest,
-                    project_root=Path(root),
-                    invariant_propositions=analysis.invariant_propositions,
-                )
-                report = report + "\n" + json.dumps(
-                    structure_payload, indent=2, sort_keys=True
-                )
-            if structure_metrics_path:
-                report = report + "\n" + json.dumps(metrics, indent=2, sort_keys=True)
-            if synthesis_plan and (
-                synthesis_report or synthesis_plan_path or synthesis_protocols_path
-            ):
-                report = report + render_synthesis_section(synthesis_plan)
-            if refactor_plan and (refactor_plan or refactor_plan_json):
-                report = report + render_refactor_plan(plan_payload)
-            if report_output_path is not None:
-                report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                _write_text_profiled(
-                    report_output_path,
-                    report,
-                    io_name="report_markdown.write",
-                )
-        else:
-            violation_carrier = ReportCarrier(
-                forest=analysis.forest,
-                type_suggestions=analysis.type_suggestions if type_audit_report else [],
-                type_ambiguities=analysis.type_ambiguities if type_audit_report else [],
-                decision_warnings=analysis.decision_warnings,
-                fingerprint_warnings=analysis.fingerprint_warnings,
-                parse_failure_witnesses=analysis.parse_failure_witnesses,
-            )
-            violations = compute_violations(
-                analysis.groups_by_path,
-                max_components,
-                report=violation_carrier,
-            )
-            if baseline_path is not None:
-                baseline_entries = load_baseline(baseline_path)
-                if baseline_write:
-                    write_baseline(baseline_path, violations)
-                    effective_violations = []
-                else:
-                    effective_violations, _ = apply_baseline(violations, baseline_entries)
-
-        if dot_path and analysis.forest is not None:
-            dot_payload = render_dot(analysis.forest)
-            if _is_stdout_target(dot_path):
-                response["dot"] = dot_payload
-                if report is not None:
-                    report = report + "\n" + dot_payload
-            else:
-                Path(dot_path).write_text(dot_payload)
-
-        if effective_violations is None:
-            effective_violations = violations
-        response["violations"] = len(effective_violations)
-        if fingerprint_synth_json and analysis.fingerprint_synth_registry:
-            payload_json = json.dumps(
-                analysis.fingerprint_synth_registry, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_synth_json):
-                response["fingerprint_synth_registry"] = analysis.fingerprint_synth_registry
-            else:
-                Path(fingerprint_synth_json).write_text(payload_json)
-        if fingerprint_provenance_json and analysis.fingerprint_provenance:
-            payload_json = json.dumps(
-                analysis.fingerprint_provenance, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_provenance_json):
-                response["fingerprint_provenance"] = analysis.fingerprint_provenance
-            else:
-                Path(fingerprint_provenance_json).write_text(payload_json)
-        if fingerprint_deadness_json is not None:
-            payload_json = json.dumps(
-                analysis.deadness_witnesses, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_deadness_json):
-                response["fingerprint_deadness"] = analysis.deadness_witnesses
-            else:
-                Path(fingerprint_deadness_json).write_text(payload_json)
-        if fingerprint_coherence_json is not None:
-            payload_json = json.dumps(
-                analysis.coherence_witnesses, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_coherence_json):
-                response["fingerprint_coherence"] = analysis.coherence_witnesses
-            else:
-                Path(fingerprint_coherence_json).write_text(payload_json)
-        if fingerprint_rewrite_plans_json is not None:
-            payload_json = json.dumps(analysis.rewrite_plans, indent=2, sort_keys=True)
-            if _is_stdout_target(fingerprint_rewrite_plans_json):
-                response["fingerprint_rewrite_plans"] = analysis.rewrite_plans
-            else:
-                Path(fingerprint_rewrite_plans_json).write_text(payload_json)
-        if fingerprint_exception_obligations_json is not None:
-            payload_json = json.dumps(
-                analysis.exception_obligations, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_exception_obligations_json):
-                response["fingerprint_exception_obligations"] = (
-                    analysis.exception_obligations
-                )
-            else:
-                Path(fingerprint_exception_obligations_json).write_text(payload_json)
-        if fingerprint_handledness_json is not None:
-            payload_json = json.dumps(
-                analysis.handledness_witnesses, indent=2, sort_keys=True
-            )
-            if _is_stdout_target(fingerprint_handledness_json):
-                response["fingerprint_handledness"] = analysis.handledness_witnesses
-            else:
-                Path(fingerprint_handledness_json).write_text(payload_json)
-        if baseline_path is not None:
-            response["baseline_path"] = str(baseline_path)
-            response["baseline_written"] = bool(baseline_write)
-        if fail_on_type_ambiguities and analysis.type_ambiguities:
-            response["exit_code"] = 1
-        else:
-            if baseline_write:
-                response["exit_code"] = 0
-            else:
-                response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
-        response["analysis_state"] = "succeeded"
-        response["execution_plan"] = execution_plan.as_json_dict()
-        _emit_lsp_progress(
-            phase="post",
-            collection_progress=latest_collection_progress,
-            semantic_progress=semantic_progress_cumulative,
-            include_timing=True,
-            done=True,
-            analysis_state="succeeded",
-            classification="succeeded",
-            event_kind="terminal",
-        )
-        return _normalize_dataflow_response(response)
-    except TimeoutExceeded as exc:
-        cleanup_now_ns = time.monotonic_ns()
-        cleanup_remaining_ns = max(0, timeout_hard_deadline_ns - cleanup_now_ns)
-        cleanup_window_ns = min(cleanup_grace_ns, cleanup_remaining_ns)
-        cleanup_deadline_token = set_deadline(
-            Deadline(deadline_ns=cleanup_now_ns + max(1, cleanup_window_ns))
-        )
-        cleanup_timeout_steps: list[str] = []
-
-        def _mark_cleanup_timeout(step: str) -> None:
-            cleanup_timeout_steps.append(step)
-
-        try:
-            try:
-                timeout_payload = _timeout_context_payload(exc)
-            except TimeoutExceeded:
-                _mark_cleanup_timeout("timeout_context_payload")
-                timeout_payload = {
-                    "summary": "Analysis timed out.",
-                    "progress": {"classification": "timed_out_no_progress"},
-                }
-            progress_payload = timeout_payload.get("progress")
-            if not isinstance(progress_payload, dict):
-                progress_payload = {}
-                timeout_payload["progress"] = progress_payload
-            if not isinstance(progress_payload.get("classification"), str):
-                progress_payload["classification"] = "timed_out_no_progress"
-            progress_payload.setdefault(
-                "timeout_budget",
-                {
-                    "total_timeout_ns": timeout_total_ns,
-                    "analysis_window_ns": analysis_window_ns,
-                    "cleanup_grace_ns": cleanup_grace_ns,
-                    "hard_deadline_ns": timeout_hard_deadline_ns,
-                },
-            )
-            if analysis_resume_checkpoint_path is not None:
-                progress_payload["resume_supported"] = True
-            timeout_collection_resume_payload: JSONObject | None = None
-            if (
-                analysis_resume_checkpoint_path is not None
-                and analysis_resume_input_manifest_digest is not None
-                and isinstance(last_collection_resume_payload, Mapping)
-            ):
-                try:
-                    latest_collection_resume_payload: JSONObject = {
-                        str(key): last_collection_resume_payload[key]
-                        for key in last_collection_resume_payload
-                    }
-                    execute_deps.write_analysis_resume_checkpoint_fn(
-                        path=analysis_resume_checkpoint_path,
-                        input_witness=analysis_resume_input_witness,
-                        input_manifest_digest=analysis_resume_input_manifest_digest,
-                        collection_resume=latest_collection_resume_payload,
-                    )
-                    timeout_collection_resume_payload = latest_collection_resume_payload
-                    checkpoint_timeline_header: str | None = None
-                    checkpoint_timeline_row: str | None = None
-                    if emit_checkpoint_intro_timeline:
-                        (
-                            checkpoint_timeline_header,
-                            checkpoint_timeline_row,
-                        ) = _append_checkpoint_intro_timeline_row(
-                            path=checkpoint_intro_timeline_path,
-                            collection_resume=latest_collection_resume_payload,
-                            total_files=analysis_resume_total_files,
-                            checkpoint_path=analysis_resume_checkpoint_path,
-                            checkpoint_status=analysis_resume_checkpoint_status,
-                            checkpoint_reused_files=analysis_resume_reused_files,
-                            checkpoint_total_files=analysis_resume_total_files,
-                        )
-                    if checkpoint_timeline_row is not None:
-                        timeout_resume_progress = _analysis_resume_progress(
-                            collection_resume=latest_collection_resume_payload,
-                            total_files=analysis_resume_total_files,
-                        )
-                        timeout_semantic_progress = latest_collection_resume_payload.get(
-                            "semantic_progress"
-                        )
-                        timeout_resume_checkpoint_payload: JSONObject = {
-                            "checkpoint_path": str(analysis_resume_checkpoint_path),
-                            "status": analysis_resume_checkpoint_status or "unknown",
-                            "reused_files": analysis_resume_reused_files,
-                            "total_files": analysis_resume_total_files,
-                        }
-                        _emit_lsp_progress(
-                            phase="collection",
-                            collection_progress=timeout_resume_progress,
-                            semantic_progress=(
-                                timeout_semantic_progress
-                                if isinstance(timeout_semantic_progress, Mapping)
-                                else None
-                            ),
-                            work_done=timeout_resume_progress.get("completed_files"),
-                            work_total=timeout_resume_progress.get("total_files"),
-                            include_timing=profile_enabled,
-                            analysis_state="analysis_collection_checkpoint_serialized",
-                            classification="checkpoint_serialized",
-                            resume_checkpoint=timeout_resume_checkpoint_payload,
-                            checkpoint_intro_timeline_header=checkpoint_timeline_header,
-                            checkpoint_intro_timeline_row=checkpoint_timeline_row,
-                            event_kind="checkpoint",
-                        )
-                except TimeoutExceeded:
-                    _mark_cleanup_timeout("write_analysis_resume_checkpoint")
-            if analysis_resume_checkpoint_path is not None:
-                try:
-                    collection_resume: JSONObject | None = None
-                    resume_input_witness: JSONObject | None = analysis_resume_input_witness
-                    if timeout_collection_resume_payload is not None:
-                        collection_resume = timeout_collection_resume_payload
-                    elif analysis_resume_input_witness is not None:
-                        collection_resume = execute_deps.load_analysis_resume_checkpoint_fn(
-                            path=analysis_resume_checkpoint_path,
-                            input_witness=analysis_resume_input_witness,
-                        )
-                    elif analysis_resume_input_manifest_digest is not None:
-                        manifest_resume = (
-                            execute_deps.load_analysis_resume_checkpoint_manifest_fn(
-                            path=analysis_resume_checkpoint_path,
-                            manifest_digest=analysis_resume_input_manifest_digest,
-                        )
-                        )
-                        if manifest_resume is not None:
-                            resume_input_witness, collection_resume = manifest_resume
-                    if collection_resume is not None:
-                        timeout_collection_resume_payload = collection_resume
-                        resume_progress = _analysis_resume_progress(
-                            collection_resume=collection_resume,
-                            total_files=analysis_resume_total_files,
-                        )
-                        progress_payload["completed_files"] = resume_progress[
-                            "completed_files"
-                        ]
-                        progress_payload["in_progress_files"] = resume_progress[
-                            "in_progress_files"
-                        ]
-                        progress_payload["remaining_files"] = resume_progress[
-                            "remaining_files"
-                        ]
-                        progress_payload["total_files"] = resume_progress["total_files"]
-                        resume_supported = (
-                            resume_progress["completed_files"] > 0
-                            or resume_progress.get("in_progress_files", 0) > 0
-                        )
-                        progress_payload["resume_supported"] = resume_supported
-                        semantic_substantive_progress: bool | None = None
-                        semantic_progress = collection_resume.get("semantic_progress")
-                        if isinstance(semantic_progress, Mapping):
-                            progress_payload["semantic_progress"] = {
-                                str(key): semantic_progress[key] for key in semantic_progress
-                            }
-                            raw_semantic_substantive = semantic_progress.get(
-                                "substantive_progress"
-                            )
-                            semantic_substantive_progress = {
-                                True: True,
-                                False: False,
-                            }.get(raw_semantic_substantive)
-                        witness_digest = (
-                            resume_input_witness.get("witness_digest")
-                            if resume_input_witness is not None
-                            else None
-                        )
-                        if not isinstance(witness_digest, str):
-                            witness_digest = None
-                        resume_token: JSONObject = {
-                            "phase": "analysis_collection",
-                            "checkpoint_path": str(analysis_resume_checkpoint_path),
-                            "carrier_refs": {
-                                "collection_resume": True,
-                            },
-                            **resume_progress,
-                        }
-                        if witness_digest is not None:
-                            resume_token["witness_digest"] = witness_digest
-                        resume_payload: JSONObject = {"resume_token": resume_token}
-                        if resume_input_witness is not None:
-                            resume_payload["input_witness"] = resume_input_witness
-                        progress_payload["resume"] = resume_payload
-                        classification = progress_payload.get("classification")
-                        if (
-                            resume_supported
-                            and isinstance(classification, str)
-                            and classification == "timed_out_no_progress"
-                            and (
-                                semantic_substantive_progress is None
-                                or semantic_substantive_progress
-                            )
-                        ):
-                            progress_payload["classification"] = "timed_out_progress_resume"
-                        elif (
-                            (
-                                not resume_supported
-                                or semantic_substantive_progress is False
-                            )
-                            and isinstance(classification, str)
-                            and classification == "timed_out_progress_resume"
-                        ):
-                            progress_payload["classification"] = "timed_out_no_progress"
-                except TimeoutExceeded:
-                    _mark_cleanup_timeout("load_resume_progress")
-            analysis_state = "timed_out_no_progress"
-            classification = progress_payload.get("classification")
-            if isinstance(classification, str) and classification:
-                analysis_state = classification
-            if analysis_state == "timed_out_progress_resume":
-                progress_payload["resume_supported"] = True
-            partial_report_written = False
-            resolved_sections: dict[str, list[str]] = {}
-            pending_reasons: dict[str, str] = {}
-            if report_output_path is not None and projection_rows:
-                try:
-                    loaded_phase_checkpoint_state = (
-                        execute_deps.load_report_phase_checkpoint_fn(
-                        path=report_phase_checkpoint_path,
-                        witness_digest=report_section_witness_digest,
-                    )
-                    )
-                    phase_checkpoint_state = (
-                        phase_checkpoint_state or loaded_phase_checkpoint_state or {}
-                    )
-                    resolved_sections, journal_reason = _ensure_report_sections_cache()
-                    if (
-                        timeout_collection_resume_payload is not None
-                        and "components" not in resolved_sections
-                    ):
-                        resolved_sections["components"] = _collection_components_preview_lines(
-                            collection_resume=timeout_collection_resume_payload,
-                        )
-                    if (
-                        enable_phase_projection_checkpoints
-                        and timeout_collection_resume_payload is not None
-                    ):
-                        preview_groups_by_path = _groups_by_path_from_collection_resume(
-                            timeout_collection_resume_payload
-                        )
-                        preview_report = ReportCarrier(
-                            forest=forest,
-                            parse_failure_witnesses=[],
-                        )
-                        preview_sections = execute_deps.project_report_sections_fn(
-                            preview_groups_by_path,
-                            preview_report,
-                            max_phase="post",
-                            include_previews=True,
-                            preview_only=True,
-                        )
-                        for section_id, section_lines in preview_sections.items():
-                            check_deadline()
-                            resolved_sections.setdefault(section_id, section_lines)
-                    intro_lines = (
-                        _collection_progress_intro_lines(
-                            collection_resume=timeout_collection_resume_payload,
-                            total_files=analysis_resume_total_files,
-                            resume_checkpoint_intro=analysis_resume_intro_payload,
-                        )
-                        if timeout_collection_resume_payload is not None
-                        else [
-                            "Collection bootstrap checkpoint (provisional).",
-                            f"- `root`: `{initial_root}`",
-                            f"- `paths_requested`: `{initial_paths_count}`",
-                        ]
-                    )
-                    resolved_sections.setdefault("intro", intro_lines)
-                    partial_report, pending_reasons = _render_incremental_report(
-                        analysis_state=analysis_state,
-                        progress_payload=progress_payload,
-                        projection_rows=projection_rows,
-                        sections=resolved_sections,
-                    )
-                    _apply_journal_pending_reason(
-                        projection_rows=projection_rows,
-                        sections=resolved_sections,
-                        pending_reasons=pending_reasons,
-                        journal_reason=journal_reason,
-                    )
-                    report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    _write_text_profiled(
-                        report_output_path,
-                        partial_report,
-                        io_name="report_markdown.write",
-                    )
-                    _write_report_section_journal(
-                        path=report_section_journal_path,
-                        witness_digest=report_section_witness_digest,
-                        projection_rows=projection_rows,
-                        sections=resolved_sections,
-                        pending_reasons=pending_reasons,
-                    )
-                    report_sections_cache_reason = None
-                    phase_checkpoint_state["timeout"] = {
-                        "status": "timed_out",
-                        "analysis_state": analysis_state,
-                        "section_ids": sorted(resolved_sections),
-                        "resolved_sections": len(resolved_sections),
-                        "completed_phase": _latest_report_phase(phase_checkpoint_state),
-                    }
-                    _write_report_phase_checkpoint(
-                        path=report_phase_checkpoint_path,
-                        witness_digest=report_section_witness_digest,
-                        phases=phase_checkpoint_state,
-                    )
-                    partial_report_written = True
-                except TimeoutExceeded:
-                    _mark_cleanup_timeout("render_timeout_report")
-            try:
-                obligations = _incremental_progress_obligations(
-                    analysis_state=analysis_state,
-                    progress_payload=progress_payload,
-                    resume_checkpoint_path=analysis_resume_checkpoint_path,
-                    partial_report_written=partial_report_written,
-                    report_requested=report_output_path is not None,
-                    projection_rows=projection_rows,
-                    sections=resolved_sections,
-                    pending_reasons=pending_reasons,
-                )
-            except TimeoutExceeded:
-                _mark_cleanup_timeout("incremental_obligations")
-                obligations = []
-            progress_payload["incremental_obligations"] = obligations
-            if cleanup_timeout_steps:
-                progress_payload["cleanup_truncated"] = True
-                progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
-            timeout_classification = progress_payload.get("classification")
-            _emit_lsp_progress(
-                phase="post",
-                collection_progress=latest_collection_progress,
-                semantic_progress=semantic_progress_cumulative,
-                include_timing=True,
-                done=True,
-                analysis_state=analysis_state,
-                classification=(
-                    timeout_classification
-                    if isinstance(timeout_classification, str)
-                    else "timed_out_no_progress"
-                ),
-                event_kind="terminal",
-            )
-            return _normalize_dataflow_response(
-                {
-                    "exit_code": 2,
-                    "timeout": True,
-                    "analysis_state": analysis_state,
-                    "execution_plan": execution_plan.as_json_dict(),
-                    "timeout_context": timeout_payload,
-                }
-            )
-        finally:
-            reset_deadline(cleanup_deadline_token)
-    except Exception:
-        emit_progress = locals().get("_emit_lsp_progress")
-        if callable(emit_progress):
-            emit_progress(
-                phase="post",
-                collection_progress=latest_collection_progress,
-                semantic_progress=semantic_progress_cumulative,
-                include_timing=True,
-                done=True,
-                analysis_state="failed",
-                classification="failed",
-                event_kind="terminal",
-            )
-        raise
-    finally:
-        stop_heartbeat = locals().get("heartbeat_stop_event")
-        if isinstance(stop_heartbeat, threading.Event):
-            stop_heartbeat.set()
-        active_heartbeat_thread = locals().get("heartbeat_thread")
-        if isinstance(active_heartbeat_thread, threading.Thread):
-            active_heartbeat_thread.join(timeout=1.5)
-        reset_forest(forest_token)
-        reset_deadline_clock(deadline_clock_token)
-        reset_deadline(deadline_token)
-        reset_deadline_profile(profile_token)
+    return execute_command_total(ls, payload, deps=deps)
 
 
 @server.command(SYNTHESIS_COMMAND)
@@ -5856,7 +3671,10 @@ def execute_synthesis(
     payload: dict | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=SYNTHESIS_COMMAND)
-    return _execute_synthesis_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_synthesis_total(ls, normalized_payload),
+        command=SYNTHESIS_COMMAND,
+    )
 
 
 def _execute_synthesis_total(
@@ -5903,11 +3721,11 @@ def _execute_synthesis_total(
                         {
                             "name": field.name,
                             "type_hint": field.type_hint,
-                            "source_params": sorted(field.source_params),
+                            "source_params": sort_once(field.source_params, source = 'src/gabion/server.py:5987'),
                         }
                         for field in spec.fields
                     ],
-                    "bundle": sorted(spec.bundle),
+                    "bundle": sort_once(spec.bundle, source = 'src/gabion/server.py:5991'),
                     "tier": spec.tier,
                     "rationale": spec.rationale,
                 }
@@ -5925,7 +3743,10 @@ def execute_refactor(
     payload: dict | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=REFACTOR_COMMAND)
-    return _execute_refactor_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_refactor_total(ls, normalized_payload),
+        command=REFACTOR_COMMAND,
+    )
 
 
 def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
@@ -6034,7 +3855,10 @@ def execute_structure_diff(
     payload: dict | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=STRUCTURE_DIFF_COMMAND)
-    return _execute_structure_diff_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_structure_diff_total(ls, normalized_payload),
+        command=STRUCTURE_DIFF_COMMAND,
+    )
 
 
 def _execute_structure_diff_total(
@@ -6063,7 +3887,10 @@ def execute_structure_reuse(
     payload: dict | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=STRUCTURE_REUSE_COMMAND)
-    return _execute_structure_reuse_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_structure_reuse_total(ls, normalized_payload),
+        command=STRUCTURE_REUSE_COMMAND,
+    )
 
 
 def _execute_structure_reuse_total(
@@ -6099,7 +3926,10 @@ def execute_decision_diff(
     payload: dict | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=DECISION_DIFF_COMMAND)
-    return _execute_decision_diff_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_decision_diff_total(ls, normalized_payload),
+        command=DECISION_DIFF_COMMAND,
+    )
 
 
 def _execute_decision_diff_total(
@@ -6271,7 +4101,12 @@ def _impact_collect_edges(
         check_deadline()
         by_name[fn.name].append(fn)
     for entries in deadline_loop_iter(by_name.values()):
-        entries.sort(key=lambda fn: (fn.path, fn.qual))
+        entries[:] = sort_once(
+            entries,
+            source="server._impact_collect_edges.by_name_entries",
+            # Lexical path/qual pair order for deterministic edge expansion.
+            key=lambda fn: (fn.path, fn.qual),
+        )
     edges: list[ImpactEdge] = []
     for path, tree in deadline_loop_iter(trees_by_path.items()):
         check_deadline()
@@ -6340,7 +4175,10 @@ def execute_impact(
     payload: dict[str, object] | None = None,
 ) -> dict:
     normalized_payload = _require_optional_payload(payload, command=IMPACT_COMMAND)
-    return _execute_impact_total(ls, normalized_payload)
+    return _ordered_command_response(
+        _execute_impact_total(ls, normalized_payload),
+        command=IMPACT_COMMAND,
+    )
 
 
 def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
@@ -6377,7 +4215,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 "errors": ["Provide at least one change span or git diff"],
             }
 
-        py_paths = ordered_or_sorted(
+        py_paths = sort_once(
             root.rglob("*.py"),
             source="_execute_impact_total.py_paths",
             key=lambda path: str(path),
@@ -6424,7 +4262,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
 
         queue: deque[tuple[str, int, bool, float]] = deque(
             (qual, 0, False, 1.0)
-            for qual in ordered_or_sorted(
+            for qual in sort_once(
                 seed_functions,
                 source="_execute_impact_total.seed_functions",
             )
@@ -6467,7 +4305,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
 
         filtered_likely = [
             item
-            for item in ordered_or_sorted(
+            for item in sort_once(
                 likely_tests.values(),
                 source="_execute_impact_total.likely_tests",
                 key=lambda item: str(item["id"]),
@@ -6477,7 +4315,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
         docs: list[dict[str, object]] = []
         impacted_names = {functions[qual].name for qual in seed_functions if qual in functions}
         for md_path in deadline_loop_iter(
-            ordered_or_sorted(
+            sort_once(
                 root.rglob("*.md"),
                 source="_execute_impact_total.md_paths",
                 key=lambda path: str(path),
@@ -6488,7 +4326,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             for heading, text in deadline_loop_iter(_impact_parse_doc_sections(md_path)):
                 check_deadline()
                 lowered = text.lower()
-                matches = ordered_or_sorted(
+                matches = sort_once(
                     {name for name in impacted_names if name.lower() in lowered},
                     source="_execute_impact_total.doc_matches",
                 )
@@ -6499,13 +4337,13 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
         return {
             "exit_code": 0,
             "changes": normalized_changes,
-            "seed_functions": ordered_or_sorted(
+            "seed_functions": sort_once(
                 seed_functions,
                 source="_execute_impact_total.seed_functions_out",
             ),
             "must_run_tests": [
                 must_tests[key]
-                for key in ordered_or_sorted(
+                for key in sort_once(
                     must_tests,
                     source="_execute_impact_total.must_tests",
                 )

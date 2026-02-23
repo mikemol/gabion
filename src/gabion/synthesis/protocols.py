@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,7 +13,7 @@ from gabion.synthesis.model import (
 )
 from gabion.synthesis.naming import suggest_name
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 @dataclass
@@ -38,10 +39,10 @@ class Synthesizer:
             fallback_prefix=naming_context.fallback_prefix,
         )
 
-        for bundle in ordered_or_sorted(
+        for bundle in sort_once(
             bundle_tiers,
             source="Synthesizer.plan.bundle_tiers",
-            key=lambda value: (len(value), tuple(sorted(value))),
+            key=lambda value: (len(value), tuple(sort_once(value, source = 'src/gabion/synthesis/protocols.py:44'))),
         ):
             check_deadline()
             tier = bundle_tiers[bundle]
@@ -78,7 +79,7 @@ class Synthesizer:
     ) -> List[FieldSpec]:
         check_deadline()
         fields: List[FieldSpec] = []
-        for name in ordered_or_sorted(
+        for name in sort_once(
             bundle,
             source="Synthesizer._build_fields.bundle",
         ):

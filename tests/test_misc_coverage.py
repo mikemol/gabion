@@ -97,7 +97,8 @@ def test_lsp_client_rpc_roundtrip() -> None:
     _write_rpc(out, payload)
     out_value = out.getvalue()
     assert out_value.startswith(b"Content-Length:")
-    assert data in out_value
+    _, _, body = out_value.partition(b"\r\n\r\n")
+    assert json.loads(body.decode("utf-8")) == payload
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.did_open::ls E:decision_surface/direct::server.py::gabion.server.did_save::ls
 def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:

@@ -46,5 +46,5 @@ def write_execution_plan_artifact(
 ) -> Path:
     target = root / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(plan.as_json_dict(), indent=2, sort_keys=True) + "\n")
+    target.write_text(json.dumps(plan.as_json_dict(), indent=2, sort_keys=False) + "\n")
     return target

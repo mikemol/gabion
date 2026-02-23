@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -5,7 +7,7 @@ from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def normalize_bundle_key(bundle: object) -> str:
@@ -19,7 +21,7 @@ def normalize_bundle_key(bundle: object) -> str:
         return ""
     values = {item.strip() for item in bundle if isinstance(item, str) and item.strip()}
     return ",".join(
-        ordered_or_sorted(
+        sort_once(
             values,
             source="normalize_bundle_key.values",
         )
@@ -47,7 +49,7 @@ def normalize_string_list(value: object) -> list[str]:
     for item in raw:
         check_deadline()
         parts.extend([part.strip() for part in item.split(",") if part.strip()])
-    return ordered_or_sorted(
+    return sort_once(
         set(parts),
         source="normalize_string_list.parts",
     )

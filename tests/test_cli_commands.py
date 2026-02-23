@@ -108,6 +108,20 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert argv_seen == [["--root", "."]]
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_tooling_runner_override_ignores_non_mapping_overrides::cli.py::gabion.cli._tooling_runner_override
+def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
+    no_arg_before = dict(cli._TOOLING_NO_ARG_RUNNERS)
+    with_argv_before = dict(cli._TOOLING_ARGV_RUNNERS)
+    with cli._tooling_runner_override(
+        no_arg=[],  # type: ignore[arg-type]
+        with_argv=[],  # type: ignore[arg-type]
+    ):
+        assert dict(cli._TOOLING_NO_ARG_RUNNERS) == no_arg_before
+        assert dict(cli._TOOLING_ARGV_RUNNERS) == with_argv_before
+    assert dict(cli._TOOLING_NO_ARG_RUNNERS) == no_arg_before
+    assert dict(cli._TOOLING_ARGV_RUNNERS) == with_argv_before
+
+
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:

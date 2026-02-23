@@ -1,12 +1,14 @@
 from __future__ import annotations
+# gabion:decision_protocol_module
+# gabion:boundary_normalization_module
 
 import atexit
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from collections import OrderedDict
-from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias
+from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
 import importlib.util
 import inspect
@@ -23,31 +25,31 @@ import zipfile
 
 from click.core import ParameterSource
 import typer
-from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
-    Deadline,
     check_deadline,
     deadline_loop_iter,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
     render_deadline_profile_markdown,
 )
-from gabion.deadline_clock import GasMeter
+from gabion.commands import (
+    boundary_order,
+    check_contract,
+    command_ids,
+    progress_contract as progress_timeline,
+)
+from gabion.runtime import deadline_policy, path_policy
 
-DATAFLOW_COMMAND = "gabion.dataflowAudit"
-SYNTHESIS_COMMAND = "gabion.synthesisPlan"
-REFACTOR_COMMAND = "gabion.refactorProtocol"
-STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
-STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
-DECISION_DIFF_COMMAND = "gabion.decisionDiff"
-IMPACT_COMMAND = "gabion.impactQuery"
+DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
+CHECK_COMMAND = command_ids.CHECK_COMMAND
+SYNTHESIS_COMMAND = command_ids.SYNTHESIS_COMMAND
+REFACTOR_COMMAND = command_ids.REFACTOR_COMMAND
+STRUCTURE_DIFF_COMMAND = command_ids.STRUCTURE_DIFF_COMMAND
+STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
+DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
+IMPACT_COMMAND = command_ids.IMPACT_COMMAND
 from gabion.lsp_client import (
     CommandRequest,
     run_command,
     run_command_direct,
-    _env_timeout_ticks,
-    _has_env_timeout,
 )
 from gabion.plan import (
     ExecutionPlan,
@@ -62,7 +64,8 @@ from gabion.tooling import (
     run_dataflow_stage as tooling_run_dataflow_stage,
 )
 from gabion.json_types import JSONObject
-from gabion.order_contract import ordered_or_sorted
+from gabion.invariants import never
+from gabion.order_contract import sort_once
 from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
@@ -75,14 +78,19 @@ app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
+CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
+CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
+CliRunWithTimeoutRetriesFn: TypeAlias = Callable[..., JSONObject]
+CliRestoreResumeCheckpointFn: TypeAlias = Callable[..., int]
+CliRunSppfSyncFn: TypeAlias = Callable[..., int]
+CliRunGovernanceCliFn: TypeAlias = Callable[..., int]
+
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
-_DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.md")
-_DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = Path(
-    "artifacts/audit_reports/timeout_progress.md"
-)
+_DEFAULT_CHECK_REPORT_REL_PATH = path_policy.DEFAULT_CHECK_REPORT_REL_PATH
+_DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = path_policy.DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
 _SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
@@ -92,8 +100,8 @@ _SPPF_PLACEHOLDER_ISSUE_BY_COMMIT: dict[str, str] = {
     "61c5d617e7b1d4e734a476adf69bc92c19f35e0f": "214",
 }
 
-_LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
-_LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+_LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_METHOD
+_LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
 
@@ -105,154 +113,120 @@ class SppfSyncCommitInfo:
     body: str
 
 
+@dataclass(frozen=True)
+class CliDeps:
+    run_dataflow_raw_argv_fn: CliRunDataflowRawArgvFn
+    run_check_fn: CliRunCheckFn
+    run_with_timeout_retries_fn: CliRunWithTimeoutRetriesFn
+    restore_resume_checkpoint_fn: CliRestoreResumeCheckpointFn
+    run_sppf_sync_fn: CliRunSppfSyncFn
+    run_governance_cli_fn: CliRunGovernanceCliFn
+
+
+def _context_callable_dep(
+    *,
+    ctx: typer.Context,
+    key: str,
+    default: Callable[..., object],
+) -> Callable[..., object]:
+    obj = ctx.obj
+    if not isinstance(obj, Mapping):
+        return default
+    candidate = obj.get(key)
+    if candidate is None:
+        return default
+    if callable(candidate):
+        return candidate
+    never(
+        "invalid cli dependency override",
+        dependency=key,
+        value_type=type(candidate).__name__,
+    )
+    return default  # pragma: no cover - never() raises
+
+
+def _context_cli_deps(ctx: typer.Context) -> CliDeps:
+    return CliDeps(
+        run_dataflow_raw_argv_fn=cast(
+            CliRunDataflowRawArgvFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_dataflow_raw_argv",
+                default=_run_dataflow_raw_argv,
+            ),
+        ),
+        run_check_fn=cast(
+            CliRunCheckFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_check",
+                default=run_check,
+            ),
+        ),
+        run_with_timeout_retries_fn=cast(
+            CliRunWithTimeoutRetriesFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_with_timeout_retries",
+                default=_run_with_timeout_retries,
+            ),
+        ),
+        restore_resume_checkpoint_fn=cast(
+            CliRestoreResumeCheckpointFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="restore_resume_checkpoint",
+                default=_restore_dataflow_resume_checkpoint_from_github_artifacts,
+            ),
+        ),
+        run_sppf_sync_fn=cast(
+            CliRunSppfSyncFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_sppf_sync",
+                default=_run_sppf_sync,
+            ),
+        ),
+        run_governance_cli_fn=cast(
+            CliRunGovernanceCliFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_governance_cli",
+                default=_run_governance_cli,
+            ),
+        ),
+    )
+
+
 def _cli_timeout_ticks() -> tuple[int, int]:
-    if _has_env_timeout():
-        return _env_timeout_ticks()
-    return _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
-
-
-def _cli_deadline() -> Deadline:
-    ticks, tick_ns = _cli_timeout_ticks()
-    return Deadline.from_timeout_ticks(ticks, tick_ns)
+    budget = deadline_policy.timeout_budget_from_lsp_env(
+        default_budget=deadline_policy.DeadlineBudget(
+            ticks=_DEFAULT_TIMEOUT_TICKS,
+            tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
+        )
+    )
+    return budget.ticks, budget.tick_ns
 
 
 def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    if report is not None:
-        return report
-    return root / _DEFAULT_CHECK_REPORT_REL_PATH
+    return path_policy.resolve_report_path(report, root=root)
 
 
 @contextmanager
 def _cli_deadline_scope():
-    ticks, _tick_ns = _cli_timeout_ticks()
-    with ExitStack() as stack:
-        stack.enter_context(forest_scope(Forest()))
-        stack.enter_context(deadline_scope(_cli_deadline()))
-        stack.enter_context(deadline_clock_scope(GasMeter(limit=int(ticks))))
+    ticks, tick_ns = _cli_timeout_ticks()
+    with deadline_policy.deadline_scope_from_ticks(
+        deadline_policy.DeadlineBudget(ticks=ticks, tick_ns=tick_ns),
+        gas_limit=int(ticks),
+    ):
         yield
 
 
-@dataclass(frozen=True)
-class CheckArtifactFlags:
-    emit_test_obsolescence: bool
-    emit_test_evidence_suggestions: bool
-    emit_call_clusters: bool
-    emit_call_cluster_consolidation: bool
-    emit_test_annotation_drift: bool
-    emit_semantic_coverage_map: bool = False
-
-
-@dataclass(frozen=True)
-class CheckPolicyFlags:
-    fail_on_violations: bool
-    fail_on_type_ambiguities: bool
-    lint: bool
-
-
-@dataclass(frozen=True)
-class DataflowPayloadCommonOptions:
-    paths: list[Path]
-    root: Path
-    config: Path | None
-    report: Path | None
-    fail_on_violations: bool
-    fail_on_type_ambiguities: bool
-    baseline: Path | None
-    baseline_write: bool | None
-    decision_snapshot: Path | None
-    exclude: list[str] | None
-    filter_bundle: DataflowFilterBundle
-    allow_external: bool | None
-    strictness: str | None
-    lint: bool
-    resume_checkpoint: Path | None
-    emit_timeout_progress_report: bool
-    resume_on_timeout: int
-    deadline_profile: bool = True
-
-
-@dataclass(frozen=True)
-class DataflowFilterBundle:
-    ignore_params_csv: str | None
-    transparent_decorators_csv: str | None
-
-    def to_payload_lists(self) -> tuple[list[str] | None, list[str] | None]:
-        ignore_list = (
-            _split_csv(self.ignore_params_csv)
-            if self.ignore_params_csv is not None
-            else None
-        )
-        transparent_list = (
-            _split_csv(self.transparent_decorators_csv)
-            if self.transparent_decorators_csv is not None
-            else None
-        )
-        return ignore_list, transparent_list
-
-
-@dataclass(frozen=True)
-class CheckDeltaOptions:
-    emit_test_obsolescence_state: bool
-    test_obsolescence_state: Path | None
-    emit_test_obsolescence_delta: bool
-    test_annotation_drift_state: Path | None
-    emit_test_annotation_drift_delta: bool
-    write_test_annotation_drift_baseline: bool
-    write_test_obsolescence_baseline: bool
-    emit_ambiguity_delta: bool
-    emit_ambiguity_state: bool
-    ambiguity_state: Path | None
-    write_ambiguity_baseline: bool
-    semantic_coverage_mapping: Path | None = None
-
-    def validate(self) -> None:
-        if self.emit_test_obsolescence_delta and self.write_test_obsolescence_baseline:
-            raise typer.BadParameter(
-                "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
-            )
-        if self.emit_test_obsolescence_state and self.test_obsolescence_state is not None:
-            raise typer.BadParameter(
-                "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
-            )
-        if (
-            self.emit_test_annotation_drift_delta
-            and self.write_test_annotation_drift_baseline
-        ):
-            raise typer.BadParameter(
-                "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
-            )
-        if self.emit_ambiguity_delta and self.write_ambiguity_baseline:
-            raise typer.BadParameter(
-                "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
-            )
-        if self.emit_ambiguity_state and self.ambiguity_state is not None:
-            raise typer.BadParameter(
-                "Use --emit-ambiguity-state or --ambiguity-state, not both."
-            )
-
-    def to_payload(self) -> JSONObject:
-        return {
-            "emit_test_obsolescence_state": self.emit_test_obsolescence_state,
-            "test_obsolescence_state": str(self.test_obsolescence_state)
-            if self.test_obsolescence_state is not None
-            else None,
-            "emit_test_obsolescence_delta": self.emit_test_obsolescence_delta,
-            "test_annotation_drift_state": str(self.test_annotation_drift_state)
-            if self.test_annotation_drift_state is not None
-            else None,
-            "emit_test_annotation_drift_delta": self.emit_test_annotation_drift_delta,
-            "write_test_annotation_drift_baseline": self.write_test_annotation_drift_baseline,
-            "semantic_coverage_mapping": str(self.semantic_coverage_mapping)
-            if self.semantic_coverage_mapping is not None
-            else None,
-            "write_test_obsolescence_baseline": self.write_test_obsolescence_baseline,
-            "emit_ambiguity_delta": self.emit_ambiguity_delta,
-            "emit_ambiguity_state": self.emit_ambiguity_state,
-            "ambiguity_state": str(self.ambiguity_state)
-            if self.ambiguity_state is not None
-            else None,
-            "write_ambiguity_baseline": self.write_ambiguity_baseline,
-        }
+CheckArtifactFlags = check_contract.CheckArtifactFlags
+CheckPolicyFlags = check_contract.CheckPolicyFlags
+DataflowPayloadCommonOptions = check_contract.DataflowPayloadCommonOptions
+DataflowFilterBundle = check_contract.DataflowFilterBundle
+CheckDeltaOptions = check_contract.CheckDeltaOptions
 
 
 @dataclass(frozen=True)
@@ -412,7 +386,7 @@ def _run_sppf_sync(
         typer.echo("No commits in range; nothing to sync.")
         return 0
 
-    issue_ids = ordered_or_sorted(
+    issue_ids = sort_once(
         _issue_ids_from_sppf_commits(commits),
         source="gabion.cli.sppf_sync.issue_ids",
     )
@@ -615,7 +589,7 @@ def _normalize_optional_output_target(target: object) -> str | None:
 
 
 def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
-    payload = "\n".join(json.dumps(entry, sort_keys=True) for entry in entries)
+    payload = "\n".join(json.dumps(entry, sort_keys=False) for entry in entries)
     _write_text_to_target(
         target,
         payload,
@@ -659,7 +633,7 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
                 ],
             }
         )
-    duplicate_codes = ordered_or_sorted(
+    duplicate_codes = sort_once(
         (code for code, count in rule_counts.items() if int(count) > 1),
         source="gabion.cli._emit_lint_sarif.duplicate_codes",
     )
@@ -676,7 +650,7 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
             }
         ],
     }
-    payload = json.dumps(sarif, indent=2, sort_keys=True)
+    payload = json.dumps(sarif, indent=2, sort_keys=False)
     _write_text_to_target(target, payload, ensure_trailing_newline=True)
 
 
@@ -716,7 +690,7 @@ def _emit_timeout_profile_artifacts(
     artifact_dir.mkdir(parents=True, exist_ok=True)
     profile_json_path = artifact_dir / "deadline_profile.json"
     profile_md_path = artifact_dir / "deadline_profile.md"
-    profile_json_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+    profile_json_path.write_text(json.dumps(profile, indent=2, sort_keys=False) + "\n")
     profile_md_path.write_text(
         render_deadline_profile_markdown(profile) + "\n",
         encoding="utf-8",
@@ -821,7 +795,7 @@ def _emit_timeout_progress_artifacts(
         "analysis_state": str(result.get("analysis_state", "")),
         "progress": {str(key): progress[key] for key in progress},
     }
-    progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n")
     with _cli_deadline_scope():
         rendered = _render_timeout_progress_markdown(
             analysis_state=str(result.get("analysis_state", "")),
@@ -842,34 +816,7 @@ def _build_dataflow_payload_common(
 ) -> JSONObject:
     # dataflow-bundle: filter_bundle
     # dataflow-bundle: deadline_profile, emit_timeout_progress_report
-    exclude_dirs = _split_csv_entries(options.exclude) if options.exclude is not None else None
-    ignore_list, transparent_list = options.filter_bundle.to_payload_lists()
-    payload: JSONObject = {
-        "paths": [str(p) for p in options.paths],
-        "root": str(options.root),
-        "config": str(options.config) if options.config is not None else None,
-        "report": str(options.report) if options.report is not None else None,
-        "fail_on_violations": options.fail_on_violations,
-        "fail_on_type_ambiguities": options.fail_on_type_ambiguities,
-        "baseline": str(options.baseline) if options.baseline is not None else None,
-        "baseline_write": options.baseline_write,
-        "decision_snapshot": str(options.decision_snapshot)
-        if options.decision_snapshot is not None
-        else None,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": options.allow_external,
-        "strictness": options.strictness,
-        "lint": options.lint,
-        "resume_checkpoint": str(options.resume_checkpoint)
-        if options.resume_checkpoint is not None
-        else None,
-        "emit_timeout_progress_report": bool(options.emit_timeout_progress_report),
-        "resume_on_timeout": int(options.resume_on_timeout),
-        "deadline_profile": bool(options.deadline_profile),
-    }
-    return payload
+    return check_contract.build_dataflow_payload_common(options=options)
 
 
 def build_check_payload(
@@ -895,52 +842,28 @@ def build_check_payload(
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
 ) -> JSONObject:
-    if filter_bundle is None:
-        filter_bundle = DataflowFilterBundle(None, None)
-    if not paths:
-        paths = [Path(".")]
-    delta_options.validate()
-    baseline_write_value = bool(baseline is not None and baseline_write)
-    payload = _build_dataflow_payload_common(
-        options=DataflowPayloadCommonOptions(
-            paths=paths,
-            root=root,
-            config=config,
-            report=report,
-            fail_on_violations=fail_on_violations,
-            fail_on_type_ambiguities=fail_on_type_ambiguities,
-            baseline=baseline,
-            baseline_write=baseline_write_value,
-            decision_snapshot=decision_snapshot,
-            exclude=exclude,
-            filter_bundle=filter_bundle,
-            allow_external=allow_external,
-            strictness=strictness,
-            lint=lint,
-            resume_checkpoint=resume_checkpoint,
-            emit_timeout_progress_report=emit_timeout_progress_report,
-            resume_on_timeout=resume_on_timeout,
-        )
+    return check_contract.build_check_payload(
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        baseline=baseline,
+        baseline_write=baseline_write,
+        decision_snapshot=decision_snapshot,
+        artifact_flags=artifact_flags,
+        delta_options=delta_options,
+        exclude=exclude,
+        filter_bundle=filter_bundle,
+        allow_external=allow_external,
+        strictness=strictness,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
+        resume_checkpoint=resume_checkpoint,
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_tick_limit=analysis_tick_limit,
     )
-    payload.update(
-        {
-            "emit_test_obsolescence": artifact_flags.emit_test_obsolescence,
-            "emit_test_evidence_suggestions": artifact_flags.emit_test_evidence_suggestions,
-            "emit_call_clusters": artifact_flags.emit_call_clusters,
-            "emit_call_cluster_consolidation": artifact_flags.emit_call_cluster_consolidation,
-            "emit_test_annotation_drift": artifact_flags.emit_test_annotation_drift,
-            "emit_semantic_coverage_map": artifact_flags.emit_semantic_coverage_map,
-            "type_audit": True if fail_on_type_ambiguities else None,
-            "semantic_coverage_mapping": str(delta_options.semantic_coverage_mapping)
-            if delta_options.semantic_coverage_mapping is not None
-            else None,
-            "analysis_tick_limit": int(analysis_tick_limit)
-            if analysis_tick_limit is not None
-            else None,
-        }
-    )
-    payload.update(delta_options.to_payload())
-    return payload
 
 
 
@@ -1000,7 +923,7 @@ def build_check_execution_plan_request(
     emit_ambiguity_delta: bool,
     emit_ambiguity_state: bool,
 ) -> ExecutionPlanRequest:
-    operations = [DATAFLOW_COMMAND, "gabion.check"]
+    operations = [DATAFLOW_COMMAND, CHECK_COMMAND]
     obligations = ExecutionPlanObligations(
         preconditions=[
             "input paths resolve under root",
@@ -1233,37 +1156,74 @@ def dispatch_command(
     execution_plan_request: ExecutionPlanRequest | None = None,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
+    def _ordered_result(
+        value: Mapping[str, object],
+    ) -> JSONObject:
+        return boundary_order.normalize_boundary_mapping_once(
+            value,
+            source=f"cli.dispatch_command.{command}.result",
+        )
+
     ticks, tick_ns = _cli_timeout_ticks()
+    payload = boundary_order.normalize_boundary_mapping_once(
+        payload,
+        source=f"cli.dispatch_command.{command}.payload_in",
+    )
     if (
         "analysis_timeout_ticks" not in payload
         and "analysis_timeout_ms" not in payload
         and "analysis_timeout_seconds" not in payload
     ):
-        payload = dict(payload)
-        payload["analysis_timeout_ticks"] = int(ticks)
-        payload["analysis_timeout_tick_ns"] = int(tick_ns)
+        payload = boundary_order.apply_boundary_updates_once(
+            payload,
+            {
+                "analysis_timeout_ticks": int(ticks),
+                "analysis_timeout_tick_ns": int(tick_ns),
+            },
+            source=f"cli.dispatch_command.{command}.payload_timeout_defaults",
+        )
     if execution_plan_request is not None:
-        payload = dict(payload)
         execution_plan_payload = execution_plan_request.to_payload()
         execution_plan_inputs = execution_plan_payload.get("inputs")
         if isinstance(execution_plan_inputs, Mapping):
-            merged_inputs = dict(execution_plan_inputs)
-            merged_inputs.update(payload)
+            merged_inputs = boundary_order.apply_boundary_updates_once(
+                execution_plan_inputs,
+                payload,
+                source=f"cli.dispatch_command.{command}.execution_plan_inputs",
+            )
             execution_plan_payload["inputs"] = merged_inputs
         deadline_metadata = execution_plan_payload.get("policy_metadata")
         if isinstance(deadline_metadata, Mapping):
             policy_metadata = dict(deadline_metadata)
             deadline = policy_metadata.get("deadline")
             deadline_payload = dict(deadline) if isinstance(deadline, Mapping) else {}
-            deadline_payload["analysis_timeout_ticks"] = int(
-                payload.get("analysis_timeout_ticks") or 0
-            )
-            deadline_payload["analysis_timeout_tick_ns"] = int(
-                payload.get("analysis_timeout_tick_ns") or 0
+            deadline_payload = boundary_order.apply_boundary_updates_once(
+                deadline_payload,
+                {
+                    "analysis_timeout_ticks": int(
+                        payload.get("analysis_timeout_ticks") or 0
+                    ),
+                    "analysis_timeout_tick_ns": int(
+                        payload.get("analysis_timeout_tick_ns") or 0
+                    ),
+                },
+                source=f"cli.dispatch_command.{command}.execution_plan_deadline",
             )
             policy_metadata["deadline"] = deadline_payload
             execution_plan_payload["policy_metadata"] = policy_metadata
-        payload["execution_plan_request"] = execution_plan_payload
+        execution_plan_payload = boundary_order.normalize_boundary_mapping_once(
+            execution_plan_payload,
+            source=f"cli.dispatch_command.{command}.execution_plan_payload",
+        )
+        payload = boundary_order.apply_boundary_updates_once(
+            payload,
+            {"execution_plan_request": execution_plan_payload},
+            source=f"cli.dispatch_command.{command}.payload_execution_plan",
+        )
+    payload = boundary_order.enforce_boundary_mapping_ordered(
+        payload,
+        source=f"cli.dispatch_command.{command}.payload_out",
+    )
     request = CommandRequest(command, [payload])
     resolved = runner
     if runner is run_command:
@@ -1272,7 +1232,7 @@ def dispatch_command(
             resolved = run_command_direct
     if resolved is run_command:
         factory = process_factory or subprocess.Popen
-        return resolved(
+        raw = resolved(
             request,
             root=root,
             timeout_ticks=ticks,
@@ -1280,27 +1240,38 @@ def dispatch_command(
             process_factory=factory,
             notification_callback=notification_callback,
         )
-    if resolved is run_command_direct:
-        return resolved(
+    elif resolved is run_command_direct:
+        raw = resolved(
             request,
             root=root,
             notification_callback=notification_callback,
         )
-    if notification_callback is not None:
-        try:
-            params = inspect.signature(resolved).parameters
-        except (TypeError, ValueError):
-            params = {}
-        if "notification_callback" in params or any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in params.values()
-        ):
-            return resolved(
-                request,
-                root=root,
-                notification_callback=notification_callback,
-            )
-    return resolved(request, root=root)
+    else:
+        if notification_callback is not None:
+            try:
+                params = inspect.signature(resolved).parameters
+            except (TypeError, ValueError):
+                params = {}
+            if "notification_callback" in params or any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD
+                for parameter in params.values()
+            ):
+                raw = resolved(
+                    request,
+                    root=root,
+                    notification_callback=notification_callback,
+                )
+            else:
+                raw = resolved(request, root=root)
+        else:
+            raw = resolved(request, root=root)
+    if not isinstance(raw, Mapping):
+        never(
+            "command returned non-mapping payload",
+            command=command,
+            result_type=type(raw).__name__,
+        )
+    return _ordered_result(raw)
 
 
 def run_check(
@@ -1450,7 +1421,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         if _is_stdout_target(opts.synthesis_plan) and "synthesis_plan" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["synthesis_plan"], indent=2, sort_keys=True),
+                json.dumps(result["synthesis_plan"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.synthesis_protocols) and "synthesis_protocols" in result:
@@ -1462,7 +1433,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         if _is_stdout_target(opts.refactor_plan_json) and "refactor_plan" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["refactor_plan"], indent=2, sort_keys=True),
+                json.dumps(result["refactor_plan"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
@@ -1471,7 +1442,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         ):
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_synth_registry"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_synth_registry"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
@@ -1480,19 +1451,19 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         ):
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_provenance"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_provenance"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.fingerprint_deadness_json) and "fingerprint_deadness" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_deadness"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_deadness"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.fingerprint_coherence_json) and "fingerprint_coherence" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_coherence"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_coherence"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
@@ -1501,7 +1472,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         ):
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_rewrite_plans"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_rewrite_plans"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
@@ -1513,7 +1484,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
                 json.dumps(
                     result["fingerprint_exception_obligations"],
                     indent=2,
-                    sort_keys=True,
+                    sort_keys=False,
                 ),
                 ensure_trailing_newline=True,
             )
@@ -1523,25 +1494,25 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         ):
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=True),
+                json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.emit_structure_tree) and "structure_tree" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["structure_tree"], indent=2, sort_keys=True),
+                json.dumps(result["structure_tree"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.emit_structure_metrics) and "structure_metrics" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["structure_metrics"], indent=2, sort_keys=True),
+                json.dumps(result["structure_metrics"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if _is_stdout_target(opts.emit_decision_snapshot) and "decision_snapshot" in result:
             _write_text_to_target(
                 _STDOUT_PATH,
-                json.dumps(result["decision_snapshot"], indent=2, sort_keys=True),
+                json.dumps(result["decision_snapshot"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
 
@@ -1765,335 +1736,50 @@ def _emit_resume_checkpoint_startup_line(
 def _resume_checkpoint_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, object] | None:
-    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
-        return None
-    params = notification.get("params")
-    if not isinstance(params, Mapping):
-        return None
-    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
-        return None
-    value = params.get("value")
-    if not isinstance(value, Mapping):
-        return None
-    resume_checkpoint = value.get("resume_checkpoint")
-    if not isinstance(resume_checkpoint, Mapping):
-        return None
-    checkpoint_path = str(resume_checkpoint.get("checkpoint_path", "") or "")
-    status = str(resume_checkpoint.get("status", "") or "")
-    reused_files = int(resume_checkpoint.get("reused_files", 0) or 0)
-    total_files = int(resume_checkpoint.get("total_files", 0) or 0)
-    return {
-        "checkpoint_path": checkpoint_path,
-        "status": status,
-        "reused_files": reused_files,
-        "total_files": total_files,
-    }
+    return progress_timeline.resume_checkpoint_from_progress_notification(notification)
 
 
 def _checkpoint_intro_timeline_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, str] | None:
-    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
-        return None
-    params = notification.get("params")
-    if not isinstance(params, Mapping):
-        return None
-    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
-        return None
-    value = params.get("value")
-    if not isinstance(value, Mapping):
-        return None
-    row = value.get("checkpoint_intro_timeline_row")
-    if not isinstance(row, str) or not row:
-        return None
-    header = value.get("checkpoint_intro_timeline_header")
-    return {
-        "header": header if isinstance(header, str) else "",
-        "row": row,
-    }
+    return progress_timeline.checkpoint_intro_timeline_from_progress_notification(
+        notification
+    )
 
 
 def _phase_timeline_header_columns() -> list[str]:
-    return [
-        "ts_utc",
-        "event_seq",
-        "event_kind",
-        "phase",
-        "analysis_state",
-        "classification",
-        "progress_marker",
-        "primary",
-        "files",
-        "resume_checkpoint",
-        "stale_for_s",
-        "dimensions",
-    ]
+    return progress_timeline.phase_timeline_header_columns()
 
 
 def _phase_timeline_header_block() -> str:
-    header = _phase_timeline_header_columns()
-    header_line = "| " + " | ".join(header) + " |"
-    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
-    return header_line + "\n" + separator_line
+    return progress_timeline.phase_timeline_header_block()
 
 
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, object] | None,
 ) -> str:
-    if not isinstance(phase_progress_v2, Mapping):
-        return ""
-    raw_dimensions = phase_progress_v2.get("dimensions")
-    if not isinstance(raw_dimensions, Mapping):
-        return ""
-    fragments: list[str] = []
-    dim_names = ordered_or_sorted(
-        (name for name in raw_dimensions if isinstance(name, str)),
-        source="_phase_progress_dimensions_summary.dim_names",
-    )
-    for dim_name in dim_names:
-        raw_payload = raw_dimensions.get(dim_name)
-        if not isinstance(raw_payload, Mapping):
-            continue
-        raw_done = raw_payload.get("done")
-        raw_total = raw_payload.get("total")
-        if (
-            isinstance(raw_done, int)
-            and not isinstance(raw_done, bool)
-            and isinstance(raw_total, int)
-            and not isinstance(raw_total, bool)
-        ):
-            done = max(int(raw_done), 0)
-            total = max(int(raw_total), 0)
-            if total:
-                done = min(done, total)
-            fragments.append(f"{dim_name}={done}/{total}")
-    return "; ".join(fragments)
+    return progress_timeline.phase_progress_dimensions_summary(phase_progress_v2)
 
 
 def _phase_timeline_row_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> str:
-    ts_utc = str(phase_progress.get("ts_utc", "") or "")
-    event_seq = phase_progress.get("event_seq")
-    event_kind = str(phase_progress.get("event_kind", "") or "")
-    phase = str(phase_progress.get("phase", "") or "")
-    analysis_state = str(phase_progress.get("analysis_state", "") or "")
-    classification = str(phase_progress.get("classification", "") or "")
-    progress_marker = str(phase_progress.get("progress_marker", "") or "")
-    phase_progress_v2 = (
-        phase_progress.get("phase_progress_v2")
-        if isinstance(phase_progress.get("phase_progress_v2"), Mapping)
-        else None
-    )
-    primary_unit = ""
-    primary_done: int | None = None
-    primary_total: int | None = None
-    if isinstance(phase_progress_v2, Mapping):
-        primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
-        raw_primary_done = phase_progress_v2.get("primary_done")
-        raw_primary_total = phase_progress_v2.get("primary_total")
-        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool):
-            primary_done = max(int(raw_primary_done), 0)
-        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool):
-            primary_total = max(int(raw_primary_total), 0)
-        if (
-            primary_done is not None
-            and primary_total is not None
-            and primary_total > 0
-            and primary_done > primary_total
-        ):
-            primary_done = primary_total
-    if primary_done is None or primary_total is None:
-        raw_work_done = phase_progress.get("work_done")
-        raw_work_total = phase_progress.get("work_total")
-        if isinstance(raw_work_done, int) and isinstance(raw_work_total, int):
-            primary_done = max(int(raw_work_done), 0)
-            primary_total = max(int(raw_work_total), 0)
-            if primary_total:
-                primary_done = min(primary_done, primary_total)
-    primary = ""
-    if primary_done is not None and primary_total is not None:
-        primary = f"{primary_done}/{primary_total}"
-        if primary_unit:
-            primary = f"{primary} {primary_unit}"
-    elif primary_unit:
-        primary = primary_unit
-    completed_files = phase_progress.get("completed_files")
-    remaining_files = phase_progress.get("remaining_files")
-    total_files = phase_progress.get("total_files")
-    files = ""
-    if (
-        isinstance(completed_files, int)
-        and isinstance(remaining_files, int)
-        and isinstance(total_files, int)
-    ):
-        files = f"{completed_files}/{total_files} rem={remaining_files}"
-    resume_checkpoint = ""
-    raw_resume = phase_progress.get("resume_checkpoint")
-    if isinstance(raw_resume, Mapping):
-        checkpoint_path = str(raw_resume.get("checkpoint_path", "") or "")
-        status = str(raw_resume.get("status", "") or "")
-        raw_reused = raw_resume.get("reused_files")
-        raw_resume_total = raw_resume.get("total_files")
-        if isinstance(raw_reused, int) and isinstance(raw_resume_total, int):
-            resume_checkpoint = (
-                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
-                f"reused_files={raw_reused}/{raw_resume_total}"
-            )
-        else:
-            resume_checkpoint = (
-                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
-                "reused_files=unknown"
-            )
-    raw_stale_for_s = phase_progress.get("stale_for_s")
-    stale_for_s = (
-        f"{float(raw_stale_for_s):.1f}"
-        if isinstance(raw_stale_for_s, (int, float))
-        else ""
-    )
-    dimensions = _phase_progress_dimensions_summary(
-        phase_progress_v2 if isinstance(phase_progress_v2, Mapping) else None
-    )
-    row = [
-        ts_utc,
-        event_seq if isinstance(event_seq, int) else "",
-        event_kind,
-        phase,
-        analysis_state,
-        classification,
-        progress_marker,
-        primary,
-        files,
-        resume_checkpoint,
-        stale_for_s,
-        dimensions,
-    ]
-    return "| " + " | ".join(str(cell).replace("|", "\\|") for cell in row) + " |"
+    return progress_timeline.phase_timeline_row_from_phase_progress(phase_progress)
 
 
 def _phase_timeline_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, str] | None:
-    phase_progress = _phase_progress_from_progress_notification(notification)
-    if not isinstance(phase_progress, Mapping):
-        return None
-    header_value = phase_progress.get("phase_timeline_header")
-    row_value = phase_progress.get("phase_timeline_row")
-    header = (
-        str(header_value)
-        if isinstance(header_value, str) and header_value
-        else _phase_timeline_header_block()
-    )
-    row = (
-        str(row_value)
-        if isinstance(row_value, str) and row_value
-        else _phase_timeline_row_from_phase_progress(phase_progress)
-    )
-    return {"header": header, "row": row}
+    return progress_timeline.phase_timeline_from_progress_notification(notification)
 
 
 def _phase_progress_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, object] | None:
-    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
-        return None
-    params = notification.get("params")
-    if not isinstance(params, Mapping):
-        return None
-    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
-        return None
-    value = params.get("value")
-    if not isinstance(value, Mapping):
-        return None
-    phase = str(value.get("phase", "") or "")
-    if not phase:
-        return None
-    raw_work_done = value.get("work_done")
-    work_done = (
-        int(raw_work_done)
-        if isinstance(raw_work_done, int) and not isinstance(raw_work_done, bool)
-        else None
-    )
-    raw_work_total = value.get("work_total")
-    work_total = (
-        int(raw_work_total)
-        if isinstance(raw_work_total, int) and not isinstance(raw_work_total, bool)
-        else None
-    )
-    raw_completed_files = value.get("completed_files")
-    completed_files = (
-        int(raw_completed_files)
-        if isinstance(raw_completed_files, int) and not isinstance(raw_completed_files, bool)
-        else None
-    )
-    raw_remaining_files = value.get("remaining_files")
-    remaining_files = (
-        int(raw_remaining_files)
-        if isinstance(raw_remaining_files, int) and not isinstance(raw_remaining_files, bool)
-        else None
-    )
-    raw_total_files = value.get("total_files")
-    total_files = (
-        int(raw_total_files)
-        if isinstance(raw_total_files, int) and not isinstance(raw_total_files, bool)
-        else None
-    )
-    analysis_state = str(value.get("analysis_state", "") or "")
-    classification = str(value.get("classification", "") or "")
-    event_kind = str(value.get("event_kind", "") or "")
-    progress_marker = str(value.get("progress_marker", "") or "")
-    raw_event_seq = value.get("event_seq")
-    event_seq = (
-        int(raw_event_seq)
-        if isinstance(raw_event_seq, int) and not isinstance(raw_event_seq, bool)
-        else None
-    )
-    raw_stale_for_s = value.get("stale_for_s")
-    stale_for_s = (
-        float(raw_stale_for_s)
-        if isinstance(raw_stale_for_s, (int, float)) and not isinstance(raw_stale_for_s, bool)
-        else None
-    )
-    phase_progress_v2 = value.get("phase_progress_v2")
-    normalized_phase_progress_v2 = (
-        {str(key): phase_progress_v2[key] for key in phase_progress_v2}
-        if isinstance(phase_progress_v2, Mapping)
-        else None
-    )
-    phase_timeline_header = value.get("phase_timeline_header")
-    phase_timeline_row = value.get("phase_timeline_row")
-    resume_checkpoint = value.get("resume_checkpoint")
-    normalized_resume_checkpoint = (
-        {str(key): resume_checkpoint[key] for key in resume_checkpoint}
-        if isinstance(resume_checkpoint, Mapping)
-        else None
-    )
-    done = bool(value.get("done", False))
-    return {
-        "phase": phase,
-        "work_done": work_done,
-        "work_total": work_total,
-        "completed_files": completed_files,
-        "remaining_files": remaining_files,
-        "total_files": total_files,
-        "analysis_state": analysis_state,
-        "classification": classification,
-        "event_kind": event_kind,
-        "event_seq": event_seq,
-        "stale_for_s": stale_for_s,
-        "phase_progress_v2": normalized_phase_progress_v2,
-        "progress_marker": progress_marker,
-        "phase_timeline_header": (
-            phase_timeline_header
-            if isinstance(phase_timeline_header, str)
-            else ""
-        ),
-        "phase_timeline_row": (
-            phase_timeline_row if isinstance(phase_timeline_row, str) else ""
-        ),
-        "resume_checkpoint": normalized_resume_checkpoint,
-        "done": done,
-    }
+    payload = progress_timeline.phase_progress_from_progress_notification(notification)
+    if isinstance(payload, Mapping):
+        return {str(key): payload[key] for key in payload}
+    return None
 
 
 def _emit_phase_progress_line(phase_progress: Mapping[str, object]) -> None:
@@ -2153,30 +1839,15 @@ def _emit_analysis_resume_summary(result: JSONObject) -> None:
 
 
 def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], None]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("run_dataflow_raw_argv")
-        if callable(candidate):
-            return candidate
-    return _run_dataflow_raw_argv
+    return _context_cli_deps(ctx).run_dataflow_raw_argv_fn
 
 
 def _context_run_check(ctx: typer.Context) -> Callable[..., JSONObject]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("run_check")
-        if callable(candidate):
-            return candidate
-    return run_check
+    return _context_cli_deps(ctx).run_check_fn
 
 
 def _context_run_with_timeout_retries(ctx: typer.Context) -> Callable[..., JSONObject]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("run_with_timeout_retries")
-        if callable(candidate):
-            return candidate
-    return _run_with_timeout_retries
+    return _context_cli_deps(ctx).run_with_timeout_retries_fn
 
 
 def _run_dataflow_raw_argv(
@@ -2215,9 +1886,6 @@ def _run_dataflow_raw_argv(
                 total_files=int(resume.get("total_files", 0) or 0),
             )
             startup_resume_emitted = True
-        timeline_update = _phase_timeline_from_progress_notification(
-            notification
-        )
         phase_progress = _phase_progress_from_progress_notification(notification)
         if not isinstance(phase_progress, Mapping):
             return
@@ -2226,35 +1894,23 @@ def _run_dataflow_raw_argv(
             if last_phase_event_seq == event_seq:
                 return
             last_phase_event_seq = event_seq
-        signature = (
-            phase_progress.get("phase"),
-            phase_progress.get("analysis_state"),
-            phase_progress.get("classification"),
-            phase_progress.get("event_kind"),
-            phase_progress.get("event_seq"),
-            phase_progress.get("work_done"),
-            phase_progress.get("work_total"),
-            phase_progress.get("completed_files"),
-            phase_progress.get("remaining_files"),
-            phase_progress.get("total_files"),
-            phase_progress.get("stale_for_s"),
-            phase_progress.get("progress_marker"),
-            phase_progress.get("done"),
-        )
+        signature = progress_timeline.phase_progress_signature(phase_progress)
         if signature == last_phase_progress_signature:
             return
         last_phase_progress_signature = signature
-        if isinstance(timeline_update, Mapping):
-            row = str(timeline_update.get("row") or "")
-            header_value = timeline_update.get("header")
-            header = (
-                header_value
-                if not timeline_header_emitted and isinstance(header_value, str) and header_value
-                else None
-            )
-            _emit_checkpoint_intro_timeline_progress(header=header, row=row)
-            if header is not None:
-                timeline_header_emitted = True
+        timeline_update = progress_timeline.phase_timeline_from_phase_progress(
+            phase_progress
+        )
+        row = str(timeline_update.get("row") or "")
+        header_value = timeline_update.get("header")
+        header = (
+            header_value
+            if not timeline_header_emitted and isinstance(header_value, str) and header_value
+            else None
+        )
+        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        if header is not None:
+            timeline_header_emitted = True
 
     result = _run_with_timeout_retries(
         run_once=lambda: dispatch_command(
@@ -2447,10 +2103,10 @@ def check(
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
     )
+    deps = _context_cli_deps(ctx)
     if profile_name not in {"strict", "raw"}:
         raise typer.BadParameter("profile must be 'strict' or 'raw'")
     if profile_name == "raw":
-        run_dataflow_raw_argv_fn = _context_run_dataflow_raw_argv(ctx)
         _run_check_raw_profile(
             ctx=ctx,
             paths=paths,
@@ -2472,7 +2128,7 @@ def check(
             lint=lint,
             lint_jsonl=lint_jsonl,
             lint_sarif=lint_sarif,
-            run_dataflow_raw_argv_fn=run_dataflow_raw_argv_fn,
+            run_dataflow_raw_argv_fn=deps.run_dataflow_raw_argv_fn,
         )
         return
     extra_tokens = list(ctx.args)
@@ -2513,9 +2169,6 @@ def check(
                 total_files=int(resume.get("total_files", 0) or 0),
             )
             startup_resume_emitted = True
-        timeline_update = _phase_timeline_from_progress_notification(
-            notification
-        )
         phase_progress = _phase_progress_from_progress_notification(notification)
         if not isinstance(phase_progress, Mapping):
             return
@@ -2524,40 +2177,26 @@ def check(
             if last_phase_event_seq == event_seq:
                 return
             last_phase_event_seq = event_seq
-        signature = (
-            phase_progress.get("phase"),
-            phase_progress.get("analysis_state"),
-            phase_progress.get("classification"),
-            phase_progress.get("event_kind"),
-            phase_progress.get("event_seq"),
-            phase_progress.get("work_done"),
-            phase_progress.get("work_total"),
-            phase_progress.get("completed_files"),
-            phase_progress.get("remaining_files"),
-            phase_progress.get("total_files"),
-            phase_progress.get("stale_for_s"),
-            phase_progress.get("progress_marker"),
-            phase_progress.get("done"),
-        )
+        signature = progress_timeline.phase_progress_signature(phase_progress)
         if signature == last_phase_progress_signature:
             return
         last_phase_progress_signature = signature
-        if isinstance(timeline_update, Mapping):
-            row = str(timeline_update.get("row") or "")
-            header_value = timeline_update.get("header")
-            header = (
-                header_value
-                if not timeline_header_emitted and isinstance(header_value, str) and header_value
-                else None
-            )
-            _emit_checkpoint_intro_timeline_progress(header=header, row=row)
-            if header is not None:
-                timeline_header_emitted = True
+        timeline_update = progress_timeline.phase_timeline_from_phase_progress(
+            phase_progress
+        )
+        row = str(timeline_update.get("row") or "")
+        header_value = timeline_update.get("header")
+        header = (
+            header_value
+            if not timeline_header_emitted and isinstance(header_value, str) and header_value
+            else None
+        )
+        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        if header is not None:
+            timeline_header_emitted = True
 
-    run_check_fn = _context_run_check(ctx)
-    run_with_timeout_retries_fn = _context_run_with_timeout_retries(ctx)
-    result = run_with_timeout_retries_fn(
-        run_once=lambda: run_check_fn(
+    result = deps.run_with_timeout_retries_fn(
+        run_once=lambda: deps.run_check_fn(
             paths=paths,
             report=report,
             policy=CheckPolicyFlags(
@@ -3112,12 +2751,7 @@ def _checkpoint_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
 def _context_restore_resume_checkpoint(
     ctx: typer.Context,
 ) -> Callable[..., int]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("restore_resume_checkpoint")
-        if callable(candidate):
-            return candidate
-    return _restore_dataflow_resume_checkpoint_from_github_artifacts
+    return _context_cli_deps(ctx).restore_resume_checkpoint_fn
 
 
 @app.command("restore-resume-checkpoint")
@@ -3134,8 +2768,8 @@ def restore_resume_checkpoint(
     ),
 ) -> None:
     """Restore dataflow resume checkpoint files from prior workflow artifacts."""
-    restore_fn = _context_restore_resume_checkpoint(ctx)
-    exit_code = restore_fn(
+    deps = _context_cli_deps(ctx)
+    exit_code = deps.restore_resume_checkpoint_fn(
         token=token,
         repo=repo,
         output_dir=output_dir,
@@ -3208,21 +2842,11 @@ def _run_docflow_audit(
 
 
 def _context_run_sppf_sync(ctx: typer.Context) -> Callable[..., int]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("run_sppf_sync")
-        if callable(candidate):
-            return candidate
-    return _run_sppf_sync
+    return _context_cli_deps(ctx).run_sppf_sync_fn
 
 
 def _context_run_governance_cli(ctx: typer.Context) -> Callable[..., int]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("run_governance_cli")
-        if callable(candidate):
-            return candidate
-    return _run_governance_cli
+    return _context_cli_deps(ctx).run_governance_cli_fn
 
 
 @app.command("sppf-sync")
@@ -3255,10 +2879,10 @@ def sppf_sync(
     ),
 ) -> None:
     """Sync SPPF checklist-linked GitHub issues from commit messages."""
-    run_sppf_sync_fn = _context_run_sppf_sync(ctx)
+    deps = _context_cli_deps(ctx)
     with _cli_deadline_scope():
         try:
-            exit_code = run_sppf_sync_fn(
+            exit_code = deps.run_sppf_sync_fn(
                 rev_range=rev_range,
                 comment=comment,
                 close=close,
@@ -3308,8 +2932,8 @@ def sppf_graph(
         args.extend(["--dot-output", str(dot_output)])
     if issues_json is not None:
         args.extend(["--issues-json", str(issues_json)])
-    run_governance_cli_fn = _context_run_governance_cli(ctx)
-    exit_code = run_governance_cli_fn(runner_name="run_sppf_graph_cli", args=args)
+    deps = _context_cli_deps(ctx)
+    exit_code = deps.run_governance_cli_fn(runner_name="run_sppf_graph_cli", args=args)
     raise typer.Exit(code=exit_code)
 
 
@@ -3330,8 +2954,11 @@ def status_consistency(
         args.extend(["--extra-path", entry])
     if fail_on_violations:
         args.append("--fail-on-violations")
-    run_governance_cli_fn = _context_run_governance_cli(ctx)
-    exit_code = run_governance_cli_fn(runner_name="run_status_consistency_cli", args=args)
+    deps = _context_cli_deps(ctx)
+    exit_code = deps.run_governance_cli_fn(
+        runner_name="run_status_consistency_cli",
+        args=args,
+    )
     raise typer.Exit(code=exit_code)
 
 
@@ -3563,7 +3190,7 @@ def _run_synthesis_plan(
         runner=runner,
     )
     normalized = SynthesisPlanResponseDTO.model_validate(result).model_dump()
-    output = json.dumps(normalized, indent=2, sort_keys=True)
+    output = json.dumps(normalized, indent=2, sort_keys=False)
     if output_path is None:
         typer.echo(output)
     else:
@@ -3699,7 +3326,7 @@ def _emit_impact(result: JSONObject, *, json_output: bool) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     if json_output:
-        typer.echo(json.dumps(result, indent=2, sort_keys=True))
+        typer.echo(json.dumps(result, indent=2, sort_keys=False))
     else:
         must = result.get("must_run_tests") or []
         likely = result.get("likely_run_tests") or []
@@ -3880,7 +3507,7 @@ def _emit_structure_diff(result: JSONObject) -> None:
     normalized = StructureDiffResponseDTO.model_validate(result).model_dump()
     errors = normalized.get("errors")
     exit_code = int(normalized.get("exit_code", 0))
-    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=False))
     if errors:
         for error in errors:
             check_deadline()
@@ -3894,7 +3521,7 @@ def _emit_decision_diff(result: JSONObject) -> None:
     normalized = DecisionDiffResponseDTO.model_validate(result).model_dump()
     errors = normalized.get("errors")
     exit_code = int(normalized.get("exit_code", 0))
-    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=False))
     if errors:
         for error in errors:
             check_deadline()
@@ -3908,7 +3535,7 @@ def _emit_structure_reuse(result: JSONObject) -> None:
     normalized = StructureReuseResponseDTO.model_validate(result).model_dump()
     errors = normalized.get("errors")
     exit_code = int(normalized.get("exit_code", 0))
-    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=False))
     if errors:
         for error in errors:
             check_deadline()
@@ -4056,7 +3683,7 @@ def _run_refactor_protocol(
         runner=runner,
     )
     normalized = RefactorProtocolResponseDTO.model_validate(result).model_dump()
-    output = json.dumps(normalized, indent=2, sort_keys=True)
+    output = json.dumps(normalized, indent=2, sort_keys=False)
     if output_path is None:
         typer.echo(output)
     else:

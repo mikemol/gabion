@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -42,7 +43,7 @@ class ReportDoc:
         if isinstance(content, str):
             rendered = content
         else:
-            rendered = json.dumps(content, indent=2, sort_keys=True)
+            rendered = json.dumps(content, indent=2, sort_keys=False)
         fence = f"```{language}" if language else "```"
         self._lines.append(fence)
         self._lines.extend(rendered.splitlines() or [""])

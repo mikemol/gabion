@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 """Rendering adapters extracted from ``dataflow_audit``."""
 
 from __future__ import annotations

@@ -158,6 +158,12 @@ def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
     normalized, primary_done, primary_total = server._build_phase_progress_v2(
         phase="collection",
         collection_progress={"completed_files": 3, "total_files": 5},
+        semantic_progress={
+            "cumulative_new_processed_functions": 2,
+            "cumulative_completed_files_delta": 1,
+            "cumulative_hydrated_paths_delta": 3,
+            "cumulative_regressed_functions": 1,
+        },
         work_done=None,
         work_total=None,
         phase_progress_v2={
@@ -184,6 +190,8 @@ def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
     assert "bad_done" not in dimensions
     assert "bad_total" not in dimensions
     assert dimensions["collection_files"] == {"done": 4, "total": 4}
+    assert dimensions["hydrated_paths_delta"] == {"done": 3, "total": 4}
+    assert dimensions["semantic_progress_points"] == {"done": 6, "total": 7}
     assert normalized["inventory"] == {"known": 1}
 
 
@@ -319,6 +327,83 @@ def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> No
     assert "- `primary_unit`: `forest_mutable_steps`" in report
     assert "- `stale_for_s`: `7.2`" in report
     assert pending == {}
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_server_progress_and_incremental_render_additional_branch_edges::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._render_incremental_report::server.py::gabion.server._append_phase_timeline_event
+def test_server_progress_and_incremental_render_additional_branch_edges(
+    tmp_path: Path,
+) -> None:
+    server = _load()
+
+    normalized, primary_done, primary_total = server._build_phase_progress_v2(
+        phase="collection",
+        collection_progress={"completed_files": True, "total_files": "bad"},
+        semantic_progress=None,
+        work_done=None,
+        work_total=None,
+        phase_progress_v2={
+            7: "skip",
+            "dimensions": [],
+            "inventory": [],
+        },
+    )
+    assert primary_done == 0
+    assert primary_total == 0
+    assert normalized["dimensions"] == {"collection_files": {"done": 0, "total": 0}}
+    assert normalized["inventory"] == {}
+
+    report_zero, _pending_zero = server._render_incremental_report(
+        analysis_state="analysis_forest_in_progress",
+        progress_payload={
+            "work_done": 5,
+            "work_total": 0,
+            "phase_progress_v2": {
+                "primary_done": 5,
+                "primary_total": 0,
+                "primary_unit": "",
+                "dimensions": {},
+            },
+        },
+        projection_rows=[],
+        sections={},
+    )
+    assert "- `work_done`: `5`" in report_zero
+    assert "- `work_total`: `0`" in report_zero
+    assert "work_percent" not in report_zero
+    assert "- `primary_progress`: `5/0`" in report_zero
+    assert "- `primary_unit`" not in report_zero
+    assert "- `dimensions`" not in report_zero
+
+    report_invalid_primary, _pending_invalid_primary = server._render_incremental_report(
+        analysis_state="analysis_forest_in_progress",
+        progress_payload={
+            "phase_progress_v2": {
+                "primary_done": "bad",
+                "primary_total": 2,
+                "primary_unit": "",
+                "dimensions": {},
+            },
+        },
+        projection_rows=[],
+        sections={},
+    )
+    assert "- `primary_progress`" not in report_invalid_primary
+
+    markdown_path = tmp_path / "phase_timeline.md"
+    jsonl_path = tmp_path / "phase_timeline.jsonl"
+    _header, row = server._append_phase_timeline_event(
+        markdown_path=markdown_path,
+        jsonl_path=jsonl_path,
+        progress_value={
+            "phase": "collection",
+            "phase_progress_v2": {
+                "primary_done": 2,
+                "primary_total": 5,
+            },
+        },
+    )
+    assert "2/5" in row
+    assert "2/5 collection_files" not in row
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_profile_sample_interval_rejects_invalid_values::server.py::gabion.server._deadline_profile_sample_interval

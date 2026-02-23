@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import re
@@ -5,7 +6,7 @@ from typing import Iterable
 
 from gabion.synthesis.model import NamingContext
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def _camelize(value: str) -> str:
@@ -31,7 +32,7 @@ def suggest_name(fields: Iterable[str], context: NamingContext | None = None) ->
     else:
         frequency = context.frequency
         anchor = max(
-            ordered_or_sorted(
+            sort_once(
                 field_list,
                 source="suggest_name.field_list",
             ),

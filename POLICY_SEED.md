@@ -1,5 +1,5 @@
 ---
-doc_revision: 39
+doc_revision: 41
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -142,6 +142,13 @@ that treats recurring parameter bundles as type-level obligations. Any bundle th
 crosses function boundaries must be promoted to a dataclass (config or local bundle),
 or explicitly documented with a `# dataflow-bundle:` marker. This is enforced in CI
 as part of semantic correctness.
+
+**Sorted-data boundary invariant:** Data entering functional code MUST be
+normalized into deterministic order exactly once per carrier lifetime; order
+MUST be preserved throughout functional code; and data leaving functional code
+MUST be order-enforced at the boundary without serializer-level re-sorting for
+already-canonical carriers. Any explicit sort enforcement MUST disclose its sort
+key/function (or comparator shape) and rationale.
 
 ---
 
@@ -517,6 +524,42 @@ core modules):
 Any of the above patterns discovered in semantic core changes MUST be treated as
 a policy violation unless accompanied by boundary-level reification that removes
 the ambiguity before core-flow execution.
+
+### 4.9 Sort-Disclosure Ratchet
+
+When canonical ordering is enforced, this repository treats sorting as semantic
+policy, not formatting.
+
+Required behavior:
+
+1. **Ingress normalization:** Any collection/map that crosses into functional
+   code MUST be normalized to deterministic order at the boundary.
+2. **Core preservation:** Functional-core transformations MUST preserve ordering.
+   Active re-sorting of an already-normalized carrier is forbidden.
+3. **Egress enforcement:** Data leaving functional code MUST pass through an
+   explicit order-enforcement boundary (for example via `ordered_or_sorted()`
+   policy surfaces or canonical serialization helpers) and MUST NOT apply
+   serializer-level re-sorting for already-canonical carriers.
+4. **One-sort lifetime budget:** Each carrier may consume active sorting at most
+   once in its lifetime. Any subsequent active sort attempt is a policy
+   violation.
+5. **Sort contract disclosure:** Every enforced sort MUST declare:
+   * sort key/function (or comparator tuple shape),
+   * whether it is lexical or non-lexical, and
+   * rationale (identity semantics, determinism, diagnostics, etc.).
+6. **Shared-helper rule:** If ordering is enforced by a shared helper, the
+   helper’s contract MAY carry the disclosure once; call sites must not redefine
+   conflicting sort semantics.
+
+Policy violations:
+
+* Enforcing order without documenting key/comparator semantics.
+* Silent non-lexical sorting without declaring comparator components.
+* Treating sortedness as optional at boundary surfaces that externalize
+  artifacts or protocol payloads.
+* Applying a second active sort to a carrier that has already been normalized.
+* Applying `json.dumps(..., sort_keys=True)` as a serializer fallback for
+  already-canonical payloads.
 
 ---
 

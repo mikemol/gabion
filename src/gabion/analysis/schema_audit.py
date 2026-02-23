@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import ast
@@ -7,6 +8,7 @@ import re
 from typing import Iterable
 from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
+from gabion.order_contract import sort_once
 
 
 _DOC_ROLE_RE = re.compile(r"^test_")
@@ -250,7 +252,7 @@ def find_anonymous_schema_surfaces(
         )
         for surface in surfaces
     ]
-    return sorted(
+    return sort_once(
         normalized,
         key=lambda entry: (entry.path, entry.lineno, entry.col, entry.context),
-    )
+    source = 'src/gabion/analysis/schema_audit.py:254')

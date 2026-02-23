@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# gabion:decision_protocol_module
+# gabion:boundary_normalization_module
 """Infer forwarding-based parameter bundles and propagate them across calls.
 
 This script performs a two-stage analysis:
@@ -47,9 +49,11 @@ from gabion.analysis.evidence import (
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.derivation_cache import get_global_derivation_cache
+from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
 from gabion.invariants import never, require_not_none
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -167,6 +171,18 @@ from .dataflow_exception_obligations import (
 )
 from .dataflow_report_rendering import (
     render_synthesis_section as _report_render_synthesis_section,
+)
+from .dataflow_bundle_iteration import (
+    iter_dataclass_call_bundle_effects as _iter_dataclass_call_bundle_effects_impl,
+)
+from .dataflow_callee_resolution import (
+    CalleeResolutionContext as _CalleeResolutionContextCore,
+    collect_callee_resolution_effects as _collect_callee_resolution_effects_impl,
+    resolve_callee_with_effects as _resolve_callee_with_effects_impl,
+)
+from .dataflow_run_outputs import (
+    DataflowRunOutputContext as _RunImplOutputContextCore,
+    finalize_run_outputs as _finalize_run_outputs_impl,
 )
 from gabion.schema import SynthesisResponse
 from gabion.refactor.rewrite_plan import rewrite_plan_schema, validate_rewrite_plan_payload
@@ -348,7 +364,7 @@ class InvariantProposition:
 
 
 def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    encoded = json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     digest = hashlib.blake2s(encoded, digest_size=12).hexdigest()
     return f"{prefix}:{digest}"
 
@@ -442,7 +458,7 @@ class SymbolTable:
         candidates = self.star_imports.get(current_module, set())
         if not candidates:
             return None
-        for module in ordered_or_sorted(
+        for module in sort_once(
             candidates,
             source="SymbolTable.resolve_star.candidates",
         ):
@@ -887,7 +903,7 @@ def _preview_parse_failure_witnesses_section(
         "Parse failure witnesses preview (provisional).",
         f"- `parse_failure_witnesses`: `{len(report.parse_failure_witnesses)}`",
     ]
-    for stage, count in ordered_or_sorted(
+    for stage, count in sort_once(
         stage_counts.items(),
         source="_preview_parse_failure_witnesses_section.stage_counts",
         key=lambda item: item[0],
@@ -1210,10 +1226,10 @@ def _topologically_order_report_projection_specs(
             section_id,
         )
 
-    prioritized_ids = tuple(sorted(by_id, key=_order_key))
+    prioritized_ids = tuple(sort_once(by_id, key=_order_key, source = 'src/gabion/analysis/dataflow_audit.py:1213'))
     predecessor_graph = {
         section_id: tuple(
-            dict.fromkeys(sorted(by_id[section_id].deps, key=_order_key))
+            dict.fromkeys(sort_once(by_id[section_id].deps, key=_order_key, source = 'src/gabion/analysis/dataflow_audit.py:1216'))
         )
         for section_id in prioritized_ids
     }
@@ -1335,8 +1351,13 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
                     # Prune excluded dirs before descending to avoid scanning
                     # large env/vendor trees like `.venv/`.
                     dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
-                dirnames.sort()
-                for filename in ordered_or_sorted(
+                dirnames[:] = sort_once(
+                    dirnames,
+                    source="_iter_paths.dirnames",
+                    # Lexical directory names for deterministic traversal order.
+                    key=lambda name: name,
+                )
+                for filename in sort_once(
                     filenames,
                     source="_iter_paths.filenames",
                 ):
@@ -1351,7 +1372,7 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
             if config.is_ignored_path(path):
                 continue
             out.append(path)
-    return ordered_or_sorted(
+    return sort_once(
         out,
         source="_iter_paths.out",
     )
@@ -1527,7 +1548,7 @@ def generate_property_hook_manifest(
 ) -> JSONObject:
     threshold = max(0.0, min(1.0, min_confidence))
     hooks: list[JSONObject] = []
-    for proposition in sorted(
+    for proposition in sort_once(
         invariants,
         key=lambda prop: (
             prop.scope or "",
@@ -1535,7 +1556,7 @@ def generate_property_hook_manifest(
             prop.terms,
             prop.invariant_id or "",
         ),
-    ):
+    source = 'src/gabion/analysis/dataflow_audit.py:1535'):
         check_deadline()
         scope = proposition.scope or ""
         if not scope or ":" not in scope:
@@ -1588,13 +1609,13 @@ def generate_property_hook_manifest(
         hooks.append(hook_payload)
     hooks = [
         hooks[idx]
-        for idx in sorted(
+        for idx in sort_once(
             range(len(hooks)),
             key=lambda idx: (
                 str(hooks[idx].get("hook_id", "")),
                 str(hooks[idx].get("invariant_id", "")),
             ),
-        )
+        source = 'src/gabion/analysis/dataflow_audit.py:1596')
     ]
     callable_index = _build_property_hook_callable_index(hooks)
     return {
@@ -1624,9 +1645,9 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     return [
         {
             "scope": scope,
-            "hook_ids": sorted(hook_ids),
+            "hook_ids": sort_once(hook_ids, source = 'src/gabion/analysis/dataflow_audit.py:1632'),
         }
-        for scope, hook_ids in sorted(callables.items())
+        for scope, hook_ids in sort_once(callables.items(), source = 'src/gabion/analysis/dataflow_audit.py:1634')
     ]
 
 
@@ -1856,10 +1877,9 @@ def _decision_surface_form_entries(
                 if case.guard is not None:
                     entries.append(("match_guard", case.guard))
             continue
-        if isinstance(node, ast.comprehension):
-            for guard in node.ifs:
-                check_deadline()
-                entries.append(("comprehension_guard", guard))
+        for guard in cast(ast.comprehension, node).ifs:
+            check_deadline()
+            entries.append(("comprehension_guard", guard))
     return entries
 
 
@@ -2001,7 +2021,7 @@ def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
     if not labels:
         return "heuristic"
     return ", ".join(
-        ordered_or_sorted(labels, source="_decision_reason_summary.labels")
+        sort_once(labels, source="_decision_reason_summary.labels")
     )
 
 
@@ -2020,17 +2040,26 @@ def _decision_surface_alt_evidence(
     caller_count: int,
     reason_summary: str,
 ) -> JSONObject:
-    payload = dict(spec.alt_evidence(boundary, descriptor))
-    payload["classification_reason"] = reason_summary
-    payload["classification_descriptor"] = descriptor
+    base_evidence = dict(spec.alt_evidence(boundary, descriptor))
+    payload: JSONObject = {
+        "boundary": base_evidence.get("boundary", boundary),
+        "classification_descriptor": descriptor,
+        "classification_reason": reason_summary,
+        "decision_params": sort_once(
+            set(params),
+            source="_decision_surface_alt_evidence.params",
+        ),
+    }
+    if "meta" in base_evidence:
+        payload["meta"] = base_evidence["meta"]
+    for key in sort_once(
+        (str(k) for k in base_evidence if str(k) not in {"boundary", "meta"}),
+        source="_decision_surface_alt_evidence.base_evidence",
+    ):
+        payload[key] = base_evidence[key]
     payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
     payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
-    payload["decision_params"] = ordered_or_sorted(
-        set(params),
-        source="_decision_surface_alt_evidence.params",
-    )
     return payload
-
 
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
@@ -2065,7 +2094,7 @@ _VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     surface_label="value-encoded decision params",
     params=lambda info: info.value_decision_params,
     descriptor=lambda info, _boundary: ", ".join(
-        ordered_or_sorted(
+        sort_once(
             info.value_decision_reasons,
             source="_VALUE_DECISION_SURFACE_SPEC.descriptor",
         )
@@ -2123,7 +2152,7 @@ def _analyze_decision_surface_indexed(
         check_deadline()
         if _is_test_path(info.path):
             continue
-        params = ordered_or_sorted(
+        params = sort_once(
             spec.params(info),
             source=f"_analyze_decision_surface_indexed.{spec.pass_id}.params",
         )
@@ -2209,19 +2238,19 @@ def _analyze_decision_surface_indexed(
                 if lint is not None:
                     lint_lines.append(lint)
     return (
-        ordered_or_sorted(
+        sort_once(
             surfaces,
             source="_analyze_decision_surface_indexed.surfaces",
         ),
-        ordered_or_sorted(
+        sort_once(
             set(warnings),
             source="_analyze_decision_surface_indexed.warnings",
         ),
-        ordered_or_sorted(
+        sort_once(
             rewrites,
             source="_analyze_decision_surface_indexed.rewrites",
         ),
-        ordered_or_sorted(
+        sort_once(
             set(lint_lines),
             source="_analyze_decision_surface_indexed.lint_lines",
         ),
@@ -2377,7 +2406,7 @@ def _internal_broad_type_lint_lines_indexed(
             )
             if lint is not None:
                 lines.append(lint)
-    return ordered_or_sorted(
+    return sort_once(
         set(lines),
         source="_internal_broad_type_lint_lines_indexed.lines",
     )
@@ -2631,6 +2660,23 @@ _NON_NULL_PARSE_WITNESS_HELPERS = frozenset(
     }
 )
 
+_PARSE_CONTRACT_PROGRESS_INTERVAL = 128
+_PARSE_CONTRACT_MAPS_OP = DerivationOp(
+    name="parse_contract.maps",
+    version=1,
+    scope="dataflow_audit",
+)
+_PARSE_CONTRACT_IMPORTED_FUNCTIONS_OP = DerivationOp(
+    name="parse_contract.imported_functions",
+    version=1,
+    scope="dataflow_audit",
+)
+_ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
+    name="analysis_index.stage_cache",
+    version=1,
+    scope="dataflow_audit",
+)
+
 
 def _annotation_allows_none(
     annotation: ast.AST | None,
@@ -2670,35 +2716,179 @@ def _parameter_default_map(
     return mapping
 
 
+def _imported_helper_targets(
+    tree: ast.Module,
+) -> dict[str, tuple[str, str]]:
+    targets: dict[str, tuple[str, str]] = {}
+    for index, node in enumerate(tree.body):
+        if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
+            check_deadline()
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if not node.module:
+            continue
+        for alias in node.names:
+            local_name = alias.asname or alias.name
+            targets[local_name] = (node.module, alias.name)
+    return targets
+
+
+def _resolve_repo_module_path(
+    module_name: str,
+) -> Path | None:
+    if not module_name.startswith("gabion."):
+        return None
+    src_root = Path(__file__).resolve().parents[2]
+    module_parts = module_name.split(".")
+    module_path = src_root.joinpath(*module_parts).with_suffix(".py")
+    if module_path.exists():
+        return module_path
+    package_init = src_root.joinpath(*module_parts, "__init__.py")
+    if package_init.exists():
+        return package_init
+    return None
+
+
+def _module_dependency_payload(
+    module_path: Path,
+) -> dict[str, object]:
+    resolved = module_path.resolve()
+    stat = resolved.stat()
+    return {
+        "path": str(resolved),
+        "mtime_ns": int(stat.st_mtime_ns),
+        "size": int(stat.st_size),
+    }
+
+
+def _path_dependency_payload(
+    path: Path,
+) -> dict[str, object]:
+    resolved = path.resolve()
+    stat = resolved.stat()
+    return {
+        "path": str(resolved),
+        "mtime_ns": int(stat.st_mtime_ns),
+        "size": int(stat.st_size),
+    }
+
+
+def _parse_contract_maps_from_source(
+    source: str,
+) -> tuple[dict[str, ast.FunctionDef], dict[str, tuple[str, str]]]:
+    tree = ast.parse(source)
+    functions: dict[str, ast.FunctionDef] = {}
+    for index, node in enumerate(tree.body):
+        if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
+            check_deadline()
+        if isinstance(node, ast.FunctionDef):
+            functions[node.name] = node
+    imported_helpers = _imported_helper_targets(tree)
+    return functions, imported_helpers
+
+
+def _module_function_map(
+    module_path: Path,
+) -> dict[str, ast.FunctionDef]:
+    runtime = get_global_derivation_cache()
+    dependencies = _module_dependency_payload(module_path)
+
+    def _compute_functions() -> dict[str, ast.FunctionDef]:
+        source = module_path.read_text()
+        functions, _ = _parse_contract_maps_from_source(source)
+        return functions
+
+    result = runtime.derive(
+        op=_PARSE_CONTRACT_IMPORTED_FUNCTIONS_OP,
+        structural_inputs={"module_path": str(module_path.resolve())},
+        dependencies=dependencies,
+        params={"kind": "module_functions"},
+        compute_fn=_compute_functions,
+        source="dataflow_audit._module_function_map",
+    )
+    return cast(dict[str, ast.FunctionDef], result)
+
+
 def _parse_witness_contract_violations(
     *,
     source: str | None = None,
     source_path: Path | None = None,
     target_helpers: frozenset[str] | None = None,
+    module_function_map_fn: Callable[[Path], dict[str, ast.FunctionDef]] = _module_function_map,
 ) -> list[str]:
     helpers = (
         _NON_NULL_PARSE_WITNESS_HELPERS if target_helpers is None else target_helpers
     )
     module_path = source_path or Path(__file__)
+    functions: dict[str, ast.FunctionDef]
+    imported_helpers: dict[str, tuple[str, str]]
     if source is None:
         try:
-            source = module_path.read_text()
+            runtime = get_global_derivation_cache()
+            dependencies = _module_dependency_payload(module_path)
+
+            def _compute_maps() -> tuple[
+                dict[str, ast.FunctionDef],
+                dict[str, tuple[str, str]],
+            ]:
+                source_text = module_path.read_text()
+                return _parse_contract_maps_from_source(source_text)
+
+            cached_maps = runtime.derive(
+                op=_PARSE_CONTRACT_MAPS_OP,
+                structural_inputs={"module_path": str(module_path.resolve())},
+                dependencies=dependencies,
+                params={"kind": "functions_and_imported_helpers"},
+                compute_fn=_compute_maps,
+                source="dataflow_audit._parse_witness_contract_violations",
+            )
+            functions, imported_helpers = cast(
+                tuple[
+                    dict[str, ast.FunctionDef],
+                    dict[str, tuple[str, str]],
+                ],
+                cached_maps,
+            )
         except OSError as exc:
             return [f"{module_path} parse_sink_contract read_error: {type(exc).__name__}"]
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError) as exc:
-        return [f"{module_path} parse_sink_contract parse_error: {type(exc).__name__}"]
-    functions = {
-        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
-    }
+        except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError) as exc:
+            return [f"{module_path} parse_sink_contract parse_error: {type(exc).__name__}"]
+    else:
+        try:
+            functions, imported_helpers = _parse_contract_maps_from_source(source)
+        except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError) as exc:
+            return [f"{module_path} parse_sink_contract parse_error: {type(exc).__name__}"]
     violations: list[str] = []
-    for helper_name in ordered_or_sorted(
+    for helper_name in sort_once(
         helpers,
         source="_parse_witness_contract_violations.helpers",
     ):
         check_deadline()
         node = functions.get(helper_name)
+        helper_module_path = module_path
+        if node is None:
+            imported_target = imported_helpers.get(helper_name)
+            if imported_target is not None:
+                imported_module_name, imported_symbol = imported_target
+                imported_module_path = _resolve_repo_module_path(imported_module_name)
+                if imported_module_path is not None:
+                    try:
+                        imported_functions = module_function_map_fn(imported_module_path)
+                    except (
+                        OSError,
+                        SyntaxError,
+                        ValueError,
+                        TypeError,
+                        MemoryError,
+                        RecursionError,
+                    ) as exc:
+                        violations.append(
+                            f"{imported_module_path}:{imported_symbol} parse_sink_contract import_parse_error: {type(exc).__name__}"
+                        )
+                        continue
+                    node = imported_functions.get(imported_symbol)
+                    if node is not None:
+                        helper_module_path = imported_module_path
         if node is None:
             violations.append(
                 f"{module_path}:{helper_name} parse_sink_contract missing helper definition"
@@ -2711,18 +2901,18 @@ def _parse_witness_contract_violations(
         )
         if param_node is None:
             violations.append(
-                f"{module_path}:{helper_name} parse_sink_contract missing parse_failure_witnesses"
+                f"{helper_module_path}:{helper_name} parse_sink_contract missing parse_failure_witnesses"
             )
             continue
         if _annotation_allows_none(param_node.annotation):
             violations.append(
-                f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must be total list[JSONObject]"
+                f"{helper_module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must be total list[JSONObject]"
             )
         default_map = _parameter_default_map(node)
         default_node = default_map.get("parse_failure_witnesses")
         if isinstance(default_node, ast.Constant) and default_node.value is None:
             violations.append(
-                f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
+                f"{helper_module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
             )
     return violations
 
@@ -2790,7 +2980,7 @@ def _raw_sorted_contract_violations(
         _RAW_SORTED_BASELINE_COUNTS if baseline_counts is None else baseline_counts
     )
     violations: list[str] = []
-    for path in ordered_or_sorted(
+    for path in sort_once(
         counts,
         source="_raw_sorted_contract_violations.counts",
     ):
@@ -2801,7 +2991,7 @@ def _raw_sorted_contract_violations(
             for line, col in counts[path]:
                 check_deadline()
                 violations.append(
-                    f"{path}:{line}:{col} order_contract raw sorted() forbidden; use ordered_or_sorted(...)"
+                    f"{path}:{line}:{col} order_contract raw sorted() forbidden; use sort_once(...)"
                 )
             continue
         if baseline is None:
@@ -2887,7 +3077,7 @@ def _indexed_pass_ingress_members(
             continue
         indexed_members.append(node.name)
     return tuple(
-        ordered_or_sorted(
+        sort_once(
             indexed_members,
             source="_indexed_pass_ingress_members.indexed_members",
         )
@@ -3014,7 +3204,7 @@ def _bundle_pattern_instances(
             for bundle in bundles:
                 check_deadline()
                 key = tuple(
-                    ordered_or_sorted(
+                    sort_once(
                         bundle,
                         source="_bundle_pattern_instances.bundle",
                     )
@@ -3023,52 +3213,51 @@ def _bundle_pattern_instances(
                     continue
                 occurrences[key].append(f"{path.name}:{fn_name}")
     instances: list[PatternInstance] = []
-    for bundle_key in ordered_or_sorted(
+    for bundle_key in sort_once(
         occurrences,
         source="_bundle_pattern_instances.occurrences",
     ):
         check_deadline()
         members = tuple(
-            ordered_or_sorted(
+            sort_once(
                 set(occurrences[bundle_key]),
                 source="_bundle_pattern_instances.members",
             )
         )
         count = len(members)
         if count <= 1:
-            if count == 1:
-                schema = PatternSchema.build(
-                    axis=PatternAxis.DATAFLOW,
-                    kind="bundle_signature",
-                    signature={
-                        "bundle": list(bundle_key),
-                        "tier": 3,
-                        "site_count": count,
-                    },
-                    normalization={"bundle": list(bundle_key)},
-                )
-                instances.append(
-                    PatternInstance.build(
-                        schema=schema,
-                        members=members,
-                        suggestion=(
-                            "dataflow_pattern near_miss "
-                            + f"bundle={','.join(bundle_key)} sites={count}"
-                        ),
-                        residue=(
-                            PatternResidue(
-                                schema_id=schema.schema_id,
-                                reason="schema_contract_mismatch",
-                                payload=mismatch_residue_payload(
-                                    axis=PatternAxis.DATAFLOW,
-                                    kind="bundle_signature",
-                                    expected={"min_sites": 2, "tier": 2},
-                                    observed={"site_count": count, "tier": 3, "bundle": list(bundle_key)},
-                                ),
+            schema = PatternSchema.build(
+                axis=PatternAxis.DATAFLOW,
+                kind="bundle_signature",
+                signature={
+                    "bundle": list(bundle_key),
+                    "tier": 3,
+                    "site_count": count,
+                },
+                normalization={"bundle": list(bundle_key)},
+            )
+            instances.append(
+                PatternInstance.build(
+                    schema=schema,
+                    members=members,
+                    suggestion=(
+                        "dataflow_pattern near_miss "
+                        + f"bundle={','.join(bundle_key)} sites={count}"
+                    ),
+                    residue=(
+                        PatternResidue(
+                            schema_id=schema.schema_id,
+                            reason="schema_contract_mismatch",
+                            payload=mismatch_residue_payload(
+                                axis=PatternAxis.DATAFLOW,
+                                kind="bundle_signature",
+                                expected={"min_sites": 2, "tier": 2},
+                                observed={"site_count": count, "tier": 3, "bundle": list(bundle_key)},
                             ),
                         ),
-                    )
+                    ),
                 )
+            )
             continue
         signature: JSONObject = {
             "bundle": list(bundle_key),
@@ -3134,7 +3323,7 @@ def _pattern_schema_matches(
             groups_by_path=groups_by_path,
         )
     )
-    return ordered_or_sorted(
+    return sort_once(
         instances,
         source="_pattern_schema_matches.instances",
         key=lambda entry: (
@@ -3171,7 +3360,7 @@ def _pattern_schema_suggestions_from_instances(
         suggestions.append(
             f"pattern_schema axis={instance.schema.axis.value} {instance.suggestion}"
         )
-    return ordered_or_sorted(
+    return sort_once(
         set(suggestions),
         source="_pattern_schema_suggestions_from_instances.suggestions",
     )
@@ -3184,13 +3373,13 @@ def _pattern_schema_residue_entries(
     for instance in instances:
         check_deadline()
         entries.extend(instance.residue)
-    return ordered_or_sorted(
+    return sort_once(
         entries,
         source="_pattern_schema_residue_entries.entries",
         key=lambda entry: (
             entry.schema_id,
             entry.reason,
-            json.dumps(entry.payload, sort_keys=True, separators=(",", ":")),
+            json.dumps(entry.payload, sort_keys=False, separators=(",", ":")),
         ),
     )
 
@@ -3199,7 +3388,7 @@ def _pattern_schema_residue_lines(entries: Sequence[PatternResidue]) -> list[str
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        payload = json.dumps(entry.payload, sort_keys=True)
+        payload = json.dumps(entry.payload, sort_keys=False)
         lines.append(
             f"schema_id={entry.schema_id} reason={entry.reason} payload={payload}"
         )
@@ -3231,13 +3420,13 @@ def _pattern_schema_snapshot_entries(
                         "reason": residue.reason,
                         "payload": residue.payload,
                     }
-                    for residue in ordered_or_sorted(
+                    for residue in sort_once(
                         instance.residue,
                         source="_pattern_schema_snapshot_entries.instance_residue",
                         key=lambda entry: (
                             entry.schema_id,
                             entry.reason,
-                            json.dumps(entry.payload, sort_keys=True, separators=(",", ":")),
+                            json.dumps(entry.payload, sort_keys=False, separators=(",", ":")),
                         ),
                     )
                 ],
@@ -3269,7 +3458,7 @@ def _execution_pattern_suggestions(
     ):
         check_deadline()
         suggestions.append(instance.suggestion)
-    return ordered_or_sorted(
+    return sort_once(
         set(suggestions),
         source="_execution_pattern_suggestions.suggestions",
     )
@@ -3344,7 +3533,7 @@ def _compute_fingerprint_warnings(
             for bundle in bundles:
                 check_deadline()
                 missing = [param for param in bundle if not fn_annots.get(param)]
-                bundle_params = ordered_or_sorted(
+                bundle_params = sort_once(
                     bundle,
                     source="_compute_fingerprint_warnings.bundle",
                 )
@@ -3352,7 +3541,7 @@ def _compute_fingerprint_warnings(
                     warnings.append(
                         f"{path.name}:{fn_name} bundle {bundle_params} missing type annotations: "
                         + ", ".join(
-                            ordered_or_sorted(
+                            sort_once(
                                 missing,
                                 source="_compute_fingerprint_warnings.missing",
                             )
@@ -3377,11 +3566,11 @@ def _compute_fingerprint_warnings(
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
                 ]
-                base_keys_sorted = ordered_or_sorted(
+                base_keys_sorted = sort_once(
                     base_keys,
                     source="_compute_fingerprint_warnings.base_keys",
                 )
-                ctor_keys_sorted = ordered_or_sorted(
+                ctor_keys_sorted = sort_once(
                     ctor_keys,
                     source="_compute_fingerprint_warnings.ctor_keys",
                 )
@@ -3401,7 +3590,7 @@ def _compute_fingerprint_warnings(
                 warnings.append(
                     f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
                 )
-    return ordered_or_sorted(
+    return sort_once(
         set(warnings),
         source="_compute_fingerprint_warnings.warnings",
     )
@@ -3430,7 +3619,7 @@ def _compute_fingerprint_matches(
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
-                bundle_params = ordered_or_sorted(
+                bundle_params = sort_once(
                     bundle,
                     source="_compute_fingerprint_matches.bundle",
                 )
@@ -3452,11 +3641,11 @@ def _compute_fingerprint_matches(
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
                 ]
-                base_keys_sorted = ordered_or_sorted(
+                base_keys_sorted = sort_once(
                     base_keys,
                     source="_compute_fingerprint_matches.base_keys",
                 )
-                ctor_keys_sorted = ordered_or_sorted(
+                ctor_keys_sorted = sort_once(
                     ctor_keys,
                     source="_compute_fingerprint_matches.ctor_keys",
                 )
@@ -3468,14 +3657,14 @@ def _compute_fingerprint_matches(
                 matches.append(
                     f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
                     + ", ".join(
-                        ordered_or_sorted(
+                        sort_once(
                             names,
                             source="_compute_fingerprint_matches.names",
                         )
                     )
                     + details
                 )
-    return ordered_or_sorted(
+    return sort_once(
         set(matches),
         source="_compute_fingerprint_matches.matches",
     )
@@ -3529,7 +3718,7 @@ def _compute_fingerprint_provenance(
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
-                bundle_params = ordered_or_sorted(
+                bundle_params = sort_once(
                     bundle,
                     source="_compute_fingerprint_provenance.bundle",
                 )
@@ -3551,7 +3740,7 @@ def _compute_fingerprint_provenance(
                 ]
                 matches = []
                 if index:
-                    matches = ordered_or_sorted(
+                    matches = sort_once(
                         index.get(fingerprint, set()),
                         source="_compute_fingerprint_provenance.matches",
                     )
@@ -3580,11 +3769,11 @@ def _compute_fingerprint_provenance(
                                 "mask": fingerprint.synth.mask,
                             },
                         },
-                        "base_keys": ordered_or_sorted(
+                        "base_keys": sort_once(
                             base_keys,
                             source="_compute_fingerprint_provenance.base_keys",
                         ),
-                        "ctor_keys": ordered_or_sorted(
+                        "ctor_keys": sort_once(
                             ctor_keys,
                             source="_compute_fingerprint_provenance.ctor_keys",
                         ),
@@ -3620,7 +3809,7 @@ def _summarize_fingerprint_provenance(
             key = ("types", base_keys, ctor_keys)
         grouped.setdefault(key, []).append(entry)
     lines: list[str] = []
-    grouped_entries = ordered_or_sorted(
+    grouped_entries = sort_once(
         grouped.items(),
         source="_summarize_fingerprint_provenance.grouped",
         key=lambda item: (-len(item[1]), item[0]),
@@ -3669,7 +3858,7 @@ def _compute_fingerprint_coherence(
         entries,
         synth_version=synth_version,
         check_deadline=check_deadline,
-        ordered_or_sorted=ordered_or_sorted,
+        ordered_or_sorted=sort_once,
     )
 
 
@@ -3698,7 +3887,7 @@ def _compute_fingerprint_rewrite_plans(
         synth_version=synth_version,
         exception_obligations=exception_obligations,
         check_deadline=check_deadline,
-        ordered_or_sorted=ordered_or_sorted,
+        ordered_or_sorted=sort_once,
         site_from_payload=Site.from_payload,
     )
 
@@ -3733,6 +3922,188 @@ def _exception_obligation_summary_for_site(
     site: Site,
 ) -> dict[str, int]:
     return exception_obligation_summary_for_site(obligations, site=site)
+
+
+@dataclass(frozen=True)
+class _RewritePredicateContext:
+    expected_base: list[object]
+    expected_ctor: list[object]
+    expected_remainder: Mapping[str, object]
+    expected_strata: str
+    expected_candidates: list[str]
+    post_base: list[object]
+    post_ctor: list[object]
+    post_remainder: Mapping[str, object]
+    post_matches: object
+    post_strata: str
+    post_exception_obligations: list[JSONObject] | None
+    pre: Mapping[str, object]
+    site: Site
+
+
+def _evaluate_base_conservation_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    base_ok = context.post_base == context.expected_base
+    return {
+        "kind": kind,
+        "passed": base_ok,
+        "expected": context.expected_base,
+        "observed": context.post_base,
+    }
+
+
+def _evaluate_ctor_coherence_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    ctor_ok = context.post_ctor == context.expected_ctor
+    return {
+        "kind": kind,
+        "passed": ctor_ok,
+        "expected": context.expected_ctor,
+        "observed": context.post_ctor,
+    }
+
+
+def _evaluate_match_strata_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    strata_expect = str(predicate.get("expect", context.expected_strata) or "")
+    candidates = [
+        str(item)
+        for item in (predicate.get("candidates") or context.expected_candidates)
+        if item
+    ]
+    strata_ok = True
+    if strata_expect:
+        strata_ok = context.post_strata == strata_expect
+    if (
+        strata_expect == "exact"
+        and isinstance(context.post_matches, list)
+        and len(context.post_matches) == 1
+    ):
+        strata_ok = strata_ok and (str(context.post_matches[0]) in set(candidates))
+    return {
+        "kind": kind,
+        "passed": strata_ok,
+        "expected": strata_expect,
+        "observed": context.post_strata,
+        "candidates": candidates,
+        "observed_matches": context.post_matches,
+    }
+
+
+def _remainder_clean(value: int) -> bool:
+    return value in (0, 1)
+
+
+def _evaluate_remainder_non_regression_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    pre_base_rem = int(context.expected_remainder.get("base", 1) or 1)
+    pre_ctor_rem = int(context.expected_remainder.get("ctor", 1) or 1)
+    post_base_rem = int(context.post_remainder.get("base", 1) or 1)
+    post_ctor_rem = int(context.post_remainder.get("ctor", 1) or 1)
+    rem_ok = True
+    if _remainder_clean(pre_base_rem):
+        rem_ok = rem_ok and _remainder_clean(post_base_rem)
+    if _remainder_clean(pre_ctor_rem):
+        rem_ok = rem_ok and _remainder_clean(post_ctor_rem)
+    return {
+        "kind": kind,
+        "passed": rem_ok,
+        "expected": {"base": pre_base_rem, "ctor": pre_ctor_rem},
+        "observed": {"base": post_base_rem, "ctor": post_ctor_rem},
+    }
+
+
+def _summary_unknown_and_discharged(summary: Mapping[str, object]) -> tuple[int, int]:
+    try:
+        unknown = int(summary.get("UNKNOWN", 0) or 0)
+        discharged = int(summary.get("DEAD", 0) or 0) + int(summary.get("HANDLED", 0) or 0)
+    except (TypeError, ValueError):
+        unknown = 0
+        discharged = 0
+    return unknown, discharged
+
+
+def _evaluate_exception_obligation_non_regression_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    pre_summary = context.pre.get("exception_obligations_summary")
+    if not isinstance(pre_summary, dict):
+        pre_summary = None
+    if context.post_exception_obligations is None:
+        return {
+            "kind": kind,
+            "passed": False,
+            "expected": pre_summary,
+            "observed": None,
+            "issue": "missing post exception obligations",
+        }
+    if pre_summary is None:
+        return {
+            "kind": kind,
+            "passed": False,
+            "expected": None,
+            "observed": None,
+            "issue": "missing pre exception obligations summary",
+        }
+    post_summary = _exception_obligation_summary_for_site(
+        context.post_exception_obligations,
+        site=context.site,
+    )
+    pre_unknown, pre_discharged = _summary_unknown_and_discharged(pre_summary)
+    post_unknown, post_discharged = _summary_unknown_and_discharged(post_summary)
+    exc_ok = (post_unknown <= pre_unknown) and (post_discharged >= pre_discharged)
+    return {
+        "kind": kind,
+        "passed": exc_ok,
+        "expected": {"UNKNOWN": pre_unknown, "DISCHARGED": pre_discharged},
+        "observed": {"UNKNOWN": post_unknown, "DISCHARGED": post_discharged},
+        "pre_summary": pre_summary,
+        "post_summary": post_summary,
+    }
+
+
+_REWRITE_PREDICATE_EVALUATORS: Mapping[
+    str,
+    Callable[[JSONObject, _RewritePredicateContext], JSONObject],
+] = {
+    "base_conservation": _evaluate_base_conservation_predicate,
+    "ctor_coherence": _evaluate_ctor_coherence_predicate,
+    "match_strata": _evaluate_match_strata_predicate,
+    "remainder_non_regression": _evaluate_remainder_non_regression_predicate,
+    "exception_obligation_non_regression": _evaluate_exception_obligation_non_regression_predicate,
+}
+
+
+def _evaluate_rewrite_predicate(
+    predicate: JSONObject,
+    *,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    evaluator = _REWRITE_PREDICATE_EVALUATORS.get(kind)
+    if evaluator is None:
+        return {
+            "kind": kind,
+            "passed": False,
+            "expected": predicate.get("expect"),
+            "observed": None,
+            "issue": "unknown predicate kind",
+        }
+    return evaluator(predicate, context)
 
 
 def verify_rewrite_plan(
@@ -3857,138 +4228,29 @@ def verify_rewrite_plan(
             else:
                 requested_predicates.append({"kind": kind, "expect": True})
 
-    def _clean(value: int) -> bool:
-        return value in (0, 1)
+    predicate_context = _RewritePredicateContext(
+        expected_base=expected_base,
+        expected_ctor=expected_ctor,
+        expected_remainder=expected_remainder,
+        expected_strata=expected_strata,
+        expected_candidates=expected_candidates,
+        post_base=post_base,
+        post_ctor=post_ctor,
+        post_remainder=post_remainder,
+        post_matches=post_matches,
+        post_strata=post_strata,
+        post_exception_obligations=post_exception_obligations,
+        pre=pre,
+        site=site,
+    )
 
     for predicate in requested_predicates:
         check_deadline()
-        kind = str(predicate.get("kind", ""))
-        if kind == "base_conservation":
-            base_ok = post_base == expected_base
-            predicate_results.append(
-                {
-                    "kind": kind,
-                    "passed": base_ok,
-                    "expected": expected_base,
-                    "observed": post_base,
-                }
-            )
-            continue
-        if kind == "ctor_coherence":
-            ctor_ok = post_ctor == expected_ctor
-            predicate_results.append(
-                {
-                    "kind": kind,
-                    "passed": ctor_ok,
-                    "expected": expected_ctor,
-                    "observed": post_ctor,
-                }
-            )
-            continue
-        if kind == "match_strata":
-            strata_expect = str(predicate.get("expect", expected_strata) or "")
-            candidates = [
-                str(item)
-                for item in (predicate.get("candidates") or expected_candidates)
-                if item
-            ]
-            strata_ok = True
-            if strata_expect:
-                strata_ok = post_strata == strata_expect
-            if strata_expect == "exact" and isinstance(post_matches, list) and len(post_matches) == 1:
-                strata_ok = strata_ok and (str(post_matches[0]) in set(candidates))
-            predicate_results.append(
-                {
-                    "kind": kind,
-                    "passed": strata_ok,
-                    "expected": strata_expect,
-                    "observed": post_strata,
-                    "candidates": candidates,
-                    "observed_matches": post_matches,
-                }
-            )
-            continue
-        if kind == "remainder_non_regression":
-            pre_base_rem = int(expected_remainder.get("base", 1) or 1)
-            pre_ctor_rem = int(expected_remainder.get("ctor", 1) or 1)
-            post_base_rem = int(post_remainder.get("base", 1) or 1)
-            post_ctor_rem = int(post_remainder.get("ctor", 1) or 1)
-            rem_ok = True
-            if _clean(pre_base_rem):
-                rem_ok = rem_ok and _clean(post_base_rem)
-            if _clean(pre_ctor_rem):
-                rem_ok = rem_ok and _clean(post_ctor_rem)
-            predicate_results.append(
-                {
-                    "kind": kind,
-                    "passed": rem_ok,
-                    "expected": {"base": pre_base_rem, "ctor": pre_ctor_rem},
-                    "observed": {"base": post_base_rem, "ctor": post_ctor_rem},
-                }
-            )
-            continue
-        if kind == "exception_obligation_non_regression":
-            pre_summary = pre.get("exception_obligations_summary")
-            if not isinstance(pre_summary, dict):
-                pre_summary = None
-            if post_exception_obligations is None:
-                predicate_results.append(
-                    {
-                        "kind": kind,
-                        "passed": False,
-                        "expected": pre_summary,
-                        "observed": None,
-                        "issue": "missing post exception obligations",
-                    }
-                )
-                continue
-            if pre_summary is None:
-                predicate_results.append(
-                    {
-                        "kind": kind,
-                        "passed": False,
-                        "expected": None,
-                        "observed": None,
-                        "issue": "missing pre exception obligations summary",
-                    }
-                )
-                continue
-            post_summary = _exception_obligation_summary_for_site(
-                post_exception_obligations,
-                site=site,
-            )
-            try:
-                pre_unknown = int(pre_summary.get("UNKNOWN", 0) or 0)
-                pre_discharged = int(pre_summary.get("DEAD", 0) or 0) + int(
-                    pre_summary.get("HANDLED", 0) or 0
-                )
-            except (TypeError, ValueError):
-                pre_unknown = 0
-                pre_discharged = 0
-            post_unknown = int(post_summary.get("UNKNOWN", 0) or 0)
-            post_discharged = int(post_summary.get("DEAD", 0) or 0) + int(
-                post_summary.get("HANDLED", 0) or 0
-            )
-            exc_ok = (post_unknown <= pre_unknown) and (post_discharged >= pre_discharged)
-            predicate_results.append(
-                {
-                    "kind": kind,
-                    "passed": exc_ok,
-                    "expected": {"UNKNOWN": pre_unknown, "DISCHARGED": pre_discharged},
-                    "observed": {"UNKNOWN": post_unknown, "DISCHARGED": post_discharged},
-                    "pre_summary": pre_summary,
-                    "post_summary": post_summary,
-                }
-            )
-            continue
         predicate_results.append(
-            {
-                "kind": kind,
-                "passed": False,
-                "expected": predicate.get("expect"),
-                "observed": None,
-                "issue": "unknown predicate kind",
-            }
+            _evaluate_rewrite_predicate(
+                predicate,
+                context=predicate_context,
+            )
         )
 
     accepted = (not issues) and all(bool(result.get("passed")) for result in predicate_results)
@@ -4069,7 +4331,7 @@ def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
             if cls is not None:
                 candidates.add(node.attr)
     return tuple(
-        ordered_or_sorted(
+        sort_once(
             candidates,
             source="_annotation_exception_candidates.candidates",
             policy=OrderPolicy.SORT,
@@ -4394,10 +4656,11 @@ def _collect_handledness_witnesses(
                     handledness_reason = (
                         "explicit except clauses do not match the raised exception type"
                     )
-                    if exception_name:
-                        type_refinement_opportunity = (
-                            f"consider except {exception_name} (or a supertype) to dominate this raise path"
-                        )
+                    type_refinement_opportunity = (
+                        f"consider except {exception_name} (or a supertype) to dominate this raise path"
+                        if exception_name
+                        else "consider a typed except clause to dominate this raise path"
+                    )
             if handler_kind is None and exception_name == "SystemExit":
                 handler_kind = "convert"
                 handler_boundary = "process exit"
@@ -4445,7 +4708,7 @@ def _collect_handledness_witnesses(
                     "result": witness_result,
                 }
             )
-    return sorted(
+    return sort_once(
         witnesses,
         key=lambda entry: (
             str(entry.get("site", {}).get("path", "")),
@@ -4453,7 +4716,7 @@ def _collect_handledness_witnesses(
             ",".join(entry.get("site", {}).get("bundle", []) or []),
             str(entry.get("exception_path_id", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:4462')
 
 
 def _dead_env_map(
@@ -4612,12 +4875,12 @@ def _collect_exception_obligations(
                             if isinstance(current, ast.If):
                                 names.update(_names_in_expr(current.test))
                             current = parents.get(current)
-                        ordered_names = ordered_or_sorted(
+                        ordered_names = sort_once(
                             names,
                             source="_collect_exception_obligations.names.dead",
                             policy=OrderPolicy.SORT,
                         )
-                        for name in ordered_or_sorted(
+                        for name in sort_once(
                             ordered_names,
                             source="_collect_exception_obligations.names.dead.enforce",
                             policy=OrderPolicy.ENFORCE,
@@ -4655,7 +4918,7 @@ def _collect_exception_obligations(
                     "protocol": protocol,
                 }
             )
-    return sorted(
+    return sort_once(
         obligations,
         key=lambda entry: (
             str(entry.get("site", {}).get("path", "")),
@@ -4664,7 +4927,7 @@ def _collect_exception_obligations(
             str(entry.get("source_kind", "")),
             str(entry.get("exception_path_id", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:4672')
 
 
 def _never_reason(call: ast.Call) -> str | None:
@@ -4742,12 +5005,12 @@ def _collect_never_invariants(
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
-                    ordered_names = ordered_or_sorted(
+                    ordered_names = sort_once(
                         names,
                         source="_collect_never_invariants.names.proven_unreachable",
                         policy=OrderPolicy.SORT,
                     )
-                    for name in ordered_or_sorted(
+                    for name in sort_once(
                         ordered_names,
                         source="_collect_never_invariants.names.proven_unreachable.enforce",
                         policy=OrderPolicy.ENFORCE,
@@ -4773,7 +5036,7 @@ def _collect_never_invariants(
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
-                    undecidable_params = ordered_or_sorted(
+                    undecidable_params = sort_once(
                         (n for n in names if n not in env_entries),
                         source="_collect_never_invariants.undecidable_params",
                         policy=OrderPolicy.SORT,
@@ -4806,7 +5069,7 @@ def _collect_never_invariants(
                 evidence["reason"] = reason
             evidence["span"] = list(normalized_span)
             forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
-    return sorted(
+    return sort_once(
         invariants,
         key=lambda entry: (
             str(entry.get("site", {}).get("path", "")),
@@ -4814,7 +5077,7 @@ def _collect_never_invariants(
             ",".join(entry.get("site", {}).get("bundle", []) or []),
             str(entry.get("never_id", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:4823')
 
 
 _DEADLINE_CHECK_METHODS = {"check", "expired"}
@@ -5685,9 +5948,9 @@ def _sorted_graph_nodes(
     nodes: Iterable[_GraphNode],
 ) -> list[_GraphNode]:
     try:
-        return sorted(nodes)
+        return sort_once(nodes, source = 'src/gabion/analysis/dataflow_audit.py:5702')
     except TypeError:
-        return sorted(nodes, key=lambda item: repr(item))
+        return sort_once(nodes, key=lambda item: repr(item), source = 'src/gabion/analysis/dataflow_audit.py:5704')
 
 
 def _collect_recursive_nodes(
@@ -5805,7 +6068,7 @@ def _bind_call_args(
         elif callee.kwarg is not None:
             mapping.setdefault(callee.kwarg, kw.value)
     if strictness == "low":
-        remaining = [p for p in sorted(named_params) if p not in mapping]
+        remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5822') if p not in mapping]
         if len(star_args) == 1 and isinstance(star_args[0], ast.Name):
             for param in remaining:
                 check_deadline()
@@ -5853,7 +6116,7 @@ def _caller_param_bindings_for_call(
             mapped_params.add(callee.kwarg)
             mapping[callee.kwarg].add(caller_param)
     if strictness == "low":
-        remaining = [p for p in sorted(named_params) if p not in mapped_params]
+        remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5870') if p not in mapped_params]
         if callee.vararg is not None and callee.vararg not in mapped_params:
             remaining.append(callee.vararg)
         if callee.kwarg is not None and callee.kwarg not in mapped_params:
@@ -5951,7 +6214,7 @@ def _fallback_deadline_arg_info(
         elif callee.kwarg is not None:
             mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind="unknown"))
     if strictness == "low":
-        remaining = [p for p in sorted(named_params) if p not in mapping]
+        remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5968') if p not in mapping]
         if len(call.star_pos) == 1:
             _, star_param = call.star_pos[0]
             for param in remaining:
@@ -6014,838 +6277,9 @@ def _deadline_loop_forwarded_params(
     return forwarded
 
 
-def _collect_deadline_obligations(
-    paths: list[Path],
-    *,
-    project_root: Path | None,
-    config: AuditConfig,
-    forest: Forest,
-    extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
-    extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
-    extra_deadline_params: dict[str, set[str]] | None = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    materialize_call_candidates_fn: Callable[..., None] | None = None,
-    collect_call_nodes_by_path_fn: Callable[
-        ..., dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]
-    ] | None = None,
-    collect_deadline_function_facts_fn: Callable[
-        ..., dict[str, "_DeadlineFunctionFacts"]
-    ] | None = None,
-    collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]] | None = None,
-    collect_call_resolution_obligations_from_forest_fn: Callable[
-        ..., list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
-    ] | None = None,
-    reachable_from_roots_fn: Callable[
-        [Mapping[NodeId, set[NodeId]], set[NodeId]], set[NodeId]
-    ] | None = None,
-    collect_recursive_nodes_fn: Callable[
-        [Mapping[NodeId, set[NodeId]]], set[NodeId]
-    ] | None = None,
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
-    on_progress: Callable[[str], None] | None = None,
-) -> list[JSONObject]:
-    check_deadline()
-    if materialize_call_candidates_fn is None:
-        materialize_call_candidates_fn = _materialize_call_candidates
-    if collect_call_nodes_by_path_fn is None:
-        collect_call_nodes_by_path_fn = _collect_call_nodes_by_path
-    if collect_deadline_function_facts_fn is None:
-        collect_deadline_function_facts_fn = _collect_deadline_function_facts
-    if collect_call_edges_from_forest_fn is None:
-        collect_call_edges_from_forest_fn = _collect_call_edges_from_forest
-    if collect_call_resolution_obligations_from_forest_fn is None:
-        collect_call_resolution_obligations_from_forest_fn = (
-            _collect_call_resolution_obligations_from_forest
-        )
-    if reachable_from_roots_fn is None:
-        reachable_from_roots_fn = _reachable_from_roots
-    if collect_recursive_nodes_fn is None:
-        collect_recursive_nodes_fn = _collect_recursive_nodes
-    if resolve_callee_outcome_fn is None:
-        resolve_callee_outcome_fn = _resolve_callee_outcome
-    if not config.deadline_roots:
-        return []
-    progress_since_emit = 0
-    progress_emit_counter = 0
-
-    def _emit_progress(stage: str, *, force: bool = False) -> None:
-        nonlocal progress_since_emit
-        nonlocal progress_emit_counter
-        if on_progress is None:
-            return
-        progress_since_emit += 1
-        if (
-            not force
-            and progress_since_emit < _DEADLINE_OBLIGATIONS_PROGRESS_EMIT_INTERVAL
-        ):
-            return
-        progress_since_emit = 0
-        progress_emit_counter += 1
-        on_progress(f"{stage}:{progress_emit_counter}")
-
-    normalized_snapshot_path_cache: dict[Path, str] = {}
-    suite_path_name_cache: dict[str, str] = {}
-
-    def _normalized_snapshot_path(path: Path) -> str:
-        cached = normalized_snapshot_path_cache.get(path)
-        if cached is None:
-            cached = _normalize_snapshot_path(path, project_root)
-            normalized_snapshot_path_cache[path] = cached
-        return cached
-
-    def _suite_path_name(path: str) -> str:
-        cached = suite_path_name_cache.get(path)
-        if cached is None:
-            cached = Path(path).name
-            suite_path_name_cache[path] = cached
-        return cached
-
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-    _emit_progress("index_ready", force=True)
-    by_name = index.by_name
-    by_qual = index.by_qual
-    symbol_table = index.symbol_table
-    class_index = index.class_index
-    materialize_call_candidates_fn(
-        forest=forest,
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-    )
-    _emit_progress("call_candidates_materialized")
-    call_nodes_by_path = collect_call_nodes_by_path_fn(
-        paths,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=index,
-    )
-    _emit_progress("call_nodes_collected")
-    facts_by_qual = collect_deadline_function_facts_fn(
-        paths,
-        project_root=project_root,
-        ignore_params=config.ignore_params,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=index,
-    )
-    _emit_progress("function_facts_collected")
-    if extra_facts_by_qual:
-        facts_by_qual = dict(facts_by_qual)
-        facts_by_qual.update(extra_facts_by_qual)
-
-    deadline_params: dict[str, set[str]] = defaultdict(set)
-    for info in by_qual.values():
-        check_deadline()
-        _emit_progress("deadline_params")
-        if _is_test_path(info.path):
-            continue
-        for name in info.params:
-            check_deadline()
-            if _is_deadline_param(name, info.annots.get(name)):
-                deadline_params[info.qual].add(name)
-    if extra_deadline_params:
-        for qual, params in extra_deadline_params.items():
-            check_deadline()
-            if params:
-                deadline_params[qual].update(params)
-    for helper in _DEADLINE_HELPER_QUALS:
-        check_deadline()
-        deadline_params.pop(helper, None)
-    _emit_progress("deadline_params_ready", force=True)
-
-    changed = True
-    while changed:
-        check_deadline()
-        changed = False
-        for infos in by_name.values():
-            check_deadline()
-            _emit_progress("deadline_param_propagation")
-            for info in infos:
-                check_deadline()
-                if _is_test_path(info.path):
-                    continue
-                for call in info.calls:
-                    check_deadline()
-                    resolution = resolve_callee_outcome_fn(
-                        call.callee,
-                        info,
-                        by_name,
-                        by_qual,
-                        symbol_table=symbol_table,
-                        project_root=project_root,
-                        class_index=class_index,
-                        call=call,
-                    )
-                    if not resolution.candidates:
-                        continue
-                    for callee in resolution.candidates:
-                        check_deadline()
-                        mapping = _caller_param_bindings_for_call(
-                            call,
-                            callee,
-                            strictness=config.strictness,
-                        )
-                        for callee_param in deadline_params.get(callee.qual, set()):
-                            check_deadline()
-                            for caller_param in mapping.get(callee_param, set()):
-                                check_deadline()
-                                if caller_param not in deadline_params[info.qual]:
-                                    deadline_params[info.qual].add(caller_param)
-                                    changed = True
-    _emit_progress("deadline_param_propagation_done", force=True)
-
-    call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]] = defaultdict(list)
-    for infos in by_name.values():
-        check_deadline()
-        _emit_progress("call_info_collection")
-        for info in infos:
-            check_deadline()
-            if _is_test_path(info.path):
-                continue
-            facts = facts_by_qual.get(info.qual)
-            alias_to_param = facts.local_info.alias_to_param if facts else {p: p for p in info.params}
-            origin_vars = facts.local_info.origin_vars if facts else set()
-            span_index = call_nodes_by_path.get(info.path, {})
-            for call in info.calls:
-                check_deadline()
-                resolution = resolve_callee_outcome_fn(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table=symbol_table,
-                    project_root=project_root,
-                    class_index=class_index,
-                    call=call,
-                )
-                if not resolution.candidates:
-                    continue
-                call_node = None
-                if call.span is not None:
-                    nodes = span_index.get(call.span)
-                    if nodes:
-                        call_node = nodes[0]
-                for callee in resolution.candidates:
-                    check_deadline()
-                    arg_info = _deadline_arg_info_map(
-                        call,
-                        callee,
-                        call_node=call_node,
-                        alias_to_param=alias_to_param,
-                        origin_vars=origin_vars,
-                        strictness=config.strictness,
-                    )
-                    call_infos[info.qual].append((call, callee, arg_info))
-    _emit_progress("call_info_collection_done", force=True)
-    if extra_call_infos:
-        for qual, entries in extra_call_infos.items():
-            check_deadline()
-            call_infos[qual].extend(entries)
-    _emit_progress("call_info_overrides_applied")
-
-    trusted_params: dict[str, set[str]] = defaultdict(set)
-    roots = set(config.deadline_roots)
-    for qual, params in deadline_params.items():
-        check_deadline()
-        _emit_progress("trusted_seed")
-        if qual in roots:
-            trusted_params[qual].update(params)
-
-    changed = True
-    while changed:
-        check_deadline()
-        changed = False
-        for caller_qual, entries in call_infos.items():
-            check_deadline()
-            _emit_progress("trusted_propagation")
-            for call, callee, arg_info in entries:
-                check_deadline()
-                for callee_param in deadline_params.get(callee.qual, set()):
-                    check_deadline()
-                    info = arg_info.get(callee_param)
-                    if info is None:
-                        continue
-                    if info.kind == "param" and info.param in trusted_params.get(caller_qual, set()):
-                        if callee_param not in trusted_params[callee.qual]:
-                            trusted_params[callee.qual].add(callee_param)
-                            changed = True
-                    if info.kind == "origin" and caller_qual in roots:
-                        if callee_param not in trusted_params[callee.qual]:
-                            trusted_params[callee.qual].add(callee_param)
-                            changed = True
-    _emit_progress("trusted_propagation_done", force=True)
-
-    forwarded_params: dict[str, set[str]] = defaultdict(set)
-    for caller_qual, entries in call_infos.items():
-        check_deadline()
-        _emit_progress("forwarded_params")
-        caller_params = deadline_params.get(caller_qual, set())
-        if not caller_params:
-            continue
-        for _, callee, arg_info in entries:
-            check_deadline()
-            for callee_param in deadline_params.get(callee.qual, set()):
-                check_deadline()
-                info = arg_info.get(callee_param)
-                if info is None:
-                    continue
-                if info.kind == "param" and info.param in caller_params:
-                    forwarded_params[caller_qual].add(info.param)
-    _emit_progress("forwarded_params_done", force=True)
-
-    obligations: list[JSONObject] = []
-
-    def _fallback_span(
-        function: str,
-        param: str | None,
-        span: tuple[int, int, int, int] | None,
-    ) -> tuple[int, int, int, int] | None:
-        if span is not None:
-            return span
-        info = by_qual.get(function)
-        if param and info is not None:
-            candidate = info.param_spans.get(param)
-            if candidate is not None:
-                return candidate
-        facts = facts_by_qual.get(function)
-        if facts is not None and facts.span is not None:
-            return facts.span
-        return span
-
-    def _add_obligation(
-        *,
-        path: str,
-        function: str,
-        param: str | None,
-        status: str,
-        kind: str,
-        detail: str,
-        span: tuple[int, int, int, int] | None = None,
-        caller: str | None = None,
-        callee: str | None = None,
-        suite_kind: str = "function",
-    ) -> None:
-        function_name = str(function)
-        span = _fallback_span(function_name, param, span)
-        span = cast(
-            tuple[int, int, int, int],
-            require_not_none(
-                span,
-                reason="deadline obligation missing span",
-                strict=True,
-                kind=kind,
-            ),
-        )
-        bundle = [param] if param else []
-        span_line, span_col, span_end_line, span_end_col = span
-        if param:
-            deadline_id = (
-                f"deadline:{path}:{function_name}:{kind}:{param}:"
-                f"{span_line}:{span_col}:{span_end_line}:{span_end_col}"
-            )
-        else:
-            deadline_id = (
-                f"deadline:{path}:{function_name}:{kind}:"
-                f"{span_line}:{span_col}:{span_end_line}:{span_end_col}"
-            )
-        entry: JSONObject = {
-            "deadline_id": deadline_id,
-            "site": {
-                "path": path,
-                "function": function_name,
-                "bundle": bundle,
-            },
-            "status": status,
-            "kind": kind,
-            "detail": detail,
-            "span": list(span),
-        }
-        if caller:
-            entry["caller"] = caller
-        if callee:
-            entry["callee"] = callee
-        obligations.append(entry)
-        suite_path = _suite_path_name(path)
-        suite_id = forest.add_suite_site(suite_path, function_name, suite_kind, span=span)
-        suite_node = forest.nodes.get(suite_id)
-        suite_meta = suite_node.meta if suite_node is not None else {}
-        site_payload = cast(dict[str, object], entry["site"])
-        suite_identity = suite_meta.get("suite_id")
-        if isinstance(suite_identity, str) and suite_identity:
-            site_payload["suite_id"] = suite_identity
-        site_payload["suite_kind"] = suite_kind
-        paramset_id = forest.add_paramset(bundle)
-        evidence: dict[str, object] = {
-            "deadline_id": deadline_id,
-            "status": status,
-            "kind": kind,
-            "detail": detail,
-        }
-        if caller:
-            evidence["caller"] = caller
-        if callee:
-            evidence["callee"] = callee
-        forest.add_alt("DeadlineObligation", (suite_id, paramset_id), evidence=evidence)
-
-    for qual, facts in facts_by_qual.items():
-        check_deadline()
-        _emit_progress("origin_obligations")
-        if facts is None:
-            continue
-        if qual not in by_qual:
-            continue
-        if _is_test_path(facts.path):
-            continue
-        if qual in roots:
-            continue
-        for name, span in facts.local_info.origin_spans.items():
-            check_deadline()
-            if name not in facts.local_info.origin_vars:
-                continue
-            _add_obligation(
-                path=_normalized_snapshot_path(facts.path),
-                function=qual,
-                param=name,
-                status="VIOLATION",
-                kind="origin_not_allowlisted",
-                detail=f"local Deadline origin '{name}' outside allowlist",
-                span=span,
-                suite_kind="function",
-            )
-    _emit_progress("origin_obligations_done", force=True)
-
-    for qual, params in deadline_params.items():
-        check_deadline()
-        _emit_progress("default_param_obligations")
-        info = by_qual.get(qual)
-        if info is None or _is_test_path(info.path):
-            continue
-        for param in sorted(params):
-            check_deadline()
-            if param in info.defaults:
-                span = info.param_spans.get(param)
-                _add_obligation(
-                    path=_normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=param,
-                    status="VIOLATION",
-                    kind="default_param",
-                    detail=f"deadline param '{param}' has default",
-                    span=span,
-                    suite_kind="function",
-                )
-    _emit_progress("default_param_obligations_done", force=True)
-
-    edges = collect_call_edges_from_forest_fn(forest, by_name=by_name)
-    _emit_progress("call_edges_ready")
-    raw_resolution_obligations = collect_call_resolution_obligations_from_forest_fn(forest)
-    resolution_obligation_kind_by_site: dict[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str], str] = {}
-    for caller_id, suite_id, span, callee_key, obligation_kind in _collect_call_resolution_obligation_details_from_forest(
-        forest
-    ):
-        check_deadline()
-        _emit_progress("resolution_obligation_details")
-        resolution_obligation_kind_by_site[(caller_id, suite_id, span, callee_key)] = obligation_kind
-    resolution_obligations = [
-        (
-            caller_id,
-            suite_id,
-            span,
-            callee_key,
-            resolution_obligation_kind_by_site.get(
-                (caller_id, suite_id, span, callee_key),
-                "unresolved_internal_callee",
-            ),
-        )
-        for caller_id, suite_id, span, callee_key in raw_resolution_obligations
-    ]
-    recursive_nodes = collect_recursive_nodes_fn(edges)
-    def _deadline_exempt(qual: str) -> bool:
-        return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
-
-    root_site_ids: set[NodeId] = set()
-    for qual in roots:
-        check_deadline()
-        _emit_progress("root_site_resolution")
-        info = by_qual.get(qual)
-        if info is None:
-            continue
-        root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
-
-    reachable_from_roots = reachable_from_roots_fn(edges, root_site_ids)
-    _emit_progress("reachability_ready", force=True)
-
-    def _deadline_carrier_status(
-        *,
-        qual: str,
-        info: FunctionInfo,
-        has_carrier_signal: bool,
-    ) -> str:
-        if not has_carrier_signal:
-            return "OBLIGATION"
-        function_id = _function_suite_id(_function_suite_key(info.path.name, qual))
-        return "VIOLATION" if function_id in reachable_from_roots else "OBLIGATION"
-
-    resolved_call_suites: set[NodeId] = set()
-    for alt in forest.alts:
-        check_deadline()
-        _emit_progress("resolved_call_sites")
-        if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
-            continue
-        suite_id = alt.inputs[0]
-        suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
-            continue
-        if str(suite_node.meta.get("suite_kind", "") or "") != "call":
-            continue
-        resolved_call_suites.add(suite_id)
-    _emit_progress("resolved_call_sites_done", force=True)
-
-    resolution_obligation_kind_map = {
-        "unresolved_dynamic_callee": "call_dynamic_resolution_required",
-        "unresolved_internal_callee": "call_resolution_required",
-    }
-
-    for caller_id, suite_id, span, callee_key, obligation_kind in sorted(
-        resolution_obligations,
-        key=lambda entry: (
-            entry[0].sort_key(),
-            entry[1].sort_key(),
-            entry[2] or (-1, -1, -1, -1),
-            entry[3],
-            entry[4],
-        ),
-    ):
-        check_deadline()
-        _emit_progress("resolution_obligations")
-        if suite_id in resolved_call_suites:
-            continue
-        if caller_id not in reachable_from_roots:
-            continue
-        if caller_id.kind != "SuiteSite" or len(caller_id.key) < 2:
-            continue
-        caller_qual = str(caller_id.key[1] or "")
-        if not caller_qual:
-            continue
-        if _deadline_exempt(caller_qual):
-            continue
-        caller_info = by_qual.get(caller_qual)
-        if caller_info is None or _is_test_path(caller_info.path):
-            continue
-        output_kind = resolution_obligation_kind_map.get(
-            obligation_kind,
-            "call_resolution_required",
-        )
-        if obligation_kind == "unresolved_dynamic_callee":
-            detail = (
-                f"call '{callee_key}' appears to use dynamic dispatch; "
-                "add explicit routing evidence"
-            )
-        else:
-            detail = f"call '{callee_key}' requires resolution"
-        _add_obligation(
-            path=_normalized_snapshot_path(caller_info.path),
-            function=caller_qual,
-            param=None,
-            status="OBLIGATION",
-            kind=output_kind,
-            detail=detail,
-            span=span,
-            caller=caller_qual,
-            callee=callee_key,
-            suite_kind="call",
-        )
-    _emit_progress("resolution_obligations_done", force=True)
-
-    recursive_required: set[str] = set()
-    for function_id in recursive_nodes:
-        check_deadline()
-        _emit_progress("recursive_required")
-        if function_id.kind != "SuiteSite" or len(function_id.key) < 2:
-            continue
-        qual = str(function_id.key[1] or "")
-        if not qual or _deadline_exempt(qual):
-            continue
-        recursive_required.add(qual)
-    _emit_progress("recursive_required_done", force=True)
-
-    for qual in sorted(recursive_required):
-        check_deadline()
-        _emit_progress("recursive_obligations")
-        facts = facts_by_qual.get(qual)
-        info = by_qual.get(qual)
-        if facts is None or info is None or _is_test_path(info.path):
-            continue
-        carriers = deadline_params.get(qual, set())
-        carrier_status = _deadline_carrier_status(
-            qual=qual,
-            info=info,
-            has_carrier_signal=bool(carriers),
-        )
-        if facts.loop_sites:
-            for loop_fact in facts.loop_sites:
-                check_deadline()
-                if not carriers:
-                    if loop_fact.ambient_check:
-                        continue
-                    _add_obligation(
-                        path=_normalized_snapshot_path(info.path),
-                        function=qual,
-                        param=None,
-                        status=carrier_status,
-                        kind="missing_carrier",
-                        detail="recursion loop requires Deadline carrier",
-                        span=loop_fact.span,
-                        suite_kind="loop",
-                    )
-                    continue
-                checked = loop_fact.check_params & carriers
-                if loop_fact.ambient_check:
-                    checked = set(carriers)
-                forwarded = _deadline_loop_forwarded_params(
-                    qual=qual,
-                    loop_fact=loop_fact,
-                    deadline_params=deadline_params,
-                    call_infos=call_infos,
-                ) & carriers
-                if checked or forwarded:
-                    continue
-                _add_obligation(
-                    path=_normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=None,
-                    status=carrier_status,
-                    kind="unchecked_deadline",
-                    detail=(
-                        "deadline carrier not checked or forwarded "
-                        f"in recursion loop depth {loop_fact.depth}"
-                    ),
-                    span=loop_fact.span,
-                    suite_kind="loop",
-                )
-            continue
-        if not carriers:
-            if facts.ambient_check:
-                continue
-            _add_obligation(
-                path=_normalized_snapshot_path(info.path),
-                function=qual,
-                param=None,
-                status=carrier_status,
-                kind="missing_carrier",
-                detail="recursion requires Deadline carrier",
-                span=facts.span,
-                suite_kind="function",
-            )
-            continue
-        checked = facts.check_params & carriers
-        if facts.ambient_check:
-            checked = set(carriers)
-        forwarded = forwarded_params.get(qual, set()) & carriers
-        if checked or forwarded:
-            continue
-        _add_obligation(
-            path=_normalized_snapshot_path(info.path),
-            function=qual,
-            param=None,
-            status=carrier_status,
-            kind="unchecked_deadline",
-            detail="deadline carrier not checked or forwarded (recursion)",
-            span=facts.span,
-            suite_kind="function",
-        )
-    _emit_progress("recursive_obligations_done", force=True)
-
-    for qual, facts in facts_by_qual.items():
-        check_deadline()
-        _emit_progress("loop_obligations")
-        if _deadline_exempt(qual):
-            continue
-        if qual in recursive_required:
-            continue
-        if facts is None:
-            continue
-        info = by_qual.get(qual)
-        if facts is None or info is None or _is_test_path(info.path):
-            continue
-        if not facts.loop_sites:
-            continue
-        carriers = deadline_params.get(qual, set())
-        carrier_status = _deadline_carrier_status(
-            qual=qual,
-            info=info,
-            has_carrier_signal=bool(carriers),
-        )
-        for loop_fact in facts.loop_sites:
-            check_deadline()
-            if not carriers:
-                if loop_fact.ambient_check:
-                    continue
-                _add_obligation(
-                    path=_normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=None,
-                    status=carrier_status,
-                    kind="missing_carrier",
-                    detail="loop requires Deadline carrier",
-                    span=loop_fact.span,
-                    suite_kind="loop",
-                )
-                continue
-            checked = loop_fact.check_params & carriers
-            if loop_fact.ambient_check:
-                checked = set(carriers)
-            forwarded = _deadline_loop_forwarded_params(
-                qual=qual,
-                loop_fact=loop_fact,
-                deadline_params=deadline_params,
-                call_infos=call_infos,
-            ) & carriers
-            if not checked and not forwarded:
-                _add_obligation(
-                    path=_normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=None,
-                    status=carrier_status,
-                    kind="unchecked_deadline",
-                    detail="deadline carrier not checked or forwarded in loop",
-                    span=loop_fact.span,
-                    suite_kind="loop",
-                )
-    _emit_progress("loop_obligations_done", force=True)
-
-    for caller_qual, entries in call_infos.items():
-        check_deadline()
-        _emit_progress("call_arg_obligations")
-        caller_info = by_qual.get(caller_qual)
-        if caller_info is None or _is_test_path(caller_info.path):
-            continue
-        for call, callee, arg_info in entries:
-            check_deadline()
-            callee_deadlines = deadline_params.get(callee.qual, set())
-            if not callee_deadlines:
-                continue
-            span = call.span
-            for callee_param in sorted(callee_deadlines):
-                check_deadline()
-                info = arg_info.get(callee_param)
-                if info is None:
-                    missing_unknown = bool(
-                        call.star_pos
-                        or call.star_kw
-                        or call.non_const_pos
-                        or call.non_const_kw
-                    )
-                    status = "OBLIGATION" if missing_unknown else "VIOLATION"
-                    kind = "missing_arg_unknown" if missing_unknown else "missing_arg"
-                    _add_obligation(
-                        path=_normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status=status,
-                        kind=kind,
-                        detail=f"missing deadline arg for {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "none":
-                    _add_obligation(
-                        path=_normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="VIOLATION",
-                        kind="none_arg",
-                        detail=f"None passed to {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "const":
-                    _add_obligation(
-                        path=_normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="VIOLATION",
-                        kind="const_arg",
-                        detail=f"constant {info.const} passed to {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "origin":
-                    if caller_qual not in roots:
-                        _add_obligation(
-                            path=_normalized_snapshot_path(caller_info.path),
-                            function=caller_qual,
-                            param=callee_param,
-                            status="VIOLATION",
-                            kind="origin_not_allowlisted",
-                            detail=f"origin deadline passed outside allowlist to {callee.qual}.{callee_param}",
-                            span=span,
-                            caller=caller_qual,
-                            callee=callee.qual,
-                            suite_kind="call",
-                        )
-                    continue
-                if info.kind == "param":
-                    if info.param in trusted_params.get(caller_qual, set()):
-                        continue
-                    _add_obligation(
-                        path=_normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="OBLIGATION",
-                        kind="untrusted_param",
-                        detail=f"deadline param '{info.param}' not proven from allowlist",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "unknown":
-                    _add_obligation(
-                        path=_normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="OBLIGATION",
-                        kind="unknown_arg",
-                        detail=f"deadline arg not proven for {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-
-    _emit_progress("call_arg_obligations_done", force=True)
-    return sorted(
-        obligations,
-        key=lambda entry: (
-            str(entry.get("site", {}).get("path", "")),
-            str(entry.get("site", {}).get("function", "")),
-            str(entry.get("kind", "")),
-            ",".join(entry.get("site", {}).get("bundle", []) or []),
-            str(entry.get("deadline_id", "")),
-        ),
-    )
+from gabion.analysis.dataflow_obligations import (
+    collect_deadline_obligations as _collect_deadline_obligations,
+)
 
 
 def _spec_row_span(row: Mapping[str, JSONValue]) -> tuple[int, int, int, int] | None:
@@ -7407,7 +6841,7 @@ def _summarize_call_ambiguities(
         spec_metadata_lines_from_payload(spec_metadata_payload(AMBIGUITY_SUMMARY_SPEC))
     )
     lines.append("Counts by witness kind:")
-    for kind in sorted(counts):
+    for kind in sort_once(counts, source = 'src/gabion/analysis/dataflow_audit.py:7425'):
         check_deadline()
         lines.append(f"- {kind}: {counts[kind]}")
     lines.append("Top ambiguous sites:")
@@ -7490,13 +6924,13 @@ def _summarize_never_invariants(
             if witness_ref:
                 parts.append(f"witness={witness_ref}")
             if env:
-                parts.append(f"env={json.dumps(env, sort_keys=True)}")
+                parts.append(f"env={json.dumps(env, sort_keys=False)}")
         elif status == "PROVEN_UNREACHABLE":
             if witness_ref:
                 parts.append(f"deadness={witness_ref}")
             if env:
-                parts.append(f"env={json.dumps(env, sort_keys=True)}")
-        elif status == "OBLIGATION":
+                parts.append(f"env={json.dumps(env, sort_keys=False)}")
+        else:
             if undecidable:
                 parts.append(f"why={undecidable}")
             else:
@@ -7568,8 +7002,9 @@ def _summarize_never_invariants(
         check_deadline()
         status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
         grouped.setdefault(status, []).append(row)
-    extra_statuses = sorted(
-        status for status in grouped.keys() if status not in ordered_statuses
+    extra_statuses = sort_once(
+        (status for status in grouped.keys() if status not in ordered_statuses),
+        source="src/gabion/analysis/dataflow_audit.py:7586",
     )
     lines: list[str] = []
     lines.extend(
@@ -7765,7 +7200,7 @@ def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
         if source:
             bucket.add(source)
     relation: list[dict[str, JSONValue]] = []
-    for key in sorted(by_identity):
+    for key in sort_once(by_identity, source = 'src/gabion/analysis/dataflow_audit.py:7783'):
         check_deadline()
         path, line, col, code, message = key
         relation.append(
@@ -7775,7 +7210,7 @@ def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
                 "col": col,
                 "code": code,
                 "message": message,
-                "sources": sorted(by_identity[key]),
+                "sources": sort_once(by_identity[key], source = 'src/gabion/analysis/dataflow_audit.py:7793'),
             }
         )
     return relation
@@ -8073,7 +7508,7 @@ def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     cleaned = {str(value).strip() for value in values if str(value).strip()}
-    return tuple(sorted(cleaned))
+    return tuple(sort_once(cleaned, source = 'src/gabion/analysis/dataflow_audit.py:8091'))
 
 
 def _canonical_cache_identity(
@@ -8086,10 +7521,10 @@ def _canonical_cache_identity(
         "stage": stage,
         "forest_spec_id": str(cache_context.forest_spec_id or ""),
         "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
-        "config_subset": {str(key): config_subset[key] for key in sorted(config_subset)},
+        "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
     }
     return hashlib.sha1(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
 
 
@@ -8247,7 +7682,7 @@ def _build_analysis_index(
         by_name=defaultdict(list),
         by_qual={},
     )
-    for qual in ordered_or_sorted(
+    for qual in sort_once(
         by_qual,
         source="_build_analysis_index.resume.by_qual",
     ):
@@ -8256,6 +7691,7 @@ def _build_analysis_index(
         function_index_acc.by_qual[qual] = info
         function_index_acc.by_name[info.name].append(info)
     progress_since_emit = 0
+    last_progress_emit_monotonic: float | None = None
     profile_stage_ns: dict[str, int] = {
         "analysis_index.parse_module": 0,
         "analysis_index.function_index": 0,
@@ -8276,15 +7712,18 @@ def _build_analysis_index(
 
     def _emit_index_progress(*, force: bool = False) -> None:
         nonlocal progress_since_emit
+        nonlocal last_progress_emit_monotonic
         if on_progress is None:
             return
         progress_since_emit += 1
+        now = time.monotonic()
         if (
             not force
-            and progress_since_emit < _ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL
-        ):
-            return
+            and last_progress_emit_monotonic is not None
+            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+        ): return
         progress_since_emit = 0
+        last_progress_emit_monotonic = now
         on_progress(
             _serialize_analysis_index_resume_payload(
                 hydrated_paths=hydrated_paths,
@@ -8476,6 +7915,7 @@ def _analysis_index_stage_cache(
     check_deadline()
     if module_trees_fn is None:
         module_trees_fn = _analysis_index_module_trees
+    derivation_runtime = get_global_derivation_cache()
     trees = module_trees_fn(
         analysis_index,
         paths,
@@ -8492,7 +7932,35 @@ def _analysis_index_stage_cache(
             results[path] = None
             continue
         if path not in cache:
-            cache[path] = spec.build(tree, path)
+            try:
+                dependencies = _path_dependency_payload(path)
+            except OSError:
+                dependencies = {
+                    "path": str(path),
+                    "mtime_ns": 0,
+                    "size": 0,
+                }
+
+            def _compute_stage_value() -> _StageCacheValue:
+                return spec.build(tree, path)
+
+            cache[path] = cast(
+                object,
+                derivation_runtime.derive(
+                    op=_ANALYSIS_INDEX_STAGE_CACHE_OP,
+                    structural_inputs={
+                        "index_cache_identity": analysis_index.index_cache_identity,
+                        "projection_cache_identity": analysis_index.projection_cache_identity,
+                        "stage": spec.stage.value,
+                        "cache_key": spec.cache_key,
+                        "path": str(path.resolve()),
+                    },
+                    dependencies=dependencies,
+                    params={"cache_scope": "analysis_index_stage_cache"},
+                    compute_fn=_compute_stage_value,
+                    source="dataflow_audit._analysis_index_stage_cache",
+                ),
+            )
         results[path] = cast(_StageCacheValue, cache[path])
     return results
 
@@ -8814,7 +8282,7 @@ def _collect_call_ambiguities_indexed(
         phase: str,
         callee_key: str,
     ) -> None:
-        ordered = tuple(sorted(candidates, key=lambda info: info.qual))
+        ordered = tuple(sort_once(candidates, key=lambda info: info.qual, source = 'src/gabion/analysis/dataflow_audit.py:8837'))
         ambiguities.append(
             CallAmbiguity(
                 kind="local_resolution_ambiguous",
@@ -9100,7 +8568,7 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
 def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     lines: list[str] = []
-    for entry in sorted(entries, key=_never_sort_key):
+    for entry in sort_once(entries, key=_never_sort_key, source = 'src/gabion/analysis/dataflow_audit.py:9123'):
         check_deadline()
         status = entry.get("status", "UNKNOWN")
         if status == "PROVEN_UNREACHABLE":
@@ -9121,7 +8589,7 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
         if witness_ref:
             bits.append(f"witness={witness_ref}")
         if env:
-            bits.append(f"env={json.dumps(env, sort_keys=True)}")
+            bits.append(f"env={json.dumps(env, sort_keys=False)}")
         if status == "OBLIGATION":
             if undecidable:
                 bits.append(f"why={undecidable}")
@@ -9499,6 +8967,7 @@ def _populate_bundle_forest(
     marker_paths_done = 0
     progress_since_emit = 0
     progress_accepts_payload: bool | None = None
+    last_progress_emit_monotonic: float | None = None
 
     def _forest_progress_snapshot(*, marker: str) -> JSONObject:
         mutable_done = (
@@ -9582,21 +9051,24 @@ def _populate_bundle_forest(
                 on_progress()
 
     def _emit_progress(*, force: bool = False, marker: str) -> None:
-        nonlocal progress_since_emit
+        nonlocal last_progress_emit_monotonic
         if on_progress is None:
             return
-        progress_since_emit += 1
-        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
+        now = time.monotonic()
+        if (
+            not force
+            and last_progress_emit_monotonic is not None
+            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+        ):
             return
-        progress_delta = progress_since_emit
-        progress_since_emit = 0
-        _notify_progress(progress_delta, marker=marker)
+        last_progress_emit_monotonic = now
+        _notify_progress(1, marker=marker)
 
     _notify_progress(0, marker="start")
     if include_all_sites:
         non_test_quals = [
             qual
-            for qual in ordered_or_sorted(
+            for qual in sort_once(
                 index.by_qual,
                 source="_populate_bundle_forest.index.by_qual",
             )
@@ -9630,14 +9102,14 @@ def _populate_bundle_forest(
     ) -> None:
         _add_interned_alt(forest=forest, kind=kind, inputs=inputs, evidence=evidence)
 
-    for path in ordered_or_sorted(
+    for path in sort_once(
         groups_by_path,
         source="_populate_bundle_forest.groups_by_path",
         key=lambda candidate: str(candidate),
     ):
         check_deadline()
         groups = groups_by_path[path]
-        for fn_name in sorted(groups):
+        for fn_name in sort_once(groups, source = 'src/gabion/analysis/dataflow_audit.py:9664'):
             check_deadline()
             site_id = forest.add_site(path.name, fn_name)
             for bundle in groups[fn_name]:
@@ -9664,7 +9136,7 @@ def _populate_bundle_forest(
     ):
         check_deadline()
         bundles = config_bundles_by_path[path]
-        for name in sorted(bundles):
+        for name in sort_once(bundles, source = 'src/gabion/analysis/dataflow_audit.py:9691'):
             check_deadline()
             paramset_id = forest.add_paramset(bundles[name])
             _add_alt(
@@ -9683,7 +9155,7 @@ def _populate_bundle_forest(
     )
     dataclass_quals_total = len(dataclass_registry)
     _emit_progress(force=True, marker="dataclass_quals_discovered")
-    for qual_name in sorted(dataclass_registry):
+    for qual_name in sort_once(dataclass_registry, source = 'src/gabion/analysis/dataflow_audit.py:9710'):
         check_deadline()
         paramset_id = forest.add_paramset(dataclass_registry[qual_name])
         _add_alt(
@@ -9705,19 +9177,19 @@ def _populate_bundle_forest(
         symbol_table = index.symbol_table
     for path in ordered_file_paths:
         check_deadline()
-        for bundle in sorted(_iter_documented_bundles(path)):
+        for bundle in sort_once(_iter_documented_bundles(path), source = 'src/gabion/analysis/dataflow_audit.py:9732'):
             check_deadline()
             paramset_id = forest.add_paramset(bundle)
             _add_alt("MarkerBundle", (paramset_id,), evidence={"path": path.name})
-        for bundle in sorted(
+        for bundle in sort_once(
             _iter_dataclass_call_bundles(
                 path,
                 project_root=project_root,
                 symbol_table=symbol_table,
                 dataclass_registry=dataclass_registry,
                 parse_failure_witnesses=parse_failure_witnesses,
-            )
-        ):
+            ), 
+        source = 'src/gabion/analysis/dataflow_audit.py:9736'):
             check_deadline()
             paramset_id = forest.add_paramset(bundle)
             _add_alt(
@@ -9858,7 +9330,7 @@ def _summarize_parse_failure_witnesses(
     if not entries:
         return []
     lines: list[str] = []
-    ordered = sorted(
+    ordered = sort_once(
         entries,
         key=lambda entry: (
             str(entry.get("path", "")),
@@ -9866,7 +9338,7 @@ def _summarize_parse_failure_witnesses(
             str(entry.get("error_type", "")),
             str(entry.get("error", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:9885')
     for entry in ordered[:max_entries]:
         check_deadline()
         path = str(entry.get("path", "?"))
@@ -9887,7 +9359,7 @@ def _parse_failure_violation_lines(entries: list[JSONObject]) -> list[str]:
     if not entries:
         return []
     lines: list[str] = []
-    for entry in sorted(
+    for entry in sort_once(
         entries,
         key=lambda item: (
             str(item.get("path", "")),
@@ -9895,7 +9367,7 @@ def _parse_failure_violation_lines(entries: list[JSONObject]) -> list[str]:
             str(item.get("error_type", "")),
             str(item.get("error", "")),
         ),
-    ):
+    source = 'src/gabion/analysis/dataflow_audit.py:9914'):
         check_deadline()
         path = str(entry.get("path", "?"))
         stage = str(entry.get("stage", "?"))
@@ -9917,7 +9389,7 @@ def _summarize_runtime_obligations(
     if not entries:
         return []
     lines: list[str] = []
-    ordered = sorted(
+    ordered = sort_once(
         entries,
         key=lambda entry: (
             str(entry.get("status", "")),
@@ -9926,7 +9398,7 @@ def _summarize_runtime_obligations(
             str(entry.get("section_id", "")),
             str(entry.get("detail", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:9944')
     for entry in ordered[:max_entries]:
         check_deadline()
         status = str(entry.get("status", "OBLIGATION"))
@@ -9953,7 +9425,7 @@ def _summarize_runtime_obligations(
 def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     violations: list[str] = []
-    for entry in sorted(
+    for entry in sort_once(
         entries,
         key=lambda item: (
             str(item.get("contract", "")),
@@ -9962,7 +9434,7 @@ def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
             str(item.get("phase", "")),
             str(item.get("detail", "")),
         ),
-    ):
+    source = 'src/gabion/analysis/dataflow_audit.py:9980'):
         check_deadline()
         if str(entry.get("status", "")).upper() != "VIOLATION":
             continue
@@ -10008,7 +9480,7 @@ def _compute_fingerprint_synth(
                 check_deadline()
                 if any(param not in fn_annots for param in bundle):
                     continue
-                types = [fn_annots[param] for param in sorted(bundle)]
+                types = [fn_annots[param] for param in sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:10035')]
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
@@ -10070,7 +9542,7 @@ def _build_synth_registry_payload(
 ) -> JSONObject:
     check_deadline()
     entries: list[JSONObject] = []
-    for prime, tail in sorted(synth_registry.tails.items()):
+    for prime, tail in sort_once(synth_registry.tails.items(), source = 'src/gabion/analysis/dataflow_audit.py:10097'):
         check_deadline()
         base_keys, base_remaining = tail.base.keys_with_remainder(registry)
         ctor_keys, ctor_remaining = tail.ctor.keys_with_remainder(registry)
@@ -10099,8 +9571,8 @@ def _build_synth_registry_payload(
                         "mask": tail.synth.mask,
                     },
                 },
-                "base_keys": sorted(base_keys),
-                "ctor_keys": sorted(ctor_keys),
+                "base_keys": sort_once(base_keys, source = 'src/gabion/analysis/dataflow_audit.py:10126'),
+                "ctor_keys": sort_once(ctor_keys, source = 'src/gabion/analysis/dataflow_audit.py:10127'),
                 "remainder": {
                     "base": base_remaining,
                     "ctor": ctor_remaining,
@@ -10364,7 +9836,7 @@ def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
         check_deadline()
         if info.non_forward:
             continue
-        sig = tuple(sorted(info.direct_forward))
+        sig = tuple(sort_once(info.direct_forward, source = 'src/gabion/analysis/dataflow_audit.py:10391'))
         # Empty forwarding signatures are usually just unused params; treating them as
         # bundles creates noisy Tier-3 violations and unstable fingerprint baselines.
         if not sig:
@@ -10489,10 +9961,10 @@ def _callsite_evidence_for_bundle(
             if param in bundle:
                 params_in_call.append(param)
                 slots.append("kw[**]")
-        distinct = tuple(sorted(set(params_in_call)))
+        distinct = tuple(sort_once(set(params_in_call), source = 'src/gabion/analysis/dataflow_audit.py:10516'))
         if not distinct:
             continue
-        slot_list = tuple(sorted(set(slots)))
+        slot_list = tuple(sort_once(set(slots), source = 'src/gabion/analysis/dataflow_audit.py:10519'))
         key = (call.span, call.callee, distinct, slot_list)
         if key in seen:
             continue
@@ -10507,13 +9979,16 @@ def _callsite_evidence_for_bundle(
                 "callable_source": call.callable_source,
             }
         )
-    out.sort(
+    out = sort_once(
+        out,
+        source="_ranked_callargs_evidence.out",
+        # Non-lexical tuple key: arity desc, span, callee, then params.
         key=lambda entry: (
             -len(entry.get("params") or []),
             tuple(entry.get("span") or []),
             str(entry.get("callee") or ""),
             tuple(entry.get("params") or []),
-        )
+        ),
     )
     return out[:limit]
 
@@ -10589,10 +10064,19 @@ def _analyze_file_internal(
         valid_fn_keys=fn_keys_in_file,
     )
     scanned_since_emit = 0
+    last_scan_progress_emit_monotonic: float | None = None
 
-    def _emit_scan_progress() -> None:
+    def _emit_scan_progress(*, force: bool = False) -> bool:
+        nonlocal last_scan_progress_emit_monotonic
         if on_progress is None:
-            return
+            return False
+        now = time.monotonic()
+        if (
+            not force
+            and last_scan_progress_emit_monotonic is not None
+            and now - last_scan_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+        ):
+            return False
         progress_payload = _serialize_file_scan_resume_state(
             fn_use=fn_use,
             fn_calls=fn_calls,
@@ -10608,6 +10092,8 @@ def _analyze_file_internal(
             counters=profile_counters,
         )
         on_progress(progress_payload)
+        last_scan_progress_emit_monotonic = now
+        return True
 
     def _emit_file_profile() -> None:
         if on_profile is None:
@@ -10653,16 +10139,18 @@ def _analyze_file_internal(
             fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
             fn_class_names[fn_key] = class_name
             scanned_since_emit += 1
-            if scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL:
-                _emit_scan_progress()
+            if (
+                scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL
+                and _emit_scan_progress()
+            ):
                 scanned_since_emit = 0
         profile_stage_ns["file_scan.function_scan"] += time.monotonic_ns() - scan_started_ns
     except TimeoutExceeded:
-        _emit_scan_progress()
+        _emit_scan_progress(force=True)
         _emit_file_profile()
         raise
     if scanned_since_emit > 0:
-        _emit_scan_progress()
+        _emit_scan_progress(force=True)
 
     local_by_name: dict[str, list[str]] = defaultdict(list)
     for key, name in fn_names.items():
@@ -10919,7 +10407,12 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
         check_deadline()
         expanded = _expand_type_hint(hint)
         normalized_sets.append(
-            tuple(sorted(t for t in expanded if t not in _NONE_TYPES))
+            tuple(
+                sort_once(
+                    (t for t in expanded if t not in _NONE_TYPES),
+                    source="src/gabion/analysis/dataflow_audit.py:10962",
+                )
+            )
         )
     unique_normalized = {norm for norm in normalized_sets if norm}
     expanded: set[str] = set()
@@ -10930,7 +10423,7 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     expanded -= none_types
     if not expanded:
         return "Any", bool(types)
-    sorted_types = sorted(expanded)
+    sorted_types = sort_once(expanded, source = 'src/gabion/analysis/dataflow_audit.py:10973')
     if len(sorted_types) == 1:
         base = sorted_types[0]
         if none_types:
@@ -11566,7 +11059,7 @@ def _collect_lambda_bindings_by_caller(
     for caller_key, mapping in binding_sets.items():
         check_deadline()
         non_empty = {
-            symbol: tuple(sorted(quals))
+            symbol: tuple(sort_once(quals, source = 'src/gabion/analysis/dataflow_audit.py:11609'))
             for symbol, quals in mapping.items()
             if quals
         }
@@ -11747,132 +11240,33 @@ def _resolve_callee(
     local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
 ) -> FunctionInfo | None:
     check_deadline()
-    # dataflow-bundle: by_name, caller
-    if not callee_key:
-        return None
-    caller_module = _module_name(caller.path, project_root=project_root)
     lambda_bindings = local_lambda_bindings
     if lambda_bindings is None:
         lambda_bindings = caller.local_lambda_bindings
-    candidates = by_name.get(_callee_key(callee_key), [])
-    if "." not in callee_key:
-        # Unqualified Python name resolution is module-local unless an import
-        # explicitly binds the symbol into scope.
-        candidates = [info for info in candidates if info.path == caller.path]
-    bound_lambda_quals = tuple(lambda_bindings.get(callee_key, ()))
-    if len(bound_lambda_quals) == 1:
-        bound = by_qual.get(bound_lambda_quals[0])
-        if bound is not None:
-            return bound
-    elif len(bound_lambda_quals) > 1:
-        bound_candidates = [
-            by_qual[qual]
-            for qual in bound_lambda_quals
-            if qual in by_qual
-        ]
-        if len(bound_candidates) == 1:
-            return bound_candidates[0]
-        if bound_candidates and ambiguity_sink is not None:
-            ambiguity_sink(caller, call, bound_candidates, "local_lambda_binding", callee_key)
-        if bound_candidates:
-            return None
-    if "." not in callee_key:
-        ambiguous = False
-        effective_scope = list(caller.lexical_scope) + [caller.name]
-        while True:
+    context = _CalleeResolutionContextCore(
+        callee_key=callee_key,
+        caller=caller,
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        call=call,
+        local_lambda_bindings=lambda_bindings,
+        caller_module=_module_name(caller.path, project_root=project_root),
+    )
+    resolution = _resolve_callee_with_effects_impl(context)
+    if ambiguity_sink is not None:
+        for effect in _collect_callee_resolution_effects_impl(resolution):
             check_deadline()
-            scoped = [
-                info
-                for info in candidates
-                if list(info.lexical_scope) == effective_scope
-                and not (info.class_name and not info.lexical_scope)
-            ]
-            if len(scoped) == 1:
-                return scoped[0]
-            if len(scoped) > 1:
-                ambiguous = True
-                if ambiguity_sink is not None:
-                    ambiguity_sink(caller, call, scoped, "local_resolution", callee_key)
-                break
-            if not effective_scope:
-                break
-            effective_scope = effective_scope[:-1]
-        if ambiguous:
-            pass
-        globals_only = [
-            info
-            for info in candidates
-            if not info.lexical_scope
-            and not (info.class_name and not info.lexical_scope)
-            and info.path == caller.path
-        ]
-        if len(globals_only) == 1:
-            return globals_only[0]
-    if symbol_table is not None:
-        if "." not in callee_key:
-            if (caller_module, callee_key) in symbol_table.imports:
-                fqn = symbol_table.resolve(caller_module, callee_key)
-                if fqn is None:
-                    return None
-                if fqn in by_qual:
-                    return by_qual[fqn]
-            resolved = symbol_table.resolve_star(caller_module, callee_key)
-            if resolved is not None and resolved in by_qual:
-                return by_qual[resolved]
-        else:
-            parts = callee_key.split(".")
-            base = parts[0]
-            if base in ("self", "cls") and len(parts) == 2:
-                method = parts[-1]
-                if caller.class_name:
-                    candidate = f"{caller_module}.{caller.class_name}.{method}"
-                    if candidate in by_qual:
-                        return by_qual[candidate]
-            elif len(parts) == 2:
-                candidate = f"{caller_module}.{base}.{parts[1]}"
-                if candidate in by_qual:
-                    return by_qual[candidate]
-            if (caller_module, base) in symbol_table.imports:
-                base_fqn = symbol_table.resolve(caller_module, base)
-                if base_fqn is None:
-                    return None
-                candidate = base_fqn + "." + ".".join(parts[1:])
-                if candidate in by_qual:
-                    return by_qual[candidate]
-    # Exact qualified name match.
-    if callee_key in by_qual:
-        return by_qual[callee_key]
-    if class_index is not None and "." in callee_key:
-        parts = callee_key.split(".")
-        method = parts[-1]
-        class_part = ".".join(parts[:-1])
-        if class_part in {"self", "cls"} and caller.class_name:
-            class_candidates = _resolve_class_candidates(
-                caller.class_name,
-                module=caller_module,
-                symbol_table=symbol_table,
-                class_index=class_index,
+            ambiguity_sink(
+                caller,
+                call,
+                list(effect.candidates),
+                effect.phase,
+                effect.callee_key,
             )
-        else:
-            class_candidates = _resolve_class_candidates(
-                class_part,
-                module=caller_module,
-                symbol_table=symbol_table,
-                class_index=class_index,
-            )
-        for class_qual in class_candidates:
-            check_deadline()
-            resolved = _resolve_method_in_hierarchy(
-                class_qual,
-                method,
-                class_index=class_index,
-                by_qual=by_qual,
-                symbol_table=symbol_table,
-                seen=set(),
-            )
-            if resolved is not None:
-                return resolved
-    return None
+    return resolution.resolved
 
 
 def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
@@ -11913,7 +11307,7 @@ def _dedupe_resolution_candidates(
         if _is_test_path(candidate.path):
             continue
         deduped[candidate.qual] = candidate
-    return tuple(sorted(deduped.values(), key=lambda info: info.qual))
+    return tuple(sort_once(deduped.values(), key=lambda info: info.qual, source = 'src/gabion/analysis/dataflow_audit.py:11956'))
 
 
 def _resolve_callee_outcome(
@@ -11948,18 +11342,41 @@ def _resolve_callee_outcome(
         ambiguity_phase = phase
         ambiguity_callee_key = sink_callee_key
 
-    resolved = resolve_callee_fn(
-        callee_key,
-        caller,
-        by_name,
-        by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-        call=call,
-        ambiguity_sink=_sink,
-        local_lambda_bindings=local_lambda_bindings,
-    )
+    resolved: FunctionInfo | None
+    if resolve_callee_fn is _resolve_callee:
+        lambda_bindings = local_lambda_bindings
+        if lambda_bindings is None:
+            lambda_bindings = caller.local_lambda_bindings
+        context = _CalleeResolutionContextCore(
+            callee_key=callee_key,
+            caller=caller,
+            by_name=by_name,
+            by_qual=by_qual,
+            symbol_table=symbol_table,
+            project_root=project_root,
+            class_index=class_index,
+            call=call,
+            local_lambda_bindings=lambda_bindings,
+            caller_module=_module_name(caller.path, project_root=project_root),
+        )
+        resolution = _resolve_callee_with_effects_impl(context)
+        for effect in _collect_callee_resolution_effects_impl(resolution):
+            check_deadline()
+            _sink(caller, call, list(effect.candidates), effect.phase, effect.callee_key)
+        resolved = resolution.resolved
+    else:
+        resolved = resolve_callee_fn(
+            callee_key,
+            caller,
+            by_name,
+            by_qual,
+            symbol_table=symbol_table,
+            project_root=project_root,
+            class_index=class_index,
+            call=call,
+            ambiguity_sink=_sink,
+            local_lambda_bindings=local_lambda_bindings,
+        )
     if resolved is not None:
         return _CalleeResolutionOutcome(
             status="resolved",
@@ -12140,11 +11557,11 @@ def _infer_type_flow(
                 check_deadline()
                 if len(annots) > 1:
                     ambiguities.add(
-                        f"{path_key}:{fn_key}.{param} downstream types conflict: {sorted(annots)}"
+                        f"{path_key}:{fn_key}.{param} downstream types conflict: {sort_once(annots, source = 'src/gabion/analysis/dataflow_audit.py:12183')}"
                     )
-                    for annot in sorted(annots):
+                    for annot in sort_once(annots, source = 'src/gabion/analysis/dataflow_audit.py:12185'):
                         check_deadline()
-                        for site in sorted(sites.get(param, {}).get(annot, set()))[
+                        for site in sort_once(sites.get(param, {}).get(annot, set()), source = 'src/gabion/analysis/dataflow_audit.py:12187')[
                             :max_sites_per_param
                         ]:
                             check_deadline()
@@ -12157,12 +11574,12 @@ def _infer_type_flow(
                     suggestions.add(
                         f"{path_key}:{fn_key}.{param} can tighten to {downstream_annot}"
                     )
-                    for site in sorted(
-                        sites.get(param, {}).get(downstream_annot, set())
-                    )[:max_sites_per_param]:
+                    for site in sort_once(
+                        sites.get(param, {}).get(downstream_annot, set()), 
+                    source = 'src/gabion/analysis/dataflow_audit.py:12200')[:max_sites_per_param]:
                         check_deadline()
                         evidence_lines.add(site)
-    return inferred, sorted(suggestions), sorted(ambiguities), sorted(evidence_lines)
+    return inferred, sort_once(suggestions, source = 'src/gabion/analysis/dataflow_audit.py:12205'), sort_once(ambiguities, source = 'src/gabion/analysis/dataflow_audit.py:12205'), sort_once(evidence_lines, source = 'src/gabion/analysis/dataflow_audit.py:12205')
 
 
 def analyze_type_flow_repo_with_map(
@@ -12331,7 +11748,7 @@ def _constant_smells_from_details(
         smells.append(
             f"{path_name}:{detail.name}.{detail.param} only observed constant {detail.value} across {detail.count} non-test call(s){site_suffix}"
         )
-    return sorted(smells)
+    return sort_once(smells, source = 'src/gabion/analysis/dataflow_audit.py:12374')
 
 
 def _deadness_witnesses_from_constant_details(
@@ -12366,7 +11783,7 @@ def _deadness_witnesses_from_constant_details(
                 ),
             }
         )
-    return sorted(
+    return sort_once(
         witnesses,
         key=lambda entry: (
             str(entry.get("path", "")),
@@ -12374,7 +11791,7 @@ def _deadness_witnesses_from_constant_details(
             ",".join(entry.get("bundle", [])),
             str(entry.get("predicate", "")),
         ),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:12409')
 
 
 def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
@@ -12500,10 +11917,10 @@ def _collect_constant_flow_details(
                 param=param,
                 value=next(iter(values)),
                 count=count,
-                sites=tuple(sorted(folded.call_sites.get(key, set()))),
+                sites=tuple(sort_once(folded.call_sites.get(key, set()), source = 'src/gabion/analysis/dataflow_audit.py:12543')),
             )
         )
-    return sorted(details, key=lambda entry: (str(entry.path), entry.name, entry.param))
+    return sort_once(details, key=lambda entry: (str(entry.path), entry.name, entry.param), source = 'src/gabion/analysis/dataflow_audit.py:12546')
 
 
 def analyze_deadness_flow_repo(
@@ -12789,7 +12206,7 @@ def _analyze_unused_arg_flow_indexed(
                                 call=call,
                             )
                         )
-    return sorted(smells)
+    return sort_once(smells, source = 'src/gabion/analysis/dataflow_audit.py:12832')
 
 
 def analyze_unused_arg_flow_repo(
@@ -12933,7 +12350,7 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
         parts = [p.strip() for p in re.split(r"[,\s]+", payload) if p.strip()]
         if len(parts) < 2:
             continue
-        bundles.add(tuple(sorted(parts)))
+        bundles.add(tuple(sort_once(parts, source = 'src/gabion/analysis/dataflow_audit.py:12976')))
     return bundles
 
 
@@ -13030,7 +12447,7 @@ def _dataclass_registry_for_tree(
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
     check_deadline()
-    file_paths = ordered_or_sorted(
+    file_paths = sort_once(
         root.rglob("*.py"),
         source="_bundle_name_registry.file_paths",
         key=lambda path: str(path),
@@ -13050,11 +12467,11 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
         check_deadline()
         for name, fields in bundles.items():
             check_deadline()
-            key = tuple(sorted(fields))
+            key = tuple(sort_once(fields, source = 'src/gabion/analysis/dataflow_audit.py:13093'))
             name_map[key].add(name)
     for qual_name, fields in dataclass_registry.items():
         check_deadline()
-        key = tuple(sorted(fields))
+        key = tuple(sort_once(fields, source = 'src/gabion/analysis/dataflow_audit.py:13097'))
         name_map[key].add(qual_name.split(".")[-1])
     return name_map
 
@@ -13069,202 +12486,15 @@ def _iter_dataclass_call_bundles(
 ) -> set[tuple[str, ...]]:
     """Return bundles promoted via @dataclass constructor calls."""
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
-    bundles: set[tuple[str, ...]] = set()
-    tree = _parse_module_tree(
+    outcome = _iter_dataclass_call_bundle_effects_impl(
         path,
-        stage=_ParseModuleStage.DATACLASS_CALL_BUNDLES,
+        project_root=project_root,
+        symbol_table=symbol_table,
+        dataclass_registry=dataclass_registry,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    if tree is None:
-        return bundles
-    module = _module_name(path, project_root)
-    local_dataclasses: dict[str, list[str]] = {}
-    for node in ast.walk(tree):
-        check_deadline()
-        if not isinstance(node, ast.ClassDef):
-            continue
-        decorators = {
-            ast.unparse(dec) if hasattr(ast, "unparse") else ""
-            for dec in node.decorator_list
-        }
-        if any("dataclass" in dec for dec in decorators):
-            fields: list[str] = []
-            for stmt in node.body:
-                check_deadline()
-                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                    fields.append(stmt.target.id)
-                elif isinstance(stmt, ast.Assign):
-                    for target in stmt.targets:
-                        check_deadline()
-                        if isinstance(target, ast.Name):
-                            fields.append(target.id)
-            if fields:
-                local_dataclasses[node.name] = fields
-    if dataclass_registry is None:
-        dataclass_registry = {}
-        for name, fields in local_dataclasses.items():
-            check_deadline()
-            if module:
-                dataclass_registry[f"{module}.{name}"] = fields
-            else:  # pragma: no cover - module name is always non-empty for file paths
-                dataclass_registry[name] = fields
-
-    def _resolve_fields(call: ast.Call) -> list[str] | None:
-        if isinstance(call.func, ast.Name):
-            name = call.func.id
-            if name in local_dataclasses:
-                return local_dataclasses[name]
-            candidate = f"{module}.{name}"
-            if candidate in dataclass_registry:
-                return dataclass_registry[candidate]
-            if symbol_table is not None:
-                resolved = symbol_table.resolve(module, name)
-                if resolved in dataclass_registry:
-                    return dataclass_registry[resolved]
-                resolved_star = symbol_table.resolve_star(module, name)
-                if resolved_star in dataclass_registry:
-                    return dataclass_registry[resolved_star]
-            if name in dataclass_registry:
-                return dataclass_registry[name]
-        if isinstance(call.func, ast.Attribute):
-            if isinstance(call.func.value, ast.Name):
-                base = call.func.value.id
-                attr = call.func.attr
-                if symbol_table is not None:
-                    base_fqn = symbol_table.resolve(module, base)
-                    if base_fqn:
-                        candidate = f"{base_fqn}.{attr}"
-                        if candidate in dataclass_registry:
-                            return dataclass_registry[candidate]
-                    base_star = symbol_table.resolve_star(module, base)
-                    if base_star:
-                        candidate = f"{base_star}.{attr}"
-                        if candidate in dataclass_registry:
-                            return dataclass_registry[candidate]
-        return None
-
-    def _unresolved_starred_witness(
-        call: ast.Call,
-        *,
-        category: str,
-        detail: str,
-    ) -> JSONObject:
-        reason_by_category = {
-            "dynamic_star_args": "unresolved_starred_positional",
-            "positional_arity_overflow": "invalid_starred_positional_arity",
-            "dynamic_star_kwargs": "unresolved_starred_keyword",
-        }
-        return {
-            "path": str(path),
-            "stage": _ParseModuleStage.DATACLASS_CALL_BUNDLES.value,
-            "reason": reason_by_category.get(category, category),
-            "error_type": "UnresolvedStarredArgument",
-            "error": f"{category}: {detail}",
-            "line": int(getattr(call, "lineno", 0) or 0),
-            "col": int(getattr(call, "col_offset", 0) or 0),
-        }
-
-    def _decode_dataclass_constructor_args(
-        call: ast.Call,
-        fields: Sequence[str],
-    ) -> tuple[list[str] | None, list[JSONObject]]:
-        resolved: list[str] = []
-        unresolved: list[JSONObject] = []
-        position = 0
-        field_set = set(fields)
-
-        def _append_positional(count: int, *, source: str) -> bool:
-            nonlocal position
-            for _ in range(count):
-                check_deadline()
-                if position >= len(fields):
-                    unresolved.append(
-                        _unresolved_starred_witness(
-                            call,
-                            category="positional_arity_overflow",
-                            detail=f"source={source} exceeds dataclass field count",
-                        )
-                    )
-                    return False
-                resolved.append(fields[position])
-                position += 1
-            return True
-
-        for arg in call.args:
-            check_deadline()
-            if not isinstance(arg, ast.Starred):
-                if not _append_positional(1, source="arg"):
-                    return None, unresolved
-                continue
-            value = arg.value
-            if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
-                if not _append_positional(len(value.elts), source=f"*{type(value).__name__}"):
-                    return None, unresolved
-                continue
-            unresolved.append(
-                _unresolved_starred_witness(
-                    call,
-                    category="dynamic_star_args",
-                    detail=f"unsupported * payload={type(value).__name__}",
-                )
-            )
-            return None, unresolved
-
-        for kw in call.keywords:
-            check_deadline()
-            if kw.arg is not None:
-                resolved.append(kw.arg)
-                continue
-            mapping_node = kw.value
-            if not isinstance(mapping_node, ast.Dict):
-                unresolved.append(
-                    _unresolved_starred_witness(
-                        call,
-                        category="dynamic_star_kwargs",
-                        detail=f"unsupported ** payload={type(mapping_node).__name__}",
-                    )
-                )
-                return None, unresolved
-            for key in mapping_node.keys:
-                check_deadline()
-                if key is None:
-                    unresolved.append(
-                        _unresolved_starred_witness(
-                            call,
-                            category="dynamic_star_kwargs",
-                            detail="dict unpack inside ** literal is dynamic",
-                        )
-                    )
-                    return None, unresolved
-                if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
-                    unresolved.append(
-                        _unresolved_starred_witness(
-                            call,
-                            category="dynamic_star_kwargs",
-                            detail="non-string literal key in ** dict",
-                        )
-                    )
-                    return None, unresolved
-                resolved.append(key.value)
-
-        if any(name not in field_set for name in resolved):
-            return None, unresolved
-        return resolved, unresolved
-
-    for node in ast.walk(tree):
-        check_deadline()
-        if not isinstance(node, ast.Call):
-            continue
-        fields = _resolve_fields(node)
-        if not fields:
-            continue
-        names, unresolved = _decode_dataclass_constructor_args(node, fields)
-        parse_failure_witnesses.extend(unresolved)
-        if names is None or len(names) < 2:
-            continue
-        bundles.add(tuple(sorted(names)))
-    return bundles
+    parse_failure_witnesses.extend(outcome.witness_effects)
+    return set(outcome.bundles)
 
 
 @dataclass(frozen=True)
@@ -13384,7 +12614,7 @@ def _bundle_site_index(
             sites = fn_sites.get(fn_name, [])
             for idx, bundle in enumerate(bundles):
                 check_deadline()
-                bundle_key = tuple(sorted(bundle))
+                bundle_key = tuple(sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:13427'))
                 entry = index.setdefault((path.name, fn_name, bundle_key), [])
                 if idx < len(sites):
                     entry.append(sites[idx])
@@ -13443,7 +12673,7 @@ def _connected_components(
                 if nxt not in seen:
                     seen.add(nxt)
                     q.append(nxt)
-        comps.append(sorted(comp, key=lambda node_id: node_id.sort_key()))
+        comps.append(sort_once(comp, key=lambda node_id: node_id.sort_key(), source = 'src/gabion/analysis/dataflow_audit.py:13486'))
     return comps
 
 
@@ -13505,14 +12735,14 @@ def _render_mermaid_component(
         check_deadline()
         declared_local |= declared_by_path.get(path, set())
         documented |= documented_by_path.get(path, set())
-    observed_norm = {tuple(sorted(b)) for b in observed}
+    observed_norm = {tuple(sort_once(b, source = 'src/gabion/analysis/dataflow_audit.py:13548')) for b in observed}
     observed_only = (
-        sorted(observed_norm - declared_global)
+        sort_once(observed_norm - declared_global, source = 'src/gabion/analysis/dataflow_audit.py:13550')
         if declared_global
-        else sorted(observed_norm)
+        else sort_once(observed_norm, source = 'src/gabion/analysis/dataflow_audit.py:13552')
     )
-    declared_only = sorted(declared_local - observed_norm)
-    documented_only = sorted(observed_norm & documented)
+    declared_only = sort_once(declared_local - observed_norm, source = 'src/gabion/analysis/dataflow_audit.py:13554')
+    documented_only = sort_once(observed_norm & documented, source = 'src/gabion/analysis/dataflow_audit.py:13555')
 
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
@@ -13581,14 +12811,14 @@ def _render_component_callsite_evidence(
     bundle_key_by_node: dict[NodeId, tuple[str, ...]] = {}
     for n in bundle_nodes:
         check_deadline()
-        key = tuple(sorted(bundle_map[n]))
+        key = tuple(sort_once(bundle_map[n], source = 'src/gabion/analysis/dataflow_audit.py:13624'))
         bundle_key_by_node[n] = key
 
     # Keep output deterministic and review-friendly.
-    ordered_nodes = sorted(
+    ordered_nodes = sort_once(
         bundle_key_by_node,
         key=lambda node_id: (node_id.sort_key(), bundle_key_by_node.get(node_id, ())),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:13628')
 
     lines: list[str] = []
     for bundle_id in ordered_nodes:
@@ -13600,7 +12830,7 @@ def _render_component_callsite_evidence(
         tier = "tier-2" if bundle_counts.get(bundle_key, 1) > 1 else "tier-3"
         adjacent_sites = [
             node_id
-            for node_id in sorted(adj.get(bundle_id, set()), key=lambda node: node.sort_key())
+            for node_id in sort_once(adj.get(bundle_id, set()), key=lambda node: node.sort_key(), source = 'src/gabion/analysis/dataflow_audit.py:13643')
             if nodes.get(node_id, {}).get("kind") == "fn"
         ]
         for site_id in adjacent_sites:
@@ -13669,431 +12899,7 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     return sections
 
 
-def _emit_report(
-    groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    max_components: int,
-    *,
-    report: ReportCarrier,
-    execution_pattern_suggestions: list[str] | None = None,
-    parse_witness_contract_violations_fn: Callable[[], list[str]] | None = None,
-) -> tuple[str, list[str]]:
-    check_deadline()
-    if parse_witness_contract_violations_fn is None:
-        parse_witness_contract_violations_fn = _parse_witness_contract_violations
-    forest = report.forest
-    bundle_sites_by_path = report.bundle_sites_by_path
-    type_suggestions = report.type_suggestions
-    type_ambiguities = report.type_ambiguities
-    type_callsite_evidence = report.type_callsite_evidence
-    constant_smells = report.constant_smells
-    unused_arg_smells = report.unused_arg_smells
-    deadness_witnesses = report.deadness_witnesses
-    coherence_witnesses = report.coherence_witnesses
-    rewrite_plans = report.rewrite_plans
-    exception_obligations = report.exception_obligations
-    never_invariants = report.never_invariants
-    ambiguity_witnesses = report.ambiguity_witnesses
-    handledness_witnesses = report.handledness_witnesses
-    decision_surfaces = report.decision_surfaces
-    value_decision_surfaces = report.value_decision_surfaces
-    decision_warnings = report.decision_warnings
-    fingerprint_warnings = report.fingerprint_warnings
-    fingerprint_matches = report.fingerprint_matches
-    fingerprint_synth = report.fingerprint_synth
-    fingerprint_provenance = report.fingerprint_provenance
-    context_suggestions = report.context_suggestions
-    invariant_propositions = report.invariant_propositions
-    value_decision_rewrites = report.value_decision_rewrites
-    deadline_obligations = report.deadline_obligations
-    parse_failure_witnesses = report.parse_failure_witnesses
-    resumability_obligations = report.resumability_obligations
-    incremental_report_obligations = report.incremental_report_obligations
-    has_bundles = _has_bundles(groups_by_path)
-    if groups_by_path:
-        common = os.path.commonpath([str(p) for p in groups_by_path])
-        root = Path(common)
-    else:
-        root = Path(".")
-    # Use the analyzed file set (not a repo-wide rglob) so reports and schema
-    # audits don't accidentally ingest virtualenvs or unrelated files.
-    file_paths = (
-        ordered_or_sorted(
-            groups_by_path.keys(),
-            source="_emit_report.file_paths",
-            key=lambda path: str(path),
-        )
-        if groups_by_path
-        else []
-    )
-    projection = _bundle_projection_from_forest(forest, file_paths=file_paths) if has_bundles else None
-    components = (
-        _connected_components(projection.nodes, projection.adj)
-        if projection is not None
-        else []
-    )
-    bundle_site_index = (
-        _bundle_site_index(groups_by_path, bundle_sites_by_path)
-        if bundle_sites_by_path
-        else {}
-    )
-    lines = [
-        _report_section_marker("intro"),
-        "<!-- dataflow-grammar -->",
-        "Dataflow grammar audit (observed forwarding bundles).",
-        "",
-    ]
-    report_run_id = f"report_{len(forest.nodes)}_{len(forest.alts)}"
-
-    def _projected(section_id: str, values: Iterable[str]) -> list[str]:
-        return _project_report_section_lines(
-            forest=forest,
-            section_key=_ReportSectionKey(run_id=report_run_id, section=section_id),
-            lines=values,
-        )
-
-    def _start_section(section_id: str) -> None:
-        lines.append(_report_section_marker(section_id))
-
-    violations: list[str] = []
-    _start_section("components")
-    if not components:
-        lines.append("No bundle components detected.")
-    else:
-        if len(components) > max_components:
-            lines.append(
-                f"Showing top {max_components} components of {len(components)}."
-            )
-        for idx, comp in enumerate(components[:max_components], start=1):
-            check_deadline()
-            lines.append(f"### Component {idx}")
-            mermaid, summary = _render_mermaid_component(
-                projection.nodes,
-                projection.bundle_map,
-                projection.bundle_counts,
-                projection.adj,
-                comp,
-                projection.declared_global,
-                projection.declared_by_path,
-                projection.documented_by_path,
-            )
-            lines.extend(_projected(f"component_{idx}_mermaid", mermaid.splitlines()))
-            lines.append("")
-            lines.append("Summary:")
-            lines.append("```")
-            lines.extend(_projected(f"component_{idx}_summary", summary.splitlines()))
-            lines.append("```")
-            lines.append("")
-            if bundle_sites_by_path:
-                evidence = _render_component_callsite_evidence(
-                    component=comp,
-                    nodes=projection.nodes,
-                    bundle_map=projection.bundle_map,
-                    bundle_counts=projection.bundle_counts,
-                    adj=projection.adj,
-                    documented_by_path=projection.documented_by_path,
-                    declared_global=projection.declared_global,
-                    bundle_site_index=bundle_site_index,
-                    root=projection.root,
-                    path_lookup=projection.path_lookup,
-                )
-                if evidence:
-                    lines.append("Callsite evidence (undocumented bundles):")
-                    lines.append("```")
-                    lines.extend(_projected(f"component_{idx}_callsite_evidence", evidence))
-                    lines.append("```")
-                    lines.append("")
-            for line in summary.splitlines():
-                # Violation strings are semantic objects; avoid leaking markdown
-                # bullets into baseline keys.
-                check_deadline()
-                candidate = line.strip()
-                if candidate.startswith("- "):
-                    candidate = candidate[2:].strip()
-                tier12 = "(tier-1," in candidate or "(tier-2," in candidate
-                if "(tier-3, undocumented)" in candidate or (
-                    tier12 and "undocumented" in candidate
-                ):
-                    violations.append(candidate)
-    if deadline_obligations:
-        deadline_violations: list[str] = []
-        for entry in deadline_obligations:
-            check_deadline()
-            if entry.get("status") != "VIOLATION":
-                continue
-            site = entry.get("site", {}) or {}
-            path = site.get("path", "?")
-            function = site.get("function", "?")
-            bundle = site.get("bundle", [])
-            status = entry.get("status", "UNKNOWN")
-            kind = entry.get("kind", "?")
-            detail = entry.get("detail", "")
-            deadline_violations.append(
-                f"{path}:{function} bundle={bundle} status={status} kind={kind} {detail}".strip()
-            )
-        violations.extend(deadline_violations)
-    if violations:
-        _start_section("violations")
-        lines.append("Violations:")
-        lines.append("```")
-        lines.extend(_projected("violations", violations))
-        lines.append("```")
-    if type_suggestions or type_ambiguities:
-        _start_section("type_flow")
-        lines.append("Type-flow audit:")
-        type_mermaid = _render_type_mermaid(type_suggestions or [], type_ambiguities or [])
-        lines.extend(_projected("type_flow_mermaid", type_mermaid.splitlines()))
-        if type_suggestions:
-            lines.append("Type tightening candidates:")
-            lines.append("```")
-            lines.extend(_projected("type_suggestions", type_suggestions))
-            lines.append("```")
-        if type_ambiguities:
-            lines.append("Type ambiguities (conflicting downstream expectations):")
-            lines.append("```")
-            lines.extend(_projected("type_ambiguities", type_ambiguities))
-            lines.append("```")
-        if type_callsite_evidence:
-            lines.append("Type-flow callsite evidence:")
-            lines.append("```")
-            lines.extend(_projected("type_callsite_evidence", type_callsite_evidence))
-            lines.append("```")
-    if constant_smells:
-        _start_section("constant_smells")
-        lines.append("Constant-propagation smells (non-test call sites):")
-        lines.append("```")
-        lines.extend(_projected("constant_smells", constant_smells))
-        lines.append("```")
-    if unused_arg_smells:
-        _start_section("unused_arg_smells")
-        lines.append("Unused-argument smells (non-test call sites):")
-        lines.append("```")
-        lines.extend(_projected("unused_arg_smells", unused_arg_smells))
-        lines.append("```")
-    if deadness_witnesses:
-        summary = _summarize_deadness_witnesses(deadness_witnesses)
-        _start_section("deadness_summary")
-        lines.append("Deadness evidence:")
-        lines.append("```")
-        lines.extend(_projected("deadness_summary", summary))
-        lines.append("```")
-    if coherence_witnesses:
-        summary = _summarize_coherence_witnesses(coherence_witnesses)
-        _start_section("coherence_summary")
-        lines.append("Coherence evidence:")
-        lines.append("```")
-        lines.extend(_projected("coherence_summary", summary))
-        lines.append("```")
-    if rewrite_plans:
-        summary = _summarize_rewrite_plans(rewrite_plans)
-        _start_section("rewrite_plans_summary")
-        lines.append("Rewrite plans:")
-        lines.append("```")
-        lines.extend(_projected("rewrite_plans_summary", summary))
-        lines.append("```")
-    if never_invariants:
-        summary = _summarize_never_invariants(never_invariants)
-        _start_section("never_invariants_summary")
-        lines.append("Never invariants:")
-        lines.append("```")
-        lines.extend(_projected("never_invariants_summary", summary))
-        lines.append("```")
-    if ambiguity_witnesses:
-        summary = _summarize_call_ambiguities(ambiguity_witnesses)
-        _start_section("ambiguity_summary")
-        lines.append("Ambiguities:")
-        lines.append("```")
-        lines.extend(_projected("ambiguity_summary", summary))
-        lines.append("```")
-    if exception_obligations:
-        summary = _summarize_exception_obligations(exception_obligations)
-        _start_section("exception_obligations_summary")
-        lines.append("Exception obligations:")
-        lines.append("```")
-        lines.extend(_projected("exception_obligations_summary", summary))
-        lines.append("```")
-        protocol_evidence = _exception_protocol_evidence(exception_obligations)
-        if protocol_evidence:
-            _start_section("exception_protocol_evidence")
-            lines.append("Exception protocol evidence:")
-            lines.append("```")
-            lines.extend(_projected("exception_protocol_evidence", protocol_evidence))
-            lines.append("```")
-        protocol_warnings = _exception_protocol_warnings(exception_obligations)
-        if protocol_warnings:
-            _start_section("exception_protocol_warnings")
-            lines.append("Exception protocol violations:")
-            lines.append("```")
-            lines.extend(_projected("exception_protocol_warnings", protocol_warnings))
-            lines.append("```")
-            violations.extend(protocol_warnings)
-    if handledness_witnesses:
-        summary = _summarize_handledness_witnesses(handledness_witnesses)
-        _start_section("handledness_summary")
-        lines.append("Handledness evidence:")
-        lines.append("```")
-        lines.extend(_projected("handledness_summary", summary))
-        lines.append("```")
-    if deadline_obligations:
-        summary = _summarize_deadline_obligations(
-            deadline_obligations,
-            forest=forest,
-        )
-        _start_section("deadline_summary")
-        lines.append("Deadline propagation:")
-        lines.append("```")
-        lines.extend(_projected("deadline_summary", summary))
-        lines.append("```")
-    if resumability_obligations:
-        summary = _summarize_runtime_obligations(resumability_obligations)
-        _start_section("resumability_obligations")
-        lines.append("Resumability obligations:")
-        lines.append("```")
-        lines.extend(_projected("resumability_obligations", summary))
-        lines.append("```")
-        violations.extend(_runtime_obligation_violation_lines(resumability_obligations))
-    if incremental_report_obligations:
-        summary = _summarize_runtime_obligations(incremental_report_obligations)
-        _start_section("incremental_report_obligations")
-        lines.append("Incremental report obligations:")
-        lines.append("```")
-        lines.extend(_projected("incremental_report_obligations", summary))
-        lines.append("```")
-        violations.extend(
-            _runtime_obligation_violation_lines(incremental_report_obligations)
-        )
-    if parse_failure_witnesses:
-        summary = _summarize_parse_failure_witnesses(parse_failure_witnesses)
-        _start_section("parse_failure_witnesses")
-        lines.append("Parse failure witnesses:")
-        lines.append("```")
-        lines.extend(_projected("parse_failure_witnesses", summary))
-        lines.append("```")
-        violations.extend(_parse_failure_violation_lines(parse_failure_witnesses))
-    contract_violations = parse_witness_contract_violations_fn()
-    if contract_violations:
-        _start_section("parse_witness_contract_violations")
-        lines.append("Parse witness contract violations:")
-        lines.append("```")
-        lines.extend(_projected("parse_witness_contract_violations", contract_violations))
-        lines.append("```")
-        violations.extend(contract_violations)
-    raw_sorted_violations = _raw_sorted_contract_violations(
-        file_paths,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    if raw_sorted_violations:
-        _start_section("order_contract_violations")
-        lines.append("Order contract violations:")
-        lines.append("```")
-        lines.extend(_projected("order_contract_violations", raw_sorted_violations))
-        lines.append("```")
-        violations.extend(raw_sorted_violations)
-    pattern_instances = _pattern_schema_matches(
-        groups_by_path=groups_by_path,
-        include_execution=True,
-    )
-    if execution_pattern_suggestions is None:
-        execution_pattern_suggestions = _pattern_schema_suggestions_from_instances(
-            pattern_instances
-        )
-    if execution_pattern_suggestions:
-        _start_section("execution_pattern_suggestions")
-        lines.append("Execution pattern opportunities:")
-        lines.append("```")
-        lines.extend(
-            _projected("execution_pattern_suggestions", execution_pattern_suggestions)
-        )
-        lines.append("```")
-    pattern_residue = _pattern_schema_residue_entries(pattern_instances)
-    if pattern_residue:
-        _start_section("pattern_schema_residue")
-        lines.append("Pattern schema residue (non-blocking):")
-        lines.append("```")
-        lines.extend(
-            _projected(
-                "pattern_schema_residue",
-                _pattern_schema_residue_lines(pattern_residue),
-            )
-        )
-        lines.append("```")
-    if decision_surfaces:
-        _start_section("decision_surfaces")
-        lines.append("Decision surface candidates (direct param use in conditionals):")
-        lines.append("```")
-        lines.extend(_projected("decision_surfaces", decision_surfaces))
-        lines.append("```")
-    if value_decision_surfaces:
-        _start_section("value_decision_surfaces")
-        lines.append("Value-encoded decision surface candidates (branchless control):")
-        lines.append("```")
-        lines.extend(_projected("value_decision_surfaces", value_decision_surfaces))
-        lines.append("```")
-    if value_decision_rewrites:
-        _start_section("value_decision_rewrites")
-        lines.append("Value-encoded decision rebranch suggestions:")
-        lines.append("```")
-        lines.extend(_projected("value_decision_rewrites", value_decision_rewrites))
-        lines.append("```")
-    if decision_warnings:
-        _start_section("decision_warnings")
-        lines.append("Decision tier warnings:")
-        lines.append("```")
-        lines.extend(_projected("decision_warnings", decision_warnings))
-        lines.append("```")
-        violations.extend(decision_warnings)
-    if fingerprint_warnings:
-        _start_section("fingerprint_warnings")
-        lines.append("Fingerprint warnings:")
-        lines.append("```")
-        lines.extend(_projected("fingerprint_warnings", fingerprint_warnings))
-        lines.append("```")
-    if fingerprint_matches:
-        _start_section("fingerprint_matches")
-        lines.append("Fingerprint matches:")
-        lines.append("```")
-        lines.extend(_projected("fingerprint_matches", fingerprint_matches))
-        lines.append("```")
-    if fingerprint_synth:
-        _start_section("fingerprint_synthesis")
-        lines.append("Fingerprint synthesis:")
-        lines.append("```")
-        lines.extend(_projected("fingerprint_synthesis", fingerprint_synth))
-        lines.append("```")
-    if fingerprint_provenance:
-        provenance_summary = _summarize_fingerprint_provenance(fingerprint_provenance)
-        _start_section("fingerprint_provenance_summary")
-        lines.append("Packed derivation view (ASPF provenance):")
-        lines.append("```")
-        lines.extend(_projected("fingerprint_provenance_summary", provenance_summary))
-        lines.append("```")
-    if invariant_propositions:
-        _start_section("invariant_propositions")
-        lines.append("Invariant propositions:")
-        lines.append("```")
-        lines.extend(
-            _projected(
-                "invariant_propositions",
-                _format_invariant_propositions(invariant_propositions),
-            )
-        )
-        lines.append("```")
-    if context_suggestions:
-        _start_section("context_suggestions")
-        lines.append("Contextvar/ambient rewrite suggestions:")
-        lines.append("```")
-        lines.extend(_projected("context_suggestions", context_suggestions))
-        lines.append("```")
-    schema_surfaces = find_anonymous_schema_surfaces(file_paths, project_root=root)
-    if schema_surfaces:
-        _start_section("schema_surfaces")
-        lines.append("Anonymous schema surfaces (dict[str, object] payloads):")
-        lines.append("```")
-        schema_lines = [surface.format() for surface in schema_surfaces[:50]]
-        lines.extend(_projected("schema_surfaces", schema_lines))
-        if len(schema_surfaces) > 50:
-            lines.append(f"... {len(schema_surfaces) - 50} more")
-        lines.append("```")
-    return "\n".join(lines), violations
+from gabion.analysis.dataflow_reporting import emit_report as _emit_report
 
 
 def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
@@ -14153,7 +12959,7 @@ def compute_structure_metrics(
         "max_bundle_size": max_bundle_size,
         # JSON object keys are strings; use explicit conversion for stability.
         "bundle_size_histogram": {
-            str(size): count for size, count in sorted(size_histogram.items())
+            str(size): count for size, count in sort_once(size_histogram.items(), source = 'src/gabion/analysis/dataflow_audit.py:14196')
         },
     }
     metrics["forest_signature"] = build_forest_signature(forest)
@@ -14212,24 +13018,29 @@ def render_structure_snapshot(
             scope_path, fn_name = prop.scope.rsplit(":", 1)
             invariant_map.setdefault((scope_path, fn_name), []).append(prop)
     files: list[JSONObject] = []
-    for path in sorted(
-        groups_by_path, key=lambda p: _normalize_snapshot_path(p, root)
-    ):
+    for path in sort_once(
+        groups_by_path, key=lambda p: _normalize_snapshot_path(p, root), 
+    source = 'src/gabion/analysis/dataflow_audit.py:14255'):
         check_deadline()
         groups = groups_by_path[path]
         functions: list[JSONObject] = []
         path_key = _normalize_snapshot_path(path, root)
-        for fn_name in sorted(groups):
+        for fn_name in sort_once(groups, source = 'src/gabion/analysis/dataflow_audit.py:14262'):
             check_deadline()
             bundles = groups[fn_name]
-            normalized = [sorted(bundle) for bundle in bundles]
-            normalized.sort(key=lambda bundle: (len(bundle), bundle))
+            normalized = [sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:14265') for bundle in bundles]
+            normalized = sort_once(
+                normalized,
+                source="snapshot_from_groups_by_path.functions.normalized",
+                # Primary by bundle length then lexicalized bundle tuple.
+                key=lambda bundle: (len(bundle), bundle),
+            )
             entry: JSONObject = {"name": fn_name, "bundles": normalized}
             invariants = invariant_map.get((path_key, fn_name))
             if invariants:
                 entry["invariants"] = [
                     prop.as_dict()
-                    for prop in sorted(
+                    for prop in sort_once(
                         invariants,
                         key=lambda prop: (
                             prop.form,
@@ -14237,7 +13048,7 @@ def render_structure_snapshot(
                             prop.source or "",
                             prop.scope or "",
                         ),
-                    )
+                    source = 'src/gabion/analysis/dataflow_audit.py:14277')
                 ]
             functions.append(entry)
         files.append({"path": _normalize_snapshot_path(path, root), "functions": functions})
@@ -14294,8 +13105,8 @@ def render_decision_snapshot(
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
-        "decision_surfaces": sorted(surfaces.decision_surfaces),
-        "value_decision_surfaces": sorted(surfaces.value_decision_surfaces),
+        "decision_surfaces": sort_once(surfaces.decision_surfaces, source = 'src/gabion/analysis/dataflow_audit.py:14342'),
+        "value_decision_surfaces": sort_once(surfaces.value_decision_surfaces, source = 'src/gabion/analysis/dataflow_audit.py:14343'),
         "pattern_schema_instances": schema_instances,
         "pattern_schema_residue": schema_residue,
         "decision_tables": decision_tables,
@@ -14345,12 +13156,12 @@ def diff_decision_snapshots(
         "baseline_root": baseline_snapshot.get("root"),
         "current_root": current_snapshot.get("root"),
         "decision_surfaces": {
-            "added": sorted(curr_decisions - base_decisions),
-            "removed": sorted(base_decisions - curr_decisions),
+            "added": sort_once(curr_decisions - base_decisions, source = 'src/gabion/analysis/dataflow_audit.py:14393'),
+            "removed": sort_once(base_decisions - curr_decisions, source = 'src/gabion/analysis/dataflow_audit.py:14394'),
         },
         "value_decision_surfaces": {
-            "added": sorted(curr_value - base_value),
-            "removed": sorted(base_value - curr_value),
+            "added": sort_once(curr_value - base_value, source = 'src/gabion/analysis/dataflow_audit.py:14397'),
+            "removed": sort_once(base_value - curr_value, source = 'src/gabion/analysis/dataflow_audit.py:14398'),
         },
     }
     _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
@@ -14389,10 +13200,10 @@ def diff_structure_snapshots(
     check_deadline()
     baseline_counts = _bundle_counts_from_snapshot(baseline_snapshot)
     current_counts = _bundle_counts_from_snapshot(current_snapshot)
-    all_bundles = sorted(
+    all_bundles = sort_once(
         set(baseline_counts) | set(current_counts),
         key=lambda bundle: (len(bundle), list(bundle)),
-    )
+    source = 'src/gabion/analysis/dataflow_audit.py:14437')
     added: list[JSONObject] = []
     removed: list[JSONObject] = []
     changed: list[JSONObject] = []
@@ -14463,10 +13274,10 @@ def compute_structure_reuse(
         payload = {
             "kind": kind,
             "value": value,
-            "children": sorted(child_hashes),
+            "children": sort_once(child_hashes, source = 'src/gabion/analysis/dataflow_audit.py:14511'),
         }
         digest = hashlib.sha1(
-            json.dumps(payload, sort_keys=True).encode("utf-8")
+            json.dumps(payload, sort_keys=False).encode("utf-8")
         ).hexdigest()
         return digest
 
@@ -14519,7 +13330,12 @@ def compute_structure_reuse(
                 check_deadline()
                 if not isinstance(bundle, list):
                     continue
-                normalized = tuple(sorted(str(item) for item in bundle))
+                normalized = tuple(
+                    sort_once(
+                        (str(item) for item in bundle),
+                        source="src/gabion/analysis/dataflow_audit.py:14567",
+                    )
+                )
                 bundle_hash = hasher("bundle", normalized, [])
                 bundle_hashes.append(bundle_hash)
                 _record(
@@ -14553,12 +13369,15 @@ def compute_structure_reuse(
         for entry in reuse_map.values()
         if isinstance(entry.get("count"), int) and entry["count"] >= min_count
     ]
-    reused.sort(
+    reused = sort_once(
+        reused,
+        source="extract_rewrite_plan_candidates.reused",
+        # Lexical kind, descending count, lexical hash for deterministic suggestions.
         key=lambda entry: (
             entry.get("kind", ""),
             -int(entry.get("count", 0)),
             entry.get("hash", ""),
-        )
+        ),
     )
     suggested: list[JSONObject] = []
     replacement_map: dict[str, list[JSONObject]] = {}
@@ -14584,10 +13403,15 @@ def compute_structure_reuse(
             suggestion["child_count"] = entry.get("child_count")
         if kind == "bundle" and "value" in entry:
             value = entry.get("value")
-            key = tuple(sorted(str(item) for item in cast(list[object], value)))
+            key = tuple(
+                sort_once(
+                    (str(item) for item in cast(list[object], value)),
+                    source="src/gabion/analysis/dataflow_audit.py:14635",
+                )
+            )
             name_candidates = bundle_name_map.get(key)
             if name_candidates:
-                sorted_names = sorted(name_candidates)
+                sorted_names = sort_once(name_candidates, source = 'src/gabion/analysis/dataflow_audit.py:14638')
                 if len(sorted_names) == 1:
                     suggestion["suggested_name"] = sorted_names[0]
                     suggestion["name_source"] = "declared_bundle"
@@ -14647,10 +13471,10 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("# No lemma suggestions available.")
         lines.append("")
         return "\n".join(lines)
-    for entry in sorted(
+    for entry in sort_once(
         (e for e in suggested if isinstance(e, dict)),
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
-    ):
+    source = 'src/gabion/analysis/dataflow_audit.py:14698'):
         check_deadline()
         name = entry.get("suggested_name")
         if not isinstance(name, str) or not name:
@@ -14673,11 +13497,12 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
 
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
-_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 32
-_BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 64
-_COLLECTION_PROGRESS_EMIT_INTERVAL = 8
-_ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL = 4
-_DEADLINE_OBLIGATIONS_PROGRESS_EMIT_INTERVAL = 128
+_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
+_BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 1
+_COLLECTION_PROGRESS_EMIT_INTERVAL = 1
+_ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL = 1
+_DEADLINE_OBLIGATIONS_PROGRESS_EMIT_INTERVAL = 1
+_PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -14689,7 +13514,7 @@ class _PartialWorkerCarrierOutput:
 
 
 def _canonical_json_bytes(value: JSONValue) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(value, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
 
 
 def _path_key_from_violation(violation: str) -> str | None:
@@ -14725,7 +13550,7 @@ def _canonicalize_worker_violations(
             continue
         by_path[path_key].setdefault(canonical, violation)
     ordered_paths = _iter_monotonic_paths(
-        ordered_or_sorted(
+        sort_once(
             (Path(path_key) for path_key in by_path),
             source=f"{source}.paths",
             key=str,
@@ -14737,13 +13562,13 @@ def _canonicalize_worker_violations(
         check_deadline()
         path_key = str(path)
         entries = by_path.get(path_key, {})
-        for canonical in ordered_or_sorted(
+        for canonical in sort_once(
             entries,
             source=f"{source}.path_entries",
         ):
             check_deadline()
             ordered.append(entries[canonical])
-    for canonical in ordered_or_sorted(
+    for canonical in sort_once(
         no_path,
         source=f"{source}.no_path_entries",
     ):
@@ -14768,7 +13593,7 @@ def _canonicalize_worker_structured_entries(
             continue
         by_path[path_key].setdefault(canonical, entry)
     ordered_paths = _iter_monotonic_paths(
-        ordered_or_sorted(
+        sort_once(
             (Path(path_key) for path_key in by_path),
             source=f"{source}.paths",
             key=str,
@@ -14780,13 +13605,13 @@ def _canonicalize_worker_structured_entries(
         check_deadline()
         path_key = str(path)
         path_entries = by_path.get(path_key, {})
-        for canonical in ordered_or_sorted(
+        for canonical in sort_once(
             path_entries,
             source=f"{source}.path_entries",
         ):
             check_deadline()
             ordered.append(path_entries[canonical])
-    for canonical in ordered_or_sorted(
+    for canonical in sort_once(
         no_path,
         source=f"{source}.no_path_entries",
     ):
@@ -14865,20 +13690,20 @@ def _iter_monotonic_paths(
 def _serialize_param_use(value: ParamUse) -> JSONObject:
     return {
         "direct_forward": [
-            [callee, slot] for callee, slot in sorted(value.direct_forward)
+            [callee, slot] for callee, slot in sort_once(value.direct_forward, source = 'src/gabion/analysis/dataflow_audit.py:14917')
         ],
         "non_forward": bool(value.non_forward),
-        "current_aliases": sorted(value.current_aliases),
+        "current_aliases": sort_once(value.current_aliases, source = 'src/gabion/analysis/dataflow_audit.py:14920'),
         "forward_sites": [
             {
                 "callee": callee,
                 "slot": slot,
-                "spans": [list(span) for span in sorted(spans)],
+                "spans": [list(span) for span in sort_once(spans, source = 'src/gabion/analysis/dataflow_audit.py:14925')],
             }
-            for (callee, slot), spans in sorted(value.forward_sites.items())
+            for (callee, slot), spans in sort_once(value.forward_sites.items(), source = 'src/gabion/analysis/dataflow_audit.py:14927')
         ],
         "unknown_key_carrier": bool(value.unknown_key_carrier),
-        "unknown_key_sites": [list(span) for span in sorted(value.unknown_key_sites)],
+        "unknown_key_sites": [list(span) for span in sort_once(value.unknown_key_sites, source = 'src/gabion/analysis/dataflow_audit.py:14930')],
     }
 
 
@@ -14926,7 +13751,7 @@ def _serialize_param_use_map(
     use_map: Mapping[str, ParamUse],
 ) -> JSONObject:
     payload: JSONObject = {}
-    for param_name in sorted(use_map):
+    for param_name in sort_once(use_map, source = 'src/gabion/analysis/dataflow_audit.py:14978'):
         check_deadline()
         payload[param_name] = _serialize_param_use(use_map[param_name])
     return payload
@@ -14947,12 +13772,12 @@ def _deserialize_param_use_map(
 def _serialize_call_args(call: CallArgs) -> JSONObject:
     payload: JSONObject = {
         "callee": call.callee,
-        "pos_map": {key: call.pos_map[key] for key in sorted(call.pos_map)},
-        "kw_map": {key: call.kw_map[key] for key in sorted(call.kw_map)},
-        "const_pos": {key: call.const_pos[key] for key in sorted(call.const_pos)},
-        "const_kw": {key: call.const_kw[key] for key in sorted(call.const_kw)},
-        "non_const_pos": sorted(call.non_const_pos),
-        "non_const_kw": sorted(call.non_const_kw),
+        "pos_map": {key: call.pos_map[key] for key in sort_once(call.pos_map, source = 'src/gabion/analysis/dataflow_audit.py:14999')},
+        "kw_map": {key: call.kw_map[key] for key in sort_once(call.kw_map, source = 'src/gabion/analysis/dataflow_audit.py:15000')},
+        "const_pos": {key: call.const_pos[key] for key in sort_once(call.const_pos, source = 'src/gabion/analysis/dataflow_audit.py:15001')},
+        "const_kw": {key: call.const_kw[key] for key in sort_once(call.const_kw, source = 'src/gabion/analysis/dataflow_audit.py:15002')},
+        "non_const_pos": sort_once(call.non_const_pos, source = 'src/gabion/analysis/dataflow_audit.py:15003'),
+        "non_const_kw": sort_once(call.non_const_kw, source = 'src/gabion/analysis/dataflow_audit.py:15004'),
         "star_pos": [[idx, name] for idx, name in call.star_pos],
         "star_kw": list(call.star_kw),
         "is_test": call.is_test,
@@ -14980,7 +13805,7 @@ def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
         non_const_pos=str_set_from_sequence(payload.get("non_const_pos")),
         non_const_kw=str_set_from_sequence(payload.get("non_const_kw")),
         star_pos=star_pos,
-        star_kw=sorted(str_set_from_sequence(payload.get("star_kw"))),
+        star_kw=sort_once(str_set_from_sequence(payload.get("star_kw")), source = 'src/gabion/analysis/dataflow_audit.py:15032'),
         is_test=bool(payload.get("is_test")),
         span=span,
         callable_kind=str(payload.get("callable_kind") or "function"),
@@ -15010,35 +13835,35 @@ def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
         "qual": info.qual,
         "path": str(info.path),
         "params": list(info.params),
-        "annots": {param: info.annots[param] for param in sorted(info.annots)},
+        "annots": {param: info.annots[param] for param in sort_once(info.annots, source = 'src/gabion/analysis/dataflow_audit.py:15062')},
         "calls": _serialize_call_args_list(info.calls),
-        "unused_params": sorted(info.unused_params),
-        "unknown_key_carriers": sorted(info.unknown_key_carriers),
-        "defaults": sorted(info.defaults),
+        "unused_params": sort_once(info.unused_params, source = 'src/gabion/analysis/dataflow_audit.py:15064'),
+        "unknown_key_carriers": sort_once(info.unknown_key_carriers, source = 'src/gabion/analysis/dataflow_audit.py:15065'),
+        "defaults": sort_once(info.defaults, source = 'src/gabion/analysis/dataflow_audit.py:15066'),
         "transparent": bool(info.transparent),
         "class_name": info.class_name,
         "scope": list(info.scope),
         "lexical_scope": list(info.lexical_scope),
-        "decision_params": sorted(info.decision_params),
+        "decision_params": sort_once(info.decision_params, source = 'src/gabion/analysis/dataflow_audit.py:15071'),
         "decision_surface_reasons": {
-            param: ordered_or_sorted(
+            param: sort_once(
                 info.decision_surface_reasons.get(param, set()),
                 source="_serialize_function_info_for_resume.decision_surface_reasons",
             )
-            for param in ordered_or_sorted(
+            for param in sort_once(
                 info.decision_surface_reasons,
                 source="_serialize_function_info_for_resume.decision_surface_reason_keys",
             )
         },
-        "value_decision_params": sorted(info.value_decision_params),
-        "value_decision_reasons": sorted(info.value_decision_reasons),
+        "value_decision_params": sort_once(info.value_decision_params, source = 'src/gabion/analysis/dataflow_audit.py:15082'),
+        "value_decision_reasons": sort_once(info.value_decision_reasons, source = 'src/gabion/analysis/dataflow_audit.py:15083'),
         "positional_params": list(info.positional_params),
         "kwonly_params": list(info.kwonly_params),
         "vararg": info.vararg,
         "kwarg": info.kwarg,
         "param_spans": {
             param: [int(value) for value in info.param_spans[param]]
-            for param in sorted(info.param_spans)
+            for param in sort_once(info.param_spans, source = 'src/gabion/analysis/dataflow_audit.py:15090')
         },
     }
     if info.function_span is not None:
@@ -15144,7 +13969,7 @@ def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
         "qual": class_info.qual,
         "module": class_info.module,
         "bases": list(class_info.bases),
-        "methods": sorted(class_info.methods),
+        "methods": sort_once(class_info.methods, source = 'src/gabion/analysis/dataflow_audit.py:15196'),
     }
 
 
@@ -15169,32 +13994,32 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
     return {
         "imports": [
             [module, name, fqn]
-            for (module, name), fqn in ordered_or_sorted(
+            for (module, name), fqn in sort_once(
                 table.imports.items(),
                 source="_serialize_symbol_table_for_resume.imports",
             )
         ],
-        "internal_roots": ordered_or_sorted(
+        "internal_roots": sort_once(
             table.internal_roots,
             source="_serialize_symbol_table_for_resume.internal_roots",
         ),
         "external_filter": bool(table.external_filter),
         "star_imports": {
-            module: ordered_or_sorted(
+            module: sort_once(
                 names,
                 source=f"_serialize_symbol_table_for_resume.star_imports.{module}",
             )
-            for module, names in ordered_or_sorted(
+            for module, names in sort_once(
                 table.star_imports.items(),
                 source="_serialize_symbol_table_for_resume.star_imports",
             )
         },
         "module_exports": {
-            module: ordered_or_sorted(
+            module: sort_once(
                 names,
                 source=f"_serialize_symbol_table_for_resume.module_exports.{module}",
             )
-            for module, names in ordered_or_sorted(
+            for module, names in sort_once(
                 table.module_exports.items(),
                 source="_serialize_symbol_table_for_resume.module_exports",
             )
@@ -15202,7 +14027,7 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
         "module_export_map": {
             module: {
                 name: mapping[name]
-                for name in ordered_or_sorted(
+                for name in sort_once(
                     mapping,
                     source=(
                         "_serialize_symbol_table_for_resume.module_export_map."
@@ -15210,7 +14035,7 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
                     ),
                 )
             }
-            for module, mapping in ordered_or_sorted(
+            for module, mapping in sort_once(
                 table.module_export_map.items(),
                 source="_serialize_symbol_table_for_resume.module_export_map",
             )
@@ -15308,7 +14133,7 @@ def _with_analysis_index_resume_variants(
         variants[current_identity] = _analysis_index_resume_variant_payload(payload)
     if not variants:
         return payload
-    ordered_variant_keys = sorted(variants.keys())
+    ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
     if current_identity and current_identity in ordered_variant_keys:
         ordered_variant_keys.remove(current_identity)
         ordered_variant_keys.append(current_identity)
@@ -15331,7 +14156,7 @@ def _serialize_analysis_index_resume_payload(
     profiling_v1: Mapping[str, JSONValue] | None = None,
     previous_payload: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
-    hydrated_path_keys = ordered_or_sorted(
+    hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
             for path in hydrated_paths
@@ -15339,13 +14164,13 @@ def _serialize_analysis_index_resume_payload(
         source="_serialize_analysis_index_resume_payload.hydrated_paths",
     )
     ordered_function_items = list(
-        ordered_or_sorted(
+        sort_once(
             by_qual.items(),
             source="_serialize_analysis_index_resume_payload.functions_by_qual",
         )
     )
     ordered_class_items = list(
-        ordered_or_sorted(
+        sort_once(
             class_index.items(),
             source="_serialize_analysis_index_resume_payload.class_index",
         )
@@ -15357,7 +14182,7 @@ def _serialize_analysis_index_resume_payload(
                 "function_quals": [qual for qual, _ in ordered_function_items],
                 "class_quals": [qual for qual, _ in ordered_class_items],
             },
-            sort_keys=True,
+            sort_keys=False,
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
@@ -15459,11 +14284,22 @@ def _serialize_groups_for_resume(
     groups: dict[str, list[set[str]]],
 ) -> dict[str, list[list[str]]]:
     payload: dict[str, list[list[str]]] = {}
-    for fn_name in sorted(groups):
+    for fn_name in sort_once(groups, source = 'src/gabion/analysis/dataflow_audit.py:15511'):
         check_deadline()
         bundles = groups[fn_name]
-        normalized = [sorted(str(param) for param in bundle) for bundle in bundles]
-        normalized.sort(key=lambda bundle: (len(bundle), bundle))
+        normalized = [
+            sort_once(
+                (str(param) for param in bundle),
+                source="src/gabion/analysis/dataflow_audit.py:15514",
+            )
+            for bundle in bundles
+        ]
+        normalized = sort_once(
+            normalized,
+            source="_serialize_groups_for_resume.normalized",
+            # Primary by bundle length then lexicalized bundle tuple.
+            key=lambda bundle: (len(bundle), bundle),
+        )
         payload[fn_name] = normalized
     return payload
 
@@ -15490,11 +14326,11 @@ def _serialize_param_spans_for_resume(
     spans: dict[str, dict[str, tuple[int, int, int, int]]],
 ) -> dict[str, dict[str, list[int]]]:
     payload: dict[str, dict[str, list[int]]] = {}
-    for fn_name in sorted(spans):
+    for fn_name in sort_once(spans, source = 'src/gabion/analysis/dataflow_audit.py:15547'):
         check_deadline()
         param_spans = spans[fn_name]
         payload[fn_name] = {}
-        for param_name in sorted(param_spans):
+        for param_name in sort_once(param_spans, source = 'src/gabion/analysis/dataflow_audit.py:15551'):
             check_deadline()
             span = param_spans[param_name]
             payload[fn_name][param_name] = [int(part) for part in span]
@@ -15529,7 +14365,7 @@ def _serialize_bundle_sites_for_resume(
     bundle_sites: dict[str, list[list[JSONObject]]],
 ) -> dict[str, list[list[JSONObject]]]:
     payload: dict[str, list[list[JSONObject]]] = {}
-    for fn_name in sorted(bundle_sites):
+    for fn_name in sort_once(bundle_sites, source = 'src/gabion/analysis/dataflow_audit.py:15586'):
         check_deadline()
         fn_sites = bundle_sites[fn_name]
         encoded_fn_sites: list[list[JSONObject]] = []
@@ -15574,7 +14410,7 @@ def _serialize_invariants_for_resume(
     invariants: Sequence[InvariantProposition],
 ) -> list[JSONObject]:
     payload: list[JSONObject] = []
-    for proposition in sorted(
+    for proposition in sort_once(
         invariants,
         key=lambda proposition: (
             proposition.form,
@@ -15582,7 +14418,7 @@ def _serialize_invariants_for_resume(
             proposition.scope or "",
             proposition.source or "",
         ),
-    ):
+    source = 'src/gabion/analysis/dataflow_audit.py:15631'):
         check_deadline()
         payload.append(proposition.as_dict())
     return payload
@@ -15649,27 +14485,27 @@ def _serialize_file_scan_resume_state(
     fn_names_payload: JSONObject = {}
     fn_lexical_scopes_payload: JSONObject = {}
     fn_class_names_payload: JSONObject = {}
-    for fn_key in sorted(fn_use):
+    for fn_key in sort_once(fn_use, source = 'src/gabion/analysis/dataflow_audit.py:15706'):
         check_deadline()
         fn_use_payload[fn_key] = _serialize_param_use_map(fn_use[fn_key])
-    for fn_key in sorted(fn_calls):
+    for fn_key in sort_once(fn_calls, source = 'src/gabion/analysis/dataflow_audit.py:15709'):
         check_deadline()
         fn_calls_payload[fn_key] = _serialize_call_args_list(fn_calls[fn_key])
-    for fn_key in sorted(fn_param_orders):
+    for fn_key in sort_once(fn_param_orders, source = 'src/gabion/analysis/dataflow_audit.py:15712'):
         check_deadline()
         fn_param_orders_payload[fn_key] = list(fn_param_orders[fn_key])
-    for fn_key in sorted(fn_param_spans):
+    for fn_key in sort_once(fn_param_spans, source = 'src/gabion/analysis/dataflow_audit.py:15715'):
         check_deadline()
         fn_param_spans_payload[fn_key] = _serialize_param_spans_for_resume(
             {fn_key: dict(fn_param_spans[fn_key])}
         ).get(fn_key, {})
-    for fn_key in sorted(fn_names):
+    for fn_key in sort_once(fn_names, source = 'src/gabion/analysis/dataflow_audit.py:15720'):
         check_deadline()
         fn_names_payload[fn_key] = fn_names[fn_key]
-    for fn_key in sorted(fn_lexical_scopes):
+    for fn_key in sort_once(fn_lexical_scopes, source = 'src/gabion/analysis/dataflow_audit.py:15723'):
         check_deadline()
         fn_lexical_scopes_payload[fn_key] = list(fn_lexical_scopes[fn_key])
-    for fn_key in sorted(fn_class_names):
+    for fn_key in sort_once(fn_class_names, source = 'src/gabion/analysis/dataflow_audit.py:15726'):
         check_deadline()
         fn_class_names_payload[fn_key] = fn_class_names[fn_key]
     return {
@@ -15681,8 +14517,8 @@ def _serialize_file_scan_resume_state(
         "fn_names": fn_names_payload,
         "fn_lexical_scopes": fn_lexical_scopes_payload,
         "fn_class_names": fn_class_names_payload,
-        "opaque_callees": sorted(opaque_callees),
-        "processed_functions": sorted(fn_use.keys()),
+        "opaque_callees": sort_once(opaque_callees, source = 'src/gabion/analysis/dataflow_audit.py:15738'),
+        "processed_functions": sort_once(fn_use.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15739'),
     }
 
 
@@ -15841,8 +14677,9 @@ def _build_analysis_collection_resume_payload(
     spans_payload: JSONObject = {}
     sites_payload: JSONObject = {}
     in_progress_scan_payload: JSONObject = {}
-    completed_keys = sorted(
-        _analysis_collection_resume_path_key(path) for path in completed_paths
+    completed_keys = sort_once(
+        (_analysis_collection_resume_path_key(path) for path in completed_paths),
+        source="src/gabion/analysis/dataflow_audit.py:15898",
     )
     for path_key in completed_keys:
         check_deadline()
@@ -15888,10 +14725,10 @@ def _build_analysis_collection_resume_payload(
                 str(key): value
                 for key, value in file_stage_timings_v1_by_path[path].items()
             }
-            for path in sorted(
+            for path in sort_once(
                 file_stage_timings_v1_by_path,
                 key=_analysis_collection_resume_path_key,
-            )
+            source = 'src/gabion/analysis/dataflow_audit.py:15945')
         }
     if isinstance(analysis_index_resume, Mapping):
         payload["analysis_index_resume"] = {
@@ -16036,7 +14873,7 @@ def _bundle_counts(
             check_deadline()
             for bundle in bundles:
                 check_deadline()
-                counts[tuple(sorted(bundle))] += 1
+                counts[tuple(sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:16093'))] += 1
     return counts
 
 
@@ -16060,7 +14897,7 @@ def _merge_counts_by_knobs(
                 if extra and extra.issubset(knob_names):
                     if len(other) < len(target) or target == bundle:
                         target = set(other)
-        merged[tuple(sorted(target))] += count
+        merged[tuple(sort_once(target, source = 'src/gabion/analysis/dataflow_audit.py:16117'))] += count
     return merged
 
 
@@ -16068,7 +14905,7 @@ def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_collect_declared_bundles")
     declared: set[tuple[str, ...]] = set()
-    file_paths = ordered_or_sorted(
+    file_paths = sort_once(
         root.rglob("*.py"),
         source="_collect_declared_bundles.file_paths",
         key=lambda path: str(path),
@@ -16082,23 +14919,31 @@ def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
         check_deadline()
         for fields in bundles.values():
             check_deadline()
-            declared.add(tuple(sorted(fields)))
+            declared.add(tuple(sort_once(fields, source = 'src/gabion/analysis/dataflow_audit.py:16139')))
     return declared
 
 
-def build_synthesis_plan(
+@dataclass(frozen=True)
+class _SynthesisPlanContext:
+    audit_config: AuditConfig
+    root: Path
+    signature_meta: JSONObject
+    path_list: list[Path]
+    parse_failure_witnesses: list[JSONObject]
+    analysis_index: AnalysisIndex
+    by_name: dict[str, list[FunctionInfo]]
+    by_qual: dict[str, FunctionInfo]
+    symbol_table: SymbolTable
+    class_index: dict[str, ClassInfo]
+    transitive_callers: dict[str, set[str]]
+
+
+def _build_synthesis_plan_context(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None = None,
-    max_tier: int = 2,
-    min_bundle_size: int = 2,
-    allow_singletons: bool = False,
-    merge_overlap_threshold: float | None = None,
-    config: AuditConfig | None = None,
-    invariant_propositions: Sequence[InvariantProposition] = (),
-    property_hook_min_confidence: float = 0.7,
-    emit_hypothesis_templates: bool = False,
-) -> JSONObject:
+    project_root: Path | None,
+    config: AuditConfig | None,
+) -> _SynthesisPlanContext:
     check_deadline()
     parse_failure_witnesses: list[JSONObject] = []
     audit_config = config or AuditConfig(
@@ -16116,10 +14961,6 @@ def build_synthesis_plan(
         transparent_decorators=audit_config.transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    by_name = analysis_index.by_name
-    by_qual = analysis_index.by_qual
-    symbol_table = analysis_index.symbol_table
-    class_index = analysis_index.class_index
     _, _, transitive_callers = _build_call_graph(
         path_list,
         project_root=root,
@@ -16130,14 +14971,35 @@ def build_synthesis_plan(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
     )
-    knob_names = _compute_knob_param_names(
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        project_root=root,
-        class_index=class_index,
-        strictness=audit_config.strictness,
+    return _SynthesisPlanContext(
+        audit_config=audit_config,
+        root=root,
+        signature_meta=signature_meta,
+        path_list=path_list,
+        parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        by_name=analysis_index.by_name,
+        by_qual=analysis_index.by_qual,
+        symbol_table=analysis_index.symbol_table,
+        class_index=analysis_index.class_index,
+        transitive_callers=transitive_callers,
+    )
+
+
+def _collect_synthesis_counts_and_evidence(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    context: _SynthesisPlanContext,
+) -> tuple[dict[tuple[str, ...], int], dict[frozenset[str], set[str]]]:
+    check_deadline()
+    knob_names = _compute_knob_param_names(
+        by_name=context.by_name,
+        by_qual=context.by_qual,
+        symbol_table=context.symbol_table,
+        project_root=context.root,
+        class_index=context.class_index,
+        strictness=context.audit_config.strictness,
+        analysis_index=context.analysis_index,
     )
     counts = _bundle_counts(groups_by_path)
     counts = _merge_counts_by_knobs(counts, knob_names)
@@ -16148,9 +15010,9 @@ def build_synthesis_plan(
 
     decision_params_by_fn: dict[tuple[Path, str], set[str]] = {}
     decision_ignore = (
-        audit_config.decision_ignore_params or audit_config.ignore_params
+        context.audit_config.decision_ignore_params or context.audit_config.ignore_params
     )
-    for info in by_qual.values():
+    for info in context.by_qual.values():
         check_deadline()
         if not info.decision_params and not info.value_decision_params:
             continue
@@ -16171,11 +15033,11 @@ def build_synthesis_plan(
 
     decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
     value_decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
-    for info in by_qual.values():
+    for info in context.by_qual.values():
         check_deadline()
-        caller_count = len(transitive_callers.get(info.qual, set()))
+        caller_count = len(context.transitive_callers.get(info.qual, set()))
         if info.decision_params:
-            bundle = tuple(sorted(info.decision_params))
+            bundle = tuple(sort_once(info.decision_params, source = 'src/gabion/analysis/dataflow_audit.py:16232'))
             decision_counts[bundle] += 1
             evidence = bundle_evidence[frozenset(bundle)]
             evidence.add("decision_surface")
@@ -16184,9 +15046,10 @@ def build_synthesis_plan(
             else:
                 evidence.add("tier-3:decision-table-boundary")
         if info.value_decision_params:
-            bundle = tuple(sorted(info.value_decision_params))
+            bundle = tuple(sort_once(info.value_decision_params, source = 'src/gabion/analysis/dataflow_audit.py:16241'))
             value_decision_counts[bundle] += 1
             bundle_evidence[frozenset(bundle)].add("value_decision_surface")
+
     for bundle, count in decision_counts.items():
         check_deadline()
         if bundle not in counts:
@@ -16195,21 +15058,48 @@ def build_synthesis_plan(
         check_deadline()
         if bundle not in counts:
             counts[bundle] = count
-    if not counts:
-        response = SynthesisResponse(
-            protocols=[],
-            warnings=["No bundles observed for synthesis."],
-            errors=[],
-        )
-        payload = response.model_dump()
-        payload.update(signature_meta)
-        payload["property_hook_manifest"] = generate_property_hook_manifest(
-            invariant_propositions,
-            min_confidence=property_hook_min_confidence,
-            emit_hypothesis_templates=emit_hypothesis_templates,
-        )
-        return payload
+    return counts, bundle_evidence
 
+
+def _synthesis_empty_payload(
+    *,
+    signature_meta: Mapping[str, object],
+    invariant_propositions: Sequence[InvariantProposition],
+    property_hook_min_confidence: float,
+    emit_hypothesis_templates: bool,
+) -> JSONObject:
+    response = SynthesisResponse(
+        protocols=[],
+        warnings=["No bundles observed for synthesis."],
+        errors=[],
+    )
+    payload = response.model_dump()
+    payload.update(signature_meta)
+    payload["property_hook_manifest"] = generate_property_hook_manifest(
+        invariant_propositions,
+        min_confidence=property_hook_min_confidence,
+        emit_hypothesis_templates=emit_hypothesis_templates,
+    )
+    return payload
+
+
+def _compute_synthesis_tiers_and_merge(
+    *,
+    counts: Mapping[tuple[str, ...], int],
+    bundle_evidence: Mapping[frozenset[str], set[str]],
+    root: Path,
+    max_tier: int,
+    min_bundle_size: int,
+    allow_singletons: bool,
+    merge_overlap_threshold: float | None,
+) -> tuple[
+    dict[frozenset[str], int],
+    dict[frozenset[str], set[str]],
+    NamingContext,
+    SynthesisConfig,
+    set[str],
+]:
+    check_deadline()
     declared = _collect_declared_bundles(root)
     bundle_tiers: dict[frozenset[str], int] = {}
     frequency: dict[str, int] = defaultdict(int)
@@ -16223,8 +15113,6 @@ def build_synthesis_plan(
             frequency[field] += count
             bundle_fields.add(field)
 
-    merged_bundle_tiers: dict[frozenset[str], int] = {}
-    merged_bundle_evidence: dict[frozenset[str], set[str]] = {}
     original_bundles = [set(bundle) for bundle in counts]
     synth_config = SynthesisConfig(
         max_tier=max_tier,
@@ -16239,6 +15127,7 @@ def build_synthesis_plan(
     merged_bundles = merge_bundles(
         original_bundles, min_overlap=synth_config.merge_overlap_threshold
     )
+    merged_bundle_tiers: dict[frozenset[str], int] = {}
     for merged in merged_bundles:
         check_deadline()
         members = [
@@ -16248,10 +15137,10 @@ def build_synthesis_plan(
         ]
         if not members:
             continue
-        tier = min(
+        merged_bundle_tiers[frozenset(merged)] = min(
             bundle_tiers[frozenset(member)] for member in members
         )
-        merged_bundle_tiers[frozenset(merged)] = tier
+    merged_bundle_evidence: dict[frozenset[str], set[str]] = {}
     if merged_bundle_tiers:
         bundle_tiers = merged_bundle_tiers
         for merged in merged_bundles:
@@ -16268,81 +15157,108 @@ def build_synthesis_plan(
                 check_deadline()
                 evidence.update(bundle_evidence.get(frozenset(member), set()))
             merged_bundle_evidence[frozenset(merged)] = evidence
-        bundle_evidence = merged_bundle_evidence
+    else:
+        merged_bundle_evidence = {
+            key: set(values) for key, values in bundle_evidence.items()
+        }
 
     naming_context = NamingContext(frequency=dict(frequency))
+    return (
+        bundle_tiers,
+        merged_bundle_evidence,
+        naming_context,
+        synth_config,
+        bundle_fields,
+    )
+
+
+def _infer_synthesis_field_types(
+    *,
+    bundle_fields: set[str],
+    context: _SynthesisPlanContext,
+) -> tuple[dict[str, str], list[str]]:
     field_types: dict[str, str] = {}
     type_warnings: list[str] = []
-    if bundle_fields:
-        inferred, _, _ = analyze_type_flow_repo_with_map(
-            path_list,
-            project_root=root,
-            ignore_params=audit_config.ignore_params,
-            strictness=audit_config.strictness,
-            external_filter=audit_config.external_filter,
-            transparent_decorators=audit_config.transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-        )
-        type_sets: dict[str, set[str]] = defaultdict(set)
-        for annots in inferred.values():
-            check_deadline()
-            for name, annot in annots.items():
-                check_deadline()
-                if name not in bundle_fields or not annot:
-                    continue
-                type_sets[name].add(annot)
-        for infos in by_name.values():
-            check_deadline()
-            for info in infos:
-                check_deadline()
-                for call in info.calls:
-                    check_deadline()
-                    if call.is_test:
-                        continue
-                    callee = _resolve_callee(
-                        call.callee,
-                        info,
-                        by_name,
-                        by_qual,
-                        symbol_table,
-                        root,
-                        class_index,
-                    )
-                    if callee is None or not callee.transparent:
-                        continue
-                    callee_params = callee.params
-                    for idx_str, value in call.const_pos.items():
-                        check_deadline()
-                        idx = int(idx_str)
-                        if idx >= len(callee_params):
-                            continue
-                        param = callee_params[idx]
-                        if param not in bundle_fields:
-                            continue
-                        hint = _type_from_const_repr(value)
-                        if hint:
-                            type_sets[param].add(hint)
-                    for kw, value in call.const_kw.items():
-                        check_deadline()
-                        if kw not in callee_params or kw not in bundle_fields:
-                            continue
-                        hint = _type_from_const_repr(value)
-                        if hint:
-                            type_sets[kw].add(hint)
-        for name, types in type_sets.items():
-            check_deadline()
-            combined, conflicted = _combine_type_hints(types)
-            field_types[name] = combined
-            if conflicted and len(types) > 1:
-                type_warnings.append(
-                    f"Conflicting type hints for '{name}': {sorted(types)} -> {combined}"
-                )
-    plan = Synthesizer(config=synth_config).plan(
-        bundle_tiers=bundle_tiers,
-        field_types=field_types,
-        naming_context=naming_context,
+    if not bundle_fields:
+        return field_types, type_warnings
+
+    inferred, _, _ = analyze_type_flow_repo_with_map(
+        context.path_list,
+        project_root=context.root,
+        ignore_params=context.audit_config.ignore_params,
+        strictness=context.audit_config.strictness,
+        external_filter=context.audit_config.external_filter,
+        transparent_decorators=context.audit_config.transparent_decorators,
+        parse_failure_witnesses=context.parse_failure_witnesses,
+        analysis_index=context.analysis_index,
     )
+    type_sets: dict[str, set[str]] = defaultdict(set)
+    for annots in inferred.values():
+        check_deadline()
+        for name, annot in annots.items():
+            check_deadline()
+            if name not in bundle_fields or not annot:
+                continue
+            type_sets[name].add(annot)
+    for infos in context.by_name.values():
+        check_deadline()
+        for info in infos:
+            check_deadline()
+            for call in info.calls:
+                check_deadline()
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    context.by_name,
+                    context.by_qual,
+                    context.symbol_table,
+                    context.root,
+                    context.class_index,
+                )
+                if callee is None or not callee.transparent:
+                    continue
+                callee_params = callee.params
+                for idx_str, value in call.const_pos.items():
+                    check_deadline()
+                    idx = int(idx_str)
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    if param not in bundle_fields:
+                        continue
+                    hint = _type_from_const_repr(value)
+                    if hint:
+                        type_sets[param].add(hint)
+                for kw, value in call.const_kw.items():
+                    check_deadline()
+                    if kw not in callee_params or kw not in bundle_fields:
+                        continue
+                    hint = _type_from_const_repr(value)
+                    if hint:
+                        type_sets[kw].add(hint)
+    for name, types in type_sets.items():
+        check_deadline()
+        combined, conflicted = _combine_type_hints(types)
+        field_types[name] = combined
+        if conflicted and len(types) > 1:
+            type_warnings.append(
+                f"Conflicting type hints for '{name}': {sort_once(types, source = 'src/gabion/analysis/dataflow_audit.py:16393')} -> {combined}"
+            )
+    return field_types, type_warnings
+
+
+def _synthesis_payload_from_plan(
+    *,
+    plan: SynthesisPlan,
+    bundle_evidence: Mapping[frozenset[str], set[str]],
+    type_warnings: list[str],
+    signature_meta: Mapping[str, object],
+    invariant_propositions: Sequence[InvariantProposition],
+    property_hook_min_confidence: float,
+    emit_hypothesis_templates: bool,
+) -> JSONObject:
     response = SynthesisResponse(
         protocols=[
             {
@@ -16351,14 +15267,14 @@ def build_synthesis_plan(
                     {
                         "name": field.name,
                         "type_hint": field.type_hint,
-                        "source_params": sorted(field.source_params),
+                        "source_params": sort_once(field.source_params, source = 'src/gabion/analysis/dataflow_audit.py:16408'),
                     }
                     for field in spec.fields
                 ],
-                "bundle": sorted(spec.bundle),
+                "bundle": sort_once(spec.bundle, source = 'src/gabion/analysis/dataflow_audit.py:16412'),
                 "tier": spec.tier,
                 "rationale": spec.rationale,
-                "evidence": sorted(bundle_evidence.get(frozenset(spec.bundle), set())),
+                "evidence": sort_once(bundle_evidence.get(frozenset(spec.bundle), set()), source = 'src/gabion/analysis/dataflow_audit.py:16415'),
             }
             for spec in plan.protocols
         ],
@@ -16373,6 +15289,71 @@ def build_synthesis_plan(
         emit_hypothesis_templates=emit_hypothesis_templates,
     )
     return payload
+
+
+def build_synthesis_plan(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    project_root: Path | None = None,
+    max_tier: int = 2,
+    min_bundle_size: int = 2,
+    allow_singletons: bool = False,
+    merge_overlap_threshold: float | None = None,
+    config: AuditConfig | None = None,
+    invariant_propositions: Sequence[InvariantProposition] = (),
+    property_hook_min_confidence: float = 0.7,
+    emit_hypothesis_templates: bool = False,
+) -> JSONObject:
+    check_deadline()
+    context = _build_synthesis_plan_context(
+        groups_by_path,
+        project_root=project_root,
+        config=config,
+    )
+    counts, bundle_evidence = _collect_synthesis_counts_and_evidence(
+        groups_by_path,
+        context=context,
+    )
+    if not counts:
+        return _synthesis_empty_payload(
+            signature_meta=context.signature_meta,
+            invariant_propositions=invariant_propositions,
+            property_hook_min_confidence=property_hook_min_confidence,
+            emit_hypothesis_templates=emit_hypothesis_templates,
+        )
+    (
+        bundle_tiers,
+        bundle_evidence,
+        naming_context,
+        synth_config,
+        bundle_fields,
+    ) = _compute_synthesis_tiers_and_merge(
+        counts=counts,
+        bundle_evidence=bundle_evidence,
+        root=context.root,
+        max_tier=max_tier,
+        min_bundle_size=min_bundle_size,
+        allow_singletons=allow_singletons,
+        merge_overlap_threshold=merge_overlap_threshold,
+    )
+    field_types, type_warnings = _infer_synthesis_field_types(
+        bundle_fields=bundle_fields,
+        context=context,
+    )
+    plan = Synthesizer(config=synth_config).plan(
+        bundle_tiers=bundle_tiers,
+        field_types=field_types,
+        naming_context=naming_context,
+    )
+    return _synthesis_payload_from_plan(
+        plan=plan,
+        bundle_evidence=bundle_evidence,
+        type_warnings=type_warnings,
+        signature_meta=context.signature_meta,
+        invariant_propositions=invariant_propositions,
+        property_hook_min_confidence=property_hook_min_confidence,
+        emit_hypothesis_templates=emit_hypothesis_templates,
+    )
 
 
 def render_synthesis_section(plan: JSONObject) -> str:
@@ -16425,13 +15406,13 @@ def build_refactor_plan(
             check_deadline()
             for bundle in bundles:
                 check_deadline()
-                key = tuple(sorted(bundle))
+                key = tuple(sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:16482'))
                 info = info_by_path_name.get((path, fn))
                 if info is not None:
                     bundle_map[key][info.qual] = info
 
     plans: list[JSONObject] = []
-    for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
+    for bundle, infos in sort_once(bundle_map.items(), key=lambda item: (len(item[0]), item[0]), source = 'src/gabion/analysis/dataflow_audit.py:16488'):
         check_deadline()
         comp = dict(infos)
         deps: dict[str, set[str]] = {qual: set() for qual in comp}
@@ -16458,9 +15439,9 @@ def build_refactor_plan(
         plans.append(
             {
                 "bundle": list(bundle),
-                "functions": sorted(comp.keys()),
+                "functions": sort_once(comp.keys(), source = 'src/gabion/analysis/dataflow_audit.py:16515'),
                 "order": schedule.order,
-                "cycles": [sorted(list(cycle)) for cycle in schedule.cycles],
+                "cycles": [sort_once(list(cycle), source = 'src/gabion/analysis/dataflow_audit.py:16517') for cycle in schedule.cycles],
             }
         )
 
@@ -16571,7 +15552,7 @@ def _compute_violations(
         max_components,
         report=report,
     )
-    return ordered_or_sorted(
+    return sort_once(
         set(violations),
         source="_compute_violations.violations",
     )
@@ -16615,7 +15596,7 @@ def _write_text_or_stdout(path: str, text: str) -> None:
 
 
 def _write_json_or_stdout(path: str, payload: JSONValue | object) -> None:
-    _write_text_or_stdout(path, json.dumps(payload, indent=2, sort_keys=True))
+    _write_text_or_stdout(path, json.dumps(payload, indent=2, sort_keys=False))
 
 
 def _has_followup_actions(
@@ -16697,7 +15678,7 @@ def _load_baseline(path: Path) -> set[str]:
 
 def _write_baseline(path: Path, violations: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    unique = ordered_or_sorted(
+    unique = sort_once(
         set(violations),
         source="_write_baseline.violations",
     )
@@ -16767,964 +15748,7 @@ def compute_violations(
     )
 
 
-def analyze_paths(
-    paths: list[Path],
-    *,
-    forest: Forest,
-    recursive: bool,
-    type_audit: bool,
-    type_audit_report: bool,
-    type_audit_max: int,
-    include_constant_smells: bool,
-    include_unused_arg_smells: bool,
-    include_deadness_witnesses: bool = False,
-    include_coherence_witnesses: bool = False,
-    include_rewrite_plans: bool = False,
-    include_exception_obligations: bool = False,
-    include_handledness_witnesses: bool = False,
-    include_never_invariants: bool = False,
-    include_wl_refinement: bool = False,
-    include_decision_surfaces: bool = False,
-    include_value_decision_surfaces: bool = False,
-    include_invariant_propositions: bool = False,
-    include_lint_lines: bool = False,
-    include_ambiguities: bool = False,
-    include_bundle_forest: bool = False,
-    include_deadline_obligations: bool = False,
-    config: AuditConfig | None = None,
-    file_paths_override: list[Path] | None = None,
-    collection_resume: JSONObject | None = None,
-    on_collection_progress: Callable[[JSONObject], None] | None = None,
-    on_phase_progress: Callable[
-        [
-            ReportProjectionPhase,
-            dict[Path, dict[str, list[set[str]]]],
-            ReportCarrier,
-            int,
-            int,
-        ],
-        None,
-    ]
-    | None = None,
-) -> AnalysisResult:
-    check_deadline()
-    forest_token = set_forest(forest)
-
-    def _best_effort_timeout_flush(callback: Callable[[], None] | None) -> None:
-        if not callable(callback):
-            return
-        try:
-            callback()
-        except TimeoutExceeded:
-            return
-
-    try:
-        if config is None:
-            config = AuditConfig()
-        if file_paths_override is None:
-            file_paths = resolve_analysis_paths(paths, config=config)
-        else:
-            file_paths = _iter_monotonic_paths(
-                file_paths_override,
-                source="analyze_paths.file_paths_override",
-            )
-        (
-            groups_by_path,
-            param_spans_by_path,
-            bundle_sites_by_path,
-            invariant_propositions,
-            completed_paths,
-            in_progress_scan_by_path,
-            analysis_index_resume_payload,
-        ) = _load_analysis_collection_resume_payload(
-            payload=collection_resume,
-            file_paths=file_paths,
-            include_invariant_propositions=include_invariant_propositions,
-        )
-        file_stage_timings_v1_by_path: dict[Path, JSONObject] = {}
-        if isinstance(collection_resume, Mapping):
-            raw_stage_timings = collection_resume.get("file_stage_timings_v1_by_path")
-            if isinstance(raw_stage_timings, Mapping):
-                for path in file_paths:
-                    check_deadline()
-                    path_key = _analysis_collection_resume_path_key(path)
-                    raw_entry = raw_stage_timings.get(path_key)
-                    if isinstance(raw_entry, Mapping):
-                        normalized_entry: JSONObject = {}
-                        for key, value in raw_entry.items():
-                            check_deadline()
-                            normalized_entry[str(key)] = value
-                        file_stage_timings_v1_by_path[path] = normalized_entry
-        forest_spec: ForestSpec | None = None
-        planned_forest_spec_id: str | None = None
-        ambiguity_witnesses: list[JSONObject] = []
-        parse_failure_witnesses: list[JSONObject] = []
-        analysis_index: AnalysisIndex | None = None
-        analysis_profile_stage_ns: dict[str, int] = {
-            "analysis.collection": 0,
-            "analysis.analysis_index": 0,
-            "analysis.forest": 0,
-            "analysis.edge": 0,
-            "analysis.post": 0,
-        }
-        analysis_profile_counters: Counter[str] = Counter(
-            {
-                "analysis.files_total": len(file_paths),
-                "analysis.files_completed": len(completed_paths),
-                "analysis.collection_progress_emits": 0,
-                "analysis.phase_progress_emits": 0,
-            }
-        )
-
-        def _deadline_check(*, allow_frame_fallback: bool) -> None:
-            forest_spec_id = None
-            if forest_spec is not None:
-                forest_spec_id = forest_spec_metadata(forest_spec).get(
-                    "generated_by_forest_spec_id"
-                )
-            check_deadline(
-                project_root=config.project_root,
-                forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
-                allow_frame_fallback=allow_frame_fallback,
-            )
-
-        if (
-            include_bundle_forest
-            or include_decision_surfaces
-            or include_value_decision_surfaces
-            or include_lint_lines
-            or include_never_invariants
-            or include_wl_refinement
-            or include_deadline_obligations
-            or include_ambiguities
-        ):
-            planned_spec = build_forest_spec(
-                include_bundle_forest=True,
-                include_decision_surfaces=include_decision_surfaces,
-                include_value_decision_surfaces=include_value_decision_surfaces,
-                include_never_invariants=include_never_invariants,
-                include_wl_refinement=include_wl_refinement,
-                include_ambiguities=include_ambiguities,
-                include_deadline_obligations=include_deadline_obligations,
-                include_lint_findings=include_lint_lines,
-                include_all_sites=True,
-                ignore_params=config.ignore_params,
-                decision_ignore_params=config.decision_ignore_params
-                or config.ignore_params,
-                transparent_decorators=config.transparent_decorators,
-                strictness=config.strictness,
-                decision_tiers=config.decision_tiers,
-                require_tiers=config.decision_require_tiers,
-                external_filter=config.external_filter,
-            )
-            planned_forest_spec_id = str(
-                forest_spec_metadata(planned_spec).get("generated_by_forest_spec_id", "")
-                or ""
-            )
-
-        def _require_analysis_index() -> AnalysisIndex:
-            nonlocal analysis_index
-            nonlocal analysis_index_resume_payload
-            if analysis_index is None:
-                index_started_ns = time.monotonic_ns()
-                def _on_analysis_index_progress(progress_payload: JSONObject) -> None:
-                    nonlocal analysis_index_resume_payload
-                    analysis_index_resume_payload = {
-                        str(key): progress_payload[key] for key in progress_payload
-                    }
-                    _emit_collection_progress(force=True)
-
-                analysis_index = _build_analysis_index(
-                    file_paths,
-                    project_root=config.project_root,
-                    ignore_params=config.ignore_params,
-                    strictness=config.strictness,
-                    external_filter=config.external_filter,
-                    transparent_decorators=config.transparent_decorators,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                    resume_payload=analysis_index_resume_payload,
-                    on_progress=(
-                        _on_analysis_index_progress
-                        if on_collection_progress is not None
-                        else None
-                    ),
-                    forest_spec_id=planned_forest_spec_id,
-                    fingerprint_seed_revision=config.fingerprint_seed_revision,
-                    decision_ignore_params=config.decision_ignore_params,
-                    decision_require_tiers=config.decision_require_tiers,
-                )
-                analysis_profile_stage_ns["analysis.analysis_index"] += (
-                    time.monotonic_ns() - index_started_ns
-                )
-            return analysis_index
-
-        collection_progress_since_emit = 0
-
-        def _emit_collection_progress(*, force: bool = False) -> None:
-            nonlocal collection_progress_since_emit
-            if on_collection_progress is None:
-                return
-            collection_progress_since_emit += 1
-            if (
-                not force
-                and collection_progress_since_emit < _COLLECTION_PROGRESS_EMIT_INTERVAL
-            ):
-                return
-            collection_progress_since_emit = 0
-            analysis_profile_counters["analysis.collection_progress_emits"] += 1
-            on_collection_progress(
-                _build_analysis_collection_resume_payload(
-                    groups_by_path=groups_by_path,
-                    param_spans_by_path=param_spans_by_path,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    invariant_propositions=invariant_propositions,
-                    completed_paths=completed_paths,
-                    in_progress_scan_by_path=in_progress_scan_by_path,
-                    analysis_index_resume=analysis_index_resume_payload,
-                    file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
-                )
-            )
-
-        def _emit_phase_progress(
-            phase: ReportProjectionPhase,
-            *,
-            report_carrier: ReportCarrier,
-            work_progress: _PhaseWorkProgress,
-            phase_progress_v2: JSONObject | None = None,
-            progress_marker: str = "",
-        ) -> None:
-            if on_phase_progress is None:
-                return
-            report_carrier.phase_progress_v2 = (
-                {str(key): phase_progress_v2[key] for key in phase_progress_v2}
-                if isinstance(phase_progress_v2, Mapping)
-                else None
-            )
-            report_carrier.progress_marker = progress_marker
-            analysis_profile_counters["analysis.phase_progress_emits"] += 1
-            on_phase_progress(
-                phase,
-                groups_by_path,
-                report_carrier,
-                work_progress.work_done,
-                work_progress.work_total,
-            )
-
-        collection_started_ns = time.monotonic_ns()
-        for path in file_paths:
-            check_deadline()
-            if path in completed_paths:
-                continue
-            if path not in in_progress_scan_by_path:
-                in_progress_scan_by_path[path] = {"phase": "scan_pending"}
-                _emit_collection_progress(force=True)
-            _deadline_check(allow_frame_fallback=True)
-
-            def _on_file_scan_progress(progress_state: JSONObject) -> None:
-                in_progress_scan_by_path[path] = progress_state
-                _emit_collection_progress()
-
-            def _on_file_scan_profile(profile_payload: JSONObject) -> None:
-                file_stage_timings_v1_by_path[path] = {
-                    str(key): profile_payload[key] for key in profile_payload
-                }
-
-            groups, spans, sites = _analyze_file_internal(
-                path,
-                recursive=recursive,
-                config=config,
-                resume_state=in_progress_scan_by_path.get(path),
-                on_progress=_on_file_scan_progress,
-                on_profile=_on_file_scan_profile,
-            )
-            groups_by_path[path] = groups
-            param_spans_by_path[path] = spans
-            bundle_sites_by_path[path] = sites
-            in_progress_scan_by_path.pop(path, None)
-            if include_invariant_propositions:
-                invariant_propositions.extend(
-                    _collect_invariant_propositions(
-                        path,
-                        ignore_params=config.ignore_params,
-                        project_root=config.project_root,
-                        emitters=config.invariant_emitters,
-                    )
-                )
-            completed_paths.add(path)
-            analysis_profile_counters["analysis.files_completed"] = len(completed_paths)
-            _emit_collection_progress(force=True)
-
-        analysis_profile_stage_ns["analysis.collection"] += (
-            time.monotonic_ns() - collection_started_ns
-        )
-        _emit_phase_progress(
-            "collection",
-            report_carrier=ReportCarrier(
-                forest=forest,
-                bundle_sites_by_path=bundle_sites_by_path,
-                invariant_propositions=invariant_propositions,
-                parse_failure_witnesses=parse_failure_witnesses,
-            ),
-            work_progress=_phase_work_progress(work_done=1, work_total=1),
-            phase_progress_v2={
-                "format_version": 1,
-                "schema": "gabion/phase_progress_v2",
-                "primary_unit": "collection_files",
-                "primary_done": 1,
-                "primary_total": 1,
-                "dimensions": {
-                    "collection_files": {"done": 1, "total": 1},
-                },
-                "inventory": {},
-            },
-        )
-
-        analysis_index_for_progress = analysis_index
-        if analysis_index_for_progress is None and (
-            include_bundle_forest
-            or include_decision_surfaces
-            or include_value_decision_surfaces
-            or include_lint_lines
-            or include_never_invariants
-            or include_wl_refinement
-            or include_deadline_obligations
-            or include_ambiguities
-        ):
-            analysis_index_for_progress = _require_analysis_index()
-        forest_inventory_files_total = len(file_paths)
-        forest_inventory_callsites_total = 0
-        if analysis_index_for_progress is not None:
-            forest_inventory_callsites_total = sum(
-                len(info.calls) for info in analysis_index_for_progress.by_qual.values()
-            )
-        forest_mutable_progress_done = 0
-        forest_mutable_progress_total = 0
-        forest_ambiguity_total = 1 if include_ambiguities else 0
-        forest_ambiguity_done = 0
-        forest_progress_marker = "start"
-        forest_dimensions: dict[str, JSONObject] = {}
-
-        def _normalized_dimension_payload(
-            raw_dimensions: Mapping[str, object],
-        ) -> dict[str, JSONObject]:
-            normalized: dict[str, JSONObject] = {}
-            for raw_name, raw_payload in raw_dimensions.items():
-                check_deadline()
-                if isinstance(raw_name, str) and isinstance(raw_payload, Mapping):
-                    raw_done = raw_payload.get("done")
-                    raw_total = raw_payload.get("total")
-                    if (
-                        isinstance(raw_done, int)
-                        and not isinstance(raw_done, bool)
-                        and isinstance(raw_total, int)
-                        and not isinstance(raw_total, bool)
-                    ):
-                        done = max(int(raw_done), 0)
-                        total = max(int(raw_total), 0)
-                        if total:
-                            done = min(done, total)
-                        normalized[raw_name] = {"done": done, "total": total}
-            return normalized
-
-        def _forest_phase_progress_v2() -> JSONObject:
-            primary_done = forest_mutable_progress_done + forest_ambiguity_done
-            primary_total = forest_mutable_progress_total + forest_ambiguity_total
-            dimensions: JSONObject = {
-                "forest_mutable_steps": {
-                    "done": forest_mutable_progress_done,
-                    "total": forest_mutable_progress_total,
-                },
-                "ambiguity_pass": {
-                    "done": forest_ambiguity_done,
-                    "total": forest_ambiguity_total,
-                },
-                "callsite_inventory": {
-                    "done": forest_inventory_callsites_total,
-                    "total": forest_inventory_callsites_total,
-                },
-            }
-            for dim_name, dim_payload in forest_dimensions.items():
-                check_deadline()
-                dimensions[dim_name] = {
-                    "done": int(dim_payload.get("done", 0)),
-                    "total": int(dim_payload.get("total", 0)),
-                }
-            return {
-                "format_version": 1,
-                "schema": "gabion/phase_progress_v2",
-                "primary_unit": "forest_mutable_steps",
-                "primary_done": primary_done,
-                "primary_total": primary_total,
-                "dimensions": dimensions,
-                "inventory": {
-                    "callsites_total": forest_inventory_callsites_total,
-                    "input_file_paths_total": forest_inventory_files_total,
-                },
-            }
-
-        def _emit_forest_phase_progress() -> None:
-            forest_phase_progress_v2 = _forest_phase_progress_v2()
-            raw_primary_done = forest_phase_progress_v2.get("primary_done")
-            raw_primary_total = forest_phase_progress_v2.get("primary_total")
-            primary_done = (
-                int(raw_primary_done)
-                if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
-                else 0
-            )
-            primary_total = (
-                int(raw_primary_total)
-                if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
-                else 0
-            )
-            _emit_phase_progress(
-                "forest",
-                report_carrier=ReportCarrier(
-                    forest=forest,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    ambiguity_witnesses=ambiguity_witnesses,
-                    invariant_propositions=invariant_propositions,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                ),
-                work_progress=_phase_work_progress(
-                    work_done=primary_done,
-                    work_total=primary_total,
-                ),
-                phase_progress_v2=forest_phase_progress_v2,
-                progress_marker=forest_progress_marker,
-            )
-
-        def _on_forest_progress(progress_delta: object = 0) -> None:
-            nonlocal forest_mutable_progress_done
-            nonlocal forest_mutable_progress_total
-            nonlocal forest_progress_marker
-            nonlocal forest_dimensions
-            if isinstance(progress_delta, Mapping):
-                raw_done = progress_delta.get("primary_done")
-                raw_total = progress_delta.get("primary_total")
-                if isinstance(raw_done, int) and not isinstance(raw_done, bool):
-                    forest_mutable_progress_done = max(int(raw_done), 0)
-                if isinstance(raw_total, int) and not isinstance(raw_total, bool):
-                    forest_mutable_progress_total = max(int(raw_total), 0)
-                forest_mutable_progress_total = max(
-                    forest_mutable_progress_total,
-                    forest_mutable_progress_done,
-                )
-                raw_marker = progress_delta.get("marker")
-                if isinstance(raw_marker, str) and raw_marker:
-                    forest_progress_marker = raw_marker
-                raw_dimensions = progress_delta.get("dimensions")
-                if isinstance(raw_dimensions, Mapping):
-                    forest_dimensions = _normalized_dimension_payload(raw_dimensions)
-                _emit_forest_phase_progress()
-
-        _emit_forest_phase_progress()
-        forest_started_ns = time.monotonic_ns()
-        if (
-            include_bundle_forest
-            or include_decision_surfaces
-            or include_value_decision_surfaces
-            or include_lint_lines
-            or include_never_invariants
-            or include_wl_refinement
-            or include_deadline_obligations
-            or include_ambiguities
-        ):
-            _populate_bundle_forest(
-                forest,
-                groups_by_path=groups_by_path,
-                file_paths=file_paths,
-                project_root=config.project_root,
-                include_all_sites=True,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-                on_progress=_on_forest_progress,
-            )
-            forest_progress_marker = "forest_spec_materialization"
-            forest_spec = build_forest_spec(
-                include_bundle_forest=True,
-                include_decision_surfaces=include_decision_surfaces,
-                include_value_decision_surfaces=include_value_decision_surfaces,
-                include_never_invariants=include_never_invariants,
-                include_wl_refinement=include_wl_refinement,
-                include_ambiguities=include_ambiguities,
-                include_deadline_obligations=include_deadline_obligations,
-                include_lint_findings=include_lint_lines,
-                include_all_sites=True,
-                ignore_params=config.ignore_params,
-                decision_ignore_params=config.decision_ignore_params
-                or config.ignore_params,
-                transparent_decorators=config.transparent_decorators,
-                strictness=config.strictness,
-                decision_tiers=config.decision_tiers,
-                require_tiers=config.decision_require_tiers,
-                external_filter=config.external_filter,
-            )
-            _deadline_check(allow_frame_fallback=False)
-            if include_wl_refinement:
-                emit_wl_refinement_facets(
-                    forest=forest,
-                    spec=WL_REFINEMENT_SPEC,
-                )
-                forest_progress_marker = "wl_refinement"
-                _emit_forest_phase_progress()
-
-        _emit_forest_phase_progress()
-
-        if include_ambiguities:
-            forest_progress_marker = "ambiguity:start"
-            _deadline_check(allow_frame_fallback=False)
-            call_ambiguities = _collect_call_ambiguities(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            ambiguity_witnesses = _emit_call_ambiguities(
-                call_ambiguities,
-                project_root=config.project_root,
-                forest=forest,
-            )
-            _materialize_ambiguity_suite_agg_spec(forest=forest)
-            _materialize_ambiguity_virtual_set_spec(forest=forest)
-            forest_ambiguity_done = 1
-            forest_progress_marker = "ambiguity:done"
-            _emit_forest_phase_progress()
-
-        analysis_profile_stage_ns["analysis.forest"] += (
-            time.monotonic_ns() - forest_started_ns
-        )
-        type_suggestions: list[str] = []
-        type_ambiguities: list[str] = []
-        type_callsite_evidence: list[str] = []
-        constant_smells: list[str] = []
-        deadness_witnesses: list[JSONObject] = []
-        unused_arg_smells: list[str] = []
-        edge_work_total = 0
-        if type_audit or type_audit_report:
-            edge_work_total += 1
-        if include_constant_smells or include_deadness_witnesses:
-            edge_work_total += 1
-        if include_unused_arg_smells:
-            edge_work_total += 1
-        edge_work_done = 0
-
-        def _emit_edge_phase_progress() -> None:
-            _emit_phase_progress(
-                "edge",
-                report_carrier=ReportCarrier(
-                    forest=forest,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    type_suggestions=type_suggestions,
-                    type_ambiguities=type_ambiguities,
-                    type_callsite_evidence=type_callsite_evidence,
-                    constant_smells=constant_smells,
-                    unused_arg_smells=unused_arg_smells,
-                    deadness_witnesses=deadness_witnesses,
-                    ambiguity_witnesses=ambiguity_witnesses,
-                    invariant_propositions=invariant_propositions,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                ),
-                work_progress=_phase_work_progress(
-                    work_done=edge_work_done,
-                    work_total=edge_work_total,
-                ),
-            )
-
-        _emit_edge_phase_progress()
-        edge_started_ns = time.monotonic_ns()
-        if type_audit or type_audit_report:
-            _deadline_check(allow_frame_fallback=False)
-            type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            if type_audit_report:
-                type_suggestions = type_suggestions[:type_audit_max]
-                type_ambiguities = type_ambiguities[:type_audit_max]
-                # Trim evidence opportunistically so reports remain reviewable.
-                type_callsite_evidence = type_callsite_evidence[:type_audit_max]
-            edge_work_done += 1
-            _emit_edge_phase_progress()
-
-        if include_constant_smells or include_deadness_witnesses:
-            constant_details = _collect_constant_flow_details(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            if include_constant_smells:
-                constant_smells = _constant_smells_from_details(constant_details)
-            if include_deadness_witnesses:
-                deadness_witnesses = _deadness_witnesses_from_constant_details(
-                    constant_details,
-                    project_root=config.project_root,
-                )
-            edge_work_done += 1
-            _emit_edge_phase_progress()
-
-        if include_unused_arg_smells:
-            unused_arg_smells = analyze_unused_arg_flow_repo(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            edge_work_done += 1
-            _emit_edge_phase_progress()
-
-        _emit_edge_phase_progress()
-        analysis_profile_stage_ns["analysis.edge"] += time.monotonic_ns() - edge_started_ns
-
-        deadline_obligations: list[JSONObject] = []
-        decision_surfaces: list[str] = []
-        decision_warnings: list[str] = []
-        decision_lint_lines: list[str] = []
-        value_decision_surfaces: list[str] = []
-        value_decision_rewrites: list[str] = []
-        fingerprint_warnings: list[str] = []
-        fingerprint_matches: list[str] = []
-        fingerprint_synth: list[str] = []
-        fingerprint_synth_registry: JSONObject | None = None
-        fingerprint_provenance: list[JSONObject] = []
-        coherence_witnesses: list[JSONObject] = []
-        rewrite_plans: list[JSONObject] = []
-        exception_obligations: list[JSONObject] = []
-        never_invariants: list[JSONObject] = []
-        handledness_witnesses: list[JSONObject] = []
-        context_suggestions: list[str] = []
-        lint_lines: list[str] = []
-        post_task_flags = [
-            include_deadline_obligations,
-            include_decision_surfaces,
-            include_value_decision_surfaces,
-            include_exception_obligations
-            or (include_lint_lines and bool(config.never_exceptions)),
-            include_never_invariants,
-            config.fingerprint_registry is not None and bool(config.fingerprint_index),
-            include_lint_lines,
-        ]
-        post_work_total = sum(1 for enabled in post_task_flags if enabled)
-        post_work_done = 0
-        post_progress_marker = "enter"
-
-        def _emit_post_phase_progress(*, marker: str | None = None) -> None:
-            nonlocal post_progress_marker
-            if isinstance(marker, str) and marker:
-                post_progress_marker = marker
-            _emit_phase_progress(
-                "post",
-                report_carrier=ReportCarrier(
-                    forest=forest,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    type_suggestions=type_suggestions,
-                    type_ambiguities=type_ambiguities,
-                    type_callsite_evidence=type_callsite_evidence,
-                    constant_smells=constant_smells,
-                    unused_arg_smells=unused_arg_smells,
-                    deadness_witnesses=deadness_witnesses,
-                    coherence_witnesses=coherence_witnesses,
-                    rewrite_plans=rewrite_plans,
-                    exception_obligations=exception_obligations,
-                    never_invariants=never_invariants,
-                    ambiguity_witnesses=ambiguity_witnesses,
-                    handledness_witnesses=handledness_witnesses,
-                    decision_surfaces=decision_surfaces,
-                    value_decision_surfaces=value_decision_surfaces,
-                    decision_warnings=decision_warnings,
-                    fingerprint_warnings=fingerprint_warnings,
-                    fingerprint_matches=fingerprint_matches,
-                    fingerprint_synth=fingerprint_synth,
-                    fingerprint_provenance=fingerprint_provenance,
-                    context_suggestions=context_suggestions,
-                    invariant_propositions=invariant_propositions,
-                    value_decision_rewrites=value_decision_rewrites,
-                    deadline_obligations=deadline_obligations,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                    progress_marker=post_progress_marker,
-                ),
-                work_progress=_phase_work_progress(
-                    work_done=post_work_done,
-                    work_total=post_work_total,
-                ),
-                progress_marker=post_progress_marker,
-            )
-
-        _emit_post_phase_progress()
-        post_started_ns = time.monotonic_ns()
-        if include_deadline_obligations:
-            _emit_post_phase_progress(marker="deadline_obligations:start")
-
-            def _on_deadline_obligation_progress(marker: str) -> None:
-                _emit_post_phase_progress(
-                    marker=f"deadline_obligations:{str(marker or 'in_progress')}"
-                )
-
-            deadline_obligations = _collect_deadline_obligations(
-                file_paths,
-                project_root=config.project_root,
-                config=config,
-                forest=forest,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-                on_progress=_on_deadline_obligation_progress,
-            )
-            _emit_post_phase_progress(marker="deadline_obligations:suite_order")
-            _materialize_suite_order_spec(forest=forest)
-            post_work_done += 1
-            _emit_post_phase_progress(marker="deadline_obligations:done")
-
-        if include_decision_surfaces:
-            _emit_post_phase_progress(marker="decision_surfaces:start")
-            decision_surfaces, decision_warnings, decision_lint_lines = (
-                analyze_decision_surfaces_repo(
-                    file_paths,
-                    project_root=config.project_root,
-                    ignore_params=config.decision_ignore_params or config.ignore_params,
-                    strictness=config.strictness,
-                    external_filter=config.external_filter,
-                    transparent_decorators=config.transparent_decorators,
-                    decision_tiers=config.decision_tiers,
-                    require_tiers=config.decision_require_tiers,
-                    forest=forest,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                    analysis_index=_require_analysis_index(),
-                )
-            )
-            post_work_done += 1
-            _emit_post_phase_progress(marker="decision_surfaces:done")
-
-        if include_value_decision_surfaces:
-            _emit_post_phase_progress(marker="value_decisions:start")
-            (
-                value_decision_surfaces,
-                value_warnings,
-                value_decision_rewrites,
-                value_lint_lines,
-            ) = analyze_value_encoded_decisions_repo(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.decision_ignore_params or config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                decision_tiers=config.decision_tiers,
-                require_tiers=config.decision_require_tiers,
-                forest=forest,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            decision_warnings.extend(value_warnings)
-            decision_lint_lines.extend(value_lint_lines)
-            post_work_done += 1
-            _emit_post_phase_progress(marker="value_decisions:done")
-
-        need_exception_obligations = include_exception_obligations or (
-            include_lint_lines and bool(config.never_exceptions)
-        )
-        if need_exception_obligations or include_handledness_witnesses:
-            handledness_witnesses = _collect_handledness_witnesses(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-            )
-        if need_exception_obligations:
-            _emit_post_phase_progress(marker="exception_obligations:start")
-            exception_obligations = _collect_exception_obligations(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                handledness_witnesses=handledness_witnesses,
-                deadness_witnesses=deadness_witnesses,
-                never_exceptions=config.never_exceptions,
-            )
-            post_work_done += 1
-            _emit_post_phase_progress(marker="exception_obligations:done")
-        if include_never_invariants:
-            _emit_post_phase_progress(marker="never_invariants:start")
-            never_invariants = _collect_never_invariants(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                forest=forest,
-                deadness_witnesses=deadness_witnesses,
-            )
-            post_work_done += 1
-            _emit_post_phase_progress(marker="never_invariants:done")
-        if config.fingerprint_registry is not None and config.fingerprint_index:
-            _emit_post_phase_progress(marker="fingerprint:start")
-            annotations_by_path = _param_annotations_by_path(
-                file_paths,
-                ignore_params=config.ignore_params,
-                parse_failure_witnesses=parse_failure_witnesses,
-            )
-            fingerprint_warnings = _compute_fingerprint_warnings(
-                groups_by_path,
-                annotations_by_path,
-                registry=config.fingerprint_registry,
-                index=config.fingerprint_index,
-                ctor_registry=config.constructor_registry,
-            )
-            fingerprint_matches = _compute_fingerprint_matches(
-                groups_by_path,
-                annotations_by_path,
-                registry=config.fingerprint_registry,
-                index=config.fingerprint_index,
-                ctor_registry=config.constructor_registry,
-            )
-            fingerprint_provenance = _compute_fingerprint_provenance(
-                groups_by_path,
-                annotations_by_path,
-                registry=config.fingerprint_registry,
-                project_root=config.project_root,
-                index=config.fingerprint_index,
-                ctor_registry=config.constructor_registry,
-            )
-            fingerprint_synth, fingerprint_synth_registry = _compute_fingerprint_synth(
-                groups_by_path,
-                annotations_by_path,
-                registry=config.fingerprint_registry,
-                ctor_registry=config.constructor_registry,
-                min_occurrences=config.fingerprint_synth_min_occurrences,
-                version=config.fingerprint_synth_version,
-                existing=config.fingerprint_synth_registry,
-            )
-            if include_coherence_witnesses:
-                coherence_witnesses = _compute_fingerprint_coherence(
-                    fingerprint_provenance,
-                    synth_version=config.fingerprint_synth_version,
-                )
-            if include_rewrite_plans:
-                rewrite_plans = _compute_fingerprint_rewrite_plans(
-                    fingerprint_provenance,
-                    coherence_witnesses,
-                    synth_version=config.fingerprint_synth_version,
-                    exception_obligations=(
-                        exception_obligations if include_exception_obligations else None
-                    ),
-                )
-            post_work_done += 1
-            _emit_post_phase_progress(marker="fingerprint:done")
-
-        if decision_surfaces:
-            for entry in decision_surfaces:
-                check_deadline()
-                if "(internal callers" in entry:
-                    context_suggestions.append(f"Consider contextvar for {entry}")
-            _emit_post_phase_progress(marker="context_suggestions")
-
-        if include_lint_lines:
-            _emit_post_phase_progress(marker="lint:start")
-            broad_type_lint_lines = _internal_broad_type_lint_lines(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-            lint_lines = _compute_lint_lines(
-                forest=forest,
-                groups_by_path=groups_by_path,
-                bundle_sites_by_path=bundle_sites_by_path,
-                type_callsite_evidence=type_callsite_evidence,
-                ambiguity_witnesses=ambiguity_witnesses,
-                exception_obligations=exception_obligations,
-                never_invariants=never_invariants,
-                deadline_obligations=deadline_obligations,
-                decision_lint_lines=decision_lint_lines,
-                broad_type_lint_lines=broad_type_lint_lines,
-                constant_smells=constant_smells,
-                unused_arg_smells=unused_arg_smells,
-            )
-            post_work_done += 1
-            _emit_post_phase_progress(marker="lint:done")
-
-        _emit_post_phase_progress(marker="complete")
-        analysis_profile_stage_ns["analysis.post"] += time.monotonic_ns() - post_started_ns
-        profiling_v1 = _profiling_v1_payload(
-            stage_ns=analysis_profile_stage_ns,
-            counters=analysis_profile_counters,
-        )
-        profiling_v1["file_stage_timings_v1_by_path"] = {
-            _analysis_collection_resume_path_key(path): file_stage_timings_v1_by_path[path]
-            for path in ordered_or_sorted(
-                file_stage_timings_v1_by_path,
-                source="analyze_paths.file_stage_timings_v1_by_path",
-                key=_analysis_collection_resume_path_key,
-            )
-        }
-
-        return AnalysisResult(
-            groups_by_path=groups_by_path,
-            param_spans_by_path=param_spans_by_path,
-            bundle_sites_by_path=bundle_sites_by_path,
-            type_suggestions=type_suggestions,
-            type_ambiguities=type_ambiguities,
-            type_callsite_evidence=type_callsite_evidence,
-            constant_smells=constant_smells,
-            unused_arg_smells=unused_arg_smells,
-            forest=forest,
-            lint_lines=lint_lines,
-            deadness_witnesses=deadness_witnesses,
-            decision_surfaces=decision_surfaces,
-            value_decision_surfaces=value_decision_surfaces,
-            decision_warnings=ordered_or_sorted(
-                set(decision_warnings),
-                source="analyze_paths.decision_warnings",
-            ),
-            fingerprint_warnings=fingerprint_warnings,
-            fingerprint_matches=fingerprint_matches,
-            fingerprint_synth=fingerprint_synth,
-            fingerprint_synth_registry=fingerprint_synth_registry,
-            fingerprint_provenance=fingerprint_provenance,
-            coherence_witnesses=coherence_witnesses,
-            rewrite_plans=rewrite_plans,
-            exception_obligations=exception_obligations,
-            never_invariants=never_invariants,
-            handledness_witnesses=handledness_witnesses,
-            context_suggestions=context_suggestions,
-            invariant_propositions=invariant_propositions,
-            value_decision_rewrites=value_decision_rewrites,
-            ambiguity_witnesses=ambiguity_witnesses,
-            deadline_obligations=deadline_obligations,
-            parse_failure_witnesses=parse_failure_witnesses,
-            forest_spec=forest_spec,
-            profiling_v1=profiling_v1,
-        )
-    except TimeoutExceeded:
-        emit_collection_progress = locals().get("_emit_collection_progress")
-        if callable(emit_collection_progress):
-            _best_effort_timeout_flush(lambda: emit_collection_progress(force=True))
-        _best_effort_timeout_flush(locals().get("_emit_forest_phase_progress"))
-        _best_effort_timeout_flush(locals().get("_emit_edge_phase_progress"))
-        _best_effort_timeout_flush(locals().get("_emit_post_phase_progress"))
-        raise
-    finally:
-        reset_forest(forest_token)
+from gabion.analysis.dataflow_pipeline import analyze_paths
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -18211,208 +16235,27 @@ def _run_impl(
         config=config,
     )
 
-    _emit_sidecar_outputs(
-        args=args,
-        analysis=analysis,
-        fingerprint_deadness_json=fingerprint_deadness_json,
-        fingerprint_coherence_json=fingerprint_coherence_json,
-        fingerprint_rewrite_plans_json=fingerprint_rewrite_plans_json,
-        fingerprint_exception_obligations_json=fingerprint_exception_obligations_json,
-        fingerprint_handledness_json=fingerprint_handledness_json,
-    )
-    structure_tree_path = args.emit_structure_tree
-    structure_metrics_path = args.emit_structure_metrics
-    if structure_tree_path:
-        snapshot = render_structure_snapshot(
-            analysis.groups_by_path,
-            project_root=config.project_root,
-            forest=analysis.forest,
-            forest_spec=analysis.forest_spec,
-            invariant_propositions=analysis.invariant_propositions,
-        )
-        _write_json_or_stdout(structure_tree_path, snapshot)
-        if args.report is None and args.dot is None and not _has_followup_actions(
-            args,
-            include_structure_metrics=bool(structure_metrics_path),
-            include_decision_snapshot=bool(decision_snapshot_path),
-        ):
-            return 0
-    if structure_metrics_path:
-        metrics = compute_structure_metrics(
-            analysis.groups_by_path, forest=analysis.forest
-        )
-        _write_json_or_stdout(structure_metrics_path, metrics)
-        if args.report is None and args.dot is None and not _has_followup_actions(
-            args,
-            include_structure_tree=bool(structure_tree_path),
-            include_decision_snapshot=bool(decision_snapshot_path),
-        ):
-            return 0
-    if decision_snapshot_path:
-        snapshot = render_decision_snapshot(
-            surfaces=DecisionSnapshotSurfaces(
-                decision_surfaces=analysis.decision_surfaces,
-                value_decision_surfaces=analysis.value_decision_surfaces,
+    return _finalize_run_outputs_impl(
+        context=_RunImplOutputContextCore(
+            args=args,
+            analysis=analysis,
+            paths=paths,
+            config=config,
+            synth_defaults=synth_defaults,
+            baseline_path=baseline_path,
+            baseline_write=baseline_write,
+            decision_snapshot_path=decision_snapshot_path,
+            fingerprint_deadness_json=fingerprint_deadness_json,
+            fingerprint_coherence_json=fingerprint_coherence_json,
+            fingerprint_rewrite_plans_json=fingerprint_rewrite_plans_json,
+            fingerprint_exception_obligations_json=(
+                fingerprint_exception_obligations_json
             ),
-            project_root=config.project_root,
-            forest=analysis.forest,
-            forest_spec=analysis.forest_spec,
-            groups_by_path=analysis.groups_by_path,
-        )
-        _write_json_or_stdout(decision_snapshot_path, snapshot)
-        if args.report is None and args.dot is None and not _has_followup_actions(
-            args,
-            include_structure_tree=bool(structure_tree_path),
-            include_structure_metrics=bool(structure_metrics_path),
-        ):
-            return 0
-    synthesis_plan: JSONObject | None = None
-    merge_overlap_threshold = None
-    if args.synthesis_merge_overlap is not None:
-        merge_overlap_threshold = args.synthesis_merge_overlap
-    else:
-        value = synth_defaults.get("merge_overlap_threshold")
-        if isinstance(value, (int, float)):
-            merge_overlap_threshold = float(value)
-    if merge_overlap_threshold is not None:
-        merge_overlap_threshold = max(0.0, min(1.0, merge_overlap_threshold))
-    if args.synthesis_plan or args.synthesis_report or args.synthesis_protocols:
-        synthesis_plan = build_synthesis_plan(
-            analysis.groups_by_path,
-            project_root=config.project_root,
-            max_tier=args.synthesis_max_tier,
-            min_bundle_size=args.synthesis_min_bundle_size,
-            allow_singletons=args.synthesis_allow_singletons,
-            merge_overlap_threshold=merge_overlap_threshold,
-            config=config,
-            invariant_propositions=analysis.invariant_propositions,
-            property_hook_min_confidence=args.synthesis_property_hook_min_confidence,
-            emit_hypothesis_templates=bool(args.synthesis_property_hook_hypothesis),
-        )
-        if args.synthesis_plan:
-            _write_json_or_stdout(args.synthesis_plan, synthesis_plan)
-        if args.synthesis_protocols:
-            stubs = render_protocol_stubs(
-                synthesis_plan, kind=args.synthesis_protocols_kind
-            )
-            _write_text_or_stdout(args.synthesis_protocols, stubs)
-    refactor_plan: JSONObject | None = None
-    if args.refactor_plan or args.refactor_plan_json:
-        refactor_plan = build_refactor_plan(
-            analysis.groups_by_path,
-            paths,
-            config=config,
-        )
-        if args.refactor_plan_json:
-            _write_json_or_stdout(args.refactor_plan_json, refactor_plan)
-    if args.dot is not None:
-        dot = _emit_dot(analysis.forest)
-        _write_text_or_stdout(args.dot, dot)
-        if args.report is None and not _has_followup_actions(
-            args,
-            include_structure_tree=bool(structure_tree_path),
-            include_structure_metrics=bool(structure_metrics_path),
-            include_decision_snapshot=bool(decision_snapshot_path),
-        ):
-            return 0
-    if args.type_audit:
-        if analysis.type_suggestions:
-            print("Type tightening candidates:")
-            for line in analysis.type_suggestions[: args.type_audit_max]:
-                check_deadline()
-                print(f"- {line}")
-        if analysis.type_ambiguities:
-            print("Type ambiguities (conflicting downstream expectations):")
-            for line in analysis.type_ambiguities[: args.type_audit_max]:
-                check_deadline()
-                print(f"- {line}")
-        if args.report is None and not _has_followup_actions(
-            args, include_type_audit=False
-        ):
-            return 0
-    if args.report is not None:
-        report_carrier = ReportCarrier.from_analysis_result(
-            analysis,
-            include_type_audit=args.type_audit_report,
-        )
-        report, violations = emit_report_fn(
-            analysis.groups_by_path,
-            args.max_components,
-            report=report_carrier,
-        )
-        suppressed: list[str] = []
-        new_violations = violations
-        if baseline_path is not None:
-            baseline_entries = _load_baseline(baseline_path)
-            if baseline_write:
-                _write_baseline(baseline_path, violations)
-                baseline_entries = set(violations)
-                new_violations = []
-            else:
-                new_violations, suppressed = _apply_baseline(
-                    violations, baseline_entries
-                )
-            report = (
-                report
-                + "\n\nBaseline/Ratchet:\n```\n"
-                + f"Baseline: {baseline_path}\n"
-                + f"Baseline entries: {len(baseline_entries)}\n"
-                + f"Suppressed: {len(suppressed)}\n"
-                + f"New violations: {len(new_violations)}\n"
-                + "```\n"
-            )
-        if synthesis_plan and (
-            args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
-        ):
-            report = report + render_synthesis_section(synthesis_plan)
-        if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
-            report = report + render_refactor_plan(refactor_plan)
-        _write_text_or_stdout(args.report, report)
-        if args.fail_on_violations and violations:
-            if baseline_write:
-                return 0
-            if new_violations:
-                return 1
-        return 0
-    for path, groups in analysis.groups_by_path.items():
-        check_deadline()
-        print(f"# {path}")
-        for fn, bundles in groups.items():
-            check_deadline()
-            if not bundles:
-                continue
-            print(f"{fn}:")
-            for bundle in bundles:
-                check_deadline()
-                print(f"  bundle: {sorted(bundle)}")
-        print()
-    if args.fail_on_type_ambiguities and analysis.type_ambiguities:
-        return 1
-    if args.fail_on_violations:
-        violation_carrier = ReportCarrier(
-            forest=analysis.forest,
-            type_suggestions=analysis.type_suggestions if args.type_audit_report else [],
-            type_ambiguities=analysis.type_ambiguities if args.type_audit_report else [],
-            decision_warnings=analysis.decision_warnings,
-            fingerprint_warnings=analysis.fingerprint_warnings,
-            parse_failure_witnesses=analysis.parse_failure_witnesses,
-        )
-        violations = compute_violations_fn(
-            analysis.groups_by_path,
-            args.max_components,
-            report=violation_carrier,
-        )
-        if baseline_path is not None:
-            baseline_entries = _load_baseline(baseline_path)
-            if baseline_write:
-                _write_baseline(baseline_path, violations)
-                return 0
-            new_violations, _ = _apply_baseline(violations, baseline_entries)
-            if new_violations:
-                return 1
-        elif violations:
-            return 1
-    return 0
+            fingerprint_handledness_json=fingerprint_handledness_json,
+        ),
+        emit_report_fn=emit_report_fn,
+        compute_violations_fn=compute_violations_fn,
+    ).exit_code
 
 
 def run(argv: list[str] | None = None) -> int:

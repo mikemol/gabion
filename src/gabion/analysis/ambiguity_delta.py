@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -138,7 +139,7 @@ def render_markdown(
         baseline = by_kind.get("baseline", {})
         current = by_kind.get("current", {})
         delta = by_kind.get("delta", {})
-        kinds = ordered_or_sorted(
+        kinds = sort_once(
             {*baseline.keys(), *current.keys(), *delta.keys()},
             source="render_markdown.by_kind.kinds",
         )

@@ -1,6 +1,7 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Set
@@ -29,7 +30,7 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
             outgoing[dep].add(node)
             incoming[node].add(dep)
 
-    ready = ordered_or_sorted(
+    ready = sort_once(
         (node for node, deps in incoming.items() if not deps),
         source="topological_schedule.ready",
     )
@@ -39,7 +40,7 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
         check_deadline()
         node = ready.pop(0)
         order.append(node)
-        for follower in ordered_or_sorted(
+        for follower in sort_once(
             outgoing[node],
             source="topological_schedule.followers",
         ):
@@ -51,7 +52,7 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
                 # already be present in `ready`/`order` here.
                 if follower not in ready and follower not in order:  # pragma: no branch
                     ready.append(follower)
-        ready = ordered_or_sorted(
+        ready = sort_once(
             ready,
             source="topological_schedule.ready_reorder",
         )

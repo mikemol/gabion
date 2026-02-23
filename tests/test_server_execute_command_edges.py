@@ -50,6 +50,20 @@ class _CommandResult:
     violations: int
 
 
+def _assert_invariant_failure(result: dict[str, object]) -> None:
+    assert result.get("exit_code") == 2
+    assert result.get("analysis_state") == "failed"
+    assert result.get("classification") == "failed"
+    assert result.get("error_kind") == "invariant_violation"
+    errors = result.get("errors")
+    assert isinstance(errors, list)
+    assert errors
+
+
+def test_invariant_error_message_falls_back_to_default() -> None:
+    assert server._invariant_error_message(NeverThrown("")) == "invariant violation"
+
+
 _TIMEOUT_PAYLOAD = {
     "analysis_timeout_ticks": 50_000,
     "analysis_timeout_tick_ns": 1_000_000,
@@ -620,17 +634,17 @@ def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "analysis_timeout_ticks": "nope",
-                }
-            ),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_timeout_ticks": "nope",
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_reserves_default_cleanup_grace::server.py::gabion.server._analysis_timeout_budget_ns
@@ -933,7 +947,9 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
     assert progress.get("resume_supported") is True
     assert progress.get("cleanup_truncated") is True
     cleanup_steps = progress.get("cleanup_timeout_steps")
-    assert cleanup_steps == ["render_timeout_report", "incremental_obligations"]
+    assert cleanup_steps == sorted(
+        ["render_timeout_report", "incremental_obligations"]
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_writes_partial_incremental_report::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
@@ -2188,16 +2204,16 @@ def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            {
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "analysis_timeout_ticks": 1,
-                "analysis_timeout_tick_ns": "nope",
-            },
-        )
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "analysis_timeout_ticks": 1,
+            "analysis_timeout_tick_ns": "nope",
+        },
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -2236,15 +2252,15 @@ def test_execute_command_ignores_invalid_duration_timeout_fields(
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
     for timeout_field in ("analysis_timeout_ms", "analysis_timeout_seconds"):
-        with pytest.raises(NeverThrown):
-            server.execute_command(
-                ls,
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    timeout_field: "nope",
-                },
-            )
+        result = server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                timeout_field: "nope",
+            },
+        )
+        _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_non_dict::server.py::gabion.server.execute_structure_reuse
@@ -2322,18 +2338,18 @@ def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> N
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_test_obsolescence_delta": True,
-                "test_obsolescence_state": str(
-                    tmp_path / "artifacts" / "out" / "missing.json"
-                ),
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_obsolescence_delta": True,
+            "test_obsolescence_state": str(
+                tmp_path / "artifacts" / "out" / "missing.json"
+            ),
+        }),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -2379,18 +2395,18 @@ def test_execute_command_rejects_missing_annotation_drift_state(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_test_annotation_drift_delta": True,
-                "test_annotation_drift_state": str(
-                    tmp_path / "artifacts" / "out" / "missing.json"
-                ),
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_annotation_drift_delta": True,
+            "test_annotation_drift_state": str(
+                tmp_path / "artifacts" / "out" / "missing.json"
+            ),
+        }),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -2403,16 +2419,16 @@ def test_execute_command_rejects_invalid_annotation_drift_state(
     state_path = tmp_path / "artifacts" / "out" / "test_annotation_drift.json"
     state_path.write_text(json.dumps(["bad"]), encoding="utf-8")
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_test_annotation_drift_delta": True,
-                "test_annotation_drift_state": str(state_path),
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_annotation_drift_delta": True,
+            "test_annotation_drift_state": str(state_path),
+        }),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -2510,16 +2526,16 @@ def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_ambiguity_delta": True,
-                "ambiguity_state": str(tmp_path / "artifacts" / "out" / "missing.json"),
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_ambiguity_delta": True,
+            "ambiguity_state": str(tmp_path / "artifacts" / "out" / "missing.json"),
+        }),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -2544,16 +2560,16 @@ def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> Non
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_ambiguity_state": True,
-                "ambiguity_state": "artifacts/out/ambiguity_state.json",
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_ambiguity_state": True,
+            "ambiguity_state": "artifacts/out/ambiguity_state.json",
+        }),
+    )
+    _assert_invariant_failure(result)
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_rejects_obsolescence_state_conflict(
@@ -2562,23 +2578,45 @@ def test_execute_command_rejects_obsolescence_state_conflict(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            _with_timeout({
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "emit_test_obsolescence_state": True,
-                "test_obsolescence_state": "artifacts/out/test_obsolescence_state.json",
-            }),
-        )
+    result = server.execute_command(
+        ls,
+        _with_timeout({
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_obsolescence_state": True,
+            "test_obsolescence_state": "artifacts/out/test_obsolescence_state.json",
+        }),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_non_dict_payload::server.py::gabion.server.execute_command
 def test_execute_command_rejects_non_dict_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(ls, [])  # type: ignore[arg-type]
+    result = server.execute_command(ls, [])  # type: ignore[arg-type]
+    _assert_invariant_failure(result)
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_payload_with_structured_failure::server.py::gabion.server.execute_command
+def test_execute_command_rejects_missing_payload_with_structured_failure(
+    tmp_path: Path,
+) -> None:
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(ls, None)
+    _assert_invariant_failure(result)
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_with_deps_rejects_missing_payload_with_structured_failure::server.py::gabion.server.execute_command_with_deps
+def test_execute_command_with_deps_rejects_missing_payload_with_structured_failure(
+    tmp_path: Path,
+) -> None:
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command_with_deps(
+        ls,
+        None,
+        deps=server._default_execute_command_deps(),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_payload_non_dict::server.py::gabion.server.execute_refactor
@@ -4334,6 +4372,45 @@ def test_execute_command_projection_phase_callback_no_rows(
     assert result.get("analysis_state") == "succeeded"
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_projection_phase_callback_emits_progress_without_report_path::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_projection_phase_callback_emits_progress_without_report_path(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _analyze(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_phase_progress = kwargs.get("on_phase_progress")
+        assert callable(on_phase_progress)
+        carrier = server.ReportCarrier(forest=server.Forest())
+        carrier.phase_progress_v2 = {
+            "primary_unit": "forest_mutable_steps",
+            "primary_done": 1,
+            "primary_total": 2,
+            "dimensions": {"forest_mutable_steps": {"done": 1, "total": 2}},
+        }
+        on_phase_progress("forest", {}, carrier, 1, 2)
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_timeout_progress_report": True,
+                "fail_on_violations": True,
+            }
+        ),
+        analyze_paths_fn=_analyze,
+    )
+
+    assert result.get("analysis_state") == "succeeded"
+    progress_values = _progress_values(ls)
+    assert any(value.get("phase") == "forest" for value in progress_values)
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_state_summary_fallback_branches::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_collection_resume_state_summary_fallback_branches(
     tmp_path: Path,
@@ -5065,17 +5142,17 @@ def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
 def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
     module = tmp_path / "sample.py"
     _write_bundle_module(module)
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module)],
-                    "strictness": "invalid",
-                }
-            ),
-        )
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module)],
+                "strictness": "invalid",
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_accepts_structured_compatibility_shim::server.py::gabion.server.execute_refactor::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
@@ -5534,6 +5611,91 @@ def test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values() -
     assert plan.policy_metadata.deadline["analysis_timeout_ms"] == 10
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_checkpoint_intro_and_execution_plan_additional_branch_edges::server.py::gabion.server._append_checkpoint_intro_timeline_row::server.py::gabion.server._materialize_execution_plan
+def test_server_checkpoint_intro_and_execution_plan_additional_branch_edges(
+    tmp_path: Path,
+) -> None:
+    timeline_path = tmp_path / "checkpoint_intro_timeline.md"
+    _header, row = server._append_checkpoint_intro_timeline_row(
+        path=timeline_path,
+        collection_resume={
+            "completed_paths": [],
+            "semantic_progress": {
+                "current_witness_digest": "",
+                "new_processed_functions_count": True,
+                "regressed_processed_functions_count": "1",
+                "completed_files_delta": None,
+                "substantive_progress": "yes",
+            },
+            "analysis_index_resume": {
+                "hydrated_paths_count": True,
+                "function_count": True,
+                "class_count": False,
+            },
+        },
+        total_files=3,
+        checkpoint_path=tmp_path / "resume.json",
+        checkpoint_status="checkpoint_loaded",
+        checkpoint_reused_files=1,
+        checkpoint_total_files=3,
+        timestamp_utc="2026-02-20T00:00:00Z",
+    )
+    cells = [cell.strip() for cell in row.strip().split("|")[1:-1]]
+    assert cells[6] == ""
+    assert cells[7] == ""
+    assert cells[8] == ""
+    assert cells[9] == ""
+    assert cells[10] == ""
+    assert cells[11] == ""
+    assert cells[12] == ""
+    assert cells[13] == ""
+
+    plan_policy_scalar = server._materialize_execution_plan(
+        {
+            "execution_plan_request": {
+                "obligations": {
+                    "preconditions": "invalid",
+                    "postconditions": "invalid",
+                },
+                "policy_metadata": "invalid",
+            }
+        }
+    )
+    assert plan_policy_scalar.obligations.preconditions == []
+    assert plan_policy_scalar.obligations.postconditions == []
+    assert plan_policy_scalar.policy_metadata.deadline == {}
+    assert plan_policy_scalar.policy_metadata.baseline_mode == "none"
+    assert plan_policy_scalar.policy_metadata.docflow_mode == "disabled"
+
+    plan_deadline_scalar = server._materialize_execution_plan(
+        {
+            "execution_plan_request": {
+                "policy_metadata": {
+                    "deadline": "invalid",
+                    "baseline_mode": "strict",
+                    "docflow_mode": "required",
+                }
+            }
+        }
+    )
+    assert plan_deadline_scalar.policy_metadata.deadline == {}
+    assert plan_deadline_scalar.policy_metadata.baseline_mode == "strict"
+    assert plan_deadline_scalar.policy_metadata.docflow_mode == "required"
+
+    plan_deadline_non_int = server._materialize_execution_plan(
+        {
+            "execution_plan_request": {
+                "policy_metadata": {
+                    "deadline": {
+                        "analysis_timeout_ticks": "invalid",
+                    }
+                }
+            }
+        }
+    )
+    assert plan_deadline_non_int.policy_metadata.deadline == {}
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_parse_snapshot_and_structure_reuse_options_edges::server.py::gabion.server._parse_snapshot_diff_paths::server.py::gabion.server._parse_structure_reuse_options
 def test_parse_snapshot_and_structure_reuse_options_edges() -> None:
     assert server._parse_snapshot_diff_paths({"baseline": "a.json"}) is None
@@ -5742,17 +5904,17 @@ def test_execute_command_conflicting_delta_flags_raise(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    **payload,
-                }
-            ),
-        )
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                **payload,
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_delta_requires_existing_baseline_files::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
@@ -5770,18 +5932,18 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
     }
     drift_state_path = artifact_dir / "test_annotation_drift.json"
     drift_state_path.write_text(json.dumps(drift_payload), encoding="utf-8")
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "emit_test_annotation_drift_delta": True,
-                    "test_annotation_drift_state": str(drift_state_path),
-                }
-            ),
-        )
+    drift_result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_annotation_drift_delta": True,
+                "test_annotation_drift_state": str(drift_state_path),
+            }
+        ),
+    )
+    _assert_invariant_failure(drift_result)
 
     key = evidence_keys.make_paramset_key(["x"])
     ref = test_obsolescence.EvidenceRef(
@@ -5800,18 +5962,18 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
     )
     obsolescence_state_path = artifact_dir / "test_obsolescence_state.json"
     obsolescence_state_path.write_text(json.dumps(state_payload), encoding="utf-8")
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "emit_test_obsolescence_delta": True,
-                    "test_obsolescence_state": str(obsolescence_state_path),
-                }
-            ),
-        )
+    obsolescence_result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence_delta": True,
+                "test_obsolescence_state": str(obsolescence_state_path),
+            }
+        ),
+    )
+    _assert_invariant_failure(obsolescence_result)
 
     ambiguity_state_path = artifact_dir / "ambiguity_state.json"
     ambiguity_state_path.write_text(
@@ -5832,18 +5994,18 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
         ),
         encoding="utf-8",
     )
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "emit_ambiguity_delta": True,
-                    "ambiguity_state": str(ambiguity_state_path),
-                }
-            ),
-        )
+    ambiguity_result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_ambiguity_delta": True,
+                "ambiguity_state": str(ambiguity_state_path),
+            }
+        ),
+    )
+    _assert_invariant_failure(ambiguity_result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._analysis_resume_checkpoint_compatibility

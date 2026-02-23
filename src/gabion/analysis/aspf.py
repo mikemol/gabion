@@ -1,13 +1,29 @@
+# gabion:boundary_normalization_module
 from __future__ import annotations
+# gabion:decision_protocol_module
 
 from dataclasses import dataclass, field
 import hashlib
-import json
-from typing import Iterable, cast
+import math
+from pathlib import Path
+from typing import Iterable, Mapping, cast
+
+from gabion.invariants import never
+from gabion.order_contract import sort_once
+from gabion.runtime import stable_encode
 
 
 NodeKey = tuple[object, ...]
 NodeFingerprint = tuple[str, tuple[str, ...]]
+StructuralKeyAtom = (
+    None
+    | bool
+    | int
+    | float
+    | str
+    | bytes
+    | tuple["StructuralKeyAtom", ...]
+)
 
 
 def _fingerprint_part(part: object) -> str:
@@ -118,17 +134,136 @@ def canon_param(name: str) -> str:
 
 def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
     cleaned = {canon_param(p) for p in params if canon_param(p)}
-    return tuple(sorted(cleaned))
+    return tuple(sort_once(cleaned, source = 'src/gabion/analysis/aspf.py:123'))
 
 
 def _canonicalize_evidence(evidence: dict[str, object] | None) -> dict[str, object]:
     payload = evidence or {}
-    canonical = json.loads(
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    canonical = stable_encode.stable_json_value(
+        payload,
+        source="aspf._canonicalize_evidence",
     )
     if not isinstance(canonical, dict):
         return {}
     return cast(dict[str, object], canonical)
+
+
+def _float_structural_atom(value: float) -> StructuralKeyAtom:
+    if math.isnan(value):
+        return ("float_nan",)
+    if math.isinf(value):
+        return ("float_inf", 1 if value > 0 else -1)
+    numerator, denominator = value.as_integer_ratio()
+    return ("float_ratio", numerator, denominator)
+
+
+def structural_key_atom(
+    value: object,
+    *,
+    source: str,
+) -> StructuralKeyAtom:
+    if value is None:
+        return ("none",)
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, int):
+        return ("int", value)
+    if isinstance(value, float):
+        return _float_structural_atom(value)
+    if isinstance(value, str):
+        return ("str", value)
+    if isinstance(value, bytes):
+        return ("bytes", value)
+    if isinstance(value, Path):
+        return ("path", str(value))
+    if isinstance(value, NodeId):
+        return (
+            "node_id",
+            value.kind,
+            tuple(
+                structural_key_atom(part, source=f"{source}.node_key")
+                for part in value.key
+            ),
+        )
+    if isinstance(value, Mapping):
+        items = [(str(key), value[key]) for key in value]
+        ordered_items = sort_once(
+            items,
+            source=f"{source}.mapping_items",
+            # Lexical mapping-key order defines canonical mapping identity.
+            key=lambda item: item[0],
+        )
+        return (
+            "map",
+            tuple(
+                (
+                    key,
+                    structural_key_atom(raw_value, source=f"{source}.{key}"),
+                )
+                for key, raw_value in ordered_items
+            ),
+        )
+    if isinstance(value, list):
+        return (
+            "list",
+            tuple(
+                structural_key_atom(item, source=f"{source}.list_item")
+                for item in value
+            ),
+        )
+    if isinstance(value, tuple):
+        return (
+            "tuple",
+            tuple(
+                structural_key_atom(item, source=f"{source}.tuple_item")
+                for item in value
+            ),
+        )
+    if isinstance(value, set):
+        normalized_items = [
+            structural_key_atom(item, source=f"{source}.set_item")
+            for item in value
+        ]
+        ordered_items = sort_once(
+            normalized_items,
+            source=f"{source}.set_items",
+            # Non-lexical comparator: typed structural atom tuple.
+            key=lambda item: item,
+        )
+        return (
+            "set",
+            tuple(ordered_items),
+        )
+    if isinstance(value, frozenset):
+        normalized_items = [
+            structural_key_atom(item, source=f"{source}.frozenset_item")
+            for item in value
+        ]
+        ordered_items = sort_once(
+            normalized_items,
+            source=f"{source}.frozenset_items",
+            # Non-lexical comparator: typed structural atom tuple.
+            key=lambda item: item,
+        )
+        return (
+            "frozenset",
+            tuple(ordered_items),
+        )
+    never(
+        "unsupported structural identity value",
+        source=source,
+        value_type=type(value).__name__,
+    )
+
+
+def structural_key_json(
+    value: StructuralKeyAtom,
+) -> object:
+    if isinstance(value, tuple):
+        return [structural_key_json(entry) for entry in value]
+    if isinstance(value, bytes):
+        return {"_py": "bytes", "hex": value.hex()}
+    return value
 
 
 @dataclass
@@ -136,7 +271,10 @@ class Forest:
     nodes: dict[NodeId, Node] = field(default_factory=dict)
     alts: list[Alt] = field(default_factory=list)
     _nodes_by_fingerprint: dict[NodeFingerprint, NodeId] = field(default_factory=dict)
-    _alt_index: dict[tuple[str, tuple[NodeId, ...], str], Alt] = field(default_factory=dict)
+    _alt_index: dict[
+        tuple[str, tuple[NodeId, ...], StructuralKeyAtom],
+        Alt,
+    ] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: dict[str, object] | None) -> NodeId:
         identity = _canonicalize_intern_identity(node_id.kind, node_id.key)
@@ -252,7 +390,7 @@ class Forest:
         }
         if span is not None:
             payload["span"] = [int(part) for part in span]
-        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        canonical = stable_encode.stable_compact_text(payload)
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
         return f"suite:{digest}"
 
@@ -304,11 +442,9 @@ class Forest:
         normalized_kind = str(kind).strip()
         normalized_inputs = tuple(inputs)
         normalized_evidence = _canonicalize_evidence(evidence)
-        evidence_identity = json.dumps(
+        evidence_identity = structural_key_atom(
             normalized_evidence,
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
+            source="Forest.add_alt.evidence",
         )
         structural_key = (normalized_kind, normalized_inputs, evidence_identity)
         interned = self._alt_index.get(structural_key)
@@ -343,8 +479,8 @@ class Forest:
         return self._intern_node(node_id, meta)
 
     def to_json(self) -> dict[str, object]:
-        nodes = sorted(self.nodes.values(), key=lambda node: node.node_id.sort_key())
-        alts = sorted(self.alts, key=lambda alt: alt.sort_key())
+        nodes = sort_once(self.nodes.values(), key=lambda node: node.node_id.sort_key(), source = 'src/gabion/analysis/aspf.py:346')
+        alts = sort_once(self.alts, key=lambda alt: alt.sort_key(), source = 'src/gabion/analysis/aspf.py:347')
         return {
             "format_version": 1,
             "nodes": [node.as_dict() for node in nodes],

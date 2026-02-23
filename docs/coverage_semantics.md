@@ -177,9 +177,10 @@ Normative pointers (explicit): [POLICY_SEED.md#policy_seed](POLICY_SEED.md#polic
 Coverage is tracked along multiple axes. Each axis is required for a different
 kind of assurance.
 
-### 1.1 Execution coverage (advisory)
+### 1.1 Execution coverage (required)
 Line/branch coverage shows what code executed, but **does not** guarantee
-semantic correctness. It is used for trend monitoring and spot-checking gaps.
+semantic correctness. This repository still requires full execution coverage as
+an enforceable gate for regression control.
 
 ### 1.2 Rule coverage (required)
 Each normative rule or invariant must be exercised by tests that include:
@@ -248,16 +249,12 @@ Coverage is ratcheted:
 
 ## 3. Reporting (Current Practice)
 
-Measurement command (advisory, not gating by default):
+Measurement command (gating):
 ```
-mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
+mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing --cov-fail-under=100
 ```
 
-CI enforces **100% line coverage** for execution coverage (fail-under=100).
-Branch coverage remains **advisory** and may be measured locally:
-```
-mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing
-```
+CI enforces **100% line + 100% branch coverage** for execution coverage.
 
 CI stores coverage artifacts under `artifacts/test_runs/`:
 - `coverage.xml` (machine-readable)

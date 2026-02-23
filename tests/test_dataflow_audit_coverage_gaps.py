@@ -3916,3 +3916,467 @@ def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
         config=da.AuditConfig(project_root=tmp_path),
     )
     assert module in analysis.groups_by_path
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_parse_contract_and_decision_surface_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_surface_form_entries::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_surface_alt_evidence::dataflow_audit.py::gabion.analysis.dataflow_audit._imported_helper_targets::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_witness_contract_violations::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_repo_module_path::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_additional_parse_contract_and_decision_surface_edges(tmp_path: Path) -> None:
+    da = _load()
+
+    fn = ast.parse(
+        "def decision(flag):\n"
+        "    return [item for item in [1, 2] if flag]\n"
+    ).body[0]
+    entries = da._decision_surface_form_entries(fn)
+    assert any(kind == "comprehension_guard" for kind, _ in entries)
+
+    class _Spec:
+        def alt_evidence(self, boundary: str, descriptor: str) -> dict[str, object]:
+            return {
+                "boundary": boundary,
+                "meta": {"descriptor": descriptor},
+                "extra": "x",
+            }
+
+    alt_payload = da._decision_surface_alt_evidence(
+        spec=_Spec(),
+        boundary="boundary",
+        descriptor="descriptor",
+        params=["flag"],
+        caller_count=0,
+        reason_summary="heuristic",
+    )
+    assert alt_payload["meta"] == {"descriptor": "descriptor"}
+    assert alt_payload["extra"] == "x"
+
+    class _SpecNoMeta:
+        def alt_evidence(self, boundary: str, descriptor: str) -> dict[str, object]:
+            return {"boundary": boundary, "descriptor": descriptor}
+
+    alt_payload_no_meta = da._decision_surface_alt_evidence(
+        spec=_SpecNoMeta(),
+        boundary="boundary",
+        descriptor="descriptor",
+        params=["flag"],
+        caller_count=1,
+        reason_summary="heuristic",
+    )
+    assert "meta" not in alt_payload_no_meta
+
+    imported_targets = da._imported_helper_targets(
+        ast.parse("from . import parse_failure_witnesses as helper\n")
+    )
+    assert imported_targets == {}
+
+    assert da._resolve_repo_module_path("example.module") is None
+    assert da._resolve_repo_module_path("gabion.analysis") is not None
+    assert da._resolve_repo_module_path("gabion.__definitely_missing__") is None
+
+    bad_contract = tmp_path / "bad_contract.py"
+    bad_contract.write_text("def broken(:\n", encoding="utf-8")
+    parse_error_violations = da._parse_witness_contract_violations(
+        source_path=bad_contract,
+        target_helpers=frozenset(["parse_failure_witnesses"]),
+    )
+    assert any("parse_error: SyntaxError" in line for line in parse_error_violations)
+
+    imported_source = (
+        "from gabion.analysis.timeout_context import TimeoutExceeded as helper\n"
+    )
+    import_parse_error_violations = da._parse_witness_contract_violations(
+        source=imported_source,
+        target_helpers=frozenset(["helper"]),
+        module_function_map_fn=lambda _path: (_ for _ in ()).throw(
+            SyntaxError("synthetic import parse error")
+        ),
+    )
+    assert any(
+        "import_parse_error: SyntaxError" in line
+        for line in import_parse_error_violations
+    )
+
+    import_missing_symbol_violations = da._parse_witness_contract_violations(
+        source=imported_source,
+        target_helpers=frozenset(["helper"]),
+        module_function_map_fn=lambda _path: {},
+    )
+    assert any(
+        "missing helper definition" in line for line in import_missing_symbol_violations
+    )
+
+    unresolved_import_violations = da._parse_witness_contract_violations(
+        source="from external.mod import helper\n",
+        target_helpers=frozenset(["helper"]),
+    )
+    assert any("missing helper definition" in line for line in unresolved_import_violations)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_dataflow_helper_branch_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resume_variants::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_pattern_instances::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_site_index::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_lambda_function_infos::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_synthesis_tiers_and_merge::dataflow_audit.py::gabion.analysis.dataflow_audit._deserialize_function_info_for_resume::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_synthesis_field_types::dataflow_audit.py::gabion.analysis.dataflow_audit._paramset_key::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_index::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
+    da = _load()
+
+    single_occurrence_instances = da._bundle_pattern_instances(
+        groups_by_path={Path("pkg.py"): {"pkg.fn": [set(["a", "b"])]}}
+    )
+    assert len(single_occurrence_instances) == 1
+    assert "near_miss" in single_occurrence_instances[0].suggestion
+
+    export_tree = ast.parse(
+        "from pkg.mod import imported\n"
+        "__all__ = ['imported', 'unknown_export']\n"
+        "__all__ += ['extra_export']\n"
+        "not_all += ['skip']\n"
+        "local_name = 1\n"
+    )
+    export_names, export_map = da._collect_module_exports(
+        export_tree,
+        module_name="pkg.sample",
+        import_map={"imported": "pkg.mod.imported"},
+    )
+    assert "imported" in export_names
+    assert export_map["imported"] == "pkg.mod.imported"
+    assert "unknown_export" in export_names
+    assert "unknown_export" not in export_map
+
+    lambda_tree = ast.parse(
+        "def outer():\n"
+        "    return (lambda value: value)\n"
+    )
+    parent_annotator = da.ParentAnnotator()
+    parent_annotator.visit(lambda_tree)
+    lambda_infos = da._collect_lambda_function_infos(
+        lambda_tree,
+        path=tmp_path / "lambda_mod.py",
+        module="pkg.lambda_mod",
+        parent_map=parent_annotator.parents,
+        ignore_params=None,
+    )
+    assert lambda_infos
+    assert ".outer." in lambda_infos[0].qual
+
+    top_level_tree = ast.parse("value = (lambda x: x)\n")
+    top_level_parent_annotator = da.ParentAnnotator()
+    top_level_parent_annotator.visit(top_level_tree)
+    top_level_lambda_infos = da._collect_lambda_function_infos(
+        top_level_tree,
+        path=tmp_path / "top_level.py",
+        module="pkg.top_level",
+        parent_map=top_level_parent_annotator.parents,
+        ignore_params=None,
+    )
+    assert top_level_lambda_infos
+    assert ".outer." not in top_level_lambda_infos[0].qual
+
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=tmp_path / "caller.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        local_lambda_bindings={"local_lambda": ("pkg.local_lambda",)},
+    )
+    unresolved = da._resolve_callee_outcome(
+        "unknown",
+        caller,
+        by_name={},
+        by_qual={},
+    )
+    assert unresolved.status.startswith("unresolved")
+
+    unresolved_with_explicit_bindings = da._resolve_callee_outcome(
+        "unknown",
+        caller,
+        by_name={},
+        by_qual={},
+        local_lambda_bindings={},
+    )
+    assert unresolved_with_explicit_bindings.status.startswith("unresolved")
+
+    forest = da.Forest()
+    missing_paramset = da.NodeId("ParamSet", ("x", "y"))
+    assert da._paramset_key(forest, missing_paramset) == ("x", "y")
+
+    bundle_site_index = da._bundle_site_index(
+        groups_by_path={
+            Path("mod.py"): {"mod.fn": [set(["x", "y"]), set(["x", "z"])]}
+        },
+        bundle_sites_by_path={
+            Path("mod.py"): {"mod.fn": [[{"line": 1, "col": 0}]]}
+        },
+    )
+    assert bundle_site_index[("mod.py", "mod.fn", ("x", "y"))] == [
+        [{"line": 1, "col": 0}]
+    ]
+
+    allowed_paths = {"mod.py": tmp_path / "mod.py"}
+    function_info = da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "mod.f",
+            "path": "mod.py",
+            "params": ["x"],
+            "annots": {},
+            "calls": [],
+            "unused_params": [],
+            "decision_surface_reasons": {"x": ["guarded"]},
+            "decision_params": [],
+            "value_decision_params": [],
+            "value_decision_reasons": [],
+            "scope": [],
+            "lexical_scope": [],
+            "positional_params": [],
+            "kwonly_params": [],
+            "param_spans": {},
+        },
+        allowed_paths=allowed_paths,
+    )
+    assert function_info is not None
+    assert function_info.decision_surface_reasons == {"x": {"guarded"}}
+
+    function_info_empty_reasons = da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "mod.f",
+            "path": "mod.py",
+            "params": ["x"],
+            "annots": {},
+            "calls": [],
+            "unused_params": [],
+            "decision_surface_reasons": {"x": []},
+            "decision_params": [],
+            "value_decision_params": [],
+            "value_decision_reasons": [],
+            "scope": [],
+            "lexical_scope": [],
+            "positional_params": [],
+            "kwonly_params": [],
+            "param_spans": {},
+        },
+        allowed_paths=allowed_paths,
+    )
+    assert function_info_empty_reasons is not None
+    assert function_info_empty_reasons.decision_surface_reasons == {}
+
+    variants = da._analysis_index_resume_variants(
+        {
+            da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
+                "id-1": {"format_version": 1, "value": "ok"}
+            }
+        }
+    )
+    assert variants["id-1"]["value"] == "ok"
+
+    assert (
+        da._analysis_index_resume_variants(
+            {da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: []}
+        )
+        == {}
+    )
+
+    stage_path = tmp_path / "missing_stage.py"
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity="index",
+        projection_cache_identity="projection",
+    )
+    stage_result = da._analysis_index_stage_cache(
+        analysis_index,
+        [stage_path],
+        spec=da._StageCacheSpec(
+            stage=da._ParseModuleStage.FUNCTION_INDEX,
+            cache_key="cache-key",
+            build=lambda tree, _path: len(tree.body),
+        ),
+        parse_failure_witnesses=[],
+        module_trees_fn=lambda *_args, **_kwargs: {
+            stage_path: ast.parse("x = 1\n")
+        },
+    )
+    assert stage_result[stage_path] == 1
+
+    source_path = tmp_path / "source.py"
+    source_path.write_text("def f(x):\n    return x\n", encoding="utf-8")
+    index_snapshots: list[dict[str, object]] = []
+    built_index = da._build_analysis_index(
+        [source_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        parse_failure_witnesses=[],
+        on_progress=index_snapshots.append,
+    )
+    assert built_index.by_qual
+    assert index_snapshots
+
+    tiers, merged_evidence, _naming_context, _synth_config, bundle_fields = (
+        da._compute_synthesis_tiers_and_merge(
+            counts={},
+            bundle_evidence={frozenset(["x"]): {"dataflow"}},
+            root=tmp_path,
+            max_tier=3,
+            min_bundle_size=2,
+            allow_singletons=False,
+            merge_overlap_threshold=0.5,
+        )
+    )
+    assert tiers == {}
+    assert merged_evidence == {frozenset(["x"]): {"dataflow"}}
+    assert bundle_fields == set()
+
+    empty_context = da._SynthesisPlanContext(
+        audit_config=da.AuditConfig(project_root=tmp_path),
+        root=tmp_path,
+        signature_meta={},
+        path_list=[],
+        parse_failure_witnesses=[],
+        analysis_index=da.AnalysisIndex(
+            by_name={},
+            by_qual={},
+            symbol_table=da.SymbolTable(),
+            class_index={},
+        ),
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        transitive_callers={},
+    )
+    field_types, warnings = da._infer_synthesis_field_types(
+        bundle_fields=set(),
+        context=empty_context,
+    )
+    assert field_types == {}
+    assert warnings == []
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_exception_and_never_branch_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._annotation_exception_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_handledness_witnesses::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_additional_exception_and_never_branch_edges(tmp_path: Path) -> None:
+    da = _load()
+
+    assert da._annotation_exception_candidates("pkg.CustomError") == ()
+
+    module_path = tmp_path / "exceptions.py"
+    module_path.write_text(
+        "def handled(flag):\n"
+        "    try:\n"
+        "        if flag:\n"
+        "            raise ValueError('boom')\n"
+        "    except TypeError:\n"
+        "        return 1\n"
+        "    return 0\n"
+        "\n"
+        "def mark():\n"
+        "    never()\n",
+        encoding="utf-8",
+    )
+
+    handledness = da._collect_handledness_witnesses(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+    )
+    assert handledness
+    assert any(
+        str(entry.get("type_refinement_opportunity", ""))
+        for entry in handledness
+    )
+
+    mutated_handledness: list[dict[str, object]] = []
+    for entry in handledness:
+        mutated = {str(key): entry[key] for key in entry}
+        mutated["exception_type_candidates"] = "not-a-list"
+        mutated_handledness.append(mutated)
+
+    obligations = da._collect_exception_obligations(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        handledness_witnesses=mutated_handledness,
+    )
+    assert obligations
+    remainder_values = [entry.get("remainder", {}) for entry in obligations]
+    assert all(
+        not (
+            isinstance(remainder, dict)
+            and "exception_type_candidates" in remainder
+            and remainder["exception_type_candidates"] == "not-a-list"
+        )
+        for remainder in remainder_values
+    )
+
+    forest = da.Forest()
+    never_entries = da._collect_never_invariants(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        forest=forest,
+    )
+    assert never_entries
+    summary_lines = da._summarize_never_invariants(
+        never_entries,
+        include_proven_unreachable=True,
+    )
+    assert any("why=no witness env available" in line for line in summary_lines)
+
+    explicit_obligation_summary = da._summarize_never_invariants(
+        [
+            {
+                "status": "OBLIGATION",
+                "site": {"path": "mod.py", "function": "mark", "bundle": []},
+                "never_id": "never:mod.py:mark:1:4",
+                "reason": "",
+                "span": [0, 0, 0, 1],
+            }
+        ],
+        include_proven_unreachable=True,
+    )
+    assert any("why=no witness env available" in line for line in explicit_obligation_summary)
+
+    verification = da.verify_rewrite_plan(
+        {
+            "plan_id": "abstained-plan",
+            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "status": "ABSTAINED",
+            "abstention": {"reason": "preconditions unsatisfied"},
+        },
+        post_provenance=[],
+    )
+    assert verification["accepted"] is False
+    assert any(
+        "abstention reason: preconditions unsatisfied" in issue
+        for issue in verification["issues"]
+    )
+
+    verification_without_reason = da.verify_rewrite_plan(
+        {
+            "plan_id": "abstained-plan-2",
+            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "status": "ABSTAINED",
+            "abstention": {},
+        },
+        post_provenance=[],
+    )
+    assert verification_without_reason["accepted"] is False
+
+    dynamic_module_path = tmp_path / "dynamic_exceptions.py"
+    dynamic_module_path.write_text(
+        "def handled_dynamic(exc):\n"
+        "    try:\n"
+        "        raise exc\n"
+        "    except TypeError:\n"
+        "        return 1\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+    dynamic_handledness = da._collect_handledness_witnesses(
+        [dynamic_module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+    )
+    assert dynamic_handledness

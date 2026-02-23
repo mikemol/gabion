@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.order_contract import sort_once
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -92,7 +94,7 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     baseline = summary.get("baseline", {}) if isinstance(summary, Mapping) else {}
     current = summary.get("current", {}) if isinstance(summary, Mapping) else {}
     delta = summary.get("delta", {}) if isinstance(summary, Mapping) else {}
-    keys = sorted({*baseline.keys(), *current.keys(), *delta.keys()})
+    keys = sort_once({*baseline.keys(), *current.keys(), *delta.keys()}, source = 'src/gabion/analysis/test_annotation_drift_delta.py:96')
     doc = ReportDoc("out_test_annotation_drift_delta")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")

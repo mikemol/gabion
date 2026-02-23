@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -540,7 +541,7 @@ def spec_metadata_lines_from_payload(payload: Mapping[str, JSONValue]) -> list[s
     spec_payload = payload.get("generated_by_spec", {})
     if not isinstance(spec_payload, Mapping):
         spec_payload = {}
-    spec_json = json.dumps(spec_payload, sort_keys=True, separators=(",", ":"))
+    spec_json = json.dumps(spec_payload, sort_keys=False, separators=(",", ":"))
     return [
         f"generated_by_spec_id: {spec_id}",
         f"generated_by_spec: {spec_json}",

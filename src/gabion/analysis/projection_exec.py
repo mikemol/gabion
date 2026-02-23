@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,7 +10,7 @@ from gabion.analysis.projection_normalize import normalize_spec
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 Relation = list[dict[str, JSONValue]]
 
@@ -117,7 +119,7 @@ def apply_spec(
                 continue
             for key in reversed(sort_params.keys):
                 check_deadline()
-                current = ordered_or_sorted(
+                current = sort_once(
                     current,
                     source=f"apply_spec.sort[{key.field}]",
                     policy=OrderPolicy.SORT,
@@ -148,7 +150,7 @@ def _hashable(value: JSONValue) -> object:
     try:
         hash(value)
     except TypeError:
-        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        return json.dumps(value, sort_keys=False, separators=(",", ":"))
     return value
 
 
@@ -223,7 +225,7 @@ def _apply_count_by(rows: Relation, params: CountByParams) -> Relation:
             record["count"] = 0
             counts[key] = record
         record["count"] = int(record.get("count", 0)) + 1
-    ordered_group_keys = ordered_or_sorted(
+    ordered_group_keys = sort_once(
         counts,
         source="apply_spec.count_by.group_keys",
         policy=OrderPolicy.SORT,

@@ -1,9 +1,10 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ class ExecutionPlan:
     def decorations(self) -> list[tuple[str, dict[str, Any]]]:
         return [
             (key, self._decorations[key])
-            for key in ordered_or_sorted(
+            for key in sort_once(
                 self._decorations,
                 source="ExecutionPlan.decorations",
             )

@@ -1,15 +1,20 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
+import inspect
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from enum import Enum
 from typing import Any, Callable, Iterable, Iterator, TypeVar
 
+from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 
 
 T = TypeVar("T")
+_PY_SORT = sorted
 
 _CALLER_SORTED_ENV = "GABION_CALLER_SORTED"
 _ORDER_POLICY_ENV = "GABION_ORDER_POLICY"
@@ -56,6 +61,10 @@ _ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT: ContextVar[frozenset[str] | None] = (
 _ORDER_TELEMETRY_CONTEXT: ContextVar[list[dict[str, object]] | None] = ContextVar(
     "gabion_order_telemetry",
     default=None,
+)
+_ORDER_ACTIVE_SORT_SURFACE: ContextVar[bool] = ContextVar(
+    "gabion_order_active_sort_surface",
+    default=False,
 )
 _ORDER_TELEMETRY_GLOBAL: list[dict[str, object]] = []
 
@@ -112,9 +121,11 @@ def ordered_or_sorted(
         get_deadline_clock,
     )
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     items = list(values)
@@ -123,12 +134,13 @@ def ordered_or_sorted(
         require_sorted=require_sorted,
     )
     if resolved_policy is OrderPolicy.SORT:
+        _reject_second_sort(values, source=source)
         _validate_canonical_sort_allowlist(
             source=source,
             policy=policy,
             require_sorted=require_sorted,
         )
-        return sorted(items, key=key, reverse=reverse)
+        return _PY_SORT(items, key=key, reverse=reverse)
     if resolved_policy is OrderPolicy.TRUST:
         return items
     violation = _first_order_violation(items, key=key, reverse=reverse)
@@ -148,9 +160,116 @@ def ordered_or_sorted(
         _record_order_telemetry(payload)
         if on_unsorted is not None:
             on_unsorted(payload)
-        return sorted(items, key=key, reverse=reverse)
+        _reject_second_sort(values, source=source)
+        return _PY_SORT(items, key=key, reverse=reverse)
     _raise_order_violation(payload, reason=violation[4])
     return items  # pragma: no cover - never() raises
+
+
+def sort_once(
+    values: Iterable[T],
+    *,
+    source: str | None = None,
+    key: Callable[[T], Any] | None = None,
+    reverse: bool = False,
+    policy: OrderPolicy | str | None = None,
+    require_sorted: bool | None = None,
+    on_unsorted: Callable[[dict[str, object]], None] | None = None,
+) -> list[T]:
+    """Primary ordering surface.
+
+    - Default path (`policy is None` and `require_sorted is None`) consumes
+      single-sort lifetime budget exactly once.
+    - Compatibility path preserves non-SORT policy/requirement semantics
+      without routing through `ordered_or_sorted(...)`.
+    """
+    resolved_source = source or _auto_sort_source()
+    normalized_policy = None if policy is None else _normalize_policy(policy)
+    if require_sorted is False and normalized_policy is None:
+        normalized_policy = OrderPolicy.SORT
+    resolved_policy = _resolve_policy(
+        policy=normalized_policy,
+        require_sorted=require_sorted,
+    )
+    items = list(values)
+    if resolved_policy is OrderPolicy.SORT:
+        token = _ORDER_ACTIVE_SORT_SURFACE.set(True)
+        try:
+            _reject_second_sort(values, source=resolved_source)
+            _validate_canonical_sort_allowlist(
+                source=resolved_source,
+                policy=(
+                    normalized_policy
+                    if normalized_policy is not None
+                    else OrderPolicy.SORT
+                ),
+                require_sorted=require_sorted,
+            )
+            return _PY_SORT(items, key=key, reverse=reverse)
+        finally:
+            _ORDER_ACTIVE_SORT_SURFACE.reset(token)
+    if resolved_policy is OrderPolicy.TRUST:
+        return items
+    violation = _first_order_violation(items, key=key, reverse=reverse)
+    if violation is None:
+        return items
+    payload: dict[str, object] = {
+        "source": resolved_source,
+        "previous_index": violation[0],
+        "current_index": violation[1],
+        "previous_key": repr(violation[2]),
+        "current_key": repr(violation[3]),
+        "violation_kind": violation[4],
+        "reverse": reverse,
+        "policy": resolved_policy.value,
+    }
+    if resolved_policy is OrderPolicy.CHECK:
+        _record_order_telemetry(payload)
+        if on_unsorted is not None:
+            on_unsorted(payload)
+        token = _ORDER_ACTIVE_SORT_SURFACE.set(True)
+        try:
+            _reject_second_sort(values, source=resolved_source)
+            return _PY_SORT(items, key=key, reverse=reverse)
+        finally:
+            _ORDER_ACTIVE_SORT_SURFACE.reset(token)
+    _raise_order_violation(payload, reason=violation[4])
+    return items  # pragma: no cover - never() raises
+
+
+def enforce_ordered(
+    values: Iterable[T],
+    *,
+    source: str,
+    key: Callable[[T], Any] | None = None,
+    reverse: bool = False,
+) -> list[T]:
+    """Order check surface: validate monotonic order without sorting fallback."""
+    items = list(values)
+    violation = _first_order_violation(items, key=key, reverse=reverse)
+    if violation is None:
+        return items
+    payload: dict[str, object] = {
+        "source": source,
+        "previous_index": violation[0],
+        "current_index": violation[1],
+        "previous_key": repr(violation[2]),
+        "current_key": repr(violation[3]),
+        "violation_kind": violation[4],
+        "reverse": reverse,
+        "policy": OrderPolicy.ENFORCE.value,
+    }
+    _raise_order_violation(payload, reason=violation[4])
+    return items  # pragma: no cover - never() raises
+
+
+def is_sorted_once_carrier(value: object) -> bool:
+    return bool(getattr(value, "_gabion_sorted_once", False))
+
+
+def sorted_once_source(value: object) -> str | None:
+    raw = getattr(value, "_gabion_sort_source", None)
+    return raw if isinstance(raw, str) else None
 
 
 def _resolve_policy(
@@ -165,9 +284,11 @@ def _resolve_policy(
         get_deadline_clock,
     )
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     if require_sorted is not None:
@@ -187,6 +308,20 @@ def _resolve_policy(
 
 def get_order_policy() -> OrderPolicy:
     return _resolve_policy(policy=None, require_sorted=None)
+
+
+def _deadline_clock_if_available() -> object | None:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import get_deadline, get_deadline_clock
+
+    try:
+        get_deadline()
+    except NeverThrown:
+        return None
+    try:
+        return get_deadline_clock()
+    except NeverThrown:
+        return None
 
 
 def get_order_telemetry_events(*, clear: bool = False) -> list[dict[str, object]]:
@@ -237,15 +372,13 @@ def order_telemetry() -> Iterator[list[dict[str, object]]]:
 
 def _order_policy_from_env() -> OrderPolicy | None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.timeout_context import check_deadline
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     raw = os.environ.get(_ORDER_POLICY_ENV)
@@ -284,15 +417,13 @@ def _validate_canonical_sort_allowlist(
     require_sorted: bool | None,
 ) -> None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.timeout_context import check_deadline
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     if not _canonical_allowlist_enforced():
@@ -305,11 +436,7 @@ def _validate_canonical_sort_allowlist(
         allowlist.update(scoped_allowlist)
     if any(source == prefix or source.startswith(prefix) for prefix in allowlist):
         return
-    allowlisted = ordered_or_sorted(
-        allowlist,
-        source="_validate_canonical_sort_allowlist.allowlist",
-        policy=OrderPolicy.CHECK,
-    )
+    allowlisted = _PY_SORT(list(allowlist))
     never(
         "canonical sort source not allowlisted",
         source=source,
@@ -323,15 +450,13 @@ def _explicit_sort_requested(
     require_sorted: bool | None,
 ) -> bool:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.timeout_context import check_deadline
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     if require_sorted is False:
@@ -343,23 +468,19 @@ def _explicit_sort_requested(
 
 def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.timeout_context import check_deadline
 
-    get_deadline()
     if isinstance(policy, OrderPolicy):
         return policy
+    deadline_clock = _deadline_clock_if_available()
     normalized = policy.strip().lower()
     for candidate in OrderPolicy:
-        if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-            get_deadline_clock()
+        if (
+            deadline_clock is not None
+            and _deadline_probe_enabled()
+            and _deadline_tick_budget_allows_check(deadline_clock)
         ):
             check_deadline(allow_frame_fallback=False)
-        else:
-            get_deadline()
         if candidate.value == normalized:
             return candidate
     never(
@@ -377,27 +498,25 @@ def _first_order_violation(
     reverse: bool = False,
 ) -> tuple[int, int, Any, Any, str] | None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.timeout_context import check_deadline
 
-    get_deadline()
-    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-        get_deadline_clock()
+    deadline_clock = _deadline_clock_if_available()
+    if (
+        deadline_clock is not None
+        and _deadline_probe_enabled()
+        and _deadline_tick_budget_allows_check(deadline_clock)
     ):
         check_deadline(allow_frame_fallback=False)
     previous_marker: Any | None = None
     previous_index = -1
     has_previous = False
     for index, value in enumerate(values):
-        if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
-            get_deadline_clock()
+        if (
+            deadline_clock is not None
+            and _deadline_probe_enabled()
+            and _deadline_tick_budget_allows_check(deadline_clock)
         ):
             check_deadline(allow_frame_fallback=False)
-        else:
-            get_deadline()
         marker = key(value) if key is not None else value
         if has_previous:
             try:
@@ -433,3 +552,36 @@ def _record_order_telemetry(payload: dict[str, object]) -> None:
         sink.append(event)
     if _order_telemetry_enabled():
         _ORDER_TELEMETRY_GLOBAL.append(event)
+
+
+def _reject_second_sort(values: object, *, source: str) -> None:
+    if not is_sorted_once_carrier(values):
+        return
+    never(
+        "active sort attempted after first normalization",
+        source=source,
+        first_sort_source=sorted_once_source(values),
+    )
+
+
+def _auto_sort_source(
+    *,
+    currentframe_fn: Callable[[], Any] | None = None,
+) -> str:
+    frame_provider = currentframe_fn or inspect.currentframe
+    frame = frame_provider()
+    if frame is None:
+        return "sort_once.auto"
+    outer = frame.f_back
+    while outer is not None and outer.f_code.co_name in {
+        "_auto_sort_source",
+        "sort_once",
+        "ordered_or_sorted",
+    }:
+        outer = outer.f_back
+    if outer is None:
+        return "sort_once.auto"
+    filename = outer.f_code.co_filename
+    lineno = outer.f_lineno
+    function = outer.f_code.co_name
+    return f"{filename}:{function}:{lineno}"

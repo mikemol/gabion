@@ -1005,3 +1005,340 @@ def test_main_uses_env_defaults_and_exercises_debug_callbacks(tmp_path: Path) ->
     assert exit_code == 0
     assert "restored" in traces
     assert output_env_file.exists()
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_env_outputs::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._install_signal_debug_dump_handler::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._run_subprocess::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
+def test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_env_outputs(
+    tmp_path: Path,
+) -> None:
+    signal_module = _FakeSignalModule(previous_handler=None)
+    restore = run_dataflow_stage._install_signal_debug_dump_handler(
+        emit_dump_fn=lambda _reason: None,
+        signal_module=signal_module,
+    )
+    restore()
+    assert signal_module.getsignal(signal_module.SIGUSR1) is not None
+
+    assert run_dataflow_stage._parse_stage_strictness_profile("low,bad") == {"run": "low"}
+    timeout_json = tmp_path / "timeout_state.json"
+    timeout_json.write_text(
+        json.dumps({"progress": {"classification": "timed_out_progress_resume"}}),
+        encoding="utf-8",
+    )
+    assert (
+        run_dataflow_stage._analysis_state(timeout_json)
+        == "timed_out_progress_resume"
+    )
+
+    class _FakeProcess:
+        def __init__(self) -> None:
+            self.poll_count = 0
+
+        def poll(self):
+            self.poll_count += 1
+            return 0 if self.poll_count >= 2 else None
+
+    assert (
+        run_dataflow_stage._run_subprocess(
+            ["ignored"],
+            heartbeat_interval_seconds=1,
+            on_heartbeat="not-callable",  # type: ignore[arg-type]
+            popen_fn=lambda _command: _FakeProcess(),
+            monotonic_fn=lambda: 0.0,
+            sleep_fn=lambda _seconds: None,
+        )
+        == 0
+    )
+
+    heartbeat_calls: list[str] = []
+    monotonic_values = [0.0, 0.1, 0.2]
+
+    def _monotonic() -> float:
+        if monotonic_values:
+            return monotonic_values.pop(0)
+        return 0.2
+
+    assert (
+        run_dataflow_stage._run_subprocess(
+            ["ignored"],
+            heartbeat_interval_seconds=1,
+            on_heartbeat=lambda: heartbeat_calls.append("hb"),
+            popen_fn=lambda _command: _FakeProcess(),
+            monotonic_fn=_monotonic,
+            sleep_fn=lambda _seconds: None,
+        )
+        == 0
+    )
+    assert heartbeat_calls == []
+
+    paths = _base_paths(tmp_path)
+    output_env_file = tmp_path / "output.env"
+    summary_env_file = tmp_path / "summary.md"
+    observed_append_paths: list[Path | None] = []
+
+    def _run_staged_fn(**_kwargs):
+        return [
+            run_dataflow_stage.StageResult(
+                stage_id="run",
+                exit_code=0,
+                analysis_state="done",
+                is_timeout_resume=False,
+                metrics_line="m",
+                obligation_rows=(),
+                incompleteness_markers=(),
+            )
+        ]
+
+    with env_scope(
+        {
+            "GITHUB_OUTPUT": str(output_env_file),
+            "GITHUB_STEP_SUMMARY": str(summary_env_file),
+        }
+    ):
+        assert (
+            run_dataflow_stage.main(
+                [
+                    "--stage-id",
+                    "run",
+                    "--max-attempts",
+                    "1",
+                    "--report",
+                    str(paths["report"]),
+                    "--resume-checkpoint",
+                    str(paths["resume"]),
+                    "--baseline",
+                    str(paths["baseline"]),
+                    "--timeout-progress-json",
+                    str(paths["timeout_json"]),
+                    "--timeout-progress-md",
+                    str(paths["timeout_md"]),
+                    "--deadline-profile-json",
+                    str(paths["deadline_json"]),
+                    "--deadline-profile-md",
+                    str(paths["deadline_md"]),
+                    "--obligation-trace-json",
+                    str(_obligation_trace_path(paths)),
+                ],
+                run_staged_fn=_run_staged_fn,
+                write_obligation_trace_fn=lambda _path, _results: {
+                    "summary": {
+                        "total": 0,
+                        "satisfied": 0,
+                        "unsatisfied": 0,
+                        "skipped_by_policy": 0,
+                    },
+                    "complete": True,
+                    "incompleteness_markers": [],
+                },
+                append_markdown_summary_fn=lambda _path, _payload: None,
+                append_lines_fn=lambda path, lines: (
+                    observed_append_paths.append(path),
+                    run_dataflow_stage._append_lines(path, lines),
+                )[-1],
+                emit_stage_outputs_fn=lambda path, results: run_dataflow_stage._emit_stage_outputs(path, results),
+                reset_run_observability_artifacts_fn=lambda _paths: None,
+                install_signal_debug_dump_handler_fn=lambda **_kwargs: (lambda: None),
+                run_subprocess_fn=lambda _command, **_kwargs: 0,
+                deadline_scope_factory=_noop_scope,
+            )
+            == 0
+        )
+    assert summary_env_file in observed_append_paths
+    assert output_env_file.exists()
+    assert "analysis_state=done" in output_env_file.read_text(encoding="utf-8")
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_env_fallbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._analysis_state::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._resume_checkpoint_metrics_line::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
+def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_env_fallbacks(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    timeout_json = tmp_path / "timeout_non_mapping_progress.json"
+    timeout_json.write_text(json.dumps({"progress": []}), encoding="utf-8")
+    assert run_dataflow_stage._analysis_state(timeout_json) == "none"
+
+    resume_path = tmp_path / "resume_metrics.json"
+    resume_path.write_text(
+        json.dumps(
+            {
+                "completed_paths": ["a.py"],
+                "analysis_index_resume": {
+                    "hydrated_paths_count": 1,
+                    "profiling_v1": [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        "paths_parsed_after_resume=n/a"
+        in run_dataflow_stage._resume_checkpoint_metrics_line(resume_path)
+    )
+    resume_path.write_text(
+        json.dumps(
+            {
+                "completed_paths": ["a.py"],
+                "analysis_index_resume": {
+                    "hydrated_paths_count": 1,
+                    "profiling_v1": {"counters": []},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        "paths_parsed_after_resume=n/a"
+        in run_dataflow_stage._resume_checkpoint_metrics_line(resume_path)
+    )
+
+    paths = _base_paths(tmp_path)
+    _write_text(paths["report"], "# report\n")
+    _write_text(paths["timeout_md"], "timeout md\n")
+    _write_text(paths["deadline_md"], "deadline md\n")
+    _write_json(paths["timeout_json"], {"analysis_state": "done"})
+    _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
+    _write_json(
+        paths["resume"],
+        {"completed_paths": [], "analysis_index_resume": {"hydrated_paths_count": 0}},
+    )
+    timeline_md = run_dataflow_stage._phase_timeline_markdown_path(paths["report"])
+    _write_text(
+        timeline_md,
+        "| ts_utc | idx | kind | phase |\n"
+        "| --- | --- | --- | --- |\n"
+        "| 2026-02-20T00:00:00Z | 1 | heartbeat | post |\n",
+    )
+    timeline_jsonl = run_dataflow_stage._phase_timeline_jsonl_path(paths["report"])
+    _write_text(timeline_jsonl, "{}\n")
+    run_dataflow_stage._emit_debug_dump(
+        reason="unit",
+        state=run_dataflow_stage.DebugDumpState(
+            stage_ids=("run",),
+            started_wall_seconds=0.0,
+        ),
+        paths=_stage_paths(paths),
+        step_summary_path=None,
+        monotonic_fn=lambda: 1.0,
+    )
+    captured = capsys.readouterr().out
+    assert "phase_timeline_last_row=" in captured
+    assert "phase_timeline_last_stale_for_s=" not in captured
+
+    assert run_dataflow_stage._parse_stage_strictness_profile("bad") == {}
+
+    assert (
+        run_dataflow_stage.run_staged(
+            stage_ids=[],
+            paths=_stage_paths(paths),
+            resume_on_timeout=1,
+            step_summary_path=paths["summary"],
+            run_command_fn=lambda _command: 0,
+        )
+        == []
+    )
+
+    run_calls = {"count": 0}
+
+    def _run_timeout_then_fail(_command: list[str] | tuple[str, ...]) -> int:
+        run_calls["count"] += 1
+        _write_text(paths["report"], "# report\n")
+        _write_json(
+            paths["timeout_json"],
+            {
+                "analysis_state": (
+                    "timed_out_progress_resume"
+                    if run_calls["count"] == 1
+                    else "hard_failure"
+                )
+            },
+        )
+        _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
+        return 2
+
+    monotonic_values = [0.0, 1.0]
+
+    def _monotonic() -> float:
+        if monotonic_values:
+            return monotonic_values.pop(0)
+        return 1.0
+
+    results = run_dataflow_stage.run_staged(
+        stage_ids=["run", "run"],
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run_timeout_then_fail,
+        run_gate_fn=lambda _step: 0,
+        max_wall_seconds=60,
+        finalize_reserve_seconds=5,
+        monotonic_fn=_monotonic,
+    )
+    assert [result.analysis_state for result in results] == [
+        "timed_out_progress_resume",
+        "hard_failure",
+    ]
+
+    output_paths: list[Path | None] = []
+    summary_paths: list[Path | None] = []
+
+    def _run_staged_fn(**_kwargs):
+        return [
+            run_dataflow_stage.StageResult(
+                stage_id="run",
+                exit_code=0,
+                analysis_state="done",
+                is_timeout_resume=False,
+                metrics_line="m",
+                obligation_rows=(),
+                incompleteness_markers=(),
+            )
+        ]
+
+    with env_scope({"GITHUB_OUTPUT": "", "GITHUB_STEP_SUMMARY": ""}):
+        assert (
+            run_dataflow_stage.main(
+                [
+                    "--stage-id",
+                    "run",
+                    "--max-attempts",
+                    "1",
+                    "--report",
+                    str(paths["report"]),
+                    "--resume-checkpoint",
+                    str(paths["resume"]),
+                    "--baseline",
+                    str(paths["baseline"]),
+                    "--timeout-progress-json",
+                    str(paths["timeout_json"]),
+                    "--timeout-progress-md",
+                    str(paths["timeout_md"]),
+                    "--deadline-profile-json",
+                    str(paths["deadline_json"]),
+                    "--deadline-profile-md",
+                    str(paths["deadline_md"]),
+                    "--obligation-trace-json",
+                    str(_obligation_trace_path(paths)),
+                ],
+                run_staged_fn=_run_staged_fn,
+                write_obligation_trace_fn=lambda _path, _results: {
+                    "summary": {
+                        "total": 0,
+                        "satisfied": 0,
+                        "unsatisfied": 0,
+                        "skipped_by_policy": 0,
+                    },
+                    "complete": True,
+                    "incompleteness_markers": [],
+                },
+                append_markdown_summary_fn=lambda _path, _payload: None,
+                append_lines_fn=lambda path, _lines: summary_paths.append(path),
+                emit_stage_outputs_fn=lambda path, _results: output_paths.append(path),
+                reset_run_observability_artifacts_fn=lambda _paths: None,
+                install_signal_debug_dump_handler_fn=lambda **_kwargs: (lambda: None),
+                run_subprocess_fn=lambda _command, **_kwargs: 0,
+                deadline_scope_factory=_noop_scope,
+            )
+            == 0
+        )
+    assert output_paths == [None]
+    assert summary_paths == [None]

@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import ast
@@ -12,7 +14,7 @@ from typing import Any, Iterable
 from gabion.analysis.dataflow_audit import report_projection_spec_rows
 from gabion.analysis.projection_registry import REGISTERED_SPECS
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 _DEFAULT_ARTIFACT_PATH = Path("artifacts/audit_reports/impact_index.json")
 _PYTHON_SOURCE_ROOTS = ("src", "tests")
@@ -72,12 +74,12 @@ class ImpactIndexGraph:
             "nodes": {
                 node_type: [
                     self.nodes[node_type][node_id]
-                    for node_id in ordered_or_sorted(
+                    for node_id in sort_once(
                         self.nodes[node_type].keys(),
                         source="impact_index.graph.node_ids",
                     )
                 ]
-                for node_type in ordered_or_sorted(
+                for node_type in sort_once(
                     self.nodes.keys(),
                     source="impact_index.graph.node_types",
                 )
@@ -85,7 +87,7 @@ class ImpactIndexGraph:
             "adjacency": {
                 "forward": {
                     node_id: edges
-                    for node_id, edges in ordered_or_sorted(
+                    for node_id, edges in sort_once(
                         self.forward.items(),
                         source="impact_index.graph.forward",
                         key=lambda item: item[0],
@@ -93,7 +95,7 @@ class ImpactIndexGraph:
                 },
                 "reverse": {
                     node_id: edges
-                    for node_id, edges in ordered_or_sorted(
+                    for node_id, edges in sort_once(
                         self.reverse.items(),
                         source="impact_index.graph.reverse",
                         key=lambda item: item[0],
@@ -171,14 +173,14 @@ def build_impact_index(
     )
     symbols = _collect_symbol_universe(resolved_root)
     links: list[ImpactLink] = []
-    for path in ordered_or_sorted(
+    for path in sort_once(
         tests,
         source="impact_index.tests",
         key=lambda item: str(item),
     ):
         check_deadline()
         links.extend(_links_from_test(path=path, root=resolved_root))
-    for path in ordered_or_sorted(
+    for path in sort_once(
         docs,
         source="impact_index.docs",
         key=lambda item: str(item),
@@ -186,7 +188,7 @@ def build_impact_index(
         check_deadline()
         links.extend(_links_from_doc(path=path, root=resolved_root, symbols=symbols))
     deduped = _dedupe_links(links)
-    ordered_links = ordered_or_sorted(
+    ordered_links = sort_once(
         deduped,
         source="impact_index.links",
         key=lambda item: (
@@ -225,7 +227,7 @@ def emit_impact_index(
         else {"nodes": {}, "adjacency": {"forward": {}, "reverse": {}}},
     }
     artifact_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
     return artifact_path
@@ -304,7 +306,7 @@ def _links_from_test_function(
             )
             for target in inferred
         ]
-    weak_targets = ordered_or_sorted(
+    weak_targets = sort_once(
         {
             target.rsplit(".", 1)[0] if "." in target else target
             for target in imports.values()
@@ -457,7 +459,7 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
                         },
                     )
                     graph.add_edge(callsite_node, "callsite_to_caller", caller_id)
-                    for callee_symbol_id in ordered_or_sorted(
+                    for callee_symbol_id in sort_once(
                         symbol_lookup_by_name.get(call_name, set()),
                         source="impact_index.graph.callee_symbols",
                     ):
@@ -481,20 +483,20 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
                         },
                     )
                     names = set(_iter_local_names(node))
-                    for name_ref in ordered_or_sorted(
+                    for name_ref in sort_once(
                         names,
                         source="impact_index.graph.test_name_refs",
                     ):
                         check_deadline()
                         if name_ref in imports and imports[name_ref].startswith("gabion"):
                             target_name = imports[name_ref].split(".")[-1]
-                            for symbol_id in ordered_or_sorted(
+                            for symbol_id in sort_once(
                                 symbol_lookup_by_name.get(target_name, set()),
                                 source="impact_index.graph.test_import_symbol",
                             ):
                                 check_deadline()
                                 graph.add_edge(test_node, "test_to_symbol", symbol_id)
-                        for symbol_id in ordered_or_sorted(
+                        for symbol_id in sort_once(
                             symbol_lookup_by_name.get(name_ref, set()),
                             source="impact_index.graph.test_name_symbol",
                         ):
@@ -541,7 +543,7 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
             for token in identifiers:
                 check_deadline()
                 short = token.split(".")[-1]
-                for symbol_id in ordered_or_sorted(
+                for symbol_id in sort_once(
                     symbol_lookup_by_name.get(token, set())
                     | symbol_lookup_by_name.get(short, set()),
                     source="impact_index.graph.doc_symbols",
@@ -711,7 +713,7 @@ def _emit_command_nodes(graph: ImpactIndexGraph, root: Path) -> list[str]:
         if not path.exists():
             continue
         text = path.read_text(encoding="utf-8")
-        for match in ordered_or_sorted(
+        for match in sort_once(
             set(_COMMAND_PATTERN.findall(text)),
             source="impact_index.graph.command_patterns",
         ):
@@ -782,7 +784,7 @@ def _impact_comments(text: str) -> dict[int, list[str]]:
 
 def _split_targets(raw: str) -> list[str]:
     values = [item.strip() for item in re.split(r"[,\s]+", raw) if item.strip()]
-    return ordered_or_sorted(set(values), source="impact_index.split_targets")
+    return sort_once(set(values), source="impact_index.split_targets")
 
 
 def _import_aliases(tree: ast.Module) -> dict[str, str]:
@@ -823,7 +825,7 @@ def _decorator_targets(decorators: list[ast.expr]) -> list[str]:
                     check_deadline()
                     if isinstance(item, ast.Constant) and isinstance(item.value, str):
                         targets.extend(_split_targets(item.value))
-    return ordered_or_sorted(set(targets), source="impact_index.decorator_targets")
+    return sort_once(set(targets), source="impact_index.decorator_targets")
 
 
 def _call_name(expr: ast.expr) -> str:
@@ -862,7 +864,7 @@ def _inferred_targets_from_body(
             root = path[0]
             if root in imports:
                 mentioned.add(".".join([imports[root], *path[1:]]))
-    return ordered_or_sorted(mentioned, source="impact_index.inferred_targets")
+    return sort_once(mentioned, source="impact_index.inferred_targets")
 
 
 def _attribute_path(node: ast.Attribute) -> list[str]:
@@ -929,7 +931,7 @@ def _coerce_target_list(value: object) -> list[str]:
             raw = raw[1:-1]
         return _split_targets(raw)
     if isinstance(value, list):
-        return ordered_or_sorted(
+        return sort_once(
             {str(item).strip() for item in value if str(item).strip()},
             source="impact_index.coerce_target_list",
         )
@@ -959,7 +961,7 @@ def _collect_symbol_universe(root: Path) -> set[str]:
 
 def _doc_identifier_mentions(body: str, symbols: set[str]) -> list[str]:
     mentioned = {match.group(1) for match in _QUALIFIED_IDENTIFIER_RE.finditer(body)}
-    return ordered_or_sorted(
+    return sort_once(
         symbols.intersection(mentioned),
         source="impact_index.doc_mentions",
     )
@@ -975,7 +977,7 @@ def _doc_anchor_matches(body: str, symbols: set[str]) -> list[str]:
         tail = symbol.rsplit(".", 1)[-1].lower().replace("_", "-")
         if tail in anchors:
             weak.add(symbol)
-    return ordered_or_sorted(weak, source="impact_index.doc_anchors")
+    return sort_once(weak, source="impact_index.doc_anchors")
 
 
 def _dedupe_links(links: Iterable[ImpactLink]) -> list[ImpactLink]:

@@ -4,6 +4,9 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
+from gabion.commands import progress_contract as progress_timeline
 from gabion.tooling import delta_state_emit
 from gabion.tooling import delta_triplets
 from tests.env_helpers import env_scope
@@ -538,6 +541,123 @@ def test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths() -> None:
     assert any("complete failures=1 total=1" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_non_emit_failure_continues_and_step_callable_without_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets._run_triplet
+def test_delta_triplets_non_emit_failure_continues_and_step_callable_without_heartbeat() -> None:
+    lines: list[str] = []
+    assert (
+        delta_triplets._run_step_callable(
+            name="trip",
+            step=delta_triplets.StepSpec(
+                id="ok",
+                label="ok",
+                kind="gate",
+                run=lambda: 0,
+            ),
+            step_index=1,
+            step_total=1,
+            step_heartbeat_seconds=0.0,
+            print_fn=lines.append,
+            monotonic_fn=lambda: 0.0,
+        )
+        == 0
+    )
+    assert lines == []
+
+    executed: list[str] = []
+
+    def _run_step(**kwargs) -> int:
+        step = kwargs["step"]
+        executed.append(step.label)
+        return 2 if step.label == "gate_fail" else 0
+
+    exit_code = delta_triplets._run_triplet(
+        "trip",
+        (
+            delta_triplets.StepSpec("gate_fail", "gate_fail", "gate", lambda: 2),
+            delta_triplets.StepSpec("after_fail", "after_fail", "gate", lambda: 0),
+        ),
+        run_step_fn=_run_step,
+        print_fn=lines.append,
+        monotonic_fn=lambda: 0.0,
+        step_heartbeat_seconds=0.0,
+    )
+    assert exit_code == 2
+    assert executed == ["gate_fail", "after_fail"]
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_step_callable_timeout_without_heartbeat_branch::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable
+def test_delta_triplets_step_callable_timeout_without_heartbeat_branch() -> None:
+    lines: list[str] = []
+
+    def _slow_step() -> int:
+        time.sleep(0.6)
+        return 0
+
+    assert (
+        delta_triplets._run_step_callable(
+            name="trip",
+            step=delta_triplets.StepSpec(
+                id="slow",
+                label="slow",
+                kind="gate",
+                run=_slow_step,
+            ),
+            step_index=1,
+            step_total=1,
+            step_heartbeat_seconds=0.0,
+            print_fn=lines.append,
+            monotonic_fn=lambda: 0.0,
+        )
+        == 0
+    )
+    assert lines == []
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_for_emitter_output_path_branch::delta_state_emit.py::gabion.tooling.delta_state_emit.main_for_emitter
+def test_delta_state_emit_main_for_emitter_output_path_branch(tmp_path: Path) -> None:
+    output_path = tmp_path / "custom_delta.json"
+
+    def _run(_request, *, root: Path, notification_callback=None):
+        _ = notification_callback
+        assert root == tmp_path
+        return {"exit_code": 1}
+
+    assert (
+        delta_state_emit.main_for_emitter(
+            "obsolescence_delta_emit",
+            run_command_direct_fn=_run,
+            root_path=tmp_path,
+            output_path=output_path,
+            print_fn=lambda _line: None,
+            monotonic_fn=time.monotonic,
+        )
+        == 1
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_for_emitter_without_output_path_branch::delta_state_emit.py::gabion.tooling.delta_state_emit.main_for_emitter
+def test_delta_state_emit_main_for_emitter_without_output_path_branch(
+    tmp_path: Path,
+) -> None:
+    def _run(_request, *, root: Path, notification_callback=None):
+        _ = notification_callback
+        assert root == tmp_path
+        return {"exit_code": 1}
+
+    assert (
+        delta_state_emit.main_for_emitter(
+            "obsolescence_delta_emit",
+            run_command_direct_fn=_run,
+            root_path=tmp_path,
+            output_path=None,
+            expected_outputs=None,
+            print_fn=lambda _line: None,
+            monotonic_fn=time.monotonic,
+        )
+        == 1
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned::delta_triplets.py::gabion.tooling.delta_triplets._triplet_resume_checkpoint_path
 def test_delta_triplets_emit_checkpoint_paths_are_partitioned() -> None:
     obsolescence_path = delta_triplets._triplet_resume_checkpoint_path("obsolescence")
@@ -565,3 +685,286 @@ def test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints() -> N
         "dataflow_resume_checkpoint_ci_annotation_drift.json",
         "dataflow_resume_checkpoint_ci_ambiguity.json",
     ]
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_stream_phase_timeline_rows::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
+@pytest.mark.parametrize(
+    "run_main",
+    [
+        delta_state_emit.obsolescence_main,
+        delta_state_emit.annotation_drift_main,
+        delta_state_emit.ambiguity_main,
+    ],
+)
+def test_delta_emit_modules_stream_phase_timeline_rows(
+    tmp_path: Path,
+    run_main,
+) -> None:
+    delta_path = tmp_path / "delta.json"
+    delta_path.write_text("{}\n", encoding="utf-8")
+    lines: list[str] = []
+
+    def _run(_request, *, root: Path, notification_callback=None) -> dict[str, object]:
+        assert root == tmp_path
+        assert callable(notification_callback)
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "collection",
+                        "event_seq": 1,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
+                    },
+                },
+            }
+        )
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "post",
+                        "event_seq": 2,
+                        "phase_timeline_row": "| t1 | post |",
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    exit_code = run_main(
+        run_command_direct_fn=_run,
+        root_path=tmp_path,
+        delta_path=delta_path,
+        print_fn=lines.append,
+        monotonic_fn=time.monotonic,
+    )
+    assert exit_code == 0
+    assert any("timeline:" in line for line in lines)
+    assert any("| t0 | collection |" in line for line in lines)
+    assert any("| t1 | post |" in line for line in lines)
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_supports_notification_callback_signature_edges::delta_state_emit.py::gabion.tooling.delta_state_emit._supports_notification_callback
+def test_delta_emit_modules_supports_notification_callback_signature_edges() -> None:
+    assert delta_state_emit._supports_notification_callback(object()) is True
+
+    def _with_kwargs(*args, **kwargs):
+        _ = args, kwargs
+        return {"exit_code": 0}
+
+    assert delta_state_emit._supports_notification_callback(_with_kwargs) is True
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_ignore_non_mapping_progress_and_dedupe_duplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
+@pytest.mark.parametrize(
+    "run_main",
+    [
+        delta_state_emit.obsolescence_main,
+        delta_state_emit.annotation_drift_main,
+        delta_state_emit.ambiguity_main,
+    ],
+)
+def test_delta_emit_modules_ignore_non_mapping_progress_and_dedupe_duplicates(
+    tmp_path: Path,
+    run_main,
+) -> None:
+    delta_path = tmp_path / "delta.json"
+    delta_path.write_text("{}\n", encoding="utf-8")
+    lines: list[str] = []
+
+    def _run(_request, *, root: Path, notification_callback=None) -> dict[str, object]:
+        assert root == tmp_path
+        assert callable(notification_callback)
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": [],
+                },
+            }
+        )
+        progress = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "collection",
+                    "event_seq": 1,
+                    "phase_timeline_header": "| ts | phase |",
+                    "phase_timeline_row": "| t0 | collection |",
+                },
+            },
+        }
+        notification_callback(progress)
+        notification_callback(progress)
+        return {"exit_code": 0}
+
+    exit_code = run_main(
+        run_command_direct_fn=_run,
+        root_path=tmp_path,
+        delta_path=delta_path,
+        print_fn=lines.append,
+        monotonic_fn=time.monotonic,
+    )
+    assert exit_code == 0
+    assert sum(1 for line in lines if line == "| t0 | collection |") == 1
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_shared_progress_timeline_helpers_cover_delta_state_wrappers::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_timeline_header_columns::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_timeline_header_block::progress_contract.py::gabion.commands.progress_contract.is_heartbeat_progress
+def test_shared_progress_timeline_helpers_cover_delta_state_wrappers() -> None:
+    assert (
+        delta_state_emit._phase_timeline_header_columns()
+        == progress_timeline.phase_timeline_header_columns()
+    )
+    assert (
+        delta_state_emit._phase_timeline_header_block()
+        == progress_timeline.phase_timeline_header_block()
+    )
+    assert progress_timeline.is_heartbeat_progress({"event_kind": "heartbeat"}) is True
+    assert progress_timeline.is_heartbeat_progress({"event_kind": "progress"}) is False
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_progress_timeline_phase_progress_emit_due_edges::progress_contract.py::gabion.commands.progress_contract.phase_progress_emit_due
+def test_progress_timeline_phase_progress_emit_due_edges() -> None:
+    base = {"phase": "collection", "event_kind": "progress", "done": False}
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress=base,
+            timeline_header_emitted=False,
+            last_emitted_phase=None,
+            last_emitted_monotonic=None,
+            now_monotonic=0.0,
+        )
+        is True
+    )
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress=base,
+            timeline_header_emitted=True,
+            last_emitted_phase="collection",
+            last_emitted_monotonic=None,
+            now_monotonic=0.1,
+        )
+        is True
+    )
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress=base,
+            timeline_header_emitted=True,
+            last_emitted_phase="collection",
+            last_emitted_monotonic=1.0,
+            now_monotonic=1.1,
+        )
+        is False
+    )
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress={**base, "done": True},
+            timeline_header_emitted=True,
+            last_emitted_phase="collection",
+            last_emitted_monotonic=1.0,
+            now_monotonic=1.1,
+        )
+        is True
+    )
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress={**base, "event_kind": "checkpoint"},
+            timeline_header_emitted=True,
+            last_emitted_phase="collection",
+            last_emitted_monotonic=1.0,
+            now_monotonic=1.1,
+        )
+        is True
+    )
+    assert (
+        progress_timeline.phase_progress_emit_due(
+            phase_progress={**base, "phase": "post"},
+            timeline_header_emitted=True,
+            last_emitted_phase="collection",
+            last_emitted_monotonic=1.0,
+            now_monotonic=1.1,
+        )
+        is True
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_throttles_same_phase_rows_but_forces_phase_transitions::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+def test_delta_state_emit_main_throttles_same_phase_rows_but_forces_phase_transitions(
+    tmp_path: Path,
+) -> None:
+    expected_state_path = tmp_path / "state.json"
+    expected_state_path.parent.mkdir(parents=True, exist_ok=True)
+    expected_state_path.write_text("{}", encoding="utf-8")
+    lines: list[str] = []
+    monotonic_values = [0.0, 0.0, 0.1, 0.1, 0.2]
+
+    def _monotonic() -> float:
+        if monotonic_values:
+            return monotonic_values.pop(0)
+        return 0.2
+
+    def _run(_request, *, root: Path, notification_callback=None):
+        assert root == tmp_path
+        assert callable(notification_callback)
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "collection",
+                        "event_seq": 1,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
+                    },
+                },
+            }
+        )
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "collection",
+                        "event_seq": 2,
+                        "phase_timeline_row": "| t1 | collection |",
+                    },
+                },
+            }
+        )
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "post",
+                        "event_seq": 3,
+                        "phase_timeline_row": "| t2 | post |",
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    assert (
+        delta_state_emit.main(
+            run_command_direct_fn=_run,
+            print_fn=lines.append,
+            monotonic_fn=_monotonic,
+            expected_state_paths=(expected_state_path,),
+            root_path=tmp_path,
+        )
+        == 0
+    )
+    assert any(line == "| t0 | collection |" for line in lines)
+    assert not any(line == "| t1 | collection |" for line in lines)
+    assert any(line == "| t2 | post |" for line in lines)

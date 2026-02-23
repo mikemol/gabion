@@ -1,16 +1,17 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
-
-import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Callable
 
+from gabion.runtime import json_io
 from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
@@ -53,7 +54,7 @@ def _changed_paths_from_git() -> tuple[str, ...]:
         return ()
     paths = [line.strip() for line in out.splitlines() if line.strip()]
     return tuple(
-        ordered_or_sorted(
+        sort_once(
             set(paths),
             source="_changed_paths_from_git.paths",
         )
@@ -72,7 +73,7 @@ def _build_execution_plan(
 def _load_summary(path: Path) -> tuple[dict[str, int], bool]:
     if not path.exists():
         return {"compliant": 0, "contradicts": 0, "excess": 0, "proposed": 0}, True
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json_io.load_json_object_path(path)
     summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
     counts: dict[str, int] = {}
     for key in ("compliant", "contradicts", "excess", "proposed"):
@@ -137,11 +138,10 @@ def main(
             },
             "version": 1,
         }
-        serialized = json.dumps(payload, indent=2, sort_keys=True)
+        canonical_payload = json_io.canonicalize_json(payload)
+        serialized = json_io.dump_json_pretty(canonical_payload)
         if write_text_fn is None:
             delta_path.write_text(serialized, encoding="utf-8")
         else:
             write_text_fn(delta_path, serialized)
         return 0
-
-

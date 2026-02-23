@@ -1,10 +1,12 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import re
 from typing import Any
 
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def _sanitize_contextvar_identifier(value: str) -> str:
@@ -23,7 +25,7 @@ def _sorted_protocols(plan: dict[str, Any]) -> list[dict[str, Any]]:
 
     def _key(spec: dict[str, Any]) -> tuple[int, str, tuple[str, ...]]:
         bundle = tuple(
-            ordered_or_sorted(
+            sort_once(
                 (str(name) for name in (spec.get("bundle") or [])),
                 source="_sorted_protocols.bundle",
             )
@@ -33,7 +35,7 @@ def _sorted_protocols(plan: dict[str, Any]) -> list[dict[str, Any]]:
         suggested = str(spec.get("name") or "")
         return (tier_key, suggested, bundle)
 
-    return ordered_or_sorted(
+    return sort_once(
         [spec for spec in protocols if isinstance(spec, dict)],
         source="render_protocol_stubs.protocols",
         key=_key,
@@ -60,7 +62,7 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
             if "Union[" in hint:
                 typing_names.add("Union")
     typing_import = ", ".join(
-        ordered_or_sorted(
+        sort_once(
             typing_names,
             source="render_protocol_stubs.typing_names",
         )
@@ -96,17 +98,17 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
         name = placeholder_base if idx == 1 else f"{placeholder_base}{idx}"
         suggested = spec.get("name", "Bundle")
         tier = spec.get("tier", "?")
-        bundle = ordered_or_sorted(
+        bundle = sort_once(
             spec.get("bundle", []),
             source="render_protocol_stubs.bundle",
         )
         rationale = spec.get("rationale", "")
-        evidence = ordered_or_sorted(
+        evidence = sort_once(
             spec.get("evidence", []),
             source="render_protocol_stubs.evidence",
         )
         raw_fields = spec.get("fields", [])
-        fields = ordered_or_sorted(
+        fields = sort_once(
             [field for field in raw_fields if isinstance(field, dict)],
             source="render_protocol_stubs.fields",
             key=lambda field: str(field.get("name") or "field"),

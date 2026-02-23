@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +21,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 CONSOLIDATION_VERSION = 1
 
@@ -101,7 +103,7 @@ def build_call_cluster_consolidation_payload(
             }
             clusters[cluster_identity] = cluster
         cluster["tests"].add(entry.test_id)
-        replace_tokens = ordered_or_sorted(
+        replace_tokens = sort_once(
             {token for _, token in call_footprints},
             source="build_call_cluster_consolidation_payload.replace_tokens",
         )
@@ -159,7 +161,7 @@ def build_call_cluster_consolidation_payload(
         )
 
     ordered_plan = apply_spec(CALL_CLUSTER_CONSOLIDATION_SPEC, relation)
-    ordered_clusters = ordered_or_sorted(
+    ordered_clusters = sort_once(
         eligible.values(),
         source="build_call_cluster_consolidation_payload.ordered_clusters",
         key=lambda item: (-item.count, item.display, item.identity),

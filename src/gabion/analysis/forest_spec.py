@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -5,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
 from gabion.json_types import JSONValue
+from gabion.order_contract import sort_once
 from gabion.analysis.timeout_context import check_deadline
 
 
@@ -184,7 +187,7 @@ def build_forest_spec(
         name="forest_v1",
         collectors=tuple(collectors),
         params={},
-        declared_outputs=tuple(sorted(declared_outputs)),
+        declared_outputs=tuple(sort_once(declared_outputs, source = 'src/gabion/analysis/forest_spec.py:188')),
     )
 
 
@@ -291,7 +294,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
 
 
 def normalize_forest_spec(spec: ForestSpec) -> dict[str, JSONValue]:
-    collectors = sorted(spec.collectors, key=lambda entry: entry.name)
+    collectors = sort_once(spec.collectors, key=lambda entry: entry.name, source = 'src/gabion/analysis/forest_spec.py:295')
     return {
         "spec_version": int(spec.spec_version) if spec.spec_version else 1,
         "name": str(spec.name),
@@ -310,7 +313,7 @@ def normalize_forest_spec(spec: ForestSpec) -> dict[str, JSONValue]:
 
 def forest_spec_canonical_json(spec: ForestSpec) -> str:
     payload = normalize_forest_spec(spec)
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return json.dumps(payload, sort_keys=False, separators=(",", ":"))
 
 
 def forest_spec_hash_spec(spec: ForestSpec) -> str:
@@ -349,20 +352,20 @@ def _normalize_decision_tiers(
         except (TypeError, ValueError):
             continue
         normalized[name] = tier
-    return {key: normalized[key] for key in sorted(normalized)}
+    return {key: normalized[key] for key in sort_once(normalized, source = 'src/gabion/analysis/forest_spec.py:353')}
 
 
 def _sorted_strings(values: Iterable[str] | None) -> list[str]:
     if values is None:
         return []
     cleaned = {str(value).strip() for value in values if str(value).strip()}
-    return sorted(cleaned)
+    return sort_once(cleaned, source = 'src/gabion/analysis/forest_spec.py:360')
 
 
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     if isinstance(value, dict):
-        return {str(k): _normalize_value(value[k]) for k in sorted(value)}
+        return {str(k): _normalize_value(value[k]) for k in sort_once(value, source = 'src/gabion/analysis/forest_spec.py:366')}
     if isinstance(value, list):
         if value and all(isinstance(entry, str) for entry in value):
             return _sorted_strings([str(entry) for entry in value])

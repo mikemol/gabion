@@ -13,16 +13,13 @@ def _import_module(module_path: str):
 def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
     scope_functions = [
         ("scripts.audit_tools", "_audit_deadline_scope"),
-        ("gabion.tooling.ambiguity_delta_advisory", "_deadline_scope"),
-        ("gabion.tooling.annotation_drift_delta_advisory", "_deadline_scope"),
+        ("gabion.tooling.delta_advisory", "_deadline_scope"),
         ("scripts.audit_in_step_structure", "_deadline_scope"),
         ("scripts.ci_watch", "_deadline_scope"),
         ("gabion.tooling.delta_triplets", "_deadline_scope"),
-        ("gabion.tooling.docflow_delta_advisory", "_deadline_scope"),
         ("gabion.tooling.docflow_delta_emit", "_delta_deadline_scope"),
         ("scripts.docflow_promote_sections", "_promote_deadline_scope"),
         ("scripts.extract_test_evidence", "_deadline_scope_from_env"),
-        ("gabion.tooling.obsolescence_delta_advisory", "_deadline_scope"),
         ("scripts.pin_actions", "_deadline_scope"),
         ("scripts.policy_check", "_policy_deadline_scope"),
         ("scripts.refresh_baselines", "_deadline_scope"),

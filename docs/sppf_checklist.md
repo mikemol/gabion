@@ -1,5 +1,5 @@
 ---
-doc_revision: 153
+doc_revision: 156
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -155,6 +155,15 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 ## Governance tooling nodes
 - [~] Docflow audit outputs + frontmatter/anchorized report artifacts in `out/`. (in-28, GH-86) sppf{doc=done; impl=partial; doc_ref=in-28@8}
 
+## Functional-core roadmap lane
+- Lane audit tracker: `docs/audits/functional_core_audit.md#functional_core_audit`.
+- Active slice state artifact: `artifacts/audit_reports/refactor_slice_state.json`.
+- Step-level CI KPI artifact: `artifacts/audit_reports/ci_step_timings.json`.
+- [~] Functional-core hard-cut lane instrumentation (per-slice brief/state capture + local CI step timing capture). (GH-63)
+- [~] Dataflow-first hard-cut slice: dataclass call bundle iteration moved to operation-plan/effect-return helper module (`src/gabion/analysis/dataflow_bundle_iteration.py`), with side-effect dispatch retained only at boundary adapter (`_iter_dataclass_call_bundles`). (GH-63)
+- [x] Dataflow-first hard-cut slice: `_resolve_callee` moved to pure operation/effect pipeline module (`src/gabion/analysis/dataflow_callee_resolution.py`), with ambiguity sink dispatch kept only at boundary adapters in `dataflow_audit`. (GH-63)
+- [~] Dataflow-first hard-cut slice: run-output finalization extracted to operation-sequence module (`src/gabion/analysis/dataflow_run_outputs.py`) with typed context/outcome carriers; next hotspot remains `_run_impl` + `_analyze_file_internal` phase reduction. (GH-63)
+
 ## Analysis pipeline nodes
 - [x] Import resolution / symbol table (deterministic callee resolution). (GH-6)
 - [x] Import resolution: explicit imports + relative import handling.
@@ -201,7 +210,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@2}
 - [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@2}
-- <a id="in-23-aspf-carrier-formalization"></a>[x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73; anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_provenance`, `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_synth`, `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`, `tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip`, `tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries`, `scripts/audit_snapshot.sh`, `scripts/latest_snapshot.sh`). sppf{doc=done; impl=done; doc_ref=in-23@9}
+- <a id="in-23-aspf-carrier-formalization"></a>[x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73; anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_provenance`, `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_synth`, `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`, `tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip`, `tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries`, `scripts/audit_snapshot.sh`, `scripts/latest_snapshot.sh`). sppf{doc=done; impl=done; doc_ref=in-23@10}
 - [~] SuiteSite carriers + loop-scoped deadline obligations (recursive loop attribution now outer-vs-inner precise; SuiteSite IDs stable and reused across deadline artifacts). (in-30, GH-85) sppf{doc=partial; impl=done; doc_ref=in-30@27}
 - [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@27}
 - [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet. (in-30, GH-88) sppf{doc=partial; impl=done; doc_ref=in-30@27}
@@ -226,7 +235,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62) sppf{doc=done; impl=done; doc_ref=in-16@2}
 - [x] Structural diff command + baseline comparison. (in-16, GH-63) sppf{doc=done; impl=done; doc_ref=in-16@2}
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64) sppf{doc=done; impl=done; doc_ref=in-16@2}
-- [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@9}
+- [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@11}
 - [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75) sppf{doc=done; impl=done; doc_ref=in-25@9}
 - [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@8}
 - [~] Exception obligations: handledness refinement (typed except matching, explicit broad catch reasoning, conservative UNKNOWN for unresolved dynamic paths). (in-27, GH-80) sppf{doc=partial; impl=done; doc_ref=in-27@8}

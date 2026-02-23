@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import argparse
@@ -12,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 _HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
 
@@ -144,11 +146,11 @@ def _select_tests(
     if not isinstance(tests, list):
         return (
             [],
-            ordered_or_sorted(
+            sort_once(
                 changed_paths,
                 source="_select_tests.changed_paths",
             ),
-            ordered_or_sorted(
+            sort_once(
                 changed_tests,
                 source="_select_tests.changed_tests",
             ),
@@ -194,16 +196,16 @@ def _select_tests(
     test_signal = 1.0 if impacted else 0.0
     confidence = round(0.7 * path_coverage + 0.3 * test_signal, 4)
 
-    must_run_impacted = ordered_or_sorted(
+    must_run_impacted = sort_once(
         (test for test in impacted if test in must_run_tests),
         source="_select_tests.must_run_impacted",
     )
     return (
-        ordered_or_sorted(
+        sort_once(
             impacted,
             source="_select_tests.impacted",
         ),
-        ordered_or_sorted(
+        sort_once(
             changed_paths,
             source="_select_tests.changed_paths_result",
         ),
@@ -250,7 +252,7 @@ def main(
     else:
         changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
     changed_count = len(changed_lines)
-    changed_paths = ordered_or_sorted(
+    changed_paths = sort_once(
         {item.path for item in changed_lines},
         source="main.changed_paths",
     )
@@ -295,7 +297,7 @@ def main(
     if reasons and ("index_missing" in reasons or "index_stale" in reasons or "low_confidence" in reasons):
         mode = "full"
 
-    impacted_docs = ordered_or_sorted(
+    impacted_docs = sort_once(
         (
             path
             for path in changed_paths
@@ -307,7 +309,7 @@ def main(
     payload = {
         "schema_version": 1,
         "mode": mode,
-            "fallback_reasons": ordered_or_sorted(
+            "fallback_reasons": sort_once(
                 set(reasons),
                 source="main.fallback_reasons",
             ),
@@ -333,7 +335,7 @@ def main(
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     print(f"wrote {output_path}")
     return 0
 

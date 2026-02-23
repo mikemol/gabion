@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import hashlib
@@ -6,7 +7,7 @@ from collections.abc import Mapping, Sequence
 
 from gabion.json_types import JSONValue
 from gabion.invariants import never
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 from gabion.analysis.timeout_context import check_deadline
 
 
@@ -15,7 +16,7 @@ def canon(value: object) -> JSONValue:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, Mapping):
-        keys = ordered_or_sorted(
+        keys = sort_once(
             (str(key) for key in value.keys()),
             source="canonical.canon.dict_keys",
         )
@@ -41,7 +42,7 @@ def encode_canon(value: object) -> str:
     check_deadline()
     return json.dumps(
         canon(value),
-        sort_keys=True,
+        sort_keys=False,
         separators=(",", ":"),
         ensure_ascii=False,
     )
@@ -86,7 +87,7 @@ def _canon_multiset(value: list[object]) -> JSONValue:
             counts[encoded] = (pair_value, pair_count)
             continue
         counts[encoded] = (previous[0], previous[1] + pair_count)
-    ordered = ordered_or_sorted(
+    ordered = sort_once(
         counts.keys(),
         source="canonical.canon.multiset_keys",
     )
@@ -99,4 +100,4 @@ def _canon_multiset(value: list[object]) -> JSONValue:
 
 
 def _encode_json(value: JSONValue) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(value, sort_keys=False, separators=(",", ":"), ensure_ascii=False)

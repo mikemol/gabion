@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 """Invariant markers for Gabion analysis."""
 
 from __future__ import annotations
@@ -5,7 +6,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import NoReturn, TypeVar
+from typing import Callable, NoReturn, TypeVar
 
 from gabion.exceptions import NeverThrown
 
@@ -17,6 +18,7 @@ _PROOF_MODE_OVERRIDE: ContextVar[bool | None] = ContextVar(
 )
 
 T = TypeVar("T")
+FuncT = TypeVar("FuncT", bound=Callable[..., object])
 
 
 def never(reason: str = "", **env: object) -> NoReturn:
@@ -60,3 +62,13 @@ def require_not_none(
         if strict:
             never(reason or "required value is None", **env)
     return value
+
+
+def decision_protocol(func: FuncT) -> FuncT:
+    """Marker decorator for explicit decision-protocol control surfaces."""
+    return func
+
+
+def boundary_normalization(func: FuncT) -> FuncT:
+    """Marker decorator for boundary normalization surfaces."""
+    return func

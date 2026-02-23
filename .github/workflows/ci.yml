@@ -242,11 +242,18 @@ jobs:
         run: |
           .venv/bin/python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
+      - name: Policy check (no monkeypatch)
+        run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .
+      - name: Policy check (branchless)
+        run: .venv/bin/python scripts/branchless_policy_check.py --root .
+      - name: Policy check (defensive fallback)
+        run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs
           .venv/bin/python -m pytest \
             --cov=src/gabion \
+            --cov-branch \
             --cov-report=term-missing \
             --cov-report=xml:artifacts/test_runs/coverage.xml \
             --cov-report=html:artifacts/test_runs/htmlcov \

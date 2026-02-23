@@ -333,3 +333,92 @@ def test_main_attempts_refresh_when_index_missing(tmp_path: Path) -> None:
     )
     payload = json.loads(out_path.read_text(encoding="utf-8"))
     assert payload["index"]["refreshed"] is False
+
+
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_targets_mode_with_negative_stale_and_unprefixed_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._parse_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+def test_impact_select_targets_mode_with_negative_stale_and_unprefixed_paths(
+    tmp_path: Path,
+) -> None:
+    diff = """diff --git a/src/app.py b/src/app.py
+--- a/src/app.py
++++ src/app.py
+@@ -1,0 +1,1 @@
++print("x")
+"""
+    changed = impact_select_tests._parse_changed_lines(diff)
+    assert changed == [impact_select_tests.ChangedLine(path="src/app.py", line=1)]
+
+    payload = {
+        "tests": [
+            {
+                "test_id": "tests/test_app.py::test_app",
+                "file": "tests/test_app.py",
+                "evidence": [
+                    {"key": {"site": {"path": "src/app.py", "span": [10, 0, 10, 0]}}},
+                    {"key": {"site": {"path": "src/app.py", "span": [1, 0, 1, 0]}}},
+                ],
+            }
+        ]
+    }
+    impacted, changed_paths, must_run_impacted, confidence = impact_select_tests._select_tests(
+        payload,
+        changed_lines=changed,
+        must_run_tests={"tests/test_app.py::test_app"},
+    )
+    assert impacted == ["tests/test_app.py::test_app"]
+    assert changed_paths == ["src/app.py"]
+    assert must_run_impacted == ["tests/test_app.py::test_app"]
+    assert confidence > 0.0
+
+    index_path = tmp_path / "out" / "test_evidence.json"
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(json.dumps(payload), encoding="utf-8")
+    out_path = tmp_path / "artifacts" / "audit_reports" / "impact_selection.json"
+
+    exit_code = impact_select_tests.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--index",
+            "out/test_evidence.json",
+            "--out",
+            str(out_path.relative_to(tmp_path)),
+            "--stale-seconds",
+            "-1",
+            "--confidence-threshold",
+            "0.5",
+            "--no-refresh",
+        ],
+        git_diff_changed_lines_fn=lambda *_args: changed,
+    )
+    assert exit_code == 0
+    output = json.loads(out_path.read_text(encoding="utf-8"))
+    assert output["mode"] == "targeted"
+    assert output["fallback_reasons"] == []
+
+
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_inner_evidence_loop_break_then_continues_outer_entries::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests
+def test_impact_select_inner_evidence_loop_break_then_continues_outer_entries() -> None:
+    payload = {
+        "tests": [
+            {
+                "test_id": "tests/test_app.py::test_match",
+                "file": "tests/test_app.py",
+                "evidence": [
+                    {"key": {"site": {"path": "src/app.py", "span": [3, 0, 3, 0]}}},
+                ],
+            },
+            {
+                "test_id": "tests/test_app.py::test_other",
+                "file": "tests/test_app.py",
+                "evidence": [],
+            },
+        ]
+    }
+    impacted, _changed_paths, _must_run_impacted, confidence = impact_select_tests._select_tests(
+        payload,
+        changed_lines=[impact_select_tests.ChangedLine(path="src/app.py", line=3)],
+        must_run_tests=set(),
+    )
+    assert impacted == ["tests/test_app.py::test_match"]
+    assert confidence > 0.0

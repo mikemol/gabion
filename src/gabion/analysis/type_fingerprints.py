@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +9,7 @@ import math
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 TYPE_BASE_NAMESPACE = "type_base"
 TYPE_CTOR_NAMESPACE = "type_ctor"
@@ -91,12 +93,12 @@ def canonical_type_key(hint: str) -> str:
         return ""
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             (part for part in (canonical_type_key(p) for p in union_parts) if part),
             source="canonical_type_key.union_parts",
             policy=OrderPolicy.SORT,
         )
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             normalized,
             source="canonical_type_key.union_parts.enforce",
             policy=OrderPolicy.ENFORCE,
@@ -107,12 +109,12 @@ def canonical_type_key(hint: str) -> str:
         parts = _split_top_level(inner, ",")
         normalized = [canonical_type_key(p) for p in parts]
         normalized.append("None")
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             {item for item in normalized if item},
             source="canonical_type_key.optional_parts",
             policy=OrderPolicy.SORT,
         )
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             normalized,
             source="canonical_type_key.optional_parts.enforce",
             policy=OrderPolicy.ENFORCE,
@@ -121,12 +123,12 @@ def canonical_type_key(hint: str) -> str:
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         parts = _split_top_level(inner, ",")
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             (part for part in (canonical_type_key(p) for p in parts) if part),
             source="canonical_type_key.union_bracket_parts",
             policy=OrderPolicy.SORT,
         )
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             normalized,
             source="canonical_type_key.union_bracket_parts.enforce",
             policy=OrderPolicy.ENFORCE,
@@ -216,7 +218,7 @@ class PrimeRegistry:
                 namespace_payload[namespace] = payload
             return payload
 
-        for key, prime in ordered_or_sorted(
+        for key, prime in sort_once(
             self.primes.items(),
             source="PrimeRegistry.seed_payload.primes",
             policy=OrderPolicy.SORT,
@@ -224,7 +226,7 @@ class PrimeRegistry:
             check_deadline()
             namespace, local_key = _namespace_key(key)
             _entry(namespace)["primes"][local_key] = int(prime)
-        for key, bit in ordered_or_sorted(
+        for key, bit in sort_once(
             self.bit_positions.items(),
             source="PrimeRegistry.seed_payload.bit_positions",
             policy=OrderPolicy.SORT,
@@ -359,7 +361,7 @@ def canonical_type_key_with_constructor(
         return ""
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             (
                 part
                 for part in (
@@ -379,7 +381,7 @@ def canonical_type_key_with_constructor(
             canonical_type_key_with_constructor(p, ctor_registry) for p in parts
         ]
         normalized.append("None")
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             {item for item in normalized if item},
             source="canonical_type_key_with_constructor.optional_parts",
             policy=OrderPolicy.SORT,
@@ -388,7 +390,7 @@ def canonical_type_key_with_constructor(
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         parts = _split_top_level(inner, ",")
-        normalized = ordered_or_sorted(
+        normalized = sort_once(
             (
                 part
                 for part in (
@@ -549,7 +551,7 @@ def _dimension_from_keys(keys: Iterable[str], registry: PrimeRegistry) -> Finger
         product=product,
         mask=mask,
         exponents=tuple(
-            ordered_or_sorted(
+            sort_once(
                 exponents.items(),
                 source="_dimension_from_keys.exponents",
                 policy=OrderPolicy.SORT,
@@ -581,7 +583,7 @@ def _ctor_dimension_from_names(
         product=product,
         mask=mask,
         exponents=tuple(
-            ordered_or_sorted(
+            sort_once(
                 exponents.items(),
                 source="_ctor_dimension_from_names.exponents",
                 policy=OrderPolicy.SORT,
@@ -651,7 +653,7 @@ def build_synth_registry(
         counts[fingerprint] = counts.get(fingerprint, 0) + 1
     synth_registry = SynthRegistry(registry=registry, version=version)
     candidates = [fp for fp, count in counts.items() if count >= min_occurrences]
-    for fingerprint in ordered_or_sorted(
+    for fingerprint in sort_once(
         candidates,
         source="build_synth_registry.candidates",
         key=_fingerprint_sort_key,
@@ -685,7 +687,7 @@ def synth_registry_payload(
 ) -> JSONObject:
     check_deadline()
     entries: list[JSONObject] = []
-    for prime, tail in ordered_or_sorted(
+    for prime, tail in sort_once(
         synth_registry.tails.items(),
         source="synth_registry_payload.tails",
         policy=OrderPolicy.SORT,
@@ -722,12 +724,12 @@ def synth_registry_payload(
                         "mask": tail.synth.mask,
                     },
                 },
-                "base_keys": ordered_or_sorted(
+                "base_keys": sort_once(
                     base_keys,
                     source="synth_registry_payload.base_keys",
                     policy=OrderPolicy.SORT,
                 ),
-                "ctor_keys": ordered_or_sorted(
+                "ctor_keys": sort_once(
                     ctor_keys,
                     source="synth_registry_payload.ctor_keys",
                     policy=OrderPolicy.SORT,
@@ -748,7 +750,7 @@ def synth_registry_payload(
         "registry": {
             "primes": {
                 key: int(value)
-                for key, value in ordered_or_sorted(
+                for key, value in sort_once(
                     registry.primes.items(),
                     source="synth_registry_payload.registry.primes",
                     policy=OrderPolicy.SORT,
@@ -756,7 +758,7 @@ def synth_registry_payload(
             },
             "bit_positions": {
                 key: int(value)
-                for key, value in ordered_or_sorted(
+                for key, value in sort_once(
                     registry.bit_positions.items(),
                     source="synth_registry_payload.registry.bit_positions",
                     policy=OrderPolicy.SORT,
@@ -890,7 +892,7 @@ def _apply_registry_payload(
 
     # Older payloads may omit bit positions; assign deterministically for any
     # primes without a bit position so mask carriers remain usable.
-    for key in ordered_or_sorted(
+    for key in sort_once(
         registry.primes,
         source="_apply_registry_payload.registry.primes",
         policy=OrderPolicy.SORT,
@@ -956,7 +958,7 @@ def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) ->
             continue
         keys.add(key)
     product = 1
-    for key in ordered_or_sorted(
+    for key in sort_once(
         keys,
         source="bundle_fingerprint_setlike.keys",
         policy=OrderPolicy.SORT,
@@ -1026,14 +1028,14 @@ def build_fingerprint_registry(
             _collect_base_atoms(hint, atoms)
             base_keys.update(atom for atom in atoms if atom)
             _collect_constructors(hint, constructor_keys)
-    for constructor in ordered_or_sorted(
+    for constructor in sort_once(
         constructor_keys,
         source="build_fingerprint_registry.constructor_keys",
         policy=OrderPolicy.SORT,
     ):
         check_deadline()
         ctor_registry.get_or_assign(constructor)
-    for key in ordered_or_sorted(
+    for key in sort_once(
         base_keys,
         source="build_fingerprint_registry.base_keys",
         policy=OrderPolicy.SORT,
@@ -1041,7 +1043,7 @@ def build_fingerprint_registry(
         check_deadline()
         registry.get_or_assign(key)
     index: dict[Fingerprint, set[str]] = {}
-    for name in ordered_or_sorted(
+    for name in sort_once(
         spec_entries,
         source="build_fingerprint_registry.spec_entries",
         policy=OrderPolicy.SORT,
@@ -1068,7 +1070,7 @@ def fingerprint_to_type_keys_with_remainder(
     keys: list[str] = []
     if remaining <= 1:
         return keys, remaining
-    for key, prime in ordered_or_sorted(
+    for key, prime in sort_once(
         registry.primes.items(),
         source="fingerprint_to_type_keys_with_remainder.registry.primes",
         key=lambda item: item[1],

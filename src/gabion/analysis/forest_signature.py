@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
+from gabion.order_contract import sort_once
 
 
 @dataclass(frozen=True)
@@ -34,7 +36,7 @@ def build_forest_signature_payload(
     include_fingerprint_intern: bool = False,
 ) -> dict[str, JSONValue]:
     check_deadline()
-    nodes = sorted(forest.nodes.keys(), key=lambda node_id: node_id.sort_key())
+    nodes = sort_once(forest.nodes.keys(), key=lambda node_id: node_id.sort_key(), source = 'src/gabion/analysis/forest_signature.py:38')
     node_intern: list[list[JSONValue]] = []
     fingerprint_intern: list[list[JSONValue]] = []
     node_index: dict[NodeId, int] = {}
@@ -47,10 +49,10 @@ def build_forest_signature_payload(
             fingerprint_kind, fingerprint_key = node_id.fingerprint()
             fingerprint_intern.append([fingerprint_kind, list(fingerprint_key)])
 
-    alt_kinds = sorted({alt.kind for alt in forest.alts})
+    alt_kinds = sort_once({alt.kind for alt in forest.alts}, source = 'src/gabion/analysis/forest_signature.py:51')
     alt_kind_index = {kind: idx for idx, kind in enumerate(alt_kinds)}
     alt_edges: list[list[JSONValue]] = []
-    alts_sorted = sorted(forest.alts, key=lambda alt: _alt_sort_key(alt, node_index))
+    alts_sorted = sort_once(forest.alts, key=lambda alt: _alt_sort_key(alt, node_index), source = 'src/gabion/analysis/forest_signature.py:54')
     for alt in alts_sorted:
         check_deadline()
         kind_idx = alt_kind_index[alt.kind]
@@ -95,7 +97,7 @@ def build_forest_signature_from_groups(
         previous_path_key = path_key
         groups = groups_by_path[path]
         path_name = _path_name(path)
-        for fn_name in sorted(groups):
+        for fn_name in sort_once(groups, source = 'src/gabion/analysis/forest_signature.py:99'):
             check_deadline()
             site_id = forest.add_site(path_name, fn_name)
             for bundle in groups[fn_name]:

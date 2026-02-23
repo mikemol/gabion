@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,7 +7,7 @@ from typing import Iterable, Mapping
 from gabion.analysis import evidence_keys
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 @dataclass(frozen=True)
@@ -29,9 +30,9 @@ def cluster_identity_from_key(key: Mapping[str, object]) -> ClusterIdentity:
 def sorted_unique_strings(values: Iterable[object], *, source: str) -> tuple[str, ...]:
     check_deadline()
     return tuple(
-        ordered_or_sorted(
+        sort_once(
             {str(value) for value in values},
-            source=source,
+            source=f"{source}.sorted_unique_strings",
         )
     )
 

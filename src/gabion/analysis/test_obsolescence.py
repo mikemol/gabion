@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,7 +19,7 @@ from gabion.analysis.projection_registry import (
 )
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 @dataclass(frozen=True)
@@ -75,7 +77,7 @@ def load_test_evidence(
         entries.append((test_id, evidence, status))
     evidence_by_test: dict[str, list[EvidenceRef]] = {}
     status_by_test: dict[str, str] = {}
-    for test_id, evidence, status in ordered_or_sorted(
+    for test_id, evidence, status in sort_once(
         entries,
         source="load_test_evidence.entries",
         key=lambda item: item[0],
@@ -118,7 +120,7 @@ def compute_dominators(
     evidence_by_test: dict[str, list[str]],
 ) -> dict[str, list[str]]:
     check_deadline()
-    test_ids = ordered_or_sorted(
+    test_ids = sort_once(
         evidence_by_test,
         source="compute_dominators.test_ids",
     )
@@ -141,7 +143,7 @@ def compute_dominators(
             dominators[test_id] = []
             continue
         min_size = min(evidence_sizes[candidate] for candidate in candidates)
-        frontier = ordered_or_sorted(
+        frontier = sort_once(
             [
                 candidate
                 for candidate in candidates
@@ -175,7 +177,7 @@ def classify_candidates(
             for test_id, evidence in mapped_evidence.items()
         }
     )
-    high_risk = ordered_or_sorted(
+    high_risk = sort_once(
         [
             evidence_id
             for evidence_id, info in risk_registry.items()
@@ -194,7 +196,7 @@ def classify_candidates(
             test_id = next(iter(tests))
             last_witness_by_test.setdefault(test_id, []).append(evidence_id)
     for test_id, evidence_ids in last_witness_by_test.items():
-        last_witness_by_test[test_id] = ordered_or_sorted(
+        last_witness_by_test[test_id] = sort_once(
             evidence_ids,
             source="classify_candidates.last_witness_by_test",
         )
@@ -204,7 +206,7 @@ def classify_candidates(
         key = tuple(ref.identity for ref in evidence)
         equivalence.setdefault(key, []).append(test_id)
     for key, peers in equivalence.items():
-        equivalence[key] = ordered_or_sorted(
+        equivalence[key] = sort_once(
             peers,
             source="classify_candidates.equivalence",
         )
@@ -217,7 +219,7 @@ def classify_candidates(
     ]
     class_rank = {name: idx for idx, name in enumerate(class_order)}
     candidates: list[dict[str, object]] = []
-    for test_id in ordered_or_sorted(
+    for test_id in sort_once(
         normalized_evidence,
         source="classify_candidates.normalized_evidence",
     ):
@@ -256,7 +258,7 @@ def classify_candidates(
                 "reason": reason,
             }
         )
-    candidates = ordered_or_sorted(
+    candidates = sort_once(
         candidates,
         source="classify_candidates.candidates",
         key=lambda entry: (
@@ -438,7 +440,7 @@ def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
                 )
     ordered = [
         refs[key]
-        for key in ordered_or_sorted(
+        for key in sort_once(
             refs,
             source="_normalize_evidence_refs.refs",
         )

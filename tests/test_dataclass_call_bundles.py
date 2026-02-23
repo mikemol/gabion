@@ -120,3 +120,21 @@ def test_dataclass_call_bundles_emit_unresolved_starred_evidence(tmp_path: Path)
     bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=witnesses)
     assert bundles == set()
     assert any(w.get("reason") == "unresolved_starred_positional" for w in witnesses)
+
+
+def test_dataclass_call_bundles_ignore_attribute_calls_without_symbol_table(
+    tmp_path: Path,
+) -> None:
+    _iter_dataclass_call_bundles, _, _ = _load()
+    source = tmp_path / "attribute_without_symbol_table.py"
+    source.write_text(
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class Payload:\n"
+        "    x: int\n"
+        "    y: int\n"
+        "def build(module_alias):\n"
+        "    return module_alias.Payload(1, 2)\n"
+    )
+    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
+    assert bundles == set()

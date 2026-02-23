@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,7 +25,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_doc import ReportDoc
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -129,15 +131,15 @@ def build_delta_payload(
 
     baseline_tests = baseline.tests
     current_tests = current.tests
-    added_tests = ordered_or_sorted(
+    added_tests = sort_once(
         set(current_tests) - set(baseline_tests),
         source="build_delta_payload.added_tests",
     )
-    removed_tests = ordered_or_sorted(
+    removed_tests = sort_once(
         set(baseline_tests) - set(current_tests),
         source="build_delta_payload.removed_tests",
     )
-    changed_tests = ordered_or_sorted(
+    changed_tests = sort_once(
         {
             test_id
             for test_id in set(baseline_tests) & set(current_tests)
@@ -148,15 +150,15 @@ def build_delta_payload(
 
     baseline_evidence = baseline.evidence_index
     current_evidence = current.evidence_index
-    added_evidence_ids = ordered_or_sorted(
+    added_evidence_ids = sort_once(
         set(current_evidence) - set(baseline_evidence),
         source="build_delta_payload.added_evidence_ids",
     )
-    removed_evidence_ids = ordered_or_sorted(
+    removed_evidence_ids = sort_once(
         set(baseline_evidence) - set(current_evidence),
         source="build_delta_payload.removed_evidence_ids",
     )
-    changed_evidence_ids = ordered_or_sorted(
+    changed_evidence_ids = sort_once(
         {
             evidence_id
             for evidence_id in set(baseline_evidence) & set(current_evidence)
@@ -370,7 +372,7 @@ def _tests_from_candidates(
         tests[test_id] = class_name
     return [
         {"test_id": test_id, "class": tests[test_id]}
-        for test_id in ordered_or_sorted(
+        for test_id in sort_once(
             tests,
             source="_tests_from_candidates.tests",
         )
@@ -412,7 +414,7 @@ def _build_evidence_index(
             )
     return [
         _evidence_entry_payload(entries[identity])
-        for identity in ordered_or_sorted(
+        for identity in sort_once(
             entries,
             source="_build_evidence_index.entries",
         )

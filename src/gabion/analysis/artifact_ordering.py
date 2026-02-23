@@ -1,10 +1,12 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 
 def canonical_protocol_specs(protocols: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -26,7 +28,7 @@ def canonical_protocol_specs(protocols: Iterable[Mapping[str, Any]]) -> list[Map
             index,
         )
 
-    ordered = ordered_or_sorted(
+    ordered = sort_once(
         indexed,
         source="artifact_ordering.canonical_protocol_specs",
         key=_key,
@@ -51,7 +53,7 @@ def canonical_field_display_parts(fields: Iterable[object]) -> list[str]:
 
 
 def canonical_string_values(values: Iterable[object]) -> list[str]:
-    return ordered_or_sorted(
+    return sort_once(
         (str(value) for value in values),
         source="artifact_ordering.canonical_string_values",
         policy=OrderPolicy.SORT,
@@ -59,7 +61,7 @@ def canonical_string_values(values: Iterable[object]) -> list[str]:
 
 
 def canonical_count_summary_items(counts: Mapping[str, int]) -> list[tuple[str, int]]:
-    return ordered_or_sorted(
+    return sort_once(
         counts.items(),
         source="artifact_ordering.canonical_count_summary_items",
         key=lambda item: (-int(item[1]), item[0]),
@@ -71,7 +73,7 @@ def canonical_doc_scope(scope: Iterable[str]) -> list[str]:
     cleaned = [entry.strip() for entry in scope if isinstance(entry, str) and entry.strip()]
     if not cleaned:
         return ["repo", "artifacts"]
-    return ordered_or_sorted(
+    return sort_once(
         cleaned,
         source="artifact_ordering.canonical_doc_scope",
         policy=OrderPolicy.SORT,
@@ -79,7 +81,7 @@ def canonical_doc_scope(scope: Iterable[str]) -> list[str]:
 
 
 def canonical_mapping_keys(mapping: Mapping[str, Any]) -> list[str]:
-    return ordered_or_sorted(
+    return sort_once(
         (str(key) for key in mapping.keys()),
         source="artifact_ordering.canonical_mapping_keys",
         policy=OrderPolicy.SORT,

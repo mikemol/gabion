@@ -130,6 +130,29 @@ def test_render_protocol_stubs_covers_invalid_kind_typing_and_empty_fields() -> 
     assert "pass" in output
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_omits_optional_comments_when_metadata_empty::emission.py::gabion.synthesis.emission.render_protocol_stubs
+def test_contextvar_emission_omits_optional_comments_when_metadata_empty() -> None:
+    output = render_protocol_stubs(
+        {
+            "protocols": [
+                {
+                    "name": "MinimalBundle",
+                    "tier": 3,
+                    "bundle": [],
+                    "rationale": "",
+                    "fields": [{"name": "flag", "type_hint": "bool"}],
+                    "evidence": [],
+                }
+            ]
+        },
+        kind="contextvar",
+    )
+    assert "# Suggested ambient bundle: MinimalBundle (tier 3)" in output
+    assert "# Bundle fields:" not in output
+    assert "# Rationale:" not in output
+    assert "# Evidence:" not in output
+
+
 # gabion:evidence E:function_site::emission.py::gabion.synthesis.emission._sanitize_contextvar_identifier E:function_site::emission.py::gabion.synthesis.emission._sorted_protocols
 def test_emission_helpers_cover_identifier_and_protocol_guardrails() -> None:
     assert emission._sanitize_contextvar_identifier("!!!") == "ambient"

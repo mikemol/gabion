@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 from gabion.analysis.timeout_context import check_deadline
 
@@ -30,6 +32,7 @@ from gabion.analysis.dataflow_audit import (
 )
 from gabion.invariants import require_not_none
 from gabion.analysis.report_doc import ReportDoc
+from gabion.order_contract import sort_once
 
 
 GRAPH_SOURCE = "graph"
@@ -130,7 +133,7 @@ def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
                 status=status,
             )
         )
-    return sorted(entries, key=lambda item: item.test_id)
+    return sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:134')
 
 
 def suggest_evidence(
@@ -156,23 +159,25 @@ def suggest_evidence(
     suggested_graph = 0
     suggested_heuristic = 0
     graph_unresolved = 0
-    entry_list = sorted(entries, key=lambda item: item.test_id)
+    entry_list = sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:160')
     total = len(entry_list)
+    unmapped_entries = [entry for entry in entry_list if not entry.evidence]
+    skipped_mapped = total - len(unmapped_entries)
     root_path = Path(root)
     graph_suggestions = graph_suggestions_fn or _graph_suggestions
     suggest_for_entry = suggest_for_entry_fn or _suggest_for_entry
-    graph_suggestions_map, graph_resolved = graph_suggestions(
-        entry_list,
-        root=root_path,
-        paths=paths,
-        forest=forest,
-        config=config,
-        max_depth=max_depth,
-    )
-    for entry in entry_list:
-        if entry.evidence:
-            skipped_mapped += 1
-            continue
+    if unmapped_entries:
+        graph_suggestions_map, graph_resolved = graph_suggestions(
+            unmapped_entries,
+            root=root_path,
+            paths=paths,
+            forest=forest,
+            config=config,
+            max_depth=max_depth,
+        )
+    else:
+        graph_suggestions_map, graph_resolved = {}, set()
+    for entry in unmapped_entries:
         if entry.test_id not in graph_resolved:
             graph_unresolved += 1
         graph_suggested = graph_suggestions_map.get(entry.test_id)
@@ -256,7 +261,7 @@ def render_markdown(
         doc.line("- None")
         return doc.emit()
 
-    for entry in sorted(suggestions, key=lambda item: item.test_id):
+    for entry in sort_once(suggestions, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:262'):
         evidence_list = ", ".join(item.display for item in entry.suggested)
         details = [f"source: {entry.source}"]
         if entry.matches:
@@ -308,7 +313,7 @@ def render_json_payload(
                     else {}
                 ),
             }
-            for entry in sorted(suggestions, key=lambda item: item.test_id)
+            for entry in sort_once(suggestions, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:314')
         ],
     }
 
@@ -331,7 +336,7 @@ def collect_call_footprints(
 ) -> dict[str, tuple[dict[str, str], ...]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, config
-    entry_list = sorted(entries, key=lambda item: item.test_id)
+    entry_list = sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:337')
     if not entry_list:
         return {}
     root_path = Path(root)
@@ -392,7 +397,7 @@ def collect_call_footprints(
             if callee is None:
                 continue
             resolved_callees[callee.qual] = callee
-        ordered = tuple(resolved_callees[key] for key in sorted(resolved_callees))
+        ordered = tuple(resolved_callees[key] for key in sort_once(resolved_callees, source = 'src/gabion/analysis/test_evidence_suggestions.py:398'))
         cache[info.qual] = ordered
         return ordered
 
@@ -508,7 +513,7 @@ def _graph_suggestions(
             if callee is None:
                 continue
             resolved_callees[callee.qual] = callee
-        ordered = tuple(resolved_callees[key] for key in sorted(resolved_callees))
+        ordered = tuple(resolved_callees[key] for key in sort_once(resolved_callees, source = 'src/gabion/analysis/test_evidence_suggestions.py:514'))
         cache[info.qual] = ordered
         return ordered
 
@@ -563,7 +568,7 @@ def _graph_suggestions(
                 )
                 continue
         if evidence_items:
-            ordered = tuple(evidence_items[key] for key in sorted(evidence_items))
+            ordered = tuple(evidence_items[key] for key in sort_once(evidence_items, source = 'src/gabion/analysis/test_evidence_suggestions.py:569'))
             suggestions[entry.test_id] = _GraphSuggestion(
                 suggested=ordered,
                 source=GRAPH_SOURCE,
@@ -586,7 +591,7 @@ def _collect_reachable(
         if not frontier:
             break
         next_frontier: list[FunctionInfo] = []
-        for info in sorted(frontier, key=lambda item: item.qual):
+        for info in sort_once(frontier, key=lambda item: item.qual, source = 'src/gabion/analysis/test_evidence_suggestions.py:592'):
             for callee in resolve_callees(info):
                 if callee.qual in visited:
                     continue
@@ -694,7 +699,7 @@ def _find_module_level_calls(
             if resolved_module:
                 path, qual = resolved_module
                 resolved[f"{path}:{qual}"] = (path, qual)
-    ordered = [resolved[key] for key in sorted(resolved)]
+    ordered = [resolved[key] for key in sort_once(resolved, source = 'src/gabion/analysis/test_evidence_suggestions.py:700')]
     return tuple(ordered)
 
 
@@ -910,7 +915,7 @@ def _build_forest_evidence_index(
         evidence_by_site[site_id][suggestion.identity] = suggestion
     ordered: dict[NodeId, tuple[EvidenceSuggestion, ...]] = {}
     for site_id, items in evidence_by_site.items():
-        ordered[site_id] = tuple(items[key] for key in sorted(items))
+        ordered[site_id] = tuple(items[key] for key in sort_once(items, source = 'src/gabion/analysis/test_evidence_suggestions.py:916'))
     return site_index, ordered
 
 
@@ -1030,7 +1035,7 @@ def _dedupe_suggestions(items: list[EvidenceSuggestion]) -> list[EvidenceSuggest
     seen: dict[str, EvidenceSuggestion] = {}
     for item in items:
         seen[item.identity] = item
-    return [seen[key] for key in sorted(seen)]
+    return [seen[key] for key in sort_once(seen, source = 'src/gabion/analysis/test_evidence_suggestions.py:1036')]
 
 
 def _suggestion_haystack(entry: TestEvidenceEntry) -> tuple[str, str]:
@@ -1189,7 +1194,7 @@ def _normalize_evidence_list(value: object) -> list[str]:
     else:
         return []
     cleaned = [item.strip() for item in items if item.strip()]
-    return sorted(set(cleaned))
+    return sort_once(set(cleaned), source = 'src/gabion/analysis/test_evidence_suggestions.py:1195')
 
 
 def _summarize_unmapped(
@@ -1212,7 +1217,7 @@ def _summarize_unmapped(
 
 
 def _top_counts(source: dict[str, int], *, limit: int = 10) -> tuple[tuple[str, int], ...]:
-    ordered = sorted(source.items(), key=lambda item: (-item[1], item[0]))
+    ordered = sort_once(source.items(), key=lambda item: (-item[1], item[0]), source = 'src/gabion/analysis/test_evidence_suggestions.py:1218')
     return tuple(ordered[:limit])
 
 

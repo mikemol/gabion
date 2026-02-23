@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from gabion import server
+from gabion.commands import command_ids
 from gabion.lsp_client import (
     CommandRequest,
     LspClientError,
@@ -147,6 +148,29 @@ def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_routes_check_through_dataflow_di_executor::lsp_client.py::gabion.lsp_client.run_command_direct
+def test_run_command_direct_routes_check_through_dataflow_di_executor(
+    tmp_path: Path,
+) -> None:
+    seen_commands: list[str] = []
+
+    def _fake_execute_command(_ls, _payload=None):
+        seen_commands.append("called")
+        return {"exit_code": 0, "analysis_state": "succeeded"}
+
+    request = CommandRequest(
+        command_ids.CHECK_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
+    result = run_command_direct(
+        request,
+        root=tmp_path,
+        execute_dataflow_fn=_fake_execute_command,
+    )
+    assert result["exit_code"] == 0
+    assert seen_commands == ["called"]
+
+
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_ignores_non_mapping_notifications::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_ignores_non_mapping_notifications(
     tmp_path: Path,
@@ -180,6 +204,20 @@ def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
                 [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
             ),
             root=tmp_path,
+        )
+
+
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_rejects_non_mapping_execute_result::lsp_client.py::gabion.lsp_client.run_command_direct
+def test_run_command_direct_rejects_non_mapping_execute_result(tmp_path: Path) -> None:
+    request = CommandRequest(
+        server.DATAFLOW_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
+    with pytest.raises(LspClientError):
+        run_command_direct(
+            request,
+            root=tmp_path,
+            execute_dataflow_fn=lambda _ls, _payload=None: [],
         )
 
 

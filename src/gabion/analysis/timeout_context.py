@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import inspect
@@ -21,7 +23,7 @@ from gabion.deadline_clock import (
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
@@ -439,7 +441,7 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
-    for site_id, stats in ordered_or_sorted(
+    for site_id, stats in sort_once(
         state.site_stats.items(),
         source="_deadline_profile_snapshot.site_rows",
         key=lambda item: (
@@ -459,7 +461,7 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             }
         )
     edge_rows: list[dict[str, JSONValue]] = []
-    for (source_id, target_id), stats in ordered_or_sorted(
+    for (source_id, target_id), stats in sort_once(
         state.edge_stats.items(),
         source="_deadline_profile_snapshot.edge_rows",
         key=lambda item: (
@@ -484,7 +486,7 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             }
         )
     io_rows: list[dict[str, JSONValue]] = []
-    for io_name, stats in ordered_or_sorted(
+    for io_name, stats in sort_once(
         state.io_stats.items(),
         source="_deadline_profile_snapshot.io_rows",
         key=lambda item: (-item[1].elapsed_ns, item[0]),
@@ -824,7 +826,7 @@ def build_site_index(
     forest: Forest,
 ) -> dict[tuple[str, str], _CallSite]:
     index: dict[tuple[str, str], _CallSite] = {}
-    ordered_nodes = ordered_or_sorted(
+    ordered_nodes = sort_once(
         forest.nodes.items(),
         source="build_site_index.ordered_nodes",
         key=lambda item: item[0].sort_key(),
@@ -857,7 +859,7 @@ def pack_call_stack(
         key = (entry.kind, entry.frozen_key())
         if key not in unique:
             unique[key] = _InternedCallSite(order=len(unique), site=entry)
-    ordered_unique = ordered_or_sorted(
+    ordered_unique = sort_once(
         unique.items(),
         source="pack_call_stack.site_table",
         policy=OrderPolicy.ENFORCE,

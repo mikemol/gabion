@@ -157,3 +157,20 @@ def test_read_response_dispatches_notifications() -> None:
     assert response["id"] == 8
     assert len(seen) == 1
     assert seen[0]["method"] == "$/progress"
+
+
+# gabion:evidence E:call_footprint::tests/test_lsp_client_rpc.py::test_read_response_ignores_notifications_without_callback::lsp_client.py::gabion.lsp_client._read_response
+def test_read_response_ignores_notifications_without_callback() -> None:
+    notification = _rpc_message(
+        {"jsonrpc": "2.0", "method": "$/progress", "params": {"value": 1}}
+    )
+    response_msg = _rpc_message({"jsonrpc": "2.0", "id": 11, "result": {"ok": True}})
+    stream = io.BytesIO(notification + response_msg)
+
+    response = _read_response(
+        stream,
+        11,
+        time.monotonic_ns() + 1_000_000_000,
+        notification_callback=None,
+    )
+    assert response["id"] == 11

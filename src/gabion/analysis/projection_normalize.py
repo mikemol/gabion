@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -11,7 +12,7 @@ from gabion.analysis.projection_spec import (
 from gabion.analysis.artifact_ordering import canonical_mapping_keys
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import OrderPolicy, ordered_or_sorted
+from gabion.order_contract import OrderPolicy, sort_once
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -26,7 +27,7 @@ def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
 
 def spec_canonical_json(spec: ProjectionSpec) -> str:
     payload = normalize_spec(spec)
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return json.dumps(payload, sort_keys=False, separators=(",", ":"))
 
 
 def spec_hash(spec: ProjectionSpec | Mapping[str, JSONValue] | str) -> str:
@@ -124,7 +125,7 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
     check_deadline()
     # ordered internally; explicit sort only at edge.
     # We deduplicate with an insertion-preserving dict carrier, then hand the
-    # keys to ordered_or_sorted(...) for canonical edge ordering.
+    # keys to sort_once(...) for canonical edge ordering.
     cleaned: dict[str, None] = {}
     for value in values:
         check_deadline()
@@ -134,7 +135,7 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
         if not stripped:
             continue
         cleaned.setdefault(stripped, None)
-    return ordered_or_sorted(
+    return sort_once(
         cleaned,
         source="_normalize_predicates.cleaned",
         policy=OrderPolicy.SORT,
@@ -165,7 +166,7 @@ def _normalize_fields(value: JSONValue) -> list[str]:
 
 def _normalize_group_fields(value: JSONValue) -> list[str]:
     fields = _normalize_fields(value)
-    return ordered_or_sorted(
+    return sort_once(
         fields,
         source="_normalize_group_fields.fields",
         policy=OrderPolicy.SORT,

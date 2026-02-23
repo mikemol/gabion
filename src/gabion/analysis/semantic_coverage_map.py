@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
@@ -10,7 +12,7 @@ from gabion.analysis import evidence_keys, test_evidence
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 SEMANTIC_COVERAGE_MAP_VERSION = 1
 
@@ -52,7 +54,7 @@ def build_semantic_coverage_payload(
 
     coverage_rows: list[dict[str, JSONValue]] = []
     by_obligation: dict[str, list[dict[str, JSONValue]]] = {}
-    for entry in ordered_or_sorted(
+    for entry in sort_once(
         entries,
         source="build_semantic_coverage_payload.entries",
         key=lambda item: (
@@ -64,7 +66,7 @@ def build_semantic_coverage_payload(
     ):
         check_deadline()
         evidence_id = entry.evidence_identity
-        mapped_tests = ordered_or_sorted(
+        mapped_tests = sort_once(
             annotation_index.get(evidence_id, []),
             source="build_semantic_coverage_payload.mapped_tests",
         )
@@ -85,7 +87,7 @@ def build_semantic_coverage_payload(
 
     mapped_obligations: list[dict[str, JSONValue]] = []
     unmapped_obligations: list[dict[str, JSONValue]] = []
-    for obligation in ordered_or_sorted(
+    for obligation in sort_once(
         by_obligation,
         source="build_semantic_coverage_payload.by_obligation",
     ):
@@ -157,7 +159,7 @@ def write_semantic_coverage(
     output_path: Path,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
 def load_mapping_entries(path: Path) -> list[SemanticCoverageEntry]:
@@ -249,7 +251,7 @@ def _duplicate_mapping_entries(
         for entry in entries
     )
     duplicates: list[dict[str, JSONValue]] = []
-    for (obligation, kind, evidence_identity), count in ordered_or_sorted(
+    for (obligation, kind, evidence_identity), count in sort_once(
         counts.items(),
         source="_duplicate_mapping_entries.counts",
     ):

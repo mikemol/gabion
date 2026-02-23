@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -15,7 +17,7 @@ from gabion.refactor.model import (
     normalize_compatibility_shim,
 )
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 class RefactorEngine:
@@ -465,7 +467,7 @@ def _rewrite_call_sites(
         if protocol_alias:
             constructor_expr = cst.Name(protocol_alias)
         elif module_aliases:
-            alias = ordered_or_sorted(
+            alias = sort_once(
                 module_aliases.keys(),
                 source="_rewrite_call_sites.module_aliases",
             )[0]
@@ -527,7 +529,7 @@ def _rewrite_call_sites_in_project(
     scan_root = project_root / "src"
     if not scan_root.exists():
         scan_root = project_root
-    for path in ordered_or_sorted(
+    for path in sort_once(
         scan_root.rglob("*.py"),
         source="_rewrite_call_sites_in_project.scan_root",
         key=lambda item: str(item),
@@ -603,7 +605,7 @@ def _ensure_ambient_scaffolding(
         for node in body
         if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
     }
-    for context_name in ordered_or_sorted(
+    for context_name in sort_once(
         context_names,
         source="_ensure_ambient_scaffolding.context_names",
     ):

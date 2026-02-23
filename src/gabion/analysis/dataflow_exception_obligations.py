@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 """Exception-obligation helpers extracted from ``dataflow_audit``."""
 
 from __future__ import annotations
@@ -6,7 +8,7 @@ import ast
 import builtins
 from collections.abc import Callable
 
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
@@ -30,7 +32,7 @@ def exception_param_names(
         check_deadline()
         if isinstance(node, ast.Name) and node.id in params:
             names.add(node.id)
-    return ordered_or_sorted(names, source="_exception_param_names.names")
+    return sort_once(names, source="_exception_param_names.names")
 
 
 def exception_type_name(

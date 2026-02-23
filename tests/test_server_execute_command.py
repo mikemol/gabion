@@ -31,6 +31,16 @@ class _CommandResult:
     violations: int
 
 
+def _assert_invariant_failure(result: dict[str, object]) -> None:
+    assert result.get("exit_code") == 2
+    assert result.get("analysis_state") == "failed"
+    assert result.get("classification") == "failed"
+    assert result.get("error_kind") == "invariant_violation"
+    errors = result.get("errors")
+    assert isinstance(errors, list)
+    assert errors
+
+
 _TIMEOUT_PAYLOAD = {
     "analysis_timeout_ticks": 50_000,
     "analysis_timeout_tick_ns": 1_000_000,
@@ -150,34 +160,34 @@ def test_analysis_timeout_total_ticks_rejects_invalid(payload: dict) -> None:
 def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "analysis_tick_limit": 0,
-                }
-            ),
-        )
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_tick_limit": 0,
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_rejects_non_numeric_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            _DummyServer(str(tmp_path)),
-            _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "analysis_tick_limit": "bad",
-                }
-            ),
-        )
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_tick_limit": "bad",
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_applies_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module

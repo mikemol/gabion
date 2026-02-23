@@ -1,15 +1,17 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import hashlib
 import json
 from typing import Callable, Iterable, Mapping, Sequence
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import sort_once
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
     cleaned = {str(value).strip() for value in values if str(value).strip()}
-    return ordered_or_sorted(
+    return sort_once(
         cleaned,
         source="normalize_params.cleaned",
     )
@@ -98,7 +100,7 @@ def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
             continue
         path, qual = parts
         cleaned[(path, qual)] = {"path": path, "qual": qual}
-    ordered_keys = ordered_or_sorted(
+    ordered_keys = sort_once(
         cleaned,
         source="normalize_targets.cleaned_keys",
     )
@@ -349,11 +351,11 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
 
 def key_identity(key: Mapping[str, object]) -> str:
     normalized = normalize_key(key)
-    return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return json.dumps(normalized, sort_keys=False, separators=(",", ":"))
 
 
 def normalized_fingerprint_identity(normalized: Mapping[str, object]) -> str:
-    payload = json.dumps(dict(normalized), sort_keys=True, separators=(",", ":")).encode(
+    payload = json.dumps(dict(normalized), sort_keys=False, separators=(",", ":")).encode(
         "utf-8"
     )
     digest = hashlib.blake2s(payload, digest_size=12).hexdigest()
@@ -433,10 +435,10 @@ def render_display(
             return "E:call_cluster"
         return "E:call_cluster::" + "::".join(parts)
     if kind == "ambiguity_set":
-        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(normalized, sort_keys=False, separators=(",", ":"))
         return f"E:ambiguity_set::{payload}"
     if kind == "partition_witness":
-        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(normalized, sort_keys=False, separators=(",", ":"))
         return f"E:partition_witness::{payload}"
     return f"E:{kind}"
 
