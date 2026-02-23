@@ -96,3 +96,33 @@ def test_agent_instruction_graph_allows_explicit_scoped_delta(tmp_path: Path) ->
 
     assert warnings == []
     assert "scoped AGENTS directives must be canonical or explicit deltas" not in "\n".join(violations)
+
+
+def test_agent_instruction_graph_uses_anchor_revision_when_available(tmp_path: Path) -> None:
+    docs = {
+        "AGENTS.md": audit_tools.Doc(
+            frontmatter={
+                "doc_revision": 1,
+                "doc_reviewed_as_of": {"POLICY_SEED.md#policy_seed": 1},
+            },
+            body="## Required behavior\n- Keep workflows pinned.\n",
+        ),
+        "POLICY_SEED.md": audit_tools.Doc(
+            frontmatter={
+                "doc_revision": 42,
+                "doc_reviewed_as_of": {},
+                "doc_sections": {"policy_seed": 1},
+            },
+            body="# Policy\n",
+        ),
+        "CONTRIBUTING.md": _doc(revision=1, reviewed={}, body="# Contributing\n"),
+    }
+
+    _warnings, violations = audit_tools._agent_instruction_graph(
+        root=tmp_path,
+        docs=docs,
+        json_output=tmp_path / "out.json",
+        md_output=tmp_path / "out.md",
+    )
+
+    assert "stale dependency revisions detected" not in "\n".join(violations)

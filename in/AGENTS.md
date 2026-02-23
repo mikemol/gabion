@@ -5,9 +5,9 @@ doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 38
+  POLICY_SEED.md#policy_seed: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Confirms the agent obligations align with the current execution policy contract.
+  POLICY_SEED.md#policy_seed: Scoped delta reviewed against POLICY_SEED policy section semantics.
 doc_id: in_agents
 doc_role: agent
 doc_scope:
@@ -36,14 +36,13 @@ doc_section_reviews:
 This repository is governed by `POLICY_SEED.md#policy_seed`. Treat it as authoritative.
 
 ## Required behavior
-- Read `POLICY_SEED.md#policy_seed` before proposing or applying changes.
-- Do not weaken or bypass self-hosted runner protections.
-- Keep workflow actions pinned to full commit SHAs and allow-listed.
-- Run `python scripts/policy_check.py --workflows` when changing workflows.
+- [delta] Read root `AGENTS.md#agent_obligations` and apply canonical directives before any in-scope changes.
+- [delta] Run `mise exec -- python scripts/policy_check.py --workflows` for workflow edits touching `in/` support tooling.
+- [delta] When adding scoped obligations, mark them with `[delta]` and avoid repeating canonical directives verbatim.
 
 ## Local guardrails
 - Install advisory hooks: `scripts/install_policy_hooks.sh`.
 - Hooks are advisory; CI policy checks are authoritative.
-- Use `mise exec -- python` for policy tooling so dependencies resolve as expected.
+- [delta] Use `mise exec -- python` for policy tooling so dependencies resolve as expected.
 
 If any request conflicts with `POLICY_SEED.md#policy_seed`, stop and ask for guidance.

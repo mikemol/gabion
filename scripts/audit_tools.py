@@ -2460,12 +2460,14 @@ def _agent_instruction_graph(
                 }
             )
 
-    stale_dependency_revisions: list[dict[str, object]] = []
-    revisions = {
-        path: int(doc.frontmatter.get("doc_revision"))
-        for path, doc in docs.items()
-        if isinstance(doc.frontmatter.get("doc_revision"), int)
-    }
+    stale_dependency_revisions: dict[str, list[dict[str, object]]] = {}
+    revisions: dict[str, int] = {}
+    for path, doc in docs.items():
+        check_deadline()
+        revision = doc.frontmatter.get("doc_revision")
+        if isinstance(revision, int):
+            revisions[path] = revision
+        _add_section_revisions(revisions, rel=path, fm=doc.frontmatter)
     for path in included_docs:
         check_deadline()
         reviewed = docs[path].frontmatter.get("doc_reviewed_as_of", {})
@@ -2475,10 +2477,12 @@ def _agent_instruction_graph(
             check_deadline()
             if not isinstance(dep_ref, str) or not isinstance(pinned, int):
                 continue
-            dep_doc = _doc_ref_base(dep_ref)
-            actual = revisions.get(dep_doc)
+            actual = revisions.get(dep_ref)
+            if actual is None:
+                dep_doc = _doc_ref_base(dep_ref)
+                actual = revisions.get(dep_doc)
             if actual is not None and actual != pinned:
-                stale_dependency_revisions.append(
+                stale_dependency_revisions.setdefault(path, []).append(
                     {
                         "source": path,
                         "dependency": dep_ref,
@@ -2533,7 +2537,9 @@ def _agent_instruction_graph(
             "mandatory_directives": sum(1 for item in directives if item.mandatory),
             "duplicate_mandatory": len(duplicate_mandatory),
             "precedence_conflicts": len(precedence_conflicts),
-            "stale_dependency_revisions": len(stale_dependency_revisions),
+            "stale_dependency_revisions": sum(
+                len(entries) for entries in stale_dependency_revisions.values()
+            ),
             "hidden_operational_toggles": len(hidden_operational_toggles),
             "scoped_delta_violations": len(scoped_delta_violations),
         },
@@ -2551,7 +2557,11 @@ def _agent_instruction_graph(
         "directive_references": reference_rows,
         "duplicate_mandatory": duplicate_mandatory,
         "precedence_conflicts": precedence_conflicts,
-        "stale_dependency_revisions": stale_dependency_revisions,
+        "stale_dependency_revisions": [
+            entry
+            for path in sorted(stale_dependency_revisions)
+            for entry in stale_dependency_revisions[path]
+        ],
         "hidden_operational_toggles": hidden_operational_toggles,
         "scoped_delta_violations": scoped_delta_violations,
     }
@@ -2590,11 +2600,13 @@ def _agent_instruction_graph(
         md_lines.append("")
     if stale_dependency_revisions:
         md_lines.extend(["## Stale Dependency Revisions", ""])
-        for entry in stale_dependency_revisions:
+        for path in sorted(stale_dependency_revisions):
             check_deadline()
-            md_lines.append(
-                f"- {entry['source']}: `{entry['dependency']}` pinned `{entry['pinned']}` but current revision is `{entry['actual']}`"
-            )
+            for entry in stale_dependency_revisions[path]:
+                check_deadline()
+                md_lines.append(
+                    f"- {entry['source']}: `{entry['dependency']}` pinned `{entry['pinned']}` but current revision is `{entry['actual']}`"
+                )
         md_lines.append("")
     if hidden_operational_toggles:
         md_lines.extend(["## Hidden Operational Toggles", ""])
