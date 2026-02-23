@@ -1,5 +1,5 @@
 ---
-doc_revision: 96
+doc_revision: 97
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -174,6 +174,8 @@ When sortedness is enforced, it must be treated as part of semantic behavior.
 - [ ] Confirm each ordered carrier consumes active sorting at most once, and
       that egress paths enforce order without serializer `sort_keys=True`
       fallback for canonical carriers.
+- [ ] For governance/tooling changes, include PR template fields `controller impact`
+      and `loop updated?`, and describe any controller-drift sensor/anchor changes.
 
 ## Branching model (normative)
 - Routine work goes to `stage`; CI runs on every `stage` push and must be green.

@@ -249,6 +249,15 @@ jobs:
         run: .venv/bin/python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
         run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
+      - name: Controller drift audit (advisory, ratchet-ready)
+        env:
+          CONTROLLER_DRIFT_FAIL_ON: ${{ vars.CONTROLLER_DRIFT_FAIL_ON || '' }}
+        run: |
+          args=(--out artifacts/out/controller_drift.json)
+          if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
+            args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
+          fi
+          .venv/bin/python scripts/governance_controller_audit.py "${args[@]}"
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs
