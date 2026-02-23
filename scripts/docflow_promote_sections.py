@@ -17,10 +17,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.audit_tools import _parse_frontmatter  # type: ignore
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from audit_tools import _parse_frontmatter  # type: ignore
+from gabion.tooling.governance_audit import _parse_frontmatter  # type: ignore
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path

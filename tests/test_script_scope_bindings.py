@@ -12,7 +12,7 @@ def _import_module(module_path: str):
 # gabion:evidence E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest
 def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
     scope_functions = [
-        ("scripts.audit_tools", "_audit_deadline_scope"),
+        ("gabion.tooling.governance_audit", "_audit_deadline_scope"),
         ("gabion.tooling.delta_advisory", "_deadline_scope"),
         ("scripts.audit_in_step_structure", "_deadline_scope"),
         ("scripts.ci_watch", "_deadline_scope"),

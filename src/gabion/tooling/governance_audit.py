@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+# gabion:decision_protocol_module
+# gabion:boundary_normalization_module
 
 import argparse
 import json
@@ -14,10 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Literal, Tuple, TypeAlias
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.projection_exec import apply_spec
@@ -66,7 +65,7 @@ def _audit_deadline_scope():
 def _sorted(values: Iterable[object], *, key: Callable[[object], object] | None = None, reverse: bool = False) -> list[object]:
     return ordered_or_sorted(
         values,
-        source="scripts.audit_tools",
+        source="gabion.tooling.governance_audit",
         key=key,
         reverse=reverse,
     )

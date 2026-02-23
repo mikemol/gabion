@@ -5,12 +5,12 @@ from pathlib import Path
 
 
 def _load_audit_tools():
-    from scripts import audit_tools
+    from gabion.tooling import governance_audit as audit_tools
 
     return audit_tools
 
 
-# gabion:evidence E:call_footprint::tests/test_audit_tools_obligations.py::test_emit_docflow_compliance_includes_obligations::audit_tools.py::scripts.audit_tools._emit_docflow_compliance::test_audit_tools_obligations.py::tests.test_audit_tools_obligations._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_audit_tools_obligations.py::test_emit_docflow_compliance_includes_obligations::governance_audit.py::gabion.tooling.governance_audit._emit_docflow_compliance::test_audit_tools_obligations.py::tests.test_audit_tools_obligations._load_audit_tools
 def test_emit_docflow_compliance_includes_obligations(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     json_output = tmp_path / "compliance.json"

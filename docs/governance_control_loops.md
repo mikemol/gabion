@@ -140,7 +140,7 @@ Each loop entry must define:
 
 ### 2) docs/docflow
 
-- **sensor:** docflow compliance emitters in `scripts/audit_tools.py` and `gabion docflow`.
+- **sensor:** docflow compliance emitters in `src/gabion/tooling/governance_audit.py` and `gabion docflow`.
 - **state artifact:** `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`, and `artifacts/audit_reports/docflow_compliance.md`.
 - **target predicate:** normative docs satisfy frontmatter/review invariants, contradiction delta remains zero, and every required loop domain is declared.
 - **error signal:** docflow violations or positive contradiction delta.

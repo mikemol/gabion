@@ -6,7 +6,6 @@ import json
 import re
 import subprocess
 import sys
-import types
 import urllib.error
 import zipfile
 
@@ -273,7 +272,6 @@ def test_context_cli_deps_use_defaults_for_non_mapping_context() -> None:
         is cli._restore_dataflow_resume_checkpoint_from_github_artifacts
     )
     assert deps.run_sppf_sync_fn is cli._run_sppf_sync
-    assert deps.run_governance_cli_fn is cli._run_governance_cli
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_cli_deps_accept_callable_overrides::cli.py::gabion.cli._context_cli_deps
@@ -293,9 +291,6 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
     def _run_sppf(**_kwargs: object) -> int:
         return 0
 
-    def _run_governance(**_kwargs: object) -> int:
-        return 0
-
     class _Ctx:
         obj = {
             "run_dataflow_raw_argv": _run_dataflow,
@@ -303,7 +298,6 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
             "run_with_timeout_retries": _run_with_retries,
             "restore_resume_checkpoint": _restore,
             "run_sppf_sync": _run_sppf,
-            "run_governance_cli": _run_governance,
         }
 
     deps = cli._context_cli_deps(_Ctx())
@@ -312,7 +306,6 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
     assert deps.run_with_timeout_retries_fn is _run_with_retries
     assert deps.restore_resume_checkpoint_fn is _restore
     assert deps.run_sppf_sync_fn is _run_sppf
-    assert deps.run_governance_cli_fn is _run_governance
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables::cli.py::gabion.cli._context_callable_dep
@@ -326,15 +319,14 @@ def test_context_dependency_helpers_reject_noncallables() -> None:
         cli._context_run_dataflow_raw_argv(DummyCtx())
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_and_governance_helpers::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_with_timeout_retries::cli.py::gabion.cli._context_restore_resume_checkpoint::cli.py::gabion.cli._context_run_sppf_sync::cli.py::gabion.cli._context_run_governance_cli
-def test_context_dependency_helpers_reject_noncallables_across_check_and_governance_helpers() -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_with_timeout_retries::cli.py::gabion.cli._context_restore_resume_checkpoint::cli.py::gabion.cli._context_run_sppf_sync
+def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -> None:
     class _Ctx:
         obj = {
             "run_check": "not-callable",
             "run_with_timeout_retries": "not-callable",
             "restore_resume_checkpoint": "not-callable",
             "run_sppf_sync": "not-callable",
-            "run_governance_cli": "not-callable",
         }
 
     class _CtxNoMapping:
@@ -348,8 +340,6 @@ def test_context_dependency_helpers_reject_noncallables_across_check_and_governa
         cli._context_restore_resume_checkpoint(_Ctx())
     with pytest.raises(NeverThrown):
         cli._context_run_sppf_sync(_Ctx())
-    with pytest.raises(NeverThrown):
-        cli._context_run_governance_cli(_Ctx())
     assert (
         cli._context_restore_resume_checkpoint(_CtxNoMapping())
         is cli._restore_dataflow_resume_checkpoint_from_github_artifacts
@@ -569,205 +559,91 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
     ]
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_docflow_audit::fail_on_violations
-def test_run_docflow_audit_missing_script(tmp_path: Path) -> None:
-    missing = tmp_path / "missing.py"
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=missing,
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_runner_success_and_exception::cli.py::gabion.cli._run_governance_runner
+def test_run_governance_runner_success_and_exception(capsys: pytest.CaptureFixture[str]) -> None:
+    assert (
+        cli._run_governance_runner(
+            runner_name="ok",
+            runner=lambda _argv: 3,
+            args=["--flag"],
+        )
+        == 3
     )
-    assert exit_code == 2
+
+    assert (
+        cli._run_governance_runner(
+            runner_name="boom",
+            runner=lambda _argv: (_ for _ in ()).throw(RuntimeError("boom")),
+            args=[],
+        )
+        == 1
+    )
+    assert "governance command failed (boom): boom" in capsys.readouterr().err
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_docflow_audit::fail_on_violations
-def test_run_docflow_audit_passes_flags(tmp_path: Path) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    calls_path = tmp_path / "docflow_calls.txt"
-    module_path.write_text(
-        f"calls_path = {str(calls_path)!r}\n"
-        "def _record(label, argv):\n"
-        "    with open(calls_path, 'a', encoding='utf-8') as handle:\n"
-        "        handle.write(label + ':' + '|'.join(argv or []) + '\\n')\n"
-        "def run_docflow_cli(argv=None):\n"
-        "    _record('docflow', argv)\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    _record('sppf', argv)\n"
-        "    return 0\n"
-    )
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=True,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-    )
-    assert exit_code == 0
-    lines = calls_path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == f"docflow:--root|{tmp_path}|--fail-on-violations|--sppf-gh-ref-mode|required"
-    assert lines[1] == "sppf:"
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags_to_governance_module::cli.py::gabion.cli._run_docflow_audit
+def test_run_docflow_audit_passes_flags_to_governance_module(tmp_path: Path) -> None:
+    calls: list[tuple[str, list[str]]] = []
+    orig_docflow = cli.tooling_governance_audit.run_docflow_cli
+    orig_sppf = cli.tooling_governance_audit.run_sppf_graph_cli
 
+    def _docflow(argv: list[str] | None = None) -> int:
+        calls.append(("docflow", list(argv or [])))
+        return 0
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleans_import_state::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
-    module_name = "gabion_repo_audit_tools"
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    return 0\n"
-    )
-    scripts_root = str(tmp_path)
-    sys_path_list: list[str] = []
-    sys_modules_map: dict[str, object] = {}
-    assert scripts_root not in sys_path_list
-    assert module_name not in sys_modules_map
+    def _sppf(argv: list[str] | None = None) -> int:
+        calls.append(("sppf", list(argv or [])))
+        return 0
 
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-        sys_path_list=sys_path_list,
-        sys_modules_map=sys_modules_map,
-    )
+    try:
+        cli.tooling_governance_audit.run_docflow_cli = _docflow
+        cli.tooling_governance_audit.run_sppf_graph_cli = _sppf
+        exit_code = cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=True,
+            sppf_gh_ref_mode="required",
+            extra_path=["in"],
+        )
+    finally:
+        cli.tooling_governance_audit.run_docflow_cli = orig_docflow
+        cli.tooling_governance_audit.run_sppf_graph_cli = orig_sppf
 
     assert exit_code == 0
-    assert scripts_root not in sys_path_list
-    assert module_name not in sys_modules_map
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_restores_previous_module::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
-    module_name = "gabion_repo_audit_tools"
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    return 0\n"
+    assert calls[0] == (
+        "docflow",
+        ["--root", str(tmp_path), "--extra-path", "in", "--fail-on-violations", "--sppf-gh-ref-mode", "required"],
     )
-    previous_module = types.ModuleType(module_name)
-    sys_modules_map: dict[str, object] = {module_name: previous_module}
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-        sys_modules_map=sys_modules_map,
-    )
-    assert exit_code == 0
-    assert sys_modules_map.get(module_name) is previous_module
+    assert calls[1] == ("sppf", [])
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleanup_ignores_missing_sys_path::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    return 0\n"
-    )
-    scripts_root = str(tmp_path)
-    class _PathList(list[str]):
-        def remove(self, value: str) -> None:  # pragma: no cover - exercised in test
-            super().remove(value)
-            raise ValueError("simulated missing sys.path entry")
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_nonzero_short_circuits_sppf::cli.py::gabion.cli._run_docflow_audit
+def test_run_docflow_audit_nonzero_short_circuits_sppf(tmp_path: Path) -> None:
+    calls: list[str] = []
+    orig_docflow = cli.tooling_governance_audit.run_docflow_cli
+    orig_sppf = cli.tooling_governance_audit.run_sppf_graph_cli
 
-    sys_path_list: list[str] = _PathList()
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-        sys_path_list=sys_path_list,
-    )
-    assert exit_code == 0
-    assert scripts_root not in sys_path_list
+    def _docflow(_argv: list[str] | None = None) -> int:
+        calls.append("docflow")
+        return 7
 
+    def _sppf(_argv: list[str] | None = None) -> int:
+        calls.append("sppf")
+        return 0
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_keeps_existing_sys_path_entry::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    return 0\n"
-    )
-    scripts_root = str(tmp_path)
-    sys_path_list = [scripts_root]
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-        sys_path_list=sys_path_list,
-    )
-    assert exit_code == 0
-    assert sys_path_list == [scripts_root]
+    try:
+        cli.tooling_governance_audit.run_docflow_cli = _docflow
+        cli.tooling_governance_audit.run_sppf_graph_cli = _sppf
+        exit_code = cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            sppf_gh_ref_mode="required",
+        )
+    finally:
+        cli.tooling_governance_audit.run_docflow_cli = orig_docflow
+        cli.tooling_governance_audit.run_sppf_graph_cli = orig_sppf
 
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_one_when_sppf_graph_fails::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    raise RuntimeError('boom')\n"
-    )
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-    )
-    assert exit_code == 1
-    assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
-    tmp_path: Path,
-) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    return 7\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    raise RuntimeError('should not run')\n"
-    )
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-    )
     assert exit_code == 7
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_two_when_loader_creation_fails::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_returns_two_when_loader_creation_fails(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    module_path.write_text("def run_docflow_cli(argv=None):\n    return 0\n")
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=module_path,
-        spec_from_file_location_fn=lambda *_a, **_k: None,
-    )
-    assert exit_code == 2
-    assert "failed to load audit_tools module" in capsys.readouterr().err
+    assert calls == ["docflow"]
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
@@ -3772,58 +3648,30 @@ def test_check_emits_non_collection_phase_progress_lines(
     assert any("| post |" in line for line in table_rows)
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_cli_error_paths::cli.py::gabion.cli._run_governance_cli
-def test_run_governance_cli_error_paths(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_one_when_sppf_graph_fails::cli.py::gabion.cli._run_docflow_audit
+def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert (
-        cli._run_governance_cli(
-            runner_name="run_docflow_cli",
-            args=[],
-            audit_tools_path=tmp_path / "missing.py",
-        )
-        == 2
-    )
+    orig_docflow = cli.tooling_governance_audit.run_docflow_cli
+    orig_sppf = cli.tooling_governance_audit.run_sppf_graph_cli
 
-    class _BadPath:
-        pass
-
-    assert (
-        cli._run_governance_cli(
-            runner_name="run_docflow_cli",
-            args=[],
-            audit_tools_path=_BadPath(),  # type: ignore[arg-type]
+    try:
+        cli.tooling_governance_audit.run_docflow_cli = lambda _argv=None: 0
+        cli.tooling_governance_audit.run_sppf_graph_cli = (
+            lambda _argv=None: (_ for _ in ()).throw(RuntimeError("boom"))
         )
-        == 2
-    )
-
-    missing_runner = tmp_path / "missing_runner.py"
-    missing_runner.write_text("value = 1\n", encoding="utf-8")
-    assert (
-        cli._run_governance_cli(
-            runner_name="run_docflow_cli",
-            args=[],
-            audit_tools_path=missing_runner,
+        exit_code = cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            sppf_gh_ref_mode="required",
         )
-        == 2
-    )
+    finally:
+        cli.tooling_governance_audit.run_docflow_cli = orig_docflow
+        cli.tooling_governance_audit.run_sppf_graph_cli = orig_sppf
 
-    failing_runner = tmp_path / "failing_runner.py"
-    failing_runner.write_text(
-        "def run_docflow_cli(argv=None):\n"
-        "    raise RuntimeError('runner boom')\n",
-        encoding="utf-8",
-    )
-    assert (
-        cli._run_governance_cli(
-            runner_name="run_docflow_cli",
-            args=[],
-            audit_tools_path=failing_runner,
-        )
-        == 1
-    )
-    assert "governance command failed" in capsys.readouterr().err
+    assert exit_code == 1
+    assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
@@ -3979,69 +3827,6 @@ def test_context_restore_resume_checkpoint_rejects_non_callable_override() -> No
         cli._context_restore_resume_checkpoint(_Ctx())
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_handles_loader_exception_and_extra_path(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    module_path = tmp_path / "audit_tools.py"
-    calls_path = tmp_path / "calls.txt"
-    module_path.write_text(
-        f"calls_path = {str(calls_path)!r}\n"
-        "def run_docflow_cli(argv=None):\n"
-        "    with open(calls_path, 'w', encoding='utf-8') as handle:\n"
-        "        handle.write('|'.join(argv or []))\n"
-        "    return 0\n"
-        "def run_sppf_graph_cli(argv=None):\n"
-        "    return 0\n",
-        encoding="utf-8",
-    )
-
-    assert (
-        cli._run_docflow_audit(
-            root=tmp_path,
-            fail_on_violations=False,
-            sppf_gh_ref_mode="required",
-            extra_path=["extra/docs"],
-            audit_tools_path=module_path,
-        )
-        == 0
-    )
-    assert "--extra-path|extra/docs" in calls_path.read_text(encoding="utf-8")
-
-    assert (
-        cli._run_docflow_audit(
-            root=tmp_path,
-            fail_on_violations=False,
-            sppf_gh_ref_mode="required",
-            audit_tools_path=module_path,
-            spec_from_file_location_fn=lambda *_a, **_k: (_ for _ in ()).throw(
-                RuntimeError("loader boom")
-            ),
-        )
-        == 2
-    )
-    assert "failed to load audit_tools module" in capsys.readouterr().err
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception::cli.py::gabion.cli._run_docflow_audit
-def test_run_docflow_audit_handles_loader_creation_exception(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    class _BadPath:
-        pass
-
-    exit_code = cli._run_docflow_audit(
-        root=tmp_path,
-        fail_on_violations=False,
-        sppf_gh_ref_mode="required",
-        audit_tools_path=_BadPath(),  # type: ignore[arg-type]
-    )
-    assert exit_code == 2
-    assert "failed to load audit_tools module" in capsys.readouterr().err
-
-
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_sppf_sync_label_only_branch::cli.py::gabion.cli._run_sppf_sync
 def test_run_sppf_sync_label_only_branch() -> None:
     calls: list[list[str]] = []
@@ -4073,45 +3858,87 @@ def test_sppf_sync_command_handles_runner_errors() -> None:
     assert result.exit_code == 2
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args::cli.py::gabion.cli.app
-def test_sppf_graph_and_status_consistency_include_optional_cli_args(tmp_path: Path) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_governance_commands_include_optional_cli_args::cli.py::gabion.cli.app
+def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
     calls: list[tuple[str, list[str]]] = []
+    orig_sppf = cli.tooling_governance_audit.run_sppf_graph_cli
+    orig_status = cli.tooling_governance_audit.run_status_consistency_cli
+    orig_tiers = cli.tooling_governance_audit.run_decision_tiers_cli
+    orig_consolidation = cli.tooling_governance_audit.run_consolidation_cli
+    orig_lint = cli.tooling_governance_audit.run_lint_summary_cli
 
-    def _fake_run_governance_cli(*, runner_name: str, args: list[str], **_kwargs) -> int:
-        calls.append((runner_name, list(args)))
-        return 0
+    def _capture(name: str):
+        def _runner(argv: list[str] | None = None) -> int:
+            calls.append((name, list(argv or [])))
+            return 0
+        return _runner
 
-    runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        [
-            "sppf-graph",
-            "--root",
-            str(tmp_path),
-            "--json-output",
-            str(tmp_path / "graph.json"),
-            "--dot-output",
-            str(tmp_path / "graph.dot"),
-            "--issues-json",
-            str(tmp_path / "issues.json"),
-        ],
-        obj={"run_governance_cli": _fake_run_governance_cli},
-    )
-    assert result.exit_code == 0
+    try:
+        cli.tooling_governance_audit.run_sppf_graph_cli = _capture("sppf")
+        cli.tooling_governance_audit.run_status_consistency_cli = _capture("status")
+        cli.tooling_governance_audit.run_decision_tiers_cli = _capture("tiers")
+        cli.tooling_governance_audit.run_consolidation_cli = _capture("consolidation")
+        cli.tooling_governance_audit.run_lint_summary_cli = _capture("lint")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "status-consistency",
-            "--root",
-            str(tmp_path),
-            "--extra-path",
-            "in",
-            "--fail-on-violations",
-        ],
-        obj={"run_governance_cli": _fake_run_governance_cli},
-    )
-    assert result.exit_code == 0
-    assert any("--dot-output" in args for _, args in calls)
-    assert any("--issues-json" in args for _, args in calls)
-    assert any("--extra-path" in args and "--fail-on-violations" in args for _, args in calls)
+        runner = CliRunner()
+        assert runner.invoke(
+            cli.app,
+            [
+                "sppf-graph",
+                "--root",
+                str(tmp_path),
+                "--json-output",
+                str(tmp_path / "graph.json"),
+                "--dot-output",
+                str(tmp_path / "graph.dot"),
+                "--issues-json",
+                str(tmp_path / "issues.json"),
+            ],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            [
+                "status-consistency",
+                "--root",
+                str(tmp_path),
+                "--extra-path",
+                "in",
+                "--fail-on-violations",
+            ],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            ["decision-tiers", "--root", str(tmp_path), "--lint", str(tmp_path / "lint.txt"), "--format", "lines"],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            [
+                "consolidation",
+                "--root",
+                str(tmp_path),
+                "--decision",
+                str(tmp_path / "decision.json"),
+                "--lint",
+                str(tmp_path / "lint.txt"),
+                "--output",
+                str(tmp_path / "report.md"),
+                "--json-output",
+                str(tmp_path / "report.json"),
+            ],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            ["lint-summary", "--root", str(tmp_path), "--lint", str(tmp_path / "lint.txt"), "--json", "--top", "7"],
+        ).exit_code == 0
+    finally:
+        cli.tooling_governance_audit.run_sppf_graph_cli = orig_sppf
+        cli.tooling_governance_audit.run_status_consistency_cli = orig_status
+        cli.tooling_governance_audit.run_decision_tiers_cli = orig_tiers
+        cli.tooling_governance_audit.run_consolidation_cli = orig_consolidation
+        cli.tooling_governance_audit.run_lint_summary_cli = orig_lint
+
+    assert any(name == "sppf" and "--dot-output" in argv and "--issues-json" in argv for name, argv in calls)
+    assert any(name == "status" and "--extra-path" in argv and "--fail-on-violations" in argv for name, argv in calls)
+    assert any(name == "tiers" and "--format" in argv and "lines" in argv for name, argv in calls)
+    assert any(name == "consolidation" and "--json-output" in argv for name, argv in calls)
+    assert any(name == "lint" and "--json" in argv and "--top" in argv for name, argv in calls)

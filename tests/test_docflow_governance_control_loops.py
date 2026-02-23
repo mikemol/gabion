@@ -2,12 +2,12 @@ from __future__ import annotations
 
 
 def _load_audit_tools():
-    from scripts import audit_tools
+    from gabion.tooling import governance_audit as audit_tools
 
     return audit_tools
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_violation_when_domain_missing::audit_tools.py::scripts.audit_tools._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_violation_when_domain_missing::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
 def test_docflow_loop_registry_violation_when_domain_missing() -> None:
     audit_tools = _load_audit_tools()
     docs = {
@@ -34,7 +34,7 @@ def test_docflow_loop_registry_violation_when_domain_missing() -> None:
     assert any("missing governance control-loop declaration" in item for item in violations)
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_satisfied_when_all_domains_declared::audit_tools.py::scripts.audit_tools._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_satisfied_when_all_domains_declared::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
 def test_docflow_loop_registry_satisfied_when_all_domains_declared() -> None:
     audit_tools = _load_audit_tools()
     docs = {

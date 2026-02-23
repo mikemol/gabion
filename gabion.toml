@@ -28,10 +28,10 @@ tier1 = [
 ]
 tier2 = []
 tier3 = [
-  "scripts/audit_tools.py:113:29",
-  "scripts/audit_tools.py:674:22",
-  "scripts/audit_tools.py:700:28",
-  "scripts/audit_tools.py:723:27",
+  "src/gabion/tooling/governance_audit.py:113:29",
+  "src/gabion/tooling/governance_audit.py:674:22",
+  "src/gabion/tooling/governance_audit.py:700:28",
+  "src/gabion/tooling/governance_audit.py:723:27",
   "src/gabion/analysis/dataflow_audit.py:122:23",
   "src/gabion/analysis/dataflow_audit.py:122:44",
   "src/gabion/analysis/dataflow_audit.py:132:49",

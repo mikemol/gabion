@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def _load_audit_tools():
-    from scripts import audit_tools
+    from gabion.tooling import governance_audit as audit_tools
 
     return audit_tools
 
@@ -25,7 +25,7 @@ class _FakeSppfSync:
         return self._issue_ids
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_reports_violation::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_reports_violation::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
 def test_sppf_gh_refs_required_mode_reports_violation(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -46,7 +46,7 @@ def test_sppf_gh_refs_required_mode_reports_violation(tmp_path: Path) -> None:
     assert warnings == []
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
 def test_sppf_gh_refs_advisory_mode_reports_warning(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -67,7 +67,7 @@ def test_sppf_gh_refs_advisory_mode_reports_warning(tmp_path: Path) -> None:
     assert "no GH references found" in warnings[0]
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_ignores_irrelevant_paths::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_ignores_irrelevant_paths::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
 def test_sppf_gh_refs_required_mode_ignores_irrelevant_paths(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -87,7 +87,7 @@ def test_sppf_gh_refs_required_mode_ignores_irrelevant_paths(tmp_path: Path) -> 
     assert warnings == []
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_passes_when_refs_present::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_passes_when_refs_present::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
 def test_sppf_gh_refs_required_mode_passes_when_refs_present(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts import audit_tools
+from gabion.tooling import governance_audit as audit_tools
 
 
 def _write_triplet(
@@ -41,7 +41,7 @@ def _write_triplet(
     (root / "docs" / "influence_index.md").write_text(index_line + "\n", encoding="utf-8")
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_accept_mapped_statuses::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
+# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_accept_mapped_statuses::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
 def test_status_triplets_accept_mapped_statuses(tmp_path: Path) -> None:
     _write_triplet(
         tmp_path,
@@ -55,7 +55,7 @@ def test_status_triplets_accept_mapped_statuses(tmp_path: Path) -> None:
     assert violations == []
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_report_all_three_records_on_conflict::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
+# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_report_all_three_records_on_conflict::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
 def test_status_triplets_report_all_three_records_on_conflict(tmp_path: Path) -> None:
     _write_triplet(
         tmp_path,
@@ -73,7 +73,7 @@ def test_status_triplets_report_all_three_records_on_conflict(tmp_path: Path) ->
     assert "docs/influence_index.md" in message
 
 
-# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_honor_override_marker::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
+# gabion:evidence E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_honor_override_marker::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet
 def test_status_triplets_honor_override_marker(tmp_path: Path) -> None:
     _write_triplet(
         tmp_path,
