@@ -95,6 +95,38 @@ def test_main_falls_back_when_index_missing(tmp_path: Path) -> None:
     assert "index_missing" in payload["fallback_reasons"]
 
 
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_diff_unavailable::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+def test_main_falls_back_when_diff_unavailable(tmp_path: Path) -> None:
+    root = tmp_path
+    index_path = root / "out/test_evidence.json"
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text('{"tests":[]}\n', encoding="utf-8")
+
+    out_path = root / "artifacts/audit_reports/impact_selection.json"
+    exit_code = impact_select_tests.main(
+        [
+            "--root",
+            str(root),
+            "--index",
+            "out/test_evidence.json",
+            "--out",
+            str(out_path.relative_to(root)),
+            "--no-refresh",
+        ],
+        git_diff_changed_lines_fn=lambda *_args: (_ for _ in ()).throw(
+            RuntimeError("fatal: no merge base"),
+        ),
+    )
+
+    assert exit_code == 0
+    payload = json.loads(out_path.read_text(encoding="utf-8"))
+    assert payload["mode"] == "full"
+    assert "diff_unavailable" in payload["fallback_reasons"]
+    assert payload["diff"]["error"] == "fatal: no merge base"
+    assert payload["diff"]["changed_line_count"] == 0
+    assert payload["diff"]["changed_paths"] == []
+
+
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests
 def test_impact_select_helpers_cover_error_and_stale_paths(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):

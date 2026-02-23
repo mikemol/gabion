@@ -247,10 +247,15 @@ def main(
     index_path = root / args.index
     output_path = root / args.out
 
-    if git_diff_changed_lines_fn is None:
-        changed_lines = _git_diff_changed_lines(root, base=args.diff_base, head=args.diff_head)
-    else:
-        changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
+    diff_error: str | None = None
+    try:
+        if git_diff_changed_lines_fn is None:
+            changed_lines = _git_diff_changed_lines(root, base=args.diff_base, head=args.diff_head)
+        else:
+            changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
+    except RuntimeError as exc:
+        diff_error = str(exc) or "git diff failed"
+        changed_lines = []
     changed_count = len(changed_lines)
     changed_paths = sort_once(
         {item.path for item in changed_lines},
@@ -276,6 +281,8 @@ def main(
     )
 
     reasons: list[str] = []
+    if diff_error is not None:
+        reasons.append("diff_unavailable")
     confidence = 0.0
     impacted_tests: list[str] = []
     must_run_impacted: list[str] = []
@@ -294,7 +301,12 @@ def main(
         reasons.append("low_confidence")
 
     mode = "targeted"
-    if reasons and ("index_missing" in reasons or "index_stale" in reasons or "low_confidence" in reasons):
+    if reasons and (
+        "diff_unavailable" in reasons
+        or "index_missing" in reasons
+        or "index_stale" in reasons
+        or "low_confidence" in reasons
+    ):
         mode = "full"
 
     impacted_docs = sort_once(
@@ -309,15 +321,16 @@ def main(
     payload = {
         "schema_version": 1,
         "mode": mode,
-            "fallback_reasons": sort_once(
-                set(reasons),
-                source="main.fallback_reasons",
-            ),
+        "fallback_reasons": sort_once(
+            set(reasons),
+            source="main.fallback_reasons",
+        ),
         "confidence": confidence,
         "confidence_threshold": args.confidence_threshold,
         "diff": {
             "base": args.diff_base,
             "head": args.diff_head,
+            "error": diff_error,
             "changed_line_count": changed_count,
             "changed_paths": changed_paths,
         },
@@ -338,5 +351,4 @@ def main(
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     print(f"wrote {output_path}")
     return 0
-
 
