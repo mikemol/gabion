@@ -83,12 +83,23 @@ CORE_GOVERNANCE_DOCS = [
 ]
 
 GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
+    "docs/governance_control_loops.md",
     "docs/publishing_practices.md",
     "docs/influence_index.md",
     "docs/coverage_semantics.md",
     "docs/matrix_acceptance.md",
     "docs/sppf_checklist.md",
 ]
+
+GOVERNANCE_CONTROL_LOOPS_DOC = "docs/governance_control_loops.md"
+
+NORMATIVE_LOOP_DOMAINS = (
+    "security/workflows",
+    "docs/docflow",
+    "LSP architecture",
+    "dataflow grammar",
+    "baseline ratchets",
+)
 
 REQUIRED_FIELDS = [
     "doc_id",
@@ -450,6 +461,13 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
             return False
         return str(row.get("evidence_source", "") or "") in sources
 
+    def _missing_loop_entry(row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]) -> bool:
+        if not _is_row(row, "doc_loop_entry"):
+            return False
+        if row.get("required") is not True:
+            return False
+        return row.get("declared") is not True
+
     return {
         "missing_frontmatter": _missing_frontmatter,
         "missing_required_field": _missing_required_field,
@@ -463,6 +481,7 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
         "evidence_kind": _evidence_kind,
         "evidence_id": _evidence_id,
         "evidence_source": _evidence_source,
+        "missing_loop_entry": _missing_loop_entry,
     }
 
 
@@ -506,6 +525,11 @@ DOCFLOW_AUDIT_INVARIANTS = [
         name="docflow:commutation_unreciprocated",
         kind="never",
         spec=_make_invariant_spec("docflow:commutation_unreciprocated", ["commutation_unreciprocated"]),
+    ),
+    DocflowInvariant(
+        name="docflow:missing_governance_control_loop",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_governance_control_loop", ["missing_loop_entry"]),
     ),
 ]
 
@@ -1632,6 +1656,16 @@ def _docflow_invariant_rows(
 ) -> tuple[list[dict[str, object]], list[str]]:
     rows: list[dict[str, object]] = []
     warnings: list[str] = []
+    control_loop_doc = docs.get(GOVERNANCE_CONTROL_LOOPS_DOC)
+    declared_domains: set[str] = set()
+    if control_loop_doc is not None:
+        fm_domains = control_loop_doc.frontmatter.get("loop_domains")
+        if isinstance(fm_domains, list):
+            declared_domains = {
+                str(item).strip()
+                for item in fm_domains
+                if isinstance(item, str) and item.strip()
+            }
     for rel in _sorted(missing_frontmatter):
         check_deadline()
         rows.append(
@@ -1785,6 +1819,26 @@ def _docflow_invariant_rows(
                         "reciprocated": reciprocated,
                     }
                 )
+    loop_base = base_meta(
+        GOVERNANCE_CONTROL_LOOPS_DOC,
+        (
+            control_loop_doc.frontmatter.get("doc_id")
+            if control_loop_doc is not None
+            and isinstance(control_loop_doc.frontmatter.get("doc_id"), str)
+            else None
+        ),
+    )
+    for domain in NORMATIVE_LOOP_DOMAINS:
+        check_deadline()
+        rows.append(
+            {
+                "row_kind": "doc_loop_entry",
+                **loop_base,
+                "domain": domain,
+                "required": True,
+                "declared": domain in declared_domains,
+            }
+        )
     return rows, warnings
 
 
@@ -1888,6 +1942,9 @@ def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
         if not bool(row.get("target_exists", False)):
             return f"{path}: doc_commutes_with target missing: {other}"
         return f"{path}: commutation with {other} not reciprocated"
+    if kind == "doc_loop_entry":
+        domain = row.get("domain", "?")
+        return f"{path}: missing governance control-loop declaration for domain: {domain}"
     return f"{path}: docflow invariant violation"
 
 

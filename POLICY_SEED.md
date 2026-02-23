@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -161,6 +161,7 @@ The governance layer is a bundle of documents that must remain coherent:
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 - `docs/publishing_practices.md#publishing_practices` reifies release best practices (advisory).
+- `docs/governance_control_loops.md#governance_control_loops` defines the normalized governance control-loop registry and required loop fields.
 
 Any change to one must be checked for consistency with the others.
 

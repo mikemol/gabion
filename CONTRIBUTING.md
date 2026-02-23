@@ -1,5 +1,5 @@
 ---
-doc_revision: 96
+doc_revision: 97
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -318,6 +318,8 @@ Run the docflow audit (governance docs; `in/` is included for dependency resolut
 ```
 mise exec -- python -m gabion docflow
 ```
+Control-loop declarations are normative: `docs/governance_control_loops.md#governance_control_loops` must declare every governed domain loop entry.
+
 Run governance graph/status checks through the same CLI entrypoint:
 ```
 mise exec -- python -m gabion sppf-graph
