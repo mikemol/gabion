@@ -169,13 +169,17 @@ jobs:
           PY
       - name: Render dataflow grammar report
         env:
-          GABION_LSP_TIMEOUT_SECONDS: "300"
+          GABION_LSP_TIMEOUT_TICKS: "65000000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
-          mkdir -p artifacts/dataflow_grammar
+          mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
           mise exec -- python -m gabion check --profile raw . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
+            --resume-on-timeout 1 \
+            --emit-timeout-progress-report \
             --type-audit-report \
             --fail-on-violations
       - name: Upload dataflow artifact

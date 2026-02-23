@@ -421,6 +421,13 @@ scripts/ci_local_repro.sh --checks-only
 scripts/ci_local_repro.sh --dataflow-only
 ```
 
+Reproduce the PR dataflow status-check path locally:
+```
+scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-sha <head-sha>
+```
+`--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
+back to environment values or local branch ancestry.
+
 SPPF lifecycle validation in that script defaults to auto (run when GH auth is
 available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.
 For long-running dataflow reproductions, set

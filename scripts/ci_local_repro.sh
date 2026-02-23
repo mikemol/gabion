@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
+Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only|--pr-dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--pr-base-sha <sha>] [--pr-head-sha <sha>] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
 
 Reproduces the .github/workflows/ci.yml command set locally.
 
@@ -11,6 +11,8 @@ Options:
   --all                   Run checks + dataflow reproduction (default).
   --checks-only           Run only the checks job commands.
   --dataflow-only         Run only the dataflow-grammar job commands.
+  --pr-dataflow-only      Run PR dataflow-grammar reproduction
+                          (.github/workflows/pr-dataflow-grammar.yml equivalent).
   --extended-checks       Run additional local hardening checks not present in ci.yml
                           (order_lifetime_check, structural_hash_policy_check, complexity_audit).
   --skip-sppf-sync        Skip scripts/sppf_sync.py validation.
@@ -18,6 +20,8 @@ Options:
   --sppf-range R          Override revision range passed to scripts/sppf_sync.py.
   --skip-gabion-check-step
                           Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
+  --pr-base-sha SHA       Override PR base SHA for --pr-dataflow-only mode.
+  --pr-head-sha SHA       Override PR head SHA for --pr-dataflow-only mode.
   --run-observability-guard
                           Enable ci_observability_guard wrappers (off by default for parity).
   --skip-step-timing      Disable step timing capture (off by default for parity).
@@ -28,10 +32,13 @@ USAGE
 
 run_checks=true
 run_dataflow=true
+run_pr_dataflow=false
 run_extended_checks=false
 run_sppf_sync_mode="auto"
 sppf_range="${GABION_LOCAL_SPPF_RANGE:-}"
 skip_gabion_check_step="${GABION_LOCAL_SKIP_GABION_CHECK_STEP:-0}"
+pr_base_sha="${GABION_LOCAL_PR_BASE_SHA:-${GITHUB_BASE_SHA:-}}"
+pr_head_sha="${GABION_LOCAL_PR_HEAD_SHA:-${GITHUB_HEAD_SHA:-}}"
 step_timing_enabled="${GABION_CI_STEP_TIMING_CAPTURE:-0}"
 observability_enabled_flag="${GABION_OBSERVABILITY_GUARD:-0}"
 step_timing_artifact="${GABION_CI_STEP_TIMING_ARTIFACT:-artifacts/audit_reports/ci_step_timings.json}"
@@ -44,14 +51,22 @@ while [ $# -gt 0 ]; do
     --all)
       run_checks=true
       run_dataflow=true
+      run_pr_dataflow=false
       ;;
     --checks-only)
       run_checks=true
       run_dataflow=false
+      run_pr_dataflow=false
       ;;
     --dataflow-only)
       run_checks=false
       run_dataflow=true
+      run_pr_dataflow=false
+      ;;
+    --pr-dataflow-only)
+      run_checks=false
+      run_dataflow=false
+      run_pr_dataflow=true
       ;;
     --extended-checks)
       run_extended_checks=true
@@ -72,6 +87,22 @@ while [ $# -gt 0 ]; do
       ;;
     --skip-gabion-check-step)
       skip_gabion_check_step="1"
+      ;;
+    --pr-base-sha)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --pr-base-sha" >&2
+        exit 2
+      fi
+      pr_base_sha="$2"
+      shift
+      ;;
+    --pr-head-sha)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --pr-head-sha" >&2
+        exit 2
+      fi
+      pr_head_sha="$2"
+      shift
       ;;
     --run-observability-guard)
       observability_enabled_flag="1"
@@ -222,6 +253,37 @@ resolve_sppf_range() {
 
   echo "Push SHAs unavailable locally; falling back to safe local range."
   printf '%s\n' "HEAD~20..HEAD"
+}
+
+resolve_pr_head_sha() {
+  if [ -n "$pr_head_sha" ]; then
+    printf '%s\n' "$pr_head_sha"
+    return 0
+  fi
+  git rev-parse HEAD
+}
+
+resolve_pr_base_sha() {
+  if [ -n "$pr_base_sha" ]; then
+    printf '%s\n' "$pr_base_sha"
+    return 0
+  fi
+
+  local head_sha
+  head_sha="$(resolve_pr_head_sha)"
+  if git rev-parse --verify --quiet origin/main >/dev/null; then
+    git merge-base origin/main "$head_sha"
+    return 0
+  fi
+  if git rev-parse --verify --quiet main >/dev/null; then
+    git merge-base main "$head_sha"
+    return 0
+  fi
+  if git rev-parse --verify --quiet "${head_sha}~1" >/dev/null; then
+    git rev-parse "${head_sha}~1"
+    return 0
+  fi
+  printf '%s\n' "$head_sha"
 }
 
 run_checks_job() {
@@ -461,6 +523,102 @@ run_dataflow_job() {
   fi
 }
 
+run_pr_dataflow_job() {
+  step_timing_mode="pr-dataflow"
+
+  local pr_base pr_head
+  pr_base="$(resolve_pr_base_sha)"
+  pr_head="$(resolve_pr_head_sha)"
+  step "pr-dataflow: using diff range base=$pr_base head=$pr_head"
+
+  step "pr-dataflow: policy check (no monkeypatch)"
+  observed pr_dataflow_no_monkeypatch_policy "$PYTHON_BIN" scripts/no_monkeypatch_policy_check.py --root .
+
+  step "pr-dataflow: policy check (branchless)"
+  observed pr_dataflow_branchless_policy "$PYTHON_BIN" scripts/branchless_policy_check.py --root .
+
+  step "pr-dataflow: policy check (defensive fallback)"
+  observed pr_dataflow_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
+
+  step "pr-dataflow: select impacted tests"
+  mkdir -p artifacts/audit_reports artifacts/test_runs
+  observed pr_dataflow_impact_select "$PYTHON_BIN" -m gabion impact-select-tests \
+    --root . \
+    --diff-base "$pr_base" \
+    --diff-head "$pr_head" \
+    --out artifacts/audit_reports/impact_selection.json \
+    --confidence-threshold 0.6
+
+  step "pr-dataflow: run impacted tests first (fallback to full)"
+  observed pr_dataflow_run_selected_pytest env IMPACT_GATE_MUST_RUN="${IMPACT_GATE_MUST_RUN:-false}" PYTHON_BIN="$PYTHON_BIN" "$PYTHON_BIN" - <<'PY'
+import json
+import os
+import pathlib
+import shlex
+import subprocess
+
+report = pathlib.Path("artifacts/audit_reports/impact_selection.json")
+payload = json.loads(report.read_text(encoding="utf-8"))
+mode = str(payload.get("mode", "full"))
+selection = payload.get("selection") or {}
+if not isinstance(selection, dict):
+    selection = {}
+impacted = [str(item) for item in selection.get("impacted_tests", []) if str(item).strip()]
+must_run = [str(item) for item in selection.get("must_run_impacted_tests", []) if str(item).strip()]
+gate_must_run = os.environ.get("IMPACT_GATE_MUST_RUN", "false").lower() in {"1", "true", "yes"}
+pytest_base = [
+    os.environ["PYTHON_BIN"],
+    "-m",
+    "pytest",
+    "--cov=src/gabion",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml:artifacts/test_runs/coverage.xml",
+    "--cov-report=html:artifacts/test_runs/htmlcov",
+    "--cov-fail-under=100",
+    "--junitxml",
+    "artifacts/test_runs/junit.xml",
+    "--log-file",
+    "artifacts/test_runs/pytest.log",
+    "--log-file-level=INFO",
+]
+
+def run_pytest(extra):
+    cmd = [*pytest_base, *extra]
+    print("running:", " ".join(shlex.quote(part) for part in cmd))
+    return subprocess.run(cmd, check=False).returncode
+
+if mode == "targeted" and impacted:
+    if must_run:
+        rc = run_pytest(must_run)
+        if rc != 0 and gate_must_run:
+            raise SystemExit(rc)
+    rc = run_pytest(impacted)
+    if rc != 0:
+        raise SystemExit(rc)
+else:
+    rc = run_pytest([])
+    if rc != 0:
+        raise SystemExit(rc)
+PY
+
+  step "pr-dataflow: render dataflow grammar report"
+  mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
+  timed_observed pr_dataflow_render_check env \
+    GABION_LSP_TIMEOUT_TICKS="${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
+    GABION_LSP_TIMEOUT_TICK_NS="${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
+    "$PYTHON_BIN" -m gabion check \
+    --profile raw . \
+    --root . \
+    --report artifacts/dataflow_grammar/report.md \
+    --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+    --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
+    --resume-on-timeout 1 \
+    --emit-timeout-progress-report \
+    --type-audit-report \
+    --fail-on-violations
+}
+
 bootstrap_ci_env
 
 if $run_checks; then
@@ -469,6 +627,10 @@ fi
 
 if $run_dataflow; then
   run_dataflow_job
+fi
+
+if $run_pr_dataflow; then
+  run_pr_dataflow_job
 fi
 
 step "done"
