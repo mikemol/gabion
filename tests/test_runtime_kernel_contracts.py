@@ -16,6 +16,15 @@ from gabion.tooling import delta_gate, governance_rules, tool_specs
 from tests.env_helpers import env_scope
 
 
+def _default_controller_drift_policy() -> governance_rules.ControllerDriftPolicy:
+    return governance_rules.ControllerDriftPolicy(
+        severity_classes=("low", "medium", "high", "critical"),
+        enforce_at_or_above="high",
+        remediation_by_severity={"high": "override_or_fix"},
+        consecutive_passes_required=3,
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_truthy_helpers_explicit_values::env_policy.py::gabion.runtime.env_policy.env_enabled_flag::env_policy.py::gabion.runtime.env_policy.env_enabled_truthy_only
 def test_env_policy_truthy_helpers_explicit_values() -> None:
     assert env_policy.env_enabled_truthy_only("UNUSED", value="yes") is True
@@ -133,6 +142,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
             override_token_env="TOKEN",
             gates={},
             command_policies={},
+            controller_drift=_default_controller_drift_policy(),
         )
         with pytest.raises(ValueError):
             delta_gate._policy_spec("missing_gate")
@@ -174,6 +184,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
             override_token_env="TOKEN",
             gates={"obsolescence_opaque": policy},
             command_policies={},
+            controller_drift=_default_controller_drift_policy(),
         )
         assert delta_gate._check_standard_gate(spec, path, enabled=True) == 0
     finally:

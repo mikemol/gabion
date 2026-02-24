@@ -71,6 +71,7 @@ def _workflow_doc(path: Path):
 
 def check_normative_enforcement_map() -> None:
     errors: list[str] = []
+    check_deadline()
     if not NORMATIVE_ENFORCEMENT_MAP.exists():
         _fail([f"missing normative enforcement map: {NORMATIVE_ENFORCEMENT_MAP}"])
     payload = _load_yaml(NORMATIVE_ENFORCEMENT_MAP)
@@ -94,6 +95,7 @@ def check_normative_enforcement_map() -> None:
         if status not in {"enforced", "partial", "document-only"}:
             errors.append(f"{clause_id}: invalid status {status!r}")
         for module_path in entry.get("enforcing_modules") or []:
+            check_deadline()
             module_ref = REPO_ROOT / str(module_path)
             if not module_ref.exists():
                 errors.append(f"{clause_id}: missing enforcing module path {module_path}")
@@ -102,6 +104,7 @@ def check_normative_enforcement_map() -> None:
             errors.append(f"{clause_id}: ci_anchors must be a list")
             continue
         for anchor in ci_anchors:
+            check_deadline()
             if not isinstance(anchor, dict):
                 errors.append(f"{clause_id}: ci anchor must be mapping")
                 continue
@@ -129,6 +132,7 @@ def check_normative_enforcement_map() -> None:
             errors.append(f"{clause_id}: expected_artifacts must be a list")
             continue
         for artifact in artifacts:
+            check_deadline()
             if not isinstance(artifact, str) or not artifact.strip():
                 errors.append(f"{clause_id}: invalid expected artifact reference {artifact!r}")
     if errors:
@@ -737,6 +741,7 @@ def _step_run_contains_any(steps, tokens: set[str]) -> bool:
 
 
 def _check_ci_script_entrypoints(doc, path, errors):
+    check_deadline()
     if path.name != "ci.yml":
         return
     jobs = doc.get("jobs", {})
@@ -750,12 +755,14 @@ def _check_ci_script_entrypoints(doc, path, errors):
     }
     steps = []
     for job in jobs.values():
+        check_deadline()
         if not isinstance(job, dict):
             continue
         raw_steps = job.get("steps", [])
         if isinstance(raw_steps, list):
             steps.extend(raw_steps)
     for token in sorted(required_tokens):
+        check_deadline()
         if not _step_run_contains_any(steps, {token}):
             errors.append(f"{path}: ci workflow must invoke {token}")
 
