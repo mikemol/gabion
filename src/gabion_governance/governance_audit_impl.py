@@ -88,6 +88,7 @@ GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
     "docs/publishing_practices.md",
     "docs/influence_index.md",
     "docs/coverage_semantics.md",
+    "docs/normative_clause_index.md",
     "docs/matrix_acceptance.md",
     "docs/sppf_checklist.md",
 ]
