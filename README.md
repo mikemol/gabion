@@ -127,7 +127,12 @@ Need practical remediation loops? See `docs/user_workflows.md#user_workflows`.
 Install toolchain with `mise` (once):
 ```
 mise install
+mise trust --yes
 ```
+
+`mise trust --yes` marks this repo's `mise.toml` as trusted so local `mise exec`
+matches CI behavior. CI sets `MISE_TRUSTED_CONFIG_PATHS=${{ github.workspace }}`
+in workflows, so the workspace is already trusted there.
 
 Install from source (editable):
 ```
