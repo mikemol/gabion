@@ -258,6 +258,8 @@ jobs:
             args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
           fi
           .venv/bin/python scripts/governance_controller_audit.py "${args[@]}"
+      - name: LSP parity gate
+        run: .venv/bin/python -m gabion lsp-parity-gate --command gabion.check
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs

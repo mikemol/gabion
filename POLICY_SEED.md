@@ -150,6 +150,14 @@ MUST be order-enforced at the boundary without serializer-level re-sorting for
 already-canonical carriers. Any explicit sort enforcement MUST disclose its sort
 key/function (or comparator shape) and rationale.
 
+
+**Maturity/transport invariant:** `experimental` and `debug` commands may allow
+direct-path diagnostics; `beta` and `production` commands MUST require validated
+LSP-carrier execution, and direct dispatch MUST NOT be the normative-only path.
+
+**Readiness invariant:** A feature MUST NOT be classified as `beta` or
+`production` unless it has been validated over the LSP carrier.
+
 ---
 
 ## 0.2 Cross-References (Normative Pointers)

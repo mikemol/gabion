@@ -149,3 +149,19 @@ class StructureReuseResponseDTO(BaseModel):
     reuse: Optional[Dict[str, Any]] = None
     lemma_stubs: Optional[str] = None
     errors: List[str] = []
+
+
+class LspParityCommandResultDTO(BaseModel):
+    command_id: str
+    maturity: str
+    require_lsp_carrier: bool
+    parity_required: bool
+    lsp_validated: bool
+    parity_ok: bool
+    error: Optional[str] = None
+
+
+class LspParityGateResponseDTO(BaseModel):
+    exit_code: int = 0
+    checked_commands: List[LspParityCommandResultDTO] = []
+    errors: List[str] = []

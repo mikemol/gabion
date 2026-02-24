@@ -105,6 +105,8 @@ valid.
 
 ## Architectural invariants (normative)
 - **LSP-first invariant:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
+- **Maturity/transport policy:** `experimental` and `debug` may use direct-path diagnostics; `beta` and `production` require LSP-carrier validation and cannot treat direct path as the only normative route.
+- **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
 

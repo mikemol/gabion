@@ -48,6 +48,17 @@ class GatePolicy:
 class GovernanceRules:
     override_token_env: str
     gates: Mapping[str, GatePolicy]
+    command_policies: Mapping[str, "CommandPolicy"]
+
+
+@dataclass(frozen=True)
+class CommandPolicy:
+    command_id: str
+    maturity: str
+    require_lsp_carrier: bool
+    parity_required: bool
+    probe_payload: Mapping[str, object] | None
+    parity_ignore_keys: tuple[str, ...]
 
 
 def _yaml_loader():
@@ -156,7 +167,38 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
         if isinstance(gate_id, str) and isinstance(gate_payload, Mapping):
             gates[gate_id] = _gate_from_mapping(gate_id, gate_payload)
 
+    command_policies_raw = raw.get("command_policies")
+    command_policies: dict[str, CommandPolicy] = {}
+    if isinstance(command_policies_raw, Mapping):
+        for command_id, command_payload in command_policies_raw.items():
+            if not isinstance(command_id, str) or not isinstance(command_payload, Mapping):
+                continue
+            maturity = str(command_payload.get("maturity", "experimental"))
+            require_lsp_carrier = bool(command_payload.get("require_lsp_carrier", False))
+            parity_required = bool(command_payload.get("parity_required", False))
+            probe_payload_raw = command_payload.get("probe_payload")
+            probe_payload = (
+                dict(probe_payload_raw)
+                if isinstance(probe_payload_raw, Mapping)
+                else None
+            )
+            parity_ignore_keys_raw = command_payload.get("parity_ignore_keys")
+            parity_ignore_keys = (
+                tuple(str(item) for item in parity_ignore_keys_raw)
+                if isinstance(parity_ignore_keys_raw, list)
+                else ()
+            )
+            command_policies[command_id] = CommandPolicy(
+                command_id=command_id,
+                maturity=maturity,
+                require_lsp_carrier=require_lsp_carrier,
+                parity_required=parity_required,
+                probe_payload=probe_payload,
+                parity_ignore_keys=parity_ignore_keys,
+            )
+
     return GovernanceRules(
         override_token_env=str(raw.get("override_token_env", "GABION_POLICY_OVERRIDE_TOKEN")),
         gates=gates,
+        command_policies=command_policies,
     )
