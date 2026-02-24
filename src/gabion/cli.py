@@ -65,6 +65,7 @@ from gabion.tooling import (
     run_dataflow_stage as tooling_run_dataflow_stage,
     ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
 )
+from gabion.tooling.governance_rules import CommandPolicy, load_governance_rules
 from gabion.json_types import JSONObject
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -106,6 +107,50 @@ _LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_
 _LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
+_DIRECT_RUN_OVERRIDE_EVIDENCE_ENV = "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE"
+
+
+@dataclass(frozen=True)
+class CommandTransportDecision:
+    runner: Runner
+    direct_requested: bool
+    direct_override_evidence: str | None
+    policy: CommandPolicy | None
+
+
+def _resolve_command_transport(*, command: str, runner: Runner) -> CommandTransportDecision:
+    direct_flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
+    direct_requested = direct_flag in {"1", "true", "yes", "on"}
+    override_evidence = os.getenv(_DIRECT_RUN_OVERRIDE_EVIDENCE_ENV, "").strip() or None
+    if runner is not run_command:
+        return CommandTransportDecision(
+            runner=runner,
+            direct_requested=direct_requested,
+            direct_override_evidence=override_evidence,
+            policy=None,
+        )
+
+    policy = load_governance_rules().command_policies.get(command)
+    require_lsp_carrier = False
+    if policy is not None:
+        require_lsp_carrier = policy.require_lsp_carrier or policy.maturity in {
+            "beta",
+            "production",
+        }
+    if direct_requested and require_lsp_carrier and override_evidence is None:
+        never(
+            "direct transport forbidden by command maturity policy",
+            command=command,
+            maturity=(policy.maturity if policy is not None else "unknown"),
+            override_evidence_env=_DIRECT_RUN_OVERRIDE_EVIDENCE_ENV,
+        )
+    resolved_runner = run_command_direct if direct_requested else run_command
+    return CommandTransportDecision(
+        runner=resolved_runner,
+        direct_requested=direct_requested,
+        direct_override_evidence=override_evidence,
+        policy=policy,
+    )
 
 
 @dataclass(frozen=True)
@@ -1214,11 +1259,8 @@ def dispatch_command(
         source=f"cli.dispatch_command.{command}.payload_out",
     )
     request = CommandRequest(command, [payload])
-    resolved = runner
-    if runner is run_command:
-        flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
-        if flag in {"1", "true", "yes", "on"}:
-            resolved = run_command_direct
+    transport = _resolve_command_transport(command=command, runner=runner)
+    resolved = transport.runner
     if resolved is run_command:
         factory = process_factory or subprocess.Popen
         raw = resolved(

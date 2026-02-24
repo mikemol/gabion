@@ -11,6 +11,7 @@ from gabion.tooling import governance_rules
 def test_governance_rules_define_required_gates() -> None:
     rules = governance_rules.load_governance_rules()
     assert {"obsolescence_opaque", "obsolescence_unmapped", "annotation_orphaned", "ambiguity", "docflow"}.issubset(rules.gates)
+    assert rules.controller_drift.enforce_at_or_above in {"high", "critical", "medium", "low"}
 
 
 # gabion:evidence E:function_site::tests/test_governance_rules_policy.py::test_governance_severity_thresholds_are_monotonic
@@ -75,10 +76,16 @@ def test_governance_rules_validation_failures(tmp_path: Path) -> None:
         governance_rules.load_governance_rules(root_bad)
 
     gates_bad = tmp_path / "gates_bad.yaml"
-    gates_bad.write_text("override_token_env: TOKEN\ngates: []\n", encoding="utf-8")
+    gates_bad.write_text("override_token_env: TOKEN\ngates: {}\n", encoding="utf-8")
     governance_rules.load_governance_rules.cache_clear()
     with pytest.raises(ValueError):
         governance_rules.load_governance_rules(gates_bad)
+
+    drift_bad = tmp_path / "drift_bad.yaml"
+    drift_bad.write_text("override_token_env: TOKEN\ngates: {}\ncontroller_drift: []\n", encoding="utf-8")
+    governance_rules.load_governance_rules.cache_clear()
+    with pytest.raises(ValueError):
+        governance_rules.load_governance_rules(drift_bad)
 
 
 # gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._yaml_loader::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
@@ -110,6 +117,12 @@ gates:
       mode: hard-fail
       transitions: [advisory->ratchet]
       bounded_steps: [baseline_write_requires_explicit_flag]
+controller_drift:
+  severity_classes: [low, medium, high]
+  enforce_at_or_above: high
+  remediation_by_severity:
+    high: temporary_override_or_fix
+  consecutive_passes_required: 2
 command_policies:
   1: not-a-mapping
   bad-shape: []
@@ -146,6 +159,12 @@ gates:
       mode: hard-fail
       transitions: [advisory->ratchet]
       bounded_steps: [baseline_write_requires_explicit_flag]
+controller_drift:
+  severity_classes: [low, medium, high]
+  enforce_at_or_above: high
+  remediation_by_severity:
+    high: temporary_override_or_fix
+  consecutive_passes_required: 2
 command_policies: []
 """.strip()
         + "\n",
