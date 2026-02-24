@@ -1,5 +1,5 @@
 ---
-doc_revision: 47
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -721,6 +721,12 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-anchor: CD-002 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_controller_audit.py | severity: high`
 - `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`
 - `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance_controller_audit.py | severity: medium`
+- `controller-anchor: CD-005 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy_check.py | severity: high`
+- `controller-anchor: CD-006 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/no_monkeypatch_policy_check.py | severity: high`
+- `controller-anchor: CD-007 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/branchless_policy_check.py | severity: high`
+- `controller-anchor: CD-008 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/defensive_fallback_policy_check.py | severity: high`
+- `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/check_pr_governance_template.py | severity: high`
+- `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_telemetry_emit.py | severity: high`
 
 **Audited normative-doc set (single source of truth):**
 - `controller-normative-doc: POLICY_SEED.md`

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+# gabion:decision_protocol_module
 REQUIRED_OVERRIDE_FIELDS: tuple[str, ...] = (
     "actor",
     "rationale",
@@ -55,6 +56,7 @@ def _is_non_empty_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+# gabion:boundary_normalization
 def _evidence_links_valid(value: object) -> bool:
     if not isinstance(value, list) or not value:
         return False

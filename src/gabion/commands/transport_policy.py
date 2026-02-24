@@ -25,6 +25,7 @@ class CommandTransportDecision:
     policy: CommandPolicy | None
 
 
+# gabion:decision_protocol
 def resolve_command_transport(*, command: str, runner: Runner) -> CommandTransportDecision:
     direct_flag = os.getenv(DIRECT_RUN_ENV, "").strip().lower()
     direct_requested = direct_flag in {"1", "true", "yes", "on"}
@@ -73,4 +74,3 @@ def resolve_command_transport(*, command: str, runner: Runner) -> CommandTranspo
         direct_override_telemetry=override_telemetry,
         policy=policy,
     )
-

@@ -283,7 +283,6 @@ clauses:
 
 def test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
     (tmp_path / "docs").mkdir()
     policy = tmp_path / "POLICY_SEED.md"
@@ -303,16 +302,20 @@ def test_controller_audit_detects_contradictory_anchors_across_declared_normativ
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(governance_controller_audit, "REPO_ROOT", tmp_path)
-    signatures, missing = governance_controller_audit._collect_normative_anchor_signatures(
-        governance_controller_audit._normative_docs(policy.read_text(encoding="utf-8"))
-    )
+    original_root = governance_controller_audit.REPO_ROOT
+    try:
+        governance_controller_audit.REPO_ROOT = tmp_path
+        signatures, missing = governance_controller_audit._collect_normative_anchor_signatures(
+            governance_controller_audit._normative_docs(policy.read_text(encoding="utf-8"))
+        )
+    finally:
+        governance_controller_audit.REPO_ROOT = original_root
 
     assert missing == []
     assert len(signatures["CD-999"]) == 2
 
 
-def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path, monkeypatch) -> None:
+def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     policy = tmp_path / "POLICY_SEED.md"
     policy.write_text(
@@ -327,10 +330,14 @@ def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(governance_controller_audit, "REPO_ROOT", tmp_path)
-    out = tmp_path / "out.json"
-    rc = governance_controller_audit.run(policy_path=policy, out_path=out, fail_on_severity="high")
-    payload = json.loads(out.read_text(encoding="utf-8"))
+    original_root = governance_controller_audit.REPO_ROOT
+    try:
+        governance_controller_audit.REPO_ROOT = tmp_path
+        out = tmp_path / "out.json"
+        rc = governance_controller_audit.run(policy_path=policy, out_path=out, fail_on_severity="high")
+        payload = json.loads(out.read_text(encoding="utf-8"))
+    finally:
+        governance_controller_audit.REPO_ROOT = original_root
 
     assert rc == 2
     assert any(item["sensor"] == "missing_normative_docs_in_repo" for item in payload["findings"])
