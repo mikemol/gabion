@@ -68,6 +68,71 @@ clauses:
         step: Policy check (ambiguity contract)
     expected_artifacts:
       - artifacts/out/ambiguity_contract_policy_check.json
+  NCI-BASELINE-RATCHET:
+    status: partial
+    enforcing_modules:
+      - src/gabion/analysis/baseline_io.py
+      - src/gabion/tooling/delta_gate.py
+      - src/gabion/tooling/delta_triplets.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Delta state emit
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Delta triplets (default-on burn-down gates)
+    expected_artifacts:
+      - artifacts/out/delta_state.json
+      - artifacts/out/delta_triplets.json
+  NCI-DEADLINE-TIMEOUT-PROPAGATION:
+    status: partial
+    enforcing_modules:
+      - scripts/deadline_runtime.py
+      - src/gabion/runtime/deadline_policy.py
+      - scripts/policy_check.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (workflows)
+      - workflow: .github/workflows/ci.yml
+        job: dataflow-grammar
+        step: Deadline profile summary
+    expected_artifacts:
+      - artifacts/out/deadline_profile.json
+      - artifacts/out/deadline_profile_ci_summary.json
+  NCI-CONTROLLER-ADAPTATION-LAW:
+    status: partial
+    enforcing_modules:
+      - docs/governance_rules.yaml
+      - scripts/governance_controller_audit.py
+      - scripts/governance_telemetry_emit.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Controller drift audit
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Governance telemetry emit
+    expected_artifacts:
+      - artifacts/out/controller_drift.json
+      - artifacts/out/governance_telemetry.json
+      - artifacts/audit_reports/governance_telemetry.md
+  NCI-OVERRIDE-LIFECYCLE:
+    status: enforced
+    enforcing_modules:
+      - scripts/ci_override_record_emit.py
+      - scripts/ci_controller_drift_gate.py
+      - src/gabion/tooling/override_record.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Override lifecycle record emit
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Controller drift gate
+    expected_artifacts:
+      - artifacts/out/governance_override_record.json
+      - artifacts/out/controller_drift_gate.json
   NCI-COMMAND-MATURITY-PARITY:
     status: enforced
     enforcing_modules:

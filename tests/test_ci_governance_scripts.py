@@ -30,12 +30,14 @@ def test_policy_check_requires_ci_script_entrypoints() -> None:
 def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
     drift = tmp_path / "drift.json"
     out = tmp_path / "gate.json"
+    history = tmp_path / "history.json"
     drift.write_text(json.dumps({"findings": [{"severity": "high"}]}), encoding="utf-8")
 
     missing = tmp_path / "missing.json"
-    assert drift_gate.run(drift_artifact=drift, override_record=missing, out=out) == 2
+    assert drift_gate.run(drift_artifact=drift, override_record=missing, out=out, history=history) == 2
     payload_missing = json.loads(out.read_text(encoding="utf-8"))
     assert payload_missing["override_diagnostics"]["override_reason"] == "missing"
+    assert payload_missing["clean_streak_length"] == 0
 
     expired = tmp_path / "expired.json"
     expired.write_text(
@@ -52,7 +54,7 @@ def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    assert drift_gate.run(drift_artifact=drift, override_record=expired, out=out) == 2
+    assert drift_gate.run(drift_artifact=drift, override_record=expired, out=out, history=history) == 2
 
     valid = tmp_path / "valid.json"
     valid.write_text(
@@ -69,10 +71,50 @@ def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    assert drift_gate.run(drift_artifact=drift, override_record=valid, out=out) == 0
+    assert drift_gate.run(drift_artifact=drift, override_record=valid, out=out, history=history) == 0
     payload_valid = json.loads(out.read_text(encoding="utf-8"))
     assert payload_valid["override_diagnostics"]["override_valid"] is True
     assert payload_valid["override_diagnostics"]["override_source"] == "controller_drift_gate"
+
+
+def test_controller_drift_gate_streak_progression_and_reset(tmp_path: Path) -> None:
+    clean_drift = tmp_path / "clean_drift.json"
+    failing_drift = tmp_path / "failing_drift.json"
+    override = tmp_path / "override.json"
+    history = tmp_path / "history.json"
+    out = tmp_path / "gate.json"
+
+    clean_drift.write_text(json.dumps({"findings": [{"severity": "low"}]}), encoding="utf-8")
+    failing_drift.write_text(json.dumps({"findings": [{"severity": "high"}]}), encoding="utf-8")
+    override.write_text("{}", encoding="utf-8")
+
+    required = drift_gate.load_governance_rules().controller_drift.consecutive_passes_required
+
+    assert drift_gate.run(drift_artifact=clean_drift, override_record=override, out=out, history=history) == 0
+    first = json.loads(out.read_text(encoding="utf-8"))
+    assert first["status"] == "clean"
+    assert first["clean_streak_length"] == 1
+    assert first["required_clean_streak_length"] == required
+    assert first["stabilization_achieved"] is (required <= 1)
+
+    for expected_streak in range(2, required):
+        assert drift_gate.run(drift_artifact=clean_drift, override_record=override, out=out, history=history) == 0
+        payload = json.loads(out.read_text(encoding="utf-8"))
+        assert payload["status"] == "clean"
+        assert payload["clean_streak_length"] == expected_streak
+        assert payload["stabilization_achieved"] is False
+
+    assert drift_gate.run(drift_artifact=clean_drift, override_record=override, out=out, history=history) == 0
+    stabilized = json.loads(out.read_text(encoding="utf-8"))
+    assert stabilized["status"] == "stabilized"
+    assert stabilized["clean_streak_length"] == required
+    assert stabilized["stabilization_achieved"] is True
+
+    assert drift_gate.run(drift_artifact=failing_drift, override_record=override, out=out, history=history) == 2
+    reset = json.loads(out.read_text(encoding="utf-8"))
+    assert reset["status"] == "fail"
+    assert reset["clean_streak_length"] == 0
+    assert reset["stabilization_achieved"] is False
 
 
 def test_controller_audit_requires_clause_anchors_for_enforcement_surfaces() -> None:
@@ -81,6 +123,16 @@ def test_controller_audit_requires_clause_anchors_for_enforcement_surfaces() -> 
 
 def test_policy_check_normative_enforcement_map_validates_current_repo() -> None:
     policy_check.check_normative_enforcement_map()
+
+
+def test_policy_check_required_clause_set_matches_index() -> None:
+    index_path = Path("docs/normative_clause_index.md")
+    canonical = {
+        line.split("`")[1]
+        for line in index_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("### `NCI-")
+    }
+    assert policy_check._REQUIRED_NORMATIVE_CLAUSES == canonical
 
 
 def test_policy_check_normative_enforcement_map_fails_missing_module(tmp_path: Path) -> None:
@@ -113,7 +165,97 @@ clauses:
     enforcing_modules: []
     ci_anchors: []
     expected_artifacts: []
+  NCI-BASELINE-RATCHET:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DEADLINE-TIMEOUT-PROPAGATION:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-ADAPTATION-LAW:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-OVERRIDE-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-DRIFT-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
   NCI-COMMAND-MATURITY-PARITY:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+""",
+        encoding="utf-8",
+    )
+    original = policy_check.NORMATIVE_ENFORCEMENT_MAP
+    try:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = broken
+        try:
+            policy_check.check_normative_enforcement_map()
+            assert False, "expected check_normative_enforcement_map to fail"
+        except SystemExit as exc:
+            assert exc.code == 2
+    finally:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = original
+
+
+def test_policy_check_normative_enforcement_map_fails_missing_clause(tmp_path: Path) -> None:
+    broken = tmp_path / "normative_enforcement_map.yaml"
+    broken.write_text(
+        """version: 1
+clauses:
+  NCI-LSP-FIRST:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-PINNED:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-ALLOWLIST:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DATAFLOW-BUNDLE-TIERS:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-SHIFT-AMBIGUITY-LEFT:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-BASELINE-RATCHET:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DEADLINE-TIMEOUT-PROPAGATION:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-ADAPTATION-LAW:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-OVERRIDE-LIFECYCLE:
     status: document-only
     enforcing_modules: []
     ci_anchors: []
@@ -126,6 +268,7 @@ clauses:
 """,
         encoding="utf-8",
     )
+
     original = policy_check.NORMATIVE_ENFORCEMENT_MAP
     try:
         policy_check.NORMATIVE_ENFORCEMENT_MAP = broken
