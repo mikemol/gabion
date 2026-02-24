@@ -1,5 +1,5 @@
 ---
-doc_revision: 11
+doc_revision: 12
 reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: matrix_acceptance
 doc_role: reference
@@ -40,7 +40,7 @@ doc_review_notes:
   in/in-26.md#in_in_26: Reviewed in/in-26.md rev8 (rewrite-plan verification predicates match matrix obligations).
   in/in-27.md#in_in_27: Reviewed in/in-27.md rev6 (exception obligation mapping aligns with handledness/deadness requirements).
 doc_sections:
-  matrix_acceptance: 2
+  matrix_acceptance: 3
 doc_section_requires:
   matrix_acceptance:
     - POLICY_SEED.md#policy_seed
@@ -56,7 +56,7 @@ doc_section_reviews:
   matrix_acceptance:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
     glossary.md#contract:
@@ -291,7 +291,50 @@ Suggested tests:
 
 ---
 
-## 6. Status Signaling
+## 6. Lane-split acceptance references for stable partial nodes
+
+These lanes are behaviorally stable for the implemented subset, but remain
+**partial** due to intentionally conservative fallback boundaries.
+
+### 6.1 in-34 callable-site lane (lambda/closure indexing)
+
+Executable anchors:
+- `src/gabion/analysis/dataflow_audit.py::_resolve_callee_outcome`
+- `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call`
+- `tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls`
+- `tests/test_callsite_evidence_helper.py::test_callsite_evidence_includes_callable_context`
+
+Lane acceptance rule:
+- deterministic synthetic lambda identity and direct/bound resolution must pass,
+  while unresolved alias/dynamic attribute paths must remain explicit
+  `unresolved_dynamic`/fallback outcomes.
+
+### 6.2 in-35 dict-key carrier lane
+
+Executable anchors:
+- `src/gabion/analysis/visitors.py::_normalize_key`
+- `tests/test_visitors_unit.py::test_subscript_forwarding_normalizes_const_keys`
+- `tests/test_visitors_unit.py::test_subscript_dynamic_key_marks_uncertainty`
+- `tests/test_unused_arg_audit.py::test_unused_arg_reports_unknown_key_carrier_category`
+
+Lane acceptance rule:
+- name-bound constant-key normalization is required,
+  and unresolvable keys must be preserved as explicit uncertainty evidence.
+
+### 6.3 in-22 fingerprint basis lane
+
+Executable anchors:
+- `src/gabion/analysis/type_fingerprints.py::build_fingerprint_registry`
+- `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`
+- `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`
+- `tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_applies_registry_basis_to_empty_registry`
+
+Lane acceptance rule:
+- registry seed payloads and synth payload reload must be deterministic and
+  reproducible; broader entropy-controlled rewrite closure remains tracked as
+  partial.
+
+## 7. Status Signaling
 
 If any of the above checks are missing:
 
@@ -303,7 +346,7 @@ This preserves honesty under the governance contract.
 
 ---
 
-## 7. Governance telemetry acceptance (convergence-aware)
+## 8. Governance telemetry acceptance (convergence-aware)
 
 Point-in-time checks are necessary but insufficient. Acceptance must include
 telemetry trend checks emitted by `scripts/governance_telemetry_emit.py`.
