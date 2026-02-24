@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 45
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -504,6 +504,8 @@ Agda CI checks SHOULD run inside a digest-pinned container image to avoid
 toolchain drift.
 
 ### 4.8 Shift-Ambiguity-Left Directive
+Canonical clause: [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
+
 
 Ambiguity discovered during implementation MUST be handled as a boundary-first
 typing problem, not as a local control-flow patch in semantic core modules.
@@ -651,6 +653,7 @@ Status classes:
 | TestPyPI/PyPI publish controls (§4.4) | conditional by event/branch | Tag push (`test-v*` or `v*`) and constrained `workflow_run` sources | `.github/workflows/release-testpypi.yml`, `.github/workflows/release-pypi.yml`; validated by `scripts/policy_check.py::_check_release_testpypi_workflow(...)`, `_check_release_pypi_workflow(...)`, `_check_id_token_scoping(...)`. |
 | Self-hosted trigger/runner/actor constraints (§§3.1, 4.1-4.3, 4.6) | latent (self-hosted) | Any workflow containing `runs-on` with `self-hosted` labels | `scripts/policy_check.py::_check_self_hosted_constraints(...)` (already active as detector, policy obligations become applicable when such jobs exist). |
 | Repository/org Actions posture checks (§5.2) | conditional by event/branch | CI push path with available governance token/context | `scripts/policy_check.py --posture`; wired in `.github/workflows/ci.yml` on push and skipped when required credentials are unavailable. |
+| Ambiguity contract gate (§4.8) | active now | Semantic core Python modules (`src/gabion/analysis/**`, `src/gabion/synthesis/**`, `src/gabion/refactor/**`) | `scripts/policy_check.py --ambiguity-contract` invoking `gabion ambiguity-contract-gate` + baseline ratchet file `scripts/baselines/ambiguity_contract_policy_baseline.json`; executed in `.github/workflows/ci.yml` (`Policy check (ambiguity contract)`). |
 
 Agents MUST preserve this classification when adding new controls: update both
 the normative anchor and the enforcing checker/workflow hook in the same

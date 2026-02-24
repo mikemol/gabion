@@ -190,6 +190,8 @@ jobs:
           .venv/bin/uv pip install -e .
       - name: Policy check (workflows)
         run: .venv/bin/python scripts/policy_check.py --workflows
+      - name: Policy check (ambiguity contract)
+        run: .venv/bin/python scripts/policy_check.py --ambiguity-contract
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:

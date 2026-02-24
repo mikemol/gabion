@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -87,6 +87,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 - `docs/normative_clause_index.md#normative_clause_index` defines stable clause IDs for repeated obligations.
+- `docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol` defines the compact refactor sequence used under ambiguity pressure.
 
 ## Required behavior
 - Read `POLICY_SEED.md#policy_seed` and `[glossary.md#contract](glossary.md#contract)` before proposing or applying changes.
@@ -97,6 +98,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
 - Preserve [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
+- Enforce [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left) in semantic core refactors.
 - Enforce maturity transport policy: `experimental`/`debug` may use direct diagnostics, but `beta`/`production` must be validated over the LSP carrier and cannot rely on direct-only validation.
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned

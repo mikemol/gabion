@@ -1102,13 +1102,36 @@ def check_posture():
         _fail(errors)
 
 
+def check_ambiguity_contract() -> None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "gabion",
+        "ambiguity-contract-gate",
+        "--root",
+        str(REPO_ROOT),
+        "--baseline",
+        str(REPO_ROOT / "scripts" / "baselines" / "ambiguity_contract_policy_baseline.json"),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        stdout = proc.stdout.strip()
+        stderr = proc.stderr.strip()
+        details = []
+        if stdout:
+            details.append(stdout)
+        if stderr:
+            details.append(stderr)
+        _fail(["ambiguity contract policy check failed", *details])
+
 def main():
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
+    parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture:
+    if not args.workflows and not args.posture and not args.ambiguity_contract:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1116,6 +1139,8 @@ def main():
             check_workflows()
         if args.posture:
             check_posture()
+        if args.ambiguity_contract:
+            check_ambiguity_contract()
     return 0
 
 
