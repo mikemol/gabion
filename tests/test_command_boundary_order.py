@@ -87,6 +87,24 @@ def test_payload_codec_normalizes_ingress_payload_order() -> None:
     assert payload["config"] == {"a": 1, "b": 2}
 
 
+# gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_payload_codec_normalized_command_id_list_covers_list_and_default_paths::payload_codec.py::gabion.commands.payload_codec.normalized_command_id_list
+def test_payload_codec_normalized_command_id_list_covers_list_and_default_paths() -> None:
+    assert payload_codec.normalized_command_id_list(
+        {"commands": ["gabion.z", "gabion.a"]},
+        key="commands",
+    ) == ("gabion.a", "gabion.z")
+    assert payload_codec.normalized_command_id_list({}, key="commands") == ()
+
+
+# gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_payload_codec_normalized_command_id_list_rejects_non_list::payload_codec.py::gabion.commands.payload_codec.normalized_command_id_list
+def test_payload_codec_normalized_command_id_list_rejects_non_list() -> None:
+    with pytest.raises(NeverThrown):
+        payload_codec.normalized_command_id_list(
+            {"commands": "gabion.check"},
+            key="commands",
+        )
+
+
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_server_require_payload_normalizes_order::server.py::gabion.server._require_payload
 def test_server_require_payload_normalizes_order() -> None:
     payload = {
