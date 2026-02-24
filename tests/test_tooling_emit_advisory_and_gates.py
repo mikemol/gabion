@@ -491,10 +491,12 @@ def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> No
         return None
 
     docflow_delta_emit._run_docflow_audit(run_fn=_run)
-    assert observed["args"][:4] == [docflow_delta_emit.sys.executable, "-m", "gabion", "docflow"]
+    assert observed["args"][:3] == [docflow_delta_emit.sys.executable, "-m", "gabion"]
+    assert "--transport" in observed["args"]
+    assert "direct" in observed["args"]
+    assert observed["args"][-1] == "docflow"
     assert observed["check"] is True
     assert isinstance(observed["env"], dict)
-    assert observed["env"]["GABION_DIRECT_RUN"] == "1"
 
     changed_paths = docflow_delta_emit._build_execution_plan(
         changed_paths_fn=lambda: ("docs/a.md", "docs/b.md")

@@ -182,12 +182,12 @@ jobs:
                   raise SystemExit(rc)
           PY
       - name: Render dataflow grammar report
-        env:
-          GABION_LSP_TIMEOUT_TICKS: "65000000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
           mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
-          .venv/bin/python -m gabion check --profile raw . \
+          .venv/bin/python -m gabion \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            check --profile raw . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \

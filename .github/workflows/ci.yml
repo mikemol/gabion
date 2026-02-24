@@ -19,11 +19,6 @@ jobs:
     timeout-minutes: 70
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      # ~= 1 hour at current CI throughput (~18k ticks/ms in timeout profiles).
-      GABION_LSP_TIMEOUT_TICKS: "65000000"
-      GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-      # Emit periodic debug state dumps during long-running dataflow stages.
-      GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS: "60"
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
@@ -59,10 +54,13 @@ jobs:
             --checkpoint-name dataflow_resume_checkpoint_ci.json
       - name: Dataflow audit invocation
         id: dataflow_stage
-        env:
-          GABION_DIRECT_RUN: "1"
         run: |
-          .venv/bin/python -m gabion run-dataflow-stage \
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            run-dataflow-stage \
+            --debug-dump-interval-seconds 60 \
             --stage-strictness-profile "run=high"
       - name: Finalize dataflow audit outcome
         if: always()
@@ -250,17 +248,19 @@ jobs:
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
       - name: Delta state emit
-        env:
-          GABION_DIRECT_RUN: "1"
-          GABION_LSP_TIMEOUT_TICKS: "65000000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python -m gabion delta-state-emit
+        run: |
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            delta-state-emit
       - name: Delta triplets (default-on burn-down gates)
-        env:
-          GABION_DIRECT_RUN: "1"
-          GABION_LSP_TIMEOUT_TICKS: "65000000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python -m gabion delta-triplets
+        run: |
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            delta-triplets
       - name: Governance telemetry emit
         run: |
           .venv/bin/python scripts/governance_telemetry_emit.py \

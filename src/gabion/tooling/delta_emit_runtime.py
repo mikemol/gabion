@@ -79,6 +79,9 @@ def _emit_timeline_row(
 
 
 def timeout_ticks() -> int:
+    override = env_policy.lsp_timeout_override()
+    if override is not None:
+        return int(override.ticks)
     raw = env_policy.env_text("GABION_LSP_TIMEOUT_TICKS", default=DEFAULT_TIMEOUT_TICKS)
     try:
         parsed = int(raw)
@@ -88,6 +91,9 @@ def timeout_ticks() -> int:
 
 
 def timeout_tick_ns() -> int:
+    override = env_policy.lsp_timeout_override()
+    if override is not None:
+        return int(override.tick_ns)
     raw = env_policy.env_text("GABION_LSP_TIMEOUT_TICK_NS", default=DEFAULT_TIMEOUT_TICK_NS)
     try:
         parsed = int(raw)
