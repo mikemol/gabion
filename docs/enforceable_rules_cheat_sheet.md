@@ -129,6 +129,8 @@ Precedence stack for interpretation and enforcement:
 No rule in this cheat sheet is valid unless it is traceable to canonical
 clauses in the source documents above.
 
+Gate-level control-loop mapping lives in `docs/governance_loop_matrix.md#governance_loop_matrix`.
+
 ## Rule Matrix (Traceable)
 
 | Rule ID | Enforceable Rule | Source Clause(s) | Operational Check | Failure Signal |
