@@ -63,6 +63,7 @@ from gabion.tooling import (
     governance_audit as tooling_governance_audit,
     impact_select_tests as tooling_impact_select_tests,
     run_dataflow_stage as tooling_run_dataflow_stage,
+    ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
 )
 from gabion.json_types import JSONObject
 from gabion.invariants import never
@@ -3345,6 +3346,7 @@ _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
+    "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
 }
 
 
@@ -3426,6 +3428,20 @@ def run_dataflow_stage(ctx: typer.Context) -> None:
     raise typer.Exit(
         code=_run_tooling_with_argv(
             "run-dataflow-stage",
+            list(ctx.args),
+        )
+    )
+
+
+@app.command(
+    "ambiguity-contract-gate",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def ambiguity_contract_gate(ctx: typer.Context) -> None:
+    """Run ambiguity-contract policy gate for deterministic-core surfaces."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "ambiguity-contract-gate",
             list(ctx.args),
         )
     )

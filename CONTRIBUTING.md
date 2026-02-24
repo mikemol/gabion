@@ -1,5 +1,5 @@
 ---
-doc_revision: 98
+doc_revision: 99
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -122,6 +122,7 @@ that can be adopted when helpful.
 - `docs/normative_clause_index.md#normative_clause_index` defines stable clause IDs used by this guide.
 - `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides a day-to-day implementation checklist backed by canonical clauses.
 - `docs/governance_loop_matrix.md#governance_loop_matrix` provides a gate-by-gate control-loop matrix for sensors, artifacts, thresholds, and overrides.
+- `docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol` provides the compact refactor protocol card for ambiguity-pressure changes.
 
 ## Dataflow grammar invariant
 - Canonical rule: [`NCI-DATAFLOW-BUNDLE-TIERS`](docs/normative_clause_index.md#clause-dataflow-bundle-tiers).
@@ -132,6 +133,7 @@ that can be adopted when helpful.
 ```
 
 ## Refactor Under Ambiguity Pressure (normative)
+Canonical rule: [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
 When ambiguity appears during refactors, contributors must apply the following
 sequence in order:
 
@@ -141,7 +143,7 @@ sequence in order:
    expected shape/decision surface as an explicit contract.
 3. **Step C — normalize incoming values once (adapter layer).** Perform
    conversion/defaulting/disambiguation at ingress.
-4. **Step D — remove downstream `isinstance`/`Optional`/sentinel checks.**
+4. **Step D — remove downstream `isinstance`/`Optional`/`Union`/`Any`/sentinel checks.**
    Core flows must consume deterministic contract types, not repeated ambiguity
    guards.
 5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the

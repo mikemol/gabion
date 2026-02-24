@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -103,6 +103,14 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Tier-3 bundles must be reified or documented with `# dataflow-bundle:`.
 - Canonical sources: `[glossary.md#contract](../glossary.md#contract)`, `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`.
 
+
+<a id="clause-shift-ambiguity-left"></a>
+### `NCI-SHIFT-AMBIGUITY-LEFT` — Boundary-first ambiguity discharge
+- Ambiguity must be classified at ingress and discharged before semantic-core execution.
+- Reify ambiguity as explicit Protocol/Decision Protocol surfaces at boundaries.
+- Semantic core modules must not add ad-hoc branch/sentinel/type-alternation shortcuts as first response.
+- Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.
+
 <a id="clause-baseline-ratchet"></a>
 ### `NCI-BASELINE-RATCHET` — Baseline ratchet integrity
 - Baselines are ratchet checkpoints, not bypass levers.
@@ -116,4 +124,5 @@ or `AGENTS.md`, use a short summary with direct clause links, for example:
 
 - `NCI-LSP-FIRST` (`docs/normative_clause_index.md#clause-lsp-first`)
 - `NCI-DATAFLOW-BUNDLE-TIERS` (`docs/normative_clause_index.md#clause-dataflow-bundle-tiers`)
+- `NCI-SHIFT-AMBIGUITY-LEFT` (`docs/normative_clause_index.md#clause-shift-ambiguity-left`)
 
