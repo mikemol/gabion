@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -154,7 +154,10 @@ link to clause IDs instead of duplicating long-form normative prose.
 ## Enforcement completeness ledger
 
 Machine-readable clause-to-enforcement traceability is maintained in `docs/normative_enforcement_map.yaml`.
-Policy checks validate map integrity and CI/workflow anchors via `scripts/policy_check.py --normative-map`.
+The map is exhaustive: every canonical clause listed above must appear as a top-level clause key,
+including entries that are currently `partial` or `document-only`.
+Policy checks validate canonical-clause completeness plus CI/workflow anchor integrity via
+`scripts/policy_check.py --normative-map`.
 
 ## Usage rule
 
