@@ -207,3 +207,5 @@ def test_governance_rules_as_bool_branches() -> None:
     assert governance_rules._as_bool(False, field_name="f") is False
     with pytest.raises(ValueError):
         governance_rules._as_bool("maybe", field_name="f")
+    with pytest.raises(ValueError):
+        governance_rules._as_bool(1, field_name="f")
