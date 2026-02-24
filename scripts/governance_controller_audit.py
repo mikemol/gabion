@@ -178,10 +178,22 @@ def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
                 }
             )
 
+    severity_counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+    for item in findings:
+        sev = str(item.get("severity", "")).lower()
+        if sev in severity_counts:
+            severity_counts[sev] += 1
+    highest = "none"
+    for candidate in ("critical", "high", "medium", "low"):
+        if severity_counts[candidate] > 0:
+            highest = candidate
+            break
     summary = {
         "total_findings": len(findings),
         "high_severity_findings": sum(1 for item in findings if str(item.get("severity")) == "high"),
         "sensors": sorted({str(item.get("sensor")) for item in findings}),
+        "severity_counts": severity_counts,
+        "highest_severity": highest,
     }
 
     payload = {

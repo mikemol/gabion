@@ -1,5 +1,5 @@
 ---
-doc_revision: 45
+doc_revision: 46
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -819,3 +819,13 @@ If you want next steps, I can:
 * Tie this explicitly to your Prism “advance → quotient → recognition” framework as a security analogue.
 
 Just tell me how far you want to push the self-referential loop.
+
+## 4.9 Second-order controller adaptation protocol
+
+- Canonical clauses: [`NCI-DEADLINE-TIMEOUT-PROPAGATION`](docs/normative_clause_index.md#clause-deadline-timeout-propagation), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle).
+- Adaptation triggers (telemetry-derived): parity instability, chronic timeout resumes, and recurring gate-noise false positives.
+- Allowed bounded control moves: timeout budget tuning, retry-profile shaping, and drift-threshold class adjustments declared in `docs/governance_rules.yaml`.
+- Forbidden compensations: baseline refresh as bypass, silent strictness downgrades, and undeclared transport downgrades.
+- Overrides must emit machine-readable records with: `actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`.
+- CI must fail when override metadata is missing/incomplete or expiry has elapsed.
+- Post-override convergence requirement: affected gates/paths must pass for at least `consecutive_passes_required` runs before stabilization is declared.

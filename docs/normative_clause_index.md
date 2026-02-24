@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -116,6 +116,27 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Baselines are ratchet checkpoints, not bypass levers.
 - Do not refresh baselines to bypass positive deltas while gates are enabled.
 - Canonical source: `CONTRIBUTING.md#contributing_contract`.
+
+
+<a id="clause-deadline-timeout-propagation"></a>
+### `NCI-DEADLINE-TIMEOUT-PROPAGATION` — Deadline carrier propagation
+- Timeout/deadline tokens must propagate across CLI dispatch, LSP transport, and CI wrappers.
+- Timeout recovery state must be emitted as deterministic machine-readable artifacts.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `CONTRIBUTING.md#contributing_contract`.
+
+<a id="clause-controller-adaptation-law"></a>
+### `NCI-CONTROLLER-ADAPTATION-LAW` — Second-order controller adaptation law
+- Adaptation is trigger-driven (parity instability, timeout resume churn, gate noise).
+- Allowed moves are bounded to declared knobs and require telemetry/evidence links.
+- Forbidden compensations include baseline-refresh bypasses and silent strictness downgrades.
+- Canonical source: `POLICY_SEED.md#policy_seed`.
+
+<a id="clause-override-lifecycle"></a>
+### `NCI-OVERRIDE-LIFECYCLE` — Override lifecycle governance
+- Override channels require machine-readable records with actor, rationale, scope, start, expiry, rollback condition, and evidence links.
+- Expired or metadata-incomplete overrides fail governance gates.
+- Post-override convergence requires consecutive clean runs before stabilization is declared.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `docs/governance_rules.yaml`.
 
 ## Usage rule
 

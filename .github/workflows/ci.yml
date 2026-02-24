@@ -45,27 +45,7 @@ jobs:
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
       - name: Seed version-controlled dataflow resume checkpoint (best effort)
-        run: |
-          target_dir="artifacts/audit_reports"
-          seed_checkpoint="baselines/dataflow_resume_checkpoint_ci.json"
-          seed_chunks="baselines/dataflow_resume_checkpoint_ci.json.chunks"
-          mkdir -p "$target_dir"
-          restored=0
-          if [ -f "$seed_checkpoint" ]; then
-            cp "$seed_checkpoint" "$target_dir/dataflow_resume_checkpoint_ci.json"
-            restored=1
-          fi
-          if [ -d "$seed_chunks" ]; then
-            rm -rf "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-            mkdir -p "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-            cp -R "$seed_chunks"/. "$target_dir/dataflow_resume_checkpoint_ci.json.chunks/"
-            restored=1
-          fi
-          if [ "$restored" = "1" ]; then
-            echo "Seeded checkpoint from version-controlled baseline."
-          else
-            echo "No version-controlled checkpoint seed found; continuing."
-          fi
+        run: .venv/bin/python scripts/ci_seed_dataflow_checkpoint.py
       - name: Restore previous dataflow resume checkpoint (best effort)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,42 +73,12 @@ jobs:
           TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
           ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
         run: |
-          terminal_stage="${TERMINAL_STAGE:-none}"
-          terminal_exit="${TERMINAL_EXIT:-}"
-          terminal_state="${TERMINAL_STATE:-none}"
-          terminal_status="${TERMINAL_STATUS:-unknown}"
-          attempts_run="${ATTEMPTS_RUN:-0}"
-          if [ -z "$terminal_exit" ]; then
-            echo "No dataflow audit stage produced an exit code."
-            exit 1
-          fi
-          if [ "$terminal_status" = "unknown" ]; then
-            if [ "$terminal_exit" = "0" ]; then
-              terminal_status="success"
-            elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
-              terminal_status="timeout_resume"
-            else
-              terminal_status="hard_failure"
-            fi
-          fi
-          echo "terminal_stage=$terminal_stage attempts=$attempts_run exit_code=$terminal_exit analysis_state=$terminal_state status=$terminal_status"
-          if [ "$terminal_status" = "success" ]; then
-            exit 0
-          fi
-          if [ -f artifacts/audit_reports/dataflow_report.md ]; then
-            echo "===== dataflow report ====="
-            cat artifacts/audit_reports/dataflow_report.md
-          fi
-          if [ -f artifacts/audit_reports/timeout_progress.md ]; then
-            echo "===== timeout progress ====="
-            cat artifacts/audit_reports/timeout_progress.md
-          fi
-          if [ "$terminal_status" = "timeout_resume" ]; then
-            echo "Dataflow audit invocation timed out with resumable progress."
-            exit 1
-          fi
-          echo "Dataflow audit failed for a non-timeout reason."
-          exit 1
+          .venv/bin/python scripts/ci_finalize_dataflow_outcome.py \
+            --terminal-exit "${TERMINAL_EXIT:-}" \
+            --terminal-state "${TERMINAL_STATE:-none}" \
+            --terminal-stage "${TERMINAL_STAGE:-none}" \
+            --terminal-status "${TERMINAL_STATUS:-unknown}" \
+            --attempts-run "${ATTEMPTS_RUN:-0}"
       - name: Deadline profile summary
         if: always()
         run: |
@@ -251,15 +201,15 @@ jobs:
         run: .venv/bin/python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
         run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
-      - name: Controller drift audit (advisory, ratchet-ready)
-        env:
-          CONTROLLER_DRIFT_FAIL_ON: ${{ vars.CONTROLLER_DRIFT_FAIL_ON || '' }}
+      - name: Controller drift audit
+        run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+      - name: Override lifecycle record emit
+        run: .venv/bin/python scripts/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
+      - name: Controller drift gate
         run: |
-          args=(--out artifacts/out/controller_drift.json)
-          if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
-            args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
-          fi
-          .venv/bin/python scripts/governance_controller_audit.py "${args[@]}"
+          .venv/bin/python scripts/ci_controller_drift_gate.py \
+            --drift-artifact artifacts/out/controller_drift.json \
+            --override-record artifacts/out/governance_override_record.json
       - name: LSP parity gate
         run: .venv/bin/python -m gabion lsp-parity-gate --command gabion.check
       - name: Tests

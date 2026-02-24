@@ -646,6 +646,31 @@ def _step_run_contains_any(steps, tokens: set[str]) -> bool:
     return False
 
 
+
+
+def _check_ci_script_entrypoints(doc, path, errors):
+    if path.name != "ci.yml":
+        return
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    required_tokens = {
+        "scripts/ci_seed_dataflow_checkpoint.py",
+        "scripts/ci_finalize_dataflow_outcome.py",
+        "scripts/ci_controller_drift_gate.py",
+        "scripts/ci_override_record_emit.py",
+    }
+    steps = []
+    for job in jobs.values():
+        if not isinstance(job, dict):
+            continue
+        raw_steps = job.get("steps", [])
+        if isinstance(raw_steps, list):
+            steps.extend(raw_steps)
+    for token in sorted(required_tokens):
+        if not _step_run_contains_any(steps, {token}):
+            errors.append(f"{path}: ci workflow must invoke {token}")
+
 def _check_release_testpypi_workflow(doc, path, errors):
     on_block = doc.get("on")
     workflows = _workflow_run_names(on_block)
@@ -942,6 +967,7 @@ def check_workflows():
             _check_release_pypi_workflow(doc, path, errors)
             _check_id_token_scoping(doc, path, errors)
         _check_workflow_dispatch_guards(doc, path, errors)
+        _check_ci_script_entrypoints(doc, path, errors)
         _check_permissions(
             doc,
             path,

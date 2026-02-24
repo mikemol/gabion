@@ -1,5 +1,5 @@
 ---
-doc_revision: 101
+doc_revision: 102
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -549,7 +549,7 @@ It uses `mise` (via `gabion.toml`) to install the toolchain.
 For push-driven `dataflow-grammar`, prefer warm caches:
 - CI restores the previous same-branch `dataflow-report` artifact's resume
   checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
-- `gabion run-dataflow-stage` emits resume metrics in logs/step-summary
+- `scripts/ci_seed_dataflow_checkpoint.py` and `scripts/ci_finalize_dataflow_outcome.py` are the CI orchestration entrypoints around `gabion run-dataflow-stage`; the gabion command still emits resume metrics in logs/step-summary
   (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
   impact can be verified explicitly.
 - Keep resume identity stable (forest spec / fingerprint seed / strictness
@@ -574,6 +574,9 @@ Run:
 ```
 mise exec -- python -m pip install pyyaml
 mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
+mise exec -- python scripts/ci_finalize_dataflow_outcome.py --terminal-exit 0
+mise exec -- python scripts/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```

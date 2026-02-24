@@ -49,6 +49,7 @@ class GovernanceRules:
     override_token_env: str
     gates: Mapping[str, GatePolicy]
     command_policies: Mapping[str, "CommandPolicy"]
+    controller_drift: "ControllerDriftPolicy"
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,14 @@ class CommandPolicy:
     parity_required: bool
     probe_payload: Mapping[str, object] | None
     parity_ignore_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ControllerDriftPolicy:
+    severity_classes: tuple[str, ...]
+    enforce_at_or_above: str
+    remediation_by_severity: Mapping[str, str]
+    consecutive_passes_required: int
 
 
 def _yaml_loader():
@@ -86,6 +95,18 @@ def _as_int(raw: object, *, field_name: str) -> int:
         return int(raw)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"governance_rules invalid {field_name}: expected int") from exc
+
+
+def _as_bool(raw: object, *, field_name: str) -> bool:
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        lowered = raw.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    raise ValueError(f"governance_rules invalid {field_name}: expected bool")
 
 
 def _gate_from_mapping(gate_id: str, payload: Mapping[str, object]) -> GatePolicy:
@@ -177,8 +198,8 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
             )
             if valid_command_policy:
                 maturity = str(command_payload.get("maturity", "experimental"))
-                require_lsp_carrier = bool(command_payload.get("require_lsp_carrier", False))
-                parity_required = bool(command_payload.get("parity_required", False))
+                require_lsp_carrier = _as_bool(command_payload.get("require_lsp_carrier", False), field_name=f"command_policies.{command_id}.require_lsp_carrier")
+                parity_required = _as_bool(command_payload.get("parity_required", False), field_name=f"command_policies.{command_id}.parity_required")
                 probe_payload_raw = command_payload.get("probe_payload")
                 probe_payload = (
                     dict(probe_payload_raw)
@@ -200,8 +221,32 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
                     parity_ignore_keys=parity_ignore_keys,
                 )
 
+    controller_drift_raw = raw.get("controller_drift")
+    if not isinstance(controller_drift_raw, Mapping):
+        raise ValueError("governance_rules must define controller_drift")
+    severity_classes = _tuple_path(
+        controller_drift_raw.get("severity_classes"),
+        field_name="controller_drift.severity_classes",
+    )
+    remediation_raw = controller_drift_raw.get("remediation_by_severity")
+    if not isinstance(remediation_raw, Mapping):
+        raise ValueError("governance_rules invalid controller_drift.remediation_by_severity")
+    remediation_by_severity = {
+        str(key): str(value) for key, value in remediation_raw.items() if isinstance(key, str)
+    }
+    controller_drift = ControllerDriftPolicy(
+        severity_classes=severity_classes,
+        enforce_at_or_above=str(controller_drift_raw.get("enforce_at_or_above", "high")),
+        remediation_by_severity=remediation_by_severity,
+        consecutive_passes_required=_as_int(
+            controller_drift_raw.get("consecutive_passes_required", 3),
+            field_name="controller_drift.consecutive_passes_required",
+        ),
+    )
+
     return GovernanceRules(
         override_token_env=str(raw.get("override_token_env", "GABION_POLICY_OVERRIDE_TOKEN")),
         gates=gates,
         command_policies=command_policies,
+        controller_drift=controller_drift,
     )
