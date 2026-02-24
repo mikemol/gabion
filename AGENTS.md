@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -87,6 +87,8 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   surface any violations explicitly.
 - Preserve the LSP-first invariant: the server is the semantic core and the
   CLI remains a thin LSP client.
+- Enforce maturity transport policy: `experimental`/`debug` may use direct diagnostics, but `beta`/`production` must be validated over the LSP carrier and cannot rely on direct-only validation.
+- Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used.
 - Prefer impossible-by-construction contracts over sentinel parse outcomes;

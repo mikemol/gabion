@@ -34,3 +34,21 @@ class ProgressEvent:
 class CommandRuntimeOutcome:
     response: dict[str, object]
     terminal_phase: str
+
+
+@dataclass(frozen=True)
+class LspParityCommandResult:
+    command_id: str
+    maturity: str
+    require_lsp_carrier: bool
+    parity_required: bool
+    lsp_validated: bool
+    parity_ok: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class LspParityGateOutcome:
+    exit_code: int
+    checked_commands: tuple[LspParityCommandResult, ...]
+    errors: tuple[str, ...]

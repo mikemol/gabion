@@ -45,6 +45,7 @@ STRUCTURE_DIFF_COMMAND = command_ids.STRUCTURE_DIFF_COMMAND
 STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
 DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
 IMPACT_COMMAND = command_ids.IMPACT_COMMAND
+LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import (
     CommandRequest,
     run_command,
@@ -70,6 +71,7 @@ from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
     RefactorProtocolResponseDTO,
+    LspParityGateResponseDTO,
     StructureDiffResponseDTO,
     StructureReuseResponseDTO,
     SynthesisPlanResponseDTO,
@@ -3234,6 +3236,27 @@ def run_structure_reuse(
 
 
 
+def run_lsp_parity_gate(
+    *,
+    commands: list[str] | None = None,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload: JSONObject = {}
+    if commands is not None:
+        payload["commands"] = list(commands)
+    resolved_runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
+    payload["root"] = str(root_path)
+    return dispatch_command(
+        command=LSP_PARITY_GATE_COMMAND,
+        payload=payload,
+        root=root_path,
+        runner=resolved_runner,
+    )
+
+
+
 def run_impact_query(
     *,
     changes: list[str],
@@ -3406,6 +3429,25 @@ def run_dataflow_stage(ctx: typer.Context) -> None:
             list(ctx.args),
         )
     )
+
+
+@app.command("lsp-parity-gate")
+def lsp_parity_gate(
+    command: Optional[List[str]] = typer.Option(
+        None,
+        "--command",
+        help="Command ID to validate (repeatable). Defaults to all governed commands.",
+    ),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Validate command maturity policy and LSP/direct parity contracts."""
+    with _cli_deadline_scope():
+        result = run_lsp_parity_gate(commands=list(command or []) or None, root=root)
+        normalized = LspParityGateResponseDTO.model_validate(result).model_dump()
+        typer.echo(json.dumps(normalized, indent=2, sort_keys=False))
+        if int(normalized.get("exit_code", 0)) != 0:
+            raise typer.Exit(code=int(normalized["exit_code"]))
+
 
 
 @app.command("impact")

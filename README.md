@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -81,6 +81,8 @@ conservative.
 
 ## Status
 - CLI uses the LSP server as its semantic core.
+- Transport maturity policy: `experimental`/`debug` commands may use direct diagnostics, while `beta`/`production` commands require validated LSP-carrier execution.
+- A feature is not `beta`/`production` unless it has passed LSP-carrier validation.
 - Dataflow grammar audit is implemented (prototype).
 - Type-flow, constant-flow, and unused-argument smells are implemented (prototype).
 - Refactor engine can rewrite signatures/call sites for targeted functions (prototype).

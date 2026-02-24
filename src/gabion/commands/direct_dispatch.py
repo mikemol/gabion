@@ -17,6 +17,7 @@ _UNORDERED_DIRECT_EXECUTORS: dict[str, DirectExecutor] = {
     command_ids.SYNTHESIS_COMMAND: server.execute_synthesis,
     command_ids.REFACTOR_COMMAND: server.execute_refactor,
     command_ids.IMPACT_COMMAND: server.execute_impact,
+    command_ids.LSP_PARITY_GATE_COMMAND: server.execute_lsp_parity_gate,
 }
 
 

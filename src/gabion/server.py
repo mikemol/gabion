@@ -36,7 +36,7 @@ from lsprotocol.types import (
 )
 
 from gabion.json_types import JSONObject, JSONValue
-from gabion.commands import boundary_order, command_ids, payload_codec
+from gabion.commands import boundary_order, command_ids, direct_dispatch, payload_codec
 from gabion.plan import (
     ExecutionPlan,
     ExecutionPlanObligations,
@@ -140,6 +140,7 @@ from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_
 from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
+    LspParityGateResponseDTO,
     LintEntryDTO,
     RefactorProtocolResponseDTO,
     RefactorRequest,
@@ -153,6 +154,7 @@ from gabion.schema import (
     TextEditDTO,
 )
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
+from gabion.tooling.governance_rules import load_governance_rules
 
 server = LanguageServer("gabion", "0.1.0")
 CHECK_COMMAND = command_ids.CHECK_COMMAND
@@ -163,6 +165,7 @@ STRUCTURE_DIFF_COMMAND = command_ids.STRUCTURE_DIFF_COMMAND
 STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
 DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
 IMPACT_COMMAND = command_ids.IMPACT_COMMAND
+LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 
 _IMPACT_CHANGE_RE = re.compile(r"^(?P<path>.+?)(?::(?P<start>\d+)(?:-(?P<end>\d+))?)?$")
 _IMPACT_DIFF_FILE_RE = re.compile(r"^\+\+\+\s+(?:a/|b/)?(?P<path>.+)$")
@@ -4167,6 +4170,145 @@ def _impact_parse_doc_sections(path: Path) -> list[tuple[str, str]]:
 
 def _impact_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
     return not (a_end < b_start or b_end < a_start)
+
+
+
+def _lsp_command_executor(command: str) -> Callable[[LanguageServer, dict[str, object] | None], dict] | None:
+    mapping: dict[str, Callable[[LanguageServer, dict[str, object] | None], dict]] = {
+        CHECK_COMMAND: execute_command,
+        DATAFLOW_COMMAND: execute_command,
+        STRUCTURE_DIFF_COMMAND: execute_structure_diff,
+        STRUCTURE_REUSE_COMMAND: execute_structure_reuse,
+        DECISION_DIFF_COMMAND: execute_decision_diff,
+        SYNTHESIS_COMMAND: execute_synthesis,
+        REFACTOR_COMMAND: execute_refactor,
+        IMPACT_COMMAND: execute_impact,
+    }
+    return mapping.get(command)
+
+
+def _strip_parity_ignored_keys(
+    payload: Mapping[str, object],
+    *,
+    ignored_keys: tuple[str, ...],
+) -> dict[str, object]:
+    if not ignored_keys:
+        return dict(payload)
+    ignored = set(ignored_keys)
+    return {key: value for key, value in payload.items() if key not in ignored}
+
+
+def _normalize_probe_payload(
+    probe_payload: Mapping[str, object],
+    *,
+    root: Path,
+    command: str,
+) -> dict[str, object]:
+    payload = boundary_order.normalize_boundary_mapping_once(
+        probe_payload,
+        source=f"server.lsp_parity_gate.{command}.probe_payload",
+    )
+    if "root" not in payload:
+        payload = boundary_order.apply_boundary_updates_once(
+            payload,
+            {"root": str(root)},
+            source=f"server.lsp_parity_gate.{command}.probe_payload_root",
+        )
+    if (
+        "analysis_timeout_ticks" not in payload
+        and "analysis_timeout_ms" not in payload
+        and "analysis_timeout_seconds" not in payload
+    ):
+        payload = boundary_order.apply_boundary_updates_once(
+            payload,
+            {"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000},
+            source=f"server.lsp_parity_gate.{command}.probe_payload_timeout",
+        )
+    return payload
+
+
+def _execute_lsp_parity_gate_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
+    rules = load_governance_rules()
+    root = Path(str(payload.get("root") or ls.workspace.root_path or "."))
+    selected_commands = list(payload_codec.normalized_command_id_list(payload, key="commands"))
+    if not selected_commands:
+        selected_commands = list(sort_once(rules.command_policies.keys(), source="server.lsp_parity_gate.selected_default"))
+    checked_commands: list[dict[str, object]] = []
+    errors: list[str] = []
+    for command in selected_commands:
+        policy = rules.command_policies.get(command)
+        if policy is None:
+            errors.append(f"missing command policy for {command}")
+            continue
+        lsp_validated = False
+        parity_ok = True
+        error: str | None = None
+        probe_payload = policy.probe_payload
+        if probe_payload is not None:
+            normalized_probe = _normalize_probe_payload(probe_payload, root=root, command=command)
+            lsp_executor = _lsp_command_executor(command)
+            direct_executor = direct_dispatch.direct_executor(command)
+            if lsp_executor is None:
+                error = f"no LSP executor registered for {command}"
+            elif direct_executor is None:
+                error = f"no direct executor registered for {command}"
+            else:
+                try:
+                    lsp_result = boundary_order.normalize_boundary_mapping_once(
+                        lsp_executor(ls, dict(normalized_probe)),
+                        source=f"server.lsp_parity_gate.{command}.lsp_result",
+                    )
+                    lsp_validated = True
+                    direct_result = boundary_order.normalize_boundary_mapping_once(
+                        direct_executor(ls, dict(normalized_probe)),
+                        source=f"server.lsp_parity_gate.{command}.direct_result",
+                    )
+                    lsp_comparable = boundary_order.normalize_boundary_mapping_once(
+                        _strip_parity_ignored_keys(lsp_result, ignored_keys=policy.parity_ignore_keys),
+                        source=f"server.lsp_parity_gate.{command}.lsp_comparable",
+                    )
+                    direct_comparable = boundary_order.normalize_boundary_mapping_once(
+                        _strip_parity_ignored_keys(direct_result, ignored_keys=policy.parity_ignore_keys),
+                        source=f"server.lsp_parity_gate.{command}.direct_comparable",
+                    )
+                    parity_ok = lsp_comparable == direct_comparable
+                    if policy.parity_required and not parity_ok:
+                        error = f"parity mismatch for {command}"
+                except NeverThrown as exc:
+                    error = str(exc) or f"invariant violation while probing {command}"
+                except Exception as exc:  # pragma: no cover - defensive conversion
+                    error = str(exc)
+        if policy.require_lsp_carrier and not lsp_validated and error is None:
+            error = f"beta/production command requires LSP validation: {command}"
+        if error is not None:
+            errors.append(error)
+        checked_commands.append({
+            "command_id": command,
+            "maturity": policy.maturity,
+            "require_lsp_carrier": policy.require_lsp_carrier,
+            "parity_required": policy.parity_required,
+            "lsp_validated": lsp_validated,
+            "parity_ok": parity_ok,
+            "error": error,
+        })
+    exit_code = 1 if errors else 0
+    return LspParityGateResponseDTO(
+        exit_code=exit_code,
+        checked_commands=checked_commands,
+        errors=errors,
+    ).model_dump()
+
+
+@server.command(LSP_PARITY_GATE_COMMAND)
+def execute_lsp_parity_gate(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=LSP_PARITY_GATE_COMMAND)
+    return _ordered_command_response(
+        _execute_lsp_parity_gate_total(ls, normalized_payload),
+        command=LSP_PARITY_GATE_COMMAND,
+    )
 
 
 @server.command(IMPACT_COMMAND)

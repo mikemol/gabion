@@ -132,6 +132,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
         delta_gate.load_governance_rules = lambda: governance_rules.GovernanceRules(
             override_token_env="TOKEN",
             gates={},
+            command_policies={},
         )
         with pytest.raises(ValueError):
             delta_gate._policy_spec("missing_gate")
@@ -172,6 +173,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
         delta_gate.load_governance_rules = lambda: governance_rules.GovernanceRules(
             override_token_env="TOKEN",
             gates={"obsolescence_opaque": policy},
+            command_policies={},
         )
         assert delta_gate._check_standard_gate(spec, path, enabled=True) == 0
     finally:

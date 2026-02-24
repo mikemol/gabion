@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 43
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -149,6 +149,14 @@ MUST be preserved throughout functional code; and data leaving functional code
 MUST be order-enforced at the boundary without serializer-level re-sorting for
 already-canonical carriers. Any explicit sort enforcement MUST disclose its sort
 key/function (or comparator shape) and rationale.
+
+
+**Maturity/transport invariant:** `experimental` and `debug` commands may allow
+direct-path diagnostics; `beta` and `production` commands MUST require validated
+LSP-carrier execution, and direct dispatch MUST NOT be the normative-only path.
+
+**Readiness invariant:** A feature MUST NOT be classified as `beta` or
+`production` unless it has been validated over the LSP carrier.
 
 ---
 

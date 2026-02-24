@@ -111,3 +111,47 @@ gates:
     warning_prefix: Docflow contradictions warning
     blocking_prefix: Docflow contradictions increased
     ok_prefix: Docflow delta OK
+
+command_policies:
+  gabion.check:
+    maturity: beta
+    require_lsp_carrier: true
+    parity_required: true
+    probe_payload:
+      paths: [src/gabion/commands/command_ids.py]
+      fail_on_violations: false
+      analysis_timeout_ticks: 200
+      analysis_timeout_tick_ns: 1000000
+    parity_ignore_keys: [timeout_context]
+  gabion.dataflowAudit:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.decisionDiff:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.impactQuery:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.lspParityGate:
+    maturity: debug
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.refactorProtocol:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.structureDiff:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.structureReuse:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false
+  gabion.synthesisPlan:
+    maturity: experimental
+    require_lsp_carrier: false
+    parity_required: false

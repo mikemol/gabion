@@ -1,5 +1,5 @@
 ---
-doc_revision: 97
+doc_revision: 98
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -97,6 +97,8 @@ valid.
 ## Architectural invariants (normative)
 - **LSP-first invariant:** the language server is the semantic core; the CLI is
   a thin LSP client and must not import or reimplement analysis logic.
+- **Maturity/transport policy:** `experimental` and `debug` may use direct-path diagnostics; `beta` and `production` require LSP-carrier validation and cannot treat direct path as the only normative route.
+- **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
 
