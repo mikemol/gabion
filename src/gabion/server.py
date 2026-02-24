@@ -154,7 +154,7 @@ from gabion.schema import (
     TextEditDTO,
 )
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
-from gabion.tooling.governance_rules import load_governance_rules
+from gabion.tooling.governance_rules import GovernanceRules, load_governance_rules
 
 server = LanguageServer("gabion", "0.1.0")
 CHECK_COMMAND = command_ids.CHECK_COMMAND
@@ -4227,8 +4227,31 @@ def _normalize_probe_payload(
     return payload
 
 
-def _execute_lsp_parity_gate_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
-    rules = load_governance_rules()
+def _execute_lsp_parity_gate_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+    *,
+    load_rules: Callable[[], GovernanceRules] = load_governance_rules,
+    lsp_executor_for_command: Callable[
+        [str],
+        Callable[[LanguageServer, dict[str, object] | None], dict] | None,
+    ] | None = None,
+    direct_executor_for_command: Callable[
+        [str],
+        Callable[[LanguageServer, dict[str, object] | None], dict] | None,
+    ] | None = None,
+) -> dict:
+    rules = load_rules()
+    resolved_lsp_executor_for_command = (
+        _lsp_command_executor
+        if lsp_executor_for_command is None
+        else lsp_executor_for_command
+    )
+    resolved_direct_executor_for_command = (
+        direct_dispatch.direct_executor
+        if direct_executor_for_command is None
+        else direct_executor_for_command
+    )
     root = Path(str(payload.get("root") or ls.workspace.root_path or "."))
     selected_commands = list(payload_codec.normalized_command_id_list(payload, key="commands"))
     if not selected_commands:
@@ -4246,8 +4269,8 @@ def _execute_lsp_parity_gate_total(ls: LanguageServer, payload: dict[str, object
         probe_payload = policy.probe_payload
         if probe_payload is not None:
             normalized_probe = _normalize_probe_payload(probe_payload, root=root, command=command)
-            lsp_executor = _lsp_command_executor(command)
-            direct_executor = direct_dispatch.direct_executor(command)
+            lsp_executor = resolved_lsp_executor_for_command(command)
+            direct_executor = resolved_direct_executor_for_command(command)
             if lsp_executor is None:
                 error = f"no LSP executor registered for {command}"
             elif direct_executor is None:

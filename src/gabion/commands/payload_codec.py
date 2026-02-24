@@ -138,8 +138,9 @@ def _positive_int(value: object, *, field: str) -> int:
 def normalized_command_id_list(payload: Mapping[str, object], *, key: str) -> tuple[str, ...]:
     raw = payload.get(key)
     if raw is None:
-        return ()
-    if not isinstance(raw, list):
-        never("invalid command id list", key=key, value_type=type(raw).__name__)
-    normalized = [str(item) for item in raw]
+        normalized: list[str] = []
+    else:
+        if not isinstance(raw, list):
+            never("invalid command id list", key=key, value_type=type(raw).__name__)
+        normalized = [str(item) for item in raw]
     return tuple(sort_once(normalized, source=f"payload_codec.normalized_command_id_list.{key}"))
