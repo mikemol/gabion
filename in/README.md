@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
@@ -7,13 +7,13 @@ doc_requires:
   - glossary.md#contract
   - CONTRIBUTING.md#contributing_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 38
-  glossary.md#contract: 42
+  POLICY_SEED.md#policy_seed: 42
+  glossary.md#contract: 43
   CONTRIBUTING.md#contributing_contract: 84
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Confirms policy contract reference for CI/self-hosted safeguards.
-  glossary.md#contract: Confirms semantic correctness contract reference.
-  CONTRIBUTING.md#contributing_contract: Confirms contributor guardrails reference for required checks.
+  POLICY_SEED.md#policy_seed: Re-reviewed policy seed execution controls (self-hosted constraints, pinned actions, and review discipline) and confirmed this readme still points to the canonical security contract.
+  glossary.md#contract: Re-reviewed glossary contract semantics and confirmed this readme correctly frames semantic validity as co-equal with execution policy.
+  CONTRIBUTING.md#contributing_contract: Re-reviewed contributor workflow guardrails and confirmed this readme still delegates operational checks to CONTRIBUTING.
 doc_id: in_readme
 doc_role: readme
 doc_scope:
@@ -22,7 +22,7 @@ doc_scope:
   - readme
 doc_authority: informative
 doc_sections:
-  in_readme: 1
+  in_readme: 2
 doc_section_requires:
   in_readme:
     - POLICY_SEED.md#policy_seed
@@ -31,20 +31,20 @@ doc_section_requires:
 doc_section_reviews:
   in_readme:
     POLICY_SEED.md#policy_seed:
-      dep_version: 38
-      self_version_at_review: 1
+      dep_version: 1
+      self_version_at_review: 2
       outcome: no_change
-      note: Policy contract reference remains current.
+      note: Policy seed anchor still governs execution/CI safety exactly as referenced here.
     glossary.md#contract:
-      dep_version: 42
-      self_version_at_review: 1
+      dep_version: 1
+      self_version_at_review: 2
       outcome: no_change
-      note: Semantic correctness contract reference remains current.
+      note: Glossary contract anchor remains the normative semantic companion cited by this readme.
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 84
-      self_version_at_review: 1
+      dep_version: 1
+      self_version_at_review: 2
       outcome: no_change
-      note: Contributor guardrails reference remains current.
+      note: Contributor contract anchor remains the correct operational workflow reference.
 ---
 
 <a id="in_readme"></a>
@@ -54,6 +54,11 @@ doc_section_reviews:
 Prism VM is a small JAX-backed interpreter for a tiny IR (zero/suc/add/mul) with
 deduplication, basic static optimization, and kernel dispatch, plus an
 experimental BSP arena pipeline.
+
+## Maintenance cadence for `in/` normative artifacts
+- Re-run docflow anchor review after any `doc_revision` change in `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, or referenced `in/` design docs.
+- Treat stale dependency entries in `out/docflow_section_reviews.md` as a same-cycle maintenance task for `in/` docs: update `doc_reviewed_as_of`, `doc_review_notes`, and section review metadata together.
+- For steady-state periods, perform a lightweight monthly review sweep of `in/` normative frontmatter to prevent recurrent drift.
 
 ## Requirements
 - Python via mise (`mise.toml`)
