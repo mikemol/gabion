@@ -7,7 +7,7 @@ import time
 from typing import Callable, Literal, Mapping
 
 from gabion.commands import progress_contract as progress_timeline
-from gabion.lsp_client import run_command_direct
+from gabion.lsp_client import run_command, run_command_direct
 from gabion.tooling import delta_emit_runtime
 
 EmitterId = Literal[
@@ -197,6 +197,7 @@ def main_for_emitter(
     emitter_id: EmitterId,
     *,
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     output_path: Path | None = None,
     expected_outputs: tuple[Path, ...] | None = None,
@@ -218,6 +219,7 @@ def main_for_emitter(
         run_spec=run_spec,
         payload=payload,
         run_command_direct_fn=run_command_direct_fn,
+        run_command_fn=run_command_fn,
         root_path=root_path,
         print_fn=print_fn,
         monotonic_fn=monotonic_fn,
@@ -228,6 +230,7 @@ def main_for_emitter(
 def main(
     *,
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
     expected_state_paths: tuple[Path, ...] = _EXPECTED_STATE_PATHS,
@@ -236,6 +239,7 @@ def main(
     return main_for_emitter(
         "delta_state_emit",
         run_command_direct_fn=run_command_direct_fn,
+        run_command_fn=run_command_fn,
         root_path=root_path,
         expected_outputs=expected_state_paths,
         print_fn=print_fn,
@@ -246,6 +250,7 @@ def main(
 def obsolescence_main(
     *,
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _OBSOLESCENCE_DELTA_PATH,
     resume_checkpoint: Path | bool | None = None,
@@ -255,6 +260,7 @@ def obsolescence_main(
     return main_for_emitter(
         "obsolescence_delta_emit",
         run_command_direct_fn=run_command_direct_fn,
+        run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
         resume_checkpoint=resume_checkpoint,
@@ -266,6 +272,7 @@ def obsolescence_main(
 def annotation_drift_main(
     *,
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _ANNOTATION_DRIFT_DELTA_PATH,
     resume_checkpoint: Path | bool | None = None,
@@ -275,6 +282,7 @@ def annotation_drift_main(
     return main_for_emitter(
         "annotation_drift_delta_emit",
         run_command_direct_fn=run_command_direct_fn,
+        run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
         resume_checkpoint=resume_checkpoint,
@@ -286,6 +294,7 @@ def annotation_drift_main(
 def ambiguity_main(
     *,
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _AMBIGUITY_DELTA_PATH,
     resume_checkpoint: Path | bool | None = None,
@@ -295,6 +304,7 @@ def ambiguity_main(
     return main_for_emitter(
         "ambiguity_delta_emit",
         run_command_direct_fn=run_command_direct_fn,
+        run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
         resume_checkpoint=resume_checkpoint,

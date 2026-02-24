@@ -77,3 +77,62 @@ def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
 
 def test_controller_audit_requires_clause_anchors_for_enforcement_surfaces() -> None:
     assert governance_controller_audit._enforcement_clause_findings() == []
+
+
+def test_policy_check_normative_enforcement_map_validates_current_repo() -> None:
+    policy_check.check_normative_enforcement_map()
+
+
+def test_policy_check_normative_enforcement_map_fails_missing_module(tmp_path: Path) -> None:
+    broken = tmp_path / "normative_enforcement_map.yaml"
+    broken.write_text(
+        """version: 1
+clauses:
+  NCI-LSP-FIRST:
+    status: enforced
+    enforcing_modules: [missing/file.py]
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-PINNED:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-ALLOWLIST:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DATAFLOW-BUNDLE-TIERS:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-SHIFT-AMBIGUITY-LEFT:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-COMMAND-MATURITY-PARITY:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-DRIFT-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+""",
+        encoding="utf-8",
+    )
+    original = policy_check.NORMATIVE_ENFORCEMENT_MAP
+    try:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = broken
+        try:
+            policy_check.check_normative_enforcement_map()
+            assert False, "expected check_normative_enforcement_map to fail"
+        except SystemExit as exc:
+            assert exc.code == 2
+    finally:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = original
