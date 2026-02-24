@@ -66,3 +66,19 @@ def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
             runner=run_command,
         )
     assert decision.runner is run_command_direct
+
+
+def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> None:
+    with _env_scope(
+        {
+            transport_policy.DIRECT_RUN_ENV: None,
+            transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None,
+            transport_policy.OVERRIDE_RECORD_JSON_ENV: None,
+        }
+    ):
+        decision = transport_policy.resolve_command_transport(
+            command="gabion.unknown-command",
+            runner=run_command,
+        )
+    assert decision.policy is None
+    assert decision.direct_requested is False

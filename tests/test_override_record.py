@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
-from gabion.tooling.override_record import validate_override_record
+import pytest
+
+from gabion.tooling.override_record import (
+    _parse_time,
+    validate_override_record,
+    validate_override_record_file,
+    validate_override_record_json,
+)
 
 
 def _valid_record() -> dict[str, object]:
@@ -53,3 +61,25 @@ def test_validate_override_record_valid_path() -> None:
     telemetry = result.telemetry(source="test")
     assert telemetry["override_valid"] is True
     assert telemetry["override_source"] == "test"
+
+
+def test_validate_override_record_json_and_file_invalid_json_paths(tmp_path: Path) -> None:
+    json_result = validate_override_record_json("{not-json")
+    assert json_result.valid is False
+    assert json_result.reason == "invalid_json"
+
+    bad_file = tmp_path / "override.json"
+    bad_file.write_text("{not-json", encoding="utf-8")
+    file_result = validate_override_record_file(bad_file)
+    assert file_result.valid is False
+    assert file_result.reason == "invalid_json"
+
+
+def test_validate_override_record_additional_validation_edges() -> None:
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    links_empty = _valid_record()
+    links_empty["evidence_links"] = []
+    assert validate_override_record(links_empty, now=now).reason == "invalid_evidence_links"
+
+    with pytest.raises(ValueError):
+        _parse_time(123)

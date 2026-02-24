@@ -87,6 +87,30 @@ def test_governance_rules_validation_failures(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         governance_rules.load_governance_rules(drift_bad)
 
+    gates_not_mapping = tmp_path / "gates_not_mapping.yaml"
+    gates_not_mapping.write_text("override_token_env: TOKEN\ngates: []\ncontroller_drift: {}\n", encoding="utf-8")
+    governance_rules.load_governance_rules.cache_clear()
+    with pytest.raises(ValueError):
+        governance_rules.load_governance_rules(gates_not_mapping)
+
+    remediation_not_mapping = tmp_path / "remediation_not_mapping.yaml"
+    remediation_not_mapping.write_text(
+        """
+override_token_env: TOKEN
+gates: {}
+controller_drift:
+  severity_classes: [low]
+  enforce_at_or_above: high
+  remediation_by_severity: []
+  consecutive_passes_required: 1
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    governance_rules.load_governance_rules.cache_clear()
+    with pytest.raises(ValueError):
+        governance_rules.load_governance_rules(remediation_not_mapping)
+
 
 # gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._yaml_loader::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
 def test_governance_rules_loader_none_and_gate_filtering(tmp_path: Path) -> None:
@@ -176,3 +200,10 @@ command_policies: []
     )
     assert loaded_non_mapping_commands.command_policies == {}
     governance_rules.load_governance_rules.cache_clear()
+
+
+def test_governance_rules_as_bool_branches() -> None:
+    assert governance_rules._as_bool(True, field_name="f") is True
+    assert governance_rules._as_bool(False, field_name="f") is False
+    with pytest.raises(ValueError):
+        governance_rules._as_bool("maybe", field_name="f")
