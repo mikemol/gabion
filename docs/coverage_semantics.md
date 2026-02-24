@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -136,19 +136,19 @@ doc_invariants:
   - coverage_smell_tracking
   - name: docflow:cover:decision_surface
     kind: cover
-    status: proposed
+    status: active
     cover_evidence_kind: decision_surface
   - name: docflow:cover:function_site
     kind: cover
-    status: proposed
+    status: active
     cover_evidence_kind: function_site
   - name: docflow:cover:call_footprint
     kind: cover
-    status: proposed
+    status: active
     cover_evidence_kind: call_footprint
   - name: docflow:cover:call_cluster
     kind: cover
-    status: proposed
+    status: active
     cover_evidence_kind: call_cluster
 doc_erasure:
   - formatting
@@ -246,6 +246,24 @@ Coverage is ratcheted:
 - Existing gaps may be baseline-accepted for execution coverage.
 - **New or modified rules** MUST include rule/grammar/convergence coverage.
 - New tests must be specific to the invariant they protect.
+
+## 2.1 Docflow pattern-class mappings for semantic-core excess (normative)
+
+`out/docflow_compliance.md` excess entries are mapped by reusable classes rather
+than per-node enumeration. For semantic-core paths
+(`src/gabion/server.py`, `src/gabion/server_core/`, `src/gabion/analysis/`),
+the recurring classes are (from the pre-mapping excess snapshot):
+
+- **Decision parameter surface class** (`decision_surface`, frequency **158**):
+  direct branch-bearing parameter checks in semantic-core flows.
+- **Test-to-core edge class** (`call_footprint`, frequency **8**): test
+  callsites invoking semantic-core targets (including adapter-mediated calls).
+- **Core adjacency cluster class** (`call_cluster`, frequency **3**): grouped
+  helper/core call topology around semantic-core execution.
+
+The class-to-coverage mapping is enforced through active `docflow:cover:*`
+kind invariants. Any present/future evidence node of these kinds is covered by
+class membership, not by explicit id listing.
 
 ## 3. Reporting (Current Practice)
 

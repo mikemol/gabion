@@ -299,7 +299,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 - [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 - [x] Locked dependency set for CI (`requirements.lock`).
-- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@19}
+- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@20}
 
 ## Decision-flow tier nodes
 - <a id="decision-flow-tier3"></a>[x] Decision Table documentation for branch-heavy modules (Tier-3 evidence; see `docs/decision_flow_tiers.md#decision-flow-tier3`). (GH-47)
