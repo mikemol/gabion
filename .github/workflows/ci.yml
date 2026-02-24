@@ -201,6 +201,29 @@ jobs:
         run: .venv/bin/python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
         run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
+      - name: Restore controller drift gate history
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p artifacts/out
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "GH_TOKEN unavailable; skipping controller drift history restore."
+            exit 0
+          fi
+          history_url=$(gh api \
+            "repos/${{ github.repository }}/actions/artifacts" \
+            --paginate \
+            -f per_page=100 \
+            --jq '.artifacts[] | select(.name == "controller-drift-gate-history" and .expired == false and .workflow_run.head_branch == env.BRANCH_NAME) | .archive_download_url' \
+            | head -n 1)
+          if [ -z "${history_url:-}" ]; then
+            echo "No prior controller drift history artifact found for branch ${BRANCH_NAME}."
+            exit 0
+          fi
+          gh api "$history_url" > artifacts/out/controller_drift_gate_history.zip
+          python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
       - name: Controller drift audit
         run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Override lifecycle record emit
@@ -209,7 +232,8 @@ jobs:
         run: |
           .venv/bin/python scripts/ci_controller_drift_gate.py \
             --drift-artifact artifacts/out/controller_drift.json \
-            --override-record artifacts/out/governance_override_record.json
+            --override-record artifacts/out/governance_override_record.json \
+            --history artifacts/out/controller_drift_gate_history.json
       - name: LSP parity gate
         run: .venv/bin/python -m gabion lsp-parity-gate --command gabion.check
       - name: Tests
@@ -245,6 +269,12 @@ jobs:
             --history artifacts/out/governance_telemetry_history.json \
             --json-out artifacts/out/governance_telemetry.json \
             --md-out artifacts/audit_reports/governance_telemetry.md
+      - name: Upload controller drift gate history
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: controller-drift-gate-history
+          path: artifacts/out/controller_drift_gate_history.json
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -254,4 +284,5 @@ jobs:
             artifacts/test_runs
             artifacts/out/governance_telemetry.json
             artifacts/out/governance_telemetry_history.json
+            artifacts/out/controller_drift_gate_history.json
             artifacts/audit_reports/governance_telemetry.md
