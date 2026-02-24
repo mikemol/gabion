@@ -82,3 +82,42 @@ def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> Non
         )
     assert decision.policy is None
     assert decision.direct_requested is False
+
+
+def test_transport_override_scope_prefers_context_over_env() -> None:
+    with _env_scope(
+        {
+            transport_policy.DIRECT_RUN_ENV: "0",
+            transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: "env://evidence",
+            transport_policy.OVERRIDE_RECORD_JSON_ENV: " {} ",
+        }
+    ):
+        with transport_policy.transport_override_scope(
+            transport_policy.TransportOverrideConfig(
+                direct_requested=True,
+                direct_override_evidence="  context://evidence  ",
+                override_record_json="  {\"actor\":\"ci\"}  ",
+            )
+        ):
+            assert transport_policy.transport_override_present() is True
+            direct_requested, evidence, record_json = (
+                transport_policy._resolve_transport_controls()
+            )
+            assert direct_requested is True
+            assert evidence == "context://evidence"
+            assert record_json == "{\"actor\":\"ci\"}"
+
+
+def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> None:
+    transport_policy.apply_cli_transport_flags(
+        direct_requested=False,
+        direct_override_evidence="  ",
+        override_record_json="  {\"actor\":\"ci\"}  ",
+    )
+    override = transport_policy.transport_override()
+    assert override is not None
+    assert override.direct_requested is False
+    assert override.direct_override_evidence is None
+    assert override.override_record_json == "{\"actor\":\"ci\"}"
+    transport_policy.apply_cli_transport_flags()
+    assert transport_policy.transport_override() is None

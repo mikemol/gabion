@@ -9,7 +9,9 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from gabion.commands import transport_policy
 from gabion import cli
+from gabion.runtime import env_policy
 
 
 def _has_pygls() -> bool:
@@ -128,6 +130,33 @@ def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
         assert dict(cli._TOOLING_ARGV_RUNNERS) == with_argv_before
     assert dict(cli._TOOLING_NO_ARG_RUNNERS) == no_arg_before
     assert dict(cli._TOOLING_ARGV_RUNNERS) == with_argv_before
+
+
+def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> None:
+    timeout_before = env_policy.lsp_timeout_override()
+    transport_before = transport_policy.transport_override()
+    try:
+        cli.configure_runtime_flags(
+            transport=cli.CliTransportMode.direct,
+            direct_run_override_evidence="audit://override/evidence",
+            override_record_json="{}",
+            lsp_timeout_ticks=10,
+            lsp_timeout_tick_ns=20,
+            lsp_timeout_ms=None,
+            lsp_timeout_seconds=None,
+        )
+        timeout_override = env_policy.lsp_timeout_override()
+        transport_override = transport_policy.transport_override()
+        assert timeout_override is not None
+        assert timeout_override.ticks == 10
+        assert timeout_override.tick_ns == 20
+        assert transport_override is not None
+        assert transport_override.direct_requested is True
+        assert transport_override.direct_override_evidence == "audit://override/evidence"
+        assert transport_override.override_record_json == "{}"
+    finally:
+        env_policy.set_lsp_timeout_override(timeout_before)
+        transport_policy.set_transport_override(transport_before)
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls

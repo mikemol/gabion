@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gabion.tooling import delta_emit_runtime
 from gabion.commands import transport_policy
+from gabion.runtime import env_policy
 
 
 def _progress_notification(*, phase: str, event_seq: int, work_done: int) -> dict[str, object]:
@@ -38,6 +39,14 @@ def test_emit_timeline_row_ignores_empty_phase() -> None:
     )
     assert lines == []
     assert state.last_signature is None
+
+
+def test_timeout_helpers_prefer_context_override() -> None:
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=23, tick_ns=29)
+    ):
+        assert delta_emit_runtime.timeout_ticks() == 23
+        assert delta_emit_runtime.timeout_tick_ns() == 29
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_emit_runtime.py::test_flush_pending_timeline_row_normalizes_signature_and_keys::delta_emit_runtime.py::gabion.tooling.delta_emit_runtime.flush_pending_timeline_row_if_due

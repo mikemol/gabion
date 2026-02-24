@@ -5,7 +5,9 @@ import json
 import os
 from pathlib import Path
 
+from gabion.commands import transport_policy
 from gabion.order_contract import ordered_or_sorted
+from gabion.runtime import env_policy
 from gabion.tooling import run_dataflow_stage
 from tests.env_helpers import env_scope
 
@@ -93,6 +95,56 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
     assert "--emit-ambiguity-delta" in command
     assert "--strictness" in command
     assert "low" in command
+
+
+def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> None:
+    paths = _stage_paths(_base_paths(tmp_path))
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=101, tick_ns=103)
+    ):
+        with transport_policy.transport_override_scope(
+            transport_policy.TransportOverrideConfig(
+                direct_requested=False,
+                direct_override_evidence="audit://transport/override",
+                override_record_json="{\"actor\":\"ci\"}",
+            )
+        ):
+            command = run_dataflow_stage._check_command(
+                paths=paths,
+                resume_on_timeout=1,
+                strictness=None,
+            )
+    assert "--lsp-timeout-ticks" in command
+    assert "101" in command
+    assert "--lsp-timeout-tick-ns" in command
+    assert "103" in command
+    assert "--transport" in command
+    assert "lsp" in command
+    assert "--direct-run-override-evidence" in command
+    assert "audit://transport/override" in command
+    assert "--override-record-json" in command
+    assert "{\"actor\":\"ci\"}" in command
+
+
+def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: Path) -> None:
+    paths = _stage_paths(_base_paths(tmp_path))
+    with env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "31",
+            "GABION_LSP_TIMEOUT_TICK_NS": "37",
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    ):
+        command = run_dataflow_stage._check_command(
+            paths=paths,
+            resume_on_timeout=1,
+            strictness=None,
+        )
+    assert "--lsp-timeout-ticks" in command
+    assert "31" in command
+    assert "--lsp-timeout-tick-ns" in command
+    assert "37" in command
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
