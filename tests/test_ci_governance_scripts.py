@@ -8,6 +8,7 @@ from scripts import governance_controller_audit
 from scripts import policy_check
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_requires_ci_script_entrypoints
 def test_policy_check_requires_ci_script_entrypoints() -> None:
     errors: list[str] = []
     policy_check._check_ci_script_entrypoints(
@@ -27,6 +28,7 @@ def test_policy_check_requires_ci_script_entrypoints() -> None:
     assert any("scripts/ci_controller_drift_gate.py" in error for error in errors)
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_drift_gate_override_expiry_behavior
 def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
     drift = tmp_path / "drift.json"
     out = tmp_path / "gate.json"
@@ -77,6 +79,7 @@ def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
     assert payload_valid["override_diagnostics"]["override_source"] == "controller_drift_gate"
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_drift_gate_streak_progression_and_reset
 def test_controller_drift_gate_streak_progression_and_reset(tmp_path: Path) -> None:
     clean_drift = tmp_path / "clean_drift.json"
     failing_drift = tmp_path / "failing_drift.json"
@@ -117,14 +120,17 @@ def test_controller_drift_gate_streak_progression_and_reset(tmp_path: Path) -> N
     assert reset["stabilization_achieved"] is False
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_requires_clause_anchors_for_enforcement_surfaces
 def test_controller_audit_requires_clause_anchors_for_enforcement_surfaces() -> None:
     assert governance_controller_audit._enforcement_clause_findings() == []
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_validates_current_repo
 def test_policy_check_normative_enforcement_map_validates_current_repo() -> None:
     policy_check.check_normative_enforcement_map()
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_required_clause_set_matches_index
 def test_policy_check_required_clause_set_matches_index() -> None:
     index_path = Path("docs/normative_clause_index.md")
     canonical = {
@@ -135,6 +141,7 @@ def test_policy_check_required_clause_set_matches_index() -> None:
     assert policy_check._REQUIRED_NORMATIVE_CLAUSES == canonical
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_fails_missing_module
 def test_policy_check_normative_enforcement_map_fails_missing_module(tmp_path: Path) -> None:
     broken = tmp_path / "normative_enforcement_map.yaml"
     broken.write_text(
@@ -210,6 +217,7 @@ clauses:
         policy_check.NORMATIVE_ENFORCEMENT_MAP = original
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_fails_missing_clause
 def test_policy_check_normative_enforcement_map_fails_missing_clause(tmp_path: Path) -> None:
     broken = tmp_path / "normative_enforcement_map.yaml"
     broken.write_text(
@@ -281,6 +289,7 @@ clauses:
         policy_check.NORMATIVE_ENFORCEMENT_MAP = original
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs
 def test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs(
     tmp_path: Path,
 ) -> None:
@@ -315,6 +324,7 @@ def test_controller_audit_detects_contradictory_anchors_across_declared_normativ
     assert len(signatures["CD-999"]) == 2
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_reports_missing_declared_normative_docs
 def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     policy = tmp_path / "POLICY_SEED.md"

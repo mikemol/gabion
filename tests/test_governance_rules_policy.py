@@ -202,6 +202,7 @@ command_policies: []
     governance_rules.load_governance_rules.cache_clear()
 
 
+# gabion:evidence E:function_site::test_governance_rules_policy.py::tests.test_governance_rules_policy.test_governance_rules_as_bool_branches
 def test_governance_rules_as_bool_branches() -> None:
     assert governance_rules._as_bool(True, field_name="f") is True
     assert governance_rules._as_bool(False, field_name="f") is False

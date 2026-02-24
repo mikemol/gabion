@@ -47,6 +47,7 @@ def test_env_policy_zero_seconds_rejected() -> None:
             env_policy.timeout_ticks_from_env()
 
 
+# gabion:evidence E:function_site::test_runtime_kernel_contracts.py::tests.test_runtime_kernel_contracts.test_env_policy_cli_timeout_overrides_and_scope_paths
 def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
     with pytest.raises(NeverThrown):
         env_policy.LspTimeoutConfig(ticks=0, tick_ns=1)

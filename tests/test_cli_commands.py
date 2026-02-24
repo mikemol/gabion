@@ -132,6 +132,7 @@ def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
     assert dict(cli._TOOLING_ARGV_RUNNERS) == with_argv_before
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands.test_configure_runtime_flags_maps_transport_mode_to_direct_requested
 def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> None:
     timeout_before = env_policy.lsp_timeout_override()
     transport_before = transport_policy.transport_override()

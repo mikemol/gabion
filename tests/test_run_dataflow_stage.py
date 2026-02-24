@@ -97,6 +97,7 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
     assert "low" in command
 
 
+# gabion:evidence E:function_site::test_run_dataflow_stage.py::tests.test_run_dataflow_stage.test_check_command_includes_context_runtime_overrides
 def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> None:
     paths = _stage_paths(_base_paths(tmp_path))
     with env_policy.lsp_timeout_override_scope(
@@ -126,6 +127,7 @@ def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> Non
     assert "{\"actor\":\"ci\"}" in command
 
 
+# gabion:evidence E:function_site::test_run_dataflow_stage.py::tests.test_run_dataflow_stage.test_check_command_uses_env_timeout_fallback_when_context_missing
 def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: Path) -> None:
     paths = _stage_paths(_base_paths(tmp_path))
     with env_scope(

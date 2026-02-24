@@ -97,6 +97,7 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
     assert any("state artifacts ready" in line for line in lines)
 
 
+# gabion:evidence E:function_site::test_delta_script_telemetry.py::tests.test_delta_script_telemetry.test_delta_triplets_default_runtime_override_scope_edges
 def test_delta_triplets_default_runtime_override_scope_edges() -> None:
     with env_scope(
         {

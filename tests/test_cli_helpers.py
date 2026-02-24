@@ -2298,6 +2298,7 @@ def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_reco
             )
 
 
+# gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_blocks_beta_direct_with_expired_override_record
 def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_path: Path) -> None:
     with _env_scope({
         "GABION_DIRECT_RUN": "1",
@@ -2347,6 +2348,7 @@ def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_re
             runner=cli.run_command,
         )
     assert isinstance(result, dict)
+# gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_preserves_existing_timeout_ms
 def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 

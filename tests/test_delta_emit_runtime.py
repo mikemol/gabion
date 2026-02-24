@@ -41,6 +41,7 @@ def test_emit_timeline_row_ignores_empty_phase() -> None:
     assert state.last_signature is None
 
 
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_timeout_helpers_prefer_context_override
 def test_timeout_helpers_prefer_context_override() -> None:
     with env_policy.lsp_timeout_override_scope(
         env_policy.LspTimeoutConfig(ticks=23, tick_ns=29)
@@ -116,6 +117,7 @@ def test_run_delta_emit_flush_thread_emits_pending_rows(tmp_path: Path) -> None:
     assert any("delta-runtime: complete exit=0" in line for line in lines)
 
 
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_run_command_branch
 def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
     output_path = tmp_path / "delta_output.json"
     output_path.write_text("{}", encoding="utf-8")
@@ -170,6 +172,7 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
     assert any("delta-runtime-run-command: complete exit=0" in line for line in lines)
 
 
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_custom_runner_branch
 def test_run_delta_emit_handles_custom_runner_branch(tmp_path: Path) -> None:
     output_path = tmp_path / "delta_output.json"
     output_path.write_text("{}", encoding="utf-8")

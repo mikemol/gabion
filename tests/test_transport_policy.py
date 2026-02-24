@@ -30,12 +30,14 @@ def _env_scope(updates: dict[str, str | None]):
                 os.environ[key] = value
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_denies_direct_for_governed_without_override
 def test_transport_policy_denies_direct_for_governed_without_override() -> None:
     with _env_scope({transport_policy.DIRECT_RUN_ENV: "1", transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None}):
         with pytest.raises(NeverThrown):
             transport_policy.resolve_command_transport(command=command_ids.CHECK_COMMAND, runner=run_command)
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_allows_direct_for_governed_with_valid_override
 def test_transport_policy_allows_direct_for_governed_with_valid_override() -> None:
     with _env_scope(
         {
@@ -59,6 +61,7 @@ def test_transport_policy_allows_direct_for_governed_with_valid_override() -> No
     assert decision.direct_override_telemetry is not None
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_keeps_direct_for_non_governed_command
 def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
     with _env_scope({transport_policy.DIRECT_RUN_ENV: "1", transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None}):
         decision = transport_policy.resolve_command_transport(
@@ -68,6 +71,7 @@ def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
     assert decision.runner is run_command_direct
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_unknown_command_without_direct_sets_no_policy
 def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> None:
     with _env_scope(
         {
@@ -84,6 +88,7 @@ def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> Non
     assert decision.direct_requested is False
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_override_scope_prefers_context_over_env
 def test_transport_override_scope_prefers_context_over_env() -> None:
     with _env_scope(
         {
@@ -108,6 +113,7 @@ def test_transport_override_scope_prefers_context_over_env() -> None:
             assert record_json == "{\"actor\":\"ci\"}"
 
 
+# gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_apply_cli_transport_flags_normalizes_strings_and_clears_override
 def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> None:
     transport_policy.apply_cli_transport_flags(
         direct_requested=False,
