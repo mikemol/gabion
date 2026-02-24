@@ -722,6 +722,16 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`
 - `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance_controller_audit.py | severity: medium`
 
+**Audited normative-doc set (single source of truth):**
+- `controller-normative-doc: POLICY_SEED.md`
+- `controller-normative-doc: CONTRIBUTING.md`
+- `controller-normative-doc: README.md`
+- `controller-normative-doc: AGENTS.md`
+- `controller-normative-doc: glossary.md`
+- `controller-normative-doc: docs/normative_clause_index.md`
+- `controller-normative-doc: docs/governance_control_loops.md`
+- `controller-normative-doc: docs/governance_loop_matrix.md`
+
 **Controller command references (machine-readable markers):**
 - `controller-command: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`
 - `controller-command: mise exec -- python scripts/check_pr_governance_template.py`
