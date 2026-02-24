@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -24,7 +24,7 @@ doc_reviewed_as_of:
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Clause index derived from policy invariants to reduce duplicated prose drift."
   README.md#repo_contract: "README obligation references consolidated to stable clause IDs."
-  CONTRIBUTING.md#contributing_contract: "Contributor-facing obligations consolidated behind stable clause IDs."
+  CONTRIBUTING.md#contributing_contract: "Contributor-facing obligations consolidated behind stable clause IDs and linked to the enforcement completeness ledger."
   AGENTS.md#agent_obligations: "Agent obligations mapped to canonical clause anchors."
   glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
 doc_sections:
@@ -146,9 +146,15 @@ link to clause IDs instead of duplicating long-form normative prose.
 
 <a id="clause-command-maturity-parity"></a>
 ### `NCI-COMMAND-MATURITY-PARITY` — Command maturity, carrier, and parity governance
-- `beta`/`production` command maturity requires LSP-carrier validation (`require_lsp_carrier`) and cannot treat direct execution as normative without a valid override lifecycle record.
+- `beta`/`production` command maturity requires LSP-carrier validation (`require_lsp_carrier`) and cannot treat direct execution as normative without valid override evidence + lifecycle record.
 - Parity-governed commands (`parity_required`) must retain probe validation payload coverage and declared parity-ignore semantics.
-- Canonical sources: `docs/governance_rules.yaml`, `src/gabion/cli.py`, `POLICY_SEED.md#policy_seed`.
+- Canonical sources: `docs/governance_rules.yaml`, `src/gabion/commands/transport_policy.py`, `src/gabion/cli.py`, `POLICY_SEED.md#policy_seed`.
+
+
+## Enforcement completeness ledger
+
+Machine-readable clause-to-enforcement traceability is maintained in `docs/normative_enforcement_map.yaml`.
+Policy checks validate map integrity and CI/workflow anchors via `scripts/policy_check.py --normative-map`.
 
 ## Usage rule
 

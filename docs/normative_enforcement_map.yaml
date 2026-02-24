@@ -1,0 +1,107 @@
+version: 1
+clauses:
+  NCI-LSP-FIRST:
+    status: enforced
+    enforcing_modules:
+      - src/gabion/cli.py
+      - src/gabion/lsp_client.py
+      - src/gabion/commands/transport_policy.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: LSP parity gate
+    expected_artifacts:
+      - artifacts/out/lsp_parity_gate.json
+  NCI-ACTIONS-PINNED:
+    status: enforced
+    enforcing_modules:
+      - scripts/policy_check.py
+      - docs/allowed_actions.txt
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (workflows)
+    expected_artifacts: []
+  NCI-ACTIONS-ALLOWLIST:
+    status: enforced
+    enforcing_modules:
+      - scripts/policy_check.py
+      - docs/allowed_actions.txt
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (workflows)
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (posture)
+    expected_artifacts: []
+  NCI-DATAFLOW-BUNDLE-TIERS:
+    status: enforced
+    enforcing_modules:
+      - src/gabion/analysis/dataflow_bundle_iteration.py
+      - .github/workflows/pr-dataflow-grammar.yml
+    ci_anchors:
+      - workflow: .github/workflows/pr-dataflow-grammar.yml
+        job: dataflow-grammar
+        step: Render dataflow grammar report
+      - workflow: .github/workflows/ci.yml
+        job: dataflow-grammar
+        step: Dataflow audit invocation
+    expected_artifacts:
+      - artifacts/dataflow_grammar/report.md
+      - artifacts/audit_reports/dataflow_report.md
+  NCI-SHIFT-AMBIGUITY-LEFT:
+    status: enforced
+    enforcing_modules:
+      - scripts/branchless_policy_check.py
+      - scripts/defensive_fallback_policy_check.py
+      - src/gabion/tooling/ambiguity_contract_policy_check.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (branchless)
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (defensive fallback)
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy check (ambiguity contract)
+    expected_artifacts:
+      - artifacts/out/ambiguity_contract_policy_check.json
+  NCI-COMMAND-MATURITY-PARITY:
+    status: enforced
+    enforcing_modules:
+      - docs/governance_rules.yaml
+      - src/gabion/commands/transport_policy.py
+      - src/gabion/cli.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: LSP parity gate
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Override lifecycle record emit
+    expected_artifacts:
+      - artifacts/out/governance_override_record.json
+      - artifacts/out/lsp_parity_gate.json
+  NCI-CONTROLLER-DRIFT-LIFECYCLE:
+    status: enforced
+    enforcing_modules:
+      - scripts/governance_controller_audit.py
+      - scripts/ci_override_record_emit.py
+      - scripts/ci_controller_drift_gate.py
+      - src/gabion/tooling/override_record.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Controller drift audit
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Override lifecycle record emit
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Controller drift gate
+    expected_artifacts:
+      - artifacts/out/controller_drift.json
+      - artifacts/out/governance_override_record.json
+      - artifacts/out/controller_drift_gate.json

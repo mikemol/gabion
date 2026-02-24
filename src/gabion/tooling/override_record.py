@@ -15,6 +15,12 @@ REQUIRED_OVERRIDE_FIELDS: tuple[str, ...] = (
     "rollback_condition",
     "evidence_links",
 )
+_REQUIRED_NON_EMPTY_TEXT_FIELDS: tuple[str, ...] = (
+    "actor",
+    "rationale",
+    "scope",
+    "rollback_condition",
+)
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,16 @@ def _parse_time(value: object) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
+def _is_non_empty_text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _evidence_links_valid(value: object) -> bool:
+    if not isinstance(value, list) or not value:
+        return False
+    return all(isinstance(entry, str) and bool(entry.strip()) for entry in value)
+
+
 def validate_override_record(
     raw_record: object,
     *,
@@ -58,11 +74,23 @@ def validate_override_record(
     missing = [field for field in REQUIRED_OVERRIDE_FIELDS if field not in record]
     if missing:
         return OverrideValidationResult(active=True, valid=False, reason="missing_fields", record=record)
+    for field in _REQUIRED_NON_EMPTY_TEXT_FIELDS:
+        if not _is_non_empty_text(record.get(field)):
+            return OverrideValidationResult(active=True, valid=False, reason="empty_field", record=record)
+    if not _evidence_links_valid(record.get("evidence_links")):
+        return OverrideValidationResult(
+            active=True,
+            valid=False,
+            reason="invalid_evidence_links",
+            record=record,
+        )
     try:
+        start = _parse_time(record["start"])
         expiry = _parse_time(record["expiry"])
-        _parse_time(record["start"])
     except ValueError:
         return OverrideValidationResult(active=True, valid=False, reason="invalid_timestamp", record=record)
+    if start >= expiry:
+        return OverrideValidationResult(active=True, valid=False, reason="invalid_interval", record=record)
     now_utc = now or datetime.now(timezone.utc)
     if expiry <= now_utc:
         return OverrideValidationResult(active=True, valid=False, reason="expired", record=record)
@@ -88,4 +116,3 @@ def validate_override_record_file(path: Path) -> OverrideValidationResult:
     except json.JSONDecodeError:
         return OverrideValidationResult(active=True, valid=False, reason="invalid_json", record=None)
     return validate_override_record(decoded)
-

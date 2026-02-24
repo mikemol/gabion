@@ -11,7 +11,8 @@ from typing import Callable, Literal, Mapping, Sequence
 
 from gabion import server
 from gabion.commands import progress_contract as progress_timeline
-from gabion.lsp_client import CommandRequest, run_command_direct
+from gabion.commands.transport_policy import resolve_command_transport
+from gabion.lsp_client import CommandRequest, run_command, run_command_direct
 from gabion.runtime import env_policy
 
 DEFAULT_TIMEOUT_TICKS = "65000000"
@@ -239,6 +240,7 @@ def run_delta_emit(
     run_spec: DeltaEmitRunSpec,
     payload: Mapping[str, object],
     run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
@@ -285,15 +287,30 @@ def run_delta_emit(
     flush_thread.start()
 
     request = CommandRequest(server.DATAFLOW_COMMAND, [dict(payload)])
+    transport = resolve_command_transport(command=server.DATAFLOW_COMMAND, runner=run_command_fn)
+    resolved_runner = (
+        run_command_direct if transport.runner is run_command and not transport.direct_requested else transport.runner
+    )
     try:
-        if supports_notification_callback(run_command_direct_fn):
-            result = run_command_direct_fn(
+        if resolved_runner is run_command:
+            result = resolved_runner(
                 request,
                 root=root_path,
+                timeout_ticks=int(payload.get("analysis_timeout_ticks") or timeout_ticks()),
+                timeout_tick_ns=int(payload.get("analysis_timeout_tick_ns") or timeout_tick_ns()),
                 notification_callback=_on_notification,
             )
+        elif resolved_runner is run_command_direct:
+            if supports_notification_callback(run_command_direct_fn):
+                result = run_command_direct_fn(
+                    request,
+                    root=root_path,
+                    notification_callback=_on_notification,
+                )
+            else:
+                result = run_command_direct_fn(request, root=root_path)
         else:
-            result = run_command_direct_fn(request, root=root_path)
+            result = resolved_runner(request, root=root_path)
     finally:
         flush_stop_event.set()
         flush_thread.join(timeout=1.0)

@@ -8,4 +8,5 @@ __all__ = [
     "direct_dispatch",
     "payload_codec",
     "progress_contract",
+    "transport_policy",
 ]

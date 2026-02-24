@@ -1,5 +1,5 @@
 ---
-doc_revision: 103
+doc_revision: 104
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -29,7 +29,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations (LSP-first, policy pinning/allow-list, bundle tiers, baseline ratchet)."
+  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations and cross-linked to the machine-readable enforcement ledger."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
@@ -113,6 +113,9 @@ valid.
 - **Python execution discipline:** for repo-local tooling, prefer `mise exec -- python`
   so the pinned interpreter/toolchain is used; in CI, invoking `.venv/bin/python` is acceptable
   once the workflow has bootstrapped pinned dependencies (for reproducible hermetic runs).
+- **Override lifecycle source-of-truth:** override record schema/validation semantics are enforced by `src/gabion/tooling/override_record.py` and consumed by both runtime transport policy and CI override emit/gates.
+- **Command transport decision surface:** CLI and tooling paths must use `src/gabion/commands/transport_policy.py` so direct-vs-LSP enforcement remains maturity/parity aligned.
+- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `scripts/policy_check.py --normative-map` green when governance mappings change.
 
 ## Optional governance framing
 See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
