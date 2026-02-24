@@ -136,3 +136,58 @@ clauses:
             assert exc.code == 2
     finally:
         policy_check.NORMATIVE_ENFORCEMENT_MAP = original
+
+
+def test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "docs").mkdir()
+    policy = tmp_path / "POLICY_SEED.md"
+    policy.write_text(
+        "\n".join(
+            (
+                "- `controller-normative-doc: POLICY_SEED.md`",
+                "- `controller-normative-doc: docs/governance_control_loops.md`",
+                "- `controller-anchor: CD-999 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "governance_control_loops.md").write_text(
+        "- `controller-anchor: CD-999 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: medium`\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(governance_controller_audit, "REPO_ROOT", tmp_path)
+    signatures, missing = governance_controller_audit._collect_normative_anchor_signatures(
+        governance_controller_audit._normative_docs(policy.read_text(encoding="utf-8"))
+    )
+
+    assert missing == []
+    assert len(signatures["CD-999"]) == 2
+
+
+def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "docs").mkdir()
+    policy = tmp_path / "POLICY_SEED.md"
+    policy.write_text(
+        "\n".join(
+            (
+                "- `controller-normative-doc: POLICY_SEED.md`",
+                "- `controller-normative-doc: docs/governance_control_loops.md`",
+                "- `controller-anchor: CD-001 | doc: POLICY_SEED.md#change_protocol | sensor: policy_clauses_without_enforcing_check | check: scripts/governance_controller_audit.py | severity: high`",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(governance_controller_audit, "REPO_ROOT", tmp_path)
+    out = tmp_path / "out.json"
+    rc = governance_controller_audit.run(policy_path=policy, out_path=out, fail_on_severity="high")
+    payload = json.loads(out.read_text(encoding="utf-8"))
+
+    assert rc == 2
+    assert any(item["sensor"] == "missing_normative_docs_in_repo" for item in payload["findings"])

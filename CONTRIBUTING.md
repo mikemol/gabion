@@ -454,6 +454,7 @@ scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-
 `--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
 back to environment values or local branch ancestry.
 PR mode now also runs the governance template check and controller-drift audit.
+The audited normative-doc registry consumed by `scripts/governance_controller_audit.py` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
 For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
 ```
 scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
