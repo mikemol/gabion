@@ -110,6 +110,16 @@ gates:
       mode: hard-fail
       transitions: [advisory->ratchet]
       bounded_steps: [baseline_write_requires_explicit_flag]
+command_policies:
+  1: not-a-mapping
+  bad-shape: []
+  valid.command:
+    maturity: beta
+    require_lsp_carrier: true
+    parity_required: true
+    probe_payload:
+      a: 1
+    parity_ignore_keys: [root]
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -117,4 +127,33 @@ gates:
     governance_rules.load_governance_rules.cache_clear()
     loaded = governance_rules.load_governance_rules(mixed)
     assert list(loaded.gates.keys()) == ["valid_gate"]
+    assert list(loaded.command_policies.keys()) == ["valid.command"]
+    non_mapping_commands = tmp_path / "non_mapping_commands.yaml"
+    non_mapping_commands.write_text(
+        """
+override_token_env: TOKEN
+gates:
+  valid_gate:
+    env_flag: GABION_GATE_TEST
+    enabled_mode: default_true
+    delta_keys: [summary, delta]
+    before_keys: [summary, before]
+    after_keys: [summary, after]
+    severity:
+      warning_threshold: 1
+      blocking_threshold: 2
+    correction:
+      mode: hard-fail
+      transitions: [advisory->ratchet]
+      bounded_steps: [baseline_write_requires_explicit_flag]
+command_policies: []
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    governance_rules.load_governance_rules.cache_clear()
+    loaded_non_mapping_commands = governance_rules.load_governance_rules(
+        non_mapping_commands
+    )
+    assert loaded_non_mapping_commands.command_policies == {}
     governance_rules.load_governance_rules.cache_clear()

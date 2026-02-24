@@ -5,6 +5,7 @@ CHECK_COMMAND = "gabion.check"
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 IMPACT_COMMAND = "gabion.impactQuery"
+LSP_PARITY_GATE_COMMAND = "gabion.lspParityGate"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
@@ -17,6 +18,7 @@ SEMANTIC_COMMAND_IDS: tuple[str, ...] = (
     DATAFLOW_COMMAND,
     DECISION_DIFF_COMMAND,
     IMPACT_COMMAND,
+    LSP_PARITY_GATE_COMMAND,
     REFACTOR_COMMAND,
     STRUCTURE_DIFF_COMMAND,
     STRUCTURE_REUSE_COMMAND,

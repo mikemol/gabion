@@ -31,6 +31,7 @@ from gabion.analysis.obligation_registry import (
 )
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.governance_rules import load_governance_rules
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
@@ -83,9 +84,11 @@ CORE_GOVERNANCE_DOCS = [
 
 GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
     "docs/governance_control_loops.md",
+    "docs/governance_loop_matrix.md",
     "docs/publishing_practices.md",
     "docs/influence_index.md",
     "docs/coverage_semantics.md",
+    "docs/normative_clause_index.md",
     "docs/matrix_acceptance.md",
     "docs/sppf_checklist.md",
 ]
@@ -341,6 +344,23 @@ DECLARATION_TO_CHECKLIST_MAP = {
 }
 
 
+def _matrix_gate_ids_from_markdown(body: str) -> set[str]:
+    gate_ids: set[str] = set()
+    for line in body.splitlines():
+        check_deadline()
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        gate_cell = cells[1].strip("`").strip()
+        if not gate_cell or gate_cell == "gate ID" or gate_cell.startswith("---"):
+            continue
+        gate_ids.add(gate_cell)
+    return gate_ids
+
+
 def _parse_sppf_tag(payload: str) -> dict[str, str]:
     items: dict[str, str] = {}
     for chunk in payload.split(";"):
@@ -478,6 +498,13 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
             return False
         return row.get("declared") is not True
 
+    def _missing_matrix_gate_entry(row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]) -> bool:
+        if not _is_row(row, "doc_loop_matrix_gate"):
+            return False
+        if row.get("required") is not True:
+            return False
+        return row.get("declared") is not True
+
     return {
         "missing_frontmatter": _missing_frontmatter,
         "missing_required_field": _missing_required_field,
@@ -492,6 +519,7 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
         "evidence_id": _evidence_id,
         "evidence_source": _evidence_source,
         "missing_loop_entry": _missing_loop_entry,
+        "missing_matrix_gate_entry": _missing_matrix_gate_entry,
     }
 
 
@@ -540,6 +568,11 @@ DOCFLOW_AUDIT_INVARIANTS = [
         name="docflow:missing_governance_control_loop",
         kind="never",
         spec=_make_invariant_spec("docflow:missing_governance_control_loop", ["missing_loop_entry"]),
+    ),
+    DocflowInvariant(
+        name="docflow:governance_loop_matrix_drift",
+        kind="never",
+        spec=_make_invariant_spec("docflow:governance_loop_matrix_drift", ["missing_matrix_gate_entry"]),
     ),
 ]
 
@@ -1849,6 +1882,28 @@ def _docflow_invariant_rows(
                 "declared": domain in declared_domains,
             }
         )
+
+    matrix_doc_rel = "docs/governance_loop_matrix.md"
+    matrix_doc = docs.get(matrix_doc_rel)
+    matrix_gate_ids = _matrix_gate_ids_from_markdown(matrix_doc.body) if matrix_doc is not None else set()
+    matrix_doc_id = (
+        matrix_doc.frontmatter.get("doc_id")
+        if matrix_doc is not None and isinstance(matrix_doc.frontmatter.get("doc_id"), str)
+        else None
+    )
+    matrix_base = base_meta(matrix_doc_rel, matrix_doc_id)
+    for gate_id in _sorted(load_governance_rules().gates.keys()):
+        check_deadline()
+        rows.append(
+            {
+                "row_kind": "doc_loop_matrix_gate",
+                **matrix_base,
+                "gate_id": gate_id,
+                "required": True,
+                "declared": gate_id in matrix_gate_ids,
+            }
+        )
+
     return rows, warnings
 
 
@@ -1955,6 +2010,9 @@ def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
     if kind == "doc_loop_entry":
         domain = row.get("domain", "?")
         return f"{path}: missing governance control-loop declaration for domain: {domain}"
+    if kind == "doc_loop_matrix_gate":
+        gate_id = row.get("gate_id", "?")
+        return f"{path}: governance loop matrix drift; missing gate row for: {gate_id}"
     return f"{path}: docflow invariant violation"
 
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: architecture_zones
 doc_role: architecture
@@ -69,6 +69,18 @@ These zones are expected to run deterministic semantics once data is reified:
 - **Analysis semantics pipeline:** `src/gabion/analysis/` (dataflow graphing, evidence projection, decision/report surfaces).
 - **Synthesis semantics pipeline:** `src/gabion/synthesis/` (bundle merge, naming, scheduling, protocol plan construction).
 - **Refactor semantics engine:** `src/gabion/refactor/` (rewrite planning and edit synthesis driven by reified plans).
+
+
+## Ambiguity control matrix
+
+| Pattern | Ambiguity admission zones | Deterministic core zones |
+| --- | --- | --- |
+| `isinstance` runtime narrowing | Allowed only to normalize incoming shape once at ingress | Forbidden as recurring control strategy; use reified contracts instead |
+| `Optional` / `Union` / `Any` / `|` alternation | Allowed in boundary DTO/adapter normalization | Forbidden as unresolved downstream alternation in core semantics |
+| Sentinel outcomes (`None`, empty sentinels, `pass`/`continue` fallthrough) | Allowed only inside explicit boundary normalizers | Forbidden for core control flow; use structural decision outcomes |
+
+The boundary/core distinction above operationalizes
+[`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
 
 ## Boundary handoff contract
 Only **Tier-1 reified objects** cross from ambiguity zones into deterministic core zones.

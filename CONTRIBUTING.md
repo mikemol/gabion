@@ -1,5 +1,5 @@
 ---
-doc_revision: 97
+doc_revision: 99
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -13,6 +13,7 @@ doc_requires:
   - README.md#repo_contract
   - AGENTS.md#agent_obligations
   - POLICY_SEED.md#policy_seed
+  - docs/normative_clause_index.md#normative_clause_index
   - glossary.md#contract
   - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
@@ -20,6 +21,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 1
   AGENTS.md#agent_obligations: 1
   POLICY_SEED.md#policy_seed: 1
+  docs/normative_clause_index.md#normative_clause_index: 1
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
@@ -27,6 +29,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations (LSP-first, policy pinning/allow-list, bundle tiers, baseline ratchet)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
@@ -36,6 +39,7 @@ doc_section_requires:
     - README.md#repo_contract
     - AGENTS.md#agent_obligations
     - POLICY_SEED.md#policy_seed
+    - docs/normative_clause_index.md#normative_clause_index
     - glossary.md#contract
     - docs/coverage_semantics.md#coverage_semantics
 doc_section_reviews:
@@ -55,6 +59,11 @@ doc_section_reviews:
       self_version_at_review: 1
       outcome: no_change
       note: "Policy seed reviewed; contributor contract unchanged."
+    docs/normative_clause_index.md#normative_clause_index:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Clause IDs reviewed; contributing guidance now links canonical obligations."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
@@ -95,8 +104,9 @@ valid.
 - Mechanical version stamping is prohibited and treated as a governance breach.
 
 ## Architectural invariants (normative)
-- **LSP-first invariant:** the language server is the semantic core; the CLI is
-  a thin LSP client and must not import or reimplement analysis logic.
+- **LSP-first invariant:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
+- **Maturity/transport policy:** `experimental` and `debug` may use direct-path diagnostics; `beta` and `production` require LSP-carrier validation and cannot treat direct path as the only normative route.
+- **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
 
@@ -109,21 +119,21 @@ that can be adopted when helpful.
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 - `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/normative_clause_index.md#normative_clause_index` defines stable clause IDs used by this guide.
 - `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides a day-to-day implementation checklist backed by canonical clauses.
+- `docs/governance_loop_matrix.md#governance_loop_matrix` provides a gate-by-gate control-loop matrix for sensors, artifacts, thresholds, and overrides.
+- `docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol` provides the compact refactor protocol card for ambiguity-pressure changes.
 
 ## Dataflow grammar invariant
-Recurring parameter bundles are treated as type-level obligations. Any bundle
-that crosses function boundaries must be promoted to a Protocol (dataclass
-config/local bundle), or explicitly documented in-place with:
+- Canonical rule: [`NCI-DATAFLOW-BUNDLE-TIERS`](docs/normative_clause_index.md#clause-dataflow-bundle-tiers).
+- In-place Tier-3 marker format remains:
 
 ```
 # dataflow-bundle: a1, a2, a3
 ```
 
-Tier-2 bundles must be reified before merge (see `[glossary.md#contract](glossary.md#contract)`).
-Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
-
 ## Refactor Under Ambiguity Pressure (normative)
+Canonical rule: [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
 When ambiguity appears during refactors, contributors must apply the following
 sequence in order:
 
@@ -133,7 +143,7 @@ sequence in order:
    expected shape/decision surface as an explicit contract.
 3. **Step C — normalize incoming values once (adapter layer).** Perform
    conversion/defaulting/disambiguation at ingress.
-4. **Step D — remove downstream `isinstance`/`Optional`/sentinel checks.**
+4. **Step D — remove downstream `isinstance`/`Optional`/`Union`/`Any`/sentinel checks.**
    Core flows must consume deterministic contract types, not repeated ambiguity
    guards.
 5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the
@@ -264,8 +274,13 @@ advisory outside this repo until the convergence checklist says otherwise.
 Local environment (via `mise`):
 ```
 mise install
+mise trust --yes
 mise exec -- python -m pip install -e .
 ```
+
+Trusting the repo config keeps local runs aligned with CI. In GitHub Actions we
+set `MISE_TRUSTED_CONFIG_PATHS=${{ github.workspace }}`, which pre-trusts the
+checked-out workspace for non-interactive `mise` execution.
 
 Bootstrap everything (toolchain + deps + smoke test):
 ```
@@ -482,9 +497,7 @@ mise exec -- python scripts/refresh_baselines.py --all
 ```
 
 Baseline refresh guardrail (normative):
-- **Never** refresh a baseline to bypass a ratchet. `refresh_baselines.py` will
-  refuse to refresh when the corresponding gate is enabled and the delta is
-  positive. Clear the delta via real fixes first, then refresh at a checkpoint.
+- [`NCI-BASELINE-RATCHET`](docs/normative_clause_index.md#clause-baseline-ratchet).
 - Use `--timeout <seconds>` if a baseline refresh risks hanging.
 
 No-op CI cycle helper:
@@ -547,7 +560,8 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 
 ## Policy guardrails
 - Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md#policy_seed`.
-- Actions must be pinned to full commit SHAs and allow-listed.
+- Action pinning: [`NCI-ACTIONS-PINNED`](docs/normative_clause_index.md#clause-actions-pinned).
+- Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - Self-hosted jobs must use the required labels and actor guard.
 Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by
 `scripts/policy_check.py`.

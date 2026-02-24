@@ -45,6 +45,7 @@ STRUCTURE_DIFF_COMMAND = command_ids.STRUCTURE_DIFF_COMMAND
 STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
 DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
 IMPACT_COMMAND = command_ids.IMPACT_COMMAND
+LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import (
     CommandRequest,
     run_command,
@@ -62,6 +63,7 @@ from gabion.tooling import (
     governance_audit as tooling_governance_audit,
     impact_select_tests as tooling_impact_select_tests,
     run_dataflow_stage as tooling_run_dataflow_stage,
+    ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
 )
 from gabion.json_types import JSONObject
 from gabion.invariants import never
@@ -70,6 +72,7 @@ from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
     RefactorProtocolResponseDTO,
+    LspParityGateResponseDTO,
     StructureDiffResponseDTO,
     StructureReuseResponseDTO,
     SynthesisPlanResponseDTO,
@@ -3234,6 +3237,27 @@ def run_structure_reuse(
 
 
 
+def run_lsp_parity_gate(
+    *,
+    commands: list[str] | None = None,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload: JSONObject = {}
+    if commands is not None:
+        payload["commands"] = list(commands)
+    resolved_runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
+    payload["root"] = str(root_path)
+    return dispatch_command(
+        command=LSP_PARITY_GATE_COMMAND,
+        payload=payload,
+        root=root_path,
+        runner=resolved_runner,
+    )
+
+
+
 def run_impact_query(
     *,
     changes: list[str],
@@ -3322,6 +3346,7 @@ _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
+    "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
 }
 
 
@@ -3406,6 +3431,39 @@ def run_dataflow_stage(ctx: typer.Context) -> None:
             list(ctx.args),
         )
     )
+
+
+@app.command(
+    "ambiguity-contract-gate",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def ambiguity_contract_gate(ctx: typer.Context) -> None:
+    """Run ambiguity-contract policy gate for deterministic-core surfaces."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "ambiguity-contract-gate",
+            list(ctx.args),
+        )
+    )
+
+
+@app.command("lsp-parity-gate")
+def lsp_parity_gate(
+    command: Optional[List[str]] = typer.Option(
+        None,
+        "--command",
+        help="Command ID to validate (repeatable). Defaults to all governed commands.",
+    ),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Validate command maturity policy and LSP/direct parity contracts."""
+    with _cli_deadline_scope():
+        result = run_lsp_parity_gate(commands=list(command or []) or None, root=root)
+        normalized = LspParityGateResponseDTO.model_validate(result).model_dump()
+        typer.echo(json.dumps(normalized, indent=2, sort_keys=False))
+        if int(normalized.get("exit_code", 0)) != 0:
+            raise typer.Exit(code=int(normalized["exit_code"]))
+
 
 
 @app.command("impact")

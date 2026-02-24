@@ -25,6 +25,7 @@ done
 
 if $list_only; then
   echo "Checks to run:" >&2
+  $run_dataflow && echo "- lsp parity gate (gabion lsp-parity-gate --command gabion.check)" >&2
   $run_dataflow && echo "- dataflow (gabion check)" >&2
   $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
@@ -36,7 +37,20 @@ if ! command -v mise >/dev/null 2>&1; then
   exit 1
 fi
 
+
+ensure_mise_trust() {
+  if ! mise trust --yes >/dev/null 2>&1; then
+    echo "Failed to trust this repository's mise config." >&2
+    echo "Run: mise trust --yes \"$PWD/mise.toml\"" >&2
+    echo "In CI, set MISE_TRUSTED_CONFIG_PATHS to include the workspace path." >&2
+    exit 1
+  fi
+}
+
+ensure_mise_trust
+
 if $run_dataflow; then
+  mise exec -- python -m gabion lsp-parity-gate --command gabion.check
   baseline_arg=()
   if [ -f baselines/dataflow_baseline.txt ]; then
     baseline_arg+=(--baseline baselines/dataflow_baseline.txt)

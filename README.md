@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -13,16 +13,19 @@ doc_requires:
   - glossary.md#contract
   - AGENTS.md#agent_obligations
   - CONTRIBUTING.md#contributing_contract
+  - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 1
   glossary.md#contract: 1
   AGENTS.md#agent_obligations: 1
   CONTRIBUTING.md#contributing_contract: 1
+  docs/normative_clause_index.md#normative_clause_index: 1
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   AGENTS.md#agent_obligations: "Agent obligations updated; README references remain valid."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  docs/normative_clause_index.md#normative_clause_index: "Clause IDs adopted as canonical obligation references to reduce duplicated prose drift."
 doc_sections:
   repo_contract: 1
 doc_section_requires:
@@ -31,6 +34,7 @@ doc_section_requires:
     - glossary.md#contract
     - AGENTS.md#agent_obligations
     - CONTRIBUTING.md#contributing_contract
+    - docs/normative_clause_index.md#normative_clause_index
 doc_section_reviews:
   repo_contract:
     POLICY_SEED.md#policy_seed:
@@ -53,6 +57,11 @@ doc_section_reviews:
       self_version_at_review: 1
       outcome: no_change
       note: "Contributor contract reviewed; repo contract unchanged."
+    docs/normative_clause_index.md#normative_clause_index:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Clause index reviewed; summary links remain aligned with canonical obligations."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -75,12 +84,14 @@ conservative.
 
 ## Why Gabion
 - **Find implicit structure:** detect “dataflow grammar” bundles that repeatedly
-  travel together across function boundaries.
+  travel together across function boundaries ([`NCI-DATAFLOW-BUNDLE-TIERS`](docs/normative_clause_index.md#clause-dataflow-bundle-tiers)).
 - **Refactor safely:** promote bundles into explicit dataclass Protocols.
 - **Govern meaning:** enforce semantics via a normative glossary.
 
 ## Status
 - CLI uses the LSP server as its semantic core.
+- Transport maturity policy: `experimental`/`debug` commands may use direct diagnostics, while `beta`/`production` commands require validated LSP-carrier execution.
+- A feature is not `beta`/`production` unless it has passed LSP-carrier validation.
 - Dataflow grammar audit is implemented (prototype).
 - Type-flow, constant-flow, and unused-argument smells are implemented (prototype).
 - Refactor engine can rewrite signatures/call sites for targeted functions (prototype).
@@ -127,7 +138,12 @@ Need practical remediation loops? See `docs/user_workflows.md#user_workflows`.
 Install toolchain with `mise` (once):
 ```
 mise install
+mise trust --yes
 ```
+
+`mise trust --yes` marks this repo's `mise.toml` as trusted so local `mise exec`
+matches CI behavior. CI sets `MISE_TRUSTED_CONFIG_PATHS=${{ github.workspace }}`
+in workflows, so the workspace is already trusted there.
 
 Install from source (editable):
 ```
@@ -151,7 +167,8 @@ mise exec -- python -m gabion check
 `artifacts/audit_reports/dataflow_report.md` by default.
 Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to ratchet existing violations and
-`--baseline-write` to generate/update the baseline file.
+`--baseline-write` to generate/update the baseline file
+([`NCI-BASELINE-RATCHET`](docs/normative_clause_index.md#clause-baseline-ratchet)).
 
 For iterative local cleanup, keep a warm resume checkpoint between runs:
 ```
@@ -342,7 +359,8 @@ reuse one default checkpoint artifact safely even when each run touches a
 different chunk of the repository. The loader only hydrates paths present in
 the current run's file set *and* only when cache identities match.
 
-Allow-listed actions are defined in `docs/allowed_actions.txt`.
+Allow-listed actions are defined in `docs/allowed_actions.txt` and governed by
+[`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 
 Pull requests also get a dataflow-grammar report artifact (and a comment on
 same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.
@@ -356,9 +374,8 @@ Example workflow (with pinned SHA placeholders):
 Pinning guide: `docs/pinning_actions.md`.
 
 ## Architecture (planned shape)
-- **LSP-first:** the language server is the semantic core; the CLI is a thin
-  LSP client. Editor integrations remain thin wrappers over the same server.
-  The server is the single source of truth for diagnostics and code actions.
+- **LSP-first:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
+  Editor integrations remain thin wrappers over the same server.
 - **Analysis:** import resolution, alias-aware identity tracking, fixed-point
   bundle propagation, and tiering. Type-flow, constant-flow, and unused-argument
   audits are part of the prototype coverage.
@@ -379,8 +396,10 @@ LLM/agent behavior is governed by `AGENTS.md#agent_obligations`.
 - `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and dataflow grammar rules.
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations.
 - `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
+- `docs/normative_clause_index.md#normative_clause_index` defines stable clause IDs for repeated obligations.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 - `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides an authoritative-by-proxy operator reference with clause-level source links.
+- `docs/governance_loop_matrix.md#governance_loop_matrix` maps governance gate entrypoints, artifacts, thresholds, and override controls in one matrix.
 
 ## License
 Apache-2.0. See `LICENSE`.

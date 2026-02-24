@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 45
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -149,6 +149,14 @@ MUST be preserved throughout functional code; and data leaving functional code
 MUST be order-enforced at the boundary without serializer-level re-sorting for
 already-canonical carriers. Any explicit sort enforcement MUST disclose its sort
 key/function (or comparator shape) and rationale.
+
+
+**Maturity/transport invariant:** `experimental` and `debug` commands may allow
+direct-path diagnostics; `beta` and `production` commands MUST require validated
+LSP-carrier execution, and direct dispatch MUST NOT be the normative-only path.
+
+**Readiness invariant:** A feature MUST NOT be classified as `beta` or
+`production` unless it has been validated over the LSP carrier.
 
 ---
 
@@ -496,6 +504,8 @@ Agda CI checks SHOULD run inside a digest-pinned container image to avoid
 toolchain drift.
 
 ### 4.8 Shift-Ambiguity-Left Directive
+Canonical clause: [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
+
 
 Ambiguity discovered during implementation MUST be handled as a boundary-first
 typing problem, not as a local control-flow patch in semantic core modules.
@@ -622,6 +632,32 @@ not as a standalone numeric target.
 * Execution coverage (line/branch %) is advisory and may be ratcheted.
 
 The coverage semantics policy is defined in `docs/coverage_semantics.md#coverage_semantics`.
+
+### 5.6 Policy Applicability Matrix (Now vs Latent vs Conditional)
+
+The following matrix classifies major rule families so agents can separate
+**must-enforce-now** constraints from **precommitted future guardrails**.
+
+Status classes:
+- **active now:** enforce immediately in the current repository state.
+- **latent (self-hosted):** enforce if/when a self-hosted workflow is introduced.
+- **conditional by event/branch:** enforce only for specific trigger/event/branch scopes.
+
+| Rule family (normative anchor) | Applicability class | Runtime scope | Enforcement/check cross-reference |
+| --- | --- | --- | --- |
+| Workflow structure + action pinning + allow-list (§§4.5, 5.1) | active now | All workflows under `.github/workflows/*.yml` | `scripts/policy_check.py::check_workflows()` + `_check_actions(...)`; executed in `.github/workflows/ci.yml` (`Policy check (workflows)`). |
+| Baseline permissions discipline (§4.4) | active now | All workflows/jobs | `scripts/policy_check.py::_check_permissions(...)` and `_check_job_permissions(...)`; executed in `.github/workflows/ci.yml`. |
+| Manual-dispatch guardrails (§0.3, §4.1) | active now | Any `workflow_dispatch` workflow | `scripts/policy_check.py::_check_workflow_dispatch_guards(...)`; currently applies to `.github/workflows/ci.yml` and `.github/workflows/release-tag.yml`. |
+| Trusted branch mirroring controls (§4.4) | conditional by event/branch | Push to `main` and promotion chain (`workflow_run`) | `.github/workflows/mirror-next.yml`, `.github/workflows/auto-test-tag.yml`, `.github/workflows/promote-release.yml`; validated by `scripts/policy_check.py::_check_mirror_next_workflow(...)`, `_check_auto_test_tag_workflow(...)`, `_check_promote_release_workflow(...)`. |
+| Release tagging controls (§4.4) | conditional by event/branch | `workflow_dispatch` on `next`/`release` only | `.github/workflows/release-tag.yml`; validated by `scripts/policy_check.py::_check_release_tag_workflow(...)`. |
+| TestPyPI/PyPI publish controls (§4.4) | conditional by event/branch | Tag push (`test-v*` or `v*`) and constrained `workflow_run` sources | `.github/workflows/release-testpypi.yml`, `.github/workflows/release-pypi.yml`; validated by `scripts/policy_check.py::_check_release_testpypi_workflow(...)`, `_check_release_pypi_workflow(...)`, `_check_id_token_scoping(...)`. |
+| Self-hosted trigger/runner/actor constraints (§§3.1, 4.1-4.3, 4.6) | latent (self-hosted) | Any workflow containing `runs-on` with `self-hosted` labels | `scripts/policy_check.py::_check_self_hosted_constraints(...)` (already active as detector, policy obligations become applicable when such jobs exist). |
+| Repository/org Actions posture checks (§5.2) | conditional by event/branch | CI push path with available governance token/context | `scripts/policy_check.py --posture`; wired in `.github/workflows/ci.yml` on push and skipped when required credentials are unavailable. |
+| Ambiguity contract gate (§4.8) | active now | Semantic core Python modules (`src/gabion/analysis/**`, `src/gabion/synthesis/**`, `src/gabion/refactor/**`) | `scripts/policy_check.py --ambiguity-contract` invoking `gabion ambiguity-contract-gate` + baseline ratchet file `scripts/baselines/ambiguity_contract_policy_baseline.json`; executed in `.github/workflows/ci.yml` (`Policy check (ambiguity contract)`). |
+
+Agents MUST preserve this classification when adding new controls: update both
+the normative anchor and the enforcing checker/workflow hook in the same
+change-set.
 
 ---
 
