@@ -1,5 +1,5 @@
 ---
-doc_revision: 156
+doc_revision: 158
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -182,7 +182,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Wildcard forwarding: signature-aware mapping for `*args/**kwargs`.
 - [x] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
 - [x] Type-flow tightening audit (downstream annotations).
-- [~] Internal broad-type lint (Any/object + scalar types like str/int/float/bool/bytes, except NodeId) on non-boundary surfaces. (GH-89) sppf{doc=partial; impl=done; doc_ref=in-31@4}
+- [~] Internal broad-type lint (Any/object + scalar types like str/int/float/bool/bytes, except NodeId) on non-boundary surfaces (heuristic allow/deny set remains intentionally narrow). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_internal_broad_type_lint_lines_indexed`, `tests/test_dataflow_audit_coverage_gaps.py::test_internal_broad_type_lint_lines_indexed_appends_multiple`. (GH-89) sppf{doc=partial; impl=partial; doc_ref=in-31@4}
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Anonymous schema surface detection (dict[str, object]/Any payload annotations).
 - [x] Constant-flow audit (dead knobs / always-constant params).
@@ -200,25 +200,26 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Value-encoded decision glossary warnings (nonlinear contexts). (GH-66)
 - [x] Value-encoded decision rewrite suggestions (rebranch). (GH-66)
 - [x] Value-encoded decision diff tracking in audit snapshots. (GH-66)
-- [~] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68) sppf{doc=partial; impl=done; doc_ref=in-20@2,in-21@1}
+- [~] Prime-labeled type fingerprints (algebraic bundle matching; rewrite synthesis closure still pending). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::bundle_fingerprint`, `tests/test_type_fingerprints.py::test_bundle_fingerprint_multiplies_primes`. (in-20/in-21, GH-68) sppf{doc=partial; impl=partial; doc_ref=in-20@2,in-21@1}
 - [x] Prime registry + canonical type key mapping. (GH-68)
 - [x] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
 - [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [x] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
-- [~] Deterministic fingerprint registry seeding (sorted key interning for primes/bits). (in-22, GH-68) sppf{doc=partial; impl=done; doc_ref=in-22@2}
+- [~] Deterministic fingerprint registry seeding (sorted key interning for primes/bits; basis is deterministic but migration/ratchet policy remains partial). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::build_fingerprint_registry`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`. (in-22, GH-68) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
 - [x] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
-- [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@2}
-- [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@2}
+- [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants; entropy-controlled synthesis obligations still open). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::bundle_fingerprint_dimensional`, `tests/test_type_fingerprints.py::test_dimensional_fingerprint_includes_constructors`. (in-22, GH-70) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
+- [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary with remaining matrix expansion work). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_provenance`, `tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries`. (in-22, GH-71) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
 - <a id="in-23-aspf-carrier-formalization"></a>[x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73; anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_provenance`, `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_synth`, `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`, `tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip`, `tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries`, `scripts/audit_snapshot.sh`, `scripts/latest_snapshot.sh`). sppf{doc=done; impl=done; doc_ref=in-23@10}
-- [~] SuiteSite carriers + loop-scoped deadline obligations (recursive loop attribution now outer-vs-inner precise; SuiteSite IDs stable and reused across deadline artifacts). (in-30, GH-85) sppf{doc=partial; impl=done; doc_ref=in-30@27}
-- [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@27}
-- [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet. (in-30, GH-88) sppf{doc=partial; impl=done; doc_ref=in-30@27}
+- [~] SuiteSite carriers + loop-scoped deadline obligations (recursive loop attribution now outer-vs-inner precise; SuiteSite-native enforcement still incomplete). Evidence anchors: `src/gabion/analysis/dataflow_obligations.py::collect_deadline_obligations`, `tests/test_deadline_coverage.py::test_deadline_loop_unchecked_status_is_root_gated`. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
+- [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server; carrier budget semantics are stable but broader lane acceptance remains partial). Evidence anchors: `scripts/deadline_runtime.py::deadline_scope_from_lsp_env`, `tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit`. (in-30, GH-87) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
+- [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet (materialization landed; phase-3/4 decision-surface migration deferred). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_materialize_call_candidates`, `tests/test_deadline_coverage.py::test_materialized_call_candidates_target_function_suites`. (in-30, GH-88) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
 - <a id="in-33-pattern-schema-unification"></a>[~] PatternSchema unification for dataflow bundles + execution patterns (shared cross-axis `schema:*` IDs, contract-versioned residue payloads, deterministic artifact ordering; execution rules still narrow). (in-33) sppf{doc=partial; impl=partial; doc_ref=in-33@3}
-- <a id="in-34-lambda-callable-sites"></a>[~] Lambda/closure callable indexing as first-class function sites (stable synthetic identities + direct/bound/closure lambda resolution; conservative dynamic fallback retained). Acceptance tests: `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_closure_returned_and_invoked`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_via_object_attribute`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls`, `tests/test_callsite_evidence_helper.py::test_callsite_evidence_includes_callable_context`. (in-34) sppf{doc=partial; impl=done; doc_ref=in-34@2}
-- <a id="in-35-dict-key-carrier-tracking"></a>[~] Dict carrier tracking beyond literal subscript aliases (name-bound constant keys + unknown-key carrier evidence). (in-35) sppf{doc=partial; impl=done; doc_ref=in-35@1}
+- <a id="in-34-lambda-callable-sites"></a>[~] Lambda/closure callable indexing as first-class function sites (stable synthetic identities + direct/bound/closure lambda resolution; conservative dynamic fallback retained for unresolved alias/dynamic paths). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_resolve_callee_outcome`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls`. (in-34) sppf{doc=partial; impl=partial; doc_ref=in-34@2}
+- <a id="in-35-dict-key-carrier-tracking"></a>[~] Dict carrier tracking beyond literal subscript aliases (name-bound constant keys + unknown-key carrier evidence; key grammar remains conservative by design). Evidence anchors: `src/gabion/analysis/visitors.py::_normalize_key`, `tests/test_visitors_unit.py::test_subscript_forwarding_normalizes_const_keys`, `tests/test_visitors_unit.py::test_subscript_dynamic_key_marks_uncertainty`. (in-35) sppf{doc=partial; impl=partial; doc_ref=in-35@1}
 - <a id="in-36-starred-dataclass-call-bundles"></a>[x] Conservative starred dataclass constructor argument handling (`*` list/tuple/set, `**` dict literal) with unresolved-starred witnesses for dynamic payloads. (in-36) sppf{doc=done; impl=done; doc_ref=in-36@1}
 - <a id="in-37-dynamic-dispatch-uncertainty"></a>[x] Dynamic-dispatch uncertainty classification in call resolution (`unresolved_dynamic`) plus dedicated call-resolution obligation kind. (in-37) sppf{doc=done; impl=done; doc_ref=in-37@1}
+- <a id="in-38-aspf-log-structured-archive-projection"></a>[ ] ASPF mutation log-structured archive projection (protobuf payload records + protobuf-defined filesystem envelope projection + tar-packaged transport container + snapshot/tail replay). (in-38, GH-196) sppf{doc=done; impl=planned; doc_ref=in-38@1}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -237,8 +238,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64) sppf{doc=done; impl=done; doc_ref=in-16@2}
 - [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@11}
 - [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75) sppf{doc=done; impl=done; doc_ref=in-25@9}
-- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@8}
-- [~] Exception obligations: handledness refinement (typed except matching, explicit broad catch reasoning, conservative UNKNOWN for unresolved dynamic paths). (in-27, GH-80) sppf{doc=partial; impl=done; doc_ref=in-27@8}
+- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness still broad-try/except biased, so reported as partial; see `docs/matrix_acceptance.md`). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_collect_exception_obligations`, `tests/test_exception_deadness_helpers.py::test_exception_obligation_deadness_parsing_skips_invalid_entries`. (in-27, GH-77) sppf{doc=partial; impl=partial; doc_ref=in-27@8}
+- [~] Exception obligations: handledness refinement (typed except matching, explicit broad catch reasoning, conservative UNKNOWN for unresolved dynamic paths; refinement coverage incomplete). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_collect_handledness_witnesses`, `tests/test_evidence.py::test_exception_obligation_summary_for_site_skips_non_matching_and_normalizes_status`. (in-27, GH-80) sppf{doc=partial; impl=partial; doc_ref=in-27@8}
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -276,9 +277,9 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [x] Property-based test hook manifest generation from invariants (deterministic hook IDs, confidence gating, callable mapping, traceability keys; optional Hypothesis template snippets). (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
-- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@10}
-- [~] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE) with per-kind payload schemas, gated emission + reasoned abstentions, and predicate wiring. (in-26, GH-78) sppf{doc=partial; impl=done; doc_ref=in-26@10}
-- [~] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79) sppf{doc=partial; impl=done; doc_ref=in-27@8}
+- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested, but lane remains partial until full matrix closure; see `docs/matrix_acceptance.md`). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_rewrite_plans`, `tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested`. (in-26, GH-76) sppf{doc=partial; impl=partial; doc_ref=in-26@10}
+- [~] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE) with per-kind payload schemas, gated emission + reasoned abstentions, and predicate wiring (implemented subset exists; adoption remains partial). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_make_rewrite_plan`, `tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior`. (in-26, GH-78) sppf{doc=partial; impl=partial; doc_ref=in-26@10}
+- [~] Rewrite-plan verification: exception obligation non-regression predicates (predicate executes and is tested; wider handledness model still partial). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::verify_rewrite_plan`, `tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_detects_remainder_regression`. (in-27, GH-79) sppf{doc=partial; impl=partial; doc_ref=in-27@8}
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -298,7 +299,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 - [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 - [x] Locked dependency set for CI (`requirements.lock`).
-- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@19}
+- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@20}
 
 ## Decision-flow tier nodes
 - <a id="decision-flow-tier3"></a>[x] Decision Table documentation for branch-heavy modules (Tier-3 evidence; see `docs/decision_flow_tiers.md#decision-flow-tier3`). (GH-47)

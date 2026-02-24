@@ -7,7 +7,7 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Scoped delta reviewed against POLICY_SEED policy section semantics.
+  POLICY_SEED.md#policy_seed: Reviewed policy seed execution constraints (mechanized governance, explicit review-discipline invariant, and mise-based tooling expectations); scoped in/ delta remains consistent.
 doc_id: in_agents
 doc_role: agent
 doc_scope:
@@ -23,10 +23,10 @@ doc_section_requires:
 doc_section_reviews:
   in_agents:
     POLICY_SEED.md#policy_seed:
-      dep_version: 38
+      dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Agent guardrails remain consistent with POLICY_SEED execution policy requirements.
+      note: Re-reviewed policy seed anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
 ---
 
 <a id="in_agents"></a>
