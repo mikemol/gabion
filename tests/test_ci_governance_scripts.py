@@ -83,6 +83,16 @@ def test_policy_check_normative_enforcement_map_validates_current_repo() -> None
     policy_check.check_normative_enforcement_map()
 
 
+def test_policy_check_required_clause_set_matches_index() -> None:
+    index_path = Path("docs/normative_clause_index.md")
+    canonical = {
+        line.split("`")[1]
+        for line in index_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("### `NCI-")
+    }
+    assert policy_check._REQUIRED_NORMATIVE_CLAUSES == canonical
+
+
 def test_policy_check_normative_enforcement_map_fails_missing_module(tmp_path: Path) -> None:
     broken = tmp_path / "normative_enforcement_map.yaml"
     broken.write_text(
@@ -113,7 +123,97 @@ clauses:
     enforcing_modules: []
     ci_anchors: []
     expected_artifacts: []
+  NCI-BASELINE-RATCHET:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DEADLINE-TIMEOUT-PROPAGATION:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-ADAPTATION-LAW:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-OVERRIDE-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-DRIFT-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
   NCI-COMMAND-MATURITY-PARITY:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+""",
+        encoding="utf-8",
+    )
+    original = policy_check.NORMATIVE_ENFORCEMENT_MAP
+    try:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = broken
+        try:
+            policy_check.check_normative_enforcement_map()
+            assert False, "expected check_normative_enforcement_map to fail"
+        except SystemExit as exc:
+            assert exc.code == 2
+    finally:
+        policy_check.NORMATIVE_ENFORCEMENT_MAP = original
+
+
+def test_policy_check_normative_enforcement_map_fails_missing_clause(tmp_path: Path) -> None:
+    broken = tmp_path / "normative_enforcement_map.yaml"
+    broken.write_text(
+        """version: 1
+clauses:
+  NCI-LSP-FIRST:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-PINNED:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-ACTIONS-ALLOWLIST:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DATAFLOW-BUNDLE-TIERS:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-SHIFT-AMBIGUITY-LEFT:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-BASELINE-RATCHET:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DEADLINE-TIMEOUT-PROPAGATION:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-CONTROLLER-ADAPTATION-LAW:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-OVERRIDE-LIFECYCLE:
     status: document-only
     enforcing_modules: []
     ci_anchors: []
@@ -126,6 +226,7 @@ clauses:
 """,
         encoding="utf-8",
     )
+
     original = policy_check.NORMATIVE_ENFORCEMENT_MAP
     try:
         policy_check.NORMATIVE_ENFORCEMENT_MAP = broken
