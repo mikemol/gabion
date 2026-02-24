@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: architecture_zones
 doc_role: architecture
@@ -78,3 +78,18 @@ Only **Tier-1 reified objects** cross from ambiguity zones into deterministic co
 - Review and tooling should enforce by package scope:
   - outer adapters: `src/gabion/cli.py`, `src/gabion/lsp_client.py`, `src/gabion/server.py`, `src/gabion/schema.py`, `src/gabion/json_types.py`
   - deterministic core: `src/gabion/analysis/`, `src/gabion/synthesis/`, `src/gabion/refactor/`
+
+## Test-evidence boundary semantics (semi-normative)
+Docflow excess clustering should treat test evidence near semantic core by
+architecture class, not by individual node listing:
+
+- **Boundary probe edges (`call_footprint`)**: tests may originate outside core
+  zones while legitimately targeting `src/gabion/server.py`,
+  `src/gabion/server_core/`, or `src/gabion/analysis/`.
+- **Adjacency probe clusters (`call_cluster`)**: helper fan-in/fan-out around a
+  semantic-core target is a valid architectural probe shape.
+- **Decision probe surfaces (`decision_surface`)**: parameterized decision points
+  in semantic core are architecture-significant and should be tracked as a class
+  of ingress-normalization/core-semantics checks.
+
+These classes define reusable boundary semantics for future evidence nodes.
