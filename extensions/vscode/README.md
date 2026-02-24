@@ -1,3 +1,22 @@
+---
+doc_revision: 3
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: vscode_extension_readme
+doc_role: integration_guide
+doc_scope:
+  - repo
+  - extension
+  - tooling
+doc_authority: informative
+doc_requires:
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+doc_relations:
+  informs:
+    - README.md#repo_contract
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
+doc_owner: maintainer
+---
 # Gabion VS Code Extension (Thin Wrapper)
 
 This extension launches the Gabion Python LSP server over stdio and keeps

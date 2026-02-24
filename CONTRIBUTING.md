@@ -1,5 +1,5 @@
 ---
-doc_revision: 99
+doc_revision: 101
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -109,6 +109,9 @@ valid.
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
+- **Python execution discipline:** for repo-local tooling, prefer `mise exec -- python`
+  so the pinned interpreter/toolchain is used; in CI, invoking `.venv/bin/python` is acceptable
+  once the workflow has bootstrapped pinned dependencies (for reproducible hermetic runs).
 
 ## Optional governance framing
 See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
@@ -581,5 +584,13 @@ mise exec -- python scripts/policy_check.py --posture
 Markdown docs include a YAML front-matter block with:
 - `doc_revision` (integer)
 - `reader_reintern` (reader-only guidance)
+
+When a document participates in the documentation dependency/index graph,
+front-matter should also include:
+- `doc_id`, `doc_role`, `doc_scope`, `doc_authority`, `doc_owner`
+- `doc_requires` links to anchor-level dependencies
+- `doc_change_protocol` linkage
+- optional `doc_relations` edges (`informs`, `refines`, `operationalizes`,
+  `supersedes`) so informative docs remain traceable rather than informal
 
 Bump `doc_revision` for conceptual changes.

@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 23
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -102,7 +102,9 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce maturity transport policy: `experimental`/`debug` may use direct diagnostics, but `beta`/`production` must be validated over the LSP carrier and cannot rely on direct-only validation.
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
-  interpreter and dependencies are used.
+  interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
+  after workflow bootstrap has installed the pinned toolchain and locked
+  dependencies.
 - Prefer impossible-by-construction contracts over sentinel parse outcomes;
   after ingress validation, invalid states must be discharged via `never()`.
 - Treat docflow as repo-local convenience only; do not project it as a
@@ -116,6 +118,8 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 
 ## Doc hygiene
 - Markdown docs include a YAML front-matter block with `doc_revision`.
+- Use front-matter dependency anchors (`doc_requires`) and relation edges when
+  a document contributes to the dependency/index tree.
 - Bump `doc_revision` for conceptual changes.
 - Record convergence in `doc_reviewed_as_of` (must match dependency revisions).
 
