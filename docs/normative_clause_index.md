@@ -138,6 +138,18 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Post-override convergence requires consecutive clean runs before stabilization is declared.
 - Canonical sources: `POLICY_SEED.md#policy_seed`, `docs/governance_rules.yaml`.
 
+<a id="clause-controller-drift-lifecycle"></a>
+### `NCI-CONTROLLER-DRIFT-LIFECYCLE` — Controller drift enforcement and override lifecycle
+- Controller drift gates must enforce severity thresholds from governance rules and fail closed when blocking findings exceed policy and no valid override record exists.
+- Active controller-drift overrides must use non-expired machine-readable lifecycle records and emit normalized diagnostics/telemetry fields.
+- Canonical sources: `docs/governance_rules.yaml`, `scripts/ci_controller_drift_gate.py`, `POLICY_SEED.md#policy_seed`.
+
+<a id="clause-command-maturity-parity"></a>
+### `NCI-COMMAND-MATURITY-PARITY` — Command maturity, carrier, and parity governance
+- `beta`/`production` command maturity requires LSP-carrier validation (`require_lsp_carrier`) and cannot treat direct execution as normative without a valid override lifecycle record.
+- Parity-governed commands (`parity_required`) must retain probe validation payload coverage and declared parity-ignore semantics.
+- Canonical sources: `docs/governance_rules.yaml`, `src/gabion/cli.py`, `POLICY_SEED.md#policy_seed`.
+
 ## Usage rule
 
 When referencing one of these obligations in `README.md`, `CONTRIBUTING.md`,

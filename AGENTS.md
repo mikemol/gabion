@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 24
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -99,7 +99,8 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   surface any violations explicitly.
 - Preserve [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
 - Enforce [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left) in semantic core refactors.
-- Enforce maturity transport policy: `experimental`/`debug` may use direct diagnostics, but `beta`/`production` must be validated over the LSP carrier and cannot rely on direct-only validation.
+- Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
+- Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
