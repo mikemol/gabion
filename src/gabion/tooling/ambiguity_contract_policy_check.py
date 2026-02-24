@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+# gabion:decision_protocol_module
 
 import argparse
 import ast
@@ -207,14 +208,18 @@ def _load_baseline(path: Path) -> set[str]:
     keys: set[str] = set()
     if isinstance(raw, list):
         for item in raw:
-            if not isinstance(item, dict):
-                continue
-            rule_id = item.get("rule_id")
-            path_value = item.get("path")
-            qualname = item.get("qualname")
-            line = item.get("line")
-            if isinstance(rule_id, str) and isinstance(path_value, str) and isinstance(qualname, str) and isinstance(line, int):
-                keys.add(f"{rule_id}:{path_value}:{qualname}:{line}")
+            if isinstance(item, dict):
+                rule_id = item.get("rule_id")
+                path_value = item.get("path")
+                qualname = item.get("qualname")
+                line = item.get("line")
+                if (
+                    isinstance(rule_id, str)
+                    and isinstance(path_value, str)
+                    and isinstance(qualname, str)
+                    and isinstance(line, int)
+                ):
+                    keys.add(f"{rule_id}:{path_value}:{qualname}:{line}")
     return keys
 
 

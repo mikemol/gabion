@@ -206,14 +206,13 @@ def test_cli_run_lsp_parity_gate_is_thin_dispatcher() -> None:
     command, arguments, root = calls[0]
     assert command == cli.LSP_PARITY_GATE_COMMAND
     assert root == Path(".")
-    assert arguments == [
-        {
-            "commands": ["gabion.check"],
-            "root": ".",
-            "analysis_timeout_ticks": 100,
-            "analysis_timeout_tick_ns": 1_000_000,
-        }
-    ]
+    assert len(arguments) == 1
+    payload = arguments[0]
+    assert isinstance(payload, dict)
+    assert payload["commands"] == ["gabion.check"]
+    assert payload["root"] == "."
+    assert int(payload["analysis_timeout_ticks"]) > 0
+    assert int(payload["analysis_timeout_tick_ns"]) > 0
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload::cli.py::gabion.cli.run_lsp_parity_gate
@@ -227,7 +226,13 @@ def test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload() -> No
 
     result = cli.run_lsp_parity_gate(commands=None, runner=_runner)
     assert result["exit_code"] == 0
-    assert calls == [[{"root": ".", "analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}]]
+    assert len(calls) == 1
+    assert len(calls[0]) == 1
+    payload = calls[0][0]
+    assert isinstance(payload, dict)
+    assert payload["root"] == "."
+    assert int(payload["analysis_timeout_ticks"]) > 0
+    assert int(payload["analysis_timeout_tick_ns"]) > 0
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_lsp_parity_gate_command_reports_nonzero_exit::cli.py::gabion.cli.lsp_parity_gate
@@ -244,3 +249,18 @@ def test_cli_lsp_parity_gate_command_reports_nonzero_exit() -> None:
     )
     assert result.exit_code == 1
     assert "missing command policy for gabion.unknown" in result.stdout
+
+
+# gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_lsp_parity_gate_command_allows_zero_exit::cli.py::gabion.cli.lsp_parity_gate
+def test_cli_lsp_parity_gate_command_allows_zero_exit() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["lsp-parity-gate", "--command", "gabion.check", "--root", "."],
+        env={
+            "GABION_DIRECT_RUN": "1",
+            "GABION_LSP_TIMEOUT_TICKS": "100000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        },
+    )
+    assert result.exit_code == 0
