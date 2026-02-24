@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -24,7 +24,7 @@ doc_reviewed_as_of:
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Clause index derived from policy invariants to reduce duplicated prose drift."
   README.md#repo_contract: "README obligation references consolidated to stable clause IDs."
-  CONTRIBUTING.md#contributing_contract: "Contributor-facing obligations consolidated behind stable clause IDs."
+  CONTRIBUTING.md#contributing_contract: "Contributor-facing obligations consolidated behind stable clause IDs and linked to the enforcement completeness ledger."
   AGENTS.md#agent_obligations: "Agent obligations mapped to canonical clause anchors."
   glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
 doc_sections:
@@ -116,6 +116,48 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Baselines are ratchet checkpoints, not bypass levers.
 - Do not refresh baselines to bypass positive deltas while gates are enabled.
 - Canonical source: `CONTRIBUTING.md#contributing_contract`.
+
+
+<a id="clause-deadline-timeout-propagation"></a>
+### `NCI-DEADLINE-TIMEOUT-PROPAGATION` — Deadline carrier propagation
+- Timeout/deadline tokens must propagate across CLI dispatch, LSP transport, and CI wrappers.
+- Timeout recovery state must be emitted as deterministic machine-readable artifacts.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `CONTRIBUTING.md#contributing_contract`.
+
+<a id="clause-controller-adaptation-law"></a>
+### `NCI-CONTROLLER-ADAPTATION-LAW` — Second-order controller adaptation law
+- Adaptation is trigger-driven (parity instability, timeout resume churn, gate noise).
+- Allowed moves are bounded to declared knobs and require telemetry/evidence links.
+- Forbidden compensations include baseline-refresh bypasses and silent strictness downgrades.
+- Canonical source: `POLICY_SEED.md#policy_seed`.
+
+<a id="clause-override-lifecycle"></a>
+### `NCI-OVERRIDE-LIFECYCLE` — Override lifecycle governance
+- Override channels require machine-readable records with actor, rationale, scope, start, expiry, rollback condition, and evidence links.
+- Expired or metadata-incomplete overrides fail governance gates.
+- Post-override convergence requires consecutive clean runs before stabilization is declared.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `docs/governance_rules.yaml`.
+
+<a id="clause-controller-drift-lifecycle"></a>
+### `NCI-CONTROLLER-DRIFT-LIFECYCLE` — Controller drift enforcement and override lifecycle
+- Controller drift gates must enforce severity thresholds from governance rules and fail closed when blocking findings exceed policy and no valid override record exists.
+- Active controller-drift overrides must use non-expired machine-readable lifecycle records and emit normalized diagnostics/telemetry fields.
+- Canonical sources: `docs/governance_rules.yaml`, `scripts/ci_controller_drift_gate.py`, `POLICY_SEED.md#policy_seed`.
+
+<a id="clause-command-maturity-parity"></a>
+### `NCI-COMMAND-MATURITY-PARITY` — Command maturity, carrier, and parity governance
+- `beta`/`production` command maturity requires LSP-carrier validation (`require_lsp_carrier`) and cannot treat direct execution as normative without valid override evidence + lifecycle record.
+- Parity-governed commands (`parity_required`) must retain probe validation payload coverage and declared parity-ignore semantics.
+- Canonical sources: `docs/governance_rules.yaml`, `src/gabion/commands/transport_policy.py`, `src/gabion/cli.py`, `POLICY_SEED.md#policy_seed`.
+
+
+## Enforcement completeness ledger
+
+Machine-readable clause-to-enforcement traceability is maintained in `docs/normative_enforcement_map.yaml`.
+The map is exhaustive: every canonical clause listed above must appear as a top-level clause key,
+including entries that are currently `partial` or `document-only`.
+Policy checks validate canonical-clause completeness plus CI/workflow anchor integrity via
+`scripts/policy_check.py --normative-map`.
 
 ## Usage rule
 

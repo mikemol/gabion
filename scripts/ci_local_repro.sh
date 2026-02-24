@@ -593,10 +593,18 @@ run_checks_job() {
     --log-file-level=INFO
 
   step "checks: delta_state_emit"
-  timed_observed checks_delta_state_emit env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m gabion delta-state-emit
+  timed_observed checks_delta_state_emit "$PYTHON_BIN" -m gabion \
+    --transport direct \
+    --lsp-timeout-ticks 65000000 \
+    --lsp-timeout-tick-ns 1000000 \
+    delta-state-emit
 
   step "checks: delta_triplets"
-  timed_observed checks_delta_triplets env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m gabion delta-triplets
+  timed_observed checks_delta_triplets "$PYTHON_BIN" -m gabion \
+    --transport direct \
+    --lsp-timeout-ticks 65000000 \
+    --lsp-timeout-tick-ns 1000000 \
+    delta-triplets
 
   step "checks: governance telemetry emit"
   observed checks_governance_telemetry "$PYTHON_BIN" scripts/governance_telemetry_emit.py \
@@ -686,14 +694,14 @@ run_dataflow_job() {
   : > "$summary_file"
 
   set +e
-  observed dataflow_run_dataflow_stage env \
-    GITHUB_OUTPUT="$outputs_file" \
-    GITHUB_STEP_SUMMARY="$summary_file" \
-    GABION_DIRECT_RUN=1 \
-    GABION_LSP_TIMEOUT_TICKS="${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
-    GABION_LSP_TIMEOUT_TICK_NS="${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
-    GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS="${GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS:-60}" \
-    "$PYTHON_BIN" -m gabion run-dataflow-stage \
+  observed dataflow_run_dataflow_stage "$PYTHON_BIN" -m gabion \
+    --transport direct \
+    --lsp-timeout-ticks "${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
+    --lsp-timeout-tick-ns "${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
+    run-dataflow-stage \
+    --github-output "$outputs_file" \
+    --step-summary "$summary_file" \
+    --debug-dump-interval-seconds "${GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS:-60}" \
     --stage-strictness-profile "run=high"
   dataflow_stage_rc=$?
   set -e
@@ -870,10 +878,10 @@ PY
 
   step "pr-dataflow: render dataflow grammar report"
   mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
-  timed_observed pr_dataflow_render_check env \
-    GABION_LSP_TIMEOUT_TICKS="${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
-    GABION_LSP_TIMEOUT_TICK_NS="${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
-    "$PYTHON_BIN" -m gabion check \
+  timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
+    --lsp-timeout-ticks "${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
+    --lsp-timeout-tick-ns "${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
+    check \
     --profile raw . \
     --root . \
     --report artifacts/dataflow_grammar/report.md \

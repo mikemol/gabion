@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
 from gabion.tooling import delta_emit_runtime
+from gabion.commands import transport_policy
+from gabion.runtime import env_policy
 
 
 def _progress_notification(*, phase: str, event_seq: int, work_done: int) -> dict[str, object]:
@@ -36,6 +39,15 @@ def test_emit_timeline_row_ignores_empty_phase() -> None:
     )
     assert lines == []
     assert state.last_signature is None
+
+
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_timeout_helpers_prefer_context_override
+def test_timeout_helpers_prefer_context_override() -> None:
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=23, tick_ns=29)
+    ):
+        assert delta_emit_runtime.timeout_ticks() == 23
+        assert delta_emit_runtime.timeout_tick_ns() == 29
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_emit_runtime.py::test_flush_pending_timeline_row_normalizes_signature_and_keys::delta_emit_runtime.py::gabion.tooling.delta_emit_runtime.flush_pending_timeline_row_if_due
@@ -103,3 +115,86 @@ def test_run_delta_emit_flush_thread_emits_pending_rows(tmp_path: Path) -> None:
     assert exit_code == 0
     assert any(line == "delta-runtime timeline:" for line in lines)
     assert any("delta-runtime: complete exit=0" in line for line in lines)
+
+
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_run_command_branch
+def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
+    output_path = tmp_path / "delta_output.json"
+    output_path.write_text("{}", encoding="utf-8")
+    run_spec = delta_emit_runtime.DeltaEmitRunSpec(
+        script_name="delta-runtime-run-command",
+        failure_label="delta-runtime-run-command",
+        expected_outputs=(output_path,),
+    )
+    lines: list[str] = []
+
+    def _stub_runner(_request, *, root=None, timeout_ticks=None, timeout_tick_ns=None, notification_callback=None):
+        _ = root, timeout_ticks, timeout_tick_ns
+        if callable(notification_callback):
+            notification_callback(
+                _progress_notification(phase="collection", event_seq=1, work_done=1)
+            )
+        return {"exit_code": 0}
+
+    original_runtime_run = delta_emit_runtime.run_command
+    original_runtime_direct = delta_emit_runtime.run_command_direct
+    original_transport_run = transport_policy.run_command
+    original_transport_direct = transport_policy.run_command_direct
+    original_direct_env = os.environ.pop("GABION_DIRECT_RUN", None)
+    original_override_env = os.environ.pop("GABION_DIRECT_RUN_OVERRIDE_EVIDENCE", None)
+    original_override_record_env = os.environ.pop("GABION_OVERRIDE_RECORD_JSON", None)
+    try:
+        delta_emit_runtime.run_command = _stub_runner
+        delta_emit_runtime.run_command_direct = _stub_runner
+        transport_policy.run_command = _stub_runner
+        transport_policy.run_command_direct = _stub_runner
+        exit_code = delta_emit_runtime.run_delta_emit(
+            run_spec=run_spec,
+            payload={"analysis_timeout_ticks": 10, "analysis_timeout_tick_ns": 1},
+            run_command_fn=_stub_runner,
+            run_command_direct_fn=_stub_runner,
+            root_path=tmp_path,
+            print_fn=lines.append,
+        )
+    finally:
+        delta_emit_runtime.run_command = original_runtime_run
+        delta_emit_runtime.run_command_direct = original_runtime_direct
+        transport_policy.run_command = original_transport_run
+        transport_policy.run_command_direct = original_transport_direct
+        if original_direct_env is not None:
+            os.environ["GABION_DIRECT_RUN"] = original_direct_env
+        if original_override_env is not None:
+            os.environ["GABION_DIRECT_RUN_OVERRIDE_EVIDENCE"] = original_override_env
+        if original_override_record_env is not None:
+            os.environ["GABION_OVERRIDE_RECORD_JSON"] = original_override_record_env
+
+    assert exit_code == 0
+    assert any("delta-runtime-run-command: complete exit=0" in line for line in lines)
+
+
+# gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_custom_runner_branch
+def test_run_delta_emit_handles_custom_runner_branch(tmp_path: Path) -> None:
+    output_path = tmp_path / "delta_output.json"
+    output_path.write_text("{}", encoding="utf-8")
+    run_spec = delta_emit_runtime.DeltaEmitRunSpec(
+        script_name="delta-runtime-custom",
+        failure_label="delta-runtime-custom",
+        expected_outputs=(output_path,),
+    )
+    lines: list[str] = []
+
+    def _custom_runner(_request, *, root=None):
+        _ = root
+        return {"exit_code": 0}
+
+    exit_code = delta_emit_runtime.run_delta_emit(
+        run_spec=run_spec,
+        payload={"analysis_timeout_ticks": 10, "analysis_timeout_tick_ns": 1},
+        run_command_fn=_custom_runner,
+        run_command_direct_fn=_custom_runner,
+        root_path=tmp_path,
+        print_fn=lines.append,
+    )
+
+    assert exit_code == 0
+    assert any("delta-runtime-custom: complete exit=0" in line for line in lines)

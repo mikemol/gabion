@@ -19,11 +19,6 @@ jobs:
     timeout-minutes: 70
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      # ~= 1 hour at current CI throughput (~18k ticks/ms in timeout profiles).
-      GABION_LSP_TIMEOUT_TICKS: "65000000"
-      GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-      # Emit periodic debug state dumps during long-running dataflow stages.
-      GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS: "60"
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
@@ -45,27 +40,7 @@ jobs:
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
       - name: Seed version-controlled dataflow resume checkpoint (best effort)
-        run: |
-          target_dir="artifacts/audit_reports"
-          seed_checkpoint="baselines/dataflow_resume_checkpoint_ci.json"
-          seed_chunks="baselines/dataflow_resume_checkpoint_ci.json.chunks"
-          mkdir -p "$target_dir"
-          restored=0
-          if [ -f "$seed_checkpoint" ]; then
-            cp "$seed_checkpoint" "$target_dir/dataflow_resume_checkpoint_ci.json"
-            restored=1
-          fi
-          if [ -d "$seed_chunks" ]; then
-            rm -rf "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-            mkdir -p "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-            cp -R "$seed_chunks"/. "$target_dir/dataflow_resume_checkpoint_ci.json.chunks/"
-            restored=1
-          fi
-          if [ "$restored" = "1" ]; then
-            echo "Seeded checkpoint from version-controlled baseline."
-          else
-            echo "No version-controlled checkpoint seed found; continuing."
-          fi
+        run: .venv/bin/python scripts/ci_seed_dataflow_checkpoint.py
       - name: Restore previous dataflow resume checkpoint (best effort)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -79,10 +54,13 @@ jobs:
             --checkpoint-name dataflow_resume_checkpoint_ci.json
       - name: Dataflow audit invocation
         id: dataflow_stage
-        env:
-          GABION_DIRECT_RUN: "1"
         run: |
-          .venv/bin/python -m gabion run-dataflow-stage \
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            run-dataflow-stage \
+            --debug-dump-interval-seconds 60 \
             --stage-strictness-profile "run=high"
       - name: Finalize dataflow audit outcome
         if: always()
@@ -93,42 +71,12 @@ jobs:
           TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
           ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
         run: |
-          terminal_stage="${TERMINAL_STAGE:-none}"
-          terminal_exit="${TERMINAL_EXIT:-}"
-          terminal_state="${TERMINAL_STATE:-none}"
-          terminal_status="${TERMINAL_STATUS:-unknown}"
-          attempts_run="${ATTEMPTS_RUN:-0}"
-          if [ -z "$terminal_exit" ]; then
-            echo "No dataflow audit stage produced an exit code."
-            exit 1
-          fi
-          if [ "$terminal_status" = "unknown" ]; then
-            if [ "$terminal_exit" = "0" ]; then
-              terminal_status="success"
-            elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
-              terminal_status="timeout_resume"
-            else
-              terminal_status="hard_failure"
-            fi
-          fi
-          echo "terminal_stage=$terminal_stage attempts=$attempts_run exit_code=$terminal_exit analysis_state=$terminal_state status=$terminal_status"
-          if [ "$terminal_status" = "success" ]; then
-            exit 0
-          fi
-          if [ -f artifacts/audit_reports/dataflow_report.md ]; then
-            echo "===== dataflow report ====="
-            cat artifacts/audit_reports/dataflow_report.md
-          fi
-          if [ -f artifacts/audit_reports/timeout_progress.md ]; then
-            echo "===== timeout progress ====="
-            cat artifacts/audit_reports/timeout_progress.md
-          fi
-          if [ "$terminal_status" = "timeout_resume" ]; then
-            echo "Dataflow audit invocation timed out with resumable progress."
-            exit 1
-          fi
-          echo "Dataflow audit failed for a non-timeout reason."
-          exit 1
+          .venv/bin/python scripts/ci_finalize_dataflow_outcome.py \
+            --terminal-exit "${TERMINAL_EXIT:-}" \
+            --terminal-state "${TERMINAL_STATE:-none}" \
+            --terminal-stage "${TERMINAL_STAGE:-none}" \
+            --terminal-status "${TERMINAL_STATUS:-unknown}" \
+            --attempts-run "${ATTEMPTS_RUN:-0}"
       - name: Deadline profile summary
         if: always()
         run: |
@@ -251,15 +199,39 @@ jobs:
         run: .venv/bin/python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
         run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
-      - name: Controller drift audit (advisory, ratchet-ready)
+      - name: Restore controller drift gate history
+        continue-on-error: true
         env:
-          CONTROLLER_DRIFT_FAIL_ON: ${{ vars.CONTROLLER_DRIFT_FAIL_ON || '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          args=(--out artifacts/out/controller_drift.json)
-          if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
-            args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
+          mkdir -p artifacts/out
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "GH_TOKEN unavailable; skipping controller drift history restore."
+            exit 0
           fi
-          .venv/bin/python scripts/governance_controller_audit.py "${args[@]}"
+          history_url=$(gh api \
+            "repos/${{ github.repository }}/actions/artifacts" \
+            --paginate \
+            -f per_page=100 \
+            --jq '.artifacts[] | select(.name == "controller-drift-gate-history" and .expired == false and .workflow_run.head_branch == env.BRANCH_NAME) | .archive_download_url' \
+            | head -n 1)
+          if [ -z "${history_url:-}" ]; then
+            echo "No prior controller drift history artifact found for branch ${BRANCH_NAME}."
+            exit 0
+          fi
+          gh api "$history_url" > artifacts/out/controller_drift_gate_history.zip
+          python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
+      - name: Controller drift audit
+        run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+      - name: Override lifecycle record emit
+        run: .venv/bin/python scripts/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
+      - name: Controller drift gate
+        run: |
+          .venv/bin/python scripts/ci_controller_drift_gate.py \
+            --drift-artifact artifacts/out/controller_drift.json \
+            --override-record artifacts/out/governance_override_record.json \
+            --history artifacts/out/controller_drift_gate_history.json
       - name: LSP parity gate
         run: .venv/bin/python -m gabion lsp-parity-gate --command gabion.check
       - name: Tests
@@ -276,17 +248,19 @@ jobs:
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
       - name: Delta state emit
-        env:
-          GABION_DIRECT_RUN: "1"
-          GABION_LSP_TIMEOUT_TICKS: "65000000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python -m gabion delta-state-emit
+        run: |
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            delta-state-emit
       - name: Delta triplets (default-on burn-down gates)
-        env:
-          GABION_DIRECT_RUN: "1"
-          GABION_LSP_TIMEOUT_TICKS: "65000000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python -m gabion delta-triplets
+        run: |
+          .venv/bin/python -m gabion \
+            --transport direct \
+            --lsp-timeout-ticks 65000000 \
+            --lsp-timeout-tick-ns 1000000 \
+            delta-triplets
       - name: Governance telemetry emit
         run: |
           .venv/bin/python scripts/governance_telemetry_emit.py \
@@ -295,6 +269,12 @@ jobs:
             --history artifacts/out/governance_telemetry_history.json \
             --json-out artifacts/out/governance_telemetry.json \
             --md-out artifacts/audit_reports/governance_telemetry.md
+      - name: Upload controller drift gate history
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: controller-drift-gate-history
+          path: artifacts/out/controller_drift_gate_history.json
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -304,4 +284,5 @@ jobs:
             artifacts/test_runs
             artifacts/out/governance_telemetry.json
             artifacts/out/governance_telemetry_history.json
+            artifacts/out/controller_drift_gate_history.json
             artifacts/audit_reports/governance_telemetry.md

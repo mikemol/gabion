@@ -1,5 +1,5 @@
 ---
-doc_revision: 99
+doc_revision: 104
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -29,7 +29,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations (LSP-first, policy pinning/allow-list, bundle tiers, baseline ratchet)."
+  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations and cross-linked to the machine-readable enforcement ledger."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
@@ -105,10 +105,17 @@ valid.
 
 ## Architectural invariants (normative)
 - **LSP-first invariant:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
-- **Maturity/transport policy:** `experimental` and `debug` may use direct-path diagnostics; `beta` and `production` require LSP-carrier validation and cannot treat direct path as the only normative route.
+- **Controller drift + override lifecycle:** [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
+- **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
+- **Python execution discipline:** for repo-local tooling, prefer `mise exec -- python`
+  so the pinned interpreter/toolchain is used; in CI, invoking `.venv/bin/python` is acceptable
+  once the workflow has bootstrapped pinned dependencies (for reproducible hermetic runs).
+- **Override lifecycle source-of-truth:** override record schema/validation semantics are enforced by `src/gabion/tooling/override_record.py` and consumed by both runtime transport policy and CI override emit/gates.
+- **Command transport decision surface:** CLI and tooling paths must use `src/gabion/commands/transport_policy.py` so direct-vs-LSP enforcement remains maturity/parity aligned.
+- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `scripts/policy_check.py --normative-map` green when governance mappings change.
 
 ## Optional governance framing
 See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
@@ -447,6 +454,7 @@ scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-
 `--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
 back to environment values or local branch ancestry.
 PR mode now also runs the governance template check and controller-drift audit.
+The audited normative-doc registry consumed by `scripts/governance_controller_audit.py` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
 For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
 ```
 scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
@@ -546,7 +554,7 @@ It uses `mise` (via `gabion.toml`) to install the toolchain.
 For push-driven `dataflow-grammar`, prefer warm caches:
 - CI restores the previous same-branch `dataflow-report` artifact's resume
   checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
-- `gabion run-dataflow-stage` emits resume metrics in logs/step-summary
+- `scripts/ci_seed_dataflow_checkpoint.py` and `scripts/ci_finalize_dataflow_outcome.py` are the CI orchestration entrypoints around `gabion run-dataflow-stage`; the gabion command still emits resume metrics in logs/step-summary
   (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
   impact can be verified explicitly.
 - Keep resume identity stable (forest spec / fingerprint seed / strictness
@@ -571,6 +579,9 @@ Run:
 ```
 mise exec -- python -m pip install pyyaml
 mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
+mise exec -- python scripts/ci_finalize_dataflow_outcome.py --terminal-exit 0
+mise exec -- python scripts/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```
@@ -581,5 +592,13 @@ mise exec -- python scripts/policy_check.py --posture
 Markdown docs include a YAML front-matter block with:
 - `doc_revision` (integer)
 - `reader_reintern` (reader-only guidance)
+
+When a document participates in the documentation dependency/index graph,
+front-matter should also include:
+- `doc_id`, `doc_role`, `doc_scope`, `doc_authority`, `doc_owner`
+- `doc_requires` links to anchor-level dependencies
+- `doc_change_protocol` linkage
+- optional `doc_relations` edges (`informs`, `refines`, `operationalizes`,
+  `supersedes`) so informative docs remain traceable rather than informal
 
 Bump `doc_revision` for conceptual changes.

@@ -8,7 +8,16 @@ from typer.testing import CliRunner
 
 from gabion.exceptions import NeverThrown
 from gabion import cli, server
-from gabion.tooling.governance_rules import CommandPolicy, GovernanceRules
+from gabion.tooling.governance_rules import CommandPolicy, ControllerDriftPolicy, GovernanceRules
+
+
+def _default_controller_drift_policy() -> ControllerDriftPolicy:
+    return ControllerDriftPolicy(
+        severity_classes=("low", "medium", "high", "critical"),
+        enforce_at_or_above="high",
+        remediation_by_severity={"high": "override_or_fix"},
+        consecutive_passes_required=3,
+    )
 
 
 def _rules_for_check_command(
@@ -30,6 +39,7 @@ def _rules_for_check_command(
                 parity_ignore_keys=(),
             )
         },
+        controller_drift=_default_controller_drift_policy(),
     )
 
 
@@ -123,6 +133,7 @@ def test_execute_lsp_parity_gate_reports_missing_command_policy() -> None:
             override_token_env="TOKEN",
             gates={},
             command_policies={},
+            controller_drift=_default_controller_drift_policy(),
         ),
     )
     assert result["exit_code"] == 1

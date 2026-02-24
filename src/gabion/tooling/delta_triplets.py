@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import concurrent.futures
-import os
+from contextlib import contextmanager
 import time
 from typing import Callable, Mapping, Sequence
 
+from gabion.commands import transport_policy
 from gabion.runtime import env_policy
 from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.tooling import tool_specs
@@ -49,10 +50,30 @@ def _heartbeat_seconds(env_name: str, default_value: float) -> float:
     return parsed if parsed > 0 else 0.0
 
 
-def _set_default_env() -> None:
-    os.environ.setdefault("GABION_DIRECT_RUN", "1")
-    os.environ.setdefault("GABION_LSP_TIMEOUT_TICKS", "65000000")
-    os.environ.setdefault("GABION_LSP_TIMEOUT_TICK_NS", "1000000")
+@contextmanager
+def _default_runtime_override_scope():
+    timeout_token = None
+    transport_token = None
+    if not env_policy.lsp_timeout_env_present():
+        timeout_token = env_policy.set_lsp_timeout_override(
+            env_policy.LspTimeoutConfig(
+                ticks=65_000_000,
+                tick_ns=1_000_000,
+            )
+        )
+    if not transport_policy.transport_override_present():
+        transport_token = transport_policy.set_transport_override(
+            transport_policy.TransportOverrideConfig(
+                direct_requested=True,
+            )
+        )
+    try:
+        yield
+    finally:
+        if transport_token is not None:
+            transport_policy.reset_transport_override(transport_token)
+        if timeout_token is not None:
+            env_policy.reset_lsp_timeout_override(timeout_token)
 
 
 def _run_step_callable(
@@ -150,7 +171,22 @@ def main(
     print_fn: Callable[[str], None] = print,
     pending_heartbeat_seconds: float | None = None,
 ) -> int:
-    _set_default_env()
+    with _default_runtime_override_scope():
+        return _main_impl(
+            triplets=triplets,
+            run_triplet_fn=run_triplet_fn,
+            print_fn=print_fn,
+            pending_heartbeat_seconds=pending_heartbeat_seconds,
+        )
+
+
+def _main_impl(
+    *,
+    triplets: Mapping[str, Sequence[StepSpec]] = TRIPLETS,
+    run_triplet_fn: Callable[..., int] = _run_triplet,
+    print_fn: Callable[[str], None] = print,
+    pending_heartbeat_seconds: float | None = None,
+) -> int:
     triplet_map = {
         str(name): [step for step in steps]
         for name, steps in triplets.items()

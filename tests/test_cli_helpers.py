@@ -2256,6 +2256,99 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_preserves_existing_timeout_ms::cli.py::gabion.cli.dispatch_command
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_blocks_direct_transport_for_beta_without_override::cli.py::gabion.cli._resolve_command_transport
+def test_dispatch_command_blocks_direct_transport_for_beta_without_override(tmp_path: Path) -> None:
+    with _env_scope({"GABION_DIRECT_RUN": "1", "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None}):
+        with pytest.raises(NeverThrown):
+            cli.dispatch_command(
+                command=cli.CHECK_COMMAND,
+                payload={"paths": [str(tmp_path / "x.py")]},
+                root=tmp_path,
+                runner=cli.run_command,
+            )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_direct_transport_for_debug_maturity::cli.py::gabion.cli._resolve_command_transport
+def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: Path) -> None:
+    with _env_scope({"GABION_DIRECT_RUN": "1", "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None}):
+        result = cli.dispatch_command(
+            command=cli.LSP_PARITY_GATE_COMMAND,
+            payload={},
+            root=tmp_path,
+            runner=cli.run_command,
+        )
+    assert isinstance(result, dict)
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence::cli.py::gabion.cli._resolve_command_transport
+def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": None,
+    }):
+        with pytest.raises(NeverThrown):
+            cli.dispatch_command(
+                command=cli.CHECK_COMMAND,
+                payload={"paths": [str(tmp_path / "x.py")]},
+                root=tmp_path,
+                runner=cli.run_command,
+            )
+
+
+# gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_blocks_beta_direct_with_expired_override_record
+def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
+            {
+                "actor": "ci",
+                "rationale": "temporary",
+                "scope": "direct_transport",
+                "start": "2024-01-01T00:00:00Z",
+                "expiry": "2024-01-02T00:00:00Z",
+                "rollback_condition": "fix merged",
+                "evidence_links": ["artifact://x"],
+            }
+        ),
+    }):
+        with pytest.raises(NeverThrown):
+            cli.dispatch_command(
+                command=cli.CHECK_COMMAND,
+                payload={"paths": [str(tmp_path / "x.py")]},
+                root=tmp_path,
+                runner=cli.run_command,
+            )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record::cli.py::gabion.cli._resolve_command_transport
+def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
+            {
+                "actor": "ci",
+                "rationale": "temporary",
+                "scope": "direct_transport",
+                "start": "2024-01-01T00:00:00Z",
+                "expiry": "2999-01-02T00:00:00Z",
+                "rollback_condition": "fix merged",
+                "evidence_links": ["artifact://x"],
+            }
+        ),
+    }):
+        result = cli.dispatch_command(
+            command=cli.CHECK_COMMAND,
+            payload={"paths": [str(tmp_path / "x.py")]},
+            root=tmp_path,
+            runner=cli.run_command,
+        )
+    assert isinstance(result, dict)
+# gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_preserves_existing_timeout_ms
 def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 

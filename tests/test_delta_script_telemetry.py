@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from gabion.commands import transport_policy
 from gabion.commands import progress_contract as progress_timeline
+from gabion.runtime import env_policy
 from gabion.tooling import delta_state_emit
 from gabion.tooling import delta_triplets
 from tests.env_helpers import env_scope
@@ -93,6 +95,44 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
     assert any("| post |" in line and "0/2" in line for line in timeline_rows)
     assert any("| post |" in line and "2/2" in line for line in timeline_rows)
     assert any("state artifacts ready" in line for line in lines)
+
+
+# gabion:evidence E:function_site::test_delta_script_telemetry.py::tests.test_delta_script_telemetry.test_delta_triplets_default_runtime_override_scope_edges
+def test_delta_triplets_default_runtime_override_scope_edges() -> None:
+    with env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+            "GABION_DIRECT_RUN": None,
+            "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
+            "GABION_OVERRIDE_RECORD_JSON": None,
+        }
+    ):
+        with delta_triplets._default_runtime_override_scope():
+            timeout_override = env_policy.lsp_timeout_override()
+            transport_override = transport_policy.transport_override()
+            assert timeout_override is not None
+            assert timeout_override.ticks == 65_000_000
+            assert timeout_override.tick_ns == 1_000_000
+            assert transport_override is not None
+            assert transport_override.direct_requested is True
+        assert env_policy.lsp_timeout_override() is None
+        assert transport_policy.transport_override() is None
+
+    with env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "9",
+            "GABION_LSP_TIMEOUT_TICK_NS": "11",
+            "GABION_DIRECT_RUN": "0",
+            "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
+            "GABION_OVERRIDE_RECORD_JSON": None,
+        }
+    ):
+        with delta_triplets._default_runtime_override_scope():
+            assert env_policy.lsp_timeout_override() is None
+            assert transport_policy.transport_override() is None
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main

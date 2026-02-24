@@ -16,6 +16,15 @@ from gabion.tooling import delta_gate, governance_rules, tool_specs
 from tests.env_helpers import env_scope
 
 
+def _default_controller_drift_policy() -> governance_rules.ControllerDriftPolicy:
+    return governance_rules.ControllerDriftPolicy(
+        severity_classes=("low", "medium", "high", "critical"),
+        enforce_at_or_above="high",
+        remediation_by_severity={"high": "override_or_fix"},
+        consecutive_passes_required=3,
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_truthy_helpers_explicit_values::env_policy.py::gabion.runtime.env_policy.env_enabled_flag::env_policy.py::gabion.runtime.env_policy.env_enabled_truthy_only
 def test_env_policy_truthy_helpers_explicit_values() -> None:
     assert env_policy.env_enabled_truthy_only("UNUSED", value="yes") is True
@@ -36,6 +45,54 @@ def test_env_policy_zero_seconds_rejected() -> None:
     ):
         with pytest.raises(NeverThrown):
             env_policy.timeout_ticks_from_env()
+
+
+# gabion:evidence E:function_site::test_runtime_kernel_contracts.py::tests.test_runtime_kernel_contracts.test_env_policy_cli_timeout_overrides_and_scope_paths
+def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
+    with pytest.raises(NeverThrown):
+        env_policy.LspTimeoutConfig(ticks=0, tick_ns=1)
+    with pytest.raises(NeverThrown):
+        env_policy.LspTimeoutConfig(ticks=1, tick_ns=0)
+
+    with pytest.raises(NeverThrown):
+        env_policy.timeout_config_from_cli_flags()
+    with pytest.raises(NeverThrown):
+        env_policy.timeout_config_from_cli_flags(ticks=5, tick_ns=None)
+    with pytest.raises(NeverThrown):
+        env_policy.timeout_config_from_cli_flags(seconds="bad")
+
+    timeout = env_policy.timeout_config_from_cli_flags(seconds="0.25")
+    assert timeout.ticks == 250
+    assert timeout.tick_ns == 1_000_000
+    ms_timeout = env_policy.timeout_config_from_cli_flags(ms=15)
+    assert ms_timeout.ticks == 15
+    assert ms_timeout.tick_ns == 1_000_000
+    with pytest.raises(NeverThrown):
+        env_policy.timeout_config_from_cli_flags(seconds="0")
+    with pytest.raises(NeverThrown):
+        env_policy.timeout_config_from_cli_flags(seconds="0.0001")
+
+    with env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    ):
+        env_policy.apply_cli_timeout_flags(ticks=17, tick_ns=19)
+        assert env_policy.lsp_timeout_env_present() is True
+        assert env_policy.timeout_ticks_from_env() == (17, 19)
+        env_policy.apply_cli_timeout_flags()
+        assert env_policy.lsp_timeout_override() is None
+        assert env_policy.lsp_timeout_env_present() is False
+
+    assert env_policy.lsp_timeout_override() is None
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=3, tick_ns=5)
+    ):
+        assert env_policy.lsp_timeout_override() is not None
+    assert env_policy.lsp_timeout_override() is None
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_env_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env::env_helpers.py::tests.env_helpers.env_scope
@@ -133,6 +190,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
             override_token_env="TOKEN",
             gates={},
             command_policies={},
+            controller_drift=_default_controller_drift_policy(),
         )
         with pytest.raises(ValueError):
             delta_gate._policy_spec("missing_gate")
@@ -174,6 +232,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
             override_token_env="TOKEN",
             gates={"obsolescence_opaque": policy},
             command_policies={},
+            controller_drift=_default_controller_drift_policy(),
         )
         assert delta_gate._check_standard_gate(spec, path, enabled=True) == 0
     finally:

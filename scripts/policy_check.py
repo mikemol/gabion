@@ -47,6 +47,98 @@ _DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(
 )
 
 
+NORMATIVE_ENFORCEMENT_MAP = REPO_ROOT / "docs" / "normative_enforcement_map.yaml"
+_REQUIRED_NORMATIVE_CLAUSES = {
+    "NCI-LSP-FIRST",
+    "NCI-ACTIONS-PINNED",
+    "NCI-ACTIONS-ALLOWLIST",
+    "NCI-DATAFLOW-BUNDLE-TIERS",
+    "NCI-SHIFT-AMBIGUITY-LEFT",
+    "NCI-BASELINE-RATCHET",
+    "NCI-DEADLINE-TIMEOUT-PROPAGATION",
+    "NCI-CONTROLLER-ADAPTATION-LAW",
+    "NCI-OVERRIDE-LIFECYCLE",
+    "NCI-CONTROLLER-DRIFT-LIFECYCLE",
+    "NCI-COMMAND-MATURITY-PARITY",
+}
+
+
+def _workflow_doc(path: Path):
+    if not path.exists():
+        return {}
+    return _load_yaml(path)
+
+
+def check_normative_enforcement_map() -> None:
+    errors: list[str] = []
+    check_deadline()
+    if not NORMATIVE_ENFORCEMENT_MAP.exists():
+        _fail([f"missing normative enforcement map: {NORMATIVE_ENFORCEMENT_MAP}"])
+    payload = _load_yaml(NORMATIVE_ENFORCEMENT_MAP)
+    clauses = payload.get("clauses")
+    if not isinstance(clauses, dict):
+        _fail(["docs/normative_enforcement_map.yaml: clauses must be a mapping"])
+    clause_ids = set(clauses.keys())
+    missing = _REQUIRED_NORMATIVE_CLAUSES - clause_ids
+    extra = clause_ids - _REQUIRED_NORMATIVE_CLAUSES
+    if missing:
+        errors.append(f"normative map missing required clauses: {_sorted(missing)}")
+    if extra:
+        errors.append(f"normative map has unknown clause keys: {_sorted(extra)}")
+
+    for clause_id, entry in clauses.items():
+        check_deadline()
+        if not isinstance(entry, dict):
+            errors.append(f"{clause_id}: entry must be mapping")
+            continue
+        status = entry.get("status")
+        if status not in {"enforced", "partial", "document-only"}:
+            errors.append(f"{clause_id}: invalid status {status!r}")
+        for module_path in entry.get("enforcing_modules") or []:
+            check_deadline()
+            module_ref = REPO_ROOT / str(module_path)
+            if not module_ref.exists():
+                errors.append(f"{clause_id}: missing enforcing module path {module_path}")
+        ci_anchors = entry.get("ci_anchors") or []
+        if not isinstance(ci_anchors, list):
+            errors.append(f"{clause_id}: ci_anchors must be a list")
+            continue
+        for anchor in ci_anchors:
+            check_deadline()
+            if not isinstance(anchor, dict):
+                errors.append(f"{clause_id}: ci anchor must be mapping")
+                continue
+            workflow = REPO_ROOT / str(anchor.get("workflow", ""))
+            job = str(anchor.get("job", ""))
+            step = str(anchor.get("step", ""))
+            if not workflow.exists():
+                errors.append(f"{clause_id}: workflow does not exist: {workflow}")
+                continue
+            workflow_doc = _workflow_doc(workflow)
+            jobs = workflow_doc.get("jobs")
+            if not isinstance(jobs, dict) or job not in jobs:
+                errors.append(f"{clause_id}: missing workflow job anchor {workflow}:{job}")
+                continue
+            steps = jobs[job].get("steps") if isinstance(jobs[job], dict) else []
+            step_names = {
+                str(item.get("name", ""))
+                for item in steps
+                if isinstance(item, dict)
+            }
+            if step and step not in step_names:
+                errors.append(f"{clause_id}: missing workflow step anchor {workflow}:{job}:{step}")
+        artifacts = entry.get("expected_artifacts") or []
+        if not isinstance(artifacts, list):
+            errors.append(f"{clause_id}: expected_artifacts must be a list")
+            continue
+        for artifact in artifacts:
+            check_deadline()
+            if not isinstance(artifact, str) or not artifact.strip():
+                errors.append(f"{clause_id}: invalid expected artifact reference {artifact!r}")
+    if errors:
+        _fail(errors)
+
+
 def _policy_timeout_budget() -> DeadlineBudget:
     raw_ticks = os.getenv("GABION_POLICY_TIMEOUT_TICKS", "").strip()
     raw_tick_ns = os.getenv("GABION_POLICY_TIMEOUT_TICK_NS", "").strip()
@@ -646,6 +738,34 @@ def _step_run_contains_any(steps, tokens: set[str]) -> bool:
     return False
 
 
+
+
+def _check_ci_script_entrypoints(doc, path, errors):
+    check_deadline()
+    if path.name != "ci.yml":
+        return
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    required_tokens = {
+        "scripts/ci_seed_dataflow_checkpoint.py",
+        "scripts/ci_finalize_dataflow_outcome.py",
+        "scripts/ci_controller_drift_gate.py",
+        "scripts/ci_override_record_emit.py",
+    }
+    steps = []
+    for job in jobs.values():
+        check_deadline()
+        if not isinstance(job, dict):
+            continue
+        raw_steps = job.get("steps", [])
+        if isinstance(raw_steps, list):
+            steps.extend(raw_steps)
+    for token in sorted(required_tokens):
+        check_deadline()
+        if not _step_run_contains_any(steps, {token}):
+            errors.append(f"{path}: ci workflow must invoke {token}")
+
 def _check_release_testpypi_workflow(doc, path, errors):
     on_block = doc.get("on")
     workflows = _workflow_run_names(on_block)
@@ -942,6 +1062,7 @@ def check_workflows():
             _check_release_pypi_workflow(doc, path, errors)
             _check_id_token_scoping(doc, path, errors)
         _check_workflow_dispatch_guards(doc, path, errors)
+        _check_ci_script_entrypoints(doc, path, errors)
         _check_permissions(
             doc,
             path,
@@ -1129,9 +1250,10 @@ def main():
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
+    parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1141,6 +1263,8 @@ def main():
             check_posture()
         if args.ambiguity_contract:
             check_ambiguity_contract()
+        if args.normative_map:
+            check_normative_enforcement_map()
     return 0
 
 

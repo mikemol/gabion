@@ -1,5 +1,6 @@
 ---
-doc_revision: 1
+doc_revision: 3
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: baseline_zero_single_owner
 doc_role: implementation_playbook
 doc_scope:
@@ -10,9 +11,14 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
   - CONTRIBUTING.md#contributing_contract
+doc_relations:
+  refines:
+    - CONTRIBUTING.md#contributing_contract
+  informs:
+    - docs/governance_control_loops.md#governance_control_loops
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
-
 # Baseline Zero Playbook (Single Owner)
 
 This playbook is for the case where baseline burn-down ownership is one person.

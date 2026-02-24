@@ -1,5 +1,5 @@
 ---
-doc_revision: 45
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -721,6 +721,22 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-anchor: CD-002 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_controller_audit.py | severity: high`
 - `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`
 - `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance_controller_audit.py | severity: medium`
+- `controller-anchor: CD-005 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy_check.py | severity: high`
+- `controller-anchor: CD-006 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/no_monkeypatch_policy_check.py | severity: high`
+- `controller-anchor: CD-007 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/branchless_policy_check.py | severity: high`
+- `controller-anchor: CD-008 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/defensive_fallback_policy_check.py | severity: high`
+- `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/check_pr_governance_template.py | severity: high`
+- `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_telemetry_emit.py | severity: high`
+
+**Audited normative-doc set (single source of truth):**
+- `controller-normative-doc: POLICY_SEED.md`
+- `controller-normative-doc: CONTRIBUTING.md`
+- `controller-normative-doc: README.md`
+- `controller-normative-doc: AGENTS.md`
+- `controller-normative-doc: glossary.md`
+- `controller-normative-doc: docs/normative_clause_index.md`
+- `controller-normative-doc: docs/governance_control_loops.md`
+- `controller-normative-doc: docs/governance_loop_matrix.md`
 
 **Controller command references (machine-readable markers):**
 - `controller-command: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`
@@ -819,3 +835,13 @@ If you want next steps, I can:
 * Tie this explicitly to your Prism “advance → quotient → recognition” framework as a security analogue.
 
 Just tell me how far you want to push the self-referential loop.
+
+## 4.9 Second-order controller adaptation protocol
+
+- Canonical clauses: [`NCI-DEADLINE-TIMEOUT-PROPAGATION`](docs/normative_clause_index.md#clause-deadline-timeout-propagation), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle), [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
+- Adaptation triggers (telemetry-derived): parity instability, chronic timeout resumes, and recurring gate-noise false positives.
+- Allowed bounded control moves: timeout budget tuning, retry-profile shaping, and drift-threshold class adjustments declared in `docs/governance_rules.yaml`.
+- Forbidden compensations: baseline refresh as bypass, silent strictness downgrades, and undeclared transport downgrades.
+- Overrides must emit machine-readable records with: `actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`.
+- CI must fail when override metadata is missing/incomplete or expiry has elapsed.
+- Post-override convergence requirement: affected gates/paths must pass for at least `consecutive_passes_required` runs before stabilization is declared.

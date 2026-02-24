@@ -19,6 +19,7 @@ from types import FrameType
 from typing import Any, Callable, Mapping, Sequence
 
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
+from gabion.commands import transport_policy
 from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
 from gabion.tooling import tool_specs
@@ -564,10 +565,60 @@ def _check_command(
     resume_on_timeout: int,
     strictness: str | None = None,
 ) -> list[str]:
+    command_prefix = [sys.executable, "-m", "gabion"]
+    timeout_override = env_policy.lsp_timeout_override()
+    if timeout_override is not None:
+        command_prefix.extend(
+            [
+                "--lsp-timeout-ticks",
+                str(timeout_override.ticks),
+                "--lsp-timeout-tick-ns",
+                str(timeout_override.tick_ns),
+            ]
+        )
+    elif env_policy.lsp_timeout_env_present():
+        ticks, tick_ns = env_policy.timeout_ticks_from_env()
+        command_prefix.extend(
+            [
+                "--lsp-timeout-ticks",
+                str(ticks),
+                "--lsp-timeout-tick-ns",
+                str(tick_ns),
+            ]
+        )
+    transport_override = transport_policy.transport_override()
+    if (
+        transport_override is not None
+        and transport_override.direct_requested is not None
+    ):
+        command_prefix.extend(
+            [
+                "--transport",
+                "direct" if transport_override.direct_requested else "lsp",
+            ]
+        )
+    if (
+        transport_override is not None
+        and transport_override.direct_override_evidence
+    ):
+        command_prefix.extend(
+            [
+                "--direct-run-override-evidence",
+                transport_override.direct_override_evidence,
+            ]
+        )
+    if (
+        transport_override is not None
+        and transport_override.override_record_json
+    ):
+        command_prefix.extend(
+            [
+                "--override-record-json",
+                transport_override.override_record_json,
+            ]
+        )
     command = [
-        sys.executable,
-        "-m",
-        "gabion",
+        *command_prefix,
         "check",
         "--no-fail-on-violations",
         "--no-fail-on-type-ambiguities",

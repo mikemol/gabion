@@ -9,8 +9,10 @@ from typing import Any
 
 import pytest
 
+from gabion.commands import transport_policy
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
 from gabion.exceptions import NeverThrown
+from gabion.runtime import env_policy
 from gabion.tooling import ambiguity_delta_gate
 from gabion.tooling import annotation_drift_orphaned_gate
 from gabion.tooling import deadline_runtime
@@ -491,10 +493,28 @@ def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> No
         return None
 
     docflow_delta_emit._run_docflow_audit(run_fn=_run)
-    assert observed["args"][:4] == [docflow_delta_emit.sys.executable, "-m", "gabion", "docflow"]
+    assert observed["args"][:3] == [docflow_delta_emit.sys.executable, "-m", "gabion"]
+    assert "--transport" in observed["args"]
+    assert "direct" in observed["args"]
+    assert observed["args"][-1] == "docflow"
     assert observed["check"] is True
     assert isinstance(observed["env"], dict)
-    assert observed["env"]["GABION_DIRECT_RUN"] == "1"
+
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=False,
+        )
+    ):
+        with env_policy.lsp_timeout_override_scope(
+            env_policy.LspTimeoutConfig(ticks=77, tick_ns=88)
+        ):
+            docflow_delta_emit._run_docflow_audit(run_fn=_run)
+    assert "--transport" in observed["args"]
+    assert "lsp" in observed["args"]
+    assert "--lsp-timeout-ticks" in observed["args"]
+    assert "77" in observed["args"]
+    assert "--lsp-timeout-tick-ns" in observed["args"]
+    assert "88" in observed["args"]
 
     changed_paths = docflow_delta_emit._build_execution_plan(
         changed_paths_fn=lambda: ("docs/a.md", "docs/b.md")

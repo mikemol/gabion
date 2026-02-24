@@ -19,7 +19,11 @@ NORMATIVE_DOCS = (
     "README.md",
     "AGENTS.md",
     "glossary.md",
+    "docs/normative_clause_index.md",
+    "docs/governance_control_loops.md",
+    "docs/governance_loop_matrix.md",
 )
+NORMATIVE_DOC_RE = re.compile(r"controller-normative-doc:\s*(?P<doc>[^`\n]+)")
 
 ANCHOR_RE = re.compile(
     r"controller-anchor:\s*(?P<id>CD-\d+)\s*\|\s*"
@@ -32,6 +36,11 @@ COMMAND_RE = re.compile(r"controller-command:\s*(?P<command>[^`]+)")
 SCRIPT_IN_WORKFLOW_RE = re.compile(r"scripts/[A-Za-z0-9_\-./]+\.py")
 
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+REQUIRED_ENFORCEMENT_CLAUSES = {
+    "controller_drift": ("NCI-CONTROLLER-DRIFT-LIFECYCLE", "clause-controller-drift-lifecycle"),
+    "command_policies": ("NCI-COMMAND-MATURITY-PARITY", "clause-command-maturity-parity"),
+}
 
 
 @dataclass(frozen=True)
@@ -49,6 +58,13 @@ def _relative(path: Path) -> str:
 
 def _load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _normative_docs(policy_text: str) -> tuple[str, ...]:
+    declared = [match.group("doc").strip() for match in NORMATIVE_DOC_RE.finditer(policy_text)]
+    if declared:
+        return tuple(dict.fromkeys(declared))
+    return NORMATIVE_DOCS
 
 
 def _parse_policy(policy_text: str) -> tuple[list[ControllerAnchor], list[str]]:
@@ -69,11 +85,13 @@ def _parse_policy(policy_text: str) -> tuple[list[ControllerAnchor], list[str]]:
     return anchors, commands
 
 
-def _collect_normative_anchor_signatures() -> dict[str, set[str]]:
+def _collect_normative_anchor_signatures(normative_docs: tuple[str, ...]) -> tuple[dict[str, set[str]], list[str]]:
     signatures: dict[str, set[str]] = {}
-    for rel in NORMATIVE_DOCS:
+    missing_docs: list[str] = []
+    for rel in normative_docs:
         path = REPO_ROOT / rel
         if not path.exists():
+            missing_docs.append(rel)
             continue
         text = _load_text(path)
         for match in ANCHOR_RE.finditer(text):
@@ -87,7 +105,7 @@ def _collect_normative_anchor_signatures() -> dict[str, set[str]]:
                 )
             )
             signatures.setdefault(key, set()).add(signature)
-    return signatures
+    return signatures, missing_docs
 
 
 def _governance_checks_from_workflows() -> set[str]:
@@ -119,9 +137,59 @@ def _severity_at_least(value: str, threshold: str) -> bool:
     return SEVERITY_RANK.get(value.lower(), 0) >= SEVERITY_RANK.get(threshold.lower(), 99)
 
 
+def _enforcement_clause_findings() -> list[dict[str, object]]:
+    findings: list[dict[str, object]] = []
+    rules_path = REPO_ROOT / "docs" / "governance_rules.yaml"
+    clause_path = REPO_ROOT / "docs" / "normative_clause_index.md"
+    if not rules_path.exists():
+        findings.append(
+            {
+                "sensor": "missing_normative_docs_in_repo",
+                "severity": "high",
+                "anchor": None,
+                "detail": f"Expected governance rules file is missing: `{_relative(rules_path)}`.",
+            }
+        )
+        return findings
+    if not clause_path.exists():
+        findings.append(
+            {
+                "sensor": "missing_normative_docs_in_repo",
+                "severity": "high",
+                "anchor": None,
+                "detail": f"Expected normative clause index file is missing: `{_relative(clause_path)}`.",
+            }
+        )
+        return findings
+    rules_text = _load_text(rules_path)
+    clause_text = _load_text(clause_path)
+    for key, (clause_id, anchor_id) in REQUIRED_ENFORCEMENT_CLAUSES.items():
+        annotation = f"{key}:  # {clause_id}"
+        if annotation not in rules_text:
+            findings.append(
+                {
+                    "sensor": "unindexed_enforcement_surfaces",
+                    "severity": "high",
+                    "anchor": None,
+                    "detail": f"governance_rules key `{key}` is missing clause annotation `{clause_id}`.",
+                }
+            )
+        if f'<a id="{anchor_id}"></a>' not in clause_text:
+            findings.append(
+                {
+                    "sensor": "unindexed_enforcement_surfaces",
+                    "severity": "high",
+                    "anchor": None,
+                    "detail": f"normative clause index missing anchor `{anchor_id}` for `{key}` enforcement.",
+                }
+            )
+    return findings
+
+
 def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
     policy_text = _load_text(policy_path)
     anchors, commands = _parse_policy(policy_text)
+    normative_docs = _normative_docs(policy_text)
 
     findings: list[dict[str, object]] = []
 
@@ -152,7 +220,16 @@ def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
         )
 
     # Sensor 3: contradictory anchors across normative docs.
-    signatures = _collect_normative_anchor_signatures()
+    signatures, missing_docs = _collect_normative_anchor_signatures(normative_docs)
+    for rel in missing_docs:
+        findings.append(
+            {
+                "sensor": "missing_normative_docs_in_repo",
+                "severity": "high",
+                "anchor": None,
+                "detail": f"Expected normative doc is missing from repository: `{rel}`.",
+            }
+        )
     for anchor_id, variants in sorted(signatures.items()):
         if len(variants) > 1:
             findings.append(
@@ -178,17 +255,32 @@ def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
                 }
             )
 
+    # Sensor 5: enforcement surfaces without clause anchors.
+    findings.extend(_enforcement_clause_findings())
+
+    severity_counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+    for item in findings:
+        sev = str(item.get("severity", "")).lower()
+        if sev in severity_counts:
+            severity_counts[sev] += 1
+    highest = "none"
+    for candidate in ("critical", "high", "medium", "low"):
+        if severity_counts[candidate] > 0:
+            highest = candidate
+            break
     summary = {
         "total_findings": len(findings),
         "high_severity_findings": sum(1 for item in findings if str(item.get("severity")) == "high"),
         "sensors": sorted({str(item.get("sensor")) for item in findings}),
+        "severity_counts": severity_counts,
+        "highest_severity": highest,
     }
 
     payload = {
         "policy": _relative(policy_path),
         "anchors_scanned": len(anchors),
         "commands_scanned": len(commands),
-        "normative_docs": list(NORMATIVE_DOCS),
+        "normative_docs": list(normative_docs),
         "findings": findings,
         "summary": summary,
     }

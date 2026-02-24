@@ -7,7 +7,9 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+from gabion.commands import transport_policy
 from gabion.runtime import json_io
+from gabion.runtime import env_policy
 from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
@@ -35,12 +37,35 @@ def _run_docflow_audit(
     *,
     run_fn: Callable[..., subprocess.CompletedProcess[str] | None] = subprocess.run,
 ) -> None:
-    env = dict(os.environ)
-    env.setdefault("GABION_DIRECT_RUN", "1")
+    command: list[str] = [sys.executable, "-m", "gabion"]
+    if not transport_policy.transport_override_present():
+        command.extend(["--transport", "direct"])
+    override = transport_policy.transport_override()
+    if (
+        override is not None
+        and override.direct_requested is not None
+    ):
+        command.extend(
+            [
+                "--transport",
+                "direct" if override.direct_requested else "lsp",
+            ]
+        )
+    timeout_override = env_policy.lsp_timeout_override()
+    if timeout_override is not None:
+        command.extend(
+            [
+                "--lsp-timeout-ticks",
+                str(timeout_override.ticks),
+                "--lsp-timeout-tick-ns",
+                str(timeout_override.tick_ns),
+            ]
+        )
+    command.append("docflow")
     run_fn(
-        [sys.executable, "-m", "gabion", "docflow"],
+        command,
         check=True,
-        env=env,
+        env=dict(os.environ),
     )
 
 

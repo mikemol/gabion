@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from collections import OrderedDict
+from enum import Enum
 from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
 import inspect
@@ -34,8 +35,9 @@ from gabion.commands import (
     check_contract,
     command_ids,
     progress_contract as progress_timeline,
+    transport_policy,
 )
-from gabion.runtime import deadline_policy, path_policy
+from gabion.runtime import deadline_policy, env_policy, path_policy
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
 CHECK_COMMAND = command_ids.CHECK_COMMAND
@@ -106,6 +108,11 @@ _LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_
 _LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
+
+
+class CliTransportMode(str, Enum):
+    lsp = "lsp"
+    direct = "direct"
 
 
 @dataclass(frozen=True)
@@ -188,6 +195,60 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
                 default=_run_sppf_sync,
             ),
         ),
+    )
+
+
+@app.callback()
+def configure_runtime_flags(
+    transport: Optional[CliTransportMode] = typer.Option(
+        None,
+        "--transport",
+        help="Command transport mode override (preferred over GABION_DIRECT_RUN).",
+    ),
+    direct_run_override_evidence: Optional[str] = typer.Option(
+        None,
+        "--direct-run-override-evidence",
+        help="Evidence URI required when forcing direct transport for governed commands.",
+    ),
+    override_record_json: Optional[str] = typer.Option(
+        None,
+        "--override-record-json",
+        help="JSON override record required for governed direct-transport overrides.",
+    ),
+    lsp_timeout_ticks: Optional[int] = typer.Option(
+        None,
+        "--lsp-timeout-ticks",
+        help="LSP timeout ticks override (use with --lsp-timeout-tick-ns).",
+    ),
+    lsp_timeout_tick_ns: Optional[int] = typer.Option(
+        None,
+        "--lsp-timeout-tick-ns",
+        help="LSP timeout tick duration in nanoseconds.",
+    ),
+    lsp_timeout_ms: Optional[int] = typer.Option(
+        None,
+        "--lsp-timeout-ms",
+        help="LSP timeout as milliseconds.",
+    ),
+    lsp_timeout_seconds: Optional[float] = typer.Option(
+        None,
+        "--lsp-timeout-seconds",
+        help="LSP timeout as seconds.",
+    ),
+) -> None:
+    env_policy.apply_cli_timeout_flags(
+        ticks=lsp_timeout_ticks,
+        tick_ns=lsp_timeout_tick_ns,
+        ms=lsp_timeout_ms,
+        seconds=lsp_timeout_seconds,
+    )
+    direct_requested: bool | None = None
+    if transport is not None:
+        direct_requested = transport is CliTransportMode.direct
+    transport_policy.apply_cli_transport_flags(
+        direct_requested=direct_requested,
+        direct_override_evidence=direct_run_override_evidence,
+        override_record_json=override_record_json,
     )
 
 
@@ -1214,11 +1275,8 @@ def dispatch_command(
         source=f"cli.dispatch_command.{command}.payload_out",
     )
     request = CommandRequest(command, [payload])
-    resolved = runner
-    if runner is run_command:
-        flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
-        if flag in {"1", "true", "yes", "on"}:
-            resolved = run_command_direct
+    transport = transport_policy.resolve_command_transport(command=command, runner=runner)
+    resolved = transport.runner
     if resolved is run_command:
         factory = process_factory or subprocess.Popen
         raw = resolved(
