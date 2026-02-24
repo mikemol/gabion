@@ -5,7 +5,7 @@ doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 42
+  POLICY_SEED.md#policy_seed: 1
 doc_review_notes:
   POLICY_SEED.md#policy_seed: Reviewed policy seed execution constraints (mechanized governance, explicit review-discipline invariant, and mise-based tooling expectations); scoped in/ delta remains consistent.
 doc_id: in_agents
