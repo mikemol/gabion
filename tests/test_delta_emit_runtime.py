@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
@@ -127,10 +128,15 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
     original_runtime_run = delta_emit_runtime.run_command
     original_runtime_direct = delta_emit_runtime.run_command_direct
     original_transport_run = transport_policy.run_command
+    original_transport_direct = transport_policy.run_command_direct
+    original_direct_env = os.environ.pop("GABION_DIRECT_RUN", None)
+    original_override_env = os.environ.pop("GABION_DIRECT_RUN_OVERRIDE_EVIDENCE", None)
+    original_override_record_env = os.environ.pop("GABION_OVERRIDE_RECORD_JSON", None)
     try:
         delta_emit_runtime.run_command = _stub_runner
         delta_emit_runtime.run_command_direct = _stub_runner
         transport_policy.run_command = _stub_runner
+        transport_policy.run_command_direct = _stub_runner
         exit_code = delta_emit_runtime.run_delta_emit(
             run_spec=run_spec,
             payload={"analysis_timeout_ticks": 10, "analysis_timeout_tick_ns": 1},
@@ -143,6 +149,13 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
         delta_emit_runtime.run_command = original_runtime_run
         delta_emit_runtime.run_command_direct = original_runtime_direct
         transport_policy.run_command = original_transport_run
+        transport_policy.run_command_direct = original_transport_direct
+        if original_direct_env is not None:
+            os.environ["GABION_DIRECT_RUN"] = original_direct_env
+        if original_override_env is not None:
+            os.environ["GABION_DIRECT_RUN_OVERRIDE_EVIDENCE"] = original_override_env
+        if original_override_record_env is not None:
+            os.environ["GABION_OVERRIDE_RECORD_JSON"] = original_override_record_env
 
     assert exit_code == 0
     assert any("delta-runtime-run-command: complete exit=0" in line for line in lines)
