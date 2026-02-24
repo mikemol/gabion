@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: architecture_zones
 doc_role: architecture
@@ -66,9 +66,11 @@ These zones are allowed to accept ambiguous, partial, or external shapes before 
 ## Deterministic core zones
 These zones are expected to run deterministic semantics once data is reified:
 
+- **Server command-core orchestration zone:** `src/gabion/server_core/` (deterministic command orchestration, ingress-normalized command options, and stable command-core sequencing).
 - **Analysis semantics pipeline:** `src/gabion/analysis/` (dataflow graphing, evidence projection, decision/report surfaces).
 - **Synthesis semantics pipeline:** `src/gabion/synthesis/` (bundle merge, naming, scheduling, protocol plan construction).
 - **Refactor semantics engine:** `src/gabion/refactor/` (rewrite planning and edit synthesis driven by reified plans).
+- **Governance/control-loop engine zone:** `src/gabion_governance/` (docflow + governance control-loop checks and normalized governance diagnostics).
 
 
 ## Ambiguity control matrix
@@ -85,11 +87,15 @@ The boundary/core distinction above operationalizes
 ## Boundary handoff contract
 Only **Tier-1 reified objects** cross from ambiguity zones into deterministic core zones.
 
-- Inputs must be promoted to typed DTO/model/config carriers before they enter `src/gabion/analysis/`, `src/gabion/synthesis/`, or `src/gabion/refactor/`.
+- Inputs must be promoted to typed DTO/model/config carriers before they enter `src/gabion/server_core/`, `src/gabion/analysis/`, `src/gabion/synthesis/`, or `src/gabion/refactor/`.
+- Acceptable carriers across `cli/lsp_client/server -> server_core` are JSON-RPC command payload DTOs, execution-plan dataclasses, and validated mapping carriers with normalized key order.
+- `src/gabion/server_core/` may orchestrate command execution but must not ingest ad-hoc untyped transport payloads directly from shell/env ingress.
+- Acceptable carriers across semantic core (`src/gabion/server_core/`, `src/gabion/analysis/`, `src/gabion/synthesis/`, `src/gabion/refactor/`) and governance/docflow core (`src/gabion_governance/`) are explicit audit/report artifacts and validated governance-rule DTOs; direct mutation coupling between these zones is out-of-contract.
 - Allowed cross-boundary forms are explicit objects (for example, schema DTOs/config dataclasses), not raw ad-hoc dictionaries or free-form tuples.
 - Review and tooling should enforce by package scope:
   - outer adapters: `src/gabion/cli.py`, `src/gabion/lsp_client.py`, `src/gabion/server.py`, `src/gabion/schema.py`, `src/gabion/json_types.py`
-  - deterministic core: `src/gabion/analysis/`, `src/gabion/synthesis/`, `src/gabion/refactor/`
+  - deterministic command/semantic core: `src/gabion/server_core/`, `src/gabion/analysis/`, `src/gabion/synthesis/`, `src/gabion/refactor/`
+  - governance/docflow core: `src/gabion_governance/`
 
 ## Test-evidence boundary semantics (semi-normative)
 Docflow excess clustering should treat test evidence near semantic core by

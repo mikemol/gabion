@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_control_loops
 doc_role: policy
@@ -151,6 +151,8 @@ Each loop entry must define:
 
 ### 3) LSP architecture
 
+Clause links: [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first), [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
+
 - **sensor:** server/CLI split checks and governance contract conformance checks.
 - **state artifact:** `src/gabion/server.py`, `src/gabion/cli.py`, and audit outputs under `artifacts/audit_reports/`.
 - **target predicate:** LSP-first invariant holds; semantic logic remains server-owned and CLI stays thin.
@@ -183,6 +185,8 @@ Each loop entry must define:
 - **escalation threshold:** guard rejects refresh twice for the same unresolved source.
 
 ## Second-order controller loop (cybernetic meta-loop)
+
+Clause links: [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 
 Second-order governance closes drift between normative anchors and enforcement scripts.
 This loop governs first-order loop integrity and prevents controller drift.

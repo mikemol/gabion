@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -822,7 +822,7 @@ Just tell me how far you want to push the self-referential loop.
 
 ## 4.9 Second-order controller adaptation protocol
 
-- Canonical clauses: [`NCI-DEADLINE-TIMEOUT-PROPAGATION`](docs/normative_clause_index.md#clause-deadline-timeout-propagation), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle).
+- Canonical clauses: [`NCI-DEADLINE-TIMEOUT-PROPAGATION`](docs/normative_clause_index.md#clause-deadline-timeout-propagation), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle), [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Adaptation triggers (telemetry-derived): parity instability, chronic timeout resumes, and recurring gate-noise false positives.
 - Allowed bounded control moves: timeout budget tuning, retry-profile shaping, and drift-threshold class adjustments declared in `docs/governance_rules.yaml`.
 - Forbidden compensations: baseline refresh as bypass, silent strictness downgrades, and undeclared transport downgrades.

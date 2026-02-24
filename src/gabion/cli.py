@@ -66,6 +66,7 @@ from gabion.tooling import (
     ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
 )
 from gabion.tooling.governance_rules import CommandPolicy, load_governance_rules
+from gabion.tooling.override_record import validate_override_record_json
 from gabion.json_types import JSONObject
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -108,6 +109,7 @@ _LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
 _DIRECT_RUN_OVERRIDE_EVIDENCE_ENV = "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE"
+_OVERRIDE_RECORD_JSON_ENV = "GABION_OVERRIDE_RECORD_JSON"
 
 
 @dataclass(frozen=True)
@@ -115,6 +117,7 @@ class CommandTransportDecision:
     runner: Runner
     direct_requested: bool
     direct_override_evidence: str | None
+    direct_override_telemetry: Mapping[str, object] | None
     policy: CommandPolicy | None
 
 
@@ -127,6 +130,7 @@ def _resolve_command_transport(*, command: str, runner: Runner) -> CommandTransp
             runner=runner,
             direct_requested=direct_requested,
             direct_override_evidence=override_evidence,
+            direct_override_telemetry=None,
             policy=None,
         )
 
@@ -137,18 +141,31 @@ def _resolve_command_transport(*, command: str, runner: Runner) -> CommandTransp
             "beta",
             "production",
         }
-    if direct_requested and require_lsp_carrier and override_evidence is None:
-        never(
-            "direct transport forbidden by command maturity policy",
-            command=command,
-            maturity=(policy.maturity if policy is not None else "unknown"),
-            override_evidence_env=_DIRECT_RUN_OVERRIDE_EVIDENCE_ENV,
-        )
+    override_record = validate_override_record_json(os.getenv(_OVERRIDE_RECORD_JSON_ENV))
+    override_telemetry = None
+    if direct_requested and require_lsp_carrier:
+        if override_evidence is None:
+            never(
+                "direct transport forbidden by command maturity policy",
+                command=command,
+                maturity=(policy.maturity if policy is not None else "unknown"),
+                override_evidence_env=_DIRECT_RUN_OVERRIDE_EVIDENCE_ENV,
+            )
+        if not override_record.valid:
+            never(
+                "direct transport override record invalid",
+                command=command,
+                maturity=(policy.maturity if policy is not None else "unknown"),
+                override_record_env=_OVERRIDE_RECORD_JSON_ENV,
+                **override_record.telemetry(source="cli_direct_transport"),
+            )
+        override_telemetry = override_record.telemetry(source="cli_direct_transport")
     resolved_runner = run_command_direct if direct_requested else run_command
     return CommandTransportDecision(
         runner=resolved_runner,
         direct_requested=direct_requested,
         direct_override_evidence=override_evidence,
+        direct_override_telemetry=override_telemetry,
         policy=policy,
     )
 

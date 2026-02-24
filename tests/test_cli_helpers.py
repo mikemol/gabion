@@ -2283,8 +2283,63 @@ def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence::cli.py::gabion.cli._resolve_command_transport
-def test_dispatch_command_allows_beta_direct_with_override_evidence(tmp_path: Path) -> None:
-    with _env_scope({"GABION_DIRECT_RUN": "1", "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123"}):
+def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": None,
+    }):
+        with pytest.raises(NeverThrown):
+            cli.dispatch_command(
+                command=cli.CHECK_COMMAND,
+                payload={"paths": [str(tmp_path / "x.py")]},
+                root=tmp_path,
+                runner=cli.run_command,
+            )
+
+
+def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
+            {
+                "actor": "ci",
+                "rationale": "temporary",
+                "scope": "direct_transport",
+                "start": "2024-01-01T00:00:00Z",
+                "expiry": "2024-01-02T00:00:00Z",
+                "rollback_condition": "fix merged",
+                "evidence_links": ["artifact://x"],
+            }
+        ),
+    }):
+        with pytest.raises(NeverThrown):
+            cli.dispatch_command(
+                command=cli.CHECK_COMMAND,
+                payload={"paths": [str(tmp_path / "x.py")]},
+                root=tmp_path,
+                runner=cli.run_command,
+            )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record::cli.py::gabion.cli._resolve_command_transport
+def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record(tmp_path: Path) -> None:
+    with _env_scope({
+        "GABION_DIRECT_RUN": "1",
+        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
+        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
+            {
+                "actor": "ci",
+                "rationale": "temporary",
+                "scope": "direct_transport",
+                "start": "2024-01-01T00:00:00Z",
+                "expiry": "2999-01-02T00:00:00Z",
+                "rollback_condition": "fix merged",
+                "evidence_links": ["artifact://x"],
+            }
+        ),
+    }):
         result = cli.dispatch_command(
             command=cli.CHECK_COMMAND,
             payload={"paths": [str(tmp_path / "x.py")]},

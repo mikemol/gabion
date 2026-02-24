@@ -33,6 +33,11 @@ SCRIPT_IN_WORKFLOW_RE = re.compile(r"scripts/[A-Za-z0-9_\-./]+\.py")
 
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
+REQUIRED_ENFORCEMENT_CLAUSES = {
+    "controller_drift": ("NCI-CONTROLLER-DRIFT-LIFECYCLE", "clause-controller-drift-lifecycle"),
+    "command_policies": ("NCI-COMMAND-MATURITY-PARITY", "clause-command-maturity-parity"),
+}
+
 
 @dataclass(frozen=True)
 class ControllerAnchor:
@@ -119,6 +124,33 @@ def _severity_at_least(value: str, threshold: str) -> bool:
     return SEVERITY_RANK.get(value.lower(), 0) >= SEVERITY_RANK.get(threshold.lower(), 99)
 
 
+def _enforcement_clause_findings() -> list[dict[str, object]]:
+    findings: list[dict[str, object]] = []
+    rules_text = _load_text(REPO_ROOT / "docs" / "governance_rules.yaml")
+    clause_text = _load_text(REPO_ROOT / "docs" / "normative_clause_index.md")
+    for key, (clause_id, anchor_id) in REQUIRED_ENFORCEMENT_CLAUSES.items():
+        annotation = f"{key}:  # {clause_id}"
+        if annotation not in rules_text:
+            findings.append(
+                {
+                    "sensor": "unindexed_enforcement_surfaces",
+                    "severity": "high",
+                    "anchor": None,
+                    "detail": f"governance_rules key `{key}` is missing clause annotation `{clause_id}`.",
+                }
+            )
+        if f'<a id="{anchor_id}"></a>' not in clause_text:
+            findings.append(
+                {
+                    "sensor": "unindexed_enforcement_surfaces",
+                    "severity": "high",
+                    "anchor": None,
+                    "detail": f"normative clause index missing anchor `{anchor_id}` for `{key}` enforcement.",
+                }
+            )
+    return findings
+
+
 def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
     policy_text = _load_text(policy_path)
     anchors, commands = _parse_policy(policy_text)
@@ -177,6 +209,9 @@ def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
                     "detail": f"Command `{command}` is stale: {stale_reason}.",
                 }
             )
+
+    # Sensor 5: enforcement surfaces without clause anchors.
+    findings.extend(_enforcement_clause_findings())
 
     severity_counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
     for item in findings:

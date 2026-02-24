@@ -112,7 +112,7 @@ gates:
     blocking_prefix: Docflow contradictions increased
     ok_prefix: Docflow delta OK
 
-controller_drift:
+controller_drift:  # NCI-CONTROLLER-DRIFT-LIFECYCLE
   severity_classes: [low, medium, high, critical]
   enforce_at_or_above: high
   remediation_by_severity:
@@ -120,7 +120,7 @@ controller_drift:
     critical: immediate_corrective_update_required
   consecutive_passes_required: 3
 
-command_policies:
+command_policies:  # NCI-COMMAND-MATURITY-PARITY
   gabion.check:
     maturity: beta
     require_lsp_carrier: true
