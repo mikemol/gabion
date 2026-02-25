@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from gabion.json_types import JSONObject
 
@@ -32,10 +32,51 @@ class ExecutionPlan:
     )
 
     def as_json_dict(self) -> JSONObject:
-        payload = asdict(self)
         return {
-            str(key): payload[key] for key in payload
+            "requested_operations": [
+                str(operation) for operation in self.requested_operations
+            ],
+            "inputs": _to_plain_json_value(self.inputs),
+            "derived_artifacts": [str(path) for path in self.derived_artifacts],
+            "obligations": {
+                "preconditions": [
+                    str(condition) for condition in self.obligations.preconditions
+                ],
+                "postconditions": [
+                    str(condition) for condition in self.obligations.postconditions
+                ],
+            },
+            "policy_metadata": {
+                "deadline": {
+                    str(key): int(value)
+                    for key, value in self.policy_metadata.deadline.items()
+                },
+                "baseline_mode": str(self.policy_metadata.baseline_mode),
+                "docflow_mode": str(self.policy_metadata.docflow_mode),
+            },
         }
+
+
+def _to_plain_json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _to_plain_json_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_to_plain_json_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_to_plain_json_value(item) for item in value]
+    if isinstance(value, set):
+        return [
+            _to_plain_json_value(item)
+            for item in sorted(value, key=repr)
+        ]
+    if isinstance(value, Path):
+        return str(value)
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
 
 
 def write_execution_plan_artifact(
