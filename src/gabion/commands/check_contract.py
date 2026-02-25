@@ -41,6 +41,55 @@ class CheckPolicyFlags:
     lint: bool
 
 
+_CHECK_AUX_DOMAIN_ACTIONS: dict[str, tuple[str, ...]] = {
+    "obsolescence": ("report", "state", "delta", "baseline-write"),
+    "annotation-drift": ("report", "state", "delta", "baseline-write"),
+    "ambiguity": ("state", "delta", "baseline-write"),
+}
+
+
+@dataclass(frozen=True)
+class CheckAuxOperation:
+    domain: str
+    action: str
+    baseline_path: Path | None = None
+    state_in_path: Path | None = None
+    out_json: Path | None = None
+    out_md: Path | None = None
+
+    def validate(self) -> None:
+        domain = self.domain.strip().lower()
+        action = self.action.strip().lower()
+        allowed = _CHECK_AUX_DOMAIN_ACTIONS.get(domain)
+        if allowed is None:
+            raise typer.BadParameter(
+                "aux_operation domain must be one of: obsolescence, annotation-drift, ambiguity."
+            )
+        if action not in allowed:
+            raise typer.BadParameter(
+                f"aux_operation action '{action}' is not valid for domain '{domain}'."
+            )
+        if action in {"delta", "baseline-write"} and self.baseline_path is None:
+            raise typer.BadParameter(
+                "aux_operation requires baseline_path for delta and baseline-write actions."
+            )
+
+    def to_payload(self) -> JSONObject:
+        self.validate()
+        return {
+            "domain": self.domain.strip().lower(),
+            "action": self.action.strip().lower(),
+            "baseline_path": str(self.baseline_path)
+            if self.baseline_path is not None
+            else None,
+            "state_in": str(self.state_in_path)
+            if self.state_in_path is not None
+            else None,
+            "out_json": str(self.out_json) if self.out_json is not None else None,
+            "out_md": str(self.out_md) if self.out_md is not None else None,
+        }
+
+
 @dataclass(frozen=True)
 class DataflowFilterBundle:
     ignore_params_csv: str | None
@@ -214,6 +263,7 @@ def build_check_payload(
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
+    aux_operation: CheckAuxOperation | None = None,
     split_csv_entries_fn: SplitCsvEntriesFn = split_csv_entries,
     split_csv_fn: SplitCsvFn = split_csv,
 ) -> JSONObject:
@@ -262,5 +312,6 @@ def build_check_payload(
         }
     )
     payload.update(delta_options.to_payload())
+    if aux_operation is not None:
+        payload["aux_operation"] = aux_operation.to_payload()
     return payload
-

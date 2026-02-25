@@ -24,6 +24,9 @@ DOCFLOW_DELTA_PATH = Path("artifacts/out/docflow_compliance_delta.json")
 OBSOLESCENCE_STATE_PATH = Path("artifacts/out/test_obsolescence_state.json")
 ANNOTATION_DRIFT_STATE_PATH = Path("artifacts/out/test_annotation_drift.json")
 AMBIGUITY_STATE_PATH = Path("artifacts/out/ambiguity_state.json")
+OBSOLESCENCE_BASELINE_PATH = Path("baselines/test_obsolescence_baseline.json")
+ANNOTATION_DRIFT_BASELINE_PATH = Path("baselines/test_annotation_drift_baseline.json")
+AMBIGUITY_BASELINE_PATH = Path("baselines/ambiguity_baseline.json")
 DOCFLOW_BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 DOCFLOW_CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
 DEFAULT_CHECK_REPORT_PATH = Path("artifacts/audit_reports/dataflow_report.md")
@@ -163,15 +166,12 @@ def _format_run_check_failure(
 
 
 def _refresh_subprocess_env(timeout_env: _RefreshLspTimeoutEnv) -> dict[str, str]:
-    env = dict(os.environ)
-    env["GABION_DIRECT_RUN"] = "1"
-    env["GABION_LSP_TIMEOUT_TICKS"] = str(timeout_env.ticks)
-    env["GABION_LSP_TIMEOUT_TICK_NS"] = str(timeout_env.tick_ns)
-    return env
+    _ = timeout_env
+    return dict(os.environ)
 
 
 def _run_check(
-    flag: str,
+    subcommand: list[str],
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
     resume_on_timeout: int,
@@ -181,15 +181,18 @@ def _run_check(
     extra: list[str] | None = None,
     run_fn=subprocess.run,
 ) -> None:
+    timeout_text = f"{int(timeout_env.ticks) * int(timeout_env.tick_ns)}ns"
     cmd = [
         sys.executable,
         "-m",
         "gabion",
+        "--timeout",
+        timeout_text,
         "check",
-        "--no-fail-on-violations",
-        "--no-fail-on-type-ambiguities",
-        flag,
-        "--emit-timeout-progress-report",
+        *subcommand,
+        "--report",
+        str(report_path),
+        "--timeout-progress-report",
         "--resume-on-timeout",
         str(resume_on_timeout),
     ]
@@ -226,7 +229,15 @@ def _run_docflow_delta_emit(
     *,
     run_fn=subprocess.run,
 ) -> None:
-    cmd = [sys.executable, "-m", "gabion", "docflow-delta-emit"]
+    timeout_text = f"{int(timeout_env.ticks) * int(timeout_env.tick_ns)}ns"
+    cmd = [
+        sys.executable,
+        "-m",
+        "gabion",
+        "--timeout",
+        timeout_text,
+        "docflow-delta-emit",
+    ]
     try:
         run_fn(
             cmd,
@@ -322,7 +333,7 @@ def _risk_entries(
 
 
 def _ensure_delta(
-    flag: str,
+    subcommand: list[str],
     path: Path,
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
@@ -332,7 +343,7 @@ def _ensure_delta(
     extra: list[str] | None = None,
 ) -> dict[str, object]:
     _run_check(
-        flag,
+        subcommand,
         timeout,
         timeout_env,
         resume_on_timeout,
@@ -352,13 +363,18 @@ def _guard_obsolescence_delta(
     resume_checkpoint: Path | None,
 ) -> None:
     payload = _ensure_delta(
-        "--emit-test-obsolescence-delta",
+        [
+            "obsolescence",
+            "delta",
+            "--baseline",
+            str(OBSOLESCENCE_BASELINE_PATH),
+        ],
         OBSOLESCENCE_DELTA_PATH,
         timeout,
         timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
-        extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
+        extra=_state_args(OBSOLESCENCE_STATE_PATH, "--state-in"),
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
     if _requires_block("obsolescence_opaque", opaque_delta):
@@ -383,13 +399,18 @@ def _guard_annotation_drift_delta(
     if not _gate_enabled(gate_id="annotation_orphaned"):
         return
     payload = _ensure_delta(
-        "--emit-test-annotation-drift-delta",
+        [
+            "annotation-drift",
+            "delta",
+            "--baseline",
+            str(ANNOTATION_DRIFT_BASELINE_PATH),
+        ],
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
         timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
-        extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
+        extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--state-in"),
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
     if _requires_block("annotation_orphaned", orphaned_delta):
@@ -408,13 +429,18 @@ def _guard_ambiguity_delta(
     if not _gate_enabled(gate_id="ambiguity"):
         return
     payload = _ensure_delta(
-        "--emit-ambiguity-delta",
+        [
+            "ambiguity",
+            "delta",
+            "--baseline",
+            str(AMBIGUITY_BASELINE_PATH),
+        ],
         AMBIGUITY_DELTA_PATH,
         timeout,
         timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
-        extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+        extra=_state_args(AMBIGUITY_STATE_PATH, "--state-in"),
     )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
     if _requires_block("ambiguity", total_delta):
@@ -549,12 +575,17 @@ def main(
                 resume_checkpoint=resume_checkpoint,
             )
             run_check_fn(
-                "--write-test-obsolescence-baseline",
+                [
+                    "obsolescence",
+                    "baseline-write",
+                    "--baseline",
+                    str(OBSOLESCENCE_BASELINE_PATH),
+                ],
                 args.timeout,
                 timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
-                extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
+                extra=_state_args(OBSOLESCENCE_STATE_PATH, "--state-in"),
             )
         if args.all or args.annotation_drift:
             guard_annotation_drift_delta_fn(
@@ -564,13 +595,18 @@ def main(
                 resume_checkpoint=resume_checkpoint,
             )
             run_check_fn(
-                "--write-test-annotation-drift-baseline",
+                [
+                    "annotation-drift",
+                    "baseline-write",
+                    "--baseline",
+                    str(ANNOTATION_DRIFT_BASELINE_PATH),
+                ],
                 args.timeout,
                 timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
                 extra=_state_args(
-                    ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
+                    ANNOTATION_DRIFT_STATE_PATH, "--state-in"
                 ),
             )
         if args.all or args.ambiguity:
@@ -581,12 +617,17 @@ def main(
                 resume_checkpoint=resume_checkpoint,
             )
             run_check_fn(
-                "--write-ambiguity-baseline",
+                [
+                    "ambiguity",
+                    "baseline-write",
+                    "--baseline",
+                    str(AMBIGUITY_BASELINE_PATH),
+                ],
                 args.timeout,
                 timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
-                extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+                extra=_state_args(AMBIGUITY_STATE_PATH, "--state-in"),
             )
         if args.all or args.docflow:
             guard_docflow_delta_fn(args.timeout, timeout_env)

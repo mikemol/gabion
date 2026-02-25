@@ -1,5 +1,5 @@
 ---
-doc_revision: 75
+doc_revision: 76
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -161,32 +161,33 @@ Commands below assume the package is installed (editable) or `PYTHONPATH=src`.
 
 Run the dataflow grammar audit (strict defaults):
 ```
-mise exec -- python -m gabion check
+mise exec -- python -m gabion check run
 ```
-`gabion check` writes a Markdown report to
+`gabion check run` writes a Markdown report to
 `artifacts/audit_reports/dataflow_report.md` by default.
 Violation enforcement remains independent of report generation.
-Use `--baseline path/to/baseline.txt` to ratchet existing violations and
-`--baseline-write` to generate/update the baseline file
+Use `--baseline path/to/baseline.txt --baseline-mode enforce` to ratchet existing
+violations and `--baseline path/to/baseline.txt --baseline-mode write` to
+generate/update the baseline file
 ([`NCI-BASELINE-RATCHET`](docs/normative_clause_index.md#clause-baseline-ratchet)).
 
 For iterative local cleanup, keep a warm resume checkpoint between runs:
 ```
-mise exec -- python -m gabion check \
+mise exec -- python -m gabion check run \
   --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
   --resume-on-timeout 1
 ```
 Recommended iterative loop (especially on larger repos):
 ```
-mise exec -- python -m gabion check \
+mise exec -- python -m gabion check run \
   --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
   --resume-on-timeout 2 \
-  --emit-timeout-progress-report
+  --timeout-progress-report
 ```
 This keeps retry behavior local to one command invocation while preserving a
 single checkpoint file for cache hydration.
 
-### Timeout/resume quick guide (`gabion check`)
+### Timeout/resume quick guide (`gabion check run`)
 
 When a run times out, read `analysis_state` and timeout `classification`
 together:
@@ -199,10 +200,10 @@ together:
 Timeout artifacts and their purposes:
 
 - `artifacts/audit_reports/timeout_progress.json` (written when
-  `--emit-timeout-progress-report` is set): machine-readable timeout payload
+  `--timeout-progress-report` is set): machine-readable timeout payload
   (`analysis_state` + `progress`) for automation and scripts.
 - `artifacts/audit_reports/timeout_progress.md` (written when
-  `--emit-timeout-progress-report` is set): human-readable timeout summary,
+  `--timeout-progress-report` is set): human-readable timeout summary,
   including retry hints and resume token details.
 - `artifacts/out/deadline_profile.json` (written on timeout): raw deadline
   telemetry/profile data.
@@ -249,8 +250,19 @@ Compatibility-first guidance (to maximize warm-cache reuse):
 
 Run the dataflow grammar audit in raw profile mode (prototype):
 ```
-mise exec -- python -m gabion check --profile raw path/to/project
+mise exec -- python -m gabion check raw -- path/to/project
 ```
+Modality commands replace the legacy check-flag matrix:
+```
+mise exec -- python -m gabion check obsolescence delta --baseline baselines/test_obsolescence_baseline.json
+mise exec -- python -m gabion check annotation-drift baseline-write --baseline baselines/test_annotation_drift_baseline.json
+mise exec -- python -m gabion check ambiguity state
+```
+Global runtime controls are now:
+- `--timeout <duration>` (for example `750ms`, `2s`, `1m30s`)
+- `--carrier {lsp|direct}`
+- `--carrier-override-record <path>`
+
 Repo defaults are driven by `gabion.toml` (see `[dataflow]`).
 By default, `in/` (inspiration) is excluded from enforcement there.
 Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
@@ -345,7 +357,7 @@ make audit-latest
 ```
 
 ## CI
-GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
+GitHub-hosted CI runs `gabion check run`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
@@ -375,7 +387,7 @@ same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.
 
 ## GitHub Action (redistributable)
 A composite action wrapper lives at `.github/actions/gabion`.
-It installs Gabion via pip and runs `gabion check` (or another subcommand).
+It installs Gabion via pip and runs `gabion check run` (or another subcommand).
 See `.github/actions/gabion/README.md#repo_contract` for usage and pinning guidance.
 Example workflow (with pinned SHA placeholders):
 `docs/workflows/gabion_action_example.yml`.

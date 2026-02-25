@@ -26,7 +26,7 @@ done
 if $list_only; then
   echo "Checks to run:" >&2
   $run_dataflow && echo "- lsp parity gate (gabion lsp-parity-gate --command gabion.check)" >&2
-  $run_dataflow && echo "- dataflow (gabion check)" >&2
+  $run_dataflow && echo "- dataflow (gabion check run)" >&2
   $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
   exit 0
@@ -53,9 +53,9 @@ if $run_dataflow; then
   mise exec -- python -m gabion lsp-parity-gate --command gabion.check
   baseline_arg=()
   if [ -f baselines/dataflow_baseline.txt ]; then
-    baseline_arg+=(--baseline baselines/dataflow_baseline.txt)
+    baseline_arg+=(--baseline baselines/dataflow_baseline.txt --baseline-mode enforce)
   fi
-  mise exec -- python -m gabion check "${baseline_arg[@]}"
+  mise exec -- python -m gabion check run "${baseline_arg[@]}"
 fi
 if $run_docflow; then
   docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")

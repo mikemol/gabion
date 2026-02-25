@@ -146,23 +146,26 @@ def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> No
     transport_before = transport_policy.transport_override()
     try:
         cli.configure_runtime_flags(
-            transport=cli.CliTransportMode.direct,
-            direct_run_override_evidence="audit://override/evidence",
-            override_record_json="{}",
-            lsp_timeout_ticks=10,
-            lsp_timeout_tick_ns=20,
-            lsp_timeout_ms=None,
-            lsp_timeout_seconds=None,
+            timeout="200ns",
+            carrier=cli.CliTransportMode.direct,
+            carrier_override_record=Path("overrides/record.json"),
+            removed_lsp_timeout_ticks=None,
+            removed_lsp_timeout_tick_ns=None,
+            removed_lsp_timeout_ms=None,
+            removed_lsp_timeout_seconds=None,
+            removed_transport=None,
+            removed_direct_run_override_evidence=None,
+            removed_override_record_json=None,
         )
         timeout_override = env_policy.lsp_timeout_override()
         transport_override = transport_policy.transport_override()
         assert timeout_override is not None
-        assert timeout_override.ticks == 10
-        assert timeout_override.tick_ns == 20
+        assert timeout_override.ticks == 1
+        assert timeout_override.tick_ns == 1_000_000
         assert transport_override is not None
         assert transport_override.direct_requested is True
-        assert transport_override.direct_override_evidence == "audit://override/evidence"
-        assert transport_override.override_record_json == "{}"
+        assert transport_override.override_record_path == "overrides/record.json"
+        assert transport_override.override_record_json is None
     finally:
         env_policy.set_lsp_timeout_override(timeout_before)
         transport_policy.set_transport_override(transport_before)
@@ -187,12 +190,15 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     result = _invoke(
         runner,
         [
+            "--carrier",
+            "lsp",
             "check",
+            "run",
             str(module),
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
     )
     assert result.exit_code == 0
@@ -200,9 +206,11 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     result = _invoke(
         runner,
         [
+            "--carrier",
+            "lsp",
             "check",
-            "--profile",
             "raw",
+            "--",
             str(module),
             "--root",
             str(tmp_path),

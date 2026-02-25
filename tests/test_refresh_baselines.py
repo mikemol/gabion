@@ -40,7 +40,12 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
         original_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
         original_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
         module._run_check(
-            "--emit-ambiguity-delta",
+            [
+                "ambiguity",
+                "delta",
+                "--baseline",
+                str(module.AMBIGUITY_BASELINE_PATH),
+            ],
             timeout=5,
             timeout_env=timeout_env,
             resume_on_timeout=1,
@@ -54,9 +59,7 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
     assert len(calls) == 1
     call = calls[0]
     assert call["timeout"] == 5
-    assert call["env"]["GABION_DIRECT_RUN"] == "1"
-    assert call["env"]["GABION_LSP_TIMEOUT_TICKS"] == str(module._DEFAULT_TIMEOUT_TICKS)
-    assert call["env"]["GABION_LSP_TIMEOUT_TICK_NS"] == str(module._DEFAULT_TIMEOUT_TICK_NS)
+    assert call["cmd"][3:5] == ["--timeout", "120000000000ns"]
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_lsp_timeout_env_overrides_defaults::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
@@ -75,7 +78,7 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
     captured: list[module._RefreshLspTimeoutEnv] = []
 
     def _capture_run_check(
-        flag: str,
+        subcommand: list[str],
         timeout: int | None,
         timeout_env: module._RefreshLspTimeoutEnv,
         resume_on_timeout: int,
@@ -85,7 +88,15 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
         extra: list[str] | None = None,
         run_fn=module.subprocess.run,
     ) -> None:
-        _ = (flag, timeout, resume_on_timeout, resume_checkpoint, report_path, extra, run_fn)
+        _ = (
+            subcommand,
+            timeout,
+            resume_on_timeout,
+            resume_checkpoint,
+            report_path,
+            extra,
+            run_fn,
+        )
         captured.append(timeout_env)
 
     exit_code = module.main(

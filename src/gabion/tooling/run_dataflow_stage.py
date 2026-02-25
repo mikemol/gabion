@@ -37,6 +37,9 @@ _DELTA_GATE_STEPS: tuple[tool_specs.ToolSpec, ...] = tool_specs.dataflow_stage_g
 _DELTA_GATE_REGISTRY: dict[str, Callable[[], int]] = {
     spec.id: spec.run for spec in _DELTA_GATE_STEPS
 }
+_OBSOLESCENCE_BASELINE_PATH = Path("baselines/test_obsolescence_baseline.json")
+_ANNOTATION_DRIFT_BASELINE_PATH = Path("baselines/test_annotation_drift_baseline.json")
+_AMBIGUITY_BASELINE_PATH = Path("baselines/ambiguity_baseline.json")
 
 
 @dataclass(frozen=True)
@@ -565,25 +568,40 @@ def _check_command(
     resume_on_timeout: int,
     strictness: str | None = None,
 ) -> list[str]:
+    return _check_commands(
+        paths=paths,
+        resume_on_timeout=resume_on_timeout,
+        strictness=strictness,
+    )[0]
+
+
+def _check_commands(
+    *,
+    paths: StagePaths,
+    resume_on_timeout: int,
+    strictness: str | None = None,
+) -> list[list[str]]:
     command_prefix = [sys.executable, "-m", "gabion"]
     timeout_override = env_policy.lsp_timeout_override()
     if timeout_override is not None:
         command_prefix.extend(
             [
-                "--lsp-timeout-ticks",
-                str(timeout_override.ticks),
-                "--lsp-timeout-tick-ns",
-                str(timeout_override.tick_ns),
+                "--timeout",
+                env_policy.duration_text_from_ticks(
+                    ticks=timeout_override.ticks,
+                    tick_ns=timeout_override.tick_ns,
+                ),
             ]
         )
     elif env_policy.lsp_timeout_env_present():
         ticks, tick_ns = env_policy.timeout_ticks_from_env()
         command_prefix.extend(
             [
-                "--lsp-timeout-ticks",
-                str(ticks),
-                "--lsp-timeout-tick-ns",
-                str(tick_ns),
+                "--timeout",
+                env_policy.duration_text_from_ticks(
+                    ticks=ticks,
+                    tick_ns=tick_ns,
+                ),
             ]
         )
     transport_override = transport_policy.transport_override()
@@ -593,51 +611,60 @@ def _check_command(
     ):
         command_prefix.extend(
             [
-                "--transport",
+                "--carrier",
                 "direct" if transport_override.direct_requested else "lsp",
             ]
         )
     if (
         transport_override is not None
-        and transport_override.direct_override_evidence
+        and transport_override.override_record_path
     ):
         command_prefix.extend(
             [
-                "--direct-run-override-evidence",
-                transport_override.direct_override_evidence,
+                "--carrier-override-record",
+                transport_override.override_record_path,
             ]
         )
-    if (
-        transport_override is not None
-        and transport_override.override_record_json
-    ):
-        command_prefix.extend(
-            [
-                "--override-record-json",
-                transport_override.override_record_json,
-            ]
-        )
-    command = [
-        *command_prefix,
-        "check",
-        "--no-fail-on-violations",
-        "--no-fail-on-type-ambiguities",
-        "--emit-test-obsolescence-delta",
-        "--emit-test-annotation-drift-delta",
-        "--emit-ambiguity-delta",
+    common_suffix = [
         "--report",
         str(paths.report_path),
         "--resume-checkpoint",
         str(paths.resume_checkpoint_path),
         "--resume-on-timeout",
         str(max(0, int(resume_on_timeout))),
-        "--emit-timeout-progress-report",
-        "--baseline",
-        str(paths.baseline_path),
+        "--timeout-progress-report",
     ]
     if strictness:
-        command.extend(["--strictness", strictness])
-    return command
+        common_suffix.extend(["--strictness", strictness])
+    return [
+        [
+            *command_prefix,
+            "check",
+            "obsolescence",
+            "delta",
+            "--baseline",
+            str(_OBSOLESCENCE_BASELINE_PATH),
+            *common_suffix,
+        ],
+        [
+            *command_prefix,
+            "check",
+            "annotation-drift",
+            "delta",
+            "--baseline",
+            str(_ANNOTATION_DRIFT_BASELINE_PATH),
+            *common_suffix,
+        ],
+        [
+            *command_prefix,
+            "check",
+            "ambiguity",
+            "delta",
+            "--baseline",
+            str(_AMBIGUITY_BASELINE_PATH),
+            *common_suffix,
+        ],
+    ]
 
 
 def run_stage(
@@ -649,6 +676,7 @@ def run_stage(
     run_command_fn: Callable[[Sequence[str]], int],
     strictness: str | None = None,
     command: Sequence[str] | None = None,
+    commands: Sequence[Sequence[str]] | None = None,
 ) -> StageResult:
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -659,16 +687,24 @@ def run_stage(
         step_summary_path,
         [f"- stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}"],
     )
-    stage_command = (
-        list(command)
-        if command is not None
-        else _check_command(
-            paths=paths,
-            resume_on_timeout=resume_on_timeout,
-            strictness=strictness,
+    stage_commands = (
+        [list(spec) for spec in commands]
+        if commands is not None
+        else (
+            [list(command)]
+            if command is not None
+            else _check_commands(
+                paths=paths,
+                resume_on_timeout=resume_on_timeout,
+                strictness=strictness,
+            )
         )
     )
-    exit_code = int(run_command_fn(stage_command))
+    exit_code = 0
+    for stage_command in deadline_loop_iter(stage_commands):
+        exit_code = int(run_command_fn(stage_command))
+        if exit_code != 0:
+            break
     analysis_state = _analysis_state(paths.timeout_progress_json_path)
     is_timeout_resume = analysis_state == "timed_out_progress_resume"
     metrics_line = _metrics_line(paths.deadline_profile_json_path)
@@ -870,13 +906,13 @@ def run_staged(
                 _append_lines(step_summary_path, [f"- {message}"])
                 break
         stage_strictness = _stage_strictness(stage_id, strictness_profile)
-        stage_command = _check_command(
+        stage_commands = _check_commands(
             paths=paths,
             resume_on_timeout=resume_on_timeout,
             strictness=stage_strictness,
         )
         if callable(on_stage_start):
-            on_stage_start(stage_id, stage_command, stage_strictness)
+            on_stage_start(stage_id, stage_commands[0], stage_strictness)
         result = run_stage(
             stage_id=stage_id,
             paths=paths,
@@ -884,7 +920,7 @@ def run_staged(
             step_summary_path=step_summary_path,
             run_command_fn=run_command_fn,
             strictness=stage_strictness,
-            command=stage_command,
+            commands=stage_commands,
         )
         if callable(on_stage_end):
             on_stage_end(result)

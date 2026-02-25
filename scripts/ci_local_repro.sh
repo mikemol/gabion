@@ -594,16 +594,14 @@ run_checks_job() {
 
   step "checks: delta_state_emit"
   timed_observed checks_delta_state_emit "$PYTHON_BIN" -m gabion \
-    --transport direct \
-    --lsp-timeout-ticks 65000000 \
-    --lsp-timeout-tick-ns 1000000 \
+    --carrier direct \
+    --timeout 65000000000000ns \
     delta-state-emit
 
   step "checks: delta_triplets"
   timed_observed checks_delta_triplets "$PYTHON_BIN" -m gabion \
-    --transport direct \
-    --lsp-timeout-ticks 65000000 \
-    --lsp-timeout-tick-ns 1000000 \
+    --carrier direct \
+    --timeout 65000000000000ns \
     delta-triplets
 
   step "checks: governance telemetry emit"
@@ -695,9 +693,8 @@ run_dataflow_job() {
 
   set +e
   observed dataflow_run_dataflow_stage "$PYTHON_BIN" -m gabion \
-    --transport direct \
-    --lsp-timeout-ticks "${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
-    --lsp-timeout-tick-ns "${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
+    --carrier direct \
+    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
     run-dataflow-stage \
     --github-output "$outputs_file" \
     --step-summary "$summary_file" \
@@ -879,20 +876,17 @@ PY
   step "pr-dataflow: render dataflow grammar report"
   mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
   timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
-    --lsp-timeout-ticks "${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
-    --lsp-timeout-tick-ns "${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
+    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
     check \
-    --profile raw . \
+    raw -- . \
     --root . \
     --report artifacts/dataflow_grammar/report.md \
     --dot artifacts/dataflow_grammar/dataflow_graph.dot \
     --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
     --resume-on-timeout 1 \
-    --emit-timeout-progress-report \
+    --timeout-progress-report \
     --type-audit-report \
-    --baseline baselines/dataflow_baseline.txt \
-    --no-fail-on-violations \
-    --no-fail-on-type-ambiguities
+    --baseline baselines/dataflow_baseline.txt
 }
 
 bootstrap_ci_env

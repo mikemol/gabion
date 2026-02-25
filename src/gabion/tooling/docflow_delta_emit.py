@@ -39,7 +39,7 @@ def _run_docflow_audit(
 ) -> None:
     command: list[str] = [sys.executable, "-m", "gabion"]
     if not transport_policy.transport_override_present():
-        command.extend(["--transport", "direct"])
+        command.extend(["--carrier", "direct"])
     override = transport_policy.transport_override()
     if (
         override is not None
@@ -47,7 +47,7 @@ def _run_docflow_audit(
     ):
         command.extend(
             [
-                "--transport",
+                "--carrier",
                 "direct" if override.direct_requested else "lsp",
             ]
         )
@@ -55,10 +55,11 @@ def _run_docflow_audit(
     if timeout_override is not None:
         command.extend(
             [
-                "--lsp-timeout-ticks",
-                str(timeout_override.ticks),
-                "--lsp-timeout-tick-ns",
-                str(timeout_override.tick_ns),
+                "--timeout",
+                env_policy.duration_text_from_ticks(
+                    ticks=timeout_override.ticks,
+                    tick_ns=timeout_override.tick_ns,
+                ),
             ]
         )
     command.append("docflow")

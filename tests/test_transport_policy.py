@@ -100,30 +100,27 @@ def test_transport_override_scope_prefers_context_over_env() -> None:
         with transport_policy.transport_override_scope(
             transport_policy.TransportOverrideConfig(
                 direct_requested=True,
-                direct_override_evidence="  context://evidence  ",
                 override_record_json="  {\"actor\":\"ci\"}  ",
             )
         ):
             assert transport_policy.transport_override_present() is True
-            direct_requested, evidence, record_json = (
+            direct_requested, record_json = (
                 transport_policy._resolve_transport_controls()
             )
             assert direct_requested is True
-            assert evidence == "context://evidence"
             assert record_json == "{\"actor\":\"ci\"}"
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_apply_cli_transport_flags_normalizes_strings_and_clears_override
 def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> None:
     transport_policy.apply_cli_transport_flags(
-        direct_requested=False,
-        direct_override_evidence="  ",
-        override_record_json="  {\"actor\":\"ci\"}  ",
+        carrier="lsp",
+        override_record_path="  /tmp/override_record.json  ",
     )
     override = transport_policy.transport_override()
     assert override is not None
     assert override.direct_requested is False
-    assert override.direct_override_evidence is None
-    assert override.override_record_json == "{\"actor\":\"ci\"}"
+    assert override.override_record_path == "/tmp/override_record.json"
+    assert override.override_record_json is None
     transport_policy.apply_cli_transport_flags()
     assert transport_policy.transport_override() is None

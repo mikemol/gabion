@@ -66,17 +66,22 @@ def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> No
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_args_in_strict_profile::cli.py::gabion.cli.app
 def test_check_rejects_unknown_args_in_strict_profile() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["check", "sample.py", "--dot", "-"])
+    result = runner.invoke(cli.app, ["check", "run", "sample.py", "--dot", "-"])
     assert result.exit_code != 0
-    assert "Unknown arguments for strict profile" in result.output
+    normalized_output = _strip_ansi(result.output)
+    assert "No such option: --dot" in normalized_output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_profile::cli.py::gabion.cli.app
 def test_check_rejects_unknown_profile() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["check", "sample.py", "--profile", "mystery"])
+    result = runner.invoke(
+        cli.app,
+        ["check", "--profile", "mystery", "run", "sample.py"],
+    )
     assert result.exit_code != 0
-    assert "profile must be 'strict' or 'raw'" in result.output
+    normalized_output = _strip_ansi(result.output)
+    assert "Removed --profile flag." in normalized_output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_delegates_with_profile_defaults::cli.py::gabion.cli.app
@@ -90,7 +95,7 @@ def test_check_raw_profile_delegates_with_profile_defaults(
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
-        ["check", "--profile", "raw", "sample.py"],
+        ["check", "raw", "--", "sample.py"],
         obj={"run_dataflow_raw_argv": _fake_run},
     )
     assert result.exit_code == 0
@@ -111,8 +116,8 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
         cli.app,
         [
             "check",
-            "--profile",
             "raw",
+            "--",
             "sample.py",
             "--root",
             str(tmp_path),
@@ -155,16 +160,13 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
     assert result.exit_code == 0
     assert captured["argv"] == [
         "sample.py",
-        "--dot",
-        "-",
-        "--type-audit",
         "--root",
         str(tmp_path),
         "--config",
         "cfg.toml",
         "--report",
         "report.md",
-        "--emit-decision-snapshot",
+        "--decision-snapshot",
         "decision.json",
         "--baseline",
         "baseline.txt",
@@ -190,6 +192,9 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
         "lint.jsonl",
         "--lint-sarif",
         "lint.sarif",
+        "--dot",
+        "-",
+        "--type-audit",
     ]
 
 
@@ -206,8 +211,8 @@ def test_check_raw_profile_maps_no_allow_external(
         cli.app,
         [
             "check",
-            "--profile",
             "raw",
+            "--",
             "sample.py",
             "--no-allow-external",
             "--no-fail-on-violations",
@@ -216,7 +221,12 @@ def test_check_raw_profile_maps_no_allow_external(
         obj={"run_dataflow_raw_argv": _fake_run},
     )
     assert result.exit_code == 0
-    assert captured["argv"] == ["sample.py", "--no-allow-external"]
+    assert captured["argv"] == [
+        "sample.py",
+        "--no-allow-external",
+        "--no-fail-on-violations",
+        "--no-fail-on-type-ambiguities",
+    ]
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_rejects_check_only_flags::test_cli_helpers.py::tests.test_cli_helpers._strip_ansi
@@ -224,12 +234,11 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
-        ["check", "--profile", "raw", "sample.py", "--emit-test-obsolescence"],
+        ["check", "--emit-test-obsolescence", "raw", "--", "sample.py"],
     )
     normalized_output = _strip_ansi(result.output)
     assert result.exit_code != 0
-    assert "check-only options" in normalized_output
-    assert "--emit-test-obsolescence" in normalized_output
+    assert "Removed legacy check modality flags." in normalized_output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_nonzero_exit_reports_explicit_causes::cli.py::gabion.cli._run_dataflow_raw_argv
@@ -3475,13 +3484,14 @@ def test_check_emits_resume_startup_and_first_progress_once(
         cli.app,
         [
             "check",
+            "run",
             "sample.py",
             "--root",
             str(tmp_path),
             "--resume-checkpoint",
             str(tmp_path / "resume.json"),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
         obj={
             "run_check": _fake_run_check,
@@ -3537,11 +3547,12 @@ def test_check_emits_checkpoint_intro_timeline_header_once(
         cli.app,
         [
             "check",
+            "run",
             "sample.py",
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
         obj={
             "run_check": _fake_run_check,
@@ -3597,11 +3608,12 @@ def test_check_dedupes_duplicate_event_seq(
         cli.app,
         [
             "check",
+            "run",
             "sample.py",
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
         obj={
             "run_check": _fake_run_check,
@@ -3641,11 +3653,12 @@ def test_check_ignores_empty_checkpoint_intro_timeline_row(
         cli.app,
         [
             "check",
+            "run",
             "sample.py",
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
         obj={
             "run_check": _fake_run_check,
@@ -3723,11 +3736,12 @@ def test_check_emits_non_collection_phase_progress_lines(
         cli.app,
         [
             "check",
+            "run",
             "sample.py",
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
         obj={
             "run_check": _fake_run_check,
