@@ -98,6 +98,7 @@ def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
     assert env_policy.lsp_timeout_override() is None
 
 
+# gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parsing_and_duration_text_edges
 def test_env_policy_duration_parsing_and_duration_text_edges() -> None:
     assert env_policy.parse_duration_to_ns("750ms") == 750_000_000
     assert env_policy.parse_duration_to_ns("1m30s") == 90_000_000_000
@@ -119,6 +120,7 @@ def test_env_policy_duration_parsing_and_duration_text_edges() -> None:
         env_policy.duration_text_from_ticks(ticks=1, tick_ns=0)
 
 
+# gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parser_covers_unit_and_rounding_guardrails
 def test_env_policy_duration_parser_covers_unit_and_rounding_guardrails() -> None:
     original_units = dict(env_policy._DURATION_UNIT_NS)
     original_rounding = env_policy.ROUND_CEILING
@@ -141,6 +143,7 @@ def test_env_policy_duration_parser_covers_unit_and_rounding_guardrails() -> Non
         env_policy.ROUND_CEILING = original_rounding
 
 
+# gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guard
 def test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guard() -> None:
     original_re = env_policy._DURATION_TOKEN_RE
     had_module_int = hasattr(env_policy, "int")

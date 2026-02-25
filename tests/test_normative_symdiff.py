@@ -89,6 +89,7 @@ def _seed_minimal_symdiff_root(root: Path) -> None:
     )
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_collect_scope_inventory_two_layer_classification
 def test_collect_scope_inventory_two_layer_classification(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     inventory = normative_symdiff.collect_scope_inventory(tmp_path)
@@ -100,6 +101,7 @@ def test_collect_scope_inventory_two_layer_classification(tmp_path: Path) -> Non
     assert "docs/extra_normative.md" in inventory.outside_default_strict_docs
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_analyze_clause_enforcement_detects_clause_map_drift
 def test_analyze_clause_enforcement_detects_clause_map_drift(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     clause_ids = normative_symdiff._parse_clause_ids(
@@ -117,6 +119,7 @@ def test_analyze_clause_enforcement_detects_clause_map_drift(tmp_path: Path) -> 
     assert any("missing workflow step anchor" in item for item in analysis["ci_anchor_errors"])
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_score_gaps_dual_view_behaviors
 def test_score_gaps_dual_view_behaviors() -> None:
     absolute_only = {
         "doc_to_code_gaps": [
@@ -163,6 +166,7 @@ def test_score_gaps_dual_view_behaviors() -> None:
     assert empty_scores["absolute"]["overall"]["score"] == 100
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_ordered_gap_items_is_stable
 def test_ordered_gap_items_is_stable() -> None:
     gaps = [
         normative_symdiff.GapItem(
@@ -209,6 +213,7 @@ def test_ordered_gap_items_is_stable() -> None:
     ]
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_run_emits_json_and_markdown_shapes
 def test_run_emits_json_and_markdown_shapes(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     json_out = tmp_path / "out" / "normative_symdiff.json"
@@ -234,6 +239,7 @@ def test_run_emits_json_and_markdown_shapes(tmp_path: Path) -> None:
     assert "## How Close/Far" in markdown
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_cli_normative_symdiff_smoke
 def test_cli_normative_symdiff_smoke(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     json_out = tmp_path / "artifacts" / "out" / "normative_symdiff.json"

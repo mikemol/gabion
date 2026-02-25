@@ -510,6 +510,7 @@ def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_
     assert emitted_events == []
 
 
+# gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout
 def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
     tmp_path: Path,
 ) -> None:
@@ -540,7 +541,7 @@ def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
     assert artifacts.synthesis_plan is not None
     assert isinstance(response.get("synthesis_protocols"), str)
 
-
+# gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_parse_execution_payload_options_aux_operation_domain_routing
 @pytest.mark.parametrize(
     ("domain", "action", "baseline", "state_in"),
     [
@@ -583,6 +584,7 @@ def test_parse_execution_payload_options_aux_operation_domain_routing(
         assert options.ambiguity_state_path == state_in
 
 
+# gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_parse_execution_payload_options_aux_operation_invalid_paths_raise
 def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> None:
     orchestrator._bind_server_symbols()
     with pytest.raises(NeverThrown):
@@ -603,6 +605,7 @@ def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> 
         )
 
 
+# gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary
 def test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary(
     tmp_path: Path,
 ) -> None:

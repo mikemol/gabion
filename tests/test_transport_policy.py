@@ -127,6 +127,7 @@ def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> N
     assert transport_policy.transport_override() is None
 
 
+# gabion:evidence E:function_site::tests/test_transport_policy.py::test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier
 def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier() -> None:
     try:
         transport_policy.apply_cli_transport_flags(
@@ -146,6 +147,7 @@ def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrie
         transport_policy.apply_cli_transport_flags()
 
 
+# gabion:evidence E:function_site::tests/test_transport_policy.py::test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors
 def test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors(
     tmp_path: Path,
 ) -> None:

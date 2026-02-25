@@ -258,6 +258,7 @@ def test_pareto_helpers_cover_runtime_and_objective_fallback_paths() -> None:
     assert key[2] == (-97, -98)
 
 
+# gabion:evidence E:function_site::tests/test_test_obsolescence.py::test_branch_guard_and_runtime_defaults_cover_missing_option_maps
 def test_branch_guard_and_runtime_defaults_cover_missing_option_maps() -> None:
     options = test_obsolescence.ClassifierOptions(
         branch_guard_by_test=None,
@@ -275,6 +276,7 @@ def test_branch_guard_and_runtime_defaults_cover_missing_option_maps() -> None:
     assert test_obsolescence._is_branch_guarded("missing", options=options_with_map) is True
 
 
+# gabion:evidence E:function_site::tests/test_test_obsolescence.py::test_equivalent_classification_handles_empty_pareto_winner
 def test_equivalent_classification_handles_empty_pareto_winner(
     make_obsolescence_opaque_ref,
 ) -> None:

@@ -82,6 +82,7 @@ def _seed_minimal_root(root: Path) -> None:
     )
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_scalar_helpers_and_distance_bands_cover_edges
 def test_scalar_helpers_and_distance_bands_cover_edges() -> None:
     assert normative_symdiff._coerce_int(True) == 1
     assert normative_symdiff._coerce_int(7) == 7
@@ -112,6 +113,7 @@ def test_scalar_helpers_and_distance_bands_cover_edges() -> None:
     ) > 0
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_workflow_anchor_and_clause_analysis_cover_shape_errors
 def test_workflow_anchor_and_clause_analysis_cover_shape_errors(tmp_path: Path) -> None:
     workflow = tmp_path / ".github" / "workflows" / "ci.yml"
     workflow.parent.mkdir(parents=True, exist_ok=True)
@@ -253,6 +255,7 @@ def test_workflow_anchor_and_clause_analysis_cover_shape_errors(tmp_path: Path) 
     assert any("missing workflow job anchor" in msg for msg in analysis["ci_anchor_errors"])
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_scope_inventory_skips_non_file_markdown_matches
 def test_collect_scope_inventory_skips_non_file_markdown_matches(tmp_path: Path) -> None:
     _seed_minimal_root(tmp_path)
     (tmp_path / "docs" / "not_a_file.md").mkdir(parents=True, exist_ok=True)
@@ -260,6 +263,7 @@ def test_collect_scope_inventory_skips_non_file_markdown_matches(tmp_path: Path)
     assert "docs/not_a_file.md" not in inventory.normative_docs
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_policy_and_controller_scope_contexts_restore_globals
 def test_policy_and_controller_scope_contexts_restore_globals(tmp_path: Path) -> None:
     before_repo_root = normative_symdiff.policy_check.REPO_ROOT
     before_workflow_dir = normative_symdiff.policy_check.WORKFLOW_DIR
@@ -293,6 +297,7 @@ def test_policy_and_controller_scope_contexts_restore_globals(tmp_path: Path) ->
     assert normative_symdiff.governance_controller_audit.DEFAULT_OUT == before_default_out
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_capture_policy_check_and_lsp_parity_probe_edges
 def test_capture_policy_check_and_lsp_parity_probe_edges(tmp_path: Path) -> None:
     ok_probe = normative_symdiff._capture_policy_check("ok", lambda: None)
     assert ok_probe["ok"] is True
@@ -320,6 +325,7 @@ def test_capture_policy_check_and_lsp_parity_probe_edges(tmp_path: Path) -> None
     assert probe["errors"] == []
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_policy_probe_collectors_cover_new_and_total_branches
 def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) -> None:
     ambiguity_items = [
         SimpleNamespace(key="k0", rule_id="ACP-003", path="a.py"),
@@ -379,6 +385,7 @@ def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) ->
     assert structural_hash["by_path"] == {"src/hash.py": 1}
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_docflow_agent_and_default_probe_collectors_cover_filtering
 def test_docflow_agent_and_default_probe_collectors_cover_filtering(tmp_path: Path) -> None:
     def _fake_docflow_context(**_kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(
@@ -481,6 +488,7 @@ def test_docflow_agent_and_default_probe_collectors_cover_filtering(tmp_path: Pa
     assert probes["normative_map_policy"]["ok"] is False
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_gap_synthesis_scoring_and_markdown_edge_paths
 def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
     scope = normative_symdiff.ScopeInventory(
         normative_docs=("AGENTS.md",),
@@ -608,6 +616,7 @@ def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
     assert non_mapping_branches["doc_to_code_gaps"] or non_mapping_branches["code_to_doc_gaps"]
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_run_and_main_cover_probe_mode_and_module_entrypoint
 def test_run_and_main_cover_probe_mode_and_module_entrypoint(tmp_path: Path) -> None:
     _seed_minimal_root(tmp_path)
     json_out = tmp_path / "out" / "symdiff.json"
@@ -643,6 +652,7 @@ def test_run_and_main_cover_probe_mode_and_module_entrypoint(tmp_path: Path) -> 
         sys.argv = argv_before
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_controller_drift_handles_missing_output_file
 def test_collect_controller_drift_handles_missing_output_file(tmp_path: Path) -> None:
     def _fake_run(*, policy_path: Path, out_path: Path, fail_on_severity: object) -> int:
         _ = policy_path, out_path, fail_on_severity
@@ -655,6 +665,7 @@ def test_collect_controller_drift_handles_missing_output_file(tmp_path: Path) ->
     assert payload["findings_by_sensor"] == {}
 
 
+# gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_controller_drift_counts_sensor_findings_when_output_written
 def test_collect_controller_drift_counts_sensor_findings_when_output_written(
     tmp_path: Path,
 ) -> None:

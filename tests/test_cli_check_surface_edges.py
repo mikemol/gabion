@@ -39,6 +39,7 @@ def _check_obj(captured: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags
 def test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags() -> None:
     with pytest.raises(typer.BadParameter):
         cli.configure_runtime_flags(
@@ -68,6 +69,7 @@ def test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags() -
         )
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_group_and_subgroups_require_explicit_subcommand
 def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
     runner = CliRunner()
     for argv in (
@@ -81,6 +83,7 @@ def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
         assert "Usage:" in result.output
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_usage_and_passthrough_branches
 def test_check_raw_usage_and_passthrough_branches() -> None:
     runner = CliRunner()
     bad = runner.invoke(cli.app, ["check", "raw"])
@@ -102,6 +105,7 @@ def test_check_raw_usage_and_passthrough_branches() -> None:
     assert captured == [["sample.py", "--dot", "-"]]
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_direct_helper_strips_leading_double_dash
 def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
     captured: list[list[str]] = []
 
@@ -113,6 +117,7 @@ def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
     assert captured == [["sample.py", "--dot", "-"]]
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_removed_and_invalid_baseline_mode_paths
 def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     runner = CliRunner()
     removed = runner.invoke(
@@ -145,6 +150,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     assert "--baseline is only valid" in _normalize_output(invalid.output)
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_lint_mode_validation_errors
 def test_check_lint_mode_validation_errors() -> None:
     runner = CliRunner()
     jsonl_missing = runner.invoke(
@@ -196,6 +202,7 @@ def test_check_lint_mode_validation_errors() -> None:
     assert "--lint-sarif-out is only valid" in _normalize_output(sarif_invalid.output)
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_gate_policy_all_modes_and_invalid_value
 def test_check_gate_policy_all_modes_and_invalid_value() -> None:
     assert cli._check_gate_policy(cli.CheckGateMode.all) == (True, True)
     assert cli._check_gate_policy(cli.CheckGateMode.none) == (False, False)
@@ -205,6 +212,7 @@ def test_check_gate_policy_all_modes_and_invalid_value() -> None:
         cli._check_gate_policy("invalid")  # type: ignore[arg-type]
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_raw_profile_helper_functions_cover_commandline_source_branches
 def test_raw_profile_helper_functions_cover_commandline_source_branches() -> None:
     class _Ctx:
         def __init__(self, *, commandline_params: set[str], args: list[str]) -> None:
@@ -329,7 +337,7 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
     )
     assert captured == [["sample.py", "--type-audit"]]
 
-
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_aux_subcommands_forward_domain_and_action
 @pytest.mark.parametrize(
     ("argv_suffix", "domain", "action"),
     [

@@ -35,6 +35,7 @@ def _delta_options() -> check_contract.CheckDeltaOptions:
     )
 
 
+# gabion:evidence E:function_site::tests/test_check_contract.py::test_check_aux_operation_validation_errors_cover_domain_action_and_baseline
 def test_check_aux_operation_validation_errors_cover_domain_action_and_baseline() -> None:
     with pytest.raises(typer.BadParameter):
         check_contract.CheckAuxOperation(domain="invalid", action="report").validate()
@@ -52,6 +53,7 @@ def test_check_aux_operation_validation_errors_cover_domain_action_and_baseline(
         ).validate()
 
 
+# gabion:evidence E:function_site::tests/test_check_contract.py::test_check_aux_operation_to_payload_and_build_payload_aux_surface
 def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
     aux = check_contract.CheckAuxOperation(
         domain="obsolescence",
