@@ -185,9 +185,8 @@ jobs:
         run: |
           mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
           .venv/bin/python -m gabion \
-            --lsp-timeout-ticks 65000000 \
-            --lsp-timeout-tick-ns 1000000 \
-            check --profile raw . \
+            --timeout 65000000000000ns \
+            check raw -- . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \
@@ -195,9 +194,7 @@ jobs:
             --resume-on-timeout 1 \
             --emit-timeout-progress-report \
             --type-audit-report \
-            --baseline baselines/dataflow_baseline.txt \
-            --no-fail-on-violations \
-            --no-fail-on-type-ambiguities
+            --baseline baselines/dataflow_baseline.txt
       - name: Upload dataflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

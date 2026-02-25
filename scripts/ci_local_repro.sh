@@ -505,6 +505,9 @@ run_checks_job() {
   step "checks: policy_check --workflows"
   timed_observed checks_policy_workflows "$PYTHON_BIN" scripts/policy_check.py --workflows
 
+  step "checks: policy_check --ambiguity-contract"
+  timed_observed checks_policy_ambiguity_contract "$PYTHON_BIN" scripts/policy_check.py --ambiguity-contract
+
   step "checks: policy_check --posture"
   if [ "$ci_event_name" != "push" ]; then
     echo "event '$ci_event_name' is not push; skipping posture check (matches CI skip path)."
@@ -884,7 +887,7 @@ PY
     --dot artifacts/dataflow_grammar/dataflow_graph.dot \
     --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
     --resume-on-timeout 1 \
-    --timeout-progress-report \
+    --emit-timeout-progress-report \
     --type-audit-report \
     --baseline baselines/dataflow_baseline.txt
 }
