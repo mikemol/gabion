@@ -149,6 +149,17 @@ clauses:
     expected_artifacts:
       - artifacts/out/governance_override_record.json
       - artifacts/out/lsp_parity_gate.json
+  NCI-DUAL-SENSOR-CORRECTION-LOOP:
+    status: partial
+    enforcing_modules:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - docs/user_workflows.md
+      - scripts/ci_watch.py
+      - scripts/ci_cycle.py
+      - scripts/ci_local_repro.sh
+    ci_anchors: []
+    expected_artifacts: []
   NCI-CONTROLLER-DRIFT-LIFECYCLE:
     status: enforced
     enforcing_modules:

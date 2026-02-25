@@ -1,5 +1,5 @@
 ---
-doc_revision: 24
+doc_revision: 25
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -101,6 +101,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left) in semantic core refactors.
 - Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
+- Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
@@ -112,6 +113,18 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   general Gabion feature without explicit policy change.
 - Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit
   `doc_review_notes` based on a real content review.
+
+## Agent actioning loop (normative)
+Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
+
+1. Start local repro tooling and GitHub status-check monitoring concurrently whenever both are available.
+2. Act on the first actionable failure signal from either sensor; do not serialize waiting for the other sensor once one signal is actionable.
+3. Form one correction unit (one failing signal or tightly coupled set for one blocking surface).
+4. Validate the correction unit locally.
+5. Stage, commit, and push the correction unit immediately after local validation.
+6. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
+
+If only one sensor is available, proceed with that sensor and restore dual-sensor operation when available.
 
 ## Dataflow grammar invariant
 - Canonical rule: [`NCI-DATAFLOW-BUNDLE-TIERS`](docs/normative_clause_index.md#clause-dataflow-bundle-tiers).

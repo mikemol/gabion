@@ -202,6 +202,11 @@ clauses:
     enforcing_modules: []
     ci_anchors: []
     expected_artifacts: []
+  NCI-DUAL-SENSOR-CORRECTION-LOOP:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
 """,
         encoding="utf-8",
     )
@@ -269,6 +274,11 @@ clauses:
     ci_anchors: []
     expected_artifacts: []
   NCI-CONTROLLER-DRIFT-LIFECYCLE:
+    status: document-only
+    enforcing_modules: []
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-DUAL-SENSOR-CORRECTION-LOOP:
     status: document-only
     enforcing_modules: []
     ci_anchors: []

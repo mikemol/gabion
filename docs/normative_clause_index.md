@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -150,6 +150,16 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Parity-governed commands (`parity_required`) must retain probe validation payload coverage and declared parity-ignore semantics.
 - Canonical sources: `docs/governance_rules.yaml`, `src/gabion/commands/transport_policy.py`, `src/gabion/cli.py`, `POLICY_SEED.md#policy_seed`.
 
+<a id="clause-dual-sensor-correction-loop"></a>
+### `NCI-DUAL-SENSOR-CORRECTION-LOOP` — Temporal dual-sensor correction loop
+- Agents must run local repro tooling and GitHub status-check monitoring concurrently when both are available.
+- Agents must act on the first actionable failure signal and avoid serialized waiting when one sensor already produced actionable information.
+- A correction unit is one failing signal (or a tightly coupled set) targeting one blocking surface; after local validation, stage/commit/push immediately.
+- Multiple CI runs in flight are expected; fallout is handled by subsequent detect/correct/push iterations.
+- If one sensor is unavailable, proceed with the available sensor and restore dual-sensor operation when possible.
+- Applicability: mandatory for agents; recommended interoperability posture for contributors.
+- Canonical sources: `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`, `docs/user_workflows.md#user_workflows`.
+
 
 ## Enforcement completeness ledger
 
@@ -167,4 +177,4 @@ or `AGENTS.md`, use a short summary with direct clause links, for example:
 - `NCI-LSP-FIRST` (`docs/normative_clause_index.md#clause-lsp-first`)
 - `NCI-DATAFLOW-BUNDLE-TIERS` (`docs/normative_clause_index.md#clause-dataflow-bundle-tiers`)
 - `NCI-SHIFT-AMBIGUITY-LEFT` (`docs/normative_clause_index.md#clause-shift-ambiguity-left`)
-
+- `NCI-DUAL-SENSOR-CORRECTION-LOOP` (`docs/normative_clause_index.md#clause-dual-sensor-correction-loop`)

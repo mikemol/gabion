@@ -1,5 +1,5 @@
 ---
-doc_revision: 106
+doc_revision: 107
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -107,6 +107,7 @@ valid.
 - **LSP-first invariant:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
 - **Controller drift + override lifecycle:** [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
+- **Temporal dual-sensor correction loop:** [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop) (mandatory for agents; recommendation-level interoperability guidance for contributors).
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
@@ -206,6 +207,22 @@ When sortedness is enforced, it must be treated as part of semantic behavior.
 - Release tags are created via the `release-tag` workflow on `release` (no manual tags).
 - `next` and `release` are automation-only branches. Human pushes are forbidden.
   The `mirror-next` and `promote-release` workflows update them.
+
+## Dual-sensor correction loop (recommended interoperability)
+Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
+For contributors, this section is recommendation-level guidance (non-blocking).
+For agents, this loop is mandatory.
+
+Recommended loop:
+
+1. Run local repro tooling and status-check monitoring in parallel whenever both are available.
+2. Act on the first actionable failure signal from either lane; avoid serialized waiting once one lane is actionable.
+3. Package a bounded correction unit (one blocking signal or tightly coupled set), validate locally, then stage/commit/push.
+4. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
+
+Interoperability/tolerance expectation:
+
+- Contributors should tolerate in-flight correction pushes from this loop and should not treat that cadence as process failure on its own.
 
 ## Workflow authoring (normative)
 Workflow logic lives in `scripts/`. YAML files should only orchestrate steps
