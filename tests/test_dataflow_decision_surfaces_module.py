@@ -95,6 +95,11 @@ def test_decision_surface_summaries_and_plans_cover_edges() -> None:
     )
     assert plans
     assert plans[0]["pre"]["exception_obligations_summary"]["UNKNOWN"] == 1
+    assert any(
+        pred.get("kind") == "witness_obligation_non_regression"
+        for pred in plans[0].get("verification", {}).get("predicates", [])
+        if isinstance(pred, dict)
+    )
 
     assert summarize_rewrite_plans([], check_deadline=_check_deadline) == []
     rewrite_summary = summarize_rewrite_plans(
