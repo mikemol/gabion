@@ -11,6 +11,10 @@ from gabion.plan import ExecutionPlan, write_execution_plan_artifact
 def test_write_execution_plan_artifact_serializes_boundary_carriers(
     tmp_path: Path,
 ) -> None:
+    class _FallbackValue:
+        def __str__(self) -> str:
+            return "fallback-value"
+
     aux_operation = CanonicalBoundaryDict(source="tests.plan.aux")
     aux_operation["domain"] = "obsolescence"
     aux_operation["action"] = "delta"
@@ -18,6 +22,9 @@ def test_write_execution_plan_artifact_serializes_boundary_carriers(
     inputs = CanonicalBoundaryDict(source="tests.plan.inputs")
     inputs["aux_operation"] = aux_operation
     inputs["checkpoint_path"] = Path("artifacts/out/resume.json")
+    inputs["tuple_value"] = ("alpha", 3)
+    inputs["set_value"] = {"beta", "alpha"}
+    inputs["fallback_value"] = _FallbackValue()
 
     plan = ExecutionPlan(
         requested_operations=["gabion.check"],
@@ -32,3 +39,6 @@ def test_write_execution_plan_artifact_serializes_boundary_carriers(
         "action": "delta",
     }
     assert payload["inputs"]["checkpoint_path"] == "artifacts/out/resume.json"
+    assert payload["inputs"]["tuple_value"] == ["alpha", 3]
+    assert payload["inputs"]["set_value"] == ["alpha", "beta"]
+    assert payload["inputs"]["fallback_value"] == "fallback-value"
