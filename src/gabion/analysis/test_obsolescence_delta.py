@@ -55,6 +55,7 @@ def resolve_baseline_path(root: Path) -> Path:
     return root / BASELINE_RELATIVE_PATH
 
 
+# gabion:ambiguity_boundary
 def build_baseline_payload(
     evidence_by_test: Mapping[str, Iterable[object]],
     status_by_test: Mapping[str, str],
@@ -83,6 +84,7 @@ def build_baseline_payload(
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_BASELINE_SPEC)
 
 
+# gabion:ambiguity_boundary
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBaseline:
     check_deadline()
     parse_version(
@@ -125,6 +127,7 @@ def write_baseline(path: str, payload: Mapping[str, JSONValue]) -> None:
     write_json(path, payload)
 
 
+# gabion:ambiguity_boundary
 def build_delta_payload(
     baseline: ObsolescenceBaseline,
     current: ObsolescenceBaseline,
@@ -250,6 +253,7 @@ def build_delta_payload(
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_DELTA_SPEC)
 
 
+# gabion:ambiguity_boundary
 def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     # dataflow-bundle: delta_payload
@@ -325,6 +329,7 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     return doc.emit()
 
 
+# gabion:ambiguity_boundary
 def build_baseline_payload_from_paths(
     evidence_path: str,
     risk_registry_path: str,
@@ -359,6 +364,7 @@ def build_baseline_payload_from_paths(
     )
 
 
+# gabion:ambiguity_boundary
 def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[str, int]:
     check_deadline()
     result = {key: 0 for key in _class_keys()}
@@ -369,6 +375,7 @@ def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[st
     return result
 
 
+# gabion:ambiguity_boundary
 def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[str, JSONValue]:
     check_deadline()
     if not isinstance(active, Mapping):
@@ -404,6 +411,7 @@ def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[st
     return result
 
 
+# gabion:ambiguity_boundary
 def _tests_from_candidates(
     candidates: Iterable[Mapping[str, object]],
 ) -> list[dict[str, JSONValue]]:
@@ -468,6 +476,7 @@ def _build_evidence_index(
     ]
 
 
+# gabion:ambiguity_boundary
 def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
     check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
@@ -539,6 +548,7 @@ def _evidence_change_payload(
     }
 
 
+# gabion:ambiguity_boundary
 def _baseline_meta_payload(
     baseline: ObsolescenceBaseline, baseline_path: str | None
 ) -> dict[str, JSONValue]:
@@ -560,6 +570,7 @@ def _current_meta_payload(
     }
 
 
+# gabion:ambiguity_boundary
 def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list[dict[str, object]]:
     if not isinstance(container, Mapping):
         return []

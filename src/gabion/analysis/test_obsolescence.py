@@ -30,6 +30,7 @@ class RiskInfo:
     rationale: str
 
     @classmethod
+    # gabion:ambiguity_boundary
     def from_payload(cls, payload: object) -> RiskInfo | None:
         if not isinstance(payload, Mapping):
             return None
@@ -51,8 +52,8 @@ class EvidenceRef:
 
 @dataclass(frozen=True)
 class ClassifierOptions:
-    runtime_ms_by_test: Mapping[str, float] | None = None
-    branch_guard_by_test: Mapping[str, bool] | None = None
+    runtime_ms_by_test: Mapping[str, float] = field(default_factory=dict)
+    branch_guard_by_test: Mapping[str, bool] = field(default_factory=dict)
     default_keep_for_branch_guard: bool = False
     unresolved_test_ids: frozenset[str] = field(default_factory=frozenset)
     objective_order: tuple[str, str, str, str] = (
@@ -81,7 +82,7 @@ _STALE_CLASS_ORDER = [
 ]
 _STALE_CLASS_RANK = {name: idx for idx, name in enumerate(_STALE_CLASS_ORDER)}
 
-
+# gabion:ambiguity_boundary
 def load_test_evidence(
     path: str,
 ) -> tuple[dict[str, list[EvidenceRef]], dict[str, str]]:
@@ -128,7 +129,7 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
     payload = load_json(path)
     return _parse_risk_registry_payload(payload)
 
-
+# gabion:ambiguity_boundary
 def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
     check_deadline()
     parse_version(
@@ -188,7 +189,7 @@ def compute_dominators(
         dominators[test_id] = frontier
     return dominators
 
-
+# gabion:ambiguity_boundary
 def classify_candidates(
     evidence_by_test: dict[str, list[EvidenceRef]],
     status_by_test: dict[str, str],
@@ -557,12 +558,11 @@ def render_json_payload(
     }
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_SUMMARY_SPEC)
 
-
 def _summarize_candidates(
     candidates: list[dict[str, object]],
     class_rank: dict[str, int],
     *,
-    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] | None = None,
+    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] = apply_spec,
 ) -> dict[str, int]:
     check_deadline()
     relation: list[dict[str, object]] = []
@@ -574,8 +574,7 @@ def _summarize_candidates(
                 "class_rank": class_rank.get(class_name, 99),
             }
         )
-    apply_fn = apply or apply_spec
-    summary_rows = apply_fn(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
+    summary_rows = apply(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
     summary = {
         "redundant_by_evidence": 0,
         "equivalent_witness": 0,
@@ -592,7 +591,7 @@ def _summarize_candidates(
             summary[class_name] = count
     return summary
 
-
+# gabion:ambiguity_boundary
 def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
     check_deadline()
     if value is None:

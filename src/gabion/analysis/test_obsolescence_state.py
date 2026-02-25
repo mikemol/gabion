@@ -30,6 +30,7 @@ class ObsolescenceState:
     generated_by_spec: dict[str, JSONValue]
 
 
+# gabion:ambiguity_boundary
 def build_state_payload(
     evidence_by_test: Mapping[str, Iterable[object]],
     status_by_test: Mapping[str, str],
@@ -56,6 +57,7 @@ def build_state_payload(
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_STATE_SPEC)
 
 
+# gabion:ambiguity_boundary
 def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
     check_deadline()
     parse_version(
