@@ -9,7 +9,7 @@ from gabion.exceptions import NeverThrown
 from tests.order_helpers import contract_sorted
 
 
-# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_61d46fdd5826_893041a7
 def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     path.write_text(
@@ -53,7 +53,7 @@ def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> No
     assert attr.suggestion is None
 
 
-# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_f53f10163686
 def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> None:
     test_prefixed = tmp_path / "test_mod.py"
     test_prefixed.write_text("def f(x: dict[str, object]) -> None:\n    return None\n")
@@ -113,7 +113,7 @@ def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     assert sa._suggest_type_name("___") is None
 
 
-# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_d892380c8e73
 def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()
@@ -149,7 +149,7 @@ def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: P
     assert any(surface.context == "fetch.returns" for surface in surfaces)
 
 
-# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::stale_b811d8662f87
 def test_subscript_helpers_cover_non_tuple_slices() -> None:
     tree = sa.ast.parse("x: list[int]\n")
     ann = tree.body[0].annotation
@@ -163,7 +163,7 @@ def test_subscript_helpers_cover_non_tuple_slices() -> None:
     assert sa._is_anonymous_dict_subscript(dict_ann) is False
 
 
-# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::stale_300359ce4f55_34db5c79
 def test_name_handles_attribute_and_unknown_nodes() -> None:
     attr = sa.ast.Attribute(value=sa.ast.Name(id="typing", ctx=sa.ast.Load()), attr="Dict")
     assert sa._name(attr) == "Dict"

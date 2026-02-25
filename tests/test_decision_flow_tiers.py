@@ -10,7 +10,7 @@ from gabion.analysis.decision_flow import (
 )
 
 
-# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables::stale_4aa23e3894e5
 def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -27,7 +27,7 @@ def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
     assert all(table["checklist_nodes"] == ["docs/sppf_checklist.md#decision-flow-tier3"] for table in tables)
 
 
-# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables::stale_a23ae4d1adf0
 def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -45,7 +45,7 @@ def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     assert bundle["checklist_nodes"] == ["docs/sppf_checklist.md#decision-flow-tier2"]
 
 
-# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles::stale_ead0bfccf83d
 def test_detect_repeated_guard_bundles_skips_entries_without_params() -> None:
     bundles = detect_repeated_guard_bundles(
         [
@@ -74,7 +74,7 @@ def test_tier1_schema_enforcement_reports_contract_drift() -> None:
     assert any(v["code"] == "DECISION_PROTOCOL_MISSING_EVIDENCE" for v in violations)
 
 
-# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts::stale_077cc474e231
 def test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checklist() -> None:
     violations = enforce_decision_protocol_contracts(
         decision_tables=[

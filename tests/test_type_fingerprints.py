@@ -10,14 +10,14 @@ def _load():
 
     return tf
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_df379c4431ae
 def test_canonical_type_key_normalizes_union_and_optional() -> None:
     tf = _load()
     assert tf.canonical_type_key("Optional[int]") == "Union[None, int]"
     assert tf.canonical_type_key("Union[str, int]") == "Union[int, str]"
     assert tf.canonical_type_key("int | None") == "Union[None, int]"
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_893ccf494dfa
 def test_canonical_type_key_normalizes_generics() -> None:
     tf = _load()
     assert tf.canonical_type_key("typing.List[int]") == "list[int]"
@@ -34,7 +34,7 @@ def test_canonical_type_key_union_order_stable_across_input_permutations() -> No
     assert first == "Union[None, int, str]"
     assert second == first
 
-# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load E:decision_surface/direct::test_type_fingerprints.py::tests.test_type_fingerprints._load::stale_c75efd413f43
 def test_prime_registry_assigns_stable_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -65,14 +65,14 @@ def test_prime_registry_consumes_gas_ticks() -> None:
                     registry.get_or_assign("int")
     assert meter.current == 1
 
-# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint::stale_9924b1d3eb6b
 def test_bundle_fingerprint_multiplies_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
     fingerprint = tf.bundle_fingerprint(["int", "str", "int"], registry)
     assert fingerprint == registry.get_or_assign("int") * registry.get_or_assign("str") * registry.get_or_assign("int")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_lcm::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_symmetric_diff::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::part
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_lcm::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_symmetric_diff::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::part E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::stale_a7396ebf2558
 def test_fingerprint_arithmetic_ops() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -86,7 +86,7 @@ def test_fingerprint_arithmetic_ops() -> None:
     diff = tf.fingerprint_symmetric_diff(a, b)
     assert diff == registry.get_or_assign("int") * registry.get_or_assign("list[int]")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::strict
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::strict E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::stale_96a6bf1c35a7_d2f9f435
 def test_fingerprint_to_type_keys_roundtrip() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -107,7 +107,7 @@ def test_fingerprint_hybrid_bitmask() -> None:
     assert mask & (1 << int_bit)
     assert mask & (1 << str_bit)
 
-# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load E:decision_surface/direct::test_type_fingerprints.py::tests.test_type_fingerprints._load::stale_f98fb3509ea9_924e1853
 def test_constructor_registry_assigns_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -117,7 +117,7 @@ def test_constructor_registry_assigns_primes() -> None:
     assert list_prime != dict_prime
     assert registry.prime_for("ctor:list") == list_prime
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::stale_30b27bb8c4ba_7b2c3da8
 def test_build_fingerprint_registry_deterministic_assignment() -> None:
     tf = _load()
     spec_a = {"user": ["int", "str"], "flags": ["list[int]"]}
@@ -137,7 +137,7 @@ def test_build_fingerprint_registry_deterministic_assignment() -> None:
     assert reg_a.prime_for("int") == reg_b.prime_for("int")
     assert reg_a.prime_for("ctor:list") == reg_b.prime_for("ctor:list")
 
-# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint::stale_c0052cca486b
 def test_bundle_fingerprint_setlike_ignores_duplicates() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -146,7 +146,7 @@ def test_bundle_fingerprint_setlike_ignores_duplicates() -> None:
     assert multiset_fp != setlike_fp
     assert setlike_fp == tf.bundle_fingerprint_setlike(["str", "int"], registry)
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::strict
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::strict E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys::stale_ad8aecb25029
 def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -164,7 +164,7 @@ def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
     else:
         raise AssertionError("Expected strict factorization failure")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::stale_f0fda1efd454
 def test_dimensional_fingerprint_includes_constructors() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -189,7 +189,7 @@ def test_carrier_soundness_mask_disjoint_implies_gcd_one() -> None:
     assert (a.mask & b.mask) == 0
     assert tf.fingerprint_carrier_soundness(a, b)
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::stale_e9fb69bc0b44
 def test_synth_registry_assigns_primes_deterministically() -> None:
     tf = _load()
     registry_a = tf.PrimeRegistry()
@@ -206,7 +206,7 @@ def test_synth_registry_assigns_primes_deterministically() -> None:
     prime_b = synth_b.get_or_assign(fp_b1)
     assert prime_a == prime_b
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::stale_c4fd32a00224
 def test_apply_synth_dimension_attaches_tail() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -217,7 +217,7 @@ def test_apply_synth_dimension_attaches_tail() -> None:
     assert synthesized.synth.product != 1
     assert synth_registry.tails.get(synthesized.synth.product) == fp
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_cca1c0aa5752
 def test_synth_registry_payload_roundtrip() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -232,7 +232,7 @@ def test_synth_registry_payload_roundtrip() -> None:
     restored = tf.build_synth_registry_from_payload(payload, registry)
     assert restored.tails
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_40e28c317542_f038e4bd
 def test_build_synth_registry_from_payload_applies_registry_basis_to_empty_registry() -> None:
     tf = _load()
     registry_a = tf.PrimeRegistry()
@@ -254,7 +254,7 @@ def test_build_synth_registry_from_payload_applies_registry_basis_to_empty_regis
     assert registry_b.bit_for(synth_key) == registry_a.bit_for(synth_key)
     assert restored.primes.get(fp) == synth_registry.primes.get(fp)
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_c70082845f31
 def test_build_synth_registry_from_payload_rejects_registry_mismatch() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -277,7 +277,7 @@ def test_build_synth_registry_from_payload_rejects_registry_mismatch() -> None:
     else:
         raise AssertionError("Expected registry basis mismatch error")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_8d4a2b0ded70
 def test_build_synth_registry_from_payload_assigns_bits_when_missing() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -291,7 +291,7 @@ def test_build_synth_registry_from_payload_assigns_bits_when_missing() -> None:
     assert registry.bit_for("b") == 1
     assert registry.get_or_assign("c") == 5
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_26627ab45011
 def test_build_synth_registry_from_payload_rejects_duplicate_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -307,7 +307,7 @@ def test_build_synth_registry_from_payload_rejects_duplicate_primes() -> None:
     else:
         raise AssertionError("Expected duplicate prime error")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_e7f50d3ddeb7
 def test_build_synth_registry_from_payload_rejects_duplicate_bit_positions() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -326,7 +326,7 @@ def test_build_synth_registry_from_payload_rejects_duplicate_bit_positions() -> 
     else:
         raise AssertionError("Expected duplicate bit position error")
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_9d1c7520951f
 def test_build_synth_registry_from_payload_ignores_non_string_registry_keys() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -342,7 +342,7 @@ def test_build_synth_registry_from_payload_ignores_non_string_registry_keys() ->
     assert registry.prime_for("a") == 2
     assert registry.bit_for("a") == 0
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_bac1debdafd7
 def test_build_synth_registry_from_payload_rejects_bit_mismatch() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -374,7 +374,7 @@ def test_normalization_helpers_cover_edges() -> None:
     assert tf._normalize_base("NoneType") == "None"
     assert tf.canonical_type_key(" ") == ""
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_421936284ad6
 def test_canonical_type_key_with_constructor_handles_union_and_optional() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -386,7 +386,7 @@ def test_canonical_type_key_with_constructor_handles_union_and_optional() -> Non
     key = tf.canonical_type_key_with_constructor("Dict[str, List[int]]", ctor_registry)
     assert key == "dict[str, list[int]]"
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_a54281a9994d
 def test_collect_base_atoms_and_constructors_cover_empty_and_unions() -> None:
     tf = _load()
     atoms: list[str] = []
@@ -408,7 +408,7 @@ def test_collect_base_atoms_and_constructors_cover_empty_and_unions() -> None:
     assert "list" in ctor_set
     assert "dict" in ctor_set
 
-# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors::stale_5f341c4f1c88
 def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -416,7 +416,7 @@ def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     fingerprint = tf.bundle_fingerprint_with_constructors([" ", "int"], registry, ctor_registry)
     assert fingerprint == registry.get_or_assign("int")
 
-# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask::stale_b10ed4e48522
 def test_fingerprint_bitmask_skips_empty_keys() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -425,7 +425,7 @@ def test_fingerprint_bitmask_skips_empty_keys() -> None:
     assert int_bit is not None
     assert mask == (1 << int_bit)
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_89afe4243a80
 def test_build_synth_registry_from_payload_skips_non_dict_entries() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -433,7 +433,7 @@ def test_build_synth_registry_from_payload_skips_non_dict_entries() -> None:
     synth_registry = tf.build_synth_registry_from_payload(payload, registry)
     assert synth_registry.tails == {}
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::stale_a5d3417832a5
 def test_build_fingerprint_registry_skips_empty_entries() -> None:
     tf = _load()
     registry, index = tf.build_fingerprint_registry({"empty": []})
@@ -441,7 +441,7 @@ def test_build_fingerprint_registry_skips_empty_entries() -> None:
     assert registry.primes == {}
     assert registry.bit_positions == {}
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_709f3f885ecc
 def test_collect_atoms_and_constructors() -> None:
     tf = _load()
     base_atoms: list[str] = []
@@ -454,7 +454,7 @@ def test_collect_atoms_and_constructors() -> None:
     tf._collect_constructors("list[dict[str, int]]", ctor_set)
     assert "list" in ctor_set and "dict" in ctor_set
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::stale_2145a4140de2
 def test_dimension_helpers_and_formatting() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -470,7 +470,7 @@ def test_dimension_helpers_and_formatting() -> None:
     assert "prov=" in rendered and "synth=" in rendered and "ctor=" in rendered
     assert tf._fingerprint_sort_key(fingerprint)
 
-# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load E:decision_surface/direct::test_type_fingerprints.py::tests.test_type_fingerprints._load::stale_08b316d066c2
 def test_registry_helpers_cover_edges() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -483,7 +483,7 @@ def test_registry_helpers_cover_edges() -> None:
     assert registry.key_for_prime(9999) is None
     assert registry.bit_for("unknown") is None
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_lcm::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_symmetric_diff::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::part
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_lcm::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_symmetric_diff::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::part E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_contains::stale_64ab920078ca_788f7215
 def test_fingerprint_arithmetic_edges() -> None:
     tf = _load()
     assert tf.fingerprint_lcm(0, 3) == 0
@@ -491,7 +491,7 @@ def test_fingerprint_arithmetic_edges() -> None:
     assert tf.fingerprint_symmetric_diff(0, 5) == 5
     assert tf.fingerprint_symmetric_diff(7, 0) == 7
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::stale_8784106e4c90
 def test_normalize_type_list_variants() -> None:
     tf = _load()
     assert tf._normalize_type_list(None) == []
@@ -573,7 +573,7 @@ def test_synth_registry_payload_handles_non_list_entries() -> None:
     assert version == "synth@1"
     assert min_occ == 2
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::payload,registry E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload::stale_e43175922b9d
 def test_synth_registry_from_payload_overrides_prime() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -597,7 +597,7 @@ def test_prime_checks_and_key_lookup() -> None:
     prime = registry.get_or_assign("int")
     assert registry.key_for_prime(prime) == "int"
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_543730f2b2cf
 def test_canonical_type_key_with_constructor_pipe_union_and_empty() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -606,7 +606,7 @@ def test_canonical_type_key_with_constructor_pipe_union_and_empty() -> None:
     key = tf.canonical_type_key_with_constructor("int | str", ctor_registry)
     assert key == "Union[int, str]"
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::sep E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level::stale_f7f73fd2325b
 def test_collect_atoms_union_and_optional_paths() -> None:
     tf = _load()
     atoms: list[str] = []
@@ -619,7 +619,7 @@ def test_collect_atoms_union_and_optional_paths() -> None:
     tf._collect_constructors("int | list[str]", ctor_set)
     assert "list" in ctor_set
 
-# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys::stale_a3ad2b4cf3c8
 def test_format_fingerprint_str_and_synth_dimension_none() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -638,7 +638,7 @@ def test_apply_synth_dimension_noop_when_missing() -> None:
     synth_registry = tf.SynthRegistry(registry=registry)
     assert tf.apply_synth_dimension(fingerprint, synth_registry) == fingerprint
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_889fe1c9a32d
 def test_carrier_soundness_mask_overlap_true() -> None:
     tf = _load()
     dim = tf.FingerprintDimension(product=2, mask=1)
@@ -661,7 +661,7 @@ def test_bundle_fingerprint_with_empty_and_constructor_bitmask() -> None:
     registry.bit_positions.pop("int", None)
     assert tf.fingerprint_bitmask(["int"], registry) == 0
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::value E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list::stale_5517d1585d33
 def test_build_fingerprint_registry_skips_empty_entries_with_valid() -> None:
     tf = _load()
     registry, index = tf.build_fingerprint_registry(

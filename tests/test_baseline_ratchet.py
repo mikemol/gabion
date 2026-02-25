@@ -8,7 +8,7 @@ def _load():
 
     return apply_baseline, load_baseline, resolve_baseline_path, write_baseline
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::stale_67f60bf78261
 def test_baseline_write_and_apply(tmp_path: Path) -> None:
     apply_baseline, load_baseline, resolve_baseline_path, write_baseline = _load()
     baseline_path = resolve_baseline_path("baseline.txt", tmp_path)

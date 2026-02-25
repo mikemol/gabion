@@ -8,7 +8,7 @@ def _load():
 
     return da
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_199cab83ea28
 def test_glossary_match_strata_classification() -> None:
     da = _load()
     assert da._glossary_match_strata(None) == "none"
@@ -61,7 +61,7 @@ def _post_entry(**overrides: object) -> dict[str, object]:
     entry.update(overrides)
     return entry
 
-# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::stale_f6d9b1f7141a
 def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
     da = _load()
     provenance = [
@@ -88,14 +88,14 @@ def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
         is None
     )
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_c1a7d0f3827c
 def test_verify_rewrite_plan_missing_post_entry() -> None:
     da = _load()
     result = da.verify_rewrite_plan(_plan(), post_provenance=[])
     assert result["accepted"] is False
     assert "missing post provenance entry for site" in result["issues"]
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_83e265c9a8dc
 def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
     da = _load()
     plan = _plan()
@@ -106,7 +106,7 @@ def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
     results = da.verify_rewrite_plans([plan], post_provenance=post)
     assert results[0]["accepted"] is True
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_f2e19742feac
 def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     da = _load()
     plan = _plan()
@@ -114,7 +114,7 @@ def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_147ebba24e35
 def test_verify_rewrite_plan_detects_remainder_regression() -> None:
     da = _load()
     plan = _plan()
@@ -123,7 +123,7 @@ def test_verify_rewrite_plan_detects_remainder_regression() -> None:
     assert result["accepted"] is False
     assert any(r.get("kind") == "remainder_non_regression" and not r.get("passed") for r in result["predicate_results"])
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_d232064e931c
 def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     da = _load()
     plan = _plan(
@@ -136,14 +136,14 @@ def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_b1d4c47bc21d
 def test_verify_rewrite_plan_rejects_missing_or_invalid_site() -> None:
     da = _load()
     result = da.verify_rewrite_plan(_plan(site="nope"), post_provenance=[_post_entry()])
     assert result["accepted"] is False
     assert "missing or invalid plan site" in result["issues"]
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_a4555fbed9b7
 def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     da = _load()
     plan = _plan(
@@ -154,7 +154,7 @@ def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_98a92d766db3
 def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested() -> None:
     da = _load()
     plan = _plan()
@@ -225,7 +225,7 @@ def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_r
     )
     assert result["accepted"] is False
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::stale_fd88caf8d141
 def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors() -> None:
     da = _load()
     plan = _plan()

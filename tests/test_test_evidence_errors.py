@@ -5,13 +5,13 @@ from pathlib import Path
 from gabion.analysis import test_evidence
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence::stale_60a741d9bc7a
 def test_extract_file_evidence_handles_missing_file(tmp_path: Path) -> None:
     missing = tmp_path / "missing.py"
     assert test_evidence._extract_file_evidence(missing, tmp_path) == []
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence::stale_241d2812f994
 def test_extract_file_evidence_handles_syntax_error(tmp_path: Path) -> None:
     bad = tmp_path / "bad.py"
     bad.write_text("def oops(:\n", encoding="utf-8")

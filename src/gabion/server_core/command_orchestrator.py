@@ -178,6 +178,7 @@ def _emit_test_obsolescence_outputs(
 ) -> None:
     obsolescence_candidates: list[dict[str, object]] | None = None
     obsolescence_summary: dict[str, int] | None = None
+    obsolescence_active_summary: dict[str, int] | None = None
     obsolescence_baseline_payload: dict[str, object] | None = None
     obsolescence_baseline: test_obsolescence_delta.ObsolescenceBaseline | None = None
     if test_obsolescence_state_path:
@@ -189,6 +190,14 @@ def _emit_test_obsolescence_outputs(
             {str(k): entry[k] for k in entry} for entry in state.candidates
         ]
         obsolescence_summary = state.baseline.summary
+        active_payload = state.baseline.active
+        active_summary_value = active_payload.get("summary", {})
+        if isinstance(active_summary_value, dict):
+            obsolescence_active_summary = {
+                str(key): int(value) if isinstance(value, int) else 0
+                for key, value in active_summary_value.items()
+                if isinstance(key, str)
+            }
         obsolescence_baseline_payload = {
             str(k): state.baseline_payload[k] for k in state.baseline_payload
         }
@@ -206,13 +215,19 @@ def _emit_test_obsolescence_outputs(
             str(evidence_path)
         )
         risk_registry = test_obsolescence.load_risk_registry(str(risk_registry_path))
-        candidates, summary_counts = test_obsolescence.classify_candidates(
+        classification = test_obsolescence.classify_candidates(
             evidence_by_test, status_by_test, risk_registry
         )
-        obsolescence_candidates = candidates
-        obsolescence_summary = summary_counts
+        obsolescence_candidates = classification.stale_candidates
+        obsolescence_summary = classification.stale_summary
+        obsolescence_active_summary = classification.active_summary
         obsolescence_baseline_payload = test_obsolescence_delta.build_baseline_payload(
-            evidence_by_test, status_by_test, candidates, summary_counts
+            evidence_by_test,
+            status_by_test,
+            classification.stale_candidates,
+            classification.stale_summary,
+            active_tests=classification.active_tests,
+            active_summary=classification.active_summary,
         )
         obsolescence_baseline = test_obsolescence_delta.parse_baseline_payload(
             obsolescence_baseline_payload
@@ -222,8 +237,10 @@ def _emit_test_obsolescence_outputs(
             state_payload = test_obsolescence_state.build_state_payload(
                 evidence_by_test,
                 status_by_test,
-                candidates,
-                summary_counts,
+                classification.stale_candidates,
+                classification.stale_summary,
+                active_tests=classification.active_tests,
+                active_summary=classification.active_summary,
             )
             (artifact_dir / "test_obsolescence_state.json").write_text(
                 json.dumps(state_payload, indent=2, sort_keys=False) + "\n"
@@ -242,6 +259,7 @@ def _emit_test_obsolescence_outputs(
         (artifact_dir / "test_obsolescence_report.json").write_text(report_json)
         (out_dir / "test_obsolescence_report.md").write_text(report_md)
         response["test_obsolescence_summary"] = obsolescence_summary or {}
+        response["test_obsolescence_active_summary"] = obsolescence_active_summary or {}
 
     if (
         emit_test_obsolescence_delta or write_test_obsolescence_baseline

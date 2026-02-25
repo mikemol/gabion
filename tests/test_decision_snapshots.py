@@ -10,7 +10,7 @@ def _load():
     return da
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::stale_33ce2d4f668a
 def test_render_and_diff_decision_snapshots() -> None:
     da = _load()
     forest = da.Forest()

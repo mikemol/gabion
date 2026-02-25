@@ -73,7 +73,7 @@ def _make_use_visitor(
     return tree, visitor, use_map, call_args
 
 # equivalent_witness — E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_alias_from_call_branches::stale_cdcf90aa5209_0461f790
 def test_alias_from_call_branches() -> None:
     code = "def f(a, b):\n    return a\n"
     tree, visitor, _, _ = _make_use_visitor(
@@ -96,7 +96,7 @@ def test_alias_from_call_branches() -> None:
     assert visitor._alias_from_call(call) == ["a"]
     visitor.visit(tree)
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_bind_sequence_and_return_alias_assignment::stale_7744c019cca1
 def test_bind_sequence_and_return_alias_assignment() -> None:
     code = (
         "def f(a, b):\n"
@@ -116,7 +116,7 @@ def test_bind_sequence_and_return_alias_assignment() -> None:
     assert "alias" in visitor.alias_to_param
     assert use_map["a"].current_aliases
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_star_args_strictness::stale_2fdc693e7421
 def test_star_args_strictness() -> None:
     code = "def f(a, b):\n    foo(*a)\n    foo(**b)\n"
     tree, visitor, use_map, _ = _make_use_visitor(code, ["a", "b"], strictness="high")
@@ -128,7 +128,7 @@ def test_star_args_strictness() -> None:
     assert ("args[*]", "arg[*]") in use_map["a"].direct_forward
     assert ("kwargs[*]", "kw[*]") in use_map["b"].direct_forward
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_attribute_and_subscript_aliases::stale_4cef93cb16f4
 def test_attribute_and_subscript_aliases() -> None:
     code = (
         "def f(a, b):\n"
@@ -161,7 +161,7 @@ def test_assign_alias_branches_for_non_name_attribute_and_subscript_targets() ->
     visitor.visit(tree)
     assert use_map["a"].non_forward is True
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_check_write_clears_attr_and_key_aliases::stale_fdd66c82012f
 def test_check_write_clears_attr_and_key_aliases() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor._attr_alias_to_param[("obj", "field")] = "a"
@@ -172,7 +172,7 @@ def test_check_write_clears_attr_and_key_aliases() -> None:
     assert ("data", "k") not in visitor._key_alias_to_param
     assert use_map["a"].non_forward is True
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_bind_sequence_edge_cases::stale_8e3861dea79d
 def test_bind_sequence_edge_cases() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a, b):\n    pass\n", ["a", "b"])
     assert visitor._bind_sequence(
@@ -204,7 +204,7 @@ def test_bind_sequence_edge_cases() -> None:
     )
     assert visitor._bind_sequence(nested_target, nested_rhs) is True
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_starred_list_literal_records_forward_without_site::stale_f85c9aa42f86
 def test_starred_list_literal_records_forward_without_site() -> None:
     code = "def f(a):\n    return [*a]\n"
     tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
@@ -212,7 +212,7 @@ def test_starred_list_literal_records_forward_without_site() -> None:
     assert ("args[*]", "arg[*]") in use_map["a"].direct_forward
     assert use_map["a"].forward_sites == {}
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_record_forward_skips_call_without_span::stale_d0c07326ece9
 def test_record_forward_skips_call_without_span() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"], strictness="low")
     call = ast.Call(func=ast.Name(id="g", ctx=ast.Load()), args=[], keywords=[])
@@ -252,7 +252,7 @@ def test_alias_from_call_keyword_and_kw_aliases(
     call = ast.parse(call_expr).body[0].value
     assert visitor._alias_from_call(call) == expected_alias
     visitor.visit(tree)
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_bind_return_alias_rejects_invalid_targets::stale_7caadb8aef1e
 def test_bind_return_alias_rejects_invalid_targets() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    return a\n", ["a"])
     targets = [
@@ -269,7 +269,7 @@ def test_bind_return_alias_rejects_invalid_targets() -> None:
     assert visitor._bind_return_alias([ast.Constant(value=1)], ["a"]) is False
     visitor.visit(tree)
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_annassign_edges::stale_88559c2f8e7b
 def test_annassign_edges() -> None:
     tree, visitor, use_map, _ = _make_use_visitor(
         "def f(a):\n    x: int = a\n",
@@ -309,7 +309,7 @@ def test_annassign_edges() -> None:
     )
     assert "const_name" in visitor._const_bindings
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_visit_name_attribute_subscript_edges::stale_04c77b8ef27a
 def test_visit_name_attribute_subscript_edges() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor.visit_Name(ast.Name(id="a", ctx=ast.Store()))
@@ -384,13 +384,13 @@ def test_record_unknown_key_without_span_marks_carrier_only() -> None:
     assert use_map["a"].unknown_key_carrier is True
     assert use_map["a"].unknown_key_sites == set()
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_collect_alias_sources_default::stale_8b001ad0c8cd
 def test_collect_alias_sources_default() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     assert visitor._collect_alias_sources(ast.Constant(value=1)) == set()
     visitor.visit(tree)
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_attr_and_subscript_slot_fallbacks_with_aliases::stale_5741ecb1a652
 def test_attr_and_subscript_slot_fallbacks_with_aliases() -> None:
     code = (
         "def f(a, data, obj):\n"
@@ -404,14 +404,14 @@ def test_attr_and_subscript_slot_fallbacks_with_aliases() -> None:
     assert ("foo", "arg[?]") in use_map["a"].direct_forward
     assert ("bar", "arg[?]") in use_map["a"].direct_forward
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_subscript_non_name_root_sets_non_forward::stale_57055506dfee
 def test_subscript_non_name_root_sets_non_forward() -> None:
     code = "def f(a):\n    foo(a.b['k'])\n"
     tree, visitor, use_map, _ = _make_use_visitor(code, ["a"])
     visitor.visit(tree)
     assert use_map["a"].non_forward is True
 
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
+# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor E:decision_surface/direct::test_visitors_edges.py::tests.test_visitors_edges.test_subscript_and_attribute_slot_fallbacks::stale_8fd3dac4c2b4
 def test_subscript_and_attribute_slot_fallbacks() -> None:
     code = (
         "def f(a, data, obj):\n"

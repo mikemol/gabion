@@ -21,7 +21,7 @@ def _make_function(path: Path, qual: str) -> da.FunctionInfo:
     )
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities::stale_584c89f239e5_d202bfed
 def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text(
@@ -47,7 +47,7 @@ def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
     assert ambiguities == []
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities::stale_e9001418057f
 def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
     tmp_path: Path,
 ) -> None:

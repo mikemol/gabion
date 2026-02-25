@@ -130,7 +130,7 @@ def test_base_identifier_and_exports() -> None:
     assert export_names == {"A", "B"}
     assert export_map["A"] == "demo.A"
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::stale_e8b6fb9c7008
 def test_is_test_path() -> None:
     da = _load()
     assert da._is_test_path(Path("tests/test_sample.py")) is True
@@ -282,7 +282,7 @@ def test_param_helpers_and_scopes() -> None:
     assert da._node_span(arg) == (0, 0, 0, 1)
     assert da._node_span(ast.AST()) is None
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::stale_c2e784b1c53a_71bfe6b6
 def test_param_spans_ignore_var_kw() -> None:
     da = _load()
     tree = ast.parse("def f(a, *args, **kw):\n    return a\n")
@@ -290,14 +290,14 @@ def test_param_spans_ignore_var_kw() -> None:
     spans = da._param_spans(fn, {"a", "args", "kw"})
     assert spans == {}
 
-# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load
+# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load E:decision_surface/direct::test_dataflow_helpers.py::tests.test_dataflow_helpers._load::stale_2caf723085e1_06472482
 def test_audit_config_ignored_paths() -> None:
     da = _load()
     config = da.AuditConfig(exclude_dirs={"build", "dist"})
     assert config.is_ignored_path(Path("repo/build/main.py")) is True
     assert config.is_ignored_path(Path("repo/src/main.py")) is False
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::base,class_bases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_local_method_in_hierarchy::class_name,local_functions,seen
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::base,class_bases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_local_method_in_hierarchy::class_name,local_functions,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::stale_7167d0ae9bd3
 def test_local_class_helpers() -> None:
     da = _load()
     class_bases = {
@@ -340,7 +340,7 @@ def test_local_class_helpers() -> None:
         is None
     )
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::stale_aa4682d78536
 def test_collect_local_class_bases_skips_unknown() -> None:
     da = _load()
     tree = ast.parse(
@@ -361,7 +361,7 @@ def test_collect_local_class_bases_skips_unknown() -> None:
     assert "Weird" in bases
     assert bases["Weird"] == []
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::stale_5f1143b1afd9
 def test_param_spans_include_var_kw() -> None:
     da = _load()
     tree = ast.parse("def f(a, *args, **kw):\n    return a\n")
@@ -371,7 +371,7 @@ def test_param_spans_include_var_kw() -> None:
     assert "args" in spans
     assert "kw" in spans
 
-# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load
+# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load E:decision_surface/direct::test_dataflow_helpers.py::tests.test_dataflow_helpers._load::stale_abe4da6c8bea
 def test_resolve_star_external_filtered() -> None:
     da = _load()
     table = da.SymbolTable(external_filter=True)
@@ -402,7 +402,7 @@ def test_param_defaults_and_return_aliases() -> None:
     alias = da._return_aliases(fn)
     assert alias == ["a"]
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::stale_9b5ff7114450
 def test_return_aliases_tuple_and_conflict() -> None:
     da = _load()
     tree = ast.parse(
@@ -419,7 +419,7 @@ def test_return_aliases_tuple_and_conflict() -> None:
     assert da._return_aliases(tuple_fn) == ["a", "b"]
     assert da._return_aliases(conflict_fn) is None
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::stale_408787f4974f
 def test_collect_return_aliases_conflict() -> None:
     da = _load()
     tree = ast.parse(
@@ -440,7 +440,7 @@ def test_collect_return_aliases_conflict() -> None:
     aliases = da._collect_return_aliases(funcs, parents, ignore_params=None)
     assert "foo" not in aliases
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::stale_a57fd1a9a960
 def test_return_aliases_bare_return() -> None:
     da = _load()
     tree = ast.parse(

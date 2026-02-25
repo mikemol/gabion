@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,7 @@ def _evidence_item(display: str) -> dict[str, object]:
     return {"key": key, "display": display}
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_7b725bec393e
 def test_basic_dominance(make_obsolescence_opaque_ref, obsolescence_summary_counts) -> None:
     evidence_by_test = {
         "tests/test_alpha.py::test_a": [make_obsolescence_opaque_ref("E:x")],
@@ -36,19 +37,19 @@ def test_basic_dominance(make_obsolescence_opaque_ref, obsolescence_summary_coun
         "tests/test_beta.py::test_b"
     ]
 
-    candidates, summary = test_obsolescence.classify_candidates(
+    result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
+    candidates = result.stale_candidates
+    summary = result.stale_summary
     by_id = {entry["test_id"]: entry for entry in candidates}
     assert by_id["tests/test_alpha.py::test_a"]["class"] == "redundant_by_evidence"
-    assert by_id["tests/test_beta.py::test_b"]["class"] == "obsolete_candidate"
-    assert summary == obsolescence_summary_counts(
-        redundant_by_evidence=1,
-        obsolete_candidate=1,
-    )
+    assert "tests/test_beta.py::test_b" not in by_id
+    assert summary == obsolescence_summary_counts(redundant_by_evidence=1)
+    assert result.active_tests == ["tests/test_beta.py::test_b"]
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key::stale_0a7b59371188
 def test_unmapped_classification(tmp_path: Path, write_test_evidence_payload) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -76,15 +77,17 @@ def test_unmapped_classification(tmp_path: Path, write_test_evidence_payload) ->
     evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
         str(evidence_path)
     )
-    candidates, summary = test_obsolescence.classify_candidates(
+    result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
+    candidates = result.stale_candidates
+    summary = result.stale_summary
     by_id = {entry["test_id"]: entry for entry in candidates}
     assert by_id["tests/test_unmapped.py::test_skip"]["class"] == "unmapped"
     assert summary["unmapped"] == 1
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_b12b1958b067
 def test_equivalent_witness_classification(
     make_obsolescence_opaque_ref,
     obsolescence_summary_counts,
@@ -98,16 +101,191 @@ def test_equivalent_witness_classification(
         "tests/test_alpha.py::test_a": "mapped",
         "tests/test_beta.py::test_b": "mapped",
     }
-    candidates, summary = test_obsolescence.classify_candidates(
+    result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
+    candidates = result.stale_candidates
+    summary = result.stale_summary
     by_id = {entry["test_id"]: entry for entry in candidates}
-    assert by_id["tests/test_alpha.py::test_a"]["class"] == "equivalent_witness"
     assert by_id["tests/test_beta.py::test_b"]["class"] == "equivalent_witness"
-    assert summary == obsolescence_summary_counts(equivalent_witness=2)
+    assert "tests/test_alpha.py::test_a" in result.active_tests
+    assert summary == obsolescence_summary_counts(equivalent_witness=1)
 
 
-# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_witness_pareto_tiebreak_prefers_branch_guard_then_runtime::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_equivalent_witness_pareto_tiebreak_prefers_branch_guard_then_runtime(
+    make_obsolescence_opaque_ref,
+) -> None:
+    ref = make_obsolescence_opaque_ref("E:x")
+    evidence_by_test = {
+        "t_a": [ref],
+        "t_b": [ref],
+        "t_c": [ref],
+    }
+    status_by_test = {test_id: "mapped" for test_id in evidence_by_test}
+    result = test_obsolescence.classify_candidates(
+        evidence_by_test,
+        status_by_test,
+        {},
+        options=test_obsolescence.ClassifierOptions(
+            runtime_ms_by_test={"t_a": 5.0, "t_b": 10.0, "t_c": 1.0},
+            branch_guard_by_test={"t_b": True, "t_c": True},
+        ),
+    )
+    assert result.active_tests == ["t_c"]
+    assert result.stale_summary["equivalent_witness"] == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_redundant_branch_guard_retains_active::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_redundant_branch_guard_retains_active(make_obsolescence_opaque_ref) -> None:
+    evidence_by_test = {
+        "t_redundant": [make_obsolescence_opaque_ref("E:x")],
+        "t_dominator": [
+            make_obsolescence_opaque_ref("E:x"),
+            make_obsolescence_opaque_ref("E:y"),
+        ],
+    }
+    status_by_test = {test_id: "mapped" for test_id in evidence_by_test}
+    result = test_obsolescence.classify_candidates(
+        evidence_by_test,
+        status_by_test,
+        {},
+        options=test_obsolescence.ClassifierOptions(
+            branch_guard_by_test={"t_redundant": True}
+        ),
+    )
+    assert result.stale_candidates == []
+    assert set(result.active_tests) == {"t_dominator", "t_redundant"}
+    assert result.active_summary["branch_guard_retained"] == 1
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_classify_candidates_marks_requested_unresolved_paths_as_obsolete::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_classify_candidates_marks_requested_unresolved_paths_as_obsolete(
+    make_obsolescence_opaque_ref,
+) -> None:
+    shared_key = evidence_keys.make_paramset_key(["shared"])
+    shared_identity = evidence_keys.key_identity(shared_key)
+    redundant_ref = test_obsolescence.EvidenceRef(
+        key=shared_key,
+        identity=shared_identity,
+        display="E:high-unique",
+        opaque=False,
+    )
+    dominator_shared_ref = test_obsolescence.EvidenceRef(
+        key=shared_key,
+        identity=shared_identity,
+        display="E:shared",
+        opaque=False,
+    )
+    eq_ref = make_obsolescence_opaque_ref("E:eq")
+    evidence_by_test = {
+        "t_unmapped": [make_obsolescence_opaque_ref("E:unmapped")],
+        "t_redundant": [redundant_ref],
+        "t_dominator": [dominator_shared_ref, make_obsolescence_opaque_ref("E:dom-extra")],
+        "t_eq_a": [eq_ref],
+        "t_eq_b": [eq_ref],
+        "t_unique": [make_obsolescence_opaque_ref("E:unique")],
+    }
+    status_by_test = {
+        "t_unmapped": "unmapped",
+        "t_redundant": "mapped",
+        "t_dominator": "mapped",
+        "t_eq_a": "mapped",
+        "t_eq_b": "mapped",
+        "t_unique": "mapped",
+    }
+    result = test_obsolescence.classify_candidates(
+        evidence_by_test,
+        status_by_test,
+        {"E:high-unique": test_obsolescence.RiskInfo(risk="high", owner="", rationale="")},
+        options=test_obsolescence.ClassifierOptions(
+            unresolved_test_ids=frozenset(
+                {"t_unmapped", "t_redundant", "t_eq_b", "t_unique"}
+            )
+        ),
+    )
+    by_id = {str(entry["test_id"]): entry for entry in result.stale_candidates}
+    assert by_id["t_unmapped"]["class"] == "obsolete_candidate"
+    assert by_id["t_unmapped"]["reason"]["stale_from"] == "unmapped"
+    assert by_id["t_unmapped"]["reason"]["opaque_evidence"] == ["E:unmapped"]
+
+    assert by_id["t_redundant"]["class"] == "obsolete_candidate"
+    assert by_id["t_redundant"]["reason"]["stale_from"] == "redundant_by_evidence"
+    assert by_id["t_redundant"]["reason"]["guardrail"] == "high-risk-last-witness"
+    assert by_id["t_redundant"]["reason"]["guardrail_evidence"] == ["E:high-unique"]
+    assert "opaque_evidence" not in by_id["t_redundant"]["reason"]
+
+    assert by_id["t_eq_b"]["class"] == "obsolete_candidate"
+    assert by_id["t_eq_b"]["reason"]["stale_from"] == "equivalent_witness"
+    assert by_id["t_eq_b"]["reason"]["pareto_winner"] == "t_eq_a"
+
+    assert by_id["t_unique"]["class"] == "obsolete_candidate"
+    assert by_id["t_unique"]["reason"]["stale_from"] == "active_candidate"
+    assert result.stale_summary["obsolete_candidate"] == 4
+    assert result.active_summary["unresolved_obsolete"] == 4
+    assert result.active_tests == ["t_dominator", "t_eq_a"]
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_classification_without_pareto_winner_marks_all_peers_stale::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_equivalent_classification_without_pareto_winner_marks_all_peers_stale(
+    monkeypatch: pytest.MonkeyPatch,
+    make_obsolescence_opaque_ref,
+) -> None:
+    ref = make_obsolescence_opaque_ref("E:pair")
+    evidence_by_test = {"t1": [ref], "t2": [ref]}
+    status_by_test = {"t1": "mapped", "t2": "mapped"}
+    monkeypatch.setattr(
+        test_obsolescence,
+        "_pareto_winner",
+        lambda _peers, *, options: "",
+    )
+    result = test_obsolescence.classify_candidates(
+        evidence_by_test, status_by_test, {}
+    )
+    assert result.active_tests == []
+    assert result.stale_summary["equivalent_witness"] == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_pareto_helpers_cover_runtime_and_objective_fallback_paths::test_obsolescence.py::gabion.analysis.test_obsolescence._pareto_sort_key
+def test_pareto_helpers_cover_runtime_and_objective_fallback_paths() -> None:
+    options = test_obsolescence.ClassifierOptions(
+        runtime_ms_by_test={"bad": "oops", "neg": -1},  # type: ignore[arg-type]
+        objective_order=("unknown_metric",),  # type: ignore[arg-type]
+        lexical_test_id_ascending=False,
+    )
+    assert math.isinf(test_obsolescence._runtime_ms("missing", options=options))
+    assert math.isinf(test_obsolescence._runtime_ms("bad", options=options))
+    assert math.isinf(test_obsolescence._runtime_ms("neg", options=options))
+    assert test_obsolescence._pareto_winner([], options=options) == ""
+    key = test_obsolescence._pareto_sort_key("ab", novelty=0, options=options)
+    assert key[0] == 1
+    assert math.isinf(key[1])
+    assert key[2] == (-97, -98)
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_unresolved_active_candidate_without_opaque_evidence_reason::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_unresolved_active_candidate_without_opaque_evidence_reason() -> None:
+    key = evidence_keys.make_paramset_key(["plain"])
+    identity = evidence_keys.key_identity(key)
+    ref = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=identity,
+        display=evidence_keys.render_display(key),
+        opaque=False,
+    )
+    result = test_obsolescence.classify_candidates(
+        {"t_plain": [ref]},
+        {"t_plain": "mapped"},
+        {},
+        options=test_obsolescence.ClassifierOptions(
+            unresolved_test_ids=frozenset({"t_plain"})
+        ),
+    )
+    assert result.stale_summary["obsolete_candidate"] == 1
+    assert "opaque_evidence" not in result.stale_candidates[0]["reason"]
+
+
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines::stale_26799f525b41
 def test_render_markdown_includes_spec_metadata(obsolescence_summary_counts) -> None:
     candidates = [
         {
@@ -123,7 +301,7 @@ def test_render_markdown_includes_spec_metadata(obsolescence_summary_counts) -> 
     assert "generated_by_spec:" in report
 
 
-# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload::stale_e830da863aed
 def test_render_json_payload_includes_spec_metadata(obsolescence_summary_counts) -> None:
     candidates = []
     summary = obsolescence_summary_counts()
@@ -133,7 +311,7 @@ def test_render_json_payload_includes_spec_metadata(obsolescence_summary_counts)
     assert "generated_by_spec" in payload
 
 
-# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines::stale_7626b84a7eed
 def test_render_markdown_includes_suffix_details(obsolescence_summary_counts) -> None:
     candidates = [
         {
@@ -165,7 +343,7 @@ def test_risk_info_from_payload_variants() -> None:
     assert info.risk == "high"
 
 
-# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence E:decision_surface/direct::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence::stale_129fbdcd5daa_974b980e
 def test_load_test_evidence_errors(tmp_path: Path) -> None:
     bad_payload = tmp_path / "bad_payload.json"
     bad_payload.write_text(json.dumps([1, 2, 3]))
@@ -183,7 +361,7 @@ def test_load_test_evidence_errors(tmp_path: Path) -> None:
         test_obsolescence.load_test_evidence(str(bad_tests))
 
 
-# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence E:decision_surface/direct::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence::stale_6427b32d068f
 def test_load_test_evidence_skips_invalid_entries(tmp_path: Path) -> None:
     payload = {
         "schema_version": 2,
@@ -238,7 +416,7 @@ def test_compute_dominators_handles_empty_evidence() -> None:
     assert dominators["t1"] == []
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_8ca24934dfb5
 def test_guardrail_and_opaque_evidence() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -266,14 +444,12 @@ def test_guardrail_and_opaque_evidence() -> None:
     }
     status_by_test = {"t1": "mapped", "t2": "mapped"}
     risk_registry = {"E:high": test_obsolescence.RiskInfo(risk="high", owner="", rationale="")}
-    candidates, summary = test_obsolescence.classify_candidates(
+    result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, risk_registry
     )
-    by_id = {entry["test_id"]: entry for entry in candidates}
-    assert by_id["t1"]["class"] == "obsolete_candidate"
-    assert by_id["t1"]["reason"]["guardrail"] == "high-risk-last-witness"
-    assert "opaque_evidence" in by_id["t1"]["reason"]
-    assert summary["redundant_by_evidence"] == 0
+    assert result.stale_summary["redundant_by_evidence"] == 0
+    assert result.stale_candidates == []
+    assert result.active_summary["high_risk_guardrail_retained"] == 1
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
@@ -287,7 +463,7 @@ def test_summarize_candidates_handles_bad_counts() -> None:
     assert summary["unmapped"] == 0
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_3290faf8acae
 def test_normalize_evidence_refs_variants() -> None:
     ref = test_obsolescence.EvidenceRef(
         key=evidence_keys.make_opaque_key("E:x"),
@@ -320,11 +496,11 @@ def test_classify_candidates_handles_non_singleton_high_risk_witnesses(
     evidence_by_test = {"t1": [ref], "t2": [ref]}
     status_by_test = {"t1": "mapped", "t2": "mapped"}
     risk_registry = {"E:high": test_obsolescence.RiskInfo(risk="high", owner="", rationale="")}
-    candidates, summary = test_obsolescence.classify_candidates(
+    result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, risk_registry
     )
-    assert summary["equivalent_witness"] == 2
-    assert all("guardrail" not in entry["reason"] for entry in candidates)
+    assert result.stale_summary["equivalent_witness"] == 1
+    assert all("guardrail" not in entry["reason"] for entry in result.stale_candidates)
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_render_markdown_handles_empty_guardrail_and_suffix_parts::test_obsolescence.py::gabion.analysis.test_obsolescence.render_markdown

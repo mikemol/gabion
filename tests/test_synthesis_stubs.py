@@ -8,7 +8,7 @@ def _load():
 
     return render_protocol_stubs
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::stale_096407f13c5b
 def test_render_protocol_stubs_emits_dataclass() -> None:
     render_protocol_stubs = _load()
     plan = {
@@ -29,7 +29,7 @@ def test_render_protocol_stubs_emits_dataclass() -> None:
     assert "ctx: Context" in stub
     assert "config: Any" in stub
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::stale_5cbb31b76042
 def test_render_protocol_stubs_emits_protocol() -> None:
     render_protocol_stubs = _load()
     plan = {

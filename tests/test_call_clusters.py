@@ -7,7 +7,7 @@ from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_f2f22f585967_a8050d05
 def test_call_clusters_payload_and_render(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -51,7 +51,7 @@ def test_call_clusters_payload_and_render(
     assert "generated_by_spec_id" in markdown
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload::stale_9c9d25e9aa91_268453e6
 def test_call_clusters_payload_handles_empty_targets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -82,7 +82,7 @@ def test_call_clusters_payload_handles_empty_targets(
     assert payload["summary"]["tests"] == 0
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload::stale_22ef4ce04dc7
 def test_call_clusters_payload_projection_skips_unknown_identity(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -126,14 +126,14 @@ def test_call_clusters_payload_projection_skips_unknown_identity(
     assert payload["summary"]["tests"] == 0
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_2aeab116568e
 def test_call_clusters_render_empty() -> None:
     payload = {"summary": {"clusters": 0, "tests": 0}, "clusters": []}
     markdown = call_clusters.render_markdown(payload)
     assert "No call clusters found." in markdown
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_99c8ea44bd19
 def test_call_clusters_render_skips_non_mapping() -> None:
     payload = {
         "summary": {"clusters": 1, "tests": 1},
@@ -151,7 +151,7 @@ def test_call_clusters_write_creates_file(tmp_path: Path) -> None:
     assert output_path.read_text(encoding="utf-8").strip().startswith("{")
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_18bb6454e9b7
 def test_call_clusters_render_uses_payload_spec_metadata() -> None:
     payload = {
         "summary": {"clusters": 0, "tests": 0},

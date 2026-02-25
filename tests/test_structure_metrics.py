@@ -8,7 +8,7 @@ def _load():
 
     return da
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::stale_b4e89f848e9e
 def test_compute_structure_metrics_counts(tmp_path: Path) -> None:
     da = _load()
     path_a = tmp_path / "a.py"

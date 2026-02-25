@@ -24,7 +24,7 @@ def test_group_by_signature_and_union_groups() -> None:
     assert any(group == {"a", "b", "c"} for group in merged)
     assert any(group == {"d"} for group in merged)
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::stale_f3771317a034_c44c06a3
 def test_propagate_groups_low_strictness_star() -> None:
     da = _load()
     call = da.CallArgs(
@@ -50,7 +50,7 @@ def test_propagate_groups_low_strictness_star() -> None:
     )
     assert any(group == {"x", "args"} for group in groups)
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::stale_4618bfaa2c64
 def test_propagate_groups_skips_opaque() -> None:
     da = _load()
     call = da.CallArgs(
@@ -74,7 +74,7 @@ def test_propagate_groups_skips_opaque() -> None:
     )
     assert groups == []
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::stale_96b5b22cdd76
 def test_analyze_file_ambiguous_local_callee(tmp_path: Path) -> None:
     da = _load()
     code = (

@@ -1,5 +1,5 @@
 ---
-doc_revision: 74
+doc_revision: 75
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -283,6 +283,14 @@ Run governance graph/status checks through the same CLI entrypoint:
 mise exec -- python -m gabion sppf-graph
 mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
+
+Compute a normative-docs versus code/tooling symmetric-difference report:
+```
+mise exec -- python -m gabion normative-symdiff --root .
+```
+Default artifacts:
+- `artifacts/out/normative_symdiff.json`
+- `artifacts/audit_reports/normative_symdiff.md`
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.

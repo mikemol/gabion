@@ -27,7 +27,7 @@ def test_beta() -> None:
     return path
 
 
-# gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload
+# gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload E:decision_surface/direct::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload::stale_39604d8ff929_03566325
 def test_semantic_coverage_payload_is_deterministic(tmp_path: Path) -> None:
     test_path = _write_test_module(tmp_path)
     evidence_payload = test_evidence.build_test_evidence_payload(
@@ -71,7 +71,7 @@ def test_semantic_coverage_payload_is_deterministic(tmp_path: Path) -> None:
     ]
 
 
-# gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload
+# gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload E:decision_surface/direct::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload::stale_fbc33e8075bc
 def test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries(tmp_path: Path) -> None:
     test_path = _write_test_module(tmp_path)
     evidence_payload = test_evidence.build_test_evidence_payload(

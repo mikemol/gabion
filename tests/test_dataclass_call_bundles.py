@@ -12,7 +12,7 @@ def _load():
 
     return _iter_dataclass_call_bundles, _build_symbol_table, _collect_dataclass_registry
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::stale_c745980b3152
 def test_dataclass_call_bundles_accepts_expression_values(tmp_path: Path) -> None:
     _iter_dataclass_call_bundles, _, _ = _load()
     source = tmp_path / "example.py"
@@ -33,7 +33,7 @@ def build(alpha, beta, gamma):
     bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
     assert ("alpha", "beta", "gamma") in bundles
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::stale_0241d45d9f17_fd4ab092
 def test_dataclass_call_bundles_resolve_cross_file(tmp_path: Path) -> None:
     _iter_dataclass_call_bundles, _build_symbol_table, _collect_dataclass_registry = _load()
     root = tmp_path
@@ -122,6 +122,7 @@ def test_dataclass_call_bundles_emit_unresolved_starred_evidence(tmp_path: Path)
     assert any(w.get("reason") == "unresolved_starred_positional" for w in witnesses)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles
 def test_dataclass_call_bundles_ignore_attribute_calls_without_symbol_table(
     tmp_path: Path,
 ) -> None:

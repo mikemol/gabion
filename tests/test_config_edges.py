@@ -17,7 +17,7 @@ def test_load_toml_missing_and_invalid(tmp_path: Path) -> None:
     assert config._load_toml(tmp_path) == {}
 
 
-# gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root E:decision_surface/direct::config.py::gabion.config.load_config::stale_ecc6ed5f8589
 def test_load_config_default_path(tmp_path: Path) -> None:
     cfg = tmp_path / config.DEFAULT_CONFIG_NAME
     cfg.write_text("[dataflow]\nstrictness = 'low'\n", encoding="utf-8")

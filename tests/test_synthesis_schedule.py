@@ -6,7 +6,7 @@ from gabion.synthesis.schedule import (
 )
 
 
-# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule
+# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule E:decision_surface/direct::schedule.py::gabion.synthesis.schedule.topological_schedule::stale_00571c55270f_2b9a839b
 def test_topological_schedule_orders_dependencies() -> None:
     graph = {"a": {"b"}, "b": set()}
     result = topological_schedule(graph)
@@ -14,7 +14,7 @@ def test_topological_schedule_orders_dependencies() -> None:
     assert result.cycles == []
 
 
-# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule
+# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule E:decision_surface/direct::schedule.py::gabion.synthesis.schedule.topological_schedule::stale_678a3f92c068
 def test_topological_schedule_reports_cycles() -> None:
     graph = {"a": {"b"}, "b": {"a"}}
     result = topological_schedule(graph)

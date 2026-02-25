@@ -15,7 +15,7 @@ def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str,
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_53de2d5d4377_a503856f
 def test_call_cluster_consolidation_payload_and_render(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -86,14 +86,14 @@ def test_call_cluster_consolidation_payload_and_render(
     assert "E:call_cluster" in markdown
 
 
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_d3f9e19479c9
 def test_call_cluster_consolidation_render_empty() -> None:
     payload = {"summary": {}, "clusters": [], "plan": []}
     markdown = call_cluster_consolidation.render_markdown(payload)
     assert "No consolidation candidates" in markdown
 
 
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::stale_f457d4364b38
 def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -132,7 +132,7 @@ def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
     assert payload["plan"] == []
 
 
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::stale_0ac9f5d3d039_0e8f5b26
 def test_call_cluster_consolidation_skips_multiple_target_sets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -258,7 +258,7 @@ def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
     assert payload["summary"]["tests"] == 0
 
 
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_b48fa52912da
 def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
     payload = {
         "summary": {"clusters": 1},

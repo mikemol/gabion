@@ -66,6 +66,7 @@ from gabion.tooling import (
     impact_select_tests as tooling_impact_select_tests,
     run_dataflow_stage as tooling_run_dataflow_stage,
     ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
+    normative_symdiff as tooling_normative_symdiff,
 )
 from gabion.json_types import JSONObject
 from gabion.invariants import never
@@ -3405,6 +3406,7 @@ _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
+    "normative-symdiff": tooling_normative_symdiff.main,
 }
 
 
@@ -3500,6 +3502,20 @@ def ambiguity_contract_gate(ctx: typer.Context) -> None:
     raise typer.Exit(
         code=_run_tooling_with_argv(
             "ambiguity-contract-gate",
+            list(ctx.args),
+        )
+    )
+
+
+@app.command(
+    "normative-symdiff",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def normative_symdiff(ctx: typer.Context) -> None:
+    """Compute a normative-docs ↔ code/tooling symmetric-difference report."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "normative-symdiff",
             list(ctx.args),
         )
     )

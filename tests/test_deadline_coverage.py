@@ -393,7 +393,7 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     )
     assert arg_map
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::stale_7fc515c3d35d
 def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1229,7 +1229,7 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
             parse_failure_witnesses=[],
         )
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::stale_f4ddeb70ecf1
 def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

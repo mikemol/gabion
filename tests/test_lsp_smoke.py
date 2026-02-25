@@ -39,7 +39,7 @@ def _fake_process_factory(stdout_bytes: bytes, on_start=None):
 
     return _factory
 
-# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_da244cdbb037
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
@@ -117,7 +117,7 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
     )
     assert "protocols" in synth_result
 
-# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_161b964c3edd
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command_writes_structure_snapshot(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]

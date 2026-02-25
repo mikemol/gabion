@@ -21,7 +21,7 @@ def _sample_invariant(*, invariant_id: str, terms: tuple[str, ...], confidence: 
     )
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest::stale_5162fc0006de_69a5f368
 def test_property_hook_ids_are_stable_across_runs() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
@@ -32,7 +32,7 @@ def test_property_hook_ids_are_stable_across_runs() -> None:
     assert first == second
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest::stale_66d4eaf6f47a
 def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:low", terms=("a", "b"), confidence=0.2),
@@ -42,7 +42,7 @@ def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
     assert payload["callable_index"] == []
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest::stale_9b678e06e7e2
 def test_property_hook_manifest_maps_multiple_invariants_to_one_callable() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
@@ -79,7 +79,7 @@ def test_invariant_proposition_as_dict_emits_optional_metadata() -> None:
     assert payload["evidence_keys"] == ["E:foo", "E:bar"]
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest::stale_6ffab7161cd4
 def test_property_hook_manifest_hypothesis_templates_and_scope_filtering() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:good", terms=("a", "b")),

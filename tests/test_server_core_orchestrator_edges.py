@@ -133,6 +133,7 @@ def _analysis_context(
     )
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_annotation_drift_outputs
 def test_emit_annotation_drift_outputs_emit_only_path_skips_delta_block(
     tmp_path: Path,
 ) -> None:
@@ -153,6 +154,7 @@ def test_emit_annotation_drift_outputs_emit_only_path_skips_delta_block(
     assert "test_annotation_drift_baseline_path" not in response
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_primary_outputs
 def test_emit_primary_outputs_synthesis_report_without_plan_path(
     tmp_path: Path,
 ) -> None:
@@ -184,6 +186,7 @@ def test_emit_primary_outputs_synthesis_report_without_plan_path(
     assert "synthesis_plan" in response
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations::stale_f2f5df7d0b69_366adc93
 def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
     tmp_path: Path,
 ) -> None:
@@ -221,6 +224,7 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
     assert isinstance(outcome.report, str)
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_a34f1f47eb2e
 def test_load_timeout_resume_progress_uses_manifest_resume_pair(
     tmp_path: Path,
 ) -> None:
@@ -252,6 +256,7 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
     assert resume["resume_token"]["witness_digest"] == "digest-1"
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_c63e5782a009_20498f3c
 def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payload(
     tmp_path: Path,
 ) -> None:
@@ -271,6 +276,7 @@ def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payloa
     assert progress_payload["classification"] == "timed_out_no_progress"
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations::stale_951f0c40d59e
 def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) -> None:
     orchestrator._bind_server_symbols()
     baseline_path = tmp_path / "baseline.txt"
@@ -310,12 +316,14 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
     assert outcome.violations == []
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._notification_runtime
 def test_notification_runtime_rejects_non_callable_sender() -> None:
     orchestrator._bind_server_symbols()
     with pytest.raises(NeverThrown):
         orchestrator._notification_runtime("not-callable")
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._render_timeout_partial_report
 def test_render_timeout_partial_report_handles_non_callable_cache_loader(
     tmp_path: Path,
 ) -> None:
@@ -367,6 +375,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
     assert "intro" in outcome.resolved_sections
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._prepare_analysis_resume_state
 def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     tmp_path: Path,
 ) -> None:
@@ -422,6 +431,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     assert state.analysis_resume_intro_timeline_row is None
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._run_analysis_with_progress
 def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timeline_disabled(
     tmp_path: Path,
 ) -> None:
@@ -466,6 +476,7 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
     )
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_checkpoint
 def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_disabled(
     tmp_path: Path,
 ) -> None:

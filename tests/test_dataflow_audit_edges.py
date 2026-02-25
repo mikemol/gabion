@@ -426,7 +426,7 @@ def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
         )
     assert result.forest is not None
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::stale_e01e3da4533d_b151d714
 def test_deadline_missing_carrier_for_loop(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -439,7 +439,7 @@ def test_deadline_missing_carrier_for_loop(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::stale_c323987a9b76
 def test_deadline_none_arg_violation(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -454,7 +454,7 @@ def test_deadline_none_arg_violation(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "none_arg" for entry in obligations)
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::stale_c2162c171ed1
 def test_deadline_origin_not_allowlisted(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,

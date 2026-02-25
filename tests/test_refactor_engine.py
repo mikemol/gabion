@@ -14,7 +14,7 @@ def _load():
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", "", text)
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_7165b720683b
 def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -40,7 +40,7 @@ def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     assert "alpha: object" in replacement
     assert "beta: object" in replacement
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_f747efb69717
 def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -69,7 +69,7 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     assert "alpha: int" in replacement
     assert "beta: str" in replacement
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_a1773bba20c4
 def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -100,7 +100,7 @@ def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None
     assert "a = bundle.a" in replacement
     assert "b = bundle.b" in replacement
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_71db3042b46c_5eed1578
 def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -131,7 +131,7 @@ def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     replacement = _normalize(plan.edits[0].replacement)
     assert "returnfoo(BundleProtocol(a=x,b=y))" in replacement
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_f5a71b55c836
 def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     src_root = tmp_path / "src" / "pkg"
@@ -176,7 +176,7 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     assert "frompkg.modimportBundleProtocol" in caller_replacement
     assert "returnfoo(BundleProtocol(a=x,b=y))" in caller_replacement
 
-# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_b919c219b6e6
 def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -380,7 +380,7 @@ def test_ambient_arg_threading_rewriter_branch_matrix() -> None:
     assert current_rewriter.leave_Call(current_call, current_call) is current_call
 
 
-# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function E:decision_surface/direct::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function::stale_cea5a5c42eca
 def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine

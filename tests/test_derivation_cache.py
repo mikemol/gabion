@@ -132,6 +132,7 @@ def test_structural_key_atom_covers_float_set_frozenset_and_nodeid() -> None:
     assert json_payload == ["bytes", {"_py": "bytes", "hex": "6162"}]
 
 
+# gabion:evidence E:function_site::aspf.py::gabion.analysis.aspf.structural_key_atom
 def test_structural_key_atom_covers_bytes_and_path(tmp_path: Path) -> None:
     path_value = tmp_path / "sample.py"
     bytes_atom = aspf.structural_key_atom(b"ab", source="tests.structural.bytes")
@@ -196,6 +197,7 @@ def test_derivation_cache_eviction_and_payload_and_callable_invalidation() -> No
     assert isinstance(payload["graph"], dict)
 
 
+# gabion:evidence E:function_site::derivation_cache.py::gabion.analysis.derivation_cache.DerivationCacheRuntime.derive
 def test_derivation_cache_events_materialize_and_iterable_inputs() -> None:
     runtime = DerivationCacheRuntime(max_entries=4)
     op = DerivationOp(name="demo.events", scope="tests", version=1)
@@ -239,6 +241,7 @@ def test_derivation_cache_events_materialize_and_iterable_inputs() -> None:
     assert "cache:regen:done" in events
 
 
+# gabion:evidence E:function_site::derivation_cache.py::gabion.analysis.derivation_cache.DerivationCacheRuntime.invalidate
 def test_derivation_cache_invalidate_skips_non_cached_nodes() -> None:
     runtime = DerivationCacheRuntime(max_entries=4)
     op = DerivationOp(name="demo.invalidate", scope="tests", version=1)
@@ -264,6 +267,7 @@ def test_global_derivation_cache_helpers_reset_and_env_parse() -> None:
     assert get_global_derivation_cache() is runtime
 
 
+# gabion:evidence E:function_site::derivation_cache.py::gabion.analysis.derivation_cache.reset_global_derivation_cache
 def test_global_derivation_cache_helpers_invalid_env_uses_default() -> None:
     with env_scope({"GABION_DERIVATION_CACHE_MAX_ENTRIES": "not-an-int"}):
         runtime = reset_global_derivation_cache()
@@ -307,6 +311,7 @@ def test_derivation_persistence_roundtrip_and_hydrate(tmp_path: Path) -> None:
     assert read_derivation_checkpoint(path=checkpoint) is None
 
 
+# gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence.read_derivation_checkpoint
 def test_derivation_persistence_read_checkpoint_invalid_inputs(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing.json"
     assert read_derivation_checkpoint(path=missing_path) is None
@@ -320,6 +325,7 @@ def test_derivation_persistence_read_checkpoint_invalid_inputs(tmp_path: Path) -
     assert read_derivation_checkpoint(path=list_path) is None
 
 
+# gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence.hydrate_graph_from_checkpoint
 def test_derivation_persistence_hydrate_graph_guards() -> None:
     graph = DerivationCacheRuntime(max_entries=4).graph
     assert hydrate_graph_from_checkpoint(graph=graph, runtime_payload={"graph": []}) == 0
@@ -340,6 +346,7 @@ def test_derivation_persistence_hydrate_graph_guards() -> None:
     assert restored == 0
 
 
+# gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence._node_id_from_payload
 def test_derivation_persistence_node_payload_conversion_guards() -> None:
     assert derivation_persistence._node_id_from_payload("bad") is None
     assert derivation_persistence._node_id_from_payload({"key": "value"}) is None
@@ -356,6 +363,7 @@ def test_derivation_persistence_node_payload_conversion_guards() -> None:
     )
 
 
+# gabion:evidence E:function_site::derivation_graph.py::gabion.analysis.derivation_graph.DerivationGraph.invalidate
 def test_derivation_graph_duplicate_edges_and_cycle_invalidation() -> None:
     graph = DerivationCacheRuntime(max_entries=4).graph
     input_a = graph.intern_input(input_label="a", value=1, source="tests.graph.a")

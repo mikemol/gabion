@@ -7,7 +7,7 @@ import pytest
 from gabion.analysis import test_evidence
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_9d3007f51f3a
 def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -94,7 +94,7 @@ def test_requires_adjacent_tag_and_skips_bad_files(tmp_path: Path) -> None:
     assert test_evidence._find_evidence_tags(lines, {}, start_line=2) == []
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_77c33f0898a8
 def test_excludes_paths(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -176,7 +176,7 @@ def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
     assert test_evidence._extract_file_tags(missing, root) == []
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_7334c1075190
 def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"

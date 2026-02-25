@@ -37,7 +37,7 @@ def test_baseline_io_helpers_roundtrip(tmp_path: Path) -> None:
     assert isinstance(spec_payload, dict)
 
 
-# gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version
+# gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version E:decision_surface/direct::baseline_io.py::gabion.analysis.baseline_io.parse_version::stale_a3a6380a50d1
 def test_baseline_io_parse_version_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         parse_version({"version": "bad"}, expected=1, error_context="unit-test")
@@ -49,7 +49,7 @@ def test_baseline_io_parse_version_rejects_bad_version() -> None:
     ) == 2
 
 
-# gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json
+# gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json E:decision_surface/direct::baseline_io.py::gabion.analysis.baseline_io.load_json::stale_a53b840b0a91
 def test_baseline_io_load_json_rejects_non_object(tmp_path: Path) -> None:
     path = tmp_path / "baseline.json"
     path.write_text("[]\n", encoding="utf-8")

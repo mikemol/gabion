@@ -27,7 +27,7 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_ESCAPE.sub("", text)
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_22e7d997b440
 def test_split_csv_helpers() -> None:
     assert cli._split_csv_entries(["a, b", " ", "c"]) == ["a", "b", "c"]
     assert cli._split_csv_entries([" ", ""]) == []
@@ -346,7 +346,7 @@ def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -
     )
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_a0c064f7325b
 def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     good_line = "mod.py:10:2: GABION_CODE something happened"
     parsed = cli._parse_lint_line(good_line)
@@ -374,7 +374,7 @@ def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     assert "sarif-2.1.0.json" in capsys.readouterr().out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_1061723ef45d
 def test_lint_writers_accept_dev_stdout(capsys) -> None:
     entries = [
         {
@@ -506,7 +506,7 @@ def test_cli_deadline_scope_yields() -> None:
         assert True
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::stale_7d8b74e626fe
 def test_build_refactor_payload_input_payload_passthrough() -> None:
     payload = {"protocol_name": "Bundle", "bundle": ["a"]}
     assert cli.build_refactor_payload(
@@ -524,7 +524,7 @@ def test_build_refactor_payload_input_payload_passthrough() -> None:
     ) == payload
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::stale_e040ac567f92
 def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_refactor_payload(
@@ -646,7 +646,7 @@ def test_run_docflow_audit_nonzero_short_circuits_sppf(tmp_path: Path) -> None:
     assert calls == ["docflow"]
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_5b469ca25d0a
 def test_dataflow_audit_skips_type_audit_output() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -657,7 +657,7 @@ def test_dataflow_audit_skips_type_audit_output() -> None:
     assert exc.value.exit_code == 0
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f562194a2932
 def test_dataflow_audit_type_audit_empty_findings() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -671,7 +671,7 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
     assert exc.value.exit_code == 0
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_b1d435f0c525
 def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1818,7 +1818,7 @@ def test_render_timeout_progress_markdown_includes_incremental_obligations() -> 
     assert "components" in rendered
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_09ceb3645a45
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1837,7 +1837,7 @@ def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     assert "\"format_version\": 1" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_3ee3d4401f7c
 def test_dataflow_audit_emits_structure_tree_dev_stdout(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1856,7 +1856,7 @@ def test_dataflow_audit_emits_structure_tree_dev_stdout(capsys) -> None:
     assert "\"format_version\": 1" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_c3f2f0d13aec
 def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1882,7 +1882,7 @@ def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
     assert "\"bundle_size_histogram\"" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_ca75522a5338_2081cc39
 def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1907,7 +1907,7 @@ def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
     assert "\"decision_surfaces\"" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f9a3416893cb
 def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
     def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
         # dataflow-bundle: _args, _kwargs
@@ -2048,7 +2048,7 @@ def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None
     assert "fingerprint_handledness.json" in output
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::stale_71198c0357eb
 def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     captured = {}
 
@@ -2067,7 +2067,7 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     assert output_path.read_text().strip()
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::stale_a51a81557205_b963adf2
 def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text("[]\n")
@@ -2080,7 +2080,7 @@ def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
     assert "json object" in str(exc.value).lower()
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::input_path,output_path
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::stale_b51675818f31
 def test_refactor_protocol_rejects_non_object_payload(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text("[]\n")
@@ -2477,7 +2477,7 @@ def test_dispatch_command_execution_plan_payload_skips_non_mapping_inputs_and_po
     assert execution_plan_request["policy_metadata"] == "invalid"
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::stale_6424f9623b7c
 def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2503,7 +2503,7 @@ def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
     assert result == {"exit_code": 0}
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::stale_9512fb3adc80_4011a505
 def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     calls: list[str] = []
 
@@ -2650,7 +2650,7 @@ def test_render_timeout_progress_markdown_handles_non_mapping_resume_token() -> 
     assert "Resume Token" not in rendered
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff E:decision_surface/direct::cli.py::gabion.cli._emit_structure_diff::stale_0d2be4c7ed9c
 def test_emit_structure_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_structure_diff(result)
@@ -2659,7 +2659,7 @@ def test_emit_structure_diff_success(capsys) -> None:
     assert captured.err == ""
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff E:decision_surface/direct::cli.py::gabion.cli._emit_structure_diff::stale_98a6bf69ab7f_0440a891
 def test_emit_structure_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad snapshot"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -2670,7 +2670,7 @@ def test_emit_structure_diff_errors_exit(capsys) -> None:
     assert "bad snapshot" in captured.err
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff E:decision_surface/direct::cli.py::gabion.cli._emit_decision_diff::stale_278718bd685f
 def test_emit_decision_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_decision_diff(result)
@@ -2678,7 +2678,7 @@ def test_emit_decision_diff_success(capsys) -> None:
     assert "\"exit_code\": 0" in captured.out
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff E:decision_surface/direct::cli.py::gabion.cli._emit_decision_diff::stale_eab18e59dce2_5a66a6e5
 def test_emit_decision_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad decision"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -2688,7 +2688,7 @@ def test_emit_decision_diff_errors_exit(capsys) -> None:
     assert "bad decision" in captured.err
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse E:decision_surface/direct::cli.py::gabion.cli._emit_structure_reuse::stale_907053caf6e8
 def test_emit_structure_reuse_success(capsys) -> None:
     result = {"exit_code": 0, "reuse": {"summary": {}}}
     cli._emit_structure_reuse(result)
@@ -2696,7 +2696,7 @@ def test_emit_structure_reuse_success(capsys) -> None:
     assert "\"exit_code\": 0" in captured.out
 
 
-# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse E:decision_surface/direct::cli.py::gabion.cli._emit_structure_reuse::stale_6e9d6dd3c001_96b57ce7
 def test_emit_structure_reuse_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad reuse"], "reuse": {}}
     with pytest.raises(typer.Exit) as exc:
