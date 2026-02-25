@@ -196,6 +196,7 @@ class PrimeRegistry:
     next_candidate: int = 2
     bit_positions: dict[str, int] = field(default_factory=dict)
     next_bit: int = 0
+    assignment_origin: dict[str, str] = field(default_factory=dict)
 
     def get_or_assign(self, key: str) -> int:
         consume_deadline_ticks()
@@ -208,6 +209,7 @@ class PrimeRegistry:
         prime = _next_prime(self.next_candidate)
         self.primes[key] = prime
         self.next_candidate = prime + 1
+        self.assignment_origin.setdefault(key, "learned")
         if key not in self.bit_positions:
             self.bit_positions[key] = self.next_bit
             self.next_bit += 1
@@ -256,6 +258,33 @@ class PrimeRegistry:
             _entry(namespace)["bit_positions"][local_key] = int(bit)
         return {
             "version": "prime-registry-seed@1",
+            "assignment_policy": {
+                "version": "prime-registry-assignment@1",
+                "seeded": [
+                    key
+                    for key in sort_once(
+                        (
+                            candidate
+                            for candidate, origin in self.assignment_origin.items()
+                            if origin == "seeded"
+                        ),
+                        source="PrimeRegistry.seed_payload.assignment_policy.seeded",
+                        policy=OrderPolicy.SORT,
+                    )
+                ],
+                "learned": [
+                    key
+                    for key in sort_once(
+                        (
+                            candidate
+                            for candidate, origin in self.assignment_origin.items()
+                            if origin != "seeded"
+                        ),
+                        source="PrimeRegistry.seed_payload.assignment_policy.learned",
+                        policy=OrderPolicy.SORT,
+                    )
+                ],
+            },
             "namespaces": namespace_payload,
         }
 
@@ -285,7 +314,15 @@ class PrimeRegistry:
                     check_deadline()
                     if isinstance(key, str) and isinstance(value, int):
                         flat_bits[_raw_key(namespace, key)] = value
-        _apply_registry_payload({"primes": flat_primes, "bit_positions": flat_bits}, self)
+        _apply_registry_payload(
+            {
+                "primes": flat_primes,
+                "bit_positions": flat_bits,
+                "assignment_policy": payload.get("assignment_policy"),
+            },
+            self,
+            assignment_kind="seeded",
+        )
 
 
 @dataclass(frozen=True)
@@ -931,7 +968,7 @@ def build_synth_registry_from_payload(
     registry_payload = payload.get("registry")
     if isinstance(registry_payload, dict):
         registry.load_seed_payload(registry_payload.get("seed"))
-    _apply_registry_payload(registry_payload, registry)
+    _apply_registry_payload(registry_payload, registry, assignment_kind="seeded")
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
@@ -972,6 +1009,8 @@ def build_synth_registry_from_payload(
 def _apply_registry_payload(
     payload: object,
     registry: PrimeRegistry,
+    *,
+    assignment_kind: str = "learned",
 ) -> None:
     """Extend a PrimeRegistry with a serialized basis.
 
@@ -1001,23 +1040,50 @@ def _apply_registry_payload(
             if isinstance(value, int):
                 bits_map[key] = value
 
-    for key, prime in primes_map.items():
+    for key in sort_once(
+        primes_map,
+        source="_apply_registry_payload.primes_map",
+        policy=OrderPolicy.SORT,
+    ):
         check_deadline()
+        prime = primes_map[key]
         existing = registry.primes.get(key)
         if existing is not None and existing != prime:
             raise ValueError(
                 f"Registry basis mismatch for {key}: have {existing} expected {prime}"
             )
         registry.primes.setdefault(key, prime)
+        if key in registry.primes:
+            registry.assignment_origin.setdefault(key, assignment_kind)
 
-    for key, bit in bits_map.items():
+    for key in sort_once(
+        bits_map,
+        source="_apply_registry_payload.bits_map",
+        policy=OrderPolicy.SORT,
+    ):
         check_deadline()
+        bit = bits_map[key]
         existing = registry.bit_positions.get(key)
         if existing is not None and existing != bit:
             raise ValueError(
                 f"Registry basis mismatch for bit {key}: have {existing} expected {bit}"
             )
         registry.bit_positions.setdefault(key, bit)
+
+    assignment_policy = payload.get("assignment_policy") if isinstance(payload, dict) else None
+    if isinstance(assignment_policy, dict):
+        seeded = assignment_policy.get("seeded")
+        learned = assignment_policy.get("learned")
+        if isinstance(seeded, list):
+            for key in seeded:
+                check_deadline()
+                if isinstance(key, str) and key in registry.primes:
+                    registry.assignment_origin[key] = "seeded"
+        if isinstance(learned, list):
+            for key in learned:
+                check_deadline()
+                if isinstance(key, str) and key in registry.primes:
+                    registry.assignment_origin[key] = "learned"
 
     if registry.primes and len(set(registry.primes.values())) != len(registry.primes):
         raise ValueError("Registry basis contains duplicate primes.")
@@ -1044,6 +1110,7 @@ def _apply_registry_payload(
         if key not in registry.bit_positions:
             registry.bit_positions[key] = registry.next_bit
             registry.next_bit += 1
+        registry.assignment_origin.setdefault(key, assignment_kind)
 
     if registry.bit_positions:
         registry.next_bit = max(

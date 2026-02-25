@@ -7562,9 +7562,45 @@ def _canonical_cache_identity(
         "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
         "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
     }
-    return hashlib.sha1(
+    digest = hashlib.sha1(
         json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    return f"aspf:sha1:{digest}"
+
+
+def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
+    value = str(identity or "")
+    if not value:
+        return ("",)
+    if value.startswith("aspf:sha1:"):
+        legacy = value[len("aspf:sha1:") :]
+        if legacy:
+            return (value, legacy)
+        return (value,)
+    if len(value) == 40 and all(ch in "0123456789abcdef" for ch in value.lower()):
+        return (value, f"aspf:sha1:{value}")
+    return (value,)
+
+
+def _cache_identity_matches(actual: str, expected: str) -> bool:
+    actual_aliases = set(_cache_identity_aliases(actual))
+    expected_aliases = set(_cache_identity_aliases(expected))
+    return bool(actual_aliases & expected_aliases)
+
+
+def _resume_variant_for_identity(
+    variants: Mapping[str, JSONObject],
+    expected_identity: str,
+) -> JSONObject | None:
+    direct = variants.get(expected_identity)
+    if direct is not None:
+        return direct
+    expected_aliases = set(_cache_identity_aliases(expected_identity))
+    for variant_identity, variant in variants.items():
+        check_deadline()
+        if expected_aliases & set(_cache_identity_aliases(variant_identity)):
+            return variant
+    return None
 
 
 def _parse_stage_cache_key(
@@ -14270,15 +14306,15 @@ def _load_analysis_index_resume_payload(
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity is not None:
         resume_identity = str(payload.get("index_cache_identity", "") or "")
-        if resume_identity != expected_index_cache_identity:
+        if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
             variants = _analysis_index_resume_variants(payload)
-            variant = variants.get(expected_index_cache_identity)
+            variant = _resume_variant_for_identity(variants, expected_index_cache_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
     if expected_projection_cache_identity is not None:
         projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
-        if projection_identity != expected_projection_cache_identity:
+        if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,

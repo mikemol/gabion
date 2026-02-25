@@ -781,3 +781,60 @@ def test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs() -> N
 def test_canonical_type_key_is_stable_for_shuffled_union_order() -> None:
     tf = _load()
     assert tf.canonical_type_key("str | int | None") == tf.canonical_type_key("None | str | int")
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_seed_payload_records_seeded_vs_learned_policy::type_fingerprints.py::gabion.analysis.type_fingerprints.PrimeRegistry
+def test_prime_registry_seed_payload_records_seeded_vs_learned_policy() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.load_seed_payload(
+        {
+            "version": "prime-registry-seed@1",
+            "namespaces": {
+                "type_base": {
+                    "primes": {"int": 2},
+                    "bit_positions": {"int": 0},
+                }
+            },
+        }
+    )
+    registry.get_or_assign("str")
+
+    seed = registry.seed_payload()
+    assignment_policy = seed.get("assignment_policy")
+    assert isinstance(assignment_policy, dict)
+    assert assignment_policy.get("seeded") == ["int"]
+    assert assignment_policy.get("learned") == ["str"]
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_registry_assignment_policy_roundtrips_and_stays_deterministic::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload
+def test_registry_assignment_policy_roundtrips_and_stays_deterministic() -> None:
+    tf = _load()
+    registry_a = tf.PrimeRegistry()
+    registry_a.load_seed_payload(
+        {
+            "version": "prime-registry-seed@1",
+            "namespaces": {
+                "type_base": {
+                    "primes": {"str": 5, "int": 2},
+                    "bit_positions": {"str": 1, "int": 0},
+                }
+            },
+            "assignment_policy": {
+                "version": "prime-registry-assignment@1",
+                "seeded": ["int", "str"],
+                "learned": [],
+            },
+        }
+    )
+    learned_prime = registry_a.get_or_assign("bool")
+
+    payload = registry_a.seed_payload()
+    registry_b = tf.PrimeRegistry()
+    registry_b.load_seed_payload(payload)
+
+    assert registry_b.prime_for("int") == 2
+    assert registry_b.prime_for("str") == 5
+    assert registry_b.prime_for("bool") == learned_prime
+    assert registry_b.assignment_origin["int"] == "seeded"
+    assert registry_b.assignment_origin["str"] == "seeded"
+    assert registry_b.assignment_origin["bool"] == "learned"
