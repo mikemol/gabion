@@ -556,6 +556,7 @@ def test_apply_registry_payload_filters_invalid_registry_values() -> None:
     assert registry.bit_for("b") == 2
 
 
+# gabion:evidence E:function_site::tests/test_type_fingerprints.py::tests.test_type_fingerprints.test_apply_registry_payload_assignment_policy_shape_edges
 def test_apply_registry_payload_assignment_policy_shape_edges() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()

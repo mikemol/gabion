@@ -190,6 +190,7 @@ def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
     }
 
 
+# gabion:evidence E:function_site::tests/test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar.test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness
 def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -216,6 +217,7 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
     assert entry["drift_classification"] == "non_drift"
 
 
+# gabion:evidence E:function_site::tests/test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar.test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields
 def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)

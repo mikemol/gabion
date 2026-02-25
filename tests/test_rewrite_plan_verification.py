@@ -370,6 +370,7 @@ def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
     assert any("missing parameters" in issue for issue in result["issues"])
 
 
+# gabion:evidence E:function_site::tests/test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification.test_verify_rewrite_plan_enforces_witness_obligations_non_regression
 def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> None:
     da = _load()
     plan = _plan(
@@ -410,6 +411,7 @@ def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> No
     assert rejected["accepted"] is False
 
 
+# gabion:evidence E:function_site::tests/test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification.test_verify_rewrite_plan_witness_obligation_shape_edges
 def test_verify_rewrite_plan_witness_obligation_shape_edges() -> None:
     da = _load()
 

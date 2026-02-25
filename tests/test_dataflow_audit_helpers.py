@@ -4765,6 +4765,7 @@ def test_canonical_cache_identity_uses_aspf_prefix() -> None:
     assert len(identity.split(":")[-1]) == 40
 
 
+# gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_cache_identity_alias_and_resume_variant_edges
 def test_cache_identity_alias_and_resume_variant_edges() -> None:
     da = _load()
     legacy = "0123456789abcdef0123456789abcdef01234567"
@@ -4778,6 +4779,7 @@ def test_cache_identity_alias_and_resume_variant_edges() -> None:
     assert da._resume_variant_for_identity({legacy: variant}, prefixed) == variant
 
 
+# gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_preview_deprecated_substrate_section_and_extinction_wrapper
 def test_preview_deprecated_substrate_section_and_extinction_wrapper() -> None:
     da = _load()
     report = da.ReportCarrier(

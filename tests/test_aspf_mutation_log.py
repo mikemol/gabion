@@ -8,6 +8,7 @@ from gabion.analysis.aspf_mutation_log import (
 )
 
 
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_replay_equivalence_passes_for_matching_live_state
 def test_shadow_replay_equivalence_passes_for_matching_live_state() -> None:
     snapshot = snapshot_state({"a": 1}, seq=1)
     tail = [AspfMutationRecord(op_id="2", op_kind="set", payload={"key": "b", "value": 2})]
@@ -16,6 +17,7 @@ def test_shadow_replay_equivalence_passes_for_matching_live_state() -> None:
     assert result.tail_length == 1
 
 
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_replay_equivalence_detects_divergence
 def test_shadow_replay_equivalence_detects_divergence() -> None:
     snapshot = snapshot_state({"a": 1}, seq=1)
     tail = [AspfMutationRecord(op_id="2", op_kind="delete", payload={"key": "a"})]
@@ -23,6 +25,7 @@ def test_shadow_replay_equivalence_detects_divergence() -> None:
     assert result.equivalent is False
 
 
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_apply_mutation_unknown_ops_and_empty_keys
 def test_apply_mutation_unknown_ops_and_empty_keys() -> None:
     state = {"a": 1, "_unknown_ops": "legacy"}
 

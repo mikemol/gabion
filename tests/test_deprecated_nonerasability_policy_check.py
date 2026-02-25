@@ -10,6 +10,7 @@ def _write_payload(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+# gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_blocks_silent_deletion
 def test_nonerasability_policy_check_blocks_silent_deletion(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -48,6 +49,7 @@ def test_nonerasability_policy_check_blocks_silent_deletion(tmp_path: Path) -> N
     assert "erased without explicit resolution metadata" in result.stdout
 
 
+# gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_allows_resolved_lifecycle
 def test_nonerasability_policy_check_allows_resolved_lifecycle(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"

@@ -27,7 +27,7 @@ def test_fingerprint_soundness_issues_skip_empty() -> None:
     )
     assert da._fingerprint_soundness_issues(fingerprint) == []
 
-
+# gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_marks_canonical_vs_derived
 def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     _, tf = _load()
     fingerprint = tf.Fingerprint(base=tf.FingerprintDimension(product=2, mask=0))
@@ -36,7 +36,7 @@ def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     assert payload["identity_layers"]["derived"]["scalar_prime_product"]["canonical"] is False
     assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False
 
-
+# gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_handles_empty_cofibration_basis
 def test_fingerprint_identity_payload_handles_empty_cofibration_basis() -> None:
     _, tf = _load()
     fingerprint = tf.Fingerprint(
