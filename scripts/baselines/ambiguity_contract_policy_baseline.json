@@ -1523,22 +1523,6 @@
     },
     {
       "rule_id": "ACP-002",
-      "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 257,
-      "column": 9,
-      "qualname": "enforce_non_erasability_policy",
-      "message": "sentinel control outcome in core (continue)"
-    },
-    {
-      "rule_id": "ACP-002",
-      "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 130,
-      "column": 9,
-      "qualname": "ingest_perf_samples",
-      "message": "sentinel control outcome in core (continue)"
-    },
-    {
-      "rule_id": "ACP-002",
       "path": "src/gabion/analysis/derivation_cache.py",
       "line": 101,
       "column": 9,
@@ -2876,7 +2860,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/aspf_mutation_log.py",
-      "line": 43,
+      "line": 44,
       "column": 61,
       "qualname": "apply_mutation",
       "message": "runtime type narrowing in deterministic core"
@@ -6236,7 +6220,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 30,
+      "line": 31,
       "column": 12,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6244,7 +6228,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 30,
+      "line": 31,
       "column": 57,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6252,7 +6236,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 56,
+      "line": 57,
       "column": 16,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6260,7 +6244,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 56,
+      "line": 57,
       "column": 50,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6268,7 +6252,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 62,
+      "line": 63,
       "column": 12,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6276,7 +6260,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 62,
+      "line": 63,
       "column": 55,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6284,7 +6268,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 64,
+      "line": 65,
       "column": 20,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6292,7 +6276,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 71,
+      "line": 72,
       "column": 71,
       "qualname": "from_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -6300,24 +6284,24 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 130,
-      "column": 16,
+      "line": 131,
+      "column": 12,
       "qualname": "ingest_perf_samples",
       "message": "runtime type narrowing in deterministic core"
     },
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 130,
-      "column": 51,
+      "line": 131,
+      "column": 52,
       "qualname": "ingest_perf_samples",
       "message": "runtime type narrowing in deterministic core"
     },
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 136,
-      "column": 37,
+      "line": 135,
+      "column": 45,
       "qualname": "ingest_perf_samples",
       "message": "runtime type narrowing in deterministic core"
     },
@@ -14116,9 +14100,17 @@
     {
       "rule_id": "ACP-004",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 51,
+      "line": 52,
       "column": 5,
       "qualname": "<module>",
+      "message": "dynamic type alternation in deterministic core annotation"
+    },
+    {
+      "rule_id": "ACP-004",
+      "path": "src/gabion/analysis/deprecated_substrate.py",
+      "line": 202,
+      "column": 5,
+      "qualname": "build_deprecated_extraction_artifacts",
       "message": "dynamic type alternation in deterministic core annotation"
     },
     {
@@ -14132,15 +14124,7 @@
     {
       "rule_id": "ACP-004",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 204,
-      "column": 5,
-      "qualname": "build_deprecated_extraction_artifacts",
-      "message": "dynamic type alternation in deterministic core annotation"
-    },
-    {
-      "rule_id": "ACP-004",
-      "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 80,
+      "line": 81,
       "column": 5,
       "qualname": "deprecated",
       "message": "dynamic type alternation in deterministic core annotation"
@@ -14148,7 +14132,7 @@
     {
       "rule_id": "ACP-004",
       "path": "src/gabion/analysis/deprecated_substrate.py",
-      "line": 81,
+      "line": 82,
       "column": 5,
       "qualname": "deprecated",
       "message": "dynamic type alternation in deterministic core annotation"
