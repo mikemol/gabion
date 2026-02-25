@@ -64,3 +64,15 @@ class DomainToAspfCofibration:
                 for entry in self.entries
             ]
         }
+
+
+@dataclass(frozen=True)
+class CofibrationWitnessCarrier:
+    canonical_identity_kind: str
+    cofibration: DomainToAspfCofibration
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "canonical_identity_kind": self.canonical_identity_kind,
+            "cofibration": self.cofibration.as_dict(),
+        }

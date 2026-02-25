@@ -147,6 +147,7 @@ from .projection_registry import (
     spec_metadata_payload,
 )
 from .wl_refinement import emit_wl_refinement_facets
+from .aspf_core import parse_2cell_witness
 from .aspf_decision_surface import classify_drift_by_homotopy
 from .dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence,
@@ -3756,10 +3757,18 @@ def _compute_fingerprint_provenance(
                         "basis_path", []
                     )
                 )
+                higher_path_payload = identity_payload.get("witness_carriers", {}).get(
+                    "higher_path_witness"
+                )
+                higher_path_witness = (
+                    parse_2cell_witness(higher_path_payload)
+                    if isinstance(higher_path_payload, dict)
+                    else None
+                )
                 drift_classification = classify_drift_by_homotopy(
                     baseline_representative=representative,
                     current_representative=basis_repr,
-                    has_equivalence_witness=True,
+                    equivalence_witness=higher_path_witness,
                 )
                 bundle_key = ",".join(bundle_params)
                 entries.append(
@@ -3800,10 +3809,15 @@ def _compute_fingerprint_provenance(
                         },
                         "soundness_issues": soundness_issues,
                         "glossary_matches": matches,
+                        "canonical_identity_contract": identity_payload[
+                            "canonical_identity_contract"
+                        ],
                         "identity_layers": identity_payload["identity_layers"],
                         "representative_selection": identity_payload[
                             "representative_selection"
                         ],
+                        "witness_carriers": identity_payload["witness_carriers"],
+                        "derived_aliases": identity_payload["derived_aliases"],
                         "cofibration_witness": identity_payload.get(
                             "cofibration_witness", {"entries": []}
                         ),

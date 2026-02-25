@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from gabion.analysis.aspf_core import (
+    AspfCanonicalIdentityContract,
     AspfOneCell,
     AspfTwoCellWitness,
     BasisZeroCell,
+    SuiteSiteEndpoint,
     compose_1cells,
     identity_1cell,
     validate_2cell_compatibility,
@@ -16,6 +18,7 @@ from gabion.analysis.aspf_decision_surface import (
 )
 from gabion.analysis.aspf_morphisms import (
     AspfPrimeBasis,
+    CofibrationWitnessCarrier,
     DomainPrimeBasis,
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
@@ -50,7 +53,7 @@ def test_higher_path_equivalence_and_drift_quotienting() -> None:
     assert classify_drift_by_homotopy(
         baseline_representative="left",
         current_representative="right",
-        has_equivalence_witness=True,
+        equivalence_witness=witness,
     ) == "non_drift"
     assert classify_drift_by_homotopy(
         baseline_representative="left",
@@ -73,7 +76,32 @@ def test_cofibration_injective_and_faithful() -> None:
         )
     )
     cofibration.validate()
+    carrier = CofibrationWitnessCarrier(
+        canonical_identity_kind="canonical_aspf_structural_identity",
+        cofibration=cofibration,
+    )
+    assert carrier.as_dict()["cofibration"]["entries"]
 
+
+
+
+def test_canonical_identity_contract_carries_suite_site_endpoints() -> None:
+    contract = AspfCanonicalIdentityContract(
+        identity_kind="canonical_aspf_structural_identity",
+        source=BasisZeroCell("fingerprint:start"),
+        target=BasisZeroCell("fingerprint:end"),
+        representative="rep",
+        basis_path=("a", "b"),
+        suite_site_source=SuiteSiteEndpoint("SuiteSite", ("fingerprint:start", "fingerprint", "source")),
+        suite_site_target=SuiteSiteEndpoint("SuiteSite", ("fingerprint:end", "fingerprint", "target")),
+    )
+    payload = contract.as_dict()
+    assert payload["suite_site_endpoints"]["source"]["kind"] == "SuiteSite"
+    assert payload["suite_site_endpoints"]["target"]["key"] == [
+        "fingerprint:end",
+        "fingerprint",
+        "target",
+    ]
 
 def test_deterministic_representative_selection_and_identity_layers() -> None:
     witness = select_representative(

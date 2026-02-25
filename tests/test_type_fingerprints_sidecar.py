@@ -207,6 +207,35 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
     )
     assert provenance
     entry = provenance[0]
+    assert entry["canonical_identity_contract"]["identity_kind"] == "canonical_aspf_structural_identity"
+    assert entry["canonical_identity_contract"]["suite_site_endpoints"]["source"]["kind"] == "SuiteSite"
     assert entry["identity_layers"]["identity_layer"] == "canonical_aspf_path"
     assert entry["representative_selection"]["mode"] == "lexicographic_min"
+    assert entry["witness_carriers"]["higher_path_witness"]["witness_id"].startswith("higher:")
+    assert entry["derived_aliases"]["scalar_prime_product"]["canonical"] is False
     assert entry["drift_classification"] == "non_drift"
+
+
+def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> None:
+    registry = PrimeRegistry()
+    ctor_registry = TypeConstructorRegistry(registry)
+    path = Path("pkg/mod.py")
+    groups_by_path = {path: {"fn": [{"left"}]}}
+    annotations_by_path = {path: {"fn": {"left": "int"}}}
+
+    provenance = _compute_fingerprint_provenance(
+        groups_by_path,
+        annotations_by_path,
+        registry=registry,
+        project_root=None,
+        index={},
+        ctor_registry=ctor_registry,
+    )
+
+    entry = provenance[0]
+    assert "identity_layers" in entry
+    assert "representative_selection" in entry
+    assert "cofibration_witness" in entry
+    assert entry["identity_layers"]["canonical"]["representative"] == entry[
+        "canonical_identity_contract"
+    ]["representative"]
