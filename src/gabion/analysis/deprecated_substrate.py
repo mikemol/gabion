@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -127,14 +128,12 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
     parsed: list[PerfSample] = []
     for sample in samples:
         stack_raw = sample.get("stack", ())
-        if not isinstance(stack_raw, Sequence) or isinstance(stack_raw, (str, bytes)):
-            continue
-        stack = tuple(str(item).strip() for item in stack_raw if str(item).strip())
-        if not stack:
-            continue
-        weight_raw = sample.get("weight", 1)
-        weight = int(weight_raw) if isinstance(weight_raw, int) and weight_raw > 0 else 1
-        parsed.append(PerfSample(stack=stack, weight=weight))
+        if isinstance(stack_raw, Sequence) and not isinstance(stack_raw, (str, bytes)):
+            stack = tuple(str(item).strip() for item in stack_raw if str(item).strip())
+            if stack:
+                weight_raw = sample.get("weight", 1)
+                weight = int(weight_raw) if isinstance(weight_raw, int) and weight_raw > 0 else 1
+                parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 
 
@@ -254,9 +253,11 @@ def enforce_non_erasability_policy(
     errors: list[str] = []
     for missing_id in missing:
         prior = next(f for f in previous_fibers if f.fiber_id == missing_id)
-        if prior.lifecycle is DeprecatedLifecycleState.RESOLVED and prior.resolution_metadata is not None:
-            continue
-        errors.append(
-            f"deprecated fiber erased without explicit resolution metadata: {missing_id}"
-        )
+        if not (
+            prior.lifecycle is DeprecatedLifecycleState.RESOLVED
+            and prior.resolution_metadata is not None
+        ):
+            errors.append(
+                f"deprecated fiber erased without explicit resolution metadata: {missing_id}"
+            )
     return DeprecatedGatingResult(errors=tuple(sorted(errors)))

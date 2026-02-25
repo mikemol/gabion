@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 # gabion:boundary_normalization_module
 from __future__ import annotations
 
