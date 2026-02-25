@@ -1,0 +1,354 @@
+{
+  "case_count": 3,
+  "cases": [
+    {
+      "carrier_soundness": {
+        "base_vs_ctor": true,
+        "base_vs_provenance": true,
+        "base_vs_synth": true,
+        "ctor_vs_provenance": true,
+        "ctor_vs_synth": true,
+        "provenance_vs_synth": true
+      },
+      "case_id": "interior-window-symmetric-a",
+      "description": "Balanced interior window with symmetric left/right prime forcing.",
+      "dimensions": {
+        "base": {
+          "keys_with_remainder": {
+            "keys": [
+              "GapDelta2",
+              "PrimeWindow"
+            ],
+            "remainder": 1
+          },
+          "mask": 12,
+          "product": 35
+        },
+        "ctor": {
+          "keys_with_remainder": {
+            "keys": [
+              "ctor:list",
+              "ctor:tuple"
+            ],
+            "remainder": 1
+          },
+          "mask": 3,
+          "product": 6
+        },
+        "provenance": {
+          "keys_with_remainder": {
+            "keys": [
+              "evidence:symmetry:balanced",
+              "evidence:window:interior"
+            ],
+            "remainder": 1
+          },
+          "mask": 48,
+          "product": 143
+        },
+        "synth": {
+          "keys_with_remainder": {
+            "keys": [
+              "synth:lab-bridge@synth@1:35:6:143:48"
+            ],
+            "remainder": 1
+          },
+          "mask": 2048,
+          "product": 37
+        }
+      }
+    },
+    {
+      "carrier_soundness": {
+        "base_vs_ctor": true,
+        "base_vs_provenance": true,
+        "base_vs_synth": true,
+        "ctor_vs_provenance": true,
+        "ctor_vs_synth": true,
+        "provenance_vs_synth": true
+      },
+      "case_id": "interior-window-symmetric-b",
+      "description": "Duplicate interior witness to trigger a repeated structural tail for synth assignment.",
+      "dimensions": {
+        "base": {
+          "keys_with_remainder": {
+            "keys": [
+              "GapDelta2",
+              "PrimeWindow"
+            ],
+            "remainder": 1
+          },
+          "mask": 12,
+          "product": 35
+        },
+        "ctor": {
+          "keys_with_remainder": {
+            "keys": [
+              "ctor:list",
+              "ctor:tuple"
+            ],
+            "remainder": 1
+          },
+          "mask": 3,
+          "product": 6
+        },
+        "provenance": {
+          "keys_with_remainder": {
+            "keys": [
+              "evidence:symmetry:balanced",
+              "evidence:window:interior"
+            ],
+            "remainder": 1
+          },
+          "mask": 48,
+          "product": 143
+        },
+        "synth": {
+          "keys_with_remainder": {
+            "keys": [
+              "synth:lab-bridge@synth@1:35:6:143:48"
+            ],
+            "remainder": 1
+          },
+          "mask": 2048,
+          "product": 37
+        }
+      }
+    },
+    {
+      "carrier_soundness": {
+        "base_vs_ctor": true,
+        "base_vs_provenance": true,
+        "base_vs_synth": true,
+        "ctor_vs_provenance": true,
+        "ctor_vs_synth": true,
+        "provenance_vs_synth": true
+      },
+      "case_id": "end-window-asymmetry",
+      "description": "Boundary-focused case where right-edge closure differs from left-edge forcing.",
+      "dimensions": {
+        "base": {
+          "keys_with_remainder": {
+            "keys": [
+              "GapDelta3",
+              "PrimeWindow"
+            ],
+            "remainder": 1
+          },
+          "mask": 68,
+          "product": 85
+        },
+        "ctor": {
+          "keys_with_remainder": {
+            "keys": [
+              "ctor:list",
+              "ctor:tuple"
+            ],
+            "remainder": 1
+          },
+          "mask": 3,
+          "product": 6
+        },
+        "provenance": {
+          "keys_with_remainder": {
+            "keys": [
+              "evidence:boundary:asymmetric",
+              "evidence:claim:boundary-is-structure",
+              "evidence:window:end"
+            ],
+            "remainder": 1
+          },
+          "mask": 896,
+          "product": 12673
+        },
+        "synth": {
+          "keys_with_remainder": {
+            "keys": [
+              "synth:lab:boundary-token"
+            ],
+            "remainder": 1
+          },
+          "mask": 1024,
+          "product": 31
+        }
+      }
+    }
+  ],
+  "fingerprint_bridge_version": "gabion-lab-harness@1",
+  "registry_seed": {
+    "namespaces": {
+      "evidence_kind": {
+        "bit_positions": {
+          "boundary:asymmetric": 8,
+          "claim:boundary-is-structure": 9,
+          "symmetry:balanced": 5,
+          "window:end": 7,
+          "window:interior": 4
+        },
+        "primes": {
+          "boundary:asymmetric": 23,
+          "claim:boundary-is-structure": 29,
+          "symmetry:balanced": 13,
+          "window:end": 19,
+          "window:interior": 11
+        }
+      },
+      "synth": {
+        "bit_positions": {
+          "lab-bridge@synth@1:35:6:143:48": 11,
+          "lab:boundary-token": 10
+        },
+        "primes": {
+          "lab-bridge@synth@1:35:6:143:48": 37,
+          "lab:boundary-token": 31
+        }
+      },
+      "type_base": {
+        "bit_positions": {
+          "GapDelta2": 3,
+          "GapDelta3": 6,
+          "PrimeWindow": 2
+        },
+        "primes": {
+          "GapDelta2": 7,
+          "GapDelta3": 17,
+          "PrimeWindow": 5
+        }
+      },
+      "type_ctor": {
+        "bit_positions": {
+          "list": 1,
+          "tuple": 0
+        },
+        "primes": {
+          "list": 3,
+          "tuple": 2
+        }
+      }
+    },
+    "version": "prime-registry-seed@1"
+  },
+  "schema_version": "gabion-lab-adapter@1",
+  "synth_registry_snapshot": {
+    "entries": [
+      {
+        "base_keys": [
+          "GapDelta2",
+          "PrimeWindow"
+        ],
+        "ctor_keys": [
+          "list",
+          "tuple"
+        ],
+        "prime": 37,
+        "remainder": {
+          "base": 1,
+          "ctor": 1
+        },
+        "tail": {
+          "base": {
+            "mask": 12,
+            "product": 35
+          },
+          "ctor": {
+            "mask": 3,
+            "product": 6
+          },
+          "provenance": {
+            "mask": 48,
+            "product": 143
+          },
+          "synth": {
+            "mask": 0,
+            "product": 1
+          }
+        }
+      }
+    ],
+    "min_occurrences": 2,
+    "registry": {
+      "bit_positions": {
+        "GapDelta2": 3,
+        "GapDelta3": 6,
+        "PrimeWindow": 2,
+        "ctor:list": 1,
+        "ctor:tuple": 0,
+        "evidence:boundary:asymmetric": 8,
+        "evidence:claim:boundary-is-structure": 9,
+        "evidence:symmetry:balanced": 5,
+        "evidence:window:end": 7,
+        "evidence:window:interior": 4,
+        "synth:lab-bridge@synth@1:35:6:143:48": 11,
+        "synth:lab:boundary-token": 10
+      },
+      "primes": {
+        "GapDelta2": 7,
+        "GapDelta3": 17,
+        "PrimeWindow": 5,
+        "ctor:list": 3,
+        "ctor:tuple": 2,
+        "evidence:boundary:asymmetric": 23,
+        "evidence:claim:boundary-is-structure": 29,
+        "evidence:symmetry:balanced": 13,
+        "evidence:window:end": 19,
+        "evidence:window:interior": 11,
+        "synth:lab-bridge@synth@1:35:6:143:48": 37,
+        "synth:lab:boundary-token": 31
+      },
+      "seed": {
+        "namespaces": {
+          "evidence_kind": {
+            "bit_positions": {
+              "boundary:asymmetric": 8,
+              "claim:boundary-is-structure": 9,
+              "symmetry:balanced": 5,
+              "window:end": 7,
+              "window:interior": 4
+            },
+            "primes": {
+              "boundary:asymmetric": 23,
+              "claim:boundary-is-structure": 29,
+              "symmetry:balanced": 13,
+              "window:end": 19,
+              "window:interior": 11
+            }
+          },
+          "synth": {
+            "bit_positions": {
+              "lab-bridge@synth@1:35:6:143:48": 11,
+              "lab:boundary-token": 10
+            },
+            "primes": {
+              "lab-bridge@synth@1:35:6:143:48": 37,
+              "lab:boundary-token": 31
+            }
+          },
+          "type_base": {
+            "bit_positions": {
+              "GapDelta2": 3,
+              "GapDelta3": 6,
+              "PrimeWindow": 2
+            },
+            "primes": {
+              "GapDelta2": 7,
+              "GapDelta3": 17,
+              "PrimeWindow": 5
+            }
+          },
+          "type_ctor": {
+            "bit_positions": {
+              "list": 1,
+              "tuple": 0
+            },
+            "primes": {
+              "list": 3,
+              "tuple": 2
+            }
+          }
+        },
+        "version": "prime-registry-seed@1"
+      }
+    },
+    "version": "lab-bridge@synth@1"
+  }
+}

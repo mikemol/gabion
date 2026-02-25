@@ -1,0 +1,57 @@
+{
+  "schema_version": "gabion-lab-adapter@1",
+  "cases": [
+    {
+      "case_id": "interior-window-symmetric-a",
+      "description": "Balanced interior window with symmetric left/right prime forcing.",
+      "base_atoms": [
+        "PrimeWindow",
+        "GapDelta2"
+      ],
+      "ctor_atoms": [
+        "tuple",
+        "list"
+      ],
+      "provenance_atoms": [
+        "window:interior",
+        "symmetry:balanced"
+      ]
+    },
+    {
+      "case_id": "interior-window-symmetric-b",
+      "description": "Duplicate interior witness to trigger a repeated structural tail for synth assignment.",
+      "base_atoms": [
+        "PrimeWindow",
+        "GapDelta2"
+      ],
+      "ctor_atoms": [
+        "tuple",
+        "list"
+      ],
+      "provenance_atoms": [
+        "window:interior",
+        "symmetry:balanced"
+      ]
+    },
+    {
+      "case_id": "end-window-asymmetry",
+      "description": "Boundary-focused case where right-edge closure differs from left-edge forcing.",
+      "base_atoms": [
+        "PrimeWindow",
+        "GapDelta3"
+      ],
+      "ctor_atoms": [
+        "tuple",
+        "list"
+      ],
+      "provenance_atoms": [
+        "window:end",
+        "boundary:asymmetric",
+        "claim:boundary-is-structure"
+      ],
+      "synth_atoms": [
+        "lab:boundary-token"
+      ]
+    }
+  ]
+}
