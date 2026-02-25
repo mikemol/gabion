@@ -128,16 +128,22 @@ def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> N
 
 
 def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier() -> None:
-    transport_policy.apply_cli_transport_flags(
-        carrier=None,
-        override_record_path="/tmp/record.json",
-    )
-    override = transport_policy.transport_override()
-    assert override is not None
-    assert override.direct_requested is None
-    assert override.override_record_path == "/tmp/record.json"
-    with pytest.raises(NeverThrown):
-        transport_policy.apply_cli_transport_flags(carrier="invalid", override_record_path=None)
+    try:
+        transport_policy.apply_cli_transport_flags(
+            carrier=None,
+            override_record_path="/tmp/record.json",
+        )
+        override = transport_policy.transport_override()
+        assert override is not None
+        assert override.direct_requested is None
+        assert override.override_record_path == "/tmp/record.json"
+        with pytest.raises(NeverThrown):
+            transport_policy.apply_cli_transport_flags(
+                carrier="invalid",
+                override_record_path=None,
+            )
+    finally:
+        transport_policy.apply_cli_transport_flags()
 
 
 def test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors(
