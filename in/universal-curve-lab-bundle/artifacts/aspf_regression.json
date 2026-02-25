@@ -1,0 +1,64 @@
+{
+  "boundary_asymmetry_scenario": {
+    "drift_classification": "non_drift",
+    "left": {
+      "basis_path": [
+        "p2",
+        "p3",
+        "p5"
+      ],
+      "representative": "left_embedding",
+      "source": "lab:start",
+      "target": "lab:end"
+    },
+    "right": {
+      "basis_path": [
+        "p2",
+        "p3",
+        "p5"
+      ],
+      "representative": "right_embedding",
+      "source": "lab:start",
+      "target": "lab:end"
+    }
+  },
+  "cofibration": {
+    "entries": [
+      {
+        "aspf": {
+          "key": "aspf:p2",
+          "prime": 2
+        },
+        "domain": {
+          "key": "lab:p2",
+          "prime": 2
+        }
+      },
+      {
+        "aspf": {
+          "key": "aspf:p3",
+          "prime": 3
+        },
+        "domain": {
+          "key": "lab:p3",
+          "prime": 3
+        }
+      },
+      {
+        "aspf": {
+          "key": "aspf:p5",
+          "prime": 5
+        },
+        "domain": {
+          "key": "lab:p5",
+          "prime": 5
+        }
+      }
+    ]
+  },
+  "higher_path_witness": {
+    "compatible": true,
+    "reason": "boundary-asymmetry-but-equivalent",
+    "witness_id": "lab:higher-path"
+  }
+}

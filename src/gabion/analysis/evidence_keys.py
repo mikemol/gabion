@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
@@ -523,3 +524,43 @@ def parse_display(display: str) -> dict[str, object] | None:
 
 def is_opaque(key: Mapping[str, object]) -> bool:
     return normalize_key(key).get("k") == "opaque"
+
+
+@dataclass(frozen=True)
+class FingerprintIdentityLayers:
+    canonical: dict[str, object]
+    scalar_projection: dict[str, object]
+    digest_projection: dict[str, object]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "identity_layer": "canonical_aspf_path",
+            "canonical": self.canonical,
+            "derived": {
+                "scalar_prime_product": self.scalar_projection,
+                "digest_alias": self.digest_projection,
+            },
+        }
+
+
+def fingerprint_identity_layers(
+    *,
+    canonical_aspf_path: Mapping[str, object],
+    scalar_prime_product: int,
+) -> FingerprintIdentityLayers:
+    canonical_payload = dict(canonical_aspf_path)
+    scalar_payload = {
+        "value": int(scalar_prime_product),
+        "canonical": False,
+        "projection": "prime_product",
+    }
+    digest_payload = {
+        "value": normalized_fingerprint_identity(canonical_payload),
+        "canonical": False,
+        "projection": "digest_alias",
+    }
+    return FingerprintIdentityLayers(
+        canonical=canonical_payload,
+        scalar_projection=scalar_payload,
+        digest_projection=digest_payload,
+    )
