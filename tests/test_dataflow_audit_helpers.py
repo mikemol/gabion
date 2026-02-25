@@ -4763,3 +4763,41 @@ def test_canonical_cache_identity_uses_aspf_prefix() -> None:
     )
     assert identity.startswith("aspf:sha1:")
     assert len(identity.split(":")[-1]) == 40
+
+
+def test_cache_identity_alias_and_resume_variant_edges() -> None:
+    da = _load()
+    legacy = "0123456789abcdef0123456789abcdef01234567"
+    prefixed = f"aspf:sha1:{legacy}"
+
+    assert da._cache_identity_aliases("") == ("",)
+    assert da._cache_identity_aliases("aspf:sha1:") == ("aspf:sha1:",)
+    assert da._cache_identity_aliases(prefixed) == (prefixed, legacy)
+
+    variant = {"path": "v"}
+    assert da._resume_variant_for_identity({legacy: variant}, prefixed) == variant
+
+
+def test_preview_deprecated_substrate_section_and_extinction_wrapper() -> None:
+    da = _load()
+    report = da.ReportCarrier(
+        forest=da.Forest(),
+        deprecated_signals=[
+            "signal:0",
+            "signal:1",
+            "signal:2",
+            "signal:3",
+            "signal:4",
+            "signal:5",
+        ],
+    )
+    lines = da._preview_deprecated_substrate_section(report, {})
+    assert any(line == "- signal:0" for line in lines)
+    assert any(line == "- signal:4" for line in lines)
+    assert all("signal:5" not in line for line in lines)
+
+    extinctions = da.detect_report_section_extinctions(
+        previous_markdown="<!-- report-section:alpha-->\nline\n<!-- report-section:beta-->\nline\n",
+        current_markdown="<!-- report-section:alpha-->\nline\n",
+    )
+    assert extinctions == ("beta",)

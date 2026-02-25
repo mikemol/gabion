@@ -1053,8 +1053,7 @@ def _apply_registry_payload(
                 f"Registry basis mismatch for {key}: have {existing} expected {prime}"
             )
         registry.primes.setdefault(key, prime)
-        if key in registry.primes:
-            registry.assignment_origin.setdefault(key, assignment_kind)
+        registry.assignment_origin.setdefault(key, assignment_kind)
 
     for key in sort_once(
         bits_map,

@@ -555,6 +555,38 @@ def test_apply_registry_payload_filters_invalid_registry_values() -> None:
     assert registry.bit_for("a") is None
     assert registry.bit_for("b") == 2
 
+
+def test_apply_registry_payload_assignment_policy_shape_edges() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+
+    tf._apply_registry_payload(
+        {
+            "primes": {"int": 2},
+            "bit_positions": {"int": 0},
+            "assignment_policy": {
+                "seeded": "not-a-list",
+                "learned": ["int", 7],
+            },
+        },
+        registry,
+    )
+    assert registry.assignment_origin["int"] == "learned"
+
+    tf._apply_registry_payload(
+        {
+            "primes": {"str": 5},
+            "bit_positions": {"str": 1},
+            "assignment_policy": {
+                "seeded": ["str", 9],
+                "learned": "not-a-list",
+            },
+        },
+        registry,
+        assignment_kind="seeded",
+    )
+    assert registry.assignment_origin["str"] == "seeded"
+
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_bundle_fingerprint_dimensional_without_constructor_registry::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional
 def test_bundle_fingerprint_dimensional_without_constructor_registry() -> None:
     tf = _load()

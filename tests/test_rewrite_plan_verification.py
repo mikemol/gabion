@@ -408,3 +408,45 @@ def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> No
         post_provenance=[_post_entry(canonical_identity_contract={"representative": "rep:b"})],
     )
     assert rejected["accepted"] is False
+
+
+def test_verify_rewrite_plan_witness_obligation_shape_edges() -> None:
+    da = _load()
+
+    non_list_obligations = da.verify_rewrite_plan(
+        _plan(
+            pre={
+                "base_keys": ["int"],
+                "ctor_keys": [],
+                "remainder": {"base": 1, "ctor": 1},
+            },
+            evidence={
+                "provenance_id": "prov:a.py:f:a",
+                "witness_obligations": {"required": True},
+            },
+            verification={"predicates": [{"kind": "witness_obligation_non_regression", "expect": "stable"}]},
+        ),
+        post_provenance=[_post_entry(canonical_identity_contract=None)],
+    )
+    assert non_list_obligations["accepted"] is False
+
+    mixed_obligation_items = da.verify_rewrite_plan(
+        _plan(
+            pre={
+                "base_keys": ["int"],
+                "ctor_keys": [],
+                "remainder": {"base": 1, "ctor": 1},
+                "canonical_identity_contract": {"representative": "rep:a"},
+            },
+            evidence={
+                "provenance_id": "prov:a.py:f:a",
+                "witness_obligations": [
+                    "skip-me",
+                    {"kind": "provenance", "required": True, "witness_ref": "prov:a.py:f:a"},
+                ],
+            },
+            verification={"predicates": [{"kind": "witness_obligation_non_regression", "expect": "stable"}]},
+        ),
+        post_provenance=[_post_entry(canonical_identity_contract={"representative": "rep:a"})],
+    )
+    assert mixed_obligation_items["accepted"] is True

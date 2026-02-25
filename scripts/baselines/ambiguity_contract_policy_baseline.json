@@ -2252,7 +2252,7 @@
     {
       "rule_id": "ACP-002",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1207,
+      "line": 1206,
       "column": 9,
       "qualname": "fingerprint_bitmask",
       "message": "sentinel control outcome in core (continue)"
@@ -8220,7 +8220,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1073,
+      "line": 1072,
       "column": 61,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -8228,7 +8228,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1074,
+      "line": 1073,
       "column": 8,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -8236,7 +8236,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1077,
+      "line": 1076,
       "column": 12,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -8244,7 +8244,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1080,
+      "line": 1079,
       "column": 20,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -8252,7 +8252,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1082,
+      "line": 1081,
       "column": 12,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -8260,7 +8260,7 @@
     {
       "rule_id": "ACP-003",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1085,
+      "line": 1084,
       "column": 20,
       "qualname": "_apply_registry_payload",
       "message": "runtime type narrowing in deterministic core"
@@ -15780,7 +15780,7 @@
     {
       "rule_id": "ACP-004",
       "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 1130,
+      "line": 1129,
       "column": 5,
       "qualname": "bundle_fingerprint_dimensional",
       "message": "dynamic type alternation in deterministic core annotation"

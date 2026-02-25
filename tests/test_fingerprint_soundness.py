@@ -35,3 +35,16 @@ def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     assert payload["identity_layers"]["identity_layer"] == "canonical_aspf_path"
     assert payload["identity_layers"]["derived"]["scalar_prime_product"]["canonical"] is False
     assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False
+
+
+def test_fingerprint_identity_payload_handles_empty_cofibration_basis() -> None:
+    _, tf = _load()
+    fingerprint = tf.Fingerprint(
+        base=tf.FingerprintDimension(product=1, mask=0),
+        ctor=tf.FingerprintDimension(product=1, mask=0),
+        provenance=tf.FingerprintDimension(product=1, mask=0),
+        synth=tf.FingerprintDimension(product=1, mask=0),
+    )
+    payload = tf.fingerprint_identity_payload(fingerprint)
+    assert payload["witness_carriers"]["cofibration_witness"] == {"entries": []}
+    assert "cofibration_witness" not in payload

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis.aspf_core import (
     AspfCanonicalIdentityContract,
     AspfOneCell,
@@ -8,6 +10,7 @@ from gabion.analysis.aspf_core import (
     SuiteSiteEndpoint,
     compose_1cells,
     identity_1cell,
+    parse_2cell_witness,
     validate_2cell_compatibility,
 )
 from gabion.analysis.aspf_decision_surface import (
@@ -119,3 +122,126 @@ def test_deterministic_representative_selection_and_identity_layers() -> None:
     assert identity["identity_layer"] == "canonical_aspf_path"
     assert identity["derived"]["scalar_prime_product"]["canonical"] is False
     assert identity["derived"]["digest_alias"]["canonical"] is False
+
+
+def test_aspf_edge_guards_and_parse_paths() -> None:
+    a = BasisZeroCell("A")
+    b = BasisZeroCell("B")
+    c = BasisZeroCell("C")
+    ab = AspfOneCell(a, b, "ab", ("A", "B"))
+    ca = AspfOneCell(c, a, "ca", ("C", "A"))
+
+    with pytest.raises(ValueError):
+        compose_1cells(ab, ca)
+
+    incompatible = AspfTwoCellWitness(
+        left=AspfOneCell(a, b, "left", ("A", "B")),
+        right=AspfOneCell(a, b, "right", ("A", "C")),
+        witness_id="w:bad",
+        reason="bad",
+    )
+    with pytest.raises(ValueError):
+        validate_2cell_compatibility(incompatible)
+
+    assert parse_2cell_witness({"left": "bad", "right": {}}) is None
+    assert parse_2cell_witness({"left": {}, "right": {}, "witness_id": 1, "reason": "r"}) is None
+    assert parse_2cell_witness(
+        {
+            "left": {"source": "A", "target": "B", "representative": "ab", "basis_path": "bad"},
+            "right": {"source": "A", "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
+            "witness_id": "w:1",
+            "reason": "ok",
+        }
+    ) is None
+    assert parse_2cell_witness(
+        {
+            "left": {"source": 1, "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
+            "right": {"source": "A", "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
+            "witness_id": "w:1",
+            "reason": "ok",
+        }
+    ) is None
+    assert parse_2cell_witness(
+        {
+            "left": {"source": "A", "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
+            "right": {"source": "A", "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
+            "witness_id": "w:1",
+            "reason": "ok",
+        }
+    ) is not None
+
+
+def test_selection_and_cofibration_failure_edges() -> None:
+    with pytest.raises(ValueError):
+        RepresentativeSelectionOptions(
+            mode=RepresentativeSelectionMode.LEXICOGRAPHIC_MIN,
+            candidates=(),
+        ).validate()
+    with pytest.raises(ValueError):
+        RepresentativeSelectionOptions(
+            mode=RepresentativeSelectionMode.LEXICOGRAPHIC_MIN,
+            candidates=("dup", "dup"),
+        ).validate()
+    assert (
+        classify_drift_by_homotopy(
+            baseline_representative="left",
+            current_representative="right",
+            has_equivalence_witness=True,
+        )
+        == "non_drift"
+    )
+    mismatch_witness = AspfTwoCellWitness(
+        left=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "left", ("L", "R")),
+        right=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "other", ("L", "R")),
+        witness_id="w:mismatch",
+        reason="mismatch",
+    )
+    assert (
+        classify_drift_by_homotopy(
+            baseline_representative="left",
+            current_representative="right",
+            equivalence_witness=mismatch_witness,
+            has_equivalence_witness=False,
+        )
+        == "drift"
+    )
+
+    with pytest.raises(ValueError):
+        DomainToAspfCofibration(entries=()).validate()
+
+    duplicate_target = DomainToAspfCofibration(
+        entries=(
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis("d:int", 2),
+                aspf=AspfPrimeBasis("a:int", 2),
+            ),
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis("d:str", 3),
+                aspf=AspfPrimeBasis("a:int", 3),
+            ),
+        )
+    )
+    with pytest.raises(ValueError):
+        duplicate_target.validate()
+
+    non_prime = DomainToAspfCofibration(
+        entries=(
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis("d:int", 1),
+                aspf=AspfPrimeBasis("a:int", 1),
+            ),
+        )
+    )
+    with pytest.raises(ValueError):
+        non_prime.validate()
+
+    non_faithful = DomainToAspfCofibration(
+        entries=(
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis("d:int", 2),
+                aspf=AspfPrimeBasis("a:int", 3),
+            ),
+        )
+    )
+    with pytest.raises(ValueError):
+        non_faithful.validate()
