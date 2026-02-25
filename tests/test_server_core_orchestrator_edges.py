@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -507,3 +508,128 @@ def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_
     assert isinstance(persisted_payload, dict)
     assert checkpoint_writes
     assert emitted_events == []
+
+
+def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    response: dict[str, object] = {}
+    artifacts = orchestrator._emit_primary_outputs(
+        response=response,
+        context=orchestrator._PrimaryOutputContext(
+            analysis=_empty_analysis_result(),
+            root=str(tmp_path),
+            paths=[],
+            payload={},
+            config=orchestrator.AuditConfig(project_root=tmp_path),
+            synthesis_plan_path=None,
+            synthesis_report=True,
+            synthesis_protocols_path="-",
+            synthesis_protocols_kind="dataclass",
+            synthesis_max_tier=3,
+            synthesis_min_bundle_size=2,
+            synthesis_allow_singletons=False,
+            refactor_plan=False,
+            refactor_plan_json=None,
+            decision_snapshot_path=None,
+            structure_tree_path=None,
+            structure_metrics_path=None,
+        ),
+    )
+    assert artifacts.synthesis_plan is not None
+    assert isinstance(response.get("synthesis_protocols"), str)
+
+
+@pytest.mark.parametrize(
+    ("domain", "action", "baseline", "state_in"),
+    [
+        ("obsolescence", "state", None, "state.json"),
+        ("annotation-drift", "delta", "drift-baseline.json", "state.json"),
+        ("ambiguity", "baseline-write", "ambiguity-baseline.json", "state.json"),
+    ],
+)
+def test_parse_execution_payload_options_aux_operation_domain_routing(
+    tmp_path: Path,
+    domain: str,
+    action: str,
+    baseline: str | None,
+    state_in: str,
+) -> None:
+    orchestrator._bind_server_symbols()
+    payload: dict[str, object] = {
+        "strictness": "high",
+        "aux_operation": {
+            "domain": domain,
+            "action": action,
+            "baseline_path": baseline,
+            "state_in": state_in,
+        },
+    }
+    options = orchestrator._parse_execution_payload_options(
+        payload=payload,
+        root=tmp_path,
+    )
+    if domain == "obsolescence":
+        assert options.emit_test_obsolescence_state is True
+        assert options.test_obsolescence_state_path == state_in
+    elif domain == "annotation-drift":
+        assert options.emit_test_annotation_drift_delta is True
+        assert options.annotation_drift_baseline_path_override is not None
+        assert options.test_annotation_drift_state_path == state_in
+    else:
+        assert options.write_ambiguity_baseline is True
+        assert options.ambiguity_baseline_path_override is not None
+        assert options.ambiguity_state_path == state_in
+
+
+def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> None:
+    orchestrator._bind_server_symbols()
+    with pytest.raises(NeverThrown):
+        orchestrator._parse_execution_payload_options(
+            payload={
+                "strictness": "high",
+                "aux_operation": {"domain": "obsolescence", "action": "delta"},
+            },
+            root=Path("."),
+        )
+    with pytest.raises(NeverThrown):
+        orchestrator._parse_execution_payload_options(
+            payload={
+                "strictness": "high",
+                "aux_operation": {"domain": "invalid", "action": "state"},
+            },
+            root=Path("."),
+        )
+
+
+def test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    state_path = tmp_path / "state.json"
+    state_path.write_text("{}\n", encoding="utf-8")
+    original = orchestrator.test_obsolescence_state.load_state
+    try:
+        orchestrator.test_obsolescence_state.load_state = lambda _path: SimpleNamespace(
+            candidates=[],
+            baseline=SimpleNamespace(
+                summary={},
+                active={"summary": ["not-a-mapping"]},
+            ),
+            baseline_payload={"summary": {}, "active": {"summary": ["not-a-mapping"]}},
+        )
+
+        response: dict[str, object] = {}
+        orchestrator._emit_test_obsolescence_outputs(
+            response=response,
+            root=str(tmp_path),
+            emit_test_obsolescence=True,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state_path=state_path,
+            emit_test_obsolescence_delta=False,
+            write_test_obsolescence_baseline=False,
+        )
+    finally:
+        orchestrator.test_obsolescence_state.load_state = original
+    assert response["test_obsolescence_active_summary"] == {}

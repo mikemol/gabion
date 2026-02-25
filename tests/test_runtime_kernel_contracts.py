@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
+
+from decimal import ROUND_FLOOR
 
 from gabion.exceptions import NeverThrown
 from gabion.runtime import (
@@ -93,6 +96,73 @@ def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
     ):
         assert env_policy.lsp_timeout_override() is not None
     assert env_policy.lsp_timeout_override() is None
+
+
+def test_env_policy_duration_parsing_and_duration_text_edges() -> None:
+    assert env_policy.parse_duration_to_ns("750ms") == 750_000_000
+    assert env_policy.parse_duration_to_ns("1m30s") == 90_000_000_000
+    assert env_policy.timeout_config_from_duration("2s") == env_policy.LspTimeoutConfig(
+        ticks=2_000,
+        tick_ns=1_000_000,
+    )
+    assert env_policy.duration_text_from_ticks(ticks=2, tick_ns=5) == "10ns"
+
+    with pytest.raises(NeverThrown):
+        env_policy.parse_duration_to_ns("")
+    with pytest.raises(NeverThrown):
+        env_policy.parse_duration_to_ns("abc")
+    with pytest.raises(NeverThrown):
+        env_policy.parse_duration_to_ns("0s")
+    with pytest.raises(NeverThrown):
+        env_policy.duration_text_from_ticks(ticks=0, tick_ns=1)
+    with pytest.raises(NeverThrown):
+        env_policy.duration_text_from_ticks(ticks=1, tick_ns=0)
+
+
+def test_env_policy_duration_parser_covers_unit_and_rounding_guardrails() -> None:
+    original_units = dict(env_policy._DURATION_UNIT_NS)
+    original_rounding = env_policy.ROUND_CEILING
+    try:
+        env_policy._DURATION_UNIT_NS.pop("s", None)
+        with pytest.raises(NeverThrown):
+            env_policy.parse_duration_to_ns("1s")
+
+        env_policy._DURATION_UNIT_NS["s"] = 0  # type: ignore[assignment]
+        with pytest.raises(NeverThrown):
+            env_policy.parse_duration_to_ns("1s")
+
+        env_policy._DURATION_UNIT_NS["ns"] = 1  # type: ignore[assignment]
+        env_policy.ROUND_CEILING = ROUND_FLOOR
+        with pytest.raises(NeverThrown):
+            env_policy.parse_duration_to_ns("0.1ns")
+    finally:
+        env_policy._DURATION_UNIT_NS.clear()
+        env_policy._DURATION_UNIT_NS.update(original_units)
+        env_policy.ROUND_CEILING = original_rounding
+
+
+def test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guard() -> None:
+    original_re = env_policy._DURATION_TOKEN_RE
+    had_module_int = hasattr(env_policy, "int")
+    original_int = getattr(env_policy, "int", int)
+    try:
+        env_policy._DURATION_TOKEN_RE = re.compile(r"(?P<value>x)(?P<unit>s)")
+        with pytest.raises(NeverThrown):
+            env_policy.parse_duration_to_ns("xs")
+
+        class _WeirdInt(int):
+            def __mul__(self, _other: object) -> int:
+                return -1
+
+        env_policy.int = lambda _value: _WeirdInt(1)  # type: ignore[assignment]
+        with pytest.raises(NeverThrown):
+            env_policy.duration_text_from_ticks(ticks=5, tick_ns=7)
+    finally:
+        env_policy._DURATION_TOKEN_RE = original_re
+        if had_module_int:
+            env_policy.int = original_int
+        elif hasattr(env_policy, "int"):
+            delattr(env_policy, "int")
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_env_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env::env_helpers.py::tests.env_helpers.env_scope

@@ -258,6 +258,52 @@ def test_pareto_helpers_cover_runtime_and_objective_fallback_paths() -> None:
     assert key[2] == (-97, -98)
 
 
+def test_branch_guard_and_runtime_defaults_cover_missing_option_maps() -> None:
+    options = test_obsolescence.ClassifierOptions(
+        branch_guard_by_test=None,
+        runtime_ms_by_test=None,
+        default_keep_for_branch_guard=True,
+    )
+    assert test_obsolescence._is_branch_guarded("missing", options=options) is True
+    assert math.isinf(test_obsolescence._runtime_ms("missing", options=options))
+
+    options_with_map = test_obsolescence.ClassifierOptions(
+        branch_guard_by_test={},
+        runtime_ms_by_test={},
+        default_keep_for_branch_guard=True,
+    )
+    assert test_obsolescence._is_branch_guarded("missing", options=options_with_map) is True
+
+
+def test_equivalent_classification_handles_empty_pareto_winner(
+    make_obsolescence_opaque_ref,
+) -> None:
+    ref = make_obsolescence_opaque_ref("E:x")
+    evidence_by_test = {
+        "tests/test_alpha.py::test_a": [ref],
+        "tests/test_beta.py::test_b": [ref],
+    }
+    status_by_test = {
+        "tests/test_alpha.py::test_a": "mapped",
+        "tests/test_beta.py::test_b": "mapped",
+    }
+    original = test_obsolescence._pareto_winner
+    try:
+        test_obsolescence._pareto_winner = (
+            lambda peers, *, options: ""
+        )
+        result = test_obsolescence.classify_candidates(
+            evidence_by_test,
+            status_by_test,
+            {},
+        )
+    finally:
+        test_obsolescence._pareto_winner = original
+    stale_by_id = {entry["test_id"]: entry for entry in result.stale_candidates}
+    reason = stale_by_id["tests/test_beta.py::test_b"]["reason"]
+    assert "pareto_winner" not in reason
+
+
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_unresolved_active_candidate_without_opaque_evidence_reason::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
 def test_unresolved_active_candidate_without_opaque_evidence_reason() -> None:
     key = evidence_keys.make_paramset_key(["plain"])

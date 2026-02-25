@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 
@@ -124,3 +125,38 @@ def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> N
     assert override.override_record_json is None
     transport_policy.apply_cli_transport_flags()
     assert transport_policy.transport_override() is None
+
+
+def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier() -> None:
+    transport_policy.apply_cli_transport_flags(
+        carrier=None,
+        override_record_path="/tmp/record.json",
+    )
+    override = transport_policy.transport_override()
+    assert override is not None
+    assert override.direct_requested is None
+    assert override.override_record_path == "/tmp/record.json"
+    with pytest.raises(NeverThrown):
+        transport_policy.apply_cli_transport_flags(carrier="invalid", override_record_path=None)
+
+
+def test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors(
+    tmp_path: Path,
+) -> None:
+    record_path = tmp_path / "override_record.json"
+    record_path.write_text(" {\"actor\":\"ci\"} ", encoding="utf-8")
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=True,
+            override_record_path=str(record_path),
+            override_record_json=None,
+        )
+    ):
+        direct_requested, record_json = transport_policy._resolve_transport_controls()
+    assert direct_requested is True
+    assert record_json == "{\"actor\":\"ci\"}"
+
+    with pytest.raises(NeverThrown):
+        transport_policy._load_override_record_json_from_path(
+            str(tmp_path / "missing.json")
+        )
