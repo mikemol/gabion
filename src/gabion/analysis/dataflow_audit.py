@@ -148,6 +148,11 @@ from .projection_registry import (
 )
 from .wl_refinement import emit_wl_refinement_facets
 from .aspf_core import parse_2cell_witness
+from .deprecated_substrate import (
+    DeprecatedExtractionArtifacts,
+    DeprecatedFiber,
+    detect_report_section_extinction,
+)
 from .structure_reuse_classes import build_structure_class, structure_class_payload
 from .aspf_decision_surface import classify_drift_by_homotopy
 from .dataflow_decision_surfaces import (
@@ -571,6 +576,8 @@ class AnalysisResult:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     forest_spec: ForestSpec | None = None
     profiling_v1: JSONObject | None = None
+    deprecated_artifacts: DeprecatedExtractionArtifacts | None = None
+    deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
 
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
@@ -618,6 +625,7 @@ class ReportCarrier:
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
     phase_progress_v2: JSONObject | None = None
+    deprecated_signals: tuple[str, ...] = ()
 
     @classmethod
     def from_analysis_result(
@@ -655,6 +663,11 @@ class ReportCarrier:
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
+            deprecated_signals=(
+                analysis.deprecated_artifacts.informational_signals
+                if analysis.deprecated_artifacts is not None
+                else ()
+            ),
         )
 
 
@@ -1019,6 +1032,21 @@ def _preview_schema_surfaces_section(
     ]
 
 
+def _preview_deprecated_substrate_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    lines = [
+        "Deprecated substrate preview (provisional).",
+        f"- `informational_signals`: `{len(report.deprecated_signals)}`",
+    ]
+    for signal in report.deprecated_signals[:5]:
+        check_deadline()
+        lines.append(f"- {signal}")
+    return lines
+
+
 def _report_section_text(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -1167,6 +1195,12 @@ _REPORT_PROJECTION_DECLARED_SPECS: tuple[ReportProjectionSpec[list[str]], ...] =
         phase="post",
         deps=("components",),
         preview_build=_preview_schema_surfaces_section,
+    ),
+    _report_section_spec(
+        section_id="deprecated_substrate",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_deprecated_substrate_section,
     ),
 )
 
@@ -13022,6 +13056,20 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
             continue
         sections[active_section_id].append(raw_line)
     return sections
+
+
+def detect_report_section_extinctions(
+    *,
+    previous_markdown: str,
+    current_markdown: str,
+) -> tuple[str, ...]:
+    check_deadline()
+    previous_sections = tuple(extract_report_sections(previous_markdown))
+    current_sections = tuple(extract_report_sections(current_markdown))
+    return detect_report_section_extinction(
+        previous_sections=previous_sections,
+        current_sections=current_sections,
+    )
 
 
 from gabion.analysis.dataflow_reporting import emit_report as _emit_report
