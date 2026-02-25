@@ -148,6 +148,7 @@ from .projection_registry import (
 )
 from .wl_refinement import emit_wl_refinement_facets
 from .aspf_core import parse_2cell_witness
+from .structure_reuse_classes import build_structure_class, structure_class_payload
 from .aspf_decision_surface import classify_drift_by_homotopy
 from .dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence,
@@ -3977,6 +3978,8 @@ class _RewritePredicateContext:
     post_strata: str
     post_exception_obligations: list[JSONObject] | None
     pre: Mapping[str, object]
+    plan_evidence: Mapping[str, object]
+    post_entry: Mapping[str, object]
     site: Site
 
 
@@ -4064,6 +4067,49 @@ def _evaluate_remainder_non_regression_predicate(
     }
 
 
+
+
+def _evaluate_witness_obligation_non_regression_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    evidence = context.plan_evidence
+    obligations = evidence.get("witness_obligations")
+    if not isinstance(obligations, list):
+        obligations = []
+    missing_required: list[str] = []
+    for item in obligations:
+        if not isinstance(item, Mapping):
+            continue
+        required = bool(item.get("required"))
+        witness_ref = str(item.get("witness_ref", "") or "")
+        witness_kind = str(item.get("kind", "witness") or "witness")
+        if required and not witness_ref:
+            missing_required.append(f"{witness_kind}:missing")
+    post_identity = context.post_entry.get("canonical_identity_contract")
+    pre_identity = context.pre.get("canonical_identity_contract")
+    identity_ok = True
+    if pre_identity is not None:
+        identity_ok = pre_identity == post_identity
+    elif post_identity is None:
+        identity_ok = False
+    passed = (not missing_required) and identity_ok
+    return {
+        "kind": kind,
+        "passed": passed,
+        "expected": {
+            "required_witnesses": [
+                item for item in obligations if isinstance(item, Mapping) and bool(item.get("required"))
+            ],
+            "identity_contract": pre_identity,
+        },
+        "observed": {
+            "missing_required": missing_required,
+            "identity_contract": post_identity,
+        },
+    }
+
 def _summary_unknown_and_discharged(summary: Mapping[str, object]) -> tuple[int, int]:
     try:
         unknown = int(summary.get("UNKNOWN", 0) or 0)
@@ -4123,6 +4169,7 @@ _REWRITE_PREDICATE_EVALUATORS: Mapping[
     "ctor_coherence": _evaluate_ctor_coherence_predicate,
     "match_strata": _evaluate_match_strata_predicate,
     "remainder_non_regression": _evaluate_remainder_non_regression_predicate,
+    "witness_obligation_non_regression": _evaluate_witness_obligation_non_regression_predicate,
     "exception_obligation_non_regression": _evaluate_exception_obligation_non_regression_predicate,
 }
 
@@ -4209,6 +4256,7 @@ def verify_rewrite_plan(
         }
 
     pre = mapping_or_empty(plan.get("pre"))
+    evidence = mapping_or_empty(plan.get("evidence"))
     raw_pre_remainder = pre.get("remainder")
     if raw_pre_remainder not in (None, {}) and not isinstance(raw_pre_remainder, Mapping):
         issues.append("invalid pre remainder payload")
@@ -4280,6 +4328,8 @@ def verify_rewrite_plan(
         post_strata=post_strata,
         post_exception_obligations=post_exception_obligations,
         pre=pre,
+        plan_evidence=evidence,
+        post_entry=post_entry,
         site=site,
     )
 
@@ -13346,15 +13396,15 @@ def compute_structure_reuse(
     warnings: list[str] = []
 
     def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
-        payload = {
-            "kind": kind,
-            "value": value,
-            "children": sort_once(child_hashes, source = 'src/gabion/analysis/dataflow_audit.py:14511'),
-        }
-        digest = hashlib.sha1(
-            json.dumps(payload, sort_keys=False).encode("utf-8")
-        ).hexdigest()
-        return digest
+        structure_class = build_structure_class(
+            kind=kind,
+            value=value,
+            child_hashes=sort_once(
+                child_hashes,
+                source="compute_structure_reuse._hash_node.child_hashes",
+            ),
+        )
+        return structure_class.digest()
 
     hasher = hash_fn or _hash_node
 
@@ -13368,11 +13418,17 @@ def compute_structure_reuse(
     ) -> None:
         entry = reuse_map.get(node_hash)
         if entry is None:
+            structure_class = build_structure_class(
+                kind=kind,
+                value=value,
+                child_hashes=(),
+            )
             entry = {
                 "hash": node_hash,
                 "kind": kind,
                 "count": 0,
                 "locations": [],
+                "aspf_structure_class": structure_class_payload(structure_class),
             }
             if value is not None:
                 entry["value"] = value

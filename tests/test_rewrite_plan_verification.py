@@ -368,3 +368,43 @@ def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=[_post_entry()])
     assert result["accepted"] is False
     assert any("missing parameters" in issue for issue in result["issues"])
+
+
+def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> None:
+    da = _load()
+    plan = _plan(
+        pre={
+            "base_keys": ["int"],
+            "ctor_keys": [],
+            "remainder": {"base": 1, "ctor": 1},
+            "canonical_identity_contract": {"representative": "rep:a"},
+        },
+        evidence={
+            "provenance_id": "prov:a.py:f:a",
+            "witness_obligations": [{"kind": "provenance", "required": True, "witness_ref": "prov:a.py:f:a"}],
+        },
+        verification={"predicates": [{"kind": "witness_obligation_non_regression", "expect": "stable"}]},
+    )
+    accepted = da.verify_rewrite_plan(
+        plan,
+        post_provenance=[_post_entry(canonical_identity_contract={"representative": "rep:a"})],
+    )
+    assert accepted["accepted"] is True
+
+    rejected = da.verify_rewrite_plan(
+        _plan(
+            pre={
+                "base_keys": ["int"],
+                "ctor_keys": [],
+                "remainder": {"base": 1, "ctor": 1},
+                "canonical_identity_contract": {"representative": "rep:a"},
+            },
+            evidence={
+                "provenance_id": "prov:a.py:f:a",
+                "witness_obligations": [{"kind": "provenance", "required": True, "witness_ref": ""}],
+            },
+            verification={"predicates": [{"kind": "witness_obligation_non_regression", "expect": "stable"}]},
+        ),
+        post_provenance=[_post_entry(canonical_identity_contract={"representative": "rep:b"})],
+    )
+    assert rejected["accepted"] is False
