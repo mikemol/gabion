@@ -226,24 +226,19 @@ def test_classify_candidates_marks_requested_unresolved_paths_as_obsolete(
     assert result.active_tests == ["t_dominator", "t_eq_a"]
 
 
-# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_classification_without_pareto_winner_marks_all_peers_stale::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
-def test_equivalent_classification_without_pareto_winner_marks_all_peers_stale(
-    monkeypatch: pytest.MonkeyPatch,
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_classification_selects_single_active_peer::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+def test_equivalent_classification_selects_single_active_peer(
     make_obsolescence_opaque_ref,
 ) -> None:
     ref = make_obsolescence_opaque_ref("E:pair")
     evidence_by_test = {"t1": [ref], "t2": [ref]}
     status_by_test = {"t1": "mapped", "t2": "mapped"}
-    monkeypatch.setattr(
-        test_obsolescence,
-        "_pareto_winner",
-        lambda _peers, *, options: "",
-    )
     result = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
-    assert result.active_tests == []
-    assert result.stale_summary["equivalent_witness"] == 2
+    assert len(result.active_tests) == 1
+    assert set(result.active_tests) <= {"t1", "t2"}
+    assert result.stale_summary["equivalent_witness"] == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_pareto_helpers_cover_runtime_and_objective_fallback_paths::test_obsolescence.py::gabion.analysis.test_obsolescence._pareto_sort_key
