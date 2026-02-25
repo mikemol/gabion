@@ -188,3 +188,25 @@ def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
         "base": legacy_base_remaining,
         "ctor": legacy_ctor_remaining,
     }
+
+
+def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness() -> None:
+    registry = PrimeRegistry()
+    ctor_registry = TypeConstructorRegistry(registry)
+    path = Path("pkg/mod.py")
+    groups_by_path = {path: {"fn": [{"left"}]}}
+    annotations_by_path = {path: {"fn": {"left": "int"}}}
+
+    provenance = _compute_fingerprint_provenance(
+        groups_by_path,
+        annotations_by_path,
+        registry=registry,
+        project_root=None,
+        index={},
+        ctor_registry=ctor_registry,
+    )
+    assert provenance
+    entry = provenance[0]
+    assert entry["identity_layers"]["identity_layer"] == "canonical_aspf_path"
+    assert entry["representative_selection"]["mode"] == "lexicographic_min"
+    assert entry["drift_classification"] == "non_drift"

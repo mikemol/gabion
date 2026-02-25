@@ -79,6 +79,7 @@ from gabion.analysis.type_fingerprints import (
     bundle_fingerprint_dimensional,
     format_fingerprint,
     fingerprint_carrier_soundness,
+    fingerprint_identity_payload,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -146,6 +147,7 @@ from .projection_registry import (
     spec_metadata_payload,
 )
 from .wl_refinement import emit_wl_refinement_facets
+from .aspf_decision_surface import classify_drift_by_homotopy
 from .dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence,
     compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans,
@@ -3744,6 +3746,21 @@ def _compute_fingerprint_provenance(
                         index.get(fingerprint, set()),
                         source="_compute_fingerprint_provenance.matches",
                     )
+                identity_payload = fingerprint_identity_payload(fingerprint)
+                representative = str(
+                    identity_payload["identity_layers"]["canonical"]["representative"]
+                )
+                basis_repr = "|".join(
+                    str(item)
+                    for item in identity_payload["identity_layers"]["canonical"].get(
+                        "basis_path", []
+                    )
+                )
+                drift_classification = classify_drift_by_homotopy(
+                    baseline_representative=representative,
+                    current_representative=basis_repr,
+                    has_equivalence_witness=True,
+                )
                 bundle_key = ",".join(bundle_params)
                 entries.append(
                     {
@@ -3783,6 +3800,14 @@ def _compute_fingerprint_provenance(
                         },
                         "soundness_issues": soundness_issues,
                         "glossary_matches": matches,
+                        "identity_layers": identity_payload["identity_layers"],
+                        "representative_selection": identity_payload[
+                            "representative_selection"
+                        ],
+                        "cofibration_witness": identity_payload.get(
+                            "cofibration_witness", {"entries": []}
+                        ),
+                        "drift_classification": drift_classification,
                     }
                 )
     return entries

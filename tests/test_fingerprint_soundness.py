@@ -26,3 +26,12 @@ def test_fingerprint_soundness_issues_skip_empty() -> None:
         base=tf.FingerprintDimension(product=2, mask=0),
     )
     assert da._fingerprint_soundness_issues(fingerprint) == []
+
+
+def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
+    _, tf = _load()
+    fingerprint = tf.Fingerprint(base=tf.FingerprintDimension(product=2, mask=0))
+    payload = tf.fingerprint_identity_payload(fingerprint)
+    assert payload["identity_layers"]["identity_layer"] == "canonical_aspf_path"
+    assert payload["identity_layers"]["derived"]["scalar_prime_product"]["canonical"] is False
+    assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False

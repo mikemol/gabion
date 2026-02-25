@@ -6,6 +6,19 @@ from dataclasses import dataclass, field
 from typing import Iterable
 import math
 
+from gabion.analysis.aspf_core import AspfOneCell, BasisZeroCell
+from gabion.analysis.aspf_decision_surface import (
+    RepresentativeSelectionMode,
+    RepresentativeSelectionOptions,
+    select_representative,
+)
+from gabion.analysis.aspf_morphisms import (
+    AspfPrimeBasis,
+    DomainPrimeBasis,
+    DomainToAspfCofibration,
+    DomainToAspfCofibrationEntry,
+)
+from gabion.analysis.evidence_keys import fingerprint_identity_layers
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
@@ -320,6 +333,84 @@ class Fingerprint:
 
     def __str__(self) -> str:
         return format_fingerprint(self)
+
+
+def fingerprint_to_aspf_path(fingerprint: Fingerprint) -> AspfOneCell:
+    start = BasisZeroCell(label="fingerprint:start")
+    end = BasisZeroCell(label="fingerprint:end")
+    return AspfOneCell(
+        source=start,
+        target=end,
+        representative=(
+            f"base={fingerprint.base.product}|ctor={fingerprint.ctor.product}|"
+            f"prov={fingerprint.provenance.product}|synth={fingerprint.synth.product}"
+        ),
+        basis_path=(
+            f"base:{fingerprint.base.product}",
+            f"ctor:{fingerprint.ctor.product}",
+            f"prov:{fingerprint.provenance.product}",
+            f"synth:{fingerprint.synth.product}",
+        ),
+    )
+
+
+def fingerprint_identity_payload(
+    fingerprint: Fingerprint,
+    *,
+    representative_mode: RepresentativeSelectionMode = RepresentativeSelectionMode.LEXICOGRAPHIC_MIN,
+) -> JSONObject:
+    aspf_path = fingerprint_to_aspf_path(fingerprint)
+    candidates = (
+        aspf_path.representative,
+        "|".join(aspf_path.basis_path),
+    )
+    rep_witness = select_representative(
+        RepresentativeSelectionOptions(mode=representative_mode, candidates=candidates)
+    )
+    cofibration = DomainToAspfCofibration(
+        entries=tuple(
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis(domain_key=key, prime=prime),
+                aspf=AspfPrimeBasis(aspf_key=f"aspf:{key}", prime=prime),
+            )
+            for key, prime in sort_once(
+                {
+                    "base": fingerprint.base.product,
+                    "ctor": fingerprint.ctor.product,
+                    "prov": fingerprint.provenance.product,
+                    "synth": fingerprint.synth.product,
+                }.items(),
+                source="fingerprint_identity_payload.cofibration_entries",
+                policy=OrderPolicy.SORT,
+            )
+            if prime > 1
+        )
+    )
+    if cofibration.entries:
+        cofibration.validate()
+    layers = fingerprint_identity_layers(
+        canonical_aspf_path={
+            "kind": "aspf_path",
+            "source": aspf_path.source.label,
+            "target": aspf_path.target.label,
+            "representative": rep_witness.selected,
+            "basis_path": list(aspf_path.basis_path),
+        },
+        scalar_prime_product=max(
+            1,
+            fingerprint.base.product
+            * max(1, fingerprint.ctor.product)
+            * max(1, fingerprint.provenance.product)
+            * max(1, fingerprint.synth.product),
+        ),
+    )
+    payload: JSONObject = {
+        "identity_layers": layers.as_dict(),
+        "representative_selection": rep_witness.as_dict(),
+    }
+    if cofibration.entries:
+        payload["cofibration_witness"] = cofibration.as_dict()
+    return payload
 
 
 def _fingerprint_sort_key(fingerprint: Fingerprint) -> tuple[int, int, int, int, int, int, int, int]:
