@@ -57,6 +57,7 @@ class ExecutionPlan:
         }
 
 
+# gabion:decision_protocol
 def _to_plain_json_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
