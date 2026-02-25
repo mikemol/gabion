@@ -5,6 +5,7 @@ from contextvars import Context
 import pytest
 
 from gabion.analysis.aspf import Forest, NodeId
+from gabion.analysis.forest_signature import build_forest_signature_payload
 from gabion.analysis.timeout_context import (
     Deadline,
     TimeoutExceeded,
@@ -186,3 +187,25 @@ def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
     from gabion.analysis import aspf
 
     assert aspf._canonicalize_evidence(["not", "a", "mapping"]) == {}
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_suite_site_signature_stable_under_suite_order_perturbation::aspf.py::gabion.analysis.aspf.Forest::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
+def test_suite_site_signature_stable_under_suite_order_perturbation() -> None:
+    forest_a = Forest()
+    parent_a = forest_a.add_suite_site("mod.py", "mod.fn", "loop", span=(1, 2, 3, 4))
+    child_a = forest_a.add_suite_site(
+        "mod.py", "mod.fn", "call", span=(2, 3, 4, 5), parent=parent_a
+    )
+
+    forest_b = Forest()
+    child_b = forest_b.add_suite_site("mod.py", "mod.fn", "call", span=(2, 3, 4, 5))
+    parent_b = forest_b.add_suite_site("mod.py", "mod.fn", "loop", span=(1, 2, 3, 4))
+    forest_b.add_suite_contains(parent_b, child_b, evidence={"suite_kind": "call"})
+
+    parent_meta_a = forest_a.nodes[parent_a].meta
+    child_meta_a = forest_a.nodes[child_a].meta
+    parent_meta_b = forest_b.nodes[parent_b].meta
+    child_meta_b = forest_b.nodes[child_b].meta
+
+    assert parent_meta_a["suite_id"] == parent_meta_b["suite_id"]
+    assert child_meta_a["suite_id"] == child_meta_b["suite_id"]
+    assert build_forest_signature_payload(forest_a) == build_forest_signature_payload(forest_b)
