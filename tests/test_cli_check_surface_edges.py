@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import pytest
 import typer
@@ -8,6 +9,13 @@ from typer.testing import CliRunner
 
 from gabion import cli
 from gabion.exceptions import NeverThrown
+
+
+_ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*m")
+
+
+def _normalize_output(text: str) -> str:
+    return " ".join(_ANSI_ESCAPE.sub("", text).split())
 
 
 def _check_obj(captured: list[dict[str, object]]) -> dict[str, object]:
@@ -77,7 +85,8 @@ def test_check_raw_usage_and_passthrough_branches() -> None:
     runner = CliRunner()
     bad = runner.invoke(cli.app, ["check", "raw"])
     assert bad.exit_code != 0
-    assert "Usage: gabion check raw -- [raw-args...]" in bad.output
+    normalized = _normalize_output(bad.output)
+    assert "Usage: gabion check raw -- [raw-args...]" in normalized
 
     captured: list[list[str]] = []
 
@@ -111,14 +120,14 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
         ["check", "run", "sample.py", "--analysis-tick-limit", "10"],
     )
     assert removed.exit_code != 0
-    assert "Removed --analysis-tick-limit" in removed.output
+    assert "Removed --analysis-tick-limit" in _normalize_output(removed.output)
 
     missing = runner.invoke(
         cli.app,
         ["check", "run", "sample.py", "--baseline-mode", "enforce"],
     )
     assert missing.exit_code != 0
-    assert "--baseline is required" in missing.output
+    assert "--baseline is required" in _normalize_output(missing.output)
 
     invalid = runner.invoke(
         cli.app,
@@ -133,7 +142,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
         ],
     )
     assert invalid.exit_code != 0
-    assert "--baseline is only valid" in invalid.output
+    assert "--baseline is only valid" in _normalize_output(invalid.output)
 
 
 def test_check_lint_mode_validation_errors() -> None:
@@ -143,14 +152,14 @@ def test_check_lint_mode_validation_errors() -> None:
         ["check", "run", "sample.py", "--gate", "none", "--lint", "jsonl"],
     )
     assert jsonl_missing.exit_code != 0
-    assert "--lint-jsonl-out is required" in jsonl_missing.output
+    assert "--lint-jsonl-out is required" in _normalize_output(jsonl_missing.output)
 
     sarif_missing = runner.invoke(
         cli.app,
         ["check", "run", "sample.py", "--gate", "none", "--lint", "sarif"],
     )
     assert sarif_missing.exit_code != 0
-    assert "--lint-sarif-out is required" in sarif_missing.output
+    assert "--lint-sarif-out is required" in _normalize_output(sarif_missing.output)
 
     jsonl_invalid = runner.invoke(
         cli.app,
@@ -167,7 +176,7 @@ def test_check_lint_mode_validation_errors() -> None:
         ],
     )
     assert jsonl_invalid.exit_code != 0
-    assert "--lint-jsonl-out is only valid" in jsonl_invalid.output
+    assert "--lint-jsonl-out is only valid" in _normalize_output(jsonl_invalid.output)
 
     sarif_invalid = runner.invoke(
         cli.app,
@@ -184,7 +193,7 @@ def test_check_lint_mode_validation_errors() -> None:
         ],
     )
     assert sarif_invalid.exit_code != 0
-    assert "--lint-sarif-out is only valid" in sarif_invalid.output
+    assert "--lint-sarif-out is only valid" in _normalize_output(sarif_invalid.output)
 
 
 def test_check_gate_policy_all_modes_and_invalid_value() -> None:
