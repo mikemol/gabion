@@ -1,5 +1,5 @@
 ---
-doc_revision: 158
+doc_revision: 159
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -39,7 +39,7 @@ doc_review_notes:
   glossary.md#deadness_witness: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_sections:
-  sppf_checklist: 7
+  sppf_checklist: 8
 doc_section_requires:
   sppf_checklist:
     - README.md#repo_contract
@@ -55,47 +55,47 @@ doc_section_reviews:
   sppf_checklist:
     README.md#repo_contract:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
     glossary.md#decision_table:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
     glossary.md#decision_bundle:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
     glossary.md#decision_protocol:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
     glossary.md#decision_surface:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
     glossary.md#value_encoded_decision:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
     glossary.md#deadness_witness:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 7
+      self_version_at_review: 8
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -205,7 +205,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
 - [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [x] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
-- [~] Deterministic fingerprint registry seeding (sorted key interning for primes/bits; basis is deterministic but migration/ratchet policy remains partial). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::build_fingerprint_registry`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`. (in-22, GH-68) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
+- [~] Deterministic fingerprint registry policy (seeded-vs-learned assignment policy is serialized in the seed payload, deterministic rehydrate path accepts legacy cache identities, and registry/key stability is covered by suite-order perturbation regressions). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::PrimeRegistry.seed_payload`, `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`, `src/gabion/analysis/dataflow_audit.py::_canonical_cache_identity`, `tests/test_type_fingerprints.py::test_registry_assignment_policy_roundtrips_and_stays_deterministic`, `tests/test_dataflow_audit_helpers.py::test_cache_identity_supports_legacy_alias_matching`, `tests/test_aspf.py::test_suite_site_signature_stable_under_suite_order_perturbation`. (in-22, GH-68) sppf{doc=partial; impl=done; doc_ref=in-22@2}
 - [x] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants; entropy-controlled synthesis obligations still open). Evidence anchors: `src/gabion/analysis/type_fingerprints.py::bundle_fingerprint_dimensional`, `tests/test_type_fingerprints.py::test_dimensional_fingerprint_includes_constructors`. (in-22, GH-70) sppf{doc=partial; impl=partial; doc_ref=in-22@2}

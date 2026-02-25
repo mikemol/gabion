@@ -79,6 +79,7 @@ from gabion.analysis.type_fingerprints import (
     bundle_fingerprint_dimensional,
     format_fingerprint,
     fingerprint_carrier_soundness,
+    fingerprint_identity_payload,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -146,6 +147,14 @@ from .projection_registry import (
     spec_metadata_payload,
 )
 from .wl_refinement import emit_wl_refinement_facets
+from .aspf_core import parse_2cell_witness
+from .deprecated_substrate import (
+    DeprecatedExtractionArtifacts,
+    DeprecatedFiber,
+    detect_report_section_extinction,
+)
+from .structure_reuse_classes import build_structure_class, structure_class_payload
+from .aspf_decision_surface import classify_drift_by_homotopy
 from .dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence,
     compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans,
@@ -567,6 +576,8 @@ class AnalysisResult:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     forest_spec: ForestSpec | None = None
     profiling_v1: JSONObject | None = None
+    deprecated_artifacts: DeprecatedExtractionArtifacts | None = None
+    deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
 
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
@@ -614,6 +625,7 @@ class ReportCarrier:
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
     phase_progress_v2: JSONObject | None = None
+    deprecated_signals: tuple[str, ...] = ()
 
     @classmethod
     def from_analysis_result(
@@ -651,6 +663,11 @@ class ReportCarrier:
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
+            deprecated_signals=(
+                analysis.deprecated_artifacts.informational_signals
+                if analysis.deprecated_artifacts is not None
+                else ()
+            ),
         )
 
 
@@ -1015,6 +1032,21 @@ def _preview_schema_surfaces_section(
     ]
 
 
+def _preview_deprecated_substrate_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    lines = [
+        "Deprecated substrate preview (provisional).",
+        f"- `informational_signals`: `{len(report.deprecated_signals)}`",
+    ]
+    for signal in report.deprecated_signals[:5]:
+        check_deadline()
+        lines.append(f"- {signal}")
+    return lines
+
+
 def _report_section_text(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -1163,6 +1195,12 @@ _REPORT_PROJECTION_DECLARED_SPECS: tuple[ReportProjectionSpec[list[str]], ...] =
         phase="post",
         deps=("components",),
         preview_build=_preview_schema_surfaces_section,
+    ),
+    _report_section_spec(
+        section_id="deprecated_substrate",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_deprecated_substrate_section,
     ),
 )
 
@@ -3744,6 +3782,29 @@ def _compute_fingerprint_provenance(
                         index.get(fingerprint, set()),
                         source="_compute_fingerprint_provenance.matches",
                     )
+                identity_payload = fingerprint_identity_payload(fingerprint)
+                representative = str(
+                    identity_payload["identity_layers"]["canonical"]["representative"]
+                )
+                basis_repr = "|".join(
+                    str(item)
+                    for item in identity_payload["identity_layers"]["canonical"].get(
+                        "basis_path", []
+                    )
+                )
+                higher_path_payload = identity_payload.get("witness_carriers", {}).get(
+                    "higher_path_witness"
+                )
+                higher_path_witness = (
+                    parse_2cell_witness(higher_path_payload)
+                    if isinstance(higher_path_payload, dict)
+                    else None
+                )
+                drift_classification = classify_drift_by_homotopy(
+                    baseline_representative=representative,
+                    current_representative=basis_repr,
+                    equivalence_witness=higher_path_witness,
+                )
                 bundle_key = ",".join(bundle_params)
                 entries.append(
                     {
@@ -3783,6 +3844,19 @@ def _compute_fingerprint_provenance(
                         },
                         "soundness_issues": soundness_issues,
                         "glossary_matches": matches,
+                        "canonical_identity_contract": identity_payload[
+                            "canonical_identity_contract"
+                        ],
+                        "identity_layers": identity_payload["identity_layers"],
+                        "representative_selection": identity_payload[
+                            "representative_selection"
+                        ],
+                        "witness_carriers": identity_payload["witness_carriers"],
+                        "derived_aliases": identity_payload["derived_aliases"],
+                        "cofibration_witness": identity_payload.get(
+                            "cofibration_witness", {"entries": []}
+                        ),
+                        "drift_classification": drift_classification,
                     }
                 )
     return entries
@@ -3938,6 +4012,8 @@ class _RewritePredicateContext:
     post_strata: str
     post_exception_obligations: list[JSONObject] | None
     pre: Mapping[str, object]
+    plan_evidence: Mapping[str, object]
+    post_entry: Mapping[str, object]
     site: Site
 
 
@@ -4025,6 +4101,49 @@ def _evaluate_remainder_non_regression_predicate(
     }
 
 
+
+
+def _evaluate_witness_obligation_non_regression_predicate(
+    predicate: JSONObject,
+    context: _RewritePredicateContext,
+) -> JSONObject:
+    kind = str(predicate.get("kind", ""))
+    evidence = context.plan_evidence
+    obligations = evidence.get("witness_obligations")
+    if not isinstance(obligations, list):
+        obligations = []
+    missing_required: list[str] = []
+    for item in obligations:
+        if not isinstance(item, Mapping):
+            continue
+        required = bool(item.get("required"))
+        witness_ref = str(item.get("witness_ref", "") or "")
+        witness_kind = str(item.get("kind", "witness") or "witness")
+        if required and not witness_ref:
+            missing_required.append(f"{witness_kind}:missing")
+    post_identity = context.post_entry.get("canonical_identity_contract")
+    pre_identity = context.pre.get("canonical_identity_contract")
+    identity_ok = True
+    if pre_identity is not None:
+        identity_ok = pre_identity == post_identity
+    elif post_identity is None:
+        identity_ok = False
+    passed = (not missing_required) and identity_ok
+    return {
+        "kind": kind,
+        "passed": passed,
+        "expected": {
+            "required_witnesses": [
+                item for item in obligations if isinstance(item, Mapping) and bool(item.get("required"))
+            ],
+            "identity_contract": pre_identity,
+        },
+        "observed": {
+            "missing_required": missing_required,
+            "identity_contract": post_identity,
+        },
+    }
+
 def _summary_unknown_and_discharged(summary: Mapping[str, object]) -> tuple[int, int]:
     try:
         unknown = int(summary.get("UNKNOWN", 0) or 0)
@@ -4084,6 +4203,7 @@ _REWRITE_PREDICATE_EVALUATORS: Mapping[
     "ctor_coherence": _evaluate_ctor_coherence_predicate,
     "match_strata": _evaluate_match_strata_predicate,
     "remainder_non_regression": _evaluate_remainder_non_regression_predicate,
+    "witness_obligation_non_regression": _evaluate_witness_obligation_non_regression_predicate,
     "exception_obligation_non_regression": _evaluate_exception_obligation_non_regression_predicate,
 }
 
@@ -4170,6 +4290,7 @@ def verify_rewrite_plan(
         }
 
     pre = mapping_or_empty(plan.get("pre"))
+    evidence = mapping_or_empty(plan.get("evidence"))
     raw_pre_remainder = pre.get("remainder")
     if raw_pre_remainder not in (None, {}) and not isinstance(raw_pre_remainder, Mapping):
         issues.append("invalid pre remainder payload")
@@ -4241,6 +4362,8 @@ def verify_rewrite_plan(
         post_strata=post_strata,
         post_exception_obligations=post_exception_obligations,
         pre=pre,
+        plan_evidence=evidence,
+        post_entry=post_entry,
         site=site,
     )
 
@@ -7523,9 +7646,45 @@ def _canonical_cache_identity(
         "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
         "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
     }
-    return hashlib.sha1(
+    digest = hashlib.sha1(
         json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    return f"aspf:sha1:{digest}"
+
+
+def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
+    value = str(identity or "")
+    if not value:
+        return ("",)
+    if value.startswith("aspf:sha1:"):
+        legacy = value[len("aspf:sha1:") :]
+        if legacy:
+            return (value, legacy)
+        return (value,)
+    if len(value) == 40 and all(ch in "0123456789abcdef" for ch in value.lower()):
+        return (value, f"aspf:sha1:{value}")
+    return (value,)
+
+
+def _cache_identity_matches(actual: str, expected: str) -> bool:
+    actual_aliases = set(_cache_identity_aliases(actual))
+    expected_aliases = set(_cache_identity_aliases(expected))
+    return bool(actual_aliases & expected_aliases)
+
+
+def _resume_variant_for_identity(
+    variants: Mapping[str, JSONObject],
+    expected_identity: str,
+) -> JSONObject | None:
+    direct = variants.get(expected_identity)
+    if direct is not None:
+        return direct
+    expected_aliases = set(_cache_identity_aliases(expected_identity))
+    for variant_identity, variant in variants.items():
+        check_deadline()
+        if expected_aliases & set(_cache_identity_aliases(variant_identity)):
+            return variant
+    return None
 
 
 def _parse_stage_cache_key(
@@ -12899,6 +13058,20 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     return sections
 
 
+def detect_report_section_extinctions(
+    *,
+    previous_markdown: str,
+    current_markdown: str,
+) -> tuple[str, ...]:
+    check_deadline()
+    previous_sections = tuple(extract_report_sections(previous_markdown))
+    current_sections = tuple(extract_report_sections(current_markdown))
+    return detect_report_section_extinction(
+        previous_sections=previous_sections,
+        current_sections=current_sections,
+    )
+
+
 from gabion.analysis.dataflow_reporting import emit_report as _emit_report
 
 
@@ -13271,15 +13444,15 @@ def compute_structure_reuse(
     warnings: list[str] = []
 
     def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
-        payload = {
-            "kind": kind,
-            "value": value,
-            "children": sort_once(child_hashes, source = 'src/gabion/analysis/dataflow_audit.py:14511'),
-        }
-        digest = hashlib.sha1(
-            json.dumps(payload, sort_keys=False).encode("utf-8")
-        ).hexdigest()
-        return digest
+        structure_class = build_structure_class(
+            kind=kind,
+            value=value,
+            child_hashes=sort_once(
+                child_hashes,
+                source="compute_structure_reuse._hash_node.child_hashes",
+            ),
+        )
+        return structure_class.digest()
 
     hasher = hash_fn or _hash_node
 
@@ -13293,11 +13466,17 @@ def compute_structure_reuse(
     ) -> None:
         entry = reuse_map.get(node_hash)
         if entry is None:
+            structure_class = build_structure_class(
+                kind=kind,
+                value=value,
+                child_hashes=(),
+            )
             entry = {
                 "hash": node_hash,
                 "kind": kind,
                 "count": 0,
                 "locations": [],
+                "aspf_structure_class": structure_class_payload(structure_class),
             }
             if value is not None:
                 entry["value"] = value
@@ -14231,15 +14410,15 @@ def _load_analysis_index_resume_payload(
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity is not None:
         resume_identity = str(payload.get("index_cache_identity", "") or "")
-        if resume_identity != expected_index_cache_identity:
+        if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
             variants = _analysis_index_resume_variants(payload)
-            variant = variants.get(expected_index_cache_identity)
+            variant = _resume_variant_for_identity(variants, expected_index_cache_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
     if expected_projection_cache_identity is not None:
         projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
-        if projection_identity != expected_projection_cache_identity:
+        if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,

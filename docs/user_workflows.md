@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -93,7 +93,35 @@ mise exec -- python -m gabion check \
   --resume-on-timeout 1
 ```
 
-## 2) VS Code-assisted remediation loop
+## 2) Dual-sensor remediation loop
+
+Use this loop when you want local repro feedback and branch CI/status feedback
+to drive correction together.
+
+### Terminal A: local repro lane
+```bash
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+
+### Terminal B: remote status-check lane
+```bash
+mise exec -- python scripts/ci_watch.py --branch stage
+```
+
+### Correction cadence
+1. Start both lanes concurrently when available.
+2. Take the first actionable failure signal from either lane as the next fix target.
+3. Keep one bounded correction unit per push (one blocking signal or tightly coupled set).
+4. Validate locally, then stage/commit/push immediately.
+5. Resume both lanes; handle fallout in subsequent correction units.
+
+### Degraded mode
+If only one lane is available, continue with that lane and restore dual-sensor
+operation when possible.
+
+## 3) VS Code-assisted remediation loop
 
 Use this loop when you want quick fix-and-verify cycles in the editor.
 
@@ -121,7 +149,7 @@ mise exec -- python -m gabion check \
   --resume-on-timeout 1
 ```
 
-## 3) CI/PR loop
+## 4) CI/PR loop
 
 Use this loop to review whether a PR is healthy and whether cache reuse behaved as expected.
 

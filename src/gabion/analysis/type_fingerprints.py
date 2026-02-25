@@ -6,6 +6,26 @@ from dataclasses import dataclass, field
 from typing import Iterable
 import math
 
+from gabion.analysis.aspf_core import (
+    AspfCanonicalIdentityContract,
+    AspfOneCell,
+    AspfTwoCellWitness,
+    BasisZeroCell,
+    SuiteSiteEndpoint,
+    validate_2cell_compatibility,
+)
+from gabion.analysis.aspf_decision_surface import (
+    RepresentativeSelectionMode,
+    RepresentativeSelectionOptions,
+    select_representative,
+)
+from gabion.analysis.aspf_morphisms import (
+    AspfPrimeBasis,
+    DomainPrimeBasis,
+    DomainToAspfCofibration,
+    DomainToAspfCofibrationEntry,
+)
+from gabion.analysis.evidence_keys import fingerprint_identity_layers
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
@@ -176,6 +196,7 @@ class PrimeRegistry:
     next_candidate: int = 2
     bit_positions: dict[str, int] = field(default_factory=dict)
     next_bit: int = 0
+    assignment_origin: dict[str, str] = field(default_factory=dict)
 
     def get_or_assign(self, key: str) -> int:
         consume_deadline_ticks()
@@ -188,6 +209,7 @@ class PrimeRegistry:
         prime = _next_prime(self.next_candidate)
         self.primes[key] = prime
         self.next_candidate = prime + 1
+        self.assignment_origin.setdefault(key, "learned")
         if key not in self.bit_positions:
             self.bit_positions[key] = self.next_bit
             self.next_bit += 1
@@ -236,6 +258,33 @@ class PrimeRegistry:
             _entry(namespace)["bit_positions"][local_key] = int(bit)
         return {
             "version": "prime-registry-seed@1",
+            "assignment_policy": {
+                "version": "prime-registry-assignment@1",
+                "seeded": [
+                    key
+                    for key in sort_once(
+                        (
+                            candidate
+                            for candidate, origin in self.assignment_origin.items()
+                            if origin == "seeded"
+                        ),
+                        source="PrimeRegistry.seed_payload.assignment_policy.seeded",
+                        policy=OrderPolicy.SORT,
+                    )
+                ],
+                "learned": [
+                    key
+                    for key in sort_once(
+                        (
+                            candidate
+                            for candidate, origin in self.assignment_origin.items()
+                            if origin != "seeded"
+                        ),
+                        source="PrimeRegistry.seed_payload.assignment_policy.learned",
+                        policy=OrderPolicy.SORT,
+                    )
+                ],
+            },
             "namespaces": namespace_payload,
         }
 
@@ -265,7 +314,15 @@ class PrimeRegistry:
                     check_deadline()
                     if isinstance(key, str) and isinstance(value, int):
                         flat_bits[_raw_key(namespace, key)] = value
-        _apply_registry_payload({"primes": flat_primes, "bit_positions": flat_bits}, self)
+        _apply_registry_payload(
+            {
+                "primes": flat_primes,
+                "bit_positions": flat_bits,
+                "assignment_policy": payload.get("assignment_policy"),
+            },
+            self,
+            assignment_kind="seeded",
+        )
 
 
 @dataclass(frozen=True)
@@ -320,6 +377,129 @@ class Fingerprint:
 
     def __str__(self) -> str:
         return format_fingerprint(self)
+
+
+def fingerprint_to_aspf_path(fingerprint: Fingerprint) -> AspfOneCell:
+    start = BasisZeroCell(label="fingerprint:start")
+    end = BasisZeroCell(label="fingerprint:end")
+    return AspfOneCell(
+        source=start,
+        target=end,
+        representative=(
+            f"base={fingerprint.base.product}|ctor={fingerprint.ctor.product}|"
+            f"prov={fingerprint.provenance.product}|synth={fingerprint.synth.product}"
+        ),
+        basis_path=(
+            f"base:{fingerprint.base.product}",
+            f"ctor:{fingerprint.ctor.product}",
+            f"prov:{fingerprint.provenance.product}",
+            f"synth:{fingerprint.synth.product}",
+        ),
+    )
+
+
+def fingerprint_identity_payload(
+    fingerprint: Fingerprint,
+    *,
+    representative_mode: RepresentativeSelectionMode = RepresentativeSelectionMode.LEXICOGRAPHIC_MIN,
+) -> JSONObject:
+    aspf_path = fingerprint_to_aspf_path(fingerprint)
+    candidates = (
+        aspf_path.representative,
+        "|".join(aspf_path.basis_path),
+    )
+    rep_witness = select_representative(
+        RepresentativeSelectionOptions(mode=representative_mode, candidates=candidates)
+    )
+    cofibration = DomainToAspfCofibration(
+        entries=tuple(
+            DomainToAspfCofibrationEntry(
+                domain=DomainPrimeBasis(domain_key=key, prime=prime),
+                aspf=AspfPrimeBasis(aspf_key=f"aspf:{key}", prime=prime),
+            )
+            for key, prime in sort_once(
+                {
+                    "base": fingerprint.base.product,
+                    "ctor": fingerprint.ctor.product,
+                    "prov": fingerprint.provenance.product,
+                    "synth": fingerprint.synth.product,
+                }.items(),
+                source="fingerprint_identity_payload.cofibration_entries",
+                policy=OrderPolicy.SORT,
+            )
+            if prime > 1
+        )
+    )
+    if cofibration.entries:
+        cofibration.validate()
+    canonical_identity = AspfCanonicalIdentityContract(
+        identity_kind="canonical_aspf_structural_identity",
+        source=aspf_path.source,
+        target=aspf_path.target,
+        representative=rep_witness.selected,
+        basis_path=aspf_path.basis_path,
+        suite_site_source=SuiteSiteEndpoint(
+            kind="SuiteSite",
+            key=(aspf_path.source.label, "fingerprint", "source"),
+        ),
+        suite_site_target=SuiteSiteEndpoint(
+            kind="SuiteSite",
+            key=(aspf_path.target.label, "fingerprint", "target"),
+        ),
+    )
+    scalar_alias = max(
+        1,
+        fingerprint.base.product
+        * max(1, fingerprint.ctor.product)
+        * max(1, fingerprint.provenance.product)
+        * max(1, fingerprint.synth.product),
+    )
+    layers = fingerprint_identity_layers(
+        canonical_aspf_path=canonical_identity.as_dict(),
+        scalar_prime_product=scalar_alias,
+    )
+    higher_path_witness = AspfTwoCellWitness(
+        left=AspfOneCell(
+            source=aspf_path.source,
+            target=aspf_path.target,
+            representative=rep_witness.selected,
+            basis_path=aspf_path.basis_path,
+        ),
+        right=AspfOneCell(
+            source=aspf_path.source,
+            target=aspf_path.target,
+            representative="|".join(aspf_path.basis_path),
+            basis_path=aspf_path.basis_path,
+        ),
+        witness_id=f"higher:{rep_witness.witness_id}",
+        reason="representative_selection_coherence",
+    )
+    validate_2cell_compatibility(higher_path_witness)
+    payload: JSONObject = {
+        "canonical_identity_contract": canonical_identity.as_dict(),
+        "identity_layers": layers.as_dict(),
+        "representative_selection": rep_witness.as_dict(),
+        "witness_carriers": {
+            "selection_witness": rep_witness.as_dict(),
+            "cofibration_witness": cofibration.as_dict() if cofibration.entries else {"entries": []},
+            "higher_path_witness": higher_path_witness.as_dict(),
+        },
+        "derived_aliases": {
+            "scalar_prime_product": {
+                "value": scalar_alias,
+                "canonical": False,
+                "alias_of": "canonical_identity_contract",
+            },
+            "digest_alias": {
+                "value": layers.digest_projection["value"],
+                "canonical": False,
+                "alias_of": "canonical_identity_contract",
+            },
+        },
+    }
+    if cofibration.entries:
+        payload["cofibration_witness"] = cofibration.as_dict()
+    return payload
 
 
 def _fingerprint_sort_key(fingerprint: Fingerprint) -> tuple[int, int, int, int, int, int, int, int]:
@@ -788,7 +968,7 @@ def build_synth_registry_from_payload(
     registry_payload = payload.get("registry")
     if isinstance(registry_payload, dict):
         registry.load_seed_payload(registry_payload.get("seed"))
-    _apply_registry_payload(registry_payload, registry)
+    _apply_registry_payload(registry_payload, registry, assignment_kind="seeded")
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
@@ -829,6 +1009,8 @@ def build_synth_registry_from_payload(
 def _apply_registry_payload(
     payload: object,
     registry: PrimeRegistry,
+    *,
+    assignment_kind: str = "learned",
 ) -> None:
     """Extend a PrimeRegistry with a serialized basis.
 
@@ -858,23 +1040,49 @@ def _apply_registry_payload(
             if isinstance(value, int):
                 bits_map[key] = value
 
-    for key, prime in primes_map.items():
+    for key in sort_once(
+        primes_map,
+        source="_apply_registry_payload.primes_map",
+        policy=OrderPolicy.SORT,
+    ):
         check_deadline()
+        prime = primes_map[key]
         existing = registry.primes.get(key)
         if existing is not None and existing != prime:
             raise ValueError(
                 f"Registry basis mismatch for {key}: have {existing} expected {prime}"
             )
         registry.primes.setdefault(key, prime)
+        registry.assignment_origin.setdefault(key, assignment_kind)
 
-    for key, bit in bits_map.items():
+    for key in sort_once(
+        bits_map,
+        source="_apply_registry_payload.bits_map",
+        policy=OrderPolicy.SORT,
+    ):
         check_deadline()
+        bit = bits_map[key]
         existing = registry.bit_positions.get(key)
         if existing is not None and existing != bit:
             raise ValueError(
                 f"Registry basis mismatch for bit {key}: have {existing} expected {bit}"
             )
         registry.bit_positions.setdefault(key, bit)
+
+    assignment_policy = payload.get("assignment_policy") if isinstance(payload, dict) else None
+    if isinstance(assignment_policy, dict):
+        seeded = assignment_policy.get("seeded")
+        learned = assignment_policy.get("learned")
+        if isinstance(seeded, list):
+            for key in seeded:
+                check_deadline()
+                if isinstance(key, str) and key in registry.primes:
+                    registry.assignment_origin[key] = "seeded"
+        if isinstance(learned, list):
+            for key in learned:
+                check_deadline()
+                if isinstance(key, str) and key in registry.primes:
+                    registry.assignment_origin[key] = "learned"
 
     if registry.primes and len(set(registry.primes.values())) != len(registry.primes):
         raise ValueError("Registry basis contains duplicate primes.")
@@ -901,6 +1109,7 @@ def _apply_registry_payload(
         if key not in registry.bit_positions:
             registry.bit_positions[key] = registry.next_bit
             registry.next_bit += 1
+        registry.assignment_origin.setdefault(key, assignment_kind)
 
     if registry.bit_positions:
         registry.next_bit = max(

@@ -4726,3 +4726,80 @@ def test_synthetic_lambda_name_is_stable_for_same_module_scope_and_span() -> Non
 
     assert first == second
     assert first != other_module
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_cache_identity_supports_legacy_alias_matching::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_index_resume_payload
+def test_cache_identity_supports_legacy_alias_matching(tmp_path: Path) -> None:
+    da = _load()
+    file_path = tmp_path / "m.py"
+    legacy_identity = "0123456789abcdef0123456789abcdef01234567"
+    payload = {
+        "format_version": 1,
+        "index_cache_identity": legacy_identity,
+        "projection_cache_identity": legacy_identity,
+        "hydrated_paths": [str(file_path)],
+    }
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+        expected_index_cache_identity=f"aspf:sha1:{legacy_identity}",
+        expected_projection_cache_identity=f"aspf:sha1:{legacy_identity}",
+    )
+    assert hydrated_paths == {file_path}
+    assert by_qual == {}
+    assert symbol_table.imports == {}
+    assert class_index == {}
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_canonical_cache_identity_uses_aspf_prefix::dataflow_audit.py::gabion.analysis.dataflow_audit._canonical_cache_identity
+def test_canonical_cache_identity_uses_aspf_prefix() -> None:
+    da = _load()
+    identity = da._canonical_cache_identity(
+        stage="index",
+        cache_context=da._CacheSemanticContext(
+            forest_spec_id="spec@1",
+            fingerprint_seed_revision="seed@1",
+        ),
+        config_subset={"strictness": "high", "external_filter": True},
+    )
+    assert identity.startswith("aspf:sha1:")
+    assert len(identity.split(":")[-1]) == 40
+
+
+# gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_cache_identity_alias_and_resume_variant_edges
+def test_cache_identity_alias_and_resume_variant_edges() -> None:
+    da = _load()
+    legacy = "0123456789abcdef0123456789abcdef01234567"
+    prefixed = f"aspf:sha1:{legacy}"
+
+    assert da._cache_identity_aliases("") == ("",)
+    assert da._cache_identity_aliases("aspf:sha1:") == ("aspf:sha1:",)
+    assert da._cache_identity_aliases(prefixed) == (prefixed, legacy)
+
+    variant = {"path": "v"}
+    assert da._resume_variant_for_identity({legacy: variant}, prefixed) == variant
+
+
+# gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_preview_deprecated_substrate_section_and_extinction_wrapper
+def test_preview_deprecated_substrate_section_and_extinction_wrapper() -> None:
+    da = _load()
+    report = da.ReportCarrier(
+        forest=da.Forest(),
+        deprecated_signals=[
+            "signal:0",
+            "signal:1",
+            "signal:2",
+            "signal:3",
+            "signal:4",
+            "signal:5",
+        ],
+    )
+    lines = da._preview_deprecated_substrate_section(report, {})
+    assert any(line == "- signal:0" for line in lines)
+    assert any(line == "- signal:4" for line in lines)
+    assert all("signal:5" not in line for line in lines)
+
+    extinctions = da.detect_report_section_extinctions(
+        previous_markdown="<!-- report-section:alpha-->\nline\n<!-- report-section:beta-->\nline\n",
+        current_markdown="<!-- report-section:alpha-->\nline\n",
+    )
+    assert extinctions == ("beta",)

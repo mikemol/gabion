@@ -225,6 +225,10 @@ def compute_fingerprint_rewrite_plans(
                 "kind": "remainder_non_regression",
                 "expect": "no-new-remainder",
             },
+            {
+                "kind": "witness_obligation_non_regression",
+                "expect": "stable",
+            },
             *(
                 [
                     {
@@ -266,12 +270,31 @@ def compute_fingerprint_rewrite_plans(
                 "evidence": {
                     "provenance_id": entry.get("provenance_id"),
                     "coherence_id": coherence_id,
+                    "fingerprint_matches": candidates,
+                    "witness_obligations": [
+                        {
+                            "witness_ref": entry.get("provenance_id"),
+                            "required": True,
+                            "kind": "provenance",
+                        },
+                        {
+                            "witness_ref": coherence_id,
+                            "required": coherence_id is not None,
+                            "kind": "coherence",
+                        },
+                    ],
                 },
                 "post_expectation": post_expectation,
                 "verification": {
                     "mode": "re-audit",
                     "status": "UNVERIFIED",
                     "predicates": predicates,
+                    "non_regression_gates": [
+                        predicate.get("kind")
+                        for predicate in predicates
+                        if isinstance(predicate.get("kind"), str)
+                        and str(predicate.get("kind", "")).endswith("non_regression")
+                    ],
                 },
             }
 
