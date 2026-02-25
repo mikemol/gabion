@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .aspf_core import AspfTwoCellWitness
+
 
 class RepresentativeSelectionMode(StrEnum):
     LEXICOGRAPHIC_MIN = "lexicographic_min"
@@ -59,10 +61,17 @@ def classify_drift_by_homotopy(
     *,
     baseline_representative: str,
     current_representative: str,
-    has_equivalence_witness: bool,
+    equivalence_witness: AspfTwoCellWitness | None = None,
+    has_equivalence_witness: bool | None = None,
 ) -> str:
     if baseline_representative == current_representative:
         return "non_drift"
-    if has_equivalence_witness:
+    if equivalence_witness is not None:
+        if equivalence_witness.is_compatible() and equivalence_witness.links(
+            baseline_representative=baseline_representative,
+            current_representative=current_representative,
+        ):
+            return "non_drift"
+    if bool(has_equivalence_witness):
         return "non_drift"
     return "drift"

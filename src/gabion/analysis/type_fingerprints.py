@@ -6,7 +6,14 @@ from dataclasses import dataclass, field
 from typing import Iterable
 import math
 
-from gabion.analysis.aspf_core import AspfOneCell, BasisZeroCell
+from gabion.analysis.aspf_core import (
+    AspfCanonicalIdentityContract,
+    AspfOneCell,
+    AspfTwoCellWitness,
+    BasisZeroCell,
+    SuiteSiteEndpoint,
+    validate_2cell_compatibility,
+)
 from gabion.analysis.aspf_decision_surface import (
     RepresentativeSelectionMode,
     RepresentativeSelectionOptions,
@@ -388,25 +395,70 @@ def fingerprint_identity_payload(
     )
     if cofibration.entries:
         cofibration.validate()
-    layers = fingerprint_identity_layers(
-        canonical_aspf_path={
-            "kind": "aspf_path",
-            "source": aspf_path.source.label,
-            "target": aspf_path.target.label,
-            "representative": rep_witness.selected,
-            "basis_path": list(aspf_path.basis_path),
-        },
-        scalar_prime_product=max(
-            1,
-            fingerprint.base.product
-            * max(1, fingerprint.ctor.product)
-            * max(1, fingerprint.provenance.product)
-            * max(1, fingerprint.synth.product),
+    canonical_identity = AspfCanonicalIdentityContract(
+        identity_kind="canonical_aspf_structural_identity",
+        source=aspf_path.source,
+        target=aspf_path.target,
+        representative=rep_witness.selected,
+        basis_path=aspf_path.basis_path,
+        suite_site_source=SuiteSiteEndpoint(
+            kind="SuiteSite",
+            key=(aspf_path.source.label, "fingerprint", "source"),
+        ),
+        suite_site_target=SuiteSiteEndpoint(
+            kind="SuiteSite",
+            key=(aspf_path.target.label, "fingerprint", "target"),
         ),
     )
+    scalar_alias = max(
+        1,
+        fingerprint.base.product
+        * max(1, fingerprint.ctor.product)
+        * max(1, fingerprint.provenance.product)
+        * max(1, fingerprint.synth.product),
+    )
+    layers = fingerprint_identity_layers(
+        canonical_aspf_path=canonical_identity.as_dict(),
+        scalar_prime_product=scalar_alias,
+    )
+    higher_path_witness = AspfTwoCellWitness(
+        left=AspfOneCell(
+            source=aspf_path.source,
+            target=aspf_path.target,
+            representative=rep_witness.selected,
+            basis_path=aspf_path.basis_path,
+        ),
+        right=AspfOneCell(
+            source=aspf_path.source,
+            target=aspf_path.target,
+            representative="|".join(aspf_path.basis_path),
+            basis_path=aspf_path.basis_path,
+        ),
+        witness_id=f"higher:{rep_witness.witness_id}",
+        reason="representative_selection_coherence",
+    )
+    validate_2cell_compatibility(higher_path_witness)
     payload: JSONObject = {
+        "canonical_identity_contract": canonical_identity.as_dict(),
         "identity_layers": layers.as_dict(),
         "representative_selection": rep_witness.as_dict(),
+        "witness_carriers": {
+            "selection_witness": rep_witness.as_dict(),
+            "cofibration_witness": cofibration.as_dict() if cofibration.entries else {"entries": []},
+            "higher_path_witness": higher_path_witness.as_dict(),
+        },
+        "derived_aliases": {
+            "scalar_prime_product": {
+                "value": scalar_alias,
+                "canonical": False,
+                "alias_of": "canonical_identity_contract",
+            },
+            "digest_alias": {
+                "value": layers.digest_projection["value"],
+                "canonical": False,
+                "alias_of": "canonical_identity_contract",
+            },
+        },
     }
     if cofibration.entries:
         payload["cofibration_witness"] = cofibration.as_dict()
