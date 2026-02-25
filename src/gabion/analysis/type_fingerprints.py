@@ -977,10 +977,10 @@ def bundle_fingerprint_with_constructors(
     product = 1
     for hint in types:
         check_deadline()
-        key = canonical_type_key_with_constructor(hint, ctor_registry)
-        if not key:
+        canonical_key = canonical_type_key_with_constructor(hint, ctor_registry)
+        if not canonical_key:
             continue
-        product *= registry.get_or_assign(key)
+        product *= registry.get_or_assign(canonical_key)
     return product
 
 

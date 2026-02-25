@@ -416,6 +416,34 @@ def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     fingerprint = tf.bundle_fingerprint_with_constructors([" ", "int"], registry, ctor_registry)
     assert fingerprint == registry.get_or_assign("int")
 
+
+def test_bundle_fingerprint_with_constructors_canonicalizes_once_per_hint() -> None:
+    tf = _load()
+
+    class _CountingCtorRegistry(tf.TypeConstructorRegistry):
+        def __init__(self, registry: tf.PrimeRegistry) -> None:
+            super().__init__(registry)
+            self.calls = 0
+
+        def get_or_assign(self, constructor: str) -> int:
+            self.calls += 1
+            return super().get_or_assign(constructor)
+
+    registry = tf.PrimeRegistry()
+    ctor_registry = _CountingCtorRegistry(registry)
+    hints = ["list[int]", "dict[str, list[int]]", " "]
+
+    fingerprint = tf.bundle_fingerprint_with_constructors(hints, registry, ctor_registry)
+
+    expected = (
+        registry.get_or_assign("list[int]")
+        * registry.get_or_assign("dict[str, list[int]]")
+    )
+    assert fingerprint == expected
+    # list[int] contributes one constructor and dict[str, list[int]] contributes
+    # two constructor nodes (dict + nested list); blank hint contributes none.
+    assert ctor_registry.calls == 3
+
 # gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask::stale_b10ed4e48522
 def test_fingerprint_bitmask_skips_empty_keys() -> None:
     tf = _load()
