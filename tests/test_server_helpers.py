@@ -12,7 +12,7 @@ def _load():
 
     return server
 
-# gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::stale_d287efc4e500
 def test_normalize_transparent_decorators() -> None:
     server = _load()
     assert server._normalize_transparent_decorators(None) is None
@@ -21,14 +21,14 @@ def test_normalize_transparent_decorators() -> None:
     assert server._normalize_transparent_decorators([1, "a"]) == {"a"}
     assert server._normalize_transparent_decorators([]) is None
 
-# gabion:evidence E:function_site::server.py::gabion.server._uri_to_path
+# gabion:evidence E:function_site::server.py::gabion.server._uri_to_path E:decision_surface/direct::server.py::gabion.server._uri_to_path::stale_eee91afad018
 def test_uri_to_path() -> None:
     server = _load()
     path = Path("/tmp/demo.txt")
     assert server._uri_to_path(path.as_uri()) == path
     assert server._uri_to_path("relative/path.py") == Path("relative/path.py")
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::stale_2ea481a8bdfd
 def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
     server = _load()
     sample = tmp_path / "sample.py"

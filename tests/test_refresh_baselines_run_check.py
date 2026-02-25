@@ -22,7 +22,12 @@ def test_run_check_includes_timeout_diagnostics_flags() -> None:
         captured["env"] = env
 
     refresh_baselines._run_check(
-        "--emit-test-obsolescence-delta",
+        [
+            "obsolescence",
+            "delta",
+            "--baseline",
+            str(refresh_baselines.OBSOLESCENCE_BASELINE_PATH),
+        ],
         timeout=17,
         timeout_env=timeout_env,
         resume_on_timeout=1,
@@ -35,11 +40,11 @@ def test_run_check_includes_timeout_diagnostics_flags() -> None:
     assert captured["timeout"] == 17
     env = captured["env"]
     assert isinstance(env, dict)
-    assert env["GABION_DIRECT_RUN"] == "1"
 
     cmd = captured["cmd"]
-    assert cmd[:5] == [sys.executable, "-m", "gabion", "check", "--no-fail-on-violations"]
-    assert "--emit-timeout-progress-report" in cmd
+    assert cmd[:7] == [sys.executable, "-m", "gabion", "--timeout", "120000000000ns", "check", "obsolescence"]
+    assert cmd[7] == "delta"
+    assert "--timeout-progress-report" in cmd
     resume_idx = cmd.index("--resume-on-timeout")
     assert cmd[resume_idx + 1] == "1"
     checkpoint_idx = cmd.index("--resume-checkpoint")
@@ -56,7 +61,12 @@ def test_run_check_formats_called_process_error() -> None:
 
     with pytest.raises(refresh_baselines.RefreshBaselinesSubprocessFailure) as exc_info:
         refresh_baselines._run_check(
-            "--write-ambiguity-baseline",
+            [
+                "ambiguity",
+                "baseline-write",
+                "--baseline",
+                str(refresh_baselines.AMBIGUITY_BASELINE_PATH),
+            ],
             timeout=None,
             timeout_env=timeout_env,
             resume_on_timeout=2,

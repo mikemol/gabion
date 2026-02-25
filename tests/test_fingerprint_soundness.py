@@ -9,7 +9,7 @@ def _load():
 
     return da, tf
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_81ea454a69a5
 def test_fingerprint_soundness_issues_detects_overlap() -> None:
     da, tf = _load()
     fingerprint = tf.Fingerprint(
@@ -19,7 +19,7 @@ def test_fingerprint_soundness_issues_detects_overlap() -> None:
     issues = da._fingerprint_soundness_issues(fingerprint)
     assert "base/ctor" in issues
 
-# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_000d23f26126
 def test_fingerprint_soundness_issues_skip_empty() -> None:
     da, tf = _load()
     fingerprint = tf.Fingerprint(

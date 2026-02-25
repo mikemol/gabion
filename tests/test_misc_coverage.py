@@ -63,7 +63,7 @@ def test_analysis_engine_and_model_defaults() -> None:
     param_use = ParamUse(direct_forward=set(), non_forward=False, current_aliases=set())
     assert param_use.current_aliases == set()
 
-# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_16b588918d64
 def test_lsp_client_rpc_roundtrip() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     from gabion.lsp_client import LspClientError, _read_response, _read_rpc, _write_rpc

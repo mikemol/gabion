@@ -2,7 +2,7 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -13,6 +13,7 @@ from gabion.analysis.baseline_io import (
     parse_version,
 )
 from gabion.analysis.projection_exec import apply_spec
+from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC,
     spec_metadata_lines_from_payload,
@@ -29,6 +30,7 @@ class RiskInfo:
     rationale: str
 
     @classmethod
+    # gabion:ambiguity_boundary
     def from_payload(cls, payload: object) -> RiskInfo | None:
         if not isinstance(payload, Mapping):
             return None
@@ -48,6 +50,39 @@ class EvidenceRef:
     opaque: bool
 
 
+@dataclass(frozen=True)
+class ClassifierOptions:
+    runtime_ms_by_test: Mapping[str, float] = field(default_factory=dict)
+    branch_guard_by_test: Mapping[str, bool] = field(default_factory=dict)
+    default_keep_for_branch_guard: bool = False
+    unresolved_test_ids: frozenset[str] = field(default_factory=frozenset)
+    objective_order: tuple[str, str, str, str] = (
+        "evidence_novelty",
+        "branch_guard",
+        "runtime_ms",
+        "test_id",
+    )
+    prefer_lower_runtime_ms: bool = True
+    lexical_test_id_ascending: bool = True
+
+
+@dataclass(frozen=True)
+class ClassificationResult:
+    stale_candidates: list[dict[str, object]]
+    stale_summary: dict[str, int]
+    active_tests: list[str]
+    active_summary: dict[str, int]
+
+
+_STALE_CLASS_ORDER = [
+    "redundant_by_evidence",
+    "equivalent_witness",
+    "obsolete_candidate",
+    "unmapped",
+]
+_STALE_CLASS_RANK = {name: idx for idx, name in enumerate(_STALE_CLASS_ORDER)}
+
+# gabion:ambiguity_boundary
 def load_test_evidence(
     path: str,
 ) -> tuple[dict[str, list[EvidenceRef]], dict[str, str]]:
@@ -94,7 +129,7 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
     payload = load_json(path)
     return _parse_risk_registry_payload(payload)
 
-
+# gabion:ambiguity_boundary
 def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
     check_deadline()
     parse_version(
@@ -154,17 +189,24 @@ def compute_dominators(
         dominators[test_id] = frontier
     return dominators
 
-
+# gabion:ambiguity_boundary
 def classify_candidates(
     evidence_by_test: dict[str, list[EvidenceRef]],
     status_by_test: dict[str, str],
     risk_registry: dict[str, RiskInfo],
-) -> tuple[list[dict[str, object]], dict[str, int]]:
+    *,
+    options: ClassifierOptions | None = None,
+) -> ClassificationResult:
     check_deadline()
     # dataflow-bundle: evidence_by_test, status_by_test, risk_registry
+    resolved_options = options or ClassifierOptions()
+    all_test_ids = sort_once(
+        set(evidence_by_test) | set(status_by_test),
+        source="classify_candidates.all_test_ids",
+    )
     normalized_evidence = {
-        test_id: _normalize_evidence_refs(evidence)
-        for test_id, evidence in evidence_by_test.items()
+        test_id: _normalize_evidence_refs(evidence_by_test.get(test_id, []))
+        for test_id in all_test_ids
     }
     mapped_evidence = {
         test_id: evidence
@@ -211,18 +253,22 @@ def classify_candidates(
             source="classify_candidates.equivalence",
         )
 
-    class_order = [
-        "redundant_by_evidence",
-        "equivalent_witness",
-        "obsolete_candidate",
-        "unmapped",
-    ]
-    class_rank = {name: idx for idx, name in enumerate(class_order)}
-    candidates: list[dict[str, object]] = []
-    for test_id in sort_once(
-        normalized_evidence,
-        source="classify_candidates.normalized_evidence",
-    ):
+    pareto_winner_by_key: dict[tuple[str, ...], str] = {}
+    for key, peers in equivalence.items():
+        if len(peers) <= 1:
+            continue
+        pareto_winner_by_key[key] = _pareto_winner(
+            peers,
+            options=resolved_options,
+        )
+
+    stale_candidates: list[dict[str, object]] = []
+    active_tests: set[str] = set()
+    pareto_frontier_tests: set[str] = set()
+    branch_guard_retained = 0
+    high_risk_guardrail_retained = 0
+    unresolved_obsolete = 0
+    for test_id in all_test_ids:
         evidence = normalized_evidence.get(test_id, [])
         evidence_display = [ref.display for ref in evidence]
         opaque_evidence = [ref.display for ref in evidence if ref.opaque]
@@ -230,44 +276,212 @@ def classify_candidates(
         doms = dominators.get(test_id, [])
         guardrail_evidence = last_witness_by_test.get(test_id, [])
         reason: dict[str, object] = {"evidence": evidence_display}
+        unresolved_requested = test_id in resolved_options.unresolved_test_ids
         if status != "mapped" or not evidence:
             class_name = "unmapped"
             reason["status"] = status
             doms = []
-        else:
-            peers = equivalence.get(tuple(ref.identity for ref in evidence), [])
-            has_equivalent = len(peers) > 1
-            if doms:
-                class_name = "redundant_by_evidence"
-            elif has_equivalent:
-                class_name = "equivalent_witness"
-                reason["equivalence_class_size"] = len(peers)
-            else:
+            if unresolved_requested:
                 class_name = "obsolete_candidate"
-            if doms and guardrail_evidence:
-                class_name = "obsolete_candidate"
+                reason["resolution"] = "unresolved"
+                reason["stale_from"] = "unmapped"
+                unresolved_obsolete += 1
+            if opaque_evidence:
+                reason["opaque_evidence"] = opaque_evidence
+            stale_candidates.append(
+                {
+                    "test_id": test_id,
+                    "class": class_name,
+                    "dominators": doms,
+                    "reason": reason,
+                }
+            )
+            continue
+
+        evidence_key = tuple(ref.identity for ref in evidence)
+        peers = equivalence.get(evidence_key, [])
+        has_equivalent = len(peers) > 1
+        if doms:
+            if guardrail_evidence and not unresolved_requested:
                 reason["guardrail"] = "high-risk-last-witness"
                 reason["guardrail_evidence"] = guardrail_evidence
-        if opaque_evidence:
-            reason["opaque_evidence"] = opaque_evidence
-        candidates.append(
-            {
-                "test_id": test_id,
-                "class": class_name,
-                "dominators": doms,
-                "reason": reason,
-            }
-        )
-    candidates = sort_once(
-        candidates,
-        source="classify_candidates.candidates",
+                active_tests.add(test_id)
+                high_risk_guardrail_retained += 1
+                continue
+            if _is_branch_guarded(test_id, options=resolved_options) and not unresolved_requested:
+                reason["branch_guard"] = True
+                branch_guard_retained += 1
+                active_tests.add(test_id)
+                continue
+            class_name = "redundant_by_evidence"
+            if unresolved_requested:
+                class_name = "obsolete_candidate"
+                reason["resolution"] = "unresolved"
+                reason["stale_from"] = "redundant_by_evidence"
+                unresolved_obsolete += 1
+            if guardrail_evidence:
+                reason["guardrail"] = "high-risk-last-witness"
+                reason["guardrail_evidence"] = guardrail_evidence
+            if opaque_evidence:
+                reason["opaque_evidence"] = opaque_evidence
+            stale_candidates.append(
+                {
+                    "test_id": test_id,
+                    "class": class_name,
+                    "dominators": doms,
+                    "reason": reason,
+                }
+            )
+            continue
+
+        if has_equivalent:
+            class_name = "equivalent_witness"
+            reason["equivalence_class_size"] = len(peers)
+            winner = pareto_winner_by_key.get(evidence_key, "")
+            if winner:
+                reason["pareto_winner"] = winner
+            if winner == test_id and not unresolved_requested:
+                active_tests.add(test_id)
+                pareto_frontier_tests.add(test_id)
+                continue
+            if unresolved_requested:
+                class_name = "obsolete_candidate"
+                reason["resolution"] = "unresolved"
+                reason["stale_from"] = "equivalent_witness"
+                unresolved_obsolete += 1
+            if opaque_evidence:
+                reason["opaque_evidence"] = opaque_evidence
+            stale_candidates.append(
+                {
+                    "test_id": test_id,
+                    "class": class_name,
+                    "dominators": doms,
+                    "reason": reason,
+                }
+            )
+            continue
+
+        if unresolved_requested:
+            reason["resolution"] = "unresolved"
+            reason["stale_from"] = "active_candidate"
+            unresolved_obsolete += 1
+            if opaque_evidence:
+                reason["opaque_evidence"] = opaque_evidence
+            stale_candidates.append(
+                {
+                    "test_id": test_id,
+                    "class": "obsolete_candidate",
+                    "dominators": doms,
+                    "reason": reason,
+                }
+            )
+            continue
+
+        active_tests.add(test_id)
+        pareto_frontier_tests.add(test_id)
+
+    stale_candidates = sort_once(
+        stale_candidates,
+        source="classify_candidates.stale_candidates",
         key=lambda entry: (
-            class_rank.get(str(entry.get("class", "")), 99),
+            _STALE_CLASS_RANK.get(str(entry.get("class", "")), 99),
             str(entry.get("test_id", "")),
         ),
     )
-    summary = _summarize_candidates(candidates, class_rank)
-    return candidates, summary
+    stale_summary = _summarize_candidates(stale_candidates, _STALE_CLASS_RANK)
+    active_tests_ordered = sort_once(
+        active_tests,
+        source="classify_candidates.active_tests",
+    )
+    active_summary = {
+        "active_total": len(active_tests_ordered),
+        "pareto_frontier_total": len(pareto_frontier_tests),
+        "branch_guard_retained": branch_guard_retained,
+        "high_risk_guardrail_retained": high_risk_guardrail_retained,
+        "unresolved_obsolete": unresolved_obsolete,
+    }
+    return ClassificationResult(
+        stale_candidates=stale_candidates,
+        stale_summary=stale_summary,
+        active_tests=active_tests_ordered,
+        active_summary=active_summary,
+    )
+
+
+def _is_branch_guarded(test_id: str, *, options: ClassifierOptions) -> bool:
+    branch_guard_by_test = options.branch_guard_by_test
+    if branch_guard_by_test is None:
+        return options.default_keep_for_branch_guard
+    value = branch_guard_by_test.get(test_id)
+    if value is None:
+        return options.default_keep_for_branch_guard
+    return bool(value)
+
+
+def _runtime_ms(test_id: str, *, options: ClassifierOptions) -> float:
+    runtime_ms_by_test = options.runtime_ms_by_test
+    if runtime_ms_by_test is None:
+        return float("inf")
+    value = runtime_ms_by_test.get(test_id)
+    if value is None:
+        return float("inf")
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return float("inf")
+    if parsed < 0:
+        return float("inf")
+    return parsed
+
+
+def _pareto_winner(peers: list[str], *, options: ClassifierOptions) -> str:
+    novelty_by_test = {test_id: 0 for test_id in peers}
+    ordered = sort_once(
+        peers,
+        source="_pareto_winner.peers",
+        key=lambda test_id: _pareto_sort_key(
+            test_id,
+            novelty=novelty_by_test.get(test_id, 0),
+            options=options,
+        ),
+    )
+    if not ordered:
+        return ""
+    return str(ordered[0])
+
+
+def _pareto_sort_key(
+    test_id: str,
+    *,
+    novelty: int,
+    options: ClassifierOptions,
+) -> tuple[object, ...]:
+    runtime_ms = _runtime_ms(test_id, options=options)
+    runtime_key = runtime_ms if options.prefer_lower_runtime_ms else -runtime_ms
+    lexical_key: object = test_id
+    if not options.lexical_test_id_ascending:
+        lexical_key = tuple(-ord(char) for char in test_id)
+    parts: list[object] = []
+    for metric in options.objective_order:
+        if metric == "evidence_novelty":
+            parts.append(-int(novelty))
+            continue
+        if metric == "branch_guard":
+            parts.append(0 if _is_branch_guarded(test_id, options=options) else 1)
+            continue
+        if metric == "runtime_ms":
+            parts.append(runtime_key)
+            continue
+        if metric == "test_id":
+            parts.append(lexical_key)
+            continue
+    if not parts:
+        parts = [
+            0 if _is_branch_guarded(test_id, options=options) else 1,
+            runtime_key,
+            lexical_key,
+        ]
+    return tuple(parts)
 
 
 def render_markdown(
@@ -344,12 +558,11 @@ def render_json_payload(
     }
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_SUMMARY_SPEC)
 
-
 def _summarize_candidates(
     candidates: list[dict[str, object]],
     class_rank: dict[str, int],
     *,
-    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] | None = None,
+    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] = apply_spec,
 ) -> dict[str, int]:
     check_deadline()
     relation: list[dict[str, object]] = []
@@ -361,8 +574,7 @@ def _summarize_candidates(
                 "class_rank": class_rank.get(class_name, 99),
             }
         )
-    apply_fn = apply or apply_spec
-    summary_rows = apply_fn(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
+    summary_rows = apply(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
     summary = {
         "redundant_by_evidence": 0,
         "equivalent_witness": 0,
@@ -379,7 +591,7 @@ def _summarize_candidates(
             summary[class_name] = count
     return summary
 
-
+# gabion:ambiguity_boundary
 def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
     check_deadline()
     if value is None:

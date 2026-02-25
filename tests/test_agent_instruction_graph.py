@@ -16,6 +16,7 @@ def _doc(*, revision: int, reviewed: dict[str, int], body: str) -> audit_tools.D
     )
 
 
+# gabion:evidence E:function_site::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph E:decision_surface/direct::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph::stale_eaa890508e34
 def test_agent_instruction_graph_reports_drift_categories(tmp_path: Path) -> None:
     docs = {
         "AGENTS.md": _doc(
@@ -71,6 +72,7 @@ def test_agent_instruction_graph_reports_drift_categories(tmp_path: Path) -> Non
     assert payload["summary"]["scoped_delta_violations"] == 1
 
 
+# gabion:evidence E:function_site::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph E:decision_surface/direct::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph::stale_e67de1f8ca1f_457c58da
 def test_agent_instruction_graph_allows_explicit_scoped_delta(tmp_path: Path) -> None:
     docs = {
         "AGENTS.md": _doc(
@@ -98,6 +100,7 @@ def test_agent_instruction_graph_allows_explicit_scoped_delta(tmp_path: Path) ->
     assert "scoped AGENTS directives must be canonical or explicit deltas" not in "\n".join(violations)
 
 
+# gabion:evidence E:function_site::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph E:decision_surface/direct::governance_audit.py::gabion.tooling.governance_audit._agent_instruction_graph::stale_82d5855095e4
 def test_agent_instruction_graph_uses_anchor_revision_when_available(tmp_path: Path) -> None:
     docs = {
         "AGENTS.md": audit_tools.Doc(

@@ -11,6 +11,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+# gabion:evidence E:function_site::governance_telemetry_emit.py::scripts.governance_telemetry_emit.main E:decision_surface/direct::governance_telemetry_emit.py::scripts.governance_telemetry_emit.main::stale_c2ac1aba5bc9_61694c3d
 def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     docflow = tmp_path / "artifacts/out/docflow_compliance_delta.json"
     obsolescence = tmp_path / "artifacts/out/test_obsolescence_delta.json"
@@ -73,6 +74,7 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     assert "Convergence SLOs" in markdown.read_text(encoding="utf-8")
 
 
+# gabion:evidence E:function_site::governance_telemetry_emit.py::scripts.governance_telemetry_emit.main E:decision_surface/direct::governance_telemetry_emit.py::scripts.governance_telemetry_emit.main::stale_6f6e142c28ec
 def test_emit_governance_telemetry_sets_trends_from_history(tmp_path: Path) -> None:
     docflow = tmp_path / "docflow_delta.json"
     branchless = tmp_path / "branchless.json"

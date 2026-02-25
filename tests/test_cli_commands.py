@@ -40,6 +40,7 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     assert "delta-triplets" in result.output
     assert "docflow-delta-emit" in result.output
     assert "ambiguity-contract-gate" in result.output
+    assert "normative-symdiff" in result.output
     assert "impact-select-tests" in result.output
     assert "run-dataflow-stage" in result.output
 
@@ -52,6 +53,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         "delta-triplets",
         "docflow-delta-emit",
         "ambiguity-contract-gate",
+        "normative-symdiff",
         "impact-select-tests",
         "run-dataflow-stage",
     ):
@@ -83,6 +85,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
 
     argv_seen: list[list[str]] = []
     ambiguity_args: list[list[str]] = []
+    symdiff_args: list[list[str]] = []
     with cli._tooling_runner_override(
         no_arg={
             "delta-state-emit": lambda: 11,
@@ -91,6 +94,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
         },
         with_argv={
             "ambiguity-contract-gate": lambda argv: (ambiguity_args.append(list(argv or [])) or 16),
+            "normative-symdiff": lambda argv: (symdiff_args.append(list(argv or [])) or 17),
             "impact-select-tests": lambda argv: (argv_seen.append(list(argv or [])) or 14),
             "run-dataflow-stage": lambda argv: (_ for _ in ()).throw(SystemExit(15)),
         },
@@ -108,6 +112,9 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             cli.ambiguity_contract_gate(_Ctx(["--root", ".", "--baseline", "b.json"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 16
         with pytest.raises(typer.Exit) as exc:
+            cli.normative_symdiff(_Ctx(["--root", ".", "--json-out", "out.json"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 17
+        with pytest.raises(typer.Exit) as exc:
             cli.impact_select_tests(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 14
         with pytest.raises(typer.Exit) as exc:
@@ -116,6 +123,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
 
     assert argv_seen == [["--root", "."]]
     assert ambiguity_args == [["--root", ".", "--baseline", "b.json"]]
+    assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_tooling_runner_override_ignores_non_mapping_overrides::cli.py::gabion.cli._tooling_runner_override
@@ -138,29 +146,32 @@ def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> No
     transport_before = transport_policy.transport_override()
     try:
         cli.configure_runtime_flags(
-            transport=cli.CliTransportMode.direct,
-            direct_run_override_evidence="audit://override/evidence",
-            override_record_json="{}",
-            lsp_timeout_ticks=10,
-            lsp_timeout_tick_ns=20,
-            lsp_timeout_ms=None,
-            lsp_timeout_seconds=None,
+            timeout="200ns",
+            carrier=cli.CliTransportMode.direct,
+            carrier_override_record=Path("overrides/record.json"),
+            removed_lsp_timeout_ticks=None,
+            removed_lsp_timeout_tick_ns=None,
+            removed_lsp_timeout_ms=None,
+            removed_lsp_timeout_seconds=None,
+            removed_transport=None,
+            removed_direct_run_override_evidence=None,
+            removed_override_record_json=None,
         )
         timeout_override = env_policy.lsp_timeout_override()
         transport_override = transport_policy.transport_override()
         assert timeout_override is not None
-        assert timeout_override.ticks == 10
-        assert timeout_override.tick_ns == 20
+        assert timeout_override.ticks == 1
+        assert timeout_override.tick_ns == 1_000_000
         assert transport_override is not None
         assert transport_override.direct_requested is True
-        assert transport_override.direct_override_evidence == "audit://override/evidence"
-        assert transport_override.override_record_json == "{}"
+        assert transport_override.override_record_path == "overrides/record.json"
+        assert transport_override.override_record_json is None
     finally:
         env_policy.set_lsp_timeout_override(timeout_before)
         transport_policy.set_transport_override(transport_before)
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_fe77309ae8a6_eaff81bd
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -179,12 +190,15 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     result = _invoke(
         runner,
         [
+            "--carrier",
+            "lsp",
             "check",
+            "run",
             str(module),
             "--root",
             str(tmp_path),
-            "--no-fail-on-violations",
-            "--no-fail-on-type-ambiguities",
+            "--gate",
+            "none",
         ],
     )
     assert result.exit_code == 0
@@ -192,9 +206,11 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     result = _invoke(
         runner,
         [
+            "--carrier",
+            "lsp",
             "check",
-            "--profile",
             "raw",
+            "--",
             str(module),
             "--root",
             str(tmp_path),
@@ -219,7 +235,7 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     assert "Type ambiguities" in result.output
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_0f3883f99dda
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_json(tmp_path: Path) -> None:
     src = tmp_path / "src"
@@ -377,7 +393,7 @@ def test_cli_dataflow_audit_command_is_removed() -> None:
     assert result.exit_code != 0
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_eb2b6007df89
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -443,7 +459,7 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     assert output_path.exists()
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_daabf20e679c
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
@@ -467,7 +483,7 @@ def test_cli_structure_diff(tmp_path: Path) -> None:
     assert "\"diff\"" in result.output
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_71868ab0baee
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -517,7 +533,7 @@ def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     assert "Invalid JSON payload" in result.output
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_b8d0dddbecae
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
@@ -535,7 +551,7 @@ def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     assert result.output.strip().startswith("{")
 
 
-# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_530c5ee02284
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"

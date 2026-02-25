@@ -18,7 +18,7 @@ def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     assert evidence.normalize_bundle_key(("a", "b")) == "a,b"
     assert evidence.normalize_bundle_key({"b", "a"}) == "a,b"
 
-# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::stale_e2867cee89d9
 def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     evidence = _load()
 

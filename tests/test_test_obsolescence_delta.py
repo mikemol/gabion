@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -22,23 +23,29 @@ def test_build_baseline_payload_roundtrip(
         "tests/test_alpha.py::test_a": "mapped",
         "tests/test_beta.py::test_b": "mapped",
     }
-    candidates, summary = test_obsolescence.classify_candidates(
+    classification = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
     payload = test_obsolescence_delta.build_baseline_payload(
-        evidence_by_test, status_by_test, candidates, summary
+        evidence_by_test,
+        status_by_test,
+        classification.stale_candidates,
+        classification.stale_summary,
+        active_tests=classification.active_tests,
+        active_summary=classification.active_summary,
     )
     baseline = test_obsolescence_delta.parse_baseline_payload(payload)
     assert payload["version"] == test_obsolescence_delta.BASELINE_VERSION
     assert payload["generated_by_spec_id"]
     assert payload["generated_by_spec"]
-    assert baseline.summary["obsolete_candidate"] == 2
-    assert baseline.tests["tests/test_alpha.py::test_a"] == "obsolete_candidate"
+    assert baseline.summary["obsolete_candidate"] == 0
+    assert baseline.tests == {}
+    assert baseline.active["summary"]["active_total"] == 2
     assert baseline.opaque_evidence_count == 1
     assert len(baseline.evidence_index) == 2
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_d66185f4e6fa
 def test_delta_payload_detects_changes() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])
@@ -136,10 +143,70 @@ def test_render_markdown_includes_spec_metadata() -> None:
     assert "generated_by_spec:" in report
 
 
-# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_c572e23c93c8
 def test_parse_baseline_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_delta.parse_baseline_payload({"version": "bad"})
+
+
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_cc8a9fb52fb7_b91548fb
+def test_parse_baseline_payload_accepts_v1_and_v2() -> None:
+    payload_v1 = {
+        "version": 1,
+        "summary": {"unmapped": 1},
+        "tests": [{"test_id": "t1", "class": "unmapped"}],
+        "evidence_index": [],
+        "opaque_evidence_count": 0,
+        "generated_by_spec_id": "v1",
+        "generated_by_spec": {},
+    }
+    parsed_v1 = test_obsolescence_delta.parse_baseline_payload(payload_v1)
+    assert parsed_v1.summary["unmapped"] == 1
+    assert parsed_v1.active == {}
+
+    payload_v2 = {
+        "version": 2,
+        "summary": {"unmapped": 0},
+        "tests": [],
+        "active": {"summary": {"active_total": 3}},
+        "evidence_index": [],
+        "opaque_evidence_count": 0,
+        "generated_by_spec_id": "v2",
+        "generated_by_spec": {},
+    }
+    parsed_v2 = test_obsolescence_delta.parse_baseline_payload(payload_v2)
+    assert parsed_v2.summary["unmapped"] == 0
+    assert parsed_v2.active["summary"]["active_total"] == 3
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_baseline_payload_omits_empty_active_metadata::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_baseline_payload
+def test_build_baseline_payload_omits_empty_active_metadata() -> None:
+    payload = test_obsolescence_delta.build_baseline_payload(
+        evidence_by_test={"t1": []},
+        status_by_test={"t1": "mapped"},
+        candidates=[{"test_id": "t1", "class": "unmapped"}],
+        summary_counts={"unmapped": 1},
+    )
+    assert payload["tests"] == [{"test_id": "t1", "class": "unmapped"}]
+    assert "active" not in payload
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_normalize_active_metadata_handles_invalid_inputs::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_active_metadata
+def test_normalize_active_metadata_handles_invalid_inputs() -> None:
+    assert test_obsolescence_delta._normalize_active_metadata([]) == {}
+    assert (
+        test_obsolescence_delta._normalize_active_metadata(
+            {"tests": "bad", "summary": []}
+        )
+        == {}
+    )
+    normalized = test_obsolescence_delta._normalize_active_metadata(
+        {
+            "tests": [1, "", "b", "a", "b"],
+            "summary": {1: 2, "active_total": "3"},
+        }
+    )
+    assert normalized == {"tests": ["a", "b"], "summary": {"active_total": 3}}
 
 
 # gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline
@@ -167,7 +234,7 @@ def test_helpers_cover_edge_cases() -> None:
     )
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_8098d92df5ab
 def test_build_evidence_index_merges_displays() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -196,7 +263,7 @@ def test_build_evidence_index_merges_displays() -> None:
     assert entries[0]["witness_count"] == 2
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_6d752f1b4bee
 def test_parse_evidence_index_merges_duplicates() -> None:
     key = evidence_keys.make_paramset_key(["y"])
     entry_a = {"key": key, "display": "Z", "witness_count": 1}
@@ -209,7 +276,7 @@ def test_parse_evidence_index_merges_duplicates() -> None:
     assert parsed[identity].display == "A"
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_a19a5554d0bc
 def test_render_markdown_with_entries() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])
@@ -270,7 +337,7 @@ def test_render_markdown_with_entries() -> None:
     assert evidence_keys.render_display(key_b) in report
 
 
-# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_368f8bfe951a
 def test_parse_baseline_payload_filters_invalid_entries() -> None:
     payload = {
         "version": 1,
@@ -351,7 +418,7 @@ def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
     assert baseline_path == tmp_path / test_obsolescence_delta.BASELINE_RELATIVE_PATH
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "version": 1,
+        "version": test_obsolescence_delta.BASELINE_VERSION,
         "summary": {},
         "tests": [],
         "evidence_index": [],
@@ -383,14 +450,16 @@ def test_render_markdown_includes_baseline_path_when_present() -> None:
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_baseline_payload_from_paths_calls_obsolescence_pipeline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_baseline_payload_from_paths
 def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None:
     observed: dict[str, object] = {}
-    expected_payload = {"version": 1}
+    expected_payload = {"version": 2}
     evidence_by_test = {"t": []}
     status_by_test = {"t": "mapped"}
     candidates = [{"test_id": "t", "class": "obsolete_candidate"}]
     summary = {"obsolete_candidate": 1}
+    active_tests = ["a"]
+    active_summary = {"active_total": 1, "pareto_frontier_total": 1}
 
-    def _build(ev, st, cand, summ):
-        observed["args"] = (ev, st, cand, summ)
+    def _build(ev, st, cand, summ, **kwargs):
+        observed["args"] = (ev, st, cand, summ, kwargs)
         return expected_payload
 
     payload = test_obsolescence_delta.build_baseline_payload_from_paths(
@@ -398,11 +467,22 @@ def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None
         "risk.json",
         load_test_evidence_fn=lambda _path: (evidence_by_test, status_by_test),
         load_risk_registry_fn=lambda _path: {"E:x": object()},
-        classify_candidates_fn=lambda ev, st, rr: (candidates, summary),
+        classify_candidates_fn=lambda ev, st, rr: test_obsolescence.ClassificationResult(
+            stale_candidates=candidates,
+            stale_summary=summary,
+            active_tests=active_tests,
+            active_summary=active_summary,
+        ),
         build_baseline_payload_fn=_build,
     )
     assert payload == expected_payload
-    assert observed["args"] == (evidence_by_test, status_by_test, candidates, summary)
+    assert observed["args"] == (
+        evidence_by_test,
+        status_by_test,
+        candidates,
+        summary,
+        {"active_tests": active_tests, "active_summary": active_summary},
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._build_evidence_index
@@ -441,3 +521,124 @@ def test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order() 
         {"t1": "mapped", "t2": "mapped"},
     )
     assert rows[0]["display"] == display
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_resolution_worklist_reports_dispositions_and_actions::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_resolution_worklist
+def test_build_resolution_worklist_reports_dispositions_and_actions() -> None:
+    baseline = test_obsolescence_delta.ObsolescenceBaseline(
+        summary={
+            "redundant_by_evidence": 1,
+            "equivalent_witness": 1,
+            "obsolete_candidate": 1,
+            "unmapped": 1,
+        },
+        tests={
+            "t_unmapped": "unmapped",
+            "t_redundant": "redundant_by_evidence",
+            "t_equivalent": "equivalent_witness",
+            "t_obsolete": "obsolete_candidate",
+            "t_unknown": "custom",
+        },
+        active={},
+        evidence_index={},
+        opaque_evidence_count=0,
+        generated_by_spec_id="base",
+        generated_by_spec={},
+    )
+    classification = test_obsolescence.ClassificationResult(
+        stale_candidates=[
+            {"test_id": "t_unmapped", "class": "unmapped"},
+            {"test_id": "t_redundant", "class": "redundant_by_evidence"},
+            {"test_id": "t_obsolete", "class": "obsolete_candidate"},
+        ],
+        stale_summary={
+            "redundant_by_evidence": 1,
+            "equivalent_witness": 0,
+            "obsolete_candidate": 1,
+            "unmapped": 1,
+        },
+        active_tests=["t_equivalent"],
+        active_summary={},
+    )
+    payload = test_obsolescence_delta.build_resolution_worklist(baseline, classification)
+    assert payload["summary"]["baseline_total"] == 5
+    assert payload["summary"]["resolved_total"] == 2
+    assert payload["summary"]["remaining_stale_total"] == 3
+    rows = {row["test_id"]: row for row in payload["rows"]}
+    assert rows["t_unmapped"]["proposed_action"] == "map_evidence"
+    assert rows["t_unmapped"]["final_disposition"] == "stale_unmapped"
+    assert rows["t_redundant"]["proposed_action"] == "merge_or_prune"
+    assert rows["t_redundant"]["final_disposition"] == "stale_overlap"
+    assert rows["t_equivalent"]["proposed_action"] == "pareto_keep_one"
+    assert rows["t_equivalent"]["final_disposition"] == "retained_active"
+    assert rows["t_obsolete"]["proposed_action"] == "resolve_or_remove"
+    assert rows["t_obsolete"]["final_disposition"] == "stale_unresolved"
+    assert rows["t_unknown"]["proposed_action"] == "review"
+    assert rows["t_unknown"]["final_disposition"] == "removed_or_missing"
+
+
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_resolution_worklist_from_paths_end_to_end::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_resolution_worklist_from_paths
+def test_build_resolution_worklist_from_paths_end_to_end(tmp_path: Path) -> None:
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "summary": {"unmapped": 1},
+                "tests": [{"test_id": "t1", "class": "unmapped"}],
+                "evidence_index": [],
+                "opaque_evidence_count": 0,
+                "generated_by_spec_id": "base",
+                "generated_by_spec": {},
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    evidence_path = tmp_path / "test_evidence.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "scope": {"root": ".", "include": [], "exclude": []},
+                "tests": [
+                    {
+                        "test_id": "t1",
+                        "file": "tests/test_sample.py",
+                        "line": 1,
+                        "evidence": [],
+                        "status": "unmapped",
+                    }
+                ],
+                "evidence_index": [],
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    risk_registry_path = tmp_path / "risk_registry.json"
+    risk_registry_path.write_text(
+        json.dumps(
+            {"version": 1, "evidence": {}},
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    payload = test_obsolescence_delta.build_resolution_worklist_from_paths(
+        baseline_path=str(baseline_path),
+        evidence_path=str(evidence_path),
+        risk_registry_path=str(risk_registry_path),
+    )
+    assert payload["summary"]["baseline_total"] == 1
+    assert payload["rows"] == [
+        {
+            "test_id": "t1",
+            "baseline_class": "unmapped",
+            "current_class": "unmapped",
+            "proposed_action": "map_evidence",
+            "final_disposition": "stale_unmapped",
+        }
+    ]

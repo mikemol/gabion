@@ -1,5 +1,5 @@
 ---
-doc_revision: 104
+doc_revision: 106
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -298,19 +298,19 @@ Commands below assume the package is installed (editable) or `PYTHONPATH=src`.
 
 Run the dataflow grammar audit (strict defaults):
 ```
-mise exec -- python -m gabion check
+mise exec -- python -m gabion check run
 ```
-`gabion check` writes a Markdown report to
+`gabion check run` writes a Markdown report to
 `artifacts/audit_reports/dataflow_report.md` by default, and fails on type
 ambiguities for this repo.
 Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to allowlist existing violations and
-`--baseline-write` to generate/update the baseline (ratchet mode). Baseline
+`--baseline-mode enforce|write` to enforce/write the baseline (ratchet mode). Baseline
 writes are a local, explicit action and should not run in CI.
 
 For local edit→check loops, use a persistent resume checkpoint to keep caches warm:
 ```
-mise exec -- python -m gabion check \
+mise exec -- python -m gabion check run \
   --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
   --resume-on-timeout 1
 ```
@@ -323,7 +323,7 @@ Recommended practice:
 
 Run the dataflow grammar audit (prototype):
 ```
-mise exec -- python -m gabion check --profile raw path/to/project
+mise exec -- python -m gabion check raw -- path/to/project
 ```
 Defaults live in `gabion.toml` (see `[dataflow]`).
 `in/` (inspiration) is excluded from enforcement there by default.
@@ -332,6 +332,17 @@ summary section to the Markdown report. Use `--synthesis-protocols` to emit
 dataclass stubs (prototype) for review.
 Use `--refactor-plan` to append a per-bundle refactoring schedule and
 `--refactor-plan-json` to emit the JSON plan.
+
+Modality commands replace the legacy check-flag matrix:
+```
+mise exec -- python -m gabion check obsolescence delta --baseline baselines/test_obsolescence_baseline.json
+mise exec -- python -m gabion check annotation-drift baseline-write --baseline baselines/test_annotation_drift_baseline.json
+mise exec -- python -m gabion check ambiguity state
+```
+Global runtime controls are now:
+- `--timeout <duration>` (for example `750ms`, `2s`, `1m30s`)
+- `--carrier {lsp|direct}`
+- `--carrier-override-record <path>`
 
 Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
 ```
@@ -349,6 +360,14 @@ Run governance graph/status checks through the same CLI entrypoint:
 mise exec -- python -m gabion sppf-graph
 mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
+
+Generate a normative-docs versus code/tooling symmetric-difference report:
+```
+mise exec -- python -m gabion normative-symdiff --root .
+```
+Default artifacts:
+- `artifacts/out/normative_symdiff.json`
+- `artifacts/audit_reports/normative_symdiff.md`
 
 Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
 `docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
@@ -545,7 +564,7 @@ make audit-latest
 
 ## CI
 The GitHub-hosted workflow in `.github/workflows/ci.yml` runs:
-- `gabion check`
+- `gabion check run`
 - docflow audit
 - pytest
 

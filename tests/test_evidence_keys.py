@@ -3,7 +3,7 @@ from __future__ import annotations
 from gabion.analysis import evidence_keys
 
 
-# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
+# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::stale_ec72a1e8e1cf
 def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.normalize_params([" b", "a", "a", ""]) == ["a", "b"]
     assert evidence_keys.normalize_param_string("b, a ,") == "a,b"
@@ -109,7 +109,7 @@ def test_make_partition_witness_key_handles_missing_support_and_collapse() -> No
     assert "collapse" not in payload
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.render_display::stale_2bcfc7944874
 def test_render_display_handles_non_list_params() -> None:
     def fake_normalize_key(_key):
         return {"k": "paramset", "params": "oops"}
@@ -122,7 +122,7 @@ def test_render_display_handles_non_list_params() -> None:
     )
 
 
-# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
+# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::stale_851a3f712d8b
 def test_parse_display_variants() -> None:
     assert evidence_keys.parse_display("nope") is None
     assert evidence_keys.parse_display("E:") is None
@@ -204,7 +204,7 @@ def test_parse_display_variants() -> None:
     )
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque::stale_8ea4cdea5f41
 def test_is_opaque() -> None:
     assert evidence_keys.is_opaque({"k": "opaque", "s": "X"}) is True
     assert evidence_keys.is_opaque({"k": "paramset", "params": ["a"]}) is False
@@ -264,7 +264,7 @@ def test_normalize_span_and_site_edges() -> None:
     assert evidence_keys._normalize_site("bad") == {"path": "", "qual": ""}
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.render_display::stale_be49e67f876d
 def test_render_display_call_footprint_skips_invalid_targets() -> None:
     def fake_normalize(_key):
         return {
@@ -277,7 +277,7 @@ def test_render_display_call_footprint_skips_invalid_targets() -> None:
     assert display == "E:call_footprint::tests/test.py::test::p::q"
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.render_display::stale_0812ef4c0d43
 def test_render_display_call_cluster_skips_invalid_targets() -> None:
     def fake_normalize(_key):
         return {
@@ -314,14 +314,14 @@ def test_render_display_handles_non_list_targets_payloads() -> None:
     )
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.parse_display::stale_c48bb9063e2c
 def test_parse_display_ambiguity_edges() -> None:
     assert evidence_keys.parse_display("E:ambiguity_set") is None
     assert evidence_keys.parse_display("E:ambiguity_set::123") is None
     assert evidence_keys.parse_display("E:partition_witness") is None
     assert evidence_keys.parse_display("E:partition_witness::123") is None
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key::stale_6437c76c3b7a
 def test_ambiguity_span_normalization_edges() -> None:
     key = evidence_keys.normalize_key(
         {

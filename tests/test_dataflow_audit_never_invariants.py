@@ -49,7 +49,7 @@ def test_summarize_never_invariants_filters_and_formats() -> None:
     assert "PROVEN_UNREACHABLE:" not in lines
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata::stale_04dc4af933bb
 def test_copy_forest_signature_metadata_marks_missing_signature() -> None:
     payload: dict[str, object] = {}
     snapshot: dict[str, object] = {}
@@ -58,7 +58,7 @@ def test_copy_forest_signature_metadata_marks_missing_signature() -> None:
     assert payload["forest_signature_basis"] == "missing"
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata::stale_adf687410d3a_80af993e
 def test_copy_forest_signature_metadata_copies_fields() -> None:
     payload: dict[str, object] = {}
     snapshot = {
@@ -70,7 +70,7 @@ def test_copy_forest_signature_metadata_copies_fields() -> None:
     assert payload["x_forest_signature_basis"] == "bundles_only"
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::stale_995039c30b7f
 def test_render_decision_snapshot_requires_forest(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         dataflow_audit.render_decision_snapshot(

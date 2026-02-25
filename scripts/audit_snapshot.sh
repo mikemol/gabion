@@ -34,7 +34,7 @@ lint_report="${artifacts_dir}/lint.txt"
 lint_jsonl="${artifacts_dir}/lint.jsonl"
 lint_sarif="${artifacts_dir}/lint.sarif"
 
-mise exec -- python -m gabion check --profile raw "$root" \
+mise exec -- python -m gabion check raw -- "$root" \
   --root "$root" \
   --report "$dataflow_report" \
   --dot "$dataflow_dot" \
@@ -51,7 +51,7 @@ mise exec -- python -m gabion check --profile raw "$root" \
   --fingerprint-rewrite-plans-json "$dataflow_fingerprint_rewrite_plans" \
   --fingerprint-exception-obligations-json "$dataflow_fingerprint_exception_obligations" \
   --fingerprint-handledness-json "$dataflow_fingerprint_handledness" \
-  --decision-snapshot "$decision_snapshot" \
+  --emit-decision-snapshot "$decision_snapshot" \
   --lint \
   --lint-jsonl "$lint_jsonl" \
   --lint-sarif "$lint_sarif" > "$lint_report"

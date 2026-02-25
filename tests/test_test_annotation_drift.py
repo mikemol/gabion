@@ -6,7 +6,7 @@ from pathlib import Path
 from gabion.analysis import evidence_keys, test_annotation_drift
 
 
-# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload
+# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload E:decision_surface/direct::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload::stale_6aee05fe5cd3
 def test_annotation_drift_orphaned(tmp_path: Path) -> None:
     test_file = tmp_path / "test_sample.py"
     test_file.write_text(
@@ -76,7 +76,7 @@ def test_annotation_drift_orphaned(tmp_path: Path) -> None:
     assert "orphaned" in report_md
 
 
-# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload
+# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload E:decision_surface/direct::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload::stale_aadd8423ac2a_f0495429
 def test_annotation_drift_legacy_ambiguous_and_missing(tmp_path: Path) -> None:
     test_file = tmp_path / "test_legacy.py"
     test_file.write_text(

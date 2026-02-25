@@ -5,7 +5,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 import os
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
+import re
 from typing import Sequence
 import warnings
 
@@ -22,6 +23,16 @@ LSP_TIMEOUT_ENV_KEYS: tuple[str, ...] = (
 )
 
 _LEGACY_TIMEOUT_ENV_WARNED = False
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+_DURATION_TOKEN_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)(?P<unit>ns|us|ms|s|m|h)")
+_DURATION_UNIT_NS: dict[str, Decimal] = {
+    "ns": Decimal("1"),
+    "us": Decimal("1000"),
+    "ms": Decimal("1000000"),
+    "s": Decimal("1000000000"),
+    "m": Decimal("60000000000"),
+    "h": Decimal("3600000000000"),
+}
 
 
 @dataclass(frozen=True)
@@ -122,6 +133,65 @@ def timeout_config_from_cli_flags(
     return LspTimeoutConfig(ticks=millis, tick_ns=1_000_000)
 
 
+def parse_duration_to_ns(duration: str, *, field_name: str = "timeout") -> int:
+    text = str(duration).strip().lower()
+    if not text:
+        never(f"invalid {field_name} duration", duration=duration)
+    idx = 0
+    total_ns = Decimal("0")
+    while idx < len(text):
+        match = _DURATION_TOKEN_RE.match(text, idx)
+        if match is None:
+            never(f"invalid {field_name} duration", duration=duration)
+        value_text = str(match.group("value"))
+        unit = str(match.group("unit"))
+        try:
+            value = Decimal(value_text)
+        except (InvalidOperation, ValueError):
+            never(f"invalid {field_name} duration", duration=duration)
+        if value <= 0:
+            never(f"invalid {field_name} duration", duration=duration)
+        unit_factor = _DURATION_UNIT_NS.get(unit)
+        if unit_factor is None:
+            never(f"invalid {field_name} duration", duration=duration)
+        total_ns += value * unit_factor
+        idx = match.end()
+    if total_ns <= 0:
+        never(f"invalid {field_name} duration", duration=duration)
+    total_ns_int = int(total_ns.to_integral_value(rounding=ROUND_CEILING))
+    if total_ns_int <= 0:
+        never(f"invalid {field_name} duration", duration=duration)
+    return total_ns_int
+
+
+def timeout_config_from_duration(duration: str) -> LspTimeoutConfig:
+    total_ns = parse_duration_to_ns(duration)
+    tick_ns = _DEFAULT_TIMEOUT_TICK_NS
+    ticks = (total_ns + tick_ns - 1) // tick_ns
+    return LspTimeoutConfig(ticks=ticks, tick_ns=tick_ns)
+
+
+def duration_text_from_ticks(*, ticks: int, tick_ns: int) -> str:
+    ticks_value = int(ticks)
+    tick_ns_value = int(tick_ns)
+    if ticks_value <= 0:
+        never("invalid timeout ticks", ticks=ticks)
+    if tick_ns_value <= 0:
+        never("invalid timeout tick_ns", tick_ns=tick_ns)
+    total_ns = ticks_value * tick_ns_value
+    if total_ns <= 0:
+        never("invalid timeout duration", ticks=ticks, tick_ns=tick_ns)
+    return f"{total_ns}ns"
+
+
+def apply_cli_timeout_flag(*, timeout: str | None = None) -> None:
+    timeout_text = str(timeout).strip() if isinstance(timeout, str) else ""
+    if not timeout_text:
+        set_lsp_timeout_override(None)
+        return
+    set_lsp_timeout_override(timeout_config_from_duration(timeout_text))
+
+
 def apply_cli_timeout_flags(
     *,
     ticks: int | None = None,
@@ -155,7 +225,7 @@ def _warn_legacy_timeout_env_usage() -> None:
     warnings.warn(
         (
             "Legacy GABION_LSP_TIMEOUT_* env overrides are deprecated. "
-            "Use CLI flags (--lsp-timeout-*) instead."
+            "Use CLI flag (--timeout) instead."
         ),
         DeprecationWarning,
         stacklevel=3,

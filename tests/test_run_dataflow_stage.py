@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import sys
 
 from gabion.commands import transport_policy
 from gabion.order_contract import ordered_or_sorted
@@ -88,11 +89,9 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
         resume_on_timeout=1,
         strictness="low",
     )
-    assert "--no-fail-on-violations" in command
-    assert "--no-fail-on-type-ambiguities" in command
-    assert "--emit-test-obsolescence-delta" in command
-    assert "--emit-test-annotation-drift-delta" in command
-    assert "--emit-ambiguity-delta" in command
+    assert command[:6] == [sys.executable, "-m", "gabion", "check", "obsolescence", "delta"]
+    assert "--baseline" in command
+    assert str(run_dataflow_stage._OBSOLESCENCE_BASELINE_PATH) in command
     assert "--strictness" in command
     assert "low" in command
 
@@ -106,8 +105,7 @@ def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> Non
         with transport_policy.transport_override_scope(
             transport_policy.TransportOverrideConfig(
                 direct_requested=False,
-                direct_override_evidence="audit://transport/override",
-                override_record_json="{\"actor\":\"ci\"}",
+                override_record_path="/tmp/override_record.json",
             )
         ):
             command = run_dataflow_stage._check_command(
@@ -115,16 +113,12 @@ def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> Non
                 resume_on_timeout=1,
                 strictness=None,
             )
-    assert "--lsp-timeout-ticks" in command
-    assert "101" in command
-    assert "--lsp-timeout-tick-ns" in command
-    assert "103" in command
-    assert "--transport" in command
+    assert "--timeout" in command
+    assert "10403ns" in command
+    assert "--carrier" in command
     assert "lsp" in command
-    assert "--direct-run-override-evidence" in command
-    assert "audit://transport/override" in command
-    assert "--override-record-json" in command
-    assert "{\"actor\":\"ci\"}" in command
+    assert "--carrier-override-record" in command
+    assert "/tmp/override_record.json" in command
 
 
 # gabion:evidence E:function_site::test_run_dataflow_stage.py::tests.test_run_dataflow_stage.test_check_command_uses_env_timeout_fallback_when_context_missing
@@ -143,10 +137,8 @@ def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: 
             resume_on_timeout=1,
             strictness=None,
         )
-    assert "--lsp-timeout-ticks" in command
-    assert "31" in command
-    assert "--lsp-timeout-tick-ns" in command
-    assert "37" in command
+    assert "--timeout" in command
+    assert "1147ns" in command
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text

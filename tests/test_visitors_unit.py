@@ -89,7 +89,7 @@ def _make_visitor(
     )
     return visitor, use_map, alias_to_param, call_args
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_c9e4658f354c
 def test_usevisitor_star_forwarding_low_strictness() -> None:
     tree = ast.parse(
         "def f(a, b, *args, **kwargs):\n"
@@ -101,7 +101,7 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("args[*]", "arg[*]") in use_map["args"].direct_forward
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_448fffe8c18f
 def test_usevisitor_span_adjusts_zero_width_call() -> None:
     tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
@@ -186,7 +186,7 @@ def test_alias_from_call_rejects_starred() -> None:
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
     assert visitor._alias_from_call(call) is None
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_037c74baf336_caa2b59e
 def test_attribute_and_subscript_forwarding() -> None:
     tree = ast.parse(
         "def f(a):\n"
@@ -203,7 +203,7 @@ def test_attribute_and_subscript_forwarding() -> None:
     assert ("h", "arg[0]") in use_map["a"].direct_forward
     assert use_map["a"].non_forward is True
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_5817f21a439e
 def test_bind_sequence_mismatch_marks_non_forward() -> None:
     tree = ast.parse("def f(a, b):\n    pass\n")
     visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
@@ -275,7 +275,7 @@ def test_project_visitor_node_entry_respects_gas_meter() -> None:
                     ParentAnnotator().visit(tree)
     assert meter.current == 1
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_f5986306529c
 def test_subscript_forwarding_normalizes_const_keys() -> None:
     tree = ast.parse(
         "def f(a, b):\n"
@@ -297,7 +297,7 @@ def test_subscript_forwarding_normalizes_const_keys() -> None:
     assert ("i", "arg[0]") in use_map["b"].direct_forward
 
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_ac00f0644af0
 def test_subscript_dynamic_key_marks_uncertainty() -> None:
     tree = ast.parse(
         "def f(a, b, k):\n"
@@ -312,7 +312,7 @@ def test_subscript_dynamic_key_marks_uncertainty() -> None:
     assert use_map["b"].unknown_key_sites
 
 
-# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_42776346d0b2
 def test_normalize_key_returns_none_without_normalizer() -> None:
     tree = ast.parse("def f(a):\n    return a\n")
     visitor, _, _, _ = _make_visitor(tree, strictness="high")

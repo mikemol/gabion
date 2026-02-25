@@ -14,7 +14,7 @@ def _load():
 def _write_snapshot(path: Path, snapshot: dict) -> None:
     path.write_text(json.dumps(snapshot))
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot::stale_3573052e7745_e728a4bf
 def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "bad.json"
@@ -22,7 +22,7 @@ def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         da.load_structure_snapshot(target)
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot::stale_0579969a1f47
 def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "list.json"

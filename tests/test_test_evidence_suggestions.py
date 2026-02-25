@@ -27,7 +27,7 @@ def _entries_from_payload(payload: dict[str, object]) -> list[test_evidence_sugg
     return entries
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_5be3e3f35aa5_15961b39
 def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -67,7 +67,7 @@ def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::stale_abddaa91aa79
 def test_heuristic_fallback_when_graph_unavailable(tmp_path: Path) -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_alias_attribute.py::test_alias_attribute_forwarding",
@@ -101,7 +101,7 @@ def test_suggest_evidence_empty_entries_short_circuits(tmp_path: Path) -> None:
     assert summary.suggested == 0
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_517b685b2cdf
 def test_graph_resolution_blocks_heuristics(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -131,7 +131,7 @@ def test_graph_resolution_blocks_heuristics(tmp_path: Path) -> None:
     assert summary.graph_unresolved == 0
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_85975311606a
 def test_graph_function_site_fallback(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -168,7 +168,7 @@ def test_graph_function_site_fallback(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_c0a6870bf740
 def test_graph_function_site_fallback_uses_reachable(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -207,7 +207,7 @@ def test_graph_function_site_fallback_uses_reachable(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_7ebcfb1acd5f
 def test_graph_call_footprint_symbol_argument(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -237,7 +237,7 @@ def test_graph_call_footprint_symbol_argument(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_5a00413d5808
 def test_graph_call_footprint_module_literal(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -267,7 +267,7 @@ def test_graph_call_footprint_module_literal(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::stale_c4a94886cd93
 def test_skips_mapped_entries() -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
@@ -286,7 +286,7 @@ def test_skips_mapped_entries() -> None:
     assert summary.skipped_mapped == 1
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::stale_bd36e364f1a6
 def test_skips_mapped_entries_short_circuits_graph_phase() -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
@@ -310,7 +310,7 @@ def test_skips_mapped_entries_short_circuits_graph_phase() -> None:
     assert summary.skipped_mapped == 1
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence::stale_daddfd5fa908
 def test_load_test_evidence_payload(tmp_path: Path) -> None:
     payload = {
         "schema_version": 2,
@@ -332,7 +332,7 @@ def test_load_test_evidence_payload(tmp_path: Path) -> None:
     assert entries[0].test_id.endswith("test_policy_check.py::test_policy_check_runs")
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence::stale_2ed599b23360
 def test_load_test_evidence_payload_rejects_non_object(tmp_path: Path) -> None:
     path = tmp_path / "test_evidence.json"
     path.write_text(json.dumps([1, 2, 3]))

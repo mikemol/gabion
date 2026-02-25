@@ -13,7 +13,7 @@ def _rpc_message(payload: dict) -> bytes:
     return header + body
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_1def20b71624
 def test_read_rpc_invalid_length() -> None:
     stream = io.BytesIO(b"Content-Length: 0\r\n\r\n{}")
     deadline_ns = time.monotonic_ns() + 1_000_000_000
@@ -25,7 +25,7 @@ def test_read_rpc_invalid_length() -> None:
         raise AssertionError("Expected LspClientError for invalid Content-Length")
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_50f405dfd3ae
 def test_read_rpc_missing_content_length_header() -> None:
     stream = io.BytesIO(b"Foo: bar\r\n\r\n{}")
     deadline_ns = time.monotonic_ns() + 1_000_000_000
@@ -37,7 +37,7 @@ def test_read_rpc_missing_content_length_header() -> None:
         raise AssertionError("Expected LspClientError for missing Content-Length")
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_1b80b950b26d
 def test_read_rpc_stream_closed() -> None:
     stream = io.BytesIO(b"")
     deadline_ns = time.monotonic_ns() + 1_000_000_000
@@ -49,7 +49,7 @@ def test_read_rpc_stream_closed() -> None:
         raise AssertionError("Expected LspClientError for closed stream")
 
 
-# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_6e81f5b94158
 def test_read_response_skips_unmatched_ids() -> None:
     msg1 = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {"ok": True}})
     msg2 = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {"answer": 42}})
@@ -59,7 +59,7 @@ def test_read_response_skips_unmatched_ids() -> None:
     assert response["result"]["answer"] == 42
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_95e563a85972
 def test_read_rpc_skips_non_content_length_headers() -> None:
     payload = {"jsonrpc": "2.0", "id": 1, "result": {}}
     body = json.dumps(payload).encode("utf-8")
@@ -69,7 +69,7 @@ def test_read_rpc_skips_non_content_length_headers() -> None:
     assert message["id"] == 1
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_5295743819d8_20218b62
 def test_read_rpc_accepts_prefetched_body() -> None:
     payload = {"jsonrpc": "2.0", "id": 9, "result": {"ok": True}}
     body = json.dumps(payload).encode("utf-8")
@@ -91,7 +91,7 @@ def test_read_rpc_accepts_prefetched_body() -> None:
     assert message["id"] == 9
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._read_rpc E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_rpc::stale_22bab2b711bc
 def test_read_rpc_rejects_non_object_payload() -> None:
     body = json.dumps([]).encode("utf-8")
     header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")

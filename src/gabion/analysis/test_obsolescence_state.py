@@ -30,11 +30,15 @@ class ObsolescenceState:
     generated_by_spec: dict[str, JSONValue]
 
 
+# gabion:ambiguity_boundary
 def build_state_payload(
     evidence_by_test: Mapping[str, Iterable[object]],
     status_by_test: Mapping[str, str],
     candidates: Iterable[Mapping[str, object]],
     summary_counts: Mapping[str, int],
+    *,
+    active_tests: Iterable[str] | None = None,
+    active_summary: Mapping[str, int] | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_by_test, status_by_test, candidates, summary_counts
     baseline_payload = test_obsolescence_delta.build_baseline_payload(
@@ -42,6 +46,8 @@ def build_state_payload(
         status_by_test,
         candidates,
         summary_counts,
+        active_tests=active_tests,
+        active_summary=active_summary,
     )
     payload: dict[str, JSONValue] = {
         "version": STATE_VERSION,
@@ -51,6 +57,7 @@ def build_state_payload(
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_STATE_SPEC)
 
 
+# gabion:ambiguity_boundary
 def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
     check_deadline()
     parse_version(

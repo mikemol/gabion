@@ -27,7 +27,7 @@ from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
-BASELINE_VERSION = 1
+BASELINE_VERSION = 2
 DELTA_VERSION = 1
 BASELINE_RELATIVE_PATH = Path("baselines/test_obsolescence_baseline.json")
 
@@ -44,6 +44,7 @@ class EvidenceIndexEntry:
 class ObsolescenceBaseline:
     summary: dict[str, int]
     tests: dict[str, str]
+    active: dict[str, JSONValue]
     evidence_index: dict[str, EvidenceIndexEntry]
     opaque_evidence_count: int
     generated_by_spec_id: str
@@ -54,11 +55,15 @@ def resolve_baseline_path(root: Path) -> Path:
     return root / BASELINE_RELATIVE_PATH
 
 
+# gabion:ambiguity_boundary
 def build_baseline_payload(
     evidence_by_test: Mapping[str, Iterable[object]],
     status_by_test: Mapping[str, str],
     candidates: Iterable[Mapping[str, object]],
     summary_counts: Mapping[str, int],
+    *,
+    active_tests: Iterable[str] | None = None,
+    active_summary: Mapping[str, int] | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_by_test, status_by_test, candidates, summary_counts
     summary = _normalize_summary_counts(summary_counts)
@@ -71,14 +76,20 @@ def build_baseline_payload(
         "evidence_index": evidence_index_entries,
         "opaque_evidence_count": _count_opaque_evidence(evidence_by_test),
     }
+    active = _normalize_active_metadata(
+        {"tests": list(active_tests or []), "summary": dict(active_summary or {})}
+    )
+    if active:
+        payload["active"] = active
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_BASELINE_SPEC)
 
 
+# gabion:ambiguity_boundary
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBaseline:
     check_deadline()
     parse_version(
         payload,
-        expected=BASELINE_VERSION,
+        expected=(1, BASELINE_VERSION),
         error_context="test obsolescence baseline",
     )
     summary = _normalize_summary_counts(payload.get("summary", {}))
@@ -93,12 +104,14 @@ def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBase
             if not test_id or not class_name:
                 continue
             tests[test_id] = class_name
+    active = _normalize_active_metadata(payload.get("active", {}))
     evidence_index = _parse_evidence_index(payload.get("evidence_index", []))
     opaque_count = coerce_int(payload.get("opaque_evidence_count"), 0)
     spec_id, spec = parse_spec_metadata(payload)
     return ObsolescenceBaseline(
         summary=summary,
         tests=tests,
+        active=active,
         evidence_index=evidence_index,
         opaque_evidence_count=opaque_count,
         generated_by_spec_id=spec_id,
@@ -114,6 +127,7 @@ def write_baseline(path: str, payload: Mapping[str, JSONValue]) -> None:
     write_json(path, payload)
 
 
+# gabion:ambiguity_boundary
 def build_delta_payload(
     baseline: ObsolescenceBaseline,
     current: ObsolescenceBaseline,
@@ -239,6 +253,7 @@ def build_delta_payload(
     return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_DELTA_SPEC)
 
 
+# gabion:ambiguity_boundary
 def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     # dataflow-bundle: delta_payload
@@ -314,6 +329,7 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     return doc.emit()
 
 
+# gabion:ambiguity_boundary
 def build_baseline_payload_from_paths(
     evidence_path: str,
     risk_registry_path: str,
@@ -323,14 +339,10 @@ def build_baseline_payload_from_paths(
     load_risk_registry_fn: Callable[[str], Mapping[str, object]] | None = None,
     classify_candidates_fn: Callable[
         [Mapping[str, Iterable[object]], Mapping[str, str], Mapping[str, object]],
-        tuple[list[dict[str, str]], Mapping[str, int]],
+        test_obsolescence.ClassificationResult,
     ]
     | None = None,
-    build_baseline_payload_fn: Callable[
-        [Mapping[str, Iterable[object]], Mapping[str, str], list[dict[str, str]], Mapping[str, int]],
-        dict[str, JSONValue],
-    ]
-    | None = None,
+    build_baseline_payload_fn: Callable[..., dict[str, JSONValue]] | None = None,
 ) -> dict[str, JSONValue]:
     load_test_evidence = load_test_evidence_fn or test_obsolescence.load_test_evidence
     load_risk_registry = load_risk_registry_fn or test_obsolescence.load_risk_registry
@@ -339,14 +351,20 @@ def build_baseline_payload_from_paths(
 
     evidence_by_test, status_by_test = load_test_evidence(evidence_path)
     risk_registry = load_risk_registry(risk_registry_path)
-    candidates, summary_counts = classify_candidates(
+    classification = classify_candidates(
         evidence_by_test, status_by_test, risk_registry
     )
     return build_baseline_payload_impl(
-        evidence_by_test, status_by_test, candidates, summary_counts
+        evidence_by_test,
+        status_by_test,
+        classification.stale_candidates,
+        classification.stale_summary,
+        active_tests=classification.active_tests,
+        active_summary=classification.active_summary,
     )
 
 
+# gabion:ambiguity_boundary
 def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[str, int]:
     check_deadline()
     result = {key: 0 for key in _class_keys()}
@@ -357,6 +375,43 @@ def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[st
     return result
 
 
+# gabion:ambiguity_boundary
+def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[str, JSONValue]:
+    check_deadline()
+    if not isinstance(active, Mapping):
+        return {}
+    tests_payload = active.get("tests", [])
+    tests: list[str] = []
+    if isinstance(tests_payload, list):
+        seen: set[str] = set()
+        for entry in tests_payload:
+            if not isinstance(entry, str):
+                continue
+            test_id = entry.strip()
+            if not test_id or test_id in seen:
+                continue
+            seen.add(test_id)
+            tests.append(test_id)
+    tests = sort_once(
+        tests,
+        source="_normalize_active_metadata.tests",
+    )
+    summary_payload = active.get("summary", {})
+    summary: dict[str, int] = {}
+    if isinstance(summary_payload, Mapping):
+        for key, value in summary_payload.items():
+            if not isinstance(key, str):
+                continue
+            summary[key] = coerce_int(value, 0)
+    result: dict[str, JSONValue] = {}
+    if tests:
+        result["tests"] = tests
+    if summary:
+        result["summary"] = summary
+    return result
+
+
+# gabion:ambiguity_boundary
 def _tests_from_candidates(
     candidates: Iterable[Mapping[str, object]],
 ) -> list[dict[str, JSONValue]]:
@@ -421,6 +476,7 @@ def _build_evidence_index(
     ]
 
 
+# gabion:ambiguity_boundary
 def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
     check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
@@ -492,6 +548,7 @@ def _evidence_change_payload(
     }
 
 
+# gabion:ambiguity_boundary
 def _baseline_meta_payload(
     baseline: ObsolescenceBaseline, baseline_path: str | None
 ) -> dict[str, JSONValue]:
@@ -513,6 +570,7 @@ def _current_meta_payload(
     }
 
 
+# gabion:ambiguity_boundary
 def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list[dict[str, object]]:
     if not isinstance(container, Mapping):
         return []
@@ -588,6 +646,93 @@ def _render_evidence_changes(
         doc.line(
             f"- `{display}`: {before} -> {after} ({format_delta(delta)})"
         )
+
+
+def build_resolution_worklist(
+    baseline: ObsolescenceBaseline,
+    classification: test_obsolescence.ClassificationResult,
+) -> dict[str, JSONValue]:
+    check_deadline()
+    stale_by_test = {
+        str(entry.get("test_id", "")): str(entry.get("class", ""))
+        for entry in classification.stale_candidates
+        if str(entry.get("test_id", "")).strip()
+    }
+    rows: list[dict[str, JSONValue]] = []
+    resolved_total = 0
+    remaining_total = 0
+    for test_id in sort_once(
+        baseline.tests,
+        source="build_resolution_worklist.baseline_test_ids",
+    ):
+        baseline_class = baseline.tests[test_id]
+        current_class = stale_by_test.get(test_id, "")
+        proposed_action = _proposed_action_for_class(baseline_class)
+        if current_class:
+            remaining_total += 1
+            if current_class == "unmapped":
+                disposition = "stale_unmapped"
+            elif current_class == "obsolete_candidate":
+                disposition = "stale_unresolved"
+            else:
+                disposition = "stale_overlap"
+        elif test_id in classification.active_tests:
+            resolved_total += 1
+            disposition = "retained_active"
+        else:
+            resolved_total += 1
+            disposition = "removed_or_missing"
+        rows.append(
+            {
+                "test_id": test_id,
+                "baseline_class": baseline_class,
+                "current_class": current_class or None,
+                "proposed_action": proposed_action,
+                "final_disposition": disposition,
+            }
+        )
+    return {
+        "version": 1,
+        "summary": {
+            "baseline_total": len(baseline.tests),
+            "resolved_total": resolved_total,
+            "remaining_stale_total": remaining_total,
+            "remaining_stale_by_class": _normalize_summary_counts(
+                classification.stale_summary
+            ),
+        },
+        "rows": rows,
+    }
+
+
+def build_resolution_worklist_from_paths(
+    *,
+    baseline_path: str,
+    evidence_path: str,
+    risk_registry_path: str,
+) -> dict[str, JSONValue]:
+    # dataflow-bundle: baseline_path, evidence_path, risk_registry_path
+    baseline = load_baseline(baseline_path)
+    evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(evidence_path)
+    risk_registry = test_obsolescence.load_risk_registry(risk_registry_path)
+    classification = test_obsolescence.classify_candidates(
+        evidence_by_test,
+        status_by_test,
+        risk_registry,
+    )
+    return build_resolution_worklist(baseline, classification)
+
+
+def _proposed_action_for_class(class_name: str) -> str:
+    if class_name == "unmapped":
+        return "map_evidence"
+    if class_name == "redundant_by_evidence":
+        return "merge_or_prune"
+    if class_name == "equivalent_witness":
+        return "pareto_keep_one"
+    if class_name == "obsolete_candidate":
+        return "resolve_or_remove"
+    return "review"
 
 
 def _class_keys() -> list[str]:

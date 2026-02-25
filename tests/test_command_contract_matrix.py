@@ -40,6 +40,7 @@ def test_command_envelope_rejects_missing_or_non_mapping_payload() -> None:
         )
 
 
+# gabion:evidence E:function_site::payload_codec.py::gabion.commands.payload_codec.analysis_timeout_total_ns
 @pytest.mark.parametrize(
     ("payload", "expected_ns"),
     [
@@ -51,7 +52,6 @@ def test_command_envelope_rejects_missing_or_non_mapping_payload() -> None:
         ({"analysis_timeout_seconds": "1.25"}, 1_250_000_000),
     ],
 )
-# gabion:evidence E:call_footprint::tests/test_command_contract_matrix.py::test_timeout_codec_matrix::payload_codec.py::gabion.commands.payload_codec.analysis_timeout_total_ns::payload_codec.py::gabion.commands.payload_codec.has_analysis_timeout
 def test_timeout_codec_matrix(payload: dict[str, object], expected_ns: int) -> None:
     assert payload_codec.has_analysis_timeout(payload) is True
     assert (

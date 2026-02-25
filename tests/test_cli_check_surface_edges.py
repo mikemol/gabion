@@ -1,0 +1,404 @@
+from __future__ import annotations
+
+from pathlib import Path
+import re
+
+import pytest
+import typer
+from typer.testing import CliRunner
+
+from gabion import cli
+from gabion.exceptions import NeverThrown
+
+
+_ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*m")
+
+
+def _normalize_output(text: str) -> str:
+    return " ".join(_ANSI_ESCAPE.sub("", text).split())
+
+
+def _check_obj(captured: list[dict[str, object]]) -> dict[str, object]:
+    def _run_check(**kwargs: object) -> dict[str, object]:
+        captured.append({str(key): kwargs[key] for key in kwargs})
+        return {"exit_code": 0, "lint_lines": []}
+
+    def _run_with_timeout_retries(
+        *,
+        run_once,
+        root: Path,
+        emit_timeout_progress_report: bool,
+        resume_on_timeout: int,
+    ) -> dict[str, object]:
+        _ = root, emit_timeout_progress_report, resume_on_timeout
+        return run_once()
+
+    return {
+        "run_check": _run_check,
+        "run_with_timeout_retries": _run_with_timeout_retries,
+    }
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags
+def test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.configure_runtime_flags(
+            timeout=None,
+            carrier=None,
+            carrier_override_record=None,
+            removed_lsp_timeout_ticks=1,
+            removed_lsp_timeout_tick_ns=None,
+            removed_lsp_timeout_ms=None,
+            removed_lsp_timeout_seconds=None,
+            removed_transport=None,
+            removed_direct_run_override_evidence=None,
+            removed_override_record_json=None,
+        )
+    with pytest.raises(typer.BadParameter):
+        cli.configure_runtime_flags(
+            timeout=None,
+            carrier=None,
+            carrier_override_record=None,
+            removed_lsp_timeout_ticks=None,
+            removed_lsp_timeout_tick_ns=None,
+            removed_lsp_timeout_ms=None,
+            removed_lsp_timeout_seconds=None,
+            removed_transport="direct",
+            removed_direct_run_override_evidence=None,
+            removed_override_record_json=None,
+        )
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_group_and_subgroups_require_explicit_subcommand
+def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
+    runner = CliRunner()
+    for argv in (
+        ["check"],
+        ["check", "obsolescence"],
+        ["check", "annotation-drift"],
+        ["check", "ambiguity"],
+    ):
+        result = runner.invoke(cli.app, argv)
+        assert result.exit_code == 2
+        assert "Usage:" in result.output
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_usage_and_passthrough_branches
+def test_check_raw_usage_and_passthrough_branches() -> None:
+    runner = CliRunner()
+    bad = runner.invoke(cli.app, ["check", "raw"])
+    assert bad.exit_code != 0
+    normalized = _normalize_output(bad.output)
+    assert "Usage: gabion check raw -- [raw-args...]" in normalized
+
+    captured: list[list[str]] = []
+
+    def _fake_raw(argv: list[str]) -> None:
+        captured.append(list(argv))
+
+    ok = runner.invoke(
+        cli.app,
+        ["check", "raw", "sample.py", "--dot", "-"],
+        obj={"run_dataflow_raw_argv": _fake_raw},
+    )
+    assert ok.exit_code == 0
+    assert captured == [["sample.py", "--dot", "-"]]
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_direct_helper_strips_leading_double_dash
+def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
+    captured: list[list[str]] = []
+
+    class _Ctx:
+        args = ["--", "sample.py", "--dot", "-"]
+        obj = {"run_dataflow_raw_argv": lambda argv: captured.append(list(argv))}
+
+    cli.check_raw(_Ctx())  # type: ignore[arg-type]
+    assert captured == [["sample.py", "--dot", "-"]]
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_removed_and_invalid_baseline_mode_paths
+def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
+    runner = CliRunner()
+    removed = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--analysis-tick-limit", "10"],
+    )
+    assert removed.exit_code != 0
+    assert "Removed --analysis-tick-limit" in _normalize_output(removed.output)
+
+    missing = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--baseline-mode", "enforce"],
+    )
+    assert missing.exit_code != 0
+    assert "--baseline is required" in _normalize_output(missing.output)
+
+    invalid = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--baseline-mode",
+            "off",
+            "--baseline",
+            "baseline.json",
+        ],
+    )
+    assert invalid.exit_code != 0
+    assert "--baseline is only valid" in _normalize_output(invalid.output)
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_lint_mode_validation_errors
+def test_check_lint_mode_validation_errors() -> None:
+    runner = CliRunner()
+    jsonl_missing = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--gate", "none", "--lint", "jsonl"],
+    )
+    assert jsonl_missing.exit_code != 0
+    assert "--lint-jsonl-out is required" in _normalize_output(jsonl_missing.output)
+
+    sarif_missing = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--gate", "none", "--lint", "sarif"],
+    )
+    assert sarif_missing.exit_code != 0
+    assert "--lint-sarif-out is required" in _normalize_output(sarif_missing.output)
+
+    jsonl_invalid = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--lint",
+            "none",
+            "--lint-jsonl-out",
+            "lint.jsonl",
+        ],
+    )
+    assert jsonl_invalid.exit_code != 0
+    assert "--lint-jsonl-out is only valid" in _normalize_output(jsonl_invalid.output)
+
+    sarif_invalid = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--lint",
+            "line",
+            "--lint-sarif-out",
+            "lint.sarif",
+        ],
+    )
+    assert sarif_invalid.exit_code != 0
+    assert "--lint-sarif-out is only valid" in _normalize_output(sarif_invalid.output)
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_gate_policy_all_modes_and_invalid_value
+def test_check_gate_policy_all_modes_and_invalid_value() -> None:
+    assert cli._check_gate_policy(cli.CheckGateMode.all) == (True, True)
+    assert cli._check_gate_policy(cli.CheckGateMode.none) == (False, False)
+    assert cli._check_gate_policy(cli.CheckGateMode.violations) == (True, False)
+    assert cli._check_gate_policy(cli.CheckGateMode.type_ambiguities) == (False, True)
+    with pytest.raises(NeverThrown):
+        cli._check_gate_policy("invalid")  # type: ignore[arg-type]
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_raw_profile_helper_functions_cover_commandline_source_branches
+def test_raw_profile_helper_functions_cover_commandline_source_branches() -> None:
+    class _Ctx:
+        def __init__(self, *, commandline_params: set[str], args: list[str]) -> None:
+            self._commandline_params = commandline_params
+            self.args = args
+
+        def get_parameter_source(self, param: str):
+            if param in self._commandline_params:
+                return cli.ParameterSource.COMMANDLINE
+            return cli.ParameterSource.DEFAULT
+
+    ctx = _Ctx(
+        commandline_params={
+            "root",
+            "config",
+            "report",
+            "decision_snapshot",
+            "baseline",
+            "baseline_write",
+            "exclude",
+            "ignore_params_csv",
+            "transparent_decorators_csv",
+            "allow_external",
+            "strictness",
+            "resume_checkpoint",
+            "emit_timeout_progress_report",
+            "resume_on_timeout",
+            "fail_on_violations",
+            "fail_on_type_ambiguities",
+            "lint",
+            "lint_jsonl",
+            "lint_sarif",
+            "emit_test_obsolescence",
+        },
+        args=["--dot", "-"],
+    )
+    assert cli._param_is_command_line(ctx, "root") is True  # type: ignore[arg-type]
+    assert cli._param_is_command_line(ctx, "missing") is False  # type: ignore[arg-type]
+    unsupported = cli._raw_profile_unsupported_flags(ctx)  # type: ignore[arg-type]
+    assert "--emit-test-obsolescence" in unsupported
+
+    argv = cli._check_raw_profile_args(
+        ctx=ctx,  # type: ignore[arg-type]
+        paths=[Path("sample.py")],
+        report=Path("report.md"),
+        fail_on_violations=True,
+        root=Path("."),
+        config=Path("cfg.toml"),
+        decision_snapshot=Path("decision.json"),
+        baseline=Path("baseline.json"),
+        baseline_write=True,
+        exclude=["a,b"],
+        filter_bundle=cli.DataflowFilterBundle(
+            ignore_params_csv="x,y",
+            transparent_decorators_csv="deco",
+        ),
+        allow_external=False,
+        strictness="low",
+        resume_checkpoint=Path("resume.json"),
+        emit_timeout_progress_report=True,
+        resume_on_timeout=2,
+        fail_on_type_ambiguities=True,
+        lint=True,
+        lint_jsonl=Path("lint.jsonl"),
+        lint_sarif=Path("lint.sarif"),
+    )
+    assert argv[:2] == ["sample.py", "--root"]
+    assert "--lint-sarif" in argv
+
+    with pytest.raises(typer.BadParameter):
+        cli._run_check_raw_profile(
+            ctx=ctx,  # type: ignore[arg-type]
+            paths=[Path("sample.py")],
+            report=Path("report.md"),
+            fail_on_violations=True,
+            root=Path("."),
+            config=Path("cfg.toml"),
+            decision_snapshot=Path("decision.json"),
+            baseline=Path("baseline.json"),
+            baseline_write=True,
+            exclude=["a,b"],
+            filter_bundle=cli.DataflowFilterBundle(
+                ignore_params_csv="x,y",
+                transparent_decorators_csv="deco",
+            ),
+            allow_external=False,
+            strictness="low",
+            resume_checkpoint=Path("resume.json"),
+            emit_timeout_progress_report=True,
+            resume_on_timeout=2,
+            fail_on_type_ambiguities=True,
+            lint=True,
+            lint_jsonl=Path("lint.jsonl"),
+            lint_sarif=Path("lint.sarif"),
+            run_dataflow_raw_argv_fn=lambda _argv: None,
+        )
+
+    ctx_ok = _Ctx(commandline_params=set(), args=["--type-audit"])
+    captured: list[list[str]] = []
+    cli._run_check_raw_profile(
+        ctx=ctx_ok,  # type: ignore[arg-type]
+        paths=[Path("sample.py")],
+        report=None,
+        fail_on_violations=False,
+        root=Path("."),
+        config=None,
+        decision_snapshot=None,
+        baseline=None,
+        baseline_write=False,
+        exclude=None,
+        filter_bundle=None,
+        allow_external=None,
+        strictness=None,
+        resume_checkpoint=None,
+        emit_timeout_progress_report=False,
+        resume_on_timeout=0,
+        fail_on_type_ambiguities=False,
+        lint=False,
+        lint_jsonl=None,
+        lint_sarif=None,
+        run_dataflow_raw_argv_fn=lambda raw_argv: captured.append(list(raw_argv)),
+    )
+    assert captured == [["sample.py", "--type-audit"]]
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_aux_subcommands_forward_domain_and_action
+@pytest.mark.parametrize(
+    ("argv_suffix", "domain", "action"),
+    [
+        (["obsolescence", "report", "sample.py"], "obsolescence", "report"),
+        (["obsolescence", "state", "sample.py"], "obsolescence", "state"),
+        (
+            ["obsolescence", "delta", "sample.py", "--baseline", "obs.json"],
+            "obsolescence",
+            "delta",
+        ),
+        (
+            ["obsolescence", "baseline-write", "sample.py", "--baseline", "obs.json"],
+            "obsolescence",
+            "baseline-write",
+        ),
+        (
+            ["annotation-drift", "report", "sample.py"],
+            "annotation-drift",
+            "report",
+        ),
+        (
+            ["annotation-drift", "state", "sample.py"],
+            "annotation-drift",
+            "state",
+        ),
+        (
+            ["annotation-drift", "delta", "sample.py", "--baseline", "drift.json"],
+            "annotation-drift",
+            "delta",
+        ),
+        (
+            [
+                "annotation-drift",
+                "baseline-write",
+                "sample.py",
+                "--baseline",
+                "drift.json",
+            ],
+            "annotation-drift",
+            "baseline-write",
+        ),
+        (["ambiguity", "state", "sample.py"], "ambiguity", "state"),
+        (["ambiguity", "delta", "sample.py", "--baseline", "amb.json"], "ambiguity", "delta"),
+        (
+            ["ambiguity", "baseline-write", "sample.py", "--baseline", "amb.json"],
+            "ambiguity",
+            "baseline-write",
+        ),
+    ],
+)
+def test_check_aux_subcommands_forward_domain_and_action(
+    argv_suffix: list[str],
+    domain: str,
+    action: str,
+) -> None:
+    runner = CliRunner()
+    captured: list[dict[str, object]] = []
+    result = runner.invoke(cli.app, ["check", *argv_suffix], obj=_check_obj(captured))
+    assert result.exit_code == 0
+    assert captured
+    aux_operation = captured[-1].get("aux_operation")
+    assert isinstance(aux_operation, cli.CheckAuxOperation)
+    assert aux_operation.domain == domain
+    assert aux_operation.action == action

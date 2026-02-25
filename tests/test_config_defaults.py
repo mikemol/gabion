@@ -9,7 +9,7 @@ def _load_config_module():
 
     return dataflow_defaults, merge_payload
 
-# gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root E:decision_surface/direct::config.py::gabion.config.load_config::stale_216048cdf741_ccc16b9b
 def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
     config_path = tmp_path / "gabion.toml"
     config_path.write_text(

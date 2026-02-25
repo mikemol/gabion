@@ -60,6 +60,7 @@ def _assert_invariant_failure(result: dict[str, object]) -> None:
     assert errors
 
 
+# gabion:evidence E:function_site::server.py::gabion.server._invariant_error_message
 def test_invariant_error_message_falls_back_to_default() -> None:
     assert server._invariant_error_message(NeverThrown("")) == "invariant violation"
 
@@ -629,7 +630,7 @@ def test_execute_command_reports_synthesis_error(tmp_path: Path) -> None:
     assert result.get("synthesis_errors")
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_62281be95da3
 def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -848,7 +849,7 @@ def test_projection_phase_flush_due() -> None:
     )
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_715a68e887fd
 def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2199,7 +2200,7 @@ def test_analysis_input_witness_interns_ast_normal_forms(tmp_path: Path) -> None
     assert ast_ref in table
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_74c67c99a930
 def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2216,7 +2217,7 @@ def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
     _assert_invariant_failure(result)
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_fe057dcdb723_962154e0
 @pytest.mark.parametrize(
     ("timeout_field", "timeout_value"),
     [
@@ -2244,7 +2245,7 @@ def test_execute_command_accepts_duration_timeout_fields(
     assert result.get("exit_code") == 0
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_d4a96ff743b0
 def test_execute_command_ignores_invalid_duration_timeout_fields(
     tmp_path: Path,
 ) -> None:
@@ -2275,7 +2276,7 @@ def test_execute_decision_diff_payload_non_dict() -> None:
         server.execute_decision_diff(None, [])  # type: ignore[arg-type]
 
 
-# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_329560178bad
 def test_execute_structure_diff_requires_timeout_payload() -> None:
     with pytest.raises(NeverThrown):
         server.execute_structure_diff(None, None)
@@ -2287,7 +2288,7 @@ def test_execute_structure_diff_rejects_non_dict_payload() -> None:
         server.execute_structure_diff(None, [])  # type: ignore[arg-type]
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_aa96c68b2fef
 def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2304,11 +2305,16 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
     )
     evidence_by_test = {"tests/test_sample.py::test_alpha": [ref]}
     status_by_test = {"tests/test_sample.py::test_alpha": "mapped"}
-    candidates, summary = test_obsolescence.classify_candidates(
+    classification = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
     state_payload = test_obsolescence_state.build_state_payload(
-        evidence_by_test, status_by_test, candidates, summary
+        evidence_by_test,
+        status_by_test,
+        classification.stale_candidates,
+        classification.stale_summary,
+        active_tests=classification.active_tests,
+        active_summary=classification.active_summary,
     )
     state_path = artifact_dir / "test_obsolescence_state.json"
     state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
@@ -2333,7 +2339,55 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
     assert "test_obsolescence_delta_summary" in result
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_empty_obsolescence_active_summary_for_non_mapping_state_active_summary::server.py::gabion.server.execute_command
+def test_execute_command_emits_empty_obsolescence_active_summary_for_non_mapping_state_active_summary(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
+    key = evidence_keys.make_paramset_key(["x"])
+    ref = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=evidence_keys.key_identity(key),
+        display=evidence_keys.render_display(key),
+        opaque=False,
+    )
+    evidence_by_test = {"tests/test_sample.py::test_alpha": [ref]}
+    status_by_test = {"tests/test_sample.py::test_alpha": "mapped"}
+    classification = test_obsolescence.classify_candidates(
+        evidence_by_test, status_by_test, {}
+    )
+    state_payload = test_obsolescence_state.build_state_payload(
+        evidence_by_test,
+        status_by_test,
+        classification.stale_candidates,
+        classification.stale_summary,
+        active_tests=classification.active_tests,
+        active_summary=classification.active_summary,
+    )
+    state_payload["baseline"]["active"] = {"summary": [], "tests": ["tests/test_sample.py::test_alpha"]}  # type: ignore[index]
+    state_path = artifact_dir / "test_obsolescence_state.json"
+    state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence": True,
+                "test_obsolescence_state": str(state_path),
+            }
+        ),
+    )
+    assert result["test_obsolescence_active_summary"] == {}
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_be3b22325dfc
 def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2352,7 +2406,7 @@ def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> N
     _assert_invariant_failure(result)
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_067484b38656
 def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2388,7 +2442,7 @@ def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
     assert (artifact_dir / "test_obsolescence_state.json").exists()
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_94b12b8fa825
 def test_execute_command_rejects_missing_annotation_drift_state(
     tmp_path: Path,
 ) -> None:
@@ -2409,7 +2463,7 @@ def test_execute_command_rejects_missing_annotation_drift_state(
     _assert_invariant_failure(result)
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_0f2d2751123d
 def test_execute_command_rejects_invalid_annotation_drift_state(
     tmp_path: Path,
 ) -> None:
@@ -2431,7 +2485,7 @@ def test_execute_command_rejects_invalid_annotation_drift_state(
     _assert_invariant_failure(result)
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_5ff058e98f9e
 def test_execute_command_emits_annotation_drift_delta_from_state(
     tmp_path: Path,
 ) -> None:
@@ -2478,7 +2532,7 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
     assert "test_annotation_drift_delta_summary" in result
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_b1aa467abf1a
 def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2521,7 +2575,7 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
     assert "ambiguity_delta_summary" in result
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_9725732036cc
 def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2538,7 +2592,7 @@ def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None
     _assert_invariant_failure(result)
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_3facdb5547c1
 def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2555,7 +2609,7 @@ def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
     assert (artifact_dir / "ambiguity_state.json").exists()
 
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_063975ed42ec
 def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2571,7 +2625,7 @@ def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> Non
     )
     _assert_invariant_failure(result)
 
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_59372a4bcc30
 def test_execute_command_rejects_obsolescence_state_conflict(
     tmp_path: Path,
 ) -> None:
@@ -5954,11 +6008,16 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
     )
     evidence_by_test = {"tests/test_sample.py::test_alpha": [ref]}
     status_by_test = {"tests/test_sample.py::test_alpha": "mapped"}
-    candidates, summary = test_obsolescence.classify_candidates(
+    classification = test_obsolescence.classify_candidates(
         evidence_by_test, status_by_test, {}
     )
     state_payload = test_obsolescence_state.build_state_payload(
-        evidence_by_test, status_by_test, candidates, summary
+        evidence_by_test,
+        status_by_test,
+        classification.stale_candidates,
+        classification.stale_summary,
+        active_tests=classification.active_tests,
+        active_summary=classification.active_summary,
     )
     obsolescence_state_path = artifact_dir / "test_obsolescence_state.json"
     obsolescence_state_path.write_text(json.dumps(state_payload), encoding="utf-8")

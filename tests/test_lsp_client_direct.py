@@ -40,13 +40,13 @@ class _FilenoRaisesNoRead:
         raise OSError("boom")
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable E:decision_surface/direct::lsp_client.py::gabion.lsp_client._wait_readable::stale_42722b60f257_3d7f7a22
 def test_wait_readable_rejects_missing_fileno() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_NoFileno(), time.monotonic_ns() + 100_000_000)
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable E:decision_surface/direct::lsp_client.py::gabion.lsp_client._wait_readable::stale_ed770a2c7b86
 def test_wait_readable_times_out() -> None:
     read_fd, write_fd = os.pipe()
     try:
@@ -94,7 +94,7 @@ def test_wait_readable_returns_when_stream_is_ready() -> None:
             pass
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command_direct::stale_05ecd6b0feef
 def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) -> None:
     reuse_request = CommandRequest(
         server.STRUCTURE_REUSE_COMMAND,
@@ -195,7 +195,7 @@ def test_run_command_direct_ignores_non_mapping_notifications(
     assert seen == []
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command_direct::stale_42adaef8388c_24b191b1
 def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
     with pytest.raises(LspClientError):
         run_command_direct(

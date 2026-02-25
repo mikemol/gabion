@@ -66,6 +66,7 @@ from gabion.tooling import (
     impact_select_tests as tooling_impact_select_tests,
     run_dataflow_stage as tooling_run_dataflow_stage,
     ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
+    normative_symdiff as tooling_normative_symdiff,
 )
 from gabion.json_types import JSONObject
 from gabion.invariants import never
@@ -80,6 +81,30 @@ from gabion.schema import (
     SynthesisPlanResponseDTO,
 )
 app = typer.Typer(add_completion=False)
+check_app = typer.Typer(
+    add_completion=False,
+    help="Check command family.",
+    invoke_without_command=True,
+)
+check_obsolescence_app = typer.Typer(
+    add_completion=False,
+    help="Test-obsolescence modalities.",
+    invoke_without_command=True,
+)
+check_annotation_drift_app = typer.Typer(
+    add_completion=False,
+    help="Test-annotation-drift modalities.",
+    invoke_without_command=True,
+)
+check_ambiguity_app = typer.Typer(
+    add_completion=False,
+    help="Ambiguity modalities.",
+    invoke_without_command=True,
+)
+app.add_typer(check_app, name="check")
+check_app.add_typer(check_obsolescence_app, name="obsolescence")
+check_app.add_typer(check_annotation_drift_app, name="annotation-drift")
+check_app.add_typer(check_ambiguity_app, name="ambiguity")
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
@@ -113,6 +138,35 @@ _STDOUT_PATH = "/dev/stdout"
 class CliTransportMode(str, Enum):
     lsp = "lsp"
     direct = "direct"
+
+
+class CheckBaselineMode(str, Enum):
+    off = "off"
+    enforce = "enforce"
+    write = "write"
+
+
+class CheckGateMode(str, Enum):
+    all = "all"
+    none = "none"
+    violations = "violations"
+    type_ambiguities = "type-ambiguities"
+
+
+class CheckLintMode(str, Enum):
+    none = "none"
+    line = "line"
+    jsonl = "jsonl"
+    sarif = "sarif"
+    line_jsonl = "line+jsonl"
+    line_sarif = "line+sarif"
+    jsonl_sarif = "jsonl+sarif"
+    all = "all"
+
+
+class CheckStrictnessMode(str, Enum):
+    high = "high"
+    low = "low"
 
 
 @dataclass(frozen=True)
@@ -200,55 +254,85 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
 
 @app.callback()
 def configure_runtime_flags(
-    transport: Optional[CliTransportMode] = typer.Option(
+    timeout: Optional[str] = typer.Option(
         None,
-        "--transport",
-        help="Command transport mode override (preferred over GABION_DIRECT_RUN).",
+        "--timeout",
+        help="Runtime timeout duration (for example: 750ms, 2s, 1m30s).",
     ),
-    direct_run_override_evidence: Optional[str] = typer.Option(
+    carrier: Optional[CliTransportMode] = typer.Option(
         None,
-        "--direct-run-override-evidence",
-        help="Evidence URI required when forcing direct transport for governed commands.",
+        "--carrier",
+        help="Command transport carrier override.",
     ),
-    override_record_json: Optional[str] = typer.Option(
+    carrier_override_record: Optional[Path] = typer.Option(
         None,
-        "--override-record-json",
-        help="JSON override record required for governed direct-transport overrides.",
+        "--carrier-override-record",
+        help="Path to override lifecycle record for direct carrier on governed commands.",
     ),
-    lsp_timeout_ticks: Optional[int] = typer.Option(
+    removed_lsp_timeout_ticks: Optional[int] = typer.Option(
         None,
         "--lsp-timeout-ticks",
-        help="LSP timeout ticks override (use with --lsp-timeout-tick-ns).",
+        hidden=True,
     ),
-    lsp_timeout_tick_ns: Optional[int] = typer.Option(
+    removed_lsp_timeout_tick_ns: Optional[int] = typer.Option(
         None,
         "--lsp-timeout-tick-ns",
-        help="LSP timeout tick duration in nanoseconds.",
+        hidden=True,
     ),
-    lsp_timeout_ms: Optional[int] = typer.Option(
+    removed_lsp_timeout_ms: Optional[int] = typer.Option(
         None,
         "--lsp-timeout-ms",
-        help="LSP timeout as milliseconds.",
+        hidden=True,
     ),
-    lsp_timeout_seconds: Optional[float] = typer.Option(
+    removed_lsp_timeout_seconds: Optional[float] = typer.Option(
         None,
         "--lsp-timeout-seconds",
-        help="LSP timeout as seconds.",
+        hidden=True,
+    ),
+    removed_transport: Optional[str] = typer.Option(
+        None,
+        "--transport",
+        hidden=True,
+    ),
+    removed_direct_run_override_evidence: Optional[str] = typer.Option(
+        None,
+        "--direct-run-override-evidence",
+        hidden=True,
+    ),
+    removed_override_record_json: Optional[str] = typer.Option(
+        None,
+        "--override-record-json",
+        hidden=True,
     ),
 ) -> None:
-    env_policy.apply_cli_timeout_flags(
-        ticks=lsp_timeout_ticks,
-        tick_ns=lsp_timeout_tick_ns,
-        ms=lsp_timeout_ms,
-        seconds=lsp_timeout_seconds,
+    if (
+        removed_lsp_timeout_ticks is not None
+        or removed_lsp_timeout_tick_ns is not None
+        or removed_lsp_timeout_ms is not None
+        or removed_lsp_timeout_seconds is not None
+    ):
+        raise typer.BadParameter(
+            "Removed timeout flags (--lsp-timeout-*). Use --timeout <duration>."
+        )
+    if (
+        removed_transport is not None
+        or removed_direct_run_override_evidence is not None
+        or removed_override_record_json is not None
+    ):
+        raise typer.BadParameter(
+            "Removed transport flags (--transport/--direct-run-override-evidence/--override-record-json). "
+            "Use --carrier and --carrier-override-record."
+        )
+    env_policy.apply_cli_timeout_flag(timeout=timeout)
+    carrier_text = None if carrier is None else str(carrier.value)
+    carrier_override_record_text = (
+        None
+        if carrier_override_record is None
+        else str(carrier_override_record)
     )
-    direct_requested: bool | None = None
-    if transport is not None:
-        direct_requested = transport is CliTransportMode.direct
     transport_policy.apply_cli_transport_flags(
-        direct_requested=direct_requested,
-        direct_override_evidence=direct_run_override_evidence,
-        override_record_json=override_record_json,
+        carrier=carrier_text,
+        override_record_path=carrier_override_record_text,
     )
 
 
@@ -281,6 +365,7 @@ CheckPolicyFlags = check_contract.CheckPolicyFlags
 DataflowPayloadCommonOptions = check_contract.DataflowPayloadCommonOptions
 DataflowFilterBundle = check_contract.DataflowFilterBundle
 CheckDeltaOptions = check_contract.CheckDeltaOptions
+CheckAuxOperation = check_contract.CheckAuxOperation
 
 
 @dataclass(frozen=True)
@@ -891,6 +976,7 @@ def build_check_payload(
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
+    aux_operation: CheckAuxOperation | None = None,
 ) -> JSONObject:
     return check_contract.build_check_payload(
         paths=paths,
@@ -913,6 +999,7 @@ def build_check_payload(
         emit_timeout_progress_report=emit_timeout_progress_report,
         resume_on_timeout=resume_on_timeout,
         analysis_tick_limit=analysis_tick_limit,
+        aux_operation=aux_operation,
     )
 
 
@@ -1341,6 +1428,7 @@ def run_check(
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
+    aux_operation: CheckAuxOperation | None = None,
     runner: Runner = run_command,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
@@ -1370,6 +1458,7 @@ def run_check(
         emit_timeout_progress_report=emit_timeout_progress_report,
         resume_on_timeout=resume_on_timeout,
         analysis_tick_limit=analysis_tick_limit,
+        aux_operation=aux_operation,
     )
     execution_plan_request = build_check_execution_plan_request(
         payload=payload,
@@ -1977,217 +2066,130 @@ def _run_dataflow_raw_argv(
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
-@app.command(
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def check(
+def _default_check_artifact_flags() -> CheckArtifactFlags:
+    return CheckArtifactFlags(
+        emit_test_obsolescence=False,
+        emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
+        emit_call_cluster_consolidation=False,
+        emit_test_annotation_drift=False,
+        emit_semantic_coverage_map=False,
+    )
+
+
+def _default_check_delta_options() -> CheckDeltaOptions:
+    return CheckDeltaOptions(
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        semantic_coverage_mapping=None,
+    )
+
+
+def _check_help_or_exit(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(code=2)
+
+
+def _check_gate_policy(gate: CheckGateMode) -> tuple[bool, bool]:
+    if gate is CheckGateMode.all:
+        return True, True
+    if gate is CheckGateMode.none:
+        return False, False
+    if gate is CheckGateMode.violations:
+        return True, False
+    if gate is CheckGateMode.type_ambiguities:
+        return False, True
+    never("invalid check gate mode", gate=str(gate))
+    return False, False  # pragma: no cover
+
+
+def _check_lint_mode(
+    *,
+    lint_mode: CheckLintMode,
+    lint_jsonl_out: Path | None,
+    lint_sarif_out: Path | None,
+) -> tuple[bool, bool]:
+    line_enabled = lint_mode in {
+        CheckLintMode.line,
+        CheckLintMode.line_jsonl,
+        CheckLintMode.line_sarif,
+        CheckLintMode.all,
+    }
+    jsonl_enabled = lint_mode in {
+        CheckLintMode.jsonl,
+        CheckLintMode.line_jsonl,
+        CheckLintMode.jsonl_sarif,
+        CheckLintMode.all,
+    }
+    sarif_enabled = lint_mode in {
+        CheckLintMode.sarif,
+        CheckLintMode.line_sarif,
+        CheckLintMode.jsonl_sarif,
+        CheckLintMode.all,
+    }
+    if jsonl_enabled and lint_jsonl_out is None:
+        raise typer.BadParameter(
+            "--lint-jsonl-out is required when --lint includes jsonl output."
+        )
+    if sarif_enabled and lint_sarif_out is None:
+        raise typer.BadParameter(
+            "--lint-sarif-out is required when --lint includes sarif output."
+        )
+    if not jsonl_enabled and lint_jsonl_out is not None:
+        raise typer.BadParameter(
+            "--lint-jsonl-out is only valid when --lint includes jsonl."
+        )
+    if not sarif_enabled and lint_sarif_out is not None:
+        raise typer.BadParameter(
+            "--lint-sarif-out is only valid when --lint includes sarif."
+        )
+    lint_enabled = lint_mode is not CheckLintMode.none
+    return lint_enabled, line_enabled
+
+
+def _run_check_command(
+    *,
     ctx: typer.Context,
-    paths: List[Path] = typer.Argument(None),
-    profile: str = typer.Option("strict", "--profile"),
-    report: Optional[Path] = typer.Option(None, "--report"),
-    fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
-    root: Path = typer.Option(Path("."), "--root"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    decision_snapshot: Optional[Path] = typer.Option(
-        None, "--decision-snapshot", help="Write decision surface snapshot JSON."
-    ),
-    emit_test_obsolescence: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence/--no-emit-test-obsolescence",
-        help=(
-            "Write test obsolescence report (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    emit_test_obsolescence_state: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence-state/--no-emit-test-obsolescence-state",
-        help="Write test obsolescence state to artifacts/out.",
-    ),
-    test_obsolescence_state: Optional[Path] = typer.Option(
-        None,
-        "--test-obsolescence-state",
-        help="Use precomputed test obsolescence state for delta/report.",
-    ),
-    emit_test_obsolescence_delta: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
-        help=(
-            "Write test obsolescence delta report (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    emit_test_evidence_suggestions: bool = typer.Option(
-        False,
-        "--emit-test-evidence-suggestions/--no-emit-test-evidence-suggestions",
-        help=(
-            "Write test evidence suggestions (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    emit_call_clusters: bool = typer.Option(
-        False,
-        "--emit-call-clusters/--no-emit-call-clusters",
-        help="Write call cluster report (JSON in artifacts/out, markdown in out/).",
-    ),
-    emit_call_cluster_consolidation: bool = typer.Option(
-        False,
-        "--emit-call-cluster-consolidation/--no-emit-call-cluster-consolidation",
-        help=(
-            "Write call cluster consolidation plan (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    emit_test_annotation_drift: bool = typer.Option(
-        False,
-        "--emit-test-annotation-drift/--no-emit-test-annotation-drift",
-        help=(
-            "Write test annotation drift report (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    emit_semantic_coverage_map: bool = typer.Option(
-        False,
-        "--emit-semantic-coverage-map/--no-emit-semantic-coverage-map",
-        help=(
-            "Write semantic coverage map report (JSON in artifacts/out, markdown in artifacts/audit_reports/)."
-        ),
-    ),
-    semantic_coverage_mapping: Optional[Path] = typer.Option(
-        None,
-        "--semantic-coverage-mapping",
-        help="Use explicit semantic coverage mapping JSON (defaults to out/semantic_coverage_mapping.json).",
-    ),
-    test_annotation_drift_state: Optional[Path] = typer.Option(
-        None,
-        "--test-annotation-drift-state",
-        help="Use precomputed annotation drift state for delta.",
-    ),
-    emit_test_annotation_drift_delta: bool = typer.Option(
-        False,
-        "--emit-test-annotation-drift-delta/--no-emit-test-annotation-drift-delta",
-        help=(
-            "Write test annotation drift delta report (JSON in artifacts/out, markdown in out/)."
-        ),
-    ),
-    write_test_annotation_drift_baseline: bool = typer.Option(
-        False,
-        "--write-test-annotation-drift-baseline/--no-write-test-annotation-drift-baseline",
-        help="Write the current test annotation drift baseline to baselines/.",
-    ),
-    write_test_obsolescence_baseline: bool = typer.Option(
-        False,
-        "--write-test-obsolescence-baseline/--no-write-test-obsolescence-baseline",
-        help="Write the current test obsolescence baseline to baselines/.",
-    ),
-    emit_ambiguity_delta: bool = typer.Option(
-        False,
-        "--emit-ambiguity-delta/--no-emit-ambiguity-delta",
-        help="Write ambiguity delta report (JSON in artifacts/out, markdown in out/).",
-    ),
-    emit_ambiguity_state: bool = typer.Option(
-        False,
-        "--emit-ambiguity-state/--no-emit-ambiguity-state",
-        help="Write ambiguity state to artifacts/out.",
-    ),
-    ambiguity_state: Optional[Path] = typer.Option(
-        None,
-        "--ambiguity-state",
-        help="Use precomputed ambiguity state for delta.",
-    ),
-    write_ambiguity_baseline: bool = typer.Option(
-        False,
-        "--write-ambiguity-baseline/--no-write-ambiguity-baseline",
-        help="Write the current ambiguity baseline to baselines/.",
-    ),
-    baseline: Optional[Path] = typer.Option(
-        None, "--baseline", help="Baseline file of allowed violations."
-    ),
-    baseline_write: bool = typer.Option(
-        False, "--baseline-write", help="Write current violations to baseline."
-    ),
-    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators_csv: Optional[str] = typer.Option(
-        None, "--transparent-decorators"
-    ),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    strictness: Optional[str] = typer.Option(None, "--strictness"),
-    resume_checkpoint: Optional[Path] = typer.Option(
-        None,
-        "--resume-checkpoint",
-        help="Checkpoint path for resumable timeout runs.",
-    ),
-    emit_timeout_progress_report: bool = typer.Option(
-        False,
-        "--emit-timeout-progress-report/--no-emit-timeout-progress-report",
-        help="Write timeout progress report artifacts on timeout.",
-    ),
-    resume_on_timeout: int = typer.Option(
-        0,
-        "--resume-on-timeout",
-        min=0,
-        help="Retry count when timeout reports timed_out_progress_resume.",
-    ),
-    analysis_tick_limit: Optional[int] = typer.Option(
-        None,
-        "--analysis-tick-limit",
-        min=1,
-        help="Deterministic logical timeout budget (ticks).",
-    ),
-    fail_on_type_ambiguities: bool = typer.Option(
-        True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
-    ),
-    lint: bool = typer.Option(False, "--lint/--no-lint"),
-    lint_jsonl: Optional[Path] = typer.Option(
-        None, "--lint-jsonl", help="Write lint JSONL to file or '-' for stdout."
-    ),
-    lint_sarif: Optional[Path] = typer.Option(
-        None, "--lint-sarif", help="Write lint SARIF to file or '-' for stdout."
-    ),
+    paths: list[Path] | None,
+    report: Path | None,
+    root: Path,
+    config: Path | None,
+    baseline: Path | None,
+    baseline_write: bool,
+    decision_snapshot: Path | None,
+    artifact_flags: CheckArtifactFlags,
+    delta_options: CheckDeltaOptions,
+    exclude: list[str] | None,
+    filter_bundle: DataflowFilterBundle | None,
+    allow_external: bool | None,
+    strictness: str | None,
+    resume_checkpoint: Path | None,
+    timeout_progress_report: bool,
+    resume_on_timeout: int,
+    analysis_budget_checks: int | None,
+    gate: CheckGateMode,
+    lint_mode: CheckLintMode,
+    lint_jsonl_out: Path | None,
+    lint_sarif_out: Path | None,
+    aux_operation: CheckAuxOperation | None = None,
 ) -> None:
-    # dataflow-bundle: filter_bundle
-    """Run the dataflow grammar audit with strict defaults."""
-    profile_name = profile.strip().lower()
-    filter_bundle = DataflowFilterBundle(
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
+    fail_on_violations, fail_on_type_ambiguities = _check_gate_policy(gate)
+    lint_enabled, lint_line = _check_lint_mode(
+        lint_mode=lint_mode,
+        lint_jsonl_out=lint_jsonl_out,
+        lint_sarif_out=lint_sarif_out,
     )
     deps = _context_cli_deps(ctx)
-    if profile_name not in {"strict", "raw"}:
-        raise typer.BadParameter("profile must be 'strict' or 'raw'")
-    if profile_name == "raw":
-        _run_check_raw_profile(
-            ctx=ctx,
-            paths=paths,
-            report=report,
-            fail_on_violations=fail_on_violations,
-            root=root,
-            config=config,
-            decision_snapshot=decision_snapshot,
-            baseline=baseline,
-            baseline_write=baseline_write,
-            exclude=exclude,
-            filter_bundle=filter_bundle,
-            allow_external=allow_external,
-            strictness=strictness,
-            resume_checkpoint=resume_checkpoint,
-            emit_timeout_progress_report=emit_timeout_progress_report,
-            resume_on_timeout=resume_on_timeout,
-            fail_on_type_ambiguities=fail_on_type_ambiguities,
-            lint=lint,
-            lint_jsonl=lint_jsonl,
-            lint_sarif=lint_sarif,
-            run_dataflow_raw_argv_fn=deps.run_dataflow_raw_argv_fn,
-        )
-        return
-    extra_tokens = list(ctx.args)
-    extra_tokens.extend(
-        str(path) for path in (paths or []) if str(path).startswith("-")
-    )
-    if extra_tokens:
-        joined = " ".join(extra_tokens)
-        raise typer.BadParameter(
-            f"Unknown arguments for strict profile: {joined}. Use --profile raw for raw options."
-        )
-    lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     startup_resume_emitted = False
     timeline_header_emitted = False
     last_phase_progress_signature: tuple[object, ...] | None = None
@@ -2235,7 +2237,9 @@ def check(
         header_value = timeline_update.get("header")
         header = (
             header_value
-            if not timeline_header_emitted and isinstance(header_value, str) and header_value
+            if not timeline_header_emitted
+            and isinstance(header_value, str)
+            and header_value
             else None
         )
         _emit_checkpoint_intro_timeline_progress(header=header, row=row)
@@ -2256,53 +2260,846 @@ def check(
             baseline=baseline,
             baseline_write=baseline_write,
             decision_snapshot=decision_snapshot,
-            artifact_flags=CheckArtifactFlags(
-                emit_test_obsolescence=emit_test_obsolescence,
-                emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-                emit_call_clusters=emit_call_clusters,
-                emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-                emit_test_annotation_drift=emit_test_annotation_drift,
-                emit_semantic_coverage_map=emit_semantic_coverage_map,
-            ),
-            delta_options=CheckDeltaOptions(
-                emit_test_obsolescence_state=emit_test_obsolescence_state,
-                test_obsolescence_state=test_obsolescence_state,
-                emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-                test_annotation_drift_state=test_annotation_drift_state,
-                emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-                write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-                write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-                semantic_coverage_mapping=semantic_coverage_mapping,
-                emit_ambiguity_delta=emit_ambiguity_delta,
-                emit_ambiguity_state=emit_ambiguity_state,
-                ambiguity_state=ambiguity_state,
-                write_ambiguity_baseline=write_ambiguity_baseline,
-            ),
+            artifact_flags=artifact_flags,
+            delta_options=delta_options,
             exclude=exclude,
             filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
             resume_checkpoint=resume_checkpoint,
-            emit_timeout_progress_report=emit_timeout_progress_report,
+            emit_timeout_progress_report=timeout_progress_report,
             resume_on_timeout=resume_on_timeout,
-            analysis_tick_limit=analysis_tick_limit,
+            analysis_tick_limit=analysis_budget_checks,
+            aux_operation=aux_operation,
             notification_callback=_on_notification,
         ),
         root=Path(root),
-        emit_timeout_progress_report=emit_timeout_progress_report,
+        emit_timeout_progress_report=timeout_progress_report,
         resume_on_timeout=resume_on_timeout,
     )
     with _cli_deadline_scope():
         lint_lines = result.get("lint_lines", []) or []
         _emit_lint_outputs(
             lint_lines,
-            lint=lint,
-            lint_jsonl=lint_jsonl,
-            lint_sarif=lint_sarif,
+            lint=lint_line,
+            lint_jsonl=lint_jsonl_out,
+            lint_sarif=lint_sarif_out,
         )
     _emit_analysis_resume_summary(result)
     _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
+
+
+def _run_check_aux_operation(
+    *,
+    ctx: typer.Context,
+    domain: str,
+    action: str,
+    paths: list[Path] | None,
+    root: Path,
+    config: Path | None,
+    strictness: CheckStrictnessMode,
+    allow_external: bool | None,
+    baseline: Path | None,
+    state_in: Path | None,
+    out_json: Path | None,
+    out_md: Path | None,
+    report: Path | None,
+    decision_snapshot: Path | None,
+    resume_checkpoint: Path | None,
+    timeout_progress_report: bool,
+    resume_on_timeout: int,
+    analysis_budget_checks: int | None,
+) -> None:
+    aux_operation = CheckAuxOperation(
+        domain=domain,
+        action=action,
+        baseline_path=baseline,
+        state_in_path=state_in,
+        out_json=out_json,
+        out_md=out_md,
+    )
+    _run_check_command(
+        ctx=ctx,
+        paths=paths,
+        report=report,
+        root=root,
+        config=config,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=decision_snapshot,
+        artifact_flags=_default_check_artifact_flags(),
+        delta_options=_default_check_delta_options(),
+        exclude=None,
+        filter_bundle=DataflowFilterBundle(
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+        ),
+        allow_external=allow_external,
+        strictness=str(strictness.value),
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+        gate=CheckGateMode.none,
+        lint_mode=CheckLintMode.none,
+        lint_jsonl_out=None,
+        lint_sarif_out=None,
+        aux_operation=aux_operation,
+    )
+
+
+@check_app.callback()
+def check_group(
+    ctx: typer.Context,
+    removed_profile: Optional[str] = typer.Option(None, "--profile", hidden=True),
+    removed_emit_test_obsolescence: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence",
+        hidden=True,
+    ),
+    removed_emit_test_obsolescence_state: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-state",
+        hidden=True,
+    ),
+    removed_emit_test_obsolescence_delta: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-delta",
+        hidden=True,
+    ),
+    removed_test_obsolescence_state: Optional[Path] = typer.Option(
+        None,
+        "--test-obsolescence-state",
+        hidden=True,
+    ),
+    removed_emit_test_annotation_drift: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift",
+        hidden=True,
+    ),
+    removed_emit_test_annotation_drift_delta: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift-delta",
+        hidden=True,
+    ),
+    removed_write_test_annotation_drift_baseline: bool = typer.Option(
+        False,
+        "--write-test-annotation-drift-baseline",
+        hidden=True,
+    ),
+    removed_test_annotation_drift_state: Optional[Path] = typer.Option(
+        None,
+        "--test-annotation-drift-state",
+        hidden=True,
+    ),
+    removed_emit_ambiguity_delta: bool = typer.Option(
+        False,
+        "--emit-ambiguity-delta",
+        hidden=True,
+    ),
+    removed_emit_ambiguity_state: bool = typer.Option(
+        False,
+        "--emit-ambiguity-state",
+        hidden=True,
+    ),
+    removed_ambiguity_state: Optional[Path] = typer.Option(
+        None,
+        "--ambiguity-state",
+        hidden=True,
+    ),
+    removed_write_ambiguity_baseline: bool = typer.Option(
+        False,
+        "--write-ambiguity-baseline",
+        hidden=True,
+    ),
+    removed_write_test_obsolescence_baseline: bool = typer.Option(
+        False,
+        "--write-test-obsolescence-baseline",
+        hidden=True,
+    ),
+) -> None:
+    if removed_profile is not None:
+        raise typer.BadParameter(
+            "Removed --profile flag. Use `gabion check run` or `gabion check raw -- ...`."
+        )
+    if (
+        removed_emit_test_obsolescence
+        or removed_emit_test_obsolescence_state
+        or removed_emit_test_obsolescence_delta
+        or removed_test_obsolescence_state is not None
+        or removed_emit_test_annotation_drift
+        or removed_emit_test_annotation_drift_delta
+        or removed_write_test_annotation_drift_baseline
+        or removed_test_annotation_drift_state is not None
+        or removed_emit_ambiguity_delta
+        or removed_emit_ambiguity_state
+        or removed_ambiguity_state is not None
+        or removed_write_ambiguity_baseline
+        or removed_write_test_obsolescence_baseline
+    ):
+        raise typer.BadParameter(
+            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity` subcommands."
+        )
+    _check_help_or_exit(ctx)
+
+
+@check_obsolescence_app.callback()
+def check_obsolescence_group(ctx: typer.Context) -> None:
+    _check_help_or_exit(ctx)
+
+
+@check_annotation_drift_app.callback()
+def check_annotation_drift_group(ctx: typer.Context) -> None:
+    _check_help_or_exit(ctx)
+
+
+@check_ambiguity_app.callback()
+def check_ambiguity_group(ctx: typer.Context) -> None:
+    _check_help_or_exit(ctx)
+
+
+@check_app.command("raw", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def check_raw(ctx: typer.Context) -> None:
+    raw_args = list(ctx.args)
+    if raw_args and raw_args[0] == "--":
+        raw_args = raw_args[1:]
+    if not raw_args:
+        raise typer.BadParameter("Usage: gabion check raw -- [raw-args...]")
+    run_raw = _context_run_dataflow_raw_argv(ctx)
+    run_raw(raw_args)
+
+
+@check_app.command("run")
+def check_run(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Optional[Path] = typer.Option(None, "--baseline"),
+    baseline_mode: CheckBaselineMode = typer.Option(
+        CheckBaselineMode.off,
+        "--baseline-mode",
+    ),
+    gate: CheckGateMode = typer.Option(CheckGateMode.all, "--gate"),
+    resume_checkpoint: Optional[Path] = typer.Option(
+        None,
+        "--resume-checkpoint",
+    ),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    removed_analysis_tick_limit: Optional[int] = typer.Option(
+        None,
+        "--analysis-tick-limit",
+        hidden=True,
+    ),
+    decision_snapshot: Optional[Path] = typer.Option(
+        None,
+        "--decision-snapshot",
+    ),
+    lint: CheckLintMode = typer.Option(CheckLintMode.none, "--lint"),
+    lint_jsonl_out: Optional[Path] = typer.Option(
+        None,
+        "--lint-jsonl-out",
+    ),
+    lint_sarif_out: Optional[Path] = typer.Option(
+        None,
+        "--lint-sarif-out",
+    ),
+) -> None:
+    if removed_analysis_tick_limit is not None:
+        raise typer.BadParameter(
+            "Removed --analysis-tick-limit. Use --analysis-budget-checks."
+        )
+    if baseline_mode in {CheckBaselineMode.enforce, CheckBaselineMode.write} and baseline is None:
+        raise typer.BadParameter(
+            "--baseline is required when --baseline-mode is enforce or write."
+        )
+    if baseline_mode is CheckBaselineMode.off and baseline is not None:
+        raise typer.BadParameter(
+            "--baseline is only valid when --baseline-mode is enforce or write."
+        )
+    baseline_path = baseline if baseline_mode is not CheckBaselineMode.off else None
+    baseline_write = baseline_mode is CheckBaselineMode.write
+    _run_check_command(
+        ctx=ctx,
+        paths=paths,
+        report=report,
+        root=root,
+        config=config,
+        baseline=baseline_path,
+        baseline_write=baseline_write,
+        decision_snapshot=decision_snapshot,
+        artifact_flags=_default_check_artifact_flags(),
+        delta_options=_default_check_delta_options(),
+        exclude=None,
+        filter_bundle=DataflowFilterBundle(
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+        ),
+        allow_external=allow_external,
+        strictness=str(strictness.value),
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+        gate=gate,
+        lint_mode=lint,
+        lint_jsonl_out=lint_jsonl_out,
+        lint_sarif_out=lint_sarif_out,
+    )
+
+
+@check_obsolescence_app.command("report")
+def check_obsolescence_report(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="obsolescence",
+        action="report",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_obsolescence_app.command("state")
+def check_obsolescence_state(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="obsolescence",
+        action="state",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=None,
+        out_json=out_json,
+        out_md=None,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_obsolescence_app.command("delta")
+def check_obsolescence_delta(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="obsolescence",
+        action="delta",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_obsolescence_app.command("baseline-write")
+def check_obsolescence_baseline_write(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="obsolescence",
+        action="baseline-write",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_annotation_drift_app.command("report")
+def check_annotation_drift_report(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="annotation-drift",
+        action="report",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_annotation_drift_app.command("state")
+def check_annotation_drift_state(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="annotation-drift",
+        action="state",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=None,
+        out_json=out_json,
+        out_md=None,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_annotation_drift_app.command("delta")
+def check_annotation_drift_delta(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="annotation-drift",
+        action="delta",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_annotation_drift_app.command("baseline-write")
+def check_annotation_drift_baseline_write(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="annotation-drift",
+        action="baseline-write",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_ambiguity_app.command("state")
+def check_ambiguity_state(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="ambiguity",
+        action="state",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=None,
+        out_json=out_json,
+        out_md=None,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_ambiguity_app.command("delta")
+def check_ambiguity_delta(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="ambiguity",
+        action="delta",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
+
+
+@check_ambiguity_app.command("baseline-write")
+def check_ambiguity_baseline_write(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
+    timeout_progress_report: bool = typer.Option(
+        False,
+        "--timeout-progress-report/--no-timeout-progress-report",
+    ),
+    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="ambiguity",
+        action="baseline-write",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        resume_checkpoint=resume_checkpoint,
+        timeout_progress_report=timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_budget_checks=analysis_budget_checks,
+    )
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
@@ -3405,6 +4202,7 @@ _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
+    "normative-symdiff": tooling_normative_symdiff.main,
 }
 
 
@@ -3500,6 +4298,20 @@ def ambiguity_contract_gate(ctx: typer.Context) -> None:
     raise typer.Exit(
         code=_run_tooling_with_argv(
             "ambiguity-contract-gate",
+            list(ctx.args),
+        )
+    )
+
+
+@app.command(
+    "normative-symdiff",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def normative_symdiff(ctx: typer.Context) -> None:
+    """Compute a normative-docs ↔ code/tooling symmetric-difference report."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "normative-symdiff",
             list(ctx.args),
         )
     )

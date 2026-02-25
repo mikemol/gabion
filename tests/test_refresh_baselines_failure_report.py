@@ -72,7 +72,7 @@ def test_refresh_baselines_writes_failure_artifact_on_check_failure(
 
             assert artifact_path == refresh_baselines.FAILURE_ARTIFACT_PATH
             assert payload["attempted_command"] == failing_command
-            assert payload["attempted_flags"] == []
+            assert payload["attempted_flags"] == ["--timeout"]
             assert payload["exit_code"] == 9
             assert payload["timeout_settings"]["cli_timeout_seconds"] is None
             assert payload["timeout_settings"]["env"]["GABION_LSP_TIMEOUT_SECONDS"] == "17"

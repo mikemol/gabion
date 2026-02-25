@@ -54,7 +54,7 @@ def test_load_test_evidence_errors_and_defaults(tmp_path: Path) -> None:
     assert [entry.status for entry in entries] == ["unmapped", "mapped"]
 
 
-# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_e2f1950f5e6b
 def test_render_markdown_and_payload() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     suggestion = test_evidence_suggestions.Suggestion(
@@ -102,7 +102,7 @@ def test_render_markdown_and_payload() -> None:
     assert "tests/test_sample.py" in empty_markdown
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::stale_c9d342c65475
 def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
     forest = Forest()
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
@@ -133,7 +133,7 @@ def test_graph_suggestions_empty_entries_short_circuits(tmp_path: Path) -> None:
     assert resolved == set()
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::stale_32b0c4fac550_22ff5a7a
 def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
     app = tmp_path / "app.py"
     app.write_text("def helper(x):\n    return x\n", encoding="utf-8")
@@ -201,7 +201,7 @@ def test_test_qual_passthrough() -> None:
     assert test_evidence_suggestions._test_qual("no_delimiter") == "no_delimiter"
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::stale_4cb8e03f700b_03483964
 def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
     path = tmp_path / "sample.py"
     info = FunctionInfo(
@@ -273,7 +273,7 @@ def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
     assert rule.matches(file="file", name="skip_alpha") is False
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::stale_2e661a6266d4
 def test_evidence_for_alt_variants() -> None:
     forest = Forest()
     site_id = forest.add_site("a.py", "f")
@@ -337,7 +337,7 @@ def test_collect_call_footprint_targets_no_outer(tmp_path: Path) -> None:
     assert targets == ()
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_4b23852ce6db_be534f60
 def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
     info = FunctionInfo(
         name="test_alpha",
@@ -383,7 +383,7 @@ def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_fc7abccd3cc6
 def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
     test_dir = tmp_path / "tests"
     test_dir.mkdir()
@@ -416,7 +416,7 @@ def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_94b65ff6ed2f
 def test_find_module_level_calls_resolves_symbol_and_literal(tmp_path: Path) -> None:
     src_pkg = tmp_path / "src" / "pkg"
     src_pkg.mkdir(parents=True)
@@ -607,12 +607,12 @@ def test_resolve_module_literal_invalid(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_098851b92767
 def test_collect_call_footprints_empty_entries() -> None:
     assert test_evidence_suggestions.collect_call_footprints([]) == {}
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_538a74c2fcbd
 def test_collect_call_footprints_empty_paths(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
     config = AuditConfig(project_root=tmp_path)
@@ -625,7 +625,7 @@ def test_collect_call_footprints_empty_paths(tmp_path: Path) -> None:
     assert footprints == {}
 
 
-# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_c18e05ce1806_bc86387e
 def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir()

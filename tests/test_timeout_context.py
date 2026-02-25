@@ -61,7 +61,7 @@ def _deadline_test_scope(
                     yield
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack::stale_5f83d4767c39
 def test_pack_call_stack_orders_and_indexes() -> None:
     sites = [
         {"path": "b.py", "qual": "mod.b"},
@@ -82,7 +82,7 @@ def test_pack_call_stack_orders_and_indexes() -> None:
     assert packed.stack == (0, 1, 0)
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_dbe32a0500ec
 def test_build_timeout_context_from_stack_uses_forest() -> None:
     forest = Forest()
     path_name = Path(__file__).name
@@ -191,7 +191,7 @@ def test_build_site_index_filters_nodes() -> None:
     assert list(index.keys()) == [("ok.py", "mod.ok")]
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack::stale_1a892a545319_b666ebce
 def test_pack_call_stack_keeps_span() -> None:
     packed = pack_call_stack(
         [
@@ -248,7 +248,7 @@ def test_pack_call_stack_uses_first_seen_site_order() -> None:
     assert packed.stack == (0, 1, 0)
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context._frame_site_key::stale_973f9f2d7f85_f67ec520
 def test_frame_site_key_outside_root_raises() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -257,7 +257,7 @@ def test_frame_site_key_outside_root_raises() -> None:
         _frame_site_key(frame, project_root=project_root)
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context._frame_site_key::stale_88f48c1fe168
 def test_frame_site_key_without_module_name() -> None:
     frame = type(
         "DummyFrame",
@@ -347,7 +347,7 @@ def test_get_forest_returns_active_carrier() -> None:
         reset_forest(token)
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_253a380d6acc_563ed243
 def test_build_timeout_context_frame_fallback() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -816,7 +816,7 @@ def test_deadline_profile_disabled_scope_noops_profile_recording() -> None:
         assert _deadline_profile_snapshot() is None
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_6140a2b7922b
 def test_build_timeout_context_skips_unmatched_frames() -> None:
     frame = inspect.currentframe()
     assert frame is not None

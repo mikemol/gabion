@@ -26,6 +26,7 @@ def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
     )
 
 
+# gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.plan_callee_resolution
 def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
     da, resolution = _load()
     resolution._bind_audit_symbols()
@@ -59,6 +60,7 @@ def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
     assert resolution.collect_callee_resolution_effects(second) == ()
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee
 def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
     da, _ = _load()
     path = Path("pkg/mod.py")
@@ -94,6 +96,7 @@ def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
     ]
 
 
+# gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.apply_callee_resolution_ops
 def test_callee_resolution_private_noop_paths_are_structural() -> None:
     da, resolution = _load()
     resolution._bind_audit_symbols()
