@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from gabion.analysis import dataflow_pipeline
@@ -96,3 +98,32 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
             include_unused_arg_smells=False,
             on_phase_progress="not-callable",  # type: ignore[arg-type]
         )
+
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._bind_audit_symbols
+def test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant() -> None:
+    _bind()
+    first = Path("pkg/a.py")
+    second = Path("pkg/b.py")
+    groups_a = {
+        first: {"f": [{"alpha", "beta"}]},
+        second: {"g": [{"payload"}]},
+    }
+    annotations_a = {
+        first: {"f": {"alpha": "dict[str, int]", "beta": "list[int]"}},
+        second: {"g": {"payload": "tuple[int, str]"}},
+    }
+    groups_b = {
+        second: {"g": [{"payload"}]},
+        first: {"f": [{"beta", "alpha"}]},
+    }
+    annotations_b = {
+        second: {"g": {"payload": "tuple[int, str]"}},
+        first: {"f": {"beta": "list[int]", "alpha": "dict[str, int]"}},
+    }
+
+    assert dataflow_pipeline._collect_fingerprint_atom_keys(
+        groups_a,
+        annotations_a,
+    ) == dataflow_pipeline._collect_fingerprint_atom_keys(groups_b, annotations_b)
