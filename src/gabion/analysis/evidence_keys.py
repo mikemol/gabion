@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Callable, Iterable, Mapping, Sequence
+from typing import Callable, Iterable, Mapping, Sequence, cast
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -26,65 +27,76 @@ def normalize_reason(value: str) -> str:
     return " ".join(str(value).strip().split())
 
 
-def _normalize_target(target: object) -> tuple[str, str] | None:
-    if isinstance(target, Mapping):
-        path = str(target.get("path", "") or "").strip()
-        qual = str(target.get("qual", "") or "").strip()
-    elif isinstance(target, Sequence) and not isinstance(target, (str, bytes)):
-        if len(target) < 2:
-            return None
-        path = str(target[0]).strip()
-        qual = str(target[1]).strip()
+def _mapping_or_empty(value: object) -> Mapping[str, object]:
+    mapping = mapping_or_none(value)
+    if mapping is None:
+        return {}
+    return cast(Mapping[str, object], mapping)
+
+
+def _sequence_or_empty(value: object) -> Sequence[object]:
+    sequence = sequence_or_none(value)
+    if sequence is None:
+        return ()
+    return cast(Sequence[object], sequence)
+
+
+def _normalize_target(target: object) -> object:
+    target_mapping = mapping_or_none(target)
+    if target_mapping is not None:
+        path = str(target_mapping.get("path", "") or "").strip()
+        qual = str(target_mapping.get("qual", "") or "").strip()
     else:
-        return None
+        target_sequence = _sequence_or_empty(target)
+        if len(target_sequence) < 2:
+            return None
+        path = str(target_sequence[0]).strip()
+        qual = str(target_sequence[1]).strip()
     if not path or not qual:
         return None
     return path, qual
 
 
-def _normalize_span(value: object) -> list[int] | None:
+def _normalize_span(value: object) -> list[int]:
     check_deadline()
-    if value is None:
-        return None
-    if isinstance(value, Mapping):
+    mapping_value = mapping_or_none(value)
+    if mapping_value is not None:
         parts = [
-            value.get("line"),
-            value.get("col"),
-            value.get("end_line"),
-            value.get("end_col"),
+            mapping_value.get("line"),
+            mapping_value.get("col"),
+            mapping_value.get("end_line"),
+            mapping_value.get("end_col"),
         ]
-    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        parts = list(value)
     else:
-        return None
+        parts = list(_sequence_or_empty(value))
     if len(parts) != 4:
-        return None
+        return []
     normalized: list[int] = []
     for part in parts:
         check_deadline()
         try:
             item = int(part)  # type: ignore[arg-type]
         except (TypeError, ValueError):
-            return None
+            return []
         if item < 0:
-            return None
+            return []
         normalized.append(item)
     return normalized
 
 
 def _normalize_site(site: object) -> dict[str, object]:
-    if isinstance(site, Mapping):
-        path = str(site.get("path", "") or "").strip()
-        qual = str(site.get("qual", "") or "").strip()
-        span = _normalize_span(site.get("span"))
-    elif isinstance(site, Sequence) and not isinstance(site, (str, bytes)):
-        if len(site) < 2:
-            return {"path": "", "qual": ""}
-        path = str(site[0]).strip()
-        qual = str(site[1]).strip()
-        span = None
+    site_mapping = mapping_or_none(site)
+    if site_mapping is not None:
+        path = str(site_mapping.get("path", "") or "").strip()
+        qual = str(site_mapping.get("qual", "") or "").strip()
+        span = _normalize_span(site_mapping.get("span"))
     else:
-        return {"path": "", "qual": ""}
+        site_sequence = _sequence_or_empty(site)
+        if len(site_sequence) < 2:
+            return {"path": "", "qual": ""}
+        path = str(site_sequence[0]).strip()
+        qual = str(site_sequence[1]).strip()
+        span = []
     payload: dict[str, object] = {"path": path, "qual": qual}
     if span:
         payload["span"] = span
@@ -139,7 +151,7 @@ def make_never_sink_key(
     path: str,
     qual: str,
     param: str,
-    reason: str | None = None,
+    reason: object = "",
 ) -> dict[str, object]:
     # dataflow-bundle: param, path, qual
     key = {
@@ -200,7 +212,7 @@ def make_ambiguity_set_key(
     *,
     path: str,
     qual: str,
-    span: Iterable[object] | None = None,
+    span: Iterable[object] = (),
     candidates: Iterable[object],
 ) -> dict[str, object]:
     # dataflow-bundle: candidates, path, qual
@@ -208,7 +220,7 @@ def make_ambiguity_set_key(
         "path": str(path).strip(),
         "qual": str(qual).strip(),
     }
-    normalized_span = _normalize_span(span)
+    normalized_span = _normalize_span(list(span))
     if normalized_span:
         site["span"] = normalized_span
     return {
@@ -223,8 +235,8 @@ def make_partition_witness_key(
     kind: str,
     site: Mapping[str, object],
     ambiguity: Mapping[str, object],
-    support: Mapping[str, object] | None = None,
-    collapse: Mapping[str, object] | None = None,
+    support: object = None,
+    collapse: object = None,
 ) -> dict[str, object]:
     check_deadline()
     # dataflow-bundle: ambiguity, kind, site
@@ -234,16 +246,18 @@ def make_partition_witness_key(
         "site": _normalize_site(site),
         "ambiguity": normalize_key(ambiguity),
     }
-    if support:
+    support_mapping = mapping_or_none(support)
+    if support_mapping:
         payload["support"] = {
             str(key): str(value).strip()
-            for key, value in support.items()
+            for key, value in support_mapping.items()
             if str(value).strip()
         }
-    if collapse:
+    collapse_mapping = mapping_or_none(collapse)
+    if collapse_mapping:
         payload["collapse"] = {
             str(key): str(value).strip()
-            for key, value in collapse.items()
+            for key, value in collapse_mapping.items()
             if str(value).strip()
         }
     return payload
@@ -257,23 +271,22 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
     check_deadline()
     kind = str(key.get("k", "") or "").strip()
     if kind == "paramset":
-        params = key.get("params", [])
-        if isinstance(params, str):
-            params = params.split(",")
-        return make_paramset_key(params if isinstance(params, Iterable) else [])
+        params_payload = key.get("params", [])
+        match params_payload:
+            case str() as params_text:
+                params_values: Iterable[str] = params_text.split(",")
+            case _:
+                params_values = (str(value) for value in _sequence_or_empty(params_payload))
+        return make_paramset_key(params_values)
     if kind == "decision_surface":
         mode = str(key.get("m", "direct") or "direct")
-        site = key.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
+        site = _mapping_or_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         param = str(key.get("param", "") or "")
         return make_decision_surface_key(mode=mode, path=path, qual=qual, param=param)
     if kind == "never_sink":
-        site = key.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
+        site = _mapping_or_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         param = str(key.get("param", "") or "")
@@ -285,45 +298,37 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             reason=str(reason) if reason else None,
         )
     if kind == "function_site":
-        site = key.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
+        site = _mapping_or_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         return make_function_site_key(path=path, qual=qual)
     if kind == "call_footprint":
-        site = key.get("site", {})
-        path = str(site.get("path", "") or "") if isinstance(site, Mapping) else ""
-        qual = str(site.get("qual", "") or "") if isinstance(site, Mapping) else ""
-        targets = key.get("targets", [])
-        if isinstance(targets, str):
-            targets = []
+        site = _mapping_or_empty(key.get("site", {}))
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        targets = _sequence_or_empty(key.get("targets", []))
         return make_call_footprint_key(
             path=path,
             qual=qual,
-            targets=targets if isinstance(targets, Iterable) else [],
+            targets=targets,
         )
     if kind == "call_cluster":
-        targets = key.get("targets", [])
-        if isinstance(targets, str):
-            targets = []
+        targets = _sequence_or_empty(key.get("targets", []))
         return make_call_cluster_key(
-            targets=targets if isinstance(targets, Iterable) else [],
+            targets=targets,
         )
     if kind == "ambiguity_set":
         site = key.get("site", {})
         normalized_site = _normalize_site(site)
         path = str(normalized_site.get("path", "") or "")
         qual = str(normalized_site.get("qual", "") or "")
-        span = normalized_site.get("span")
-        candidates = key.get("candidates", [])
-        if isinstance(candidates, str):
-            candidates = []
+        span = _sequence_or_empty(normalized_site.get("span", []))
+        candidates = _sequence_or_empty(key.get("candidates", []))
         return make_ambiguity_set_key(
             path=path,
             qual=qual,
-            span=span if isinstance(span, Iterable) else None,
-            candidates=candidates if isinstance(candidates, Iterable) else [],
+            span=span,
+            candidates=candidates,
         )
     if kind == "partition_witness":
         kind_value = str(key.get("kind", "") or "")
@@ -331,14 +336,12 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         ambiguity = key.get("ambiguity", {})
         support = key.get("support")
         collapse = key.get("collapse")
-        support_map = support if isinstance(support, Mapping) else None
-        collapse_map = collapse if isinstance(collapse, Mapping) else None
         return make_partition_witness_key(
             kind=kind_value,
-            site=site if isinstance(site, Mapping) else {},
-            ambiguity=ambiguity if isinstance(ambiguity, Mapping) else {},
-            support=support_map,
-            collapse=collapse_map,
+            site=_mapping_or_empty(site),
+            ambiguity=_mapping_or_empty(ambiguity),
+            support=support,
+            collapse=collapse,
         )
     if kind == "opaque":
         return make_opaque_key(str(key.get("s", "") or ""))
@@ -379,10 +382,7 @@ def render_display(
         return str(normalized.get("s", "") or "")
     if kind == "paramset":
         params = normalized.get("params", [])
-        if isinstance(params, list):
-            joined = ",".join(str(p) for p in params)
-        else:
-            joined = ""
+        joined = ",".join(str(p) for p in _sequence_or_empty(params))
         return f"E:paramset::{joined}" if joined else "E:paramset"
     if kind == "decision_surface":
         mode = str(normalized.get("m", "direct") or "direct")
@@ -407,31 +407,27 @@ def render_display(
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         parts = [path, qual]
-        targets = normalized.get("targets", [])
-        if isinstance(targets, list):
-            for target in targets:
-                check_deadline()
-                if not isinstance(target, Mapping):
-                    continue
-                target_path = str(target.get("path", "") or "")
-                target_qual = str(target.get("qual", "") or "")
-                if not target_path or not target_qual:
-                    continue
-                parts.extend([target_path, target_qual])
+        targets = _sequence_or_empty(normalized.get("targets", []))
+        for target in targets:
+            check_deadline()
+            target_map = mapping_or_none(target)
+            if target_map is not None:
+                target_path = str(target_map.get("path", "") or "")
+                target_qual = str(target_map.get("qual", "") or "")
+                if target_path and target_qual:
+                    parts.extend([target_path, target_qual])
         return "E:call_footprint::" + "::".join(parts)
     if kind == "call_cluster":
-        targets = normalized.get("targets", [])
+        targets = _sequence_or_empty(normalized.get("targets", []))
         parts: list[str] = []
-        if isinstance(targets, list):
-            for target in targets:
-                check_deadline()
-                if not isinstance(target, Mapping):
-                    continue
-                target_path = str(target.get("path", "") or "")
-                target_qual = str(target.get("qual", "") or "")
-                if not target_path or not target_qual:
-                    continue
-                parts.extend([target_path, target_qual])
+        for target in targets:
+            check_deadline()
+            target_map = mapping_or_none(target)
+            if target_map is not None:
+                target_path = str(target_map.get("path", "") or "")
+                target_qual = str(target_map.get("qual", "") or "")
+                if target_path and target_qual:
+                    parts.extend([target_path, target_qual])
         if not parts:
             return "E:call_cluster"
         return "E:call_cluster::" + "::".join(parts)
@@ -444,7 +440,7 @@ def render_display(
     return f"E:{kind}"
 
 
-def parse_display(display: str) -> dict[str, object] | None:
+def parse_display(display: str) -> object:
     check_deadline()
     value = str(display).strip()
     if not value.startswith("E:"):
@@ -505,8 +501,9 @@ def parse_display(display: str) -> dict[str, object] | None:
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None
-        if isinstance(payload, Mapping):
-            return normalize_key(payload)
+        payload_mapping = mapping_or_none(payload)
+        if payload_mapping is not None:
+            return normalize_key(cast(Mapping[str, object], payload_mapping))
         return None
     if prefix == "partition_witness":
         if not rest:
@@ -516,8 +513,9 @@ def parse_display(display: str) -> dict[str, object] | None:
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None
-        if isinstance(payload, Mapping):
-            return normalize_key(payload)
+        payload_mapping = mapping_or_none(payload)
+        if payload_mapping is not None:
+            return normalize_key(cast(Mapping[str, object], payload_mapping))
         return None
     return None
 
