@@ -4398,13 +4398,17 @@ def verify_rewrite_plan(
                     {str(key): mapped_predicate[key] for key in mapped_predicate}
                 )
     if not requested_predicates:
-        schema = rewrite_plan_schema(rewrite_kind)
-        defaults = list(schema.required_predicates) if schema is not None else [
+        schema_lookup = rewrite_plan_schema(rewrite_kind)
+        defaults = (
+            list(schema_lookup.schema.required_predicates)
+            if schema_lookup.is_known
+            else [
             "base_conservation",
             "ctor_coherence",
             "match_strata",
             "remainder_non_regression",
-        ]
+            ]
+        )
         requested_predicates = []
         for kind in defaults:
             if kind == "match_strata":
