@@ -5950,33 +5950,24 @@ def _collect_call_edges_from_forest(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None:
-            continue
-        if suite_node.kind != "SuiteSite":
-            continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
-            continue
-        caller_id = _suite_caller_function_id(suite_node)
-        if alt.kind == "CallCandidate":
-            if len(alt.inputs) < 2:
-                continue
-            candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
-            if candidate_id is None:
-                continue
-            edges[caller_id].add(candidate_id)
-            continue
-        if alt.kind != "CallResolutionObligation":
-            continue
-        callee_key = str(alt.evidence.get("callee", "") or "")
-        if not callee_key:
-            continue
-        for candidate_id in _obligation_candidate_suite_ids(
-            by_name=by_name,
-            callee_key=callee_key,
-        ):
-            check_deadline()
-            edges[caller_id].add(candidate_id)
+        if suite_node is not None and suite_node.kind == "SuiteSite":
+            suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+            if suite_kind == "call":
+                caller_id = _suite_caller_function_id(suite_node)
+                if alt.kind == "CallCandidate":
+                    if len(alt.inputs) >= 2:
+                        candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
+                        if candidate_id is not None:
+                            edges[caller_id].add(candidate_id)
+                elif alt.kind == "CallResolutionObligation":
+                    callee_key = str(alt.evidence.get("callee", "") or "")
+                    if callee_key:
+                        for candidate_id in _obligation_candidate_suite_ids(
+                            by_name=by_name,
+                            callee_key=callee_key,
+                        ):
+                            check_deadline()
+                            edges[caller_id].add(candidate_id)
     return edges
 
 
@@ -6214,20 +6205,17 @@ def _materialize_call_candidates(
                     "unresolved_dynamic": "unresolved_dynamic_callee",
                 }
                 obligation_kind = obligation_kind_by_status.get(resolution.status)
-                if obligation_kind is None:
-                    continue
-                if suite_id in obligation_seen:
-                    continue
-                obligation_seen.add(suite_id)
-                forest.add_alt(
-                    "CallResolutionObligation",
-                    (suite_id,),
-                    evidence={
-                        "phase": resolution.phase,
-                        "callee": call.callee,
-                        "kind": obligation_kind,
-                    },
-                )
+                if obligation_kind is not None and suite_id not in obligation_seen:
+                    obligation_seen.add(suite_id)
+                    forest.add_alt(
+                        "CallResolutionObligation",
+                        (suite_id,),
+                        evidence={
+                            "phase": resolution.phase,
+                            "callee": call.callee,
+                            "kind": obligation_kind,
+                        },
+                    )
 
 
 _GraphNode = TypeVar("_GraphNode", bound=Hashable)
@@ -6554,15 +6542,12 @@ def _deadline_loop_forwarded_params(
         return forwarded
     for call, callee, arg_info in call_infos.get(qual, []):
         check_deadline()
-        if call.span is None or call.span not in loop_fact.call_spans:
-            continue
-        for callee_param in deadline_params.get(callee.qual, set()):
-            check_deadline()
-            info = arg_info.get(callee_param)
-            if info is None:
-                continue
-            if info.kind == "param" and info.param in caller_params:
-                forwarded.add(info.param)
+        if call.span is not None and call.span in loop_fact.call_spans:
+            for callee_param in deadline_params.get(callee.qual, set()):
+                check_deadline()
+                info = arg_info.get(callee_param)
+                if info is not None and info.kind == "param" and info.param in caller_params:
+                    forwarded.add(info.param)
     return forwarded
 
 
@@ -6619,16 +6604,15 @@ def _materialize_projection_spec_rows(
     for row in projected:
         check_deadline()
         site_id = row_to_site(row)
-        if site_id is None:
-            continue
-        evidence: dict[str, object] = {
-            "spec_name": str(spec.name),
-            "spec_hash": spec_identity,
-        }
-        for key, value in row.items():
-            check_deadline()
-            evidence[str(key)] = value
-        forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
+        if site_id is not None:
+            evidence: dict[str, object] = {
+                "spec_name": str(spec.name),
+                "spec_hash": spec_identity,
+            }
+            for key, value in row.items():
+                check_deadline()
+                evidence[str(key)] = value
+            forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
 
 
 def _suite_order_depth(suite_kind: str) -> int:
@@ -6784,54 +6768,52 @@ def _ambiguity_suite_relation(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
-            continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
-            continue
-        path = str(suite_node.meta.get("path", "") or "")
-        qual = str(suite_node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never(
-                "ambiguity suite requires path/qual",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-            )
-        span = suite_node.meta.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            never(
-                "ambiguity suite requires span",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-            )
-        try:
-            span_line = int(span[0])
-            span_col = int(span[1])
-            span_end_line = int(span[2])
-            span_end_col = int(span[3])
-        except (TypeError, ValueError):
-            never(
-                "ambiguity suite span fields must be integers",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-                span=span,
-            )
-        relation.append(
-            {
-                "suite_path": path,
-                "suite_qual": qual,
-                "suite_kind": suite_kind,
-                "span_line": span_line,
-                "span_col": span_col,
-                "span_end_line": span_end_line,
-                "span_end_col": span_end_col,
-                "kind": str(alt.evidence.get("kind", "") or ""),
-                "phase": str(alt.evidence.get("phase", "") or ""),
-            }
-        )
+        if suite_node is not None and suite_node.kind == "SuiteSite":
+            suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+            if suite_kind == "call":
+                path = str(suite_node.meta.get("path", "") or "")
+                qual = str(suite_node.meta.get("qual", "") or "")
+                if not path or not qual:
+                    never(
+                        "ambiguity suite requires path/qual",
+                        path=path,
+                        qual=qual,
+                        suite_kind=suite_kind,
+                    )
+                span = suite_node.meta.get("span")
+                if not isinstance(span, list) or len(span) != 4:
+                    never(
+                        "ambiguity suite requires span",
+                        path=path,
+                        qual=qual,
+                        suite_kind=suite_kind,
+                    )
+                try:
+                    span_line = int(span[0])
+                    span_col = int(span[1])
+                    span_end_line = int(span[2])
+                    span_end_col = int(span[3])
+                except (TypeError, ValueError):
+                    never(
+                        "ambiguity suite span fields must be integers",
+                        path=path,
+                        qual=qual,
+                        suite_kind=suite_kind,
+                        span=span,
+                    )
+                relation.append(
+                    {
+                        "suite_path": path,
+                        "suite_qual": qual,
+                        "suite_kind": suite_kind,
+                        "span_line": span_line,
+                        "span_col": span_col,
+                        "span_end_line": span_end_line,
+                        "span_end_col": span_end_col,
+                        "kind": str(alt.evidence.get("kind", "") or ""),
+                        "phase": str(alt.evidence.get("phase", "") or ""),
+                    }
+                )
     return relation, function_index
 
 
@@ -7392,20 +7374,19 @@ def _lint_rows_from_lines(
     for line in lines:
         check_deadline()
         parsed = _parse_lint_location(line)
-        if parsed is None:
-            continue
-        path, lineno, col, remainder = parsed
-        code, message = _parse_lint_remainder(remainder)
-        rows.append(
-            {
-                "path": path,
-                "line": int(lineno),
-                "col": int(col),
-                "code": code,
-                "message": message,
-                "source": source,
-            }
-        )
+        if parsed is not None:
+            path, lineno, col, remainder = parsed
+            code, message = _parse_lint_remainder(remainder)
+            rows.append(
+                {
+                    "path": path,
+                    "line": int(lineno),
+                    "col": int(col),
+                    "code": code,
+                    "message": message,
+                    "source": source,
+                }
+            )
     return rows
 
 
@@ -7477,23 +7458,22 @@ def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
         if lint_node_id.kind != "LintFinding":
             continue
         lint_node = forest.nodes.get(lint_node_id)
-        if lint_node is None:
-            continue
-        path = str(lint_node.meta.get("path", "") or "")
-        code = str(lint_node.meta.get("code", "") or "")
-        message = str(lint_node.meta.get("message", "") or "")
-        if not path or not code:
-            continue
-        try:
-            line = int(lint_node.meta.get("line", 1) or 1)
-            col = int(lint_node.meta.get("col", 1) or 1)
-        except (TypeError, ValueError):
-            continue
-        key = (path, line, col, code, message)
-        source = str(alt.evidence.get("source", "") or "")
-        bucket = by_identity.setdefault(key, set())
-        if source:
-            bucket.add(source)
+        if lint_node is not None:
+            path = str(lint_node.meta.get("path", "") or "")
+            code = str(lint_node.meta.get("code", "") or "")
+            message = str(lint_node.meta.get("message", "") or "")
+            if not path or not code:
+                continue
+            try:
+                line = int(lint_node.meta.get("line", 1) or 1)
+                col = int(lint_node.meta.get("col", 1) or 1)
+            except (TypeError, ValueError):
+                continue
+            key = (path, line, col, code, message)
+            source = str(alt.evidence.get("source", "") or "")
+            bucket = by_identity.setdefault(key, set())
+            if source:
+                bucket.add(source)
     relation: list[dict[str, JSONValue]] = []
     for key in sort_once(by_identity, source = 'src/gabion/analysis/dataflow_audit.py:7783'):
         check_deadline()
@@ -7588,26 +7568,25 @@ def _report_section_line_relation(
         if node_id.kind != "ReportSectionLine":
             continue
         node = forest.nodes.get(node_id)
-        if node is None:
-            continue
-        node_run_id = str(node.meta.get("run_id", "") or "")
-        node_section = str(node.meta.get("section", "") or "")
-        if (
-            node_run_id != section_key.run_id
-            or node_section != section_key.section
-        ):
-            continue
-        try:
-            line_index = int(node.meta.get("line_index", 0) or 0)
-        except (TypeError, ValueError):
-            continue
-        relation.append(
-            {
-                "section": section_key.section,
-                "line_index": line_index,
-                "text": str(node.meta.get("text", "") or ""),
-            }
-        )
+        if node is not None:
+            node_run_id = str(node.meta.get("run_id", "") or "")
+            node_section = str(node.meta.get("section", "") or "")
+            if (
+                node_run_id != section_key.run_id
+                or node_section != section_key.section
+            ):
+                continue
+            try:
+                line_index = int(node.meta.get("line_index", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            relation.append(
+                {
+                    "section": section_key.section,
+                    "line_index": line_index,
+                    "text": str(node.meta.get("text", "") or ""),
+                }
+            )
     return relation
 
 
