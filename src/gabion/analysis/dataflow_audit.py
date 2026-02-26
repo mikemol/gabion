@@ -11344,41 +11344,57 @@ def _collect_lambda_bindings_by_caller(
 
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-            continue
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        value = node.value
-        if value is None:
-            continue
-        fn_scope = _enclosing_scopes(node, parent_map)
-        if not fn_scope:
-            continue
-        qual_parts = [module] if module else []
-        qual_parts.extend(fn_scope)
-        caller_key = ".".join(qual_parts)
+        assignment_node = None
+        node_type = type(node)
+        if node_type is ast.Assign or node_type is ast.AnnAssign:
+            assignment_node = cast(ast.Assign | ast.AnnAssign, node)
+        if assignment_node is not None and assignment_node.value is not None:
+            fn_scope = _enclosing_scopes(assignment_node, parent_map)
+            if fn_scope:
+                targets = (
+                    assignment_node.targets
+                    if type(assignment_node) is ast.Assign
+                    else [assignment_node.target]
+                )
+                qual_parts = [module] if module else []
+                qual_parts.extend(fn_scope)
+                caller_key = ".".join(qual_parts)
+                value = assignment_node.value
 
-        assigned_quals: set[str] = set()
-        value_span = _node_span(value)
-        if isinstance(value, ast.Lambda) and value_span is not None:
-            qual = lambda_qual_by_span.get(value_span)
-            if qual is not None:
-                assigned_quals.add(qual)
-        elif isinstance(value, ast.Name):
-            assigned_quals.update(binding_sets.get(caller_key, {}).get(value.id, set()))
-        elif isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-            assigned_quals.update(closure_factories.get(value.func.id, set()))
+                assigned_quals: set[str] = set()
+                value_span = _node_span(value)
+                value_type = type(value)
+                if value_type is ast.Lambda and value_span is not None:
+                    qual = lambda_qual_by_span.get(value_span)
+                    if qual is not None:
+                        assigned_quals.add(qual)
+                elif value_type is ast.Name:
+                    assigned_quals.update(
+                        binding_sets.get(caller_key, {}).get(cast(ast.Name, value).id, set())
+                    )
+                elif value_type is ast.Call:
+                    call_value = cast(ast.Call, value)
+                    if type(call_value.func) is ast.Name:
+                        assigned_quals.update(
+                            closure_factories.get(cast(ast.Name, call_value.func).id, set())
+                        )
 
-        for target in targets:
-            check_deadline()
-            target_names = list(_target_names(target))
-            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-                target_names.append(f"{target.value.id}.{target.attr}")
-            for name in target_names:
-                check_deadline()
-                if assigned_quals:
-                    binding_sets[caller_key][name].update(assigned_quals)
-                else:
-                    binding_sets[caller_key].pop(name, None)
+                for target in targets:
+                    check_deadline()
+                    target_names = list(_target_names(target))
+                    if type(target) is ast.Attribute:
+                        attribute_target = cast(ast.Attribute, target)
+                        target_value = attribute_target.value
+                        if type(target_value) is ast.Name:
+                            target_names.append(
+                                f"{cast(ast.Name, target_value).id}.{attribute_target.attr}"
+                            )
+                    for name in target_names:
+                        check_deadline()
+                        if assigned_quals:
+                            binding_sets[caller_key][name].update(assigned_quals)
+                        else:
+                            binding_sets[caller_key].pop(name, None)
 
     out: dict[str, dict[str, tuple[str, ...]]] = {}
     for caller_key, mapping in binding_sets.items():
@@ -11404,48 +11420,61 @@ def _collect_closure_lambda_factories(
     factories: dict[str, set[str]] = defaultdict(set)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        local_bindings: dict[str, set[str]] = {}
-        for statement in node.body:
-            check_deadline()
-            if isinstance(statement, (ast.Assign, ast.AnnAssign)):
-                value = statement.value
-                if value is None:
-                    continue
-                assigned_quals: set[str] = set()
-                value_span = _node_span(value)
-                if isinstance(value, ast.Lambda) and value_span is not None:
-                    qual = lambda_qual_by_span.get(value_span)
-                    if qual is not None:
-                        assigned_quals.add(qual)
-                elif isinstance(value, ast.Name):
-                    assigned_quals.update(local_bindings.get(value.id, set()))
-                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
-                for target in targets:
-                    check_deadline()
-                    for name in _target_names(target):
-                        check_deadline()
-                        if assigned_quals:
-                            local_bindings[name] = set(assigned_quals)
-                        else:
-                            local_bindings.pop(name, None)
-            elif isinstance(statement, ast.Return) and isinstance(statement.value, ast.Name):
-                returned = local_bindings.get(statement.value.id, set())
-                if not returned:
-                    continue
-                scopes = _enclosing_scopes(node, parent_map)
-                keys = {node.name}
-                if scopes:
-                    keys.add(_function_key(scopes, node.name))
-                qual_parts = [module] if module else []
-                if scopes:
-                    qual_parts.extend(scopes)
-                qual_parts.append(node.name)
-                keys.add(".".join(qual_parts))
-                for key in keys:
-                    check_deadline()
-                    factories[key].update(returned)
+        function_node = None
+        node_type = type(node)
+        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
+            function_node = cast(ast.FunctionDef | ast.AsyncFunctionDef, node)
+        if function_node is not None:
+            local_bindings: dict[str, set[str]] = {}
+            for statement in function_node.body:
+                check_deadline()
+                statement_type = type(statement)
+                if statement_type is ast.Assign or statement_type is ast.AnnAssign:
+                    assignment = cast(ast.Assign | ast.AnnAssign, statement)
+                    value = assignment.value
+                    if value is not None:
+                        assigned_quals: set[str] = set()
+                        value_span = _node_span(value)
+                        value_type = type(value)
+                        if value_type is ast.Lambda and value_span is not None:
+                            qual = lambda_qual_by_span.get(value_span)
+                            if qual is not None:
+                                assigned_quals.add(qual)
+                        elif value_type is ast.Name:
+                            assigned_quals.update(
+                                local_bindings.get(cast(ast.Name, value).id, set())
+                            )
+                        targets = (
+                            assignment.targets
+                            if type(assignment) is ast.Assign
+                            else [assignment.target]
+                        )
+                        for target in targets:
+                            check_deadline()
+                            for name in _target_names(target):
+                                check_deadline()
+                                if assigned_quals:
+                                    local_bindings[name] = set(assigned_quals)
+                                else:
+                                    local_bindings.pop(name, None)
+                elif statement_type is ast.Return:
+                    return_statement = cast(ast.Return, statement)
+                    return_value = return_statement.value
+                    if type(return_value) is ast.Name:
+                        returned = local_bindings.get(cast(ast.Name, return_value).id, set())
+                        if returned:
+                            scopes = _enclosing_scopes(function_node, parent_map)
+                            keys = {function_node.name}
+                            if scopes:
+                                keys.add(_function_key(scopes, function_node.name))
+                            qual_parts = [module] if module else []
+                            if scopes:
+                                qual_parts.extend(scopes)
+                            qual_parts.append(function_node.name)
+                            keys.add(".".join(qual_parts))
+                            for key in keys:
+                                check_deadline()
+                                factories[key].update(returned)
     return factories
 
 
@@ -11463,15 +11492,15 @@ def _direct_lambda_callee_by_call_span(
     mapping: dict[tuple[int, int, int, int], str] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Lambda):
-            continue
-        call_span = _node_span(node)
-        lambda_span = _node_span(node.func)
-        if call_span is None or lambda_span is None:
-            continue
-        callee = lambda_qual_by_span.get(lambda_span)
-        if callee is not None:
-            mapping[call_span] = callee
+        if type(node) is ast.Call:
+            call_node = cast(ast.Call, node)
+            if type(call_node.func) is ast.Lambda:
+                call_span = _node_span(call_node)
+                lambda_span = _node_span(call_node.func)
+                if call_span is not None and lambda_span is not None:
+                    callee = lambda_qual_by_span.get(lambda_span)
+                    if callee is not None:
+                        mapping[call_span] = callee
     return mapping
 
 
