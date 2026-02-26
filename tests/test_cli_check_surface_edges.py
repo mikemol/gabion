@@ -18,14 +18,21 @@ def _normalize_output(text: str) -> str:
     return " ".join(_ANSI_ESCAPE.sub("", text).split())
 
 
-def _check_obj(captured: list[dict[str, object]]) -> dict[str, object]:
+def _check_obj(
+    captured: list[dict[str, object]],
+    *,
+    run_check_delta_gates: object | None = None,
+) -> dict[str, object]:
     def _run_check(**kwargs: object) -> dict[str, object]:
         captured.append({str(key): kwargs[key] for key in kwargs})
         return {"exit_code": 0, "lint_lines": []}
 
-    return {
+    obj: dict[str, object] = {
         "run_check": _run_check,
     }
+    if run_check_delta_gates is not None:
+        obj["run_check_delta_gates"] = run_check_delta_gates
+    return obj
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags
@@ -186,10 +193,13 @@ def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     assert delta_options.emit_ambiguity_delta is True
 
 
-def test_check_delta_gates_uses_gate_runner_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_delta_gates_uses_gate_runner_exit_code() -> None:
     runner = CliRunner()
-    monkeypatch.setattr(cli, "_run_check_delta_gates", lambda: 7)
-    result = runner.invoke(cli.app, ["check", "delta-gates"])
+    result = runner.invoke(
+        cli.app,
+        ["check", "delta-gates"],
+        obj=_check_obj([], run_check_delta_gates=lambda: 7),
+    )
     assert result.exit_code == 7
 
 

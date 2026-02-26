@@ -110,6 +110,7 @@ DEFAULT_RUNNER: Runner = run_command
 CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
 CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
 CliRunSppfSyncFn: TypeAlias = Callable[..., int]
+CliRunCheckDeltaGatesFn: TypeAlias = Callable[[], int]
 
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
@@ -177,6 +178,7 @@ class CliDeps:
     run_dataflow_raw_argv_fn: CliRunDataflowRawArgvFn
     run_check_fn: CliRunCheckFn
     run_sppf_sync_fn: CliRunSppfSyncFn
+    run_check_delta_gates_fn: CliRunCheckDeltaGatesFn
 
 
 def _context_callable_dep(
@@ -225,6 +227,14 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
                 ctx=ctx,
                 key="run_sppf_sync",
                 default=_run_sppf_sync,
+            ),
+        ),
+        run_check_delta_gates_fn=cast(
+            CliRunCheckDeltaGatesFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_check_delta_gates",
+                default=_run_check_delta_gates,
             ),
         ),
     )
@@ -2494,8 +2504,9 @@ def check_delta_bundle(
 
 
 @check_app.command("delta-gates")
-def check_delta_gates() -> None:
-    raise typer.Exit(code=_run_check_delta_gates())
+def check_delta_gates(ctx: typer.Context) -> None:
+    deps = _context_cli_deps(ctx)
+    raise typer.Exit(code=deps.run_check_delta_gates_fn())
 
 
 def _run_check_aux_operation(
