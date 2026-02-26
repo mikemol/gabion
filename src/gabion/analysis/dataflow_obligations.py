@@ -967,7 +967,7 @@ def collect_deadline_obligations(
     extra_facts_by_qual = None,
     extra_call_infos = None,
     extra_deadline_params = None,
-    parse_failure_witnesses = None,
+    parse_failure_witnesses: list[JSONObject],
     analysis_index = None,
     materialize_call_candidates_fn = None,
     collect_call_nodes_by_path_fn = None,
@@ -981,7 +981,7 @@ def collect_deadline_obligations(
 ) -> list[JSONObject]:
     _bind_audit_symbols()
     check_deadline()
-    parse_failure_witnesses_payload = parse_failure_witnesses or []
+    parse_failure_witnesses_payload = parse_failure_witnesses
     collection_fns = _resolve_deadline_collection_fns(
         materialize_call_candidates_fn=materialize_call_candidates_fn,
         collect_call_nodes_by_path_fn=collect_call_nodes_by_path_fn,
