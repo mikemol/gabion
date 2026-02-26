@@ -7986,7 +7986,7 @@ def _build_analysis_index(
         function_index_acc.by_qual[qual] = info
         function_index_acc.by_name[info.name].append(info)
     progress_since_emit = 0
-    last_progress_emit_monotonic: float | None = None
+    last_progress_emit_monotonic = None
     profile_stage_ns: dict[str, int] = {
         "analysis_index.parse_module": 0,
         "analysis_index.function_index": 0,
@@ -8008,29 +8008,33 @@ def _build_analysis_index(
     def _emit_index_progress(*, force: bool = False) -> None:
         nonlocal progress_since_emit
         nonlocal last_progress_emit_monotonic
-        if on_progress is None:
-            return
-        progress_since_emit += 1
-        now = time.monotonic()
-        if (
-            not force
-            and last_progress_emit_monotonic is not None
-            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ): return
-        progress_since_emit = 0
-        last_progress_emit_monotonic = now
-        on_progress(
-            _serialize_analysis_index_resume_payload(
-                hydrated_paths=hydrated_paths,
-                by_qual=function_index_acc.by_qual,
-                symbol_table=symbol_table,
-                class_index=class_index,
-                index_cache_identity=index_cache_identity,
-                projection_cache_identity=projection_cache_identity,
-                profiling_v1=_index_profile_payload(),
-                previous_payload=resume_payload,
+        progress_callback = on_progress
+        if progress_callback is not None:
+            progress_since_emit += 1
+            now = time.monotonic()
+            emit_allowed = (
+                force
+                or last_progress_emit_monotonic is None
+                or (
+                    now - last_progress_emit_monotonic
+                    >= _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+                )
             )
-        )
+            if emit_allowed:
+                progress_since_emit = 0
+                last_progress_emit_monotonic = now
+                progress_callback(
+                    _serialize_analysis_index_resume_payload(
+                        hydrated_paths=hydrated_paths,
+                        by_qual=function_index_acc.by_qual,
+                        symbol_table=symbol_table,
+                        class_index=class_index,
+                        index_cache_identity=index_cache_identity,
+                        projection_cache_identity=projection_cache_identity,
+                        profiling_v1=_index_profile_payload(),
+                        previous_payload=resume_payload,
+                    )
+                )
 
     try:
         for path in ordered_paths:
@@ -14926,8 +14930,8 @@ def _load_file_scan_resume_state(
         payload=raw_use,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_param_use_map(raw_value)
-            if isinstance(raw_value, Mapping)
+            _deserialize_param_use_map(raw_mapping)
+            if (raw_mapping := mapping_or_none(raw_value)) is not None
             else None
         ),
     )
@@ -14935,8 +14939,8 @@ def _load_file_scan_resume_state(
         payload=raw_calls,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_call_args_list(raw_value)
-            if isinstance(raw_value, Sequence)
+            _deserialize_call_args_list(raw_sequence)
+            if (raw_sequence := sequence_or_none(raw_value)) is not None
             else None
         ),
     )
@@ -14953,15 +14957,15 @@ def _load_file_scan_resume_state(
         payload=raw_param_spans,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_param_spans_for_resume({"_": raw_value}).get("_", {})
-            if isinstance(raw_value, Mapping)
+            _deserialize_param_spans_for_resume({"_": raw_mapping}).get("_", {})
+            if (raw_mapping := mapping_or_none(raw_value)) is not None
             else None
         ),
     )
     fn_names = load_resume_map(
         payload=raw_names,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: raw_value if isinstance(raw_value, str) else None,
+        parser=lambda raw_value: raw_value if type(raw_value) is str else None,
     )
     fn_lexical_scopes = load_resume_map(
         payload=raw_scopes,
@@ -14979,12 +14983,13 @@ def _load_file_scan_resume_state(
             valid_keys=valid_fn_keys,
         )
     ):
-        if raw_value is None or isinstance(raw_value, str):
+        if raw_value is None or type(raw_value) is str:
             fn_class_names[fn_key] = cast(str | None, raw_value)
     raw_opaque = payload.get("opaque_callees")
-    if isinstance(raw_opaque, Sequence):
-        for entry in deadline_loop_iter(raw_opaque):
-            if isinstance(entry, str) and entry in valid_fn_keys:
+    raw_opaque_entries = sequence_or_none(raw_opaque)
+    if raw_opaque_entries is not None:
+        for entry in deadline_loop_iter(raw_opaque_entries):
+            if type(entry) is str and entry in valid_fn_keys:
                 opaque_callees.add(entry)
     return (
         fn_use,
@@ -15163,29 +15168,29 @@ def _load_analysis_collection_resume_payload(
         raw_groups = mapping_or_none(groups_payload.get(path_key))
         raw_spans = mapping_or_none(spans_payload.get(path_key))
         raw_sites = mapping_or_none(sites_payload.get(path_key))
-        if raw_groups is None or raw_spans is None or raw_sites is None:
-            continue
-        groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
-        param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
-        bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
-        completed_paths.add(path)
+        if raw_groups is not None and raw_spans is not None and raw_sites is not None:
+            groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
+            param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
+            bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
+            completed_paths.add(path)
     if include_invariant_propositions:
-        raw_invariants = payload.get("invariant_propositions")
-        if isinstance(raw_invariants, Sequence):
+        raw_invariants = sequence_or_none(payload.get("invariant_propositions"))
+        if raw_invariants is not None:
             invariant_propositions = _deserialize_invariants_for_resume(raw_invariants)
     for raw_path, raw_state in in_progress_scan_payload.items():
         check_deadline()
-        if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
-            continue
+        raw_state_mapping = mapping_or_none(raw_state)
         path = allowed_paths.get(raw_path)
-        if path is None or path in completed_paths:
-            continue
-        in_progress_scan_by_path[path] = {str(key): raw_state[key] for key in raw_state}
+        if raw_state_mapping is not None and path is not None and path not in completed_paths:
+            in_progress_scan_by_path[path] = {
+                str(key): raw_state_mapping[key] for key in raw_state_mapping
+            }
     raw_analysis_index_resume = payload.get("analysis_index_resume")
-    if isinstance(raw_analysis_index_resume, Mapping):
+    raw_analysis_index_mapping = mapping_or_none(raw_analysis_index_resume)
+    if raw_analysis_index_mapping is not None:
         analysis_index_resume = {
-            str(key): raw_analysis_index_resume[key]
-            for key in raw_analysis_index_resume
+            str(key): raw_analysis_index_mapping[key]
+            for key in raw_analysis_index_mapping
         }
     return (
         groups_by_path,
@@ -16366,7 +16371,7 @@ def _run_impl(
     fingerprint_rewrite_plans_json = args.fingerprint_rewrite_plans_json
     fingerprint_exception_obligations_json = args.fingerprint_exception_obligations_json
     fingerprint_handledness_json = args.fingerprint_handledness_json
-    exclude_dirs: list[str] | None = None
+    exclude_dirs = None
     if args.exclude is not None:
         exclude_dirs = []
         for entry in args.exclude:
@@ -16376,10 +16381,10 @@ def _run_impl(
                 part = part.strip()
                 if part:
                     exclude_dirs.append(part)
-    ignore_params: list[str] | None = None
+    ignore_params = None
     if args.ignore_params is not None:
         ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
-    transparent_decorators: list[str] | None = None
+    transparent_decorators = None
     if args.transparent_decorators is not None:
         transparent_decorators = [
             p.strip() for p in args.transparent_decorators.split(",") if p.strip()
@@ -16395,8 +16400,8 @@ def _run_impl(
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"
-    synth_registry_path: str | None = None
-    fingerprint_seed_path: str | None = None
+    synth_registry_path = None
+    fingerprint_seed_path = None
     try:
         synth_min_occurrences = int(
             fingerprint_section.get("synth_min_occurrences", 0) or 0
@@ -16410,11 +16415,11 @@ def _run_impl(
     fingerprint_seed_path = fingerprint_section.get("seed_registry_path")
     if fingerprint_seed_path is None:
         fingerprint_seed_path = fingerprint_section.get("fingerprint_seed_path")
-    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_registry = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
-    fingerprint_seed_revision: str | None = None
-    constructor_registry: TypeConstructorRegistry | None = None
-    synth_registry: SynthRegistry | None = None
+    fingerprint_seed_revision = None
+    constructor_registry = None
+    synth_registry = None
     # The [fingerprints] section mixes bundle specs with synth settings.
     # Filter out the settings so they do not pollute the registry/index.
     fingerprint_spec: dict[str, JSONValue] = {
@@ -16461,9 +16466,10 @@ def _run_impl(
                         payload = None
                 else:
                     payload = None
-                if isinstance(payload, dict):
+                payload_mapping = mapping_or_none(cast(JSONValue, payload))
+                if payload_mapping is not None:
                     synth_registry = build_synth_registry_from_payload(
-                        payload, registry
+                        payload_mapping, registry
                     )
     merged = merge_payload(
         {
