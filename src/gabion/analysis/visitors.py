@@ -137,9 +137,12 @@ class UseVisitor(ProjectVisitor):
             self.use_map[param_name].unknown_key_sites.add(span)
 
     def _normalize_key(self, node: ast.AST):
-        if self.normalize_key_expr is None:
-            return None
-        return self.normalize_key_expr(node, const_bindings=self._const_bindings)
+        normalize_key_expr = self.normalize_key_expr
+        return (
+            normalize_key_expr(node, const_bindings=self._const_bindings)
+            if normalize_key_expr is not None
+            else None
+        )
 
     def _mark_unknown_key_carrier(self, base_name: str, node: ast.AST) -> None:
         for (carrier_name, _), param_name in self._key_alias_to_param.items():
@@ -318,13 +321,11 @@ class UseVisitor(ProjectVisitor):
         if not self.return_aliases:
             return None
         callee = self.callee_name(call)
-        info = self.return_aliases.get(callee)
-        if info is None:
-            return None
-        params, aliases = info
+        params, aliases = self.return_aliases.get(callee, ((), ()))
         if not aliases:
             return None
         mapping: dict[str, object] = {}
+        has_unnamed_keyword = False
         for idx, arg in enumerate(call.args):
             check_deadline()
             if _is_ast(arg, ast.Starred):
@@ -338,13 +339,16 @@ class UseVisitor(ProjectVisitor):
         for kw in call.keywords:
             check_deadline()
             if kw.arg is None:
-                return None
+                has_unnamed_keyword = True
+                continue
             if kw.arg not in params:
                 continue
             if _is_ast(kw.value, ast.Name) and kw.value.id in self.alias_to_param:
                 mapping[kw.arg] = self.alias_to_param[kw.value.id]
             else:
                 mapping[kw.arg] = None
+        if has_unnamed_keyword:
+            return None
         resolved: list[str] = []
         for param in aliases:
             check_deadline()
@@ -410,12 +414,11 @@ class UseVisitor(ProjectVisitor):
                     self._attr_alias_to_param[(target.value.id, target.attr)] = rhs_param
                     handled_alias = True
             elif rhs_param and _is_ast(target, ast.Subscript):
+                key_value = self._normalize_key(target.slice)
                 if (
                     _is_ast(target.value, ast.Name)
-                    and self._normalize_key(target.slice) is not None
+                    and key_value is not None
                 ):
-                    key_value = self._normalize_key(target.slice)
-                    assert key_value is not None
                     self._key_alias_to_param[
                         (target.value.id, key_value)
                     ] = rhs_param
