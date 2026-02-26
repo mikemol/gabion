@@ -15,6 +15,9 @@ from gabion.synthesis.naming import suggest_name
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
+_EMPTY_FIELD_TYPES: Mapping[str, str] = {}
+_DEFAULT_NAMING_CONTEXT = NamingContext()
+
 
 @dataclass
 class Synthesizer:
@@ -23,12 +26,11 @@ class Synthesizer:
     def plan(
         self,
         bundle_tiers: Mapping[frozenset[str], int],
-        field_types: Mapping[str, str] | None = None,
-        naming_context: NamingContext | None = None,
+        field_types: Mapping[str, str] = _EMPTY_FIELD_TYPES,
+        naming_context: NamingContext = _DEFAULT_NAMING_CONTEXT,
     ) -> SynthesisPlan:
         check_deadline()
         field_types = field_types or {}
-        naming_context = naming_context or NamingContext()
         protocols: List[ProtocolSpec] = []
         warnings: List[str] = []
 
