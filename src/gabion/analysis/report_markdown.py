@@ -9,9 +9,9 @@ def render_report_markdown(
     doc_id: str,
     lines: Iterable[str],
     *,
-    doc_scope: Iterable[str] | None = None,
+    doc_scope: Iterable[str] = ("repo", "artifacts"),
 ) -> str:
-    scope = canonical_doc_scope(doc_scope or ("repo", "artifacts"))
+    scope = canonical_doc_scope(doc_scope)
     frontmatter = [
         "---",
         "doc_revision: 1",
