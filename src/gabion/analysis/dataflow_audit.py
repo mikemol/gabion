@@ -14251,78 +14251,80 @@ def _deserialize_function_info_for_resume(
     params_payload = sequence_or_none(raw_params)
     path = allowed_paths.get(path_key) if type(path_key) is str else None
     if (
-        type(name) is not str
-        or type(qual) is not str
-        or path is None
-        or params_payload is None
+        type(name) is str
+        and type(qual) is str
+        and path is not None
+        and params_payload is not None
     ):
-        return None
-    params = str_list_from_sequence(params_payload)
-    raw_annots = payload.get("annots")
-    annots: dict[str, JSONValue] = {}
-    for param, annot in mapping_or_empty(raw_annots).items():
-        check_deadline()
-        if type(param) is str and (annot is None or type(annot) is str):
-            annots[param] = annot
-    raw_calls = payload.get("calls")
-    calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
-    unused_params = str_set_from_sequence(payload.get("unused_params"))
-    unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
-    defaults = str_set_from_sequence(payload.get("defaults"))
-    class_name = payload.get("class_name")
-    if class_name is not None and type(class_name) is not str:
-        class_name = None
-    scope = str_tuple_from_sequence(payload.get("scope"))
-    lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
-    decision_params = str_set_from_sequence(payload.get("decision_params"))
-    decision_surface_reasons: dict[str, set[str]] = {}
-    for param, raw_reasons in mapping_or_empty(payload.get("decision_surface_reasons")).items():
-        check_deadline()
-        if type(param) is str:
-            reasons = str_set_from_sequence(raw_reasons)
-            if reasons:
-                decision_surface_reasons[param] = reasons
-    value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
-    value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
-    positional_params = str_tuple_from_sequence(payload.get("positional_params"))
-    kwonly_params = str_tuple_from_sequence(payload.get("kwonly_params"))
-    raw_vararg = payload.get("vararg")
-    vararg = raw_vararg if type(raw_vararg) is str else None
-    raw_kwarg = payload.get("kwarg")
-    kwarg = raw_kwarg if type(raw_kwarg) is str else None
-    param_spans: dict[str, tuple[int, int, int, int]] = {}
-    for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
-        check_deadline()
-        if type(param) is str:
-            span = int_tuple4_or_none(raw_span)
-            if span is not None:
-                param_spans[param] = span
-    function_span = int_tuple4_or_none(payload.get("function_span"))
-    return FunctionInfo(
-        name=name,
-        qual=qual,
-        path=path,
-        params=params,
-        annots=annots,
-        calls=calls,
-        unused_params=unused_params,
-        unknown_key_carriers=unknown_key_carriers,
-        defaults=defaults,
-        transparent=bool(payload.get("transparent", True)),
-        class_name=cast(str | None, class_name),
-        scope=scope,
-        lexical_scope=lexical_scope,
-        decision_params=decision_params,
-        decision_surface_reasons=decision_surface_reasons,
-        value_decision_params=value_decision_params,
-        value_decision_reasons=value_decision_reasons,
-        positional_params=positional_params,
-        kwonly_params=kwonly_params,
-        vararg=vararg,
-        kwarg=kwarg,
-        param_spans=param_spans,
-        function_span=function_span,
-    )
+        params = str_list_from_sequence(params_payload)
+        raw_annots = payload.get("annots")
+        annots: dict[str, JSONValue] = {}
+        for param, annot in mapping_or_empty(raw_annots).items():
+            check_deadline()
+            if type(param) is str and (annot is None or type(annot) is str):
+                annots[param] = annot
+        raw_calls = payload.get("calls")
+        calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
+        unused_params = str_set_from_sequence(payload.get("unused_params"))
+        unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
+        defaults = str_set_from_sequence(payload.get("defaults"))
+        class_name = payload.get("class_name")
+        if class_name is not None and type(class_name) is not str:
+            class_name = None
+        scope = str_tuple_from_sequence(payload.get("scope"))
+        lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
+        decision_params = str_set_from_sequence(payload.get("decision_params"))
+        decision_surface_reasons: dict[str, set[str]] = {}
+        for param, raw_reasons in mapping_or_empty(
+            payload.get("decision_surface_reasons")
+        ).items():
+            check_deadline()
+            if type(param) is str:
+                reasons = str_set_from_sequence(raw_reasons)
+                if reasons:
+                    decision_surface_reasons[param] = reasons
+        value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
+        value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
+        positional_params = str_tuple_from_sequence(payload.get("positional_params"))
+        kwonly_params = str_tuple_from_sequence(payload.get("kwonly_params"))
+        raw_vararg = payload.get("vararg")
+        vararg = raw_vararg if type(raw_vararg) is str else None
+        raw_kwarg = payload.get("kwarg")
+        kwarg = raw_kwarg if type(raw_kwarg) is str else None
+        param_spans: dict[str, tuple[int, int, int, int]] = {}
+        for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
+            check_deadline()
+            if type(param) is str:
+                span = int_tuple4_or_none(raw_span)
+                if span is not None:
+                    param_spans[param] = span
+        function_span = int_tuple4_or_none(payload.get("function_span"))
+        return FunctionInfo(
+            name=cast(str, name),
+            qual=cast(str, qual),
+            path=path,
+            params=params,
+            annots=annots,
+            calls=calls,
+            unused_params=unused_params,
+            unknown_key_carriers=unknown_key_carriers,
+            defaults=defaults,
+            transparent=bool(payload.get("transparent", True)),
+            class_name=cast(str | None, class_name),
+            scope=scope,
+            lexical_scope=lexical_scope,
+            decision_params=decision_params,
+            decision_surface_reasons=decision_surface_reasons,
+            value_decision_params=value_decision_params,
+            value_decision_reasons=value_decision_reasons,
+            positional_params=positional_params,
+            kwonly_params=kwonly_params,
+            vararg=vararg,
+            kwarg=kwarg,
+            param_spans=param_spans,
+            function_span=function_span,
+        )
+    return None
 
 
 def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
@@ -14577,8 +14579,8 @@ def _load_analysis_index_resume_payload(
     *,
     payload: Mapping[str, JSONValue] | None,
     file_paths: Sequence[Path],
-    expected_index_cache_identity: str | None = None,
-    expected_projection_cache_identity: str | None = None,
+    expected_index_cache_identity: str = "",
+    expected_projection_cache_identity: str = "",
 ) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
     hydrated_paths: set[Path] = set()
     by_qual: dict[str, FunctionInfo] = {}
@@ -14588,7 +14590,7 @@ def _load_analysis_index_resume_payload(
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
     selected_payload: Mapping[str, JSONValue] = payload
-    if expected_index_cache_identity is not None:
+    if expected_index_cache_identity:
         resume_identity = str(payload.get("index_cache_identity", "") or "")
         if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
             variants = _analysis_index_resume_variants(payload)
@@ -14596,7 +14598,7 @@ def _load_analysis_index_resume_payload(
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
-    if expected_projection_cache_identity is not None:
+    if expected_projection_cache_identity:
         projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
         if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
             return hydrated_paths, by_qual, symbol_table, class_index
