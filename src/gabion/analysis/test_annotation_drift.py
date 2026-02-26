@@ -15,6 +15,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.analysis.report_doc import ReportDoc
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -34,8 +35,8 @@ def build_annotation_drift_payload(
     *,
     root: Path,
     evidence_path: Path,
-    include: Iterable[str] | None = None,
-    exclude: Iterable[str] | None = None,
+    include: Iterable[str] = (),
+    exclude: Iterable[str] = (),
 ) -> dict[str, JSONValue]:
     check_deadline()
     # dataflow-bundle: evidence_path, exclude, include, root
@@ -79,7 +80,7 @@ def build_annotation_drift_payload(
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     summary = payload.get("summary", {})
-    entries = payload.get("entries", [])
+    entries = sequence_or_none(payload.get("entries", []))
     doc = ReportDoc("out_test_annotation_drift")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
@@ -88,17 +89,17 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     orphaned: list[Mapping[str, JSONValue]] = []
     legacy: list[Mapping[str, JSONValue]] = []
     legacy_ambiguous: list[Mapping[str, JSONValue]] = []
-    if isinstance(entries, list):
+    if entries is not None:
         for entry in entries:
-            if not isinstance(entry, Mapping):
-                continue
-            status = str(entry.get("status", ""))
-            if status == "orphaned":
-                orphaned.append(entry)
-            elif status == "legacy_tag":
-                legacy.append(entry)
-            elif status == "legacy_ambiguous":
-                legacy_ambiguous.append(entry)
+            entry_map = mapping_or_none(entry)
+            if entry_map is not None:
+                status = str(entry_map.get("status", ""))
+                if status == "orphaned":
+                    orphaned.append(entry_map)
+                elif status == "legacy_tag":
+                    legacy.append(entry_map)
+                elif status == "legacy_ambiguous":
+                    legacy_ambiguous.append(entry_map)
     if orphaned:
         doc.line("Orphaned tags:")
         rows: list[str] = []
