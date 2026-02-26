@@ -533,14 +533,15 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.C
     parent = parents.get(child)
     while parent is not None:
         check_deadline()
-        if isinstance(parent, ast.Call):
-            if child in parent.args:
-                return parent, True
-            for kw in parent.keywords:
+        if type(parent) is ast.Call:
+            call_parent = cast(ast.Call, parent)
+            if child in call_parent.args:
+                return call_parent, True
+            for kw in call_parent.keywords:
                 check_deadline()
                 if child is kw or child is kw.value:
-                    return parent, True
-            return parent, False
+                    return call_parent, True
+            return call_parent, False
         child = parent
         parent = parents.get(child)
     return None, False
@@ -916,7 +917,7 @@ def _preview_parse_failure_witnesses_section(
     for witness in report.parse_failure_witnesses:
         check_deadline()
         stage = witness.get("stage")
-        if isinstance(stage, str) and stage:
+        if type(stage) is str and stage:
             stage_counts[stage] += 1
             continue
         stage_counts["unknown"] += 1
@@ -1279,9 +1280,16 @@ def _topologically_order_report_projection_specs(
         ordered_ids = tuple(TopologicalSorter(predecessor_graph).static_order())
     except CycleError as exc:
         cycle = exc.args[1] if len(exc.args) > 1 else ()
+        cycle_entries: tuple[object, ...]
+        if type(cycle) is tuple:
+            cycle_entries = cast(tuple[object, ...], cycle)
+        elif type(cycle) is list:
+            cycle_entries = tuple(cast(list[object], cycle))
+        else:
+            cycle_entries = ()
         unresolved = [
             str(item)
-            for item in (cycle if isinstance(cycle, (tuple, list)) else ())
+            for item in cycle_entries
         ]
         never(
             "report projection dependency cycle",
@@ -1425,14 +1433,15 @@ def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) 
     return _iter_paths([str(path) for path in paths], config)
 
 
-def _collect_functions(tree: ast.AST):
+def _collect_functions(tree: ast.AST) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
     check_deadline()
-    funcs = []
+    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
     for idx, node in enumerate(ast.walk(tree), start=1):
         if (idx & 63) == 0:
             check_deadline()
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            funcs.append(node)
+        node_type = type(node)
+        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
+            funcs.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, node))
     return funcs
 
 
@@ -1554,7 +1563,7 @@ def _collect_invariant_propositions(
             emitted = emitter(fn)
             for prop in emitted:
                 check_deadline()
-                if not isinstance(prop, InvariantProposition):
+                if type(prop) is not InvariantProposition:
                     raise TypeError(
                         "Invariant emitters must yield InvariantProposition instances."
                     )
@@ -1800,13 +1809,14 @@ def _collect_local_class_bases(
     class_bases: dict[str, list[str]] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if isinstance(node, ast.ClassDef):
-            scopes = _enclosing_class_scopes(node, parents)
+        if type(node) is ast.ClassDef:
+            class_node = cast(ast.ClassDef, node)
+            scopes = _enclosing_class_scopes(class_node, parents)
             qual_parts = list(scopes)
-            qual_parts.append(node.name)
+            qual_parts.append(class_node.name)
             qual = ".".join(qual_parts)
             bases: list[str] = []
-            for base in node.bases:
+            for base in class_node.bases:
                 check_deadline()
                 base_name = _base_identifier(base)
                 if base_name:
@@ -1893,16 +1903,14 @@ def _decision_root_name(node: ast.AST) -> str | None:
 
 
 def is_decision_surface(node: ast.AST) -> bool:
-    return isinstance(
-        node,
-        (
-            ast.If,
-            ast.While,
-            ast.Assert,
-            ast.IfExp,
-            ast.Match,
-            ast.comprehension,
-        ),
+    node_type = type(node)
+    return (
+        node_type is ast.If
+        or node_type is ast.While
+        or node_type is ast.Assert
+        or node_type is ast.IfExp
+        or node_type is ast.Match
+        or node_type is ast.comprehension
     )
 
 
@@ -2564,8 +2572,8 @@ def _enclosing_class(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            return current.name
+        if type(current) is ast.ClassDef:
+            return cast(ast.ClassDef, current).name
         current = parents.get(current)
     return None
 
@@ -2595,8 +2603,8 @@ def _enclosing_class_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            scopes.append(current.name)
+        if type(current) is ast.ClassDef:
+            scopes.append(cast(ast.ClassDef, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -2609,8 +2617,9 @@ def _enclosing_function_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            scopes.append(current.name)
+        current_type = type(current)
+        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -2688,7 +2697,7 @@ def _parse_failure_witness(
     stage: str | _ParseModuleStage,
     error: Exception,
 ) -> JSONObject:
-    stage_value = stage.value if isinstance(stage, _ParseModuleStage) else stage
+    stage_value = stage.value if type(stage) is _ParseModuleStage else stage
     return {
         "path": str(path),
         "stage": stage_value,
@@ -2791,10 +2800,13 @@ def _imported_helper_targets(
     for index, node in enumerate(tree.body):
         if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
             check_deadline()
-        if isinstance(node, ast.ImportFrom) and node.module:
-            for alias in node.names:
+        if type(node) is ast.ImportFrom:
+            import_from = cast(ast.ImportFrom, node)
+            if not import_from.module:
+                continue
+            for alias in import_from.names:
                 local_name = alias.asname or alias.name
-                targets[local_name] = (node.module, alias.name)
+                targets[local_name] = (import_from.module, alias.name)
     return targets
 
 
@@ -2846,8 +2858,9 @@ def _parse_contract_maps_from_source(
     for index, node in enumerate(tree.body):
         if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
             check_deadline()
-        if isinstance(node, ast.FunctionDef):
-            functions[node.name] = node
+        if type(node) is ast.FunctionDef:
+            function_node = cast(ast.FunctionDef, node)
+            functions[function_node.name] = function_node
     imported_helpers = _imported_helper_targets(tree)
     return functions, imported_helpers
 
@@ -3914,12 +3927,12 @@ def _summarize_fingerprint_provenance(
     grouped: dict[tuple[object, ...], list[JSONObject]] = {}
     for entry in entries:
         check_deadline()
-        matches = entry.get("glossary_matches") or []
-        if isinstance(matches, list) and matches:
-            key = ("glossary", tuple(matches))
+        matches = str_tuple_from_sequence(entry.get("glossary_matches")) or tuple()
+        if matches:
+            key = ("glossary", matches)
         else:
-            base_keys = tuple(entry.get("base_keys") or [])
-            ctor_keys = tuple(entry.get("ctor_keys") or [])
+            base_keys = str_tuple_from_sequence(entry.get("base_keys")) or tuple()
+            ctor_keys = str_tuple_from_sequence(entry.get("ctor_keys")) or tuple()
             key = ("types", base_keys, ctor_keys)
         grouped.setdefault(key, []).append(entry)
     lines: list[str] = []
@@ -4005,8 +4018,8 @@ def _compute_fingerprint_rewrite_plans(
         site_from_payload=Site.from_payload,
     )
 
-def _glossary_match_strata(matches: object) -> str:
-    if not isinstance(matches, list) or not matches:
+def _glossary_match_strata(matches: Sequence[object]) -> str:
+    if not matches:
         return "none"
     if len(matches) == 1:
         return "exact"
@@ -4046,7 +4059,7 @@ class _RewritePredicateContext:
     post_base: list[object]
     post_ctor: list[object]
     post_remainder: Mapping[str, object]
-    post_matches: object
+    post_matches: tuple[str, ...]
     post_strata: str
     post_exception_obligations: list[JSONObject] | None
     pre: Mapping[str, object]
@@ -4099,7 +4112,6 @@ def _evaluate_match_strata_predicate(
         strata_ok = context.post_strata == strata_expect
     if (
         strata_expect == "exact"
-        and isinstance(context.post_matches, list)
         and len(context.post_matches) == 1
     ):
         strata_ok = strata_ok and (str(context.post_matches[0]) in set(candidates))
@@ -4109,7 +4121,7 @@ def _evaluate_match_strata_predicate(
         "expected": strata_expect,
         "observed": context.post_strata,
         "candidates": candidates,
-        "observed_matches": context.post_matches,
+        "observed_matches": list(context.post_matches),
     }
 
 
@@ -4199,9 +4211,8 @@ def _evaluate_exception_obligation_non_regression_predicate(
     context: _RewritePredicateContext,
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
-    pre_summary = context.pre.get("exception_obligations_summary")
-    if not isinstance(pre_summary, dict):
-        pre_summary = None
+    raw_pre_summary = context.pre.get("exception_obligations_summary")
+    pre_summary = cast(Mapping[str, object] | None, mapping_or_none(raw_pre_summary))
     if context.post_exception_obligations is None:
         return {
             "kind": kind,
@@ -4343,7 +4354,7 @@ def verify_rewrite_plan(
     post_base = list(post_entry.get("base_keys") or [])
     post_ctor = list(post_entry.get("ctor_keys") or [])
     post_remainder = mapping_or_empty(post_entry.get("remainder"))
-    post_matches = post_entry.get("glossary_matches") or []
+    post_matches = str_tuple_from_sequence(post_entry.get("glossary_matches")) or tuple()
     post_strata = _glossary_match_strata(post_matches)
 
     predicate_results: list[JSONObject] = []
@@ -4574,8 +4585,10 @@ def _find_handling_try(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.Try) and _node_in_try_body(node, current):
-            return current
+        if type(current) is ast.Try:
+            try_node = cast(ast.Try, current)
+            if _node_in_try_body(node, try_node):
+                return try_node
         current = parents.get(current)
     return None
 
@@ -4598,8 +4611,8 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name):
-            names.add(node.id)
+        if type(node) is ast.Name:
+            names.add(cast(ast.Name, node).id)
     return names
 
 
@@ -4804,11 +4817,12 @@ def _branch_reachability_under_env(
     current = parents.get(current_node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.If):
-            if _node_in_block(current_node, current.body):
-                constraints.append((current.test, True))
-            elif _node_in_block(current_node, current.orelse):
-                constraints.append((current.test, False))
+        if type(current) is ast.If:
+            if_node = cast(ast.If, current)
+            if _node_in_block(current_node, if_node.body):
+                constraints.append((if_node.test, True))
+            elif _node_in_block(current_node, if_node.orelse):
+                constraints.append((if_node.test, False))
         current_node = current
         current = parents.get(current_node)
     if not constraints:
@@ -5418,10 +5432,11 @@ def _is_deadline_param(name: str, annot: str | None) -> bool:
 
 
 def _is_deadline_origin_call(expr: ast.AST) -> bool:
-    if not isinstance(expr, ast.Call):
+    if type(expr) is not ast.Call:
         return False
+    call_expr = cast(ast.Call, expr)
     try:
-        name = ast.unparse(expr.func)
+        name = ast.unparse(call_expr.func)
     except _AST_UNPARSE_ERROR_TYPES:
         return False
     if name == "Deadline" or name.endswith(".Deadline"):
@@ -5652,10 +5667,11 @@ def _collect_deadline_local_info(
         elif not _is_deadline_origin_call(value):
             alias_source = None
             propagate_origin_alias = False
-            if isinstance(value, ast.Name):
-                if value.id in params:
-                    alias_source = value.id
-                elif value.id in origin_assign:
+            if type(value) is ast.Name:
+                value_name = cast(ast.Name, value)
+                if value_name.id in params:
+                    alias_source = value_name.id
+                elif value_name.id in origin_assign:
                     propagate_origin_alias = True
             for target in targets:
                 check_deadline()
@@ -5847,10 +5863,11 @@ def _call_nodes_for_tree(
     span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
     for node in ast.walk(tree):
         check_deadline()
-        if isinstance(node, ast.Call):
-            span = _node_span(node)
+        if type(node) is ast.Call:
+            call_node = cast(ast.Call, node)
+            span = _node_span(call_node)
             if span is not None:
-                span_map[span].append(node)
+                span_map[span].append(call_node)
     return span_map
 
 
@@ -6707,26 +6724,16 @@ def _suite_order_relation(
                 suite_kind=suite_kind,
             )
         span = node.meta.get("span")
-        if not isinstance(span, list) or len(span) != 4:
+        parsed_span = int_tuple4_or_none(span)
+        if parsed_span is None:
             never(
                 "suite order requires span",
                 path=path,
                 qual=qual,
                 suite_kind=suite_kind,
-            )
-        try:
-            span_line = int(span[0])
-            span_col = int(span[1])
-            span_end_line = int(span[2])
-            span_end_col = int(span[3])
-        except (TypeError, ValueError):
-            never(
-                "suite order span fields must be integers",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
                 span=span,
             )
+        span_line, span_col, span_end_line, span_end_col = parsed_span
         depth = _suite_order_depth(suite_kind)
         complexity = int(alt_degree.get(node_id, 0))
         order_key: list[JSONValue] = [
@@ -6839,26 +6846,16 @@ def _ambiguity_suite_relation(
                         suite_kind=suite_kind,
                     )
                 span = suite_node.meta.get("span")
-                if not isinstance(span, list) or len(span) != 4:
+                parsed_span = int_tuple4_or_none(span)
+                if parsed_span is None:
                     never(
                         "ambiguity suite requires span",
                         path=path,
                         qual=qual,
                         suite_kind=suite_kind,
-                    )
-                try:
-                    span_line = int(span[0])
-                    span_col = int(span[1])
-                    span_end_line = int(span[2])
-                    span_end_col = int(span[3])
-                except (TypeError, ValueError):
-                    never(
-                        "ambiguity suite span fields must be integers",
-                        path=path,
-                        qual=qual,
-                        suite_kind=suite_kind,
                         span=span,
                     )
+                span_line, span_col, span_end_line, span_end_col = parsed_span
                 relation.append(
                     {
                         "suite_path": path,
@@ -7065,7 +7062,7 @@ def _deadline_lint_lines(entries: list[JSONObject]) -> list[str]:
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        site = mapping_or_none(entry.get("site")) or {}
         path = str(site.get("path", "") or "")
         line, col = _span_line_col(entry.get("span"))
         if not path:
@@ -7955,7 +7952,7 @@ def _build_module_artifacts(
     check_deadline()
     if not specs:
         return ()
-    parse_cache: dict[Path, ast.Module | Exception] = {}
+    parse_cache: dict[Path, ast.Module | BaseException] = {}
     accumulators = [spec.init() for spec in specs]
     for path in paths:
         check_deadline()
@@ -7966,19 +7963,21 @@ def _build_module_artifacts(
             except _PARSE_MODULE_ERROR_TYPES as exc:
                 parsed = exc
             parse_cache[path] = parsed
-        if isinstance(parsed, Exception):
+        if type(parsed) is not ast.Module:
+            parsed_error = cast(BaseException, parsed)
             for spec in specs:
                 check_deadline()
                 _record_parse_failure_witness(
                     sink=parse_failure_witnesses,
                     path=path,
                     stage=spec.stage,
-                    error=parsed,
+                    error=cast(Exception, parsed_error),
                 )
             continue
+        parsed_module = cast(ast.Module, parsed)
         for idx, spec in enumerate(specs):
             check_deadline()
-            spec.fold(accumulators[idx], path, parsed)
+            spec.fold(accumulators[idx], path, parsed_module)
     return tuple(
         spec.finish(accumulator) for spec, accumulator in zip(specs, accumulators)
     )
@@ -12273,7 +12272,7 @@ def _constant_smells_from_details(
     smells: list[str] = []
     for detail in details:
         check_deadline()
-        path_name = detail.path.name if isinstance(detail.path, Path) else str(detail.path)
+        path_name = detail.path.name
         site_suffix = ""
         if detail.sites:
             sample = ", ".join(detail.sites[:3])
@@ -13066,8 +13065,8 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
     node = forest.nodes.get(paramset_id)
     if node is not None:
         params = node.meta.get("params")
-        if isinstance(params, list):
-            return tuple(str(p) for p in params)
+        if type(params) is list:
+            return tuple(str(p) for p in cast(list[JSONValue], params))
     return tuple(str(p) for p in paramset_id.key)
 
 
@@ -13169,7 +13168,7 @@ def _bundle_site_index(
 
 def _emit_dot(forest: Forest) -> str:
     check_deadline()
-    if not isinstance(forest, Forest):
+    if type(forest) is not Forest:
         raise RuntimeError("forest required for dataflow dot output")
     projection = _bundle_projection_from_forest(forest, file_paths=[])
     lines = [
@@ -14043,7 +14042,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     source = 'src/gabion/analysis/dataflow_audit.py:14698'):
         check_deadline()
         name = entry.get("suggested_name")
-        if isinstance(name, str) and name:
+        if type(name) is str and name:
             kind = entry.get("kind", "lemma")
             count = entry.get("count", 0)
             value = entry.get("value")
@@ -14094,7 +14093,7 @@ def _path_key_from_payload(payload: Mapping[str, JSONValue]) -> str | None:
         ("path", "module_path", "file", "baseline_path", "current_path")
     ):
         raw_value = payload.get(key)
-        if isinstance(raw_value, str) and raw_value:
+        if type(raw_value) is str and raw_value:
             return raw_value
     return None
 
