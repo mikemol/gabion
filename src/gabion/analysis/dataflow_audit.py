@@ -10812,48 +10812,67 @@ def _collect_module_exports(
     import_map: dict[str, str],
 ) -> tuple[set[str], dict[str, str]]:
     check_deadline()
-    explicit_all: list[str] | None = None
+    explicit_all: list[str] = []
+    has_explicit_all = False
     for stmt in getattr(tree, "body", []):
         check_deadline()
-        if isinstance(stmt, ast.Assign):
-            targets = stmt.targets
-            if any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets):
-                values = _string_list(stmt.value)
+        stmt_type = type(stmt)
+        if stmt_type is ast.Assign:
+            assign_stmt = cast(ast.Assign, stmt)
+            targets = assign_stmt.targets
+            if any(type(target) is ast.Name and cast(ast.Name, target).id == "__all__" for target in targets):
+                values = _string_list(assign_stmt.value)
                 if values is not None:
                     explicit_all = list(values)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name) and stmt.target.id == "__all__":
-                values = _string_list(stmt.value) if stmt.value is not None else None
+                    has_explicit_all = True
+        elif stmt_type is ast.AnnAssign:
+            ann_assign = cast(ast.AnnAssign, stmt)
+            target = ann_assign.target
+            if type(target) is ast.Name and cast(ast.Name, target).id == "__all__":
+                values = _string_list(ann_assign.value) if ann_assign.value is not None else None
                 if values is not None:
                     explicit_all = list(values)
-        elif isinstance(stmt, ast.AugAssign):
+                    has_explicit_all = True
+        elif stmt_type is ast.AugAssign:
+            aug_assign = cast(ast.AugAssign, stmt)
+            target = aug_assign.target
             if (
-                isinstance(stmt.target, ast.Name)
-                and stmt.target.id == "__all__"
-                and isinstance(stmt.op, ast.Add)
+                type(target) is ast.Name
+                and cast(ast.Name, target).id == "__all__"
+                and type(aug_assign.op) is ast.Add
             ):
-                values = _string_list(stmt.value)
+                values = _string_list(aug_assign.value)
                 if values is not None:
-                    if explicit_all is None:
+                    if not has_explicit_all:
+                        has_explicit_all = True
                         explicit_all = []
                     explicit_all.extend(values)
 
     local_defs: set[str] = set()
     for stmt in getattr(tree, "body", []):
         check_deadline()
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            if not stmt.name.startswith("_"):
-                local_defs.add(stmt.name)
-        elif isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
+        stmt_type = type(stmt)
+        if stmt_type in {ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef}:
+            stmt_name = str(getattr(stmt, "name", ""))
+            if stmt_name and not stmt_name.startswith("_"):
+                local_defs.add(stmt_name)
+        elif stmt_type is ast.Assign:
+            assign_stmt = cast(ast.Assign, stmt)
+            for target in assign_stmt.targets:
                 check_deadline()
-                if isinstance(target, ast.Name) and not target.id.startswith("_"):
-                    local_defs.add(target.id)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name) and not stmt.target.id.startswith("_"):
-                local_defs.add(stmt.target.id)
+                if type(target) is ast.Name:
+                    target_name = cast(ast.Name, target).id
+                    if not target_name.startswith("_"):
+                        local_defs.add(target_name)
+        elif stmt_type is ast.AnnAssign:
+            ann_assign = cast(ast.AnnAssign, stmt)
+            target = ann_assign.target
+            if type(target) is ast.Name:
+                target_name = cast(ast.Name, target).id
+                if not target_name.startswith("_"):
+                    local_defs.add(target_name)
 
-    if explicit_all is not None:
+    if has_explicit_all:
         export_names = set(explicit_all)
     else:
         export_names = set(local_defs) | {
