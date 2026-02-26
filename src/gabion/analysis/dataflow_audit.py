@@ -10611,7 +10611,7 @@ def _analyze_file_internal(
         check_deadline()
         local_by_name[name].append(key)
 
-    def _resolve_local_callee(callee: str, caller_key: str) -> str | None:
+    def _resolve_local_callee(callee: str, caller_key: str):
         check_deadline()
         if "." in callee:
             return None
@@ -10658,7 +10658,7 @@ def _analyze_file_internal(
         method_resolve_started_ns = time.monotonic_ns()
         local_functions = set(fn_use.keys())
 
-        def _resolve_local_method(callee: str) -> str | None:
+        def _resolve_local_method(callee: str):
             class_part, method = callee.rsplit(".", 1)
             return _resolve_local_method_in_hierarchy(
                 class_part,
@@ -11983,7 +11983,7 @@ def _format_type_flow_site(
     caller_param: str,
     callee_param: str,
     annot: str,
-    project_root: Path | None,
+    project_root,
 ) -> str:
     """Format a stable, machine-actionable callsite for type-flow evidence."""
     caller_name = _function_key(caller.scope, caller.name)
@@ -12307,7 +12307,7 @@ def _constant_smells_from_details(
 def _deadness_witnesses_from_constant_details(
     details: Iterable[ConstantFlowDetail],
     *,
-    project_root: Path | None,
+    project_root,
 ) -> list[JSONObject]:
     check_deadline()
     witnesses: list[JSONObject] = []
@@ -12600,7 +12600,7 @@ def _analyze_unused_arg_flow_indexed(
         arg_desc: str,
         *,
         category: Literal["unused", "unknown_key_carrier"] = "unused",
-        call: CallArgs | None = None,
+        call = None,
     ) -> str:
         # dataflow-bundle: callee_info, caller
         prefix = f"{caller.path.name}:{caller.name}"
@@ -12848,7 +12848,7 @@ def _collect_config_bundles(
     paths: list[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> dict[Path, dict[str, set[str]]]:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_collect_config_bundles")
@@ -13075,7 +13075,7 @@ class BundleProjection:
     path_lookup: dict[str, Path]
 
 
-def _alt_input(alt: Alt, kind: str) -> NodeId | None:
+def _alt_input(alt: Alt, kind: str):
     for node_id in deadline_loop_iter(alt.inputs):
         if node_id.kind == kind:
             return node_id
@@ -13435,7 +13435,7 @@ def _report_section_marker(section_id: str) -> str:
     return f"{_REPORT_SECTION_MARKER_PREFIX}{section_id}{_REPORT_SECTION_MARKER_SUFFIX}"
 
 
-def _parse_report_section_marker(line: str) -> str | None:
+def _parse_report_section_marker(line: str):
     text = line.strip()
     if not text.startswith(_REPORT_SECTION_MARKER_PREFIX):
         return None
@@ -13451,7 +13451,7 @@ def _parse_report_section_marker(line: str) -> str | None:
 
 def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
-    active_section_id: str | None = None
+    active_section_id: OptionalString = None
     for raw_line in markdown.splitlines():
         check_deadline()
         section_id = _parse_report_section_marker(raw_line)
@@ -13487,7 +13487,7 @@ def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
     return Path(".")
 
 
-def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
+def _normalize_snapshot_path(path: Path, root) -> str:
     if root is not None:
         try:
             return str(path.relative_to(root))
@@ -14102,14 +14102,14 @@ def _canonical_json_bytes(value: JSONValue) -> str:
     return json.dumps(value, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
 
 
-def _path_key_from_violation(violation: str) -> str | None:
+def _path_key_from_violation(violation: str):
     path_prefix, separator, _ = violation.partition(":")
     if separator and path_prefix.endswith(".py"):
         return path_prefix
     return None
 
 
-def _path_key_from_payload(payload: Mapping[str, JSONValue]) -> str | None:
+def _path_key_from_payload(payload: Mapping[str, JSONValue]):
     for key in deadline_loop_iter(
         ("path", "module_path", "file", "baseline_path", "current_path")
     ):
@@ -14256,7 +14256,7 @@ def _iter_monotonic_paths(
     source: str,
 ) -> list[Path]:
     ordered: list[Path] = []
-    previous_path_key: str | None = None
+    previous_path_key: OptionalString = None
     for path in paths:
         check_deadline()
         path_key = _analysis_collection_resume_path_key(path)
@@ -14370,7 +14370,7 @@ def _serialize_call_args(call: CallArgs) -> JSONObject:
     return payload
 
 
-def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
+def _deserialize_call_args(payload: Mapping[str, JSONValue]):
     callee = payload.get("callee")
     if type(callee) is not str:
         return None
@@ -14551,7 +14551,7 @@ def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
 
 def _deserialize_class_info_for_resume(
     payload: Mapping[str, JSONValue],
-) -> ClassInfo | None:
+):
     qual = payload.get("qual")
     module = payload.get("module")
     if type(qual) is not str or type(module) is not str:
@@ -14675,7 +14675,7 @@ def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> 
 
 
 def _analysis_index_resume_variants(
-    payload: Mapping[str, JSONValue] | None,
+    payload = None,
 ) -> dict[str, JSONObject]:
     variants: dict[str, JSONObject] = {}
     if payload is None:
@@ -14698,7 +14698,7 @@ def _analysis_index_resume_variants(
 def _with_analysis_index_resume_variants(
     *,
     payload: JSONObject,
-    previous_payload: Mapping[str, JSONValue] | None,
+    previous_payload,
 ) -> JSONObject:
     current_identity = str(payload.get("index_cache_identity", "") or "")
     variants = _analysis_index_resume_variants(previous_payload)
@@ -15059,7 +15059,7 @@ def _serialize_file_scan_resume_state(
     fn_param_spans: Mapping[str, Mapping[str, tuple[int, int, int, int]]],
     fn_names: Mapping[str, str],
     fn_lexical_scopes: Mapping[str, Sequence[str]],
-    fn_class_names: Mapping[str, str | None],
+    fn_class_names: Mapping[str, object],
     opaque_callees: set[str],
 ) -> JSONObject:
     fn_use_payload: JSONObject = {}
@@ -15106,16 +15106,7 @@ def _serialize_file_scan_resume_state(
     }
 
 
-def _empty_file_scan_resume_state() -> tuple[
-    dict[str, dict[str, ParamUse]],
-    dict[str, list[CallArgs]],
-    dict[str, list[str]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, str],
-    dict[str, tuple[str, ...]],
-    dict[str, str | None],
-    set[str],
-]:
+def _empty_file_scan_resume_state():
     return ({}, {}, {}, {}, {}, {}, {}, set())
 
 
@@ -15335,15 +15326,7 @@ def build_analysis_collection_resume_seed(
     )
 
 
-def _empty_analysis_collection_resume_payload() -> tuple[
-    dict[Path, dict[str, list[set[str]]]],
-    dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
-    dict[Path, dict[str, list[list[JSONObject]]]],
-    list[InvariantProposition],
-    set[Path],
-    dict[Path, JSONObject],
-    JSONObject | None,
-]:
+def _empty_analysis_collection_resume_payload():
     return ({}, {}, {}, [], set(), {}, None)
 
 
@@ -15661,7 +15644,7 @@ def _compute_synthesis_tiers_and_merge(
     max_tier: int,
     min_bundle_size: int,
     allow_singletons: bool,
-    merge_overlap_threshold: float | None,
+    merge_overlap_threshold,
 ) -> tuple[
     dict[frozenset[str], int],
     dict[frozenset[str], set[str]],
@@ -16160,7 +16143,7 @@ def _write_text_or_stdout(path: str, text: str) -> None:
     Path(path).write_text(text)
 
 
-def _write_json_or_stdout(path: str, payload: JSONValue | object) -> None:
+def _write_json_or_stdout(path: str, payload: object) -> None:
     _write_text_or_stdout(path, json.dumps(payload, indent=2, sort_keys=False))
 
 
@@ -16825,7 +16808,7 @@ def _run_impl(
     ).exit_code
 
 
-def run(argv: list[str] | None = None) -> int:
+def run(argv = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     with _analysis_deadline_scope(args):
