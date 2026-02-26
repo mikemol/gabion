@@ -821,10 +821,9 @@ def _prepare_analysis_resume_state(
         resolved_root = Path(root)
         file_paths_for_run = resolve_analysis_paths(paths, config=config)
         state.analysis_resume_total_files = len(file_paths_for_run)
-        state.analysis_resume_checkpoint_path = _resolve_analysis_resume_checkpoint_path(
-            payload.get("resume_checkpoint"),
-            root=resolved_root,
-        )
+        # Legacy checkpoint payload ingress is hard-rejected; ASPF import-state is the
+        # only supported continuation path for active orchestration.
+        state.analysis_resume_checkpoint_path = None
         input_manifest = execute_deps.analysis_input_manifest_fn(
             root=resolved_root,
             file_paths=file_paths_for_run,
@@ -3575,11 +3574,8 @@ def execute_command_total(
     )
     forest = Forest()
     forest_token = set_forest(forest)
-    explicit_resume_checkpoint = payload.get("resume_checkpoint") not in (None, False, "")
-    analysis_resume_checkpoint_path: Path | None = _resolve_analysis_resume_checkpoint_path(
-        payload.get("resume_checkpoint"),
-        root=runtime_input.root,
-    )
+    explicit_resume_checkpoint = False
+    analysis_resume_checkpoint_path: Path | None = None
     analysis_resume_input_witness: JSONObject | None = None
     analysis_resume_input_manifest_digest: str | None = None
     analysis_resume_total_files = 0
@@ -3745,7 +3741,7 @@ def execute_command_total(
             basis_path=("command", "start"),
         )
         enable_phase_projection_checkpoints = bool(report_output_path)
-        emit_checkpoint_intro_timeline = options.emit_checkpoint_intro_timeline
+        emit_checkpoint_intro_timeline = False
         checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
         phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
         phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=Path(root))

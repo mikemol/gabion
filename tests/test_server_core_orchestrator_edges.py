@@ -429,9 +429,10 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         state=state,
         runtime_state=runtime_state,
     )
-    assert collection_resume_payload is not None
-    assert checkpoint_writes
-    assert state.analysis_resume_checkpoint_status == "checkpoint_seeded"
+    assert collection_resume_payload is None
+    assert not checkpoint_writes
+    assert state.analysis_resume_checkpoint_path is None
+    assert state.analysis_resume_checkpoint_status == "cold_start"
     assert state.analysis_resume_intro_timeline_header is None
     assert state.analysis_resume_intro_timeline_row is None
 
