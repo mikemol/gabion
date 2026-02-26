@@ -2020,20 +2020,6 @@ def _emit_resume_checkpoint_startup_line(
     )
 
 
-def _resume_checkpoint_from_progress_notification(
-    notification: Mapping[str, object],
-) -> dict[str, object] | None:
-    return progress_timeline.resume_checkpoint_from_progress_notification(notification)
-
-
-def _checkpoint_intro_timeline_from_progress_notification(
-    notification: Mapping[str, object],
-) -> dict[str, str] | None:
-    return progress_timeline.checkpoint_intro_timeline_from_progress_notification(
-        notification
-    )
-
-
 def _phase_timeline_header_columns() -> list[str]:
     return progress_timeline.phase_timeline_header_columns()
 

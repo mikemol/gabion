@@ -989,99 +989,6 @@ def test_dataflow_audit_timeout_uses_single_attempt_budget(
     assert calls["count"] == 1
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification::cli.py::gabion.cli._resume_checkpoint_from_progress_notification
-def test_resume_checkpoint_from_progress_notification() -> None:
-    payload = cli._resume_checkpoint_from_progress_notification(
-        {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "resume_checkpoint": {
-                        "checkpoint_path": "artifacts/audit_reports/resume.json",
-                        "status": "checkpoint_loaded",
-                        "reused_files": 3,
-                        "total_files": 7,
-                    }
-                },
-            },
-        }
-    )
-    assert payload == {
-        "checkpoint_path": "artifacts/audit_reports/resume.json",
-        "status": "checkpoint_loaded",
-        "reused_files": 3,
-        "total_files": 7,
-    }
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_intro_timeline_from_progress_notification::cli.py::gabion.cli._checkpoint_intro_timeline_from_progress_notification
-def test_checkpoint_intro_timeline_from_progress_notification() -> None:
-    payload = cli._checkpoint_intro_timeline_from_progress_notification(
-        {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "checkpoint_intro_timeline_header": "| a | b |",
-                    "checkpoint_intro_timeline_row": "| 1 | 2 |",
-                },
-            },
-        }
-    )
-    assert payload == {
-        "header": "| a | b |",
-        "row": "| 1 | 2 |",
-    }
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_intro_timeline_from_progress_notification_rejects_invalid_shapes::cli.py::gabion.cli._checkpoint_intro_timeline_from_progress_notification
-def test_checkpoint_intro_timeline_from_progress_notification_rejects_invalid_shapes() -> None:
-    assert (
-        cli._checkpoint_intro_timeline_from_progress_notification(
-            {"method": "textDocument/publishDiagnostics"}
-        )
-        is None
-    )
-    assert (
-        cli._checkpoint_intro_timeline_from_progress_notification(
-            {"method": "$/progress", "params": "bad"}
-        )
-        is None
-    )
-    assert (
-        cli._checkpoint_intro_timeline_from_progress_notification(
-            {"method": "$/progress", "params": {"token": "wrong", "value": {}}}
-        )
-        is None
-    )
-    assert (
-        cli._checkpoint_intro_timeline_from_progress_notification(
-            {
-                "method": "$/progress",
-                "params": {"token": "gabion.dataflowAudit/progress-v1", "value": "bad"},
-            }
-        )
-        is None
-    )
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_intro_timeline_from_progress_notification_rejects_empty_row::cli.py::gabion.cli._checkpoint_intro_timeline_from_progress_notification
-def test_checkpoint_intro_timeline_from_progress_notification_rejects_empty_row() -> None:
-    assert (
-        cli._checkpoint_intro_timeline_from_progress_notification(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {"checkpoint_intro_timeline_row": ""},
-                },
-            }
-        )
-        is None
-    )
-
-
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification::cli.py::gabion.cli._phase_progress_from_progress_notification
 def test_phase_progress_from_progress_notification() -> None:
     payload = cli._phase_progress_from_progress_notification(
@@ -1120,7 +1027,6 @@ def test_phase_progress_from_progress_notification() -> None:
         "progress_marker": "",
         "phase_timeline_header": "",
         "phase_timeline_row": "",
-        "resume_checkpoint": None,
         "done": False,
     }
 
@@ -1198,8 +1104,8 @@ def test_phase_progress_from_progress_notification_rejects_invalid_shapes() -> N
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_staleness::cli.py::gabion.cli._phase_timeline_row_from_phase_progress
-def test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_staleness() -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_row_from_phase_progress_formats_dimensions_and_staleness::cli.py::gabion.cli._phase_timeline_row_from_phase_progress
+def test_phase_timeline_row_from_phase_progress_formats_dimensions_and_staleness() -> None:
     row = cli._phase_timeline_row_from_phase_progress(
         {
             "ts_utc": "2026-02-20T00:00:00Z",
@@ -1223,16 +1129,11 @@ def test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_st
             "completed_files": 5,
             "remaining_files": 1,
             "total_files": 6,
-            "resume_checkpoint": {
-                "checkpoint_path": "artifacts/audit_reports/resume.json",
-                "status": "pending",
-            },
             "stale_for_s": 6.75,
         }
     )
     assert "4/4 forest_mutable_steps" in row
     assert "5/6 rem=1" in row
-    assert "reused_files=unknown" in row
     assert "forest_mutable_steps=4/4" in row
     assert "callsite_inventory=55/55" in row
     assert "6.8" in row
@@ -1255,15 +1156,9 @@ def test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_st
                 "primary_unit": "collection_files",
                 "dimensions": "bad",
             },
-            "resume_checkpoint": {
-                "checkpoint_path": "artifacts/audit_reports/resume.json",
-                "status": "checkpoint_loaded",
-                "reused_files": 2,
-                "total_files": 5,
-            },
         }
     )
-    assert "reused_files=2/5" in row_known_resume
+    assert "collection_files" in row_known_resume
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_ignores_missing_phase::cli.py::gabion.cli._emit_phase_progress_line
@@ -3301,30 +3196,6 @@ def test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors() -> None:
 
     causes_single = cli._nonzero_exit_causes({"errors": ["only"]})
     assert "error: only" in causes_single
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes::cli.py::gabion.cli._resume_checkpoint_from_progress_notification
-def test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes() -> None:
-    assert (
-        cli._resume_checkpoint_from_progress_notification({"method": "textDocument/publishDiagnostics"})
-        is None
-    )
-    assert cli._resume_checkpoint_from_progress_notification({"method": "$/progress", "params": "bad"}) is None
-    assert (
-        cli._resume_checkpoint_from_progress_notification(
-            {"method": "$/progress", "params": {"token": "wrong", "value": {}}}
-        )
-        is None
-    )
-    assert (
-        cli._resume_checkpoint_from_progress_notification(
-            {
-                "method": "$/progress",
-                "params": {"token": "gabion.dataflowAudit/progress-v1", "value": "bad"},
-            }
-        )
-        is None
-    )
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag_once::cli.py::gabion.cli._run_dataflow_raw_argv

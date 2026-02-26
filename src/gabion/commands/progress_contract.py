@@ -30,43 +30,6 @@ def _progress_value_from_notification(
     return value
 
 
-def resume_checkpoint_from_progress_notification(
-    notification: Mapping[str, object],
-) -> dict[str, object] | None:
-    value = _progress_value_from_notification(notification)
-    if not isinstance(value, Mapping):
-        return None
-    resume_checkpoint = value.get("resume_checkpoint")
-    if not isinstance(resume_checkpoint, Mapping):
-        return None
-    checkpoint_path = str(resume_checkpoint.get("checkpoint_path", "") or "")
-    status = str(resume_checkpoint.get("status", "") or "")
-    reused_files = int(resume_checkpoint.get("reused_files", 0) or 0)
-    total_files = int(resume_checkpoint.get("total_files", 0) or 0)
-    return {
-        "checkpoint_path": checkpoint_path,
-        "status": status,
-        "reused_files": reused_files,
-        "total_files": total_files,
-    }
-
-
-def checkpoint_intro_timeline_from_progress_notification(
-    notification: Mapping[str, object],
-) -> dict[str, str] | None:
-    value = _progress_value_from_notification(notification)
-    if not isinstance(value, Mapping):
-        return None
-    row = value.get("checkpoint_intro_timeline_row")
-    if not isinstance(row, str) or not row:
-        return None
-    header = value.get("checkpoint_intro_timeline_header")
-    return {
-        "header": header if isinstance(header, str) else "",
-        "row": row,
-    }
-
-
 def phase_timeline_header_columns() -> list[str]:
     return [
         "ts_utc",
@@ -78,7 +41,6 @@ def phase_timeline_header_columns() -> list[str]:
         "progress_marker",
         "primary",
         "files",
-        "resume_checkpoint",
         "stale_for_s",
         "dimensions",
     ]
@@ -179,23 +141,6 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
         and isinstance(total_files, int)
     ):
         files = f"{completed_files}/{total_files} rem={remaining_files}"
-    resume_checkpoint = ""
-    raw_resume = phase_progress.get("resume_checkpoint")
-    if isinstance(raw_resume, Mapping):
-        checkpoint_path = str(raw_resume.get("checkpoint_path", "") or "")
-        status = str(raw_resume.get("status", "") or "")
-        raw_reused = raw_resume.get("reused_files")
-        raw_resume_total = raw_resume.get("total_files")
-        if isinstance(raw_reused, int) and isinstance(raw_resume_total, int):
-            resume_checkpoint = (
-                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
-                f"reused_files={raw_reused}/{raw_resume_total}"
-            )
-        else:
-            resume_checkpoint = (
-                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
-                "reused_files=unknown"
-            )
     raw_stale_for_s = phase_progress.get("stale_for_s")
     stale_for_s = (
         f"{float(raw_stale_for_s):.1f}"
@@ -215,7 +160,6 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
         progress_marker,
         primary,
         files,
-        resume_checkpoint,
         stale_for_s,
         dimensions,
     ]
@@ -285,12 +229,6 @@ def phase_progress_from_progress_notification(
     )
     phase_timeline_header = value.get("phase_timeline_header")
     phase_timeline_row = value.get("phase_timeline_row")
-    resume_checkpoint = value.get("resume_checkpoint")
-    normalized_resume_checkpoint = (
-        {str(key): resume_checkpoint[key] for key in resume_checkpoint}
-        if isinstance(resume_checkpoint, Mapping)
-        else None
-    )
     done = bool(value.get("done", False))
     return {
         "phase": phase,
@@ -313,7 +251,6 @@ def phase_progress_from_progress_notification(
         "phase_timeline_row": (
             phase_timeline_row if isinstance(phase_timeline_row, str) else ""
         ),
-        "resume_checkpoint": normalized_resume_checkpoint,
         "done": done,
     }
 
