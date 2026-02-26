@@ -14115,26 +14115,22 @@ def _deserialize_function_info_for_resume(
     name = payload.get("name")
     qual = payload.get("qual")
     path_key = payload.get("path")
+    raw_params = payload.get("params")
+    params_payload = sequence_or_none(raw_params)
+    path = allowed_paths.get(path_key) if isinstance(path_key, str) else None
     if (
         not isinstance(name, str)
         or not isinstance(qual, str)
-        or not isinstance(path_key, str)
+        or path is None
+        or params_payload is None
     ):
         return None
-    path = allowed_paths.get(path_key)
-    if path is None:
-        return None
-    raw_params = payload.get("params")
-    if sequence_or_none(raw_params) is None:
-        return None
-    params = str_list_from_sequence(raw_params)
+    params = str_list_from_sequence(params_payload)
     raw_annots = payload.get("annots")
     annots: dict[str, str | None] = {}
     for param, annot in mapping_or_empty(raw_annots).items():
         check_deadline()
-        if not isinstance(param, str):
-            continue
-        if annot is None or isinstance(annot, str):
+        if isinstance(param, str) and (annot is None or isinstance(annot, str)):
             annots[param] = annot
     raw_calls = payload.get("calls")
     calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
@@ -14150,11 +14146,10 @@ def _deserialize_function_info_for_resume(
     decision_surface_reasons: dict[str, set[str]] = {}
     for param, raw_reasons in mapping_or_empty(payload.get("decision_surface_reasons")).items():
         check_deadline()
-        if not isinstance(param, str):
-            continue
-        reasons = str_set_from_sequence(raw_reasons)
-        if reasons:
-            decision_surface_reasons[param] = reasons
+        if isinstance(param, str):
+            reasons = str_set_from_sequence(raw_reasons)
+            if reasons:
+                decision_surface_reasons[param] = reasons
     value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
     value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
     positional_params = str_tuple_from_sequence(payload.get("positional_params"))
@@ -14166,12 +14161,10 @@ def _deserialize_function_info_for_resume(
     param_spans: dict[str, tuple[int, int, int, int]] = {}
     for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
         check_deadline()
-        if not isinstance(param, str):
-            continue
-        span = int_tuple4_or_none(raw_span)
-        if span is None:
-            continue
-        param_spans[param] = span
+        if isinstance(param, str):
+            span = int_tuple4_or_none(raw_span)
+            if span is not None:
+                param_spans[param] = span
     function_span = int_tuple4_or_none(payload.get("function_span"))
     return FunctionInfo(
         name=name,
