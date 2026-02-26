@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from collections.abc import Mapping
 
 _BOUND = False
 
@@ -26,10 +26,10 @@ class CalleeResolutionContext:
     caller: FunctionInfo
     by_name: Mapping[str, list[FunctionInfo]]
     by_qual: Mapping[str, FunctionInfo]
-    symbol_table: SymbolTable | None
-    project_root: Path | None
-    class_index: Mapping[str, ClassInfo] | None
-    call: CallArgs | None
+    symbol_table: object
+    project_root: object
+    class_index: object
+    call: object
     local_lambda_bindings: Mapping[str, tuple[str, ...]]
     caller_module: str
 
@@ -48,7 +48,7 @@ class CalleeResolutionEffect:
 
 @dataclass(frozen=True)
 class CalleeResolutionOutcome:
-    resolved: FunctionInfo | None
+    resolved: object
     effects: tuple[CalleeResolutionEffect, ...]
     phase: str
 
@@ -108,7 +108,7 @@ def _emit_ambiguity(
 def _resolve_local_lambda(
     context: CalleeResolutionContext,
     state: _ResolutionState,
-) -> FunctionInfo | None:
+) -> object:
     bound_lambda_quals = tuple(context.local_lambda_bindings.get(context.callee_key, ()))
     if len(bound_lambda_quals) == 1:
         bound = context.by_qual.get(bound_lambda_quals[0])
@@ -138,7 +138,7 @@ def _resolve_local_lambda(
 def _resolve_unqualified_local_or_global(
     context: CalleeResolutionContext,
     state: _ResolutionState,
-) -> FunctionInfo | None:
+) -> object:
     ambiguous = False
     effective_scope = list(context.caller.lexical_scope) + [context.caller.name]
     while True:
@@ -184,59 +184,57 @@ def _resolve_unqualified_local_or_global(
 def _resolve_symbol_table(
     context: CalleeResolutionContext,
     state: _ResolutionState,
-) -> FunctionInfo | None:
+) -> object:
     symbol_table = context.symbol_table
-    if symbol_table is None:
-        return None
+    if symbol_table is not None:
+        if "." not in context.callee_key:
+            if (context.caller_module, context.callee_key) in symbol_table.imports:
+                fqn = symbol_table.resolve(context.caller_module, context.callee_key)
+                if fqn is None:
+                    state.phase = "import_resolution"
+                    state.stop = True
+                    return None
+                if fqn in context.by_qual:
+                    state.phase = "import_resolution"
+                    return context.by_qual[fqn]
+            resolved = symbol_table.resolve_star(context.caller_module, context.callee_key)
+            if resolved is not None and resolved in context.by_qual:
+                state.phase = "import_resolution"
+                return context.by_qual[resolved]
+            return None
 
-    if "." not in context.callee_key:
-        if (context.caller_module, context.callee_key) in symbol_table.imports:
-            fqn = symbol_table.resolve(context.caller_module, context.callee_key)
-            if fqn is None:
+        parts = context.callee_key.split(".")
+        base = parts[0]
+        if base in ("self", "cls") and len(parts) == 2:
+            method = parts[-1]
+            if context.caller.class_name:
+                candidate = f"{context.caller_module}.{context.caller.class_name}.{method}"
+                if candidate in context.by_qual:
+                    state.phase = "class_self_resolution"
+                    return context.by_qual[candidate]
+        elif len(parts) == 2:
+            candidate = f"{context.caller_module}.{base}.{parts[1]}"
+            if candidate in context.by_qual:
+                state.phase = "local_attribute_resolution"
+                return context.by_qual[candidate]
+
+        if (context.caller_module, base) in symbol_table.imports:
+            base_fqn = symbol_table.resolve(context.caller_module, base)
+            if base_fqn is None:
                 state.phase = "import_resolution"
                 state.stop = True
                 return None
-            if fqn in context.by_qual:
-                state.phase = "import_resolution"
-                return context.by_qual[fqn]
-        resolved = symbol_table.resolve_star(context.caller_module, context.callee_key)
-        if resolved is not None and resolved in context.by_qual:
-            state.phase = "import_resolution"
-            return context.by_qual[resolved]
-        return None
-
-    parts = context.callee_key.split(".")
-    base = parts[0]
-    if base in ("self", "cls") and len(parts) == 2:
-        method = parts[-1]
-        if context.caller.class_name:
-            candidate = f"{context.caller_module}.{context.caller.class_name}.{method}"
+            candidate = base_fqn + "." + ".".join(parts[1:])
             if candidate in context.by_qual:
-                state.phase = "class_self_resolution"
+                state.phase = "import_resolution"
                 return context.by_qual[candidate]
-    elif len(parts) == 2:
-        candidate = f"{context.caller_module}.{base}.{parts[1]}"
-        if candidate in context.by_qual:
-            state.phase = "local_attribute_resolution"
-            return context.by_qual[candidate]
-
-    if (context.caller_module, base) in symbol_table.imports:
-        base_fqn = symbol_table.resolve(context.caller_module, base)
-        if base_fqn is None:
-            state.phase = "import_resolution"
-            state.stop = True
-            return None
-        candidate = base_fqn + "." + ".".join(parts[1:])
-        if candidate in context.by_qual:
-            state.phase = "import_resolution"
-            return context.by_qual[candidate]
     return None
 
 
 def _resolve_exact_qualified(
     context: CalleeResolutionContext,
     state: _ResolutionState,
-) -> FunctionInfo | None:
+) -> object:
     if context.callee_key in context.by_qual:
         state.phase = "exact_qualified"
         return context.by_qual[context.callee_key]
@@ -246,42 +244,40 @@ def _resolve_exact_qualified(
 def _resolve_class_hierarchy(
     context: CalleeResolutionContext,
     state: _ResolutionState,
-) -> FunctionInfo | None:
+) -> object:
     class_index = context.class_index
-    if class_index is None or "." not in context.callee_key:
-        return None
-
-    parts = context.callee_key.split(".")
-    method = parts[-1]
-    class_part = ".".join(parts[:-1])
-    symbol_table = context.symbol_table
-    if class_part in {"self", "cls"} and context.caller.class_name:
-        class_candidates = _resolve_class_candidates(
-            context.caller.class_name,
-            module=context.caller_module,
-            symbol_table=symbol_table,
-            class_index=class_index,
-        )
-    else:
-        class_candidates = _resolve_class_candidates(
-            class_part,
-            module=context.caller_module,
-            symbol_table=symbol_table,
-            class_index=class_index,
-        )
-    for class_qual in class_candidates:
-        check_deadline()
-        resolved = _resolve_method_in_hierarchy(
-            class_qual,
-            method,
-            class_index=class_index,
-            by_qual=context.by_qual,
-            symbol_table=symbol_table,
-            seen=set(),
-        )
-        if resolved is not None:
-            state.phase = "class_hierarchy_resolution"
-            return resolved
+    if class_index is not None and "." in context.callee_key:
+        parts = context.callee_key.split(".")
+        method = parts[-1]
+        class_part = ".".join(parts[:-1])
+        symbol_table = context.symbol_table
+        if class_part in {"self", "cls"} and context.caller.class_name:
+            class_candidates = _resolve_class_candidates(
+                context.caller.class_name,
+                module=context.caller_module,
+                symbol_table=symbol_table,
+                class_index=class_index,
+            )
+        else:
+            class_candidates = _resolve_class_candidates(
+                class_part,
+                module=context.caller_module,
+                symbol_table=symbol_table,
+                class_index=class_index,
+            )
+        for class_qual in class_candidates:
+            check_deadline()
+            resolved = _resolve_method_in_hierarchy(
+                class_qual,
+                method,
+                class_index=class_index,
+                by_qual=context.by_qual,
+                symbol_table=symbol_table,
+                seen=set(),
+            )
+            if resolved is not None:
+                state.phase = "class_hierarchy_resolution"
+                return resolved
     return None
 
 
@@ -309,21 +305,20 @@ def apply_callee_resolution_ops(
         if op.kind == "guard_empty":
             continue
         handler = _OP_HANDLERS.get(op.kind)
-        if handler is None:
-            continue
-        resolved = handler(context, state)
-        if resolved is not None:
-            return CalleeResolutionOutcome(
-                resolved=resolved,
-                effects=tuple(state.effects),
-                phase=state.phase,
-            )
-        if state.stop:
-            return CalleeResolutionOutcome(
-                resolved=None,
-                effects=tuple(state.effects),
-                phase=state.phase,
-            )
+        if handler is not None:
+            resolved = handler(context, state)
+            if resolved is not None:
+                return CalleeResolutionOutcome(
+                    resolved=resolved,
+                    effects=tuple(state.effects),
+                    phase=state.phase,
+                )
+            if state.stop:
+                return CalleeResolutionOutcome(
+                    resolved=None,
+                    effects=tuple(state.effects),
+                    phase=state.phase,
+                )
 
     return CalleeResolutionOutcome(
         resolved=None,
@@ -345,4 +340,3 @@ def resolve_callee_with_effects(
     _bind_audit_symbols()
     ops = plan_callee_resolution(context)
     return apply_callee_resolution_ops(context, ops)
-
