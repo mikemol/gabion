@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 Position = Tuple[int, int]
 
@@ -18,7 +18,7 @@ class TextEdit:
 @dataclass(frozen=True)
 class FieldSpec:
     name: str
-    type_hint: Optional[str] = None
+    type_hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -29,13 +29,15 @@ class CompatibilityShimConfig:
 
 
 def normalize_compatibility_shim(
-    compatibility_shim: bool | CompatibilityShimConfig,
+    compatibility_shim: object,
 ) -> CompatibilityShimConfig:
-    if isinstance(compatibility_shim, CompatibilityShimConfig):
+    if type(compatibility_shim) is CompatibilityShimConfig:
         return compatibility_shim
-    if compatibility_shim:
+    if type(compatibility_shim) is bool and compatibility_shim:
         return CompatibilityShimConfig(enabled=True)
-    return CompatibilityShimConfig(enabled=False)
+    if type(compatibility_shim) is bool:
+        return CompatibilityShimConfig(enabled=False)
+    raise TypeError("compatibility_shim must be bool or CompatibilityShimConfig")
 
 
 @dataclass(frozen=True)
@@ -45,9 +47,18 @@ class RefactorRequest:
     target_path: str
     fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
-    compatibility_shim: bool | CompatibilityShimConfig = False
+    compatibility_shim: CompatibilityShimConfig = field(
+        default_factory=lambda: CompatibilityShimConfig(enabled=False)
+    )
     ambient_rewrite: bool = False
-    rationale: Optional[str] = None
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "compatibility_shim",
+            normalize_compatibility_shim(self.compatibility_shim),
+        )
 
 
 @dataclass(frozen=True)
