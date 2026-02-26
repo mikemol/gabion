@@ -12,6 +12,7 @@ from gabion.analysis.projection_normalize import (
 )
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
 from gabion.analysis.aspf import Forest
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.analysis.timeout_context import (
     Deadline,
     deadline_clock_scope,
@@ -538,9 +539,7 @@ def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
 
 def spec_metadata_lines_from_payload(payload: Mapping[str, JSONValue]) -> list[str]:
     spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = payload.get("generated_by_spec", {})
-    if not isinstance(spec_payload, Mapping):
-        spec_payload = {}
+    spec_payload = mapping_or_none(payload.get("generated_by_spec")) or {}
     spec_json = json.dumps(spec_payload, sort_keys=False, separators=(",", ":"))
     return [
         f"generated_by_spec_id: {spec_id}",
