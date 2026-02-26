@@ -14636,17 +14636,19 @@ def _deserialize_param_spans_for_resume(
     spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     for fn_name, raw_map in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(raw_map, Mapping):
+        param_map = mapping_or_none(raw_map)
+        if type(fn_name) is not str or param_map is None:
             continue
         fn_spans: dict[str, tuple[int, int, int, int]] = {}
-        for param_name, raw_span in raw_map.items():
+        for param_name, raw_span in param_map.items():
             check_deadline()
-            if not isinstance(param_name, str) or not isinstance(raw_span, (list, tuple)):
+            span_parts = sequence_or_none(raw_span)
+            if type(param_name) is not str or span_parts is None:
                 continue
-            if len(raw_span) != 4:
+            if len(span_parts) != 4:
                 continue
             try:
-                span = tuple(int(part) for part in raw_span)
+                span = tuple(int(part) for part in span_parts)
             except (TypeError, ValueError):
                 continue
             fn_spans[param_name] = cast(tuple[int, int, int, int], span)
@@ -14665,12 +14667,14 @@ def _serialize_bundle_sites_for_resume(
         for bundle in fn_sites:
             check_deadline()
             encoded_bundle: list[JSONObject] = []
-            if not isinstance(bundle, list):
+            bundle_entries = sequence_or_none(cast(JSONValue, bundle))
+            if bundle_entries is None:
                 continue
-            for site in bundle:
+            for site in bundle_entries:
                 check_deadline()
-                if isinstance(site, dict):
-                    encoded_bundle.append({str(key): site[key] for key in site})
+                site_mapping = mapping_or_none(site)
+                if site_mapping is not None:
+                    encoded_bundle.append({str(key): site_mapping[key] for key in site_mapping})
             encoded_fn_sites.append(encoded_bundle)
         payload[fn_name] = encoded_fn_sites
     return payload
@@ -14682,18 +14686,21 @@ def _deserialize_bundle_sites_for_resume(
     bundle_sites: dict[str, list[list[JSONObject]]] = {}
     for fn_name, raw_sites in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(raw_sites, list):
+        site_groups = sequence_or_none(raw_sites)
+        if type(fn_name) is not str or site_groups is None:
             continue
         fn_sites: list[list[JSONObject]] = []
-        for raw_bundle in raw_sites:
+        for raw_bundle in site_groups:
             check_deadline()
-            if not isinstance(raw_bundle, list):
+            bundle_entries = sequence_or_none(raw_bundle)
+            if bundle_entries is None:
                 continue
             bundle: list[JSONObject] = []
-            for site in raw_bundle:
+            for site in bundle_entries:
                 check_deadline()
-                if isinstance(site, Mapping):
-                    bundle.append({str(key): site[key] for key in site})
+                site_mapping = mapping_or_none(site)
+                if site_mapping is not None:
+                    bundle.append({str(key): site_mapping[key] for key in site_mapping})
             fn_sites.append(bundle)
         bundle_sites[fn_name] = fn_sites
     return bundle_sites
@@ -14723,38 +14730,44 @@ def _deserialize_invariants_for_resume(
     invariants: list[InvariantProposition] = []
     for entry in payload:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        entry_mapping = mapping_or_none(entry)
+        if entry_mapping is None:
             continue
-        form = entry.get("form")
-        terms = entry.get("terms")
-        if not isinstance(form, str) or not isinstance(terms, (list, tuple)):
+        form = entry_mapping.get("form")
+        terms = sequence_or_none(entry_mapping.get("terms"))
+        if type(form) is not str or terms is None:
             continue
         normalized_terms: list[str] = []
         for term in terms:
             check_deadline()
-            if isinstance(term, str):
+            if type(term) is str:
                 normalized_terms.append(term)
-        scope = entry.get("scope")
-        source = entry.get("source")
-        invariant_id = entry.get("invariant_id")
-        confidence_raw = entry.get("confidence")
-        confidence = float(confidence_raw) if isinstance(confidence_raw, (int, float)) else None
-        raw_evidence = entry.get("evidence_keys")
+        scope = entry_mapping.get("scope")
+        source = entry_mapping.get("source")
+        invariant_id = entry_mapping.get("invariant_id")
+        confidence_raw = entry_mapping.get("confidence")
+        confidence = (
+            float(confidence_raw)
+            if type(confidence_raw) in {int, float}
+            else None
+        )
+        raw_evidence = entry_mapping.get("evidence_keys")
         evidence_keys: tuple[str, ...] = ()
-        if isinstance(raw_evidence, Sequence) and not isinstance(raw_evidence, (str, bytes)):
-            evidence_keys = tuple(str(item) for item in raw_evidence if str(item).strip())
+        evidence_sequence = sequence_or_none(raw_evidence)
+        if evidence_sequence is not None:
+            evidence_keys = tuple(str(item) for item in evidence_sequence if str(item).strip())
         normalized = _normalize_invariant_proposition(
             InvariantProposition(
                 form=form,
                 terms=tuple(normalized_terms),
-                scope=scope if isinstance(scope, str) else None,
-                source=source if isinstance(source, str) else None,
-                invariant_id=invariant_id if isinstance(invariant_id, str) else None,
+                scope=scope if type(scope) is str else None,
+                source=source if type(source) is str else None,
+                invariant_id=invariant_id if type(invariant_id) is str else None,
                 confidence=confidence,
                 evidence_keys=evidence_keys,
             ),
-            default_scope=scope if isinstance(scope, str) else "",
-            default_source=source if isinstance(source, str) else "resume",
+            default_scope=scope if type(scope) is str else "",
+            default_source=source if type(source) is str else "resume",
         )
         invariants.append(normalized)
     return invariants
