@@ -54,6 +54,33 @@ def _obligation_trace_path(paths: dict[str, Path]) -> Path:
     return paths["deadline_json"].parent / "obligation_trace.json"
 
 
+def _aspf_handoff_config(tmp_path: Path, *, session_id: str) -> run_dataflow_stage.AspfHandoffConfig:
+    return run_dataflow_stage.AspfHandoffConfig(
+        enabled=True,
+        root=tmp_path,
+        session_id=session_id,
+        manifest_path=tmp_path / "artifacts/out/aspf_handoff_manifest.json",
+        state_root=tmp_path / "artifacts/out/aspf_state",
+    )
+
+
+def _write_aspf_state_for_command(
+    command: list[str] | tuple[str, ...],
+    *,
+    analysis_state: str,
+    timeout_payload: dict[str, object] | None = None,
+) -> None:
+    if "--aspf-state-json" not in command:
+        return
+    state_index = command.index("--aspf-state-json") + 1
+    if state_index >= len(command):
+        return
+    payload: dict[str, object] = {"analysis_state": analysis_state}
+    if isinstance(timeout_payload, dict):
+        payload["semantic_surfaces"] = {"delta_state": timeout_payload}
+    _write_json(Path(command[state_index]), payload)
+
+
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._stage_ids
 def test_stage_ids_are_bounded_and_ordered() -> None:
     assert run_dataflow_stage._stage_ids("run", 3) == ["run", "retry1", "retry2"]
@@ -89,9 +116,7 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
         resume_on_timeout=1,
         strictness="low",
     )
-    assert command[:6] == [sys.executable, "-m", "gabion", "check", "obsolescence", "delta"]
-    assert "--baseline" in command
-    assert str(run_dataflow_stage._OBSOLESCENCE_BASELINE_PATH) in command
+    assert command[:5] == [sys.executable, "-m", "gabion", "check", "delta-bundle"]
     assert "--strictness" in command
     assert "low" in command
 
@@ -145,12 +170,7 @@ def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: 
 def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["report"], "# report\n")
-    _write_text(paths["timeout_md"], "timeout md\n")
     _write_text(paths["deadline_md"], "deadline md\n")
-    _write_json(
-        paths["timeout_json"],
-        {"progress": {"classification": "timed_out_progress_resume"}},
-    )
     _write_json(
         paths["deadline_json"],
         {
@@ -160,13 +180,22 @@ def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None
             "wall_total_elapsed_ns": 1_000_000_000,
         },
     )
+    handoff_config = _aspf_handoff_config(tmp_path, session_id="session-progress-classification")
+
+    def _run(command: list[str] | tuple[str, ...]) -> int:
+        _write_aspf_state_for_command(
+            command,
+            analysis_state="timed_out_progress_resume",
+        )
+        return 2
 
     result = run_dataflow_stage.run_stage(
         stage_id="a",
         paths=_stage_paths(paths),
         resume_on_timeout=1,
         step_summary_path=paths["summary"],
-        run_command_fn=lambda _cmd: 2,
+        run_command_fn=_run,
+        aspf_handoff_config=handoff_config,
     )
 
     assert result.analysis_state == "timed_out_progress_resume"
@@ -174,24 +203,84 @@ def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None
     assert result.terminal_status == "timeout_resume"
     assert "stage A" in paths["summary"].read_text()
     assert paths["report"].with_name("dataflow_report_stage_a.md").exists()
-    assert paths["timeout_json"].with_name("timeout_progress_stage_a.json").exists()
     assert paths["deadline_json"].with_name("deadline_profile_stage_a.json").exists()
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_emits_aspf_state_and_cumulative_imports::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage
+def test_run_stage_emits_aspf_state_and_cumulative_imports(tmp_path: Path) -> None:
+    paths = _base_paths(tmp_path)
+    _write_text(paths["deadline_md"], "deadline md\n")
+    captured: list[tuple[str, ...]] = []
+
+    def _run(cmd: list[str] | tuple[str, ...]) -> int:
+        captured.append(tuple(cmd))
+        _write_text(paths["report"], "# report\n")
+        _write_aspf_state_for_command(cmd, analysis_state="done")
+        _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
+        return 0
+
+    handoff_config = _aspf_handoff_config(tmp_path, session_id="session-stage")
+
+    run_dataflow_stage.run_stage(
+        stage_id="run",
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run,
+        aspf_handoff_config=handoff_config,
+    )
+    run_dataflow_stage.run_stage(
+        stage_id="retry1",
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run,
+        aspf_handoff_config=handoff_config,
+    )
+
+    assert len(captured) == 2
+    first_cmd = captured[0]
+    second_stage_first_cmd = captured[1]
+    assert "--aspf-state-json" in first_cmd
+    assert "--aspf-import-state" not in first_cmd
+
+    first_state_path = first_cmd[first_cmd.index("--aspf-state-json") + 1]
+    second_state_path = second_stage_first_cmd[
+        second_stage_first_cmd.index("--aspf-state-json") + 1
+    ]
+    assert first_state_path != second_state_path
+    assert "--aspf-import-state" in second_stage_first_cmd
+    import_values = [
+        second_stage_first_cmd[idx + 1]
+        for idx, value in enumerate(second_stage_first_cmd)
+        if value == "--aspf-import-state" and idx + 1 < len(second_stage_first_cmd)
+    ]
+    assert first_state_path in import_values
+
+    manifest = json.loads(handoff_config.manifest_path.read_text(encoding="utf-8"))
+    entries = manifest.get("entries")
+    assert isinstance(entries, list)
+    assert [entry.get("status") for entry in entries] == ["success"] * 2
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
-    _write_text(paths["timeout_md"], "timeout md\n")
     _write_text(paths["deadline_md"], "deadline md\n")
     calls = {"count": 0}
+    handoff_config = _aspf_handoff_config(tmp_path, session_id="session-retry")
 
-    def _run(_cmd: list[str] | tuple[str, ...]) -> int:
+    def _run(cmd: list[str] | tuple[str, ...]) -> int:
         calls["count"] += 1
         stage = "a" if calls["count"] == 1 else "b"
         _write_text(paths["report"], f"# report stage {stage}\n")
-        _write_json(
-            paths["timeout_json"],
-            {"analysis_state": "timed_out_progress_resume" if stage == "a" else "done"},
+        _write_aspf_state_for_command(
+            cmd,
+            analysis_state=(
+                "timed_out_progress_resume"
+                if stage == "a"
+                else "done"
+            ),
         )
         _write_json(
             paths["deadline_json"],
@@ -211,6 +300,7 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         run_gate_fn=lambda _cmd: 0,
+        aspf_handoff_config=handoff_config,
     )
 
     assert [result.stage_id for result in results] == ["a", "b"]
@@ -223,14 +313,17 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_skips_retry_when_wall_budget_reserved(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
-    _write_text(paths["timeout_md"], "timeout md\n")
     _write_text(paths["deadline_md"], "deadline md\n")
     calls = {"count": 0}
+    handoff_config = _aspf_handoff_config(tmp_path, session_id="session-wall-budget")
 
-    def _run(_cmd: list[str] | tuple[str, ...]) -> int:
+    def _run(cmd: list[str] | tuple[str, ...]) -> int:
         calls["count"] += 1
         _write_text(paths["report"], "# report stage a\n")
-        _write_json(paths["timeout_json"], {"analysis_state": "timed_out_progress_resume"})
+        _write_aspf_state_for_command(
+            cmd,
+            analysis_state="timed_out_progress_resume",
+        )
         _write_json(
             paths["deadline_json"],
             {
@@ -259,6 +352,7 @@ def test_run_staged_skips_retry_when_wall_budget_reserved(tmp_path: Path) -> Non
         max_wall_seconds=60,
         finalize_reserve_seconds=5,
         monotonic_fn=_fake_monotonic,
+        aspf_handoff_config=handoff_config,
     )
 
     assert calls["count"] == 1
@@ -579,8 +673,6 @@ def test_emit_debug_dump_writes_state_lines(tmp_path: Path, capsys) -> None:
     captured = capsys.readouterr().out
     assert "debug dump: reason=SIGUSR1" in captured
     assert "active_stage=a" in captured
-    assert "resume_checkpoint=present completed_paths=1 hydrated_paths=1" in captured
-    assert "timeout_progress_state=timed_out_progress_resume" in captured
     assert "phase_timeline_rows=1" in captured
     assert "phase_timeline_jsonl_present=yes" in captured
     assert "phase_timeline_last_row=| 2026-02-20T00:00:00Z | 1 | heartbeat | post |" in captured
@@ -597,14 +689,11 @@ def test_reset_run_observability_artifacts_clears_stale_debug_inputs_only(
     timeline_md_path = run_dataflow_stage._phase_timeline_markdown_path(paths["report"])
     timeline_jsonl_path = run_dataflow_stage._phase_timeline_jsonl_path(paths["report"])
     stale_paths = (
-        paths["timeout_json"],
-        paths["timeout_md"],
         paths["deadline_json"],
         paths["deadline_md"],
         _obligation_trace_path(paths),
         timeline_md_path,
         timeline_jsonl_path,
-        paths["report"].parent / "dataflow_checkpoint_intro_timeline.md",
     )
     for stale_path in stale_paths:
         _write_text(stale_path, "stale\n")
@@ -776,14 +865,8 @@ def test_main_supports_injected_orchestration(tmp_path: Path) -> None:
         "1",
         "--report",
         str(paths["report"]),
-        "--resume-checkpoint",
-        str(paths["resume"]),
         "--baseline",
         str(paths["baseline"]),
-        "--timeout-progress-json",
-        str(paths["timeout_json"]),
-        "--timeout-progress-md",
-        str(paths["timeout_md"]),
         "--deadline-profile-json",
         str(paths["deadline_json"]),
         "--deadline-profile-md",
@@ -1028,14 +1111,8 @@ def test_main_uses_env_defaults_and_exercises_debug_callbacks(tmp_path: Path) ->
                 "1",
                 "--report",
                 str(paths["report"]),
-                "--resume-checkpoint",
-                str(paths["resume"]),
                 "--baseline",
                 str(paths["baseline"]),
-                "--timeout-progress-json",
-                str(paths["timeout_json"]),
-                "--timeout-progress-md",
-                str(paths["timeout_md"]),
                 "--deadline-profile-json",
                 str(paths["deadline_json"]),
                 "--deadline-profile-md",
@@ -1164,14 +1241,8 @@ def test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_en
                     "1",
                     "--report",
                     str(paths["report"]),
-                    "--resume-checkpoint",
-                    str(paths["resume"]),
                     "--baseline",
                     str(paths["baseline"]),
-                    "--timeout-progress-json",
-                    str(paths["timeout_json"]),
-                    "--timeout-progress-md",
-                    str(paths["timeout_md"]),
                     "--deadline-profile-json",
                     str(paths["deadline_json"]),
                     "--deadline-profile-md",
@@ -1298,19 +1369,18 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
     )
 
     run_calls = {"count": 0}
+    handoff_config = _aspf_handoff_config(tmp_path, session_id="session-branch-edges")
 
-    def _run_timeout_then_fail(_command: list[str] | tuple[str, ...]) -> int:
+    def _run_timeout_then_fail(command: list[str] | tuple[str, ...]) -> int:
         run_calls["count"] += 1
         _write_text(paths["report"], "# report\n")
-        _write_json(
-            paths["timeout_json"],
-            {
-                "analysis_state": (
-                    "timed_out_progress_resume"
-                    if run_calls["count"] == 1
-                    else "hard_failure"
-                )
-            },
+        _write_aspf_state_for_command(
+            command,
+            analysis_state=(
+                "timed_out_progress_resume"
+                if run_calls["count"] == 1
+                else "hard_failure"
+            ),
         )
         _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
         return 2
@@ -1332,6 +1402,7 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
         max_wall_seconds=60,
         finalize_reserve_seconds=5,
         monotonic_fn=_monotonic,
+        aspf_handoff_config=handoff_config,
     )
     assert [result.analysis_state for result in results] == [
         "timed_out_progress_resume",
@@ -1364,14 +1435,8 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
                     "1",
                     "--report",
                     str(paths["report"]),
-                    "--resume-checkpoint",
-                    str(paths["resume"]),
                     "--baseline",
                     str(paths["baseline"]),
-                    "--timeout-progress-json",
-                    str(paths["timeout_json"]),
-                    "--timeout-progress-md",
-                    str(paths["timeout_md"]),
                     "--deadline-profile-json",
                     str(paths["deadline_json"]),
                     "--deadline-profile-md",

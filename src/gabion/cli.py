@@ -59,11 +59,10 @@ from gabion.plan import (
     ExecutionPlanPolicyMetadata,
 )
 from gabion.tooling import (
-    delta_state_emit as tooling_delta_state_emit,
-    delta_triplets as tooling_delta_triplets,
     docflow_delta_emit as tooling_docflow_delta_emit,
     governance_audit as tooling_governance_audit,
     impact_select_tests as tooling_impact_select_tests,
+    tool_specs,
     run_dataflow_stage as tooling_run_dataflow_stage,
     ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
     normative_symdiff as tooling_normative_symdiff,
@@ -110,7 +109,6 @@ DEFAULT_RUNNER: Runner = run_command
 
 CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
 CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
-CliRunWithTimeoutRetriesFn: TypeAlias = Callable[..., JSONObject]
 CliRestoreResumeCheckpointFn: TypeAlias = Callable[..., int]
 CliRunSppfSyncFn: TypeAlias = Callable[..., int]
 
@@ -119,7 +117,6 @@ _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_CHECK_REPORT_REL_PATH = path_policy.DEFAULT_CHECK_REPORT_REL_PATH
-_DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = path_policy.DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
 _SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
@@ -180,7 +177,6 @@ class SppfSyncCommitInfo:
 class CliDeps:
     run_dataflow_raw_argv_fn: CliRunDataflowRawArgvFn
     run_check_fn: CliRunCheckFn
-    run_with_timeout_retries_fn: CliRunWithTimeoutRetriesFn
     restore_resume_checkpoint_fn: CliRestoreResumeCheckpointFn
     run_sppf_sync_fn: CliRunSppfSyncFn
 
@@ -223,14 +219,6 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
                 ctx=ctx,
                 key="run_check",
                 default=run_check,
-            ),
-        ),
-        run_with_timeout_retries_fn=cast(
-            CliRunWithTimeoutRetriesFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_with_timeout_retries",
-                default=_run_with_timeout_retries,
             ),
         ),
         restore_resume_checkpoint_fn=cast(
@@ -910,47 +898,12 @@ def _render_timeout_progress_markdown(
     return "\n".join(lines)
 
 
-def _emit_timeout_progress_artifacts(
-    result: Mapping[str, object],
-    *,
-    root: Path,
-) -> None:
-    timeout_context = result.get("timeout_context")
-    if not isinstance(timeout_context, Mapping):
-        return
-    progress = timeout_context.get("progress")
-    if not isinstance(progress, Mapping):
-        return
-    profile = timeout_context.get("deadline_profile")
-    profile_mapping = profile if isinstance(profile, Mapping) else None
-    progress_md_path = root / _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
-    progress_json_path = progress_md_path.with_suffix(".json")
-    progress_md_path.parent.mkdir(parents=True, exist_ok=True)
-    payload: JSONObject = {
-        "analysis_state": str(result.get("analysis_state", "")),
-        "progress": {str(key): progress[key] for key in progress},
-    }
-    progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n")
-    with _cli_deadline_scope():
-        rendered = _render_timeout_progress_markdown(
-            analysis_state=str(result.get("analysis_state", "")),
-            progress=progress,
-            deadline_profile=profile_mapping,
-        )
-    progress_md_path.write_text(
-        rendered + "\n",
-        encoding="utf-8",
-    )
-    typer.echo(f"Wrote timeout progress JSON: {progress_json_path}")
-    typer.echo(f"Wrote timeout progress markdown: {progress_md_path}")
-
-
 def _build_dataflow_payload_common(
     *,
     options: DataflowPayloadCommonOptions,
 ) -> JSONObject:
     # dataflow-bundle: filter_bundle
-    # dataflow-bundle: deadline_profile, emit_timeout_progress_report
+    # dataflow-bundle: deadline_profile
     return check_contract.build_dataflow_payload_common(options=options)
 
 
@@ -972,11 +925,18 @@ def build_check_payload(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
-    resume_checkpoint: Optional[Path] = None,
-    emit_timeout_progress_report: bool = False,
-    resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
     aux_operation: CheckAuxOperation | None = None,
+    aspf_trace_json: Path | None = None,
+    aspf_import_trace: Optional[List[Path]] = None,
+    aspf_equivalence_against: Optional[List[Path]] = None,
+    aspf_opportunities_json: Path | None = None,
+    aspf_state_json: Path | None = None,
+    aspf_import_state: Optional[List[Path]] = None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_semantic_surface: Optional[List[str]] = None,
 ) -> JSONObject:
     return check_contract.build_check_payload(
         paths=paths,
@@ -995,11 +955,18 @@ def build_check_payload(
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
         lint=lint,
-        resume_checkpoint=resume_checkpoint,
-        emit_timeout_progress_report=emit_timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_tick_limit=analysis_tick_limit,
         aux_operation=aux_operation,
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_semantic_surface=aspf_semantic_surface,
     )
 
 
@@ -1015,6 +982,13 @@ def _check_derived_artifacts(
     emit_test_annotation_drift_delta: bool,
     emit_ambiguity_delta: bool,
     emit_ambiguity_state: bool,
+    aspf_trace_json: Path | None,
+    aspf_opportunities_json: Path | None,
+    aspf_state_json: Path | None,
+    aspf_delta_jsonl: Path | None,
+    aspf_action_plan_json: Path | None,
+    aspf_action_plan_md: Path | None,
+    aspf_equivalence_enabled: bool,
 ) -> list[str]:
     derived = [str(report), "artifacts/out/execution_plan.json"]
     if decision_snapshot is not None:
@@ -1041,6 +1015,41 @@ def _check_derived_artifacts(
         derived.append("artifacts/out/ambiguity_delta.json")
     if emit_ambiguity_state:
         derived.append("artifacts/out/ambiguity_state.json")
+    aspf_enabled = (
+        aspf_trace_json is not None
+        or aspf_opportunities_json is not None
+        or aspf_state_json is not None
+        or aspf_equivalence_enabled
+    )
+    if aspf_enabled:
+        derived.append(
+            str(aspf_trace_json)
+            if aspf_trace_json is not None
+            else "artifacts/out/aspf_trace.json"
+        )
+        derived.append("artifacts/out/aspf_equivalence.json")
+        derived.append(
+            str(aspf_opportunities_json)
+            if aspf_opportunities_json is not None
+            else "artifacts/out/aspf_opportunities.json"
+        )
+        if aspf_state_json is not None:
+            derived.append(str(aspf_state_json))
+        derived.append(
+            str(aspf_delta_jsonl)
+            if aspf_delta_jsonl is not None
+            else "artifacts/out/aspf_delta.jsonl"
+        )
+        derived.append(
+            str(aspf_action_plan_json)
+            if aspf_action_plan_json is not None
+            else "artifacts/out/aspf_action_plan.json"
+        )
+        derived.append(
+            str(aspf_action_plan_md)
+            if aspf_action_plan_md is not None
+            else "artifacts/out/aspf_action_plan.md"
+        )
     return derived
 
 
@@ -1059,6 +1068,13 @@ def build_check_execution_plan_request(
     emit_test_annotation_drift_delta: bool,
     emit_ambiguity_delta: bool,
     emit_ambiguity_state: bool,
+    aspf_trace_json: Path | None = None,
+    aspf_opportunities_json: Path | None = None,
+    aspf_state_json: Path | None = None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_equivalence_enabled: bool = False,
 ) -> ExecutionPlanRequest:
     operations = [DATAFLOW_COMMAND, CHECK_COMMAND]
     obligations = ExecutionPlanObligations(
@@ -1096,6 +1112,13 @@ def build_check_execution_plan_request(
             emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
             emit_ambiguity_delta=emit_ambiguity_delta,
             emit_ambiguity_state=emit_ambiguity_state,
+            aspf_trace_json=aspf_trace_json,
+            aspf_opportunities_json=aspf_opportunities_json,
+            aspf_state_json=aspf_state_json,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aspf_action_plan_json=aspf_action_plan_json,
+            aspf_action_plan_md=aspf_action_plan_md,
+            aspf_equivalence_enabled=aspf_equivalence_enabled,
         ),
         obligations=obligations,
         policy_metadata=policy_metadata,
@@ -1164,9 +1187,41 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     fingerprint_handledness_json_target = _normalize_optional_output_target(
         opts.fingerprint_handledness_json
     )
+    aspf_trace_json_target = _normalize_optional_output_target(opts.aspf_trace_json)
+    aspf_opportunities_json_target = _normalize_optional_output_target(
+        opts.aspf_opportunities_json
+    )
+    aspf_state_json_target = _normalize_optional_output_target(opts.aspf_state_json)
+    aspf_delta_jsonl_target = _normalize_optional_output_target(opts.aspf_delta_jsonl)
+    aspf_action_plan_json_target = _normalize_optional_output_target(
+        opts.aspf_action_plan_json
+    )
+    aspf_action_plan_md_target = _normalize_optional_output_target(
+        opts.aspf_action_plan_md
+    )
     structure_tree_target = _normalize_optional_output_target(opts.emit_structure_tree)
     structure_metrics_target = _normalize_optional_output_target(
         opts.emit_structure_metrics
+    )
+    aspf_import_trace = (
+        check_contract.split_csv_entries(opts.aspf_import_trace)
+        if opts.aspf_import_trace
+        else []
+    )
+    aspf_equivalence_against = (
+        check_contract.split_csv_entries(opts.aspf_equivalence_against)
+        if opts.aspf_equivalence_against
+        else []
+    )
+    aspf_import_state = (
+        check_contract.split_csv_entries(opts.aspf_import_state)
+        if opts.aspf_import_state
+        else []
+    )
+    aspf_semantic_surface = (
+        check_contract.split_csv_entries(opts.aspf_semantic_surface)
+        if opts.aspf_semantic_surface
+        else []
     )
     payload = _build_dataflow_payload_common(
         options=DataflowPayloadCommonOptions(
@@ -1189,11 +1244,28 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
             allow_external=opts.allow_external,
             strictness=opts.strictness,
             lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
-            resume_checkpoint=Path(opts.resume_checkpoint)
-            if opts.resume_checkpoint
+            aspf_trace_json=Path(aspf_trace_json_target)
+            if aspf_trace_json_target
             else None,
-            emit_timeout_progress_report=bool(opts.emit_timeout_progress_report),
-            resume_on_timeout=max(int(opts.resume_on_timeout), 0),
+            aspf_import_trace=[Path(path) for path in aspf_import_trace],
+            aspf_equivalence_against=[Path(path) for path in aspf_equivalence_against],
+            aspf_opportunities_json=Path(aspf_opportunities_json_target)
+            if aspf_opportunities_json_target
+            else None,
+            aspf_state_json=Path(aspf_state_json_target)
+            if aspf_state_json_target
+            else None,
+            aspf_import_state=[Path(path) for path in aspf_import_state],
+            aspf_delta_jsonl=Path(aspf_delta_jsonl_target)
+            if aspf_delta_jsonl_target
+            else None,
+            aspf_action_plan_json=Path(aspf_action_plan_json_target)
+            if aspf_action_plan_json_target
+            else None,
+            aspf_action_plan_md=Path(aspf_action_plan_md_target)
+            if aspf_action_plan_md_target
+            else None,
+            aspf_semantic_surface=list(aspf_semantic_surface),
         )
     )
     payload.update(
@@ -1424,11 +1496,18 @@ def run_check(
     filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
-    resume_checkpoint: Optional[Path] = None,
-    emit_timeout_progress_report: bool = False,
-    resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
     aux_operation: CheckAuxOperation | None = None,
+    aspf_trace_json: Path | None = None,
+    aspf_import_trace: Optional[List[Path]] = None,
+    aspf_equivalence_against: Optional[List[Path]] = None,
+    aspf_opportunities_json: Path | None = None,
+    aspf_state_json: Path | None = None,
+    aspf_import_state: Optional[List[Path]] = None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_semantic_surface: Optional[List[str]] = None,
     runner: Runner = run_command,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
@@ -1454,11 +1533,18 @@ def run_check(
         strictness=strictness,
         fail_on_type_ambiguities=policy.fail_on_type_ambiguities,
         lint=policy.lint,
-        resume_checkpoint=resume_checkpoint,
-        emit_timeout_progress_report=emit_timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_tick_limit=analysis_tick_limit,
         aux_operation=aux_operation,
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_semantic_surface=aspf_semantic_surface,
     )
     execution_plan_request = build_check_execution_plan_request(
         payload=payload,
@@ -1474,6 +1560,24 @@ def run_check(
         emit_test_annotation_drift_delta=delta_options.emit_test_annotation_drift_delta,
         emit_ambiguity_delta=delta_options.emit_ambiguity_delta,
         emit_ambiguity_state=delta_options.emit_ambiguity_state,
+        aspf_trace_json=aspf_trace_json,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_equivalence_enabled=bool(
+            aspf_trace_json
+            or aspf_import_trace
+            or aspf_equivalence_against
+            or aspf_opportunities_json
+            or aspf_state_json
+            or aspf_import_state
+            or aspf_delta_jsonl
+            or aspf_action_plan_json
+            or aspf_action_plan_md
+            or aspf_semantic_surface
+        ),
     )
     return dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -1489,31 +1593,15 @@ def _run_with_timeout_retries(
     *,
     run_once: Callable[[], JSONObject],
     root: Path,
-    emit_timeout_progress_report: bool,
-    resume_on_timeout: int,
     emit_timeout_profile_artifacts_fn: Callable[..., None] = _emit_timeout_profile_artifacts,
-    emit_timeout_progress_artifacts_fn: Callable[..., None] = _emit_timeout_progress_artifacts,
-    echo_fn: Callable[[str], None] = typer.echo,
 ) -> JSONObject:
-    attempt = 0
-    result: JSONObject = {}
-    while True:
-        with _cli_deadline_scope():
-            check_deadline()
-            result = run_once()
-        if result.get("timeout") is not True:
-            return result
-        emit_timeout_profile_artifacts_fn(result, root=root)
-        if emit_timeout_progress_report:
-            emit_timeout_progress_artifacts_fn(result, root=root)
-        if (
-            attempt < max(int(resume_on_timeout), 0)
-            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
-        ):
-            attempt += 1
-            echo_fn(f"Retrying after timeout with progress ({attempt}/{resume_on_timeout})...")
-            continue
-        raise typer.Exit(code=int(result.get("exit_code", 2)))
+    with _cli_deadline_scope():
+        check_deadline()
+        result = run_once()
+    if result.get("timeout") is not True:
+        return result
+    emit_timeout_profile_artifacts_fn(result, root=root)
+    raise typer.Exit(code=int(result.get("exit_code", 2)))
 
 
 def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) -> None:
@@ -1651,6 +1739,51 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
                 json.dumps(result["decision_snapshot"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
+        if _is_stdout_target(opts.aspf_trace_json) and "aspf_trace" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["aspf_trace"], indent=2, sort_keys=False),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.aspf_trace_json) and "aspf_equivalence" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["aspf_equivalence"], indent=2, sort_keys=False),
+                ensure_trailing_newline=True,
+            )
+        if (
+            _is_stdout_target(opts.aspf_opportunities_json)
+            and "aspf_opportunities" in result
+        ):
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["aspf_opportunities"], indent=2, sort_keys=False),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.aspf_state_json) and "aspf_state" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["aspf_state"], indent=2, sort_keys=False),
+                ensure_trailing_newline=True,
+            )
+        if (
+            _is_stdout_target(opts.aspf_action_plan_json)
+            and "aspf_action_plan" in result
+        ):
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["aspf_action_plan"], indent=2, sort_keys=False),
+                ensure_trailing_newline=True,
+            )
+        if (
+            _is_stdout_target(opts.aspf_action_plan_md)
+            and "aspf_action_plan_markdown" in result
+        ):
+            _write_text_to_target(
+                _STDOUT_PATH,
+                str(result["aspf_action_plan_markdown"]),
+                ensure_trailing_newline=True,
+            )
 
 
 def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
@@ -1701,9 +1834,6 @@ def _check_raw_profile_args(
     filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
-    resume_checkpoint: Optional[Path],
-    emit_timeout_progress_report: bool,
-    resume_on_timeout: int,
     fail_on_type_ambiguities: bool,
     lint: bool,
     lint_jsonl: Optional[Path],
@@ -1740,12 +1870,6 @@ def _check_raw_profile_args(
         argv.append("--allow-external" if allow_external else "--no-allow-external")
     if _param_is_command_line(ctx, "strictness") and strictness is not None:
         argv.extend(["--strictness", strictness])
-    if _param_is_command_line(ctx, "resume_checkpoint") and resume_checkpoint is not None:
-        argv.extend(["--resume-checkpoint", str(resume_checkpoint)])
-    if _param_is_command_line(ctx, "emit_timeout_progress_report") and emit_timeout_progress_report:
-        argv.append("--emit-timeout-progress-report")
-    if _param_is_command_line(ctx, "resume_on_timeout"):
-        argv.extend(["--resume-on-timeout", str(int(resume_on_timeout))])
     if _param_is_command_line(ctx, "fail_on_violations") and fail_on_violations:
         argv.append("--fail-on-violations")
     if _param_is_command_line(ctx, "fail_on_type_ambiguities") and fail_on_type_ambiguities:
@@ -1774,9 +1898,6 @@ def _run_check_raw_profile(
     filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
-    resume_checkpoint: Optional[Path],
-    emit_timeout_progress_report: bool,
-    resume_on_timeout: int,
     fail_on_type_ambiguities: bool,
     lint: bool,
     lint_jsonl: Optional[Path],
@@ -1804,9 +1925,6 @@ def _run_check_raw_profile(
         filter_bundle=filter_bundle,
         allow_external=allow_external,
         strictness=strictness,
-        resume_checkpoint=resume_checkpoint,
-        emit_timeout_progress_report=emit_timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
         lint=lint,
         lint_jsonl=lint_jsonl,
@@ -1849,6 +1967,39 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
         return
     causes = "; ".join(_nonzero_exit_causes(result))
     typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
+
+
+def _emit_action_plan_quality_warnings(result: JSONObject) -> None:
+    payload = result.get("aspf_action_plan_quality")
+    if not isinstance(payload, Mapping):
+        return
+    status = str(payload.get("status", "")).strip().lower()
+    if status != "warning":
+        return
+    issues_raw = payload.get("issues")
+    issues = (
+        [entry for entry in issues_raw if isinstance(entry, Mapping)]
+        if isinstance(issues_raw, list)
+        else []
+    )
+    if not issues:
+        typer.echo(
+            "ASPF action-plan quality warning: status=warning (no structured issues)",
+            err=True,
+        )
+        return
+    issue_ids = [
+        str(entry.get("issue_id", "")).strip()
+        for entry in issues
+        if str(entry.get("issue_id", "")).strip()
+    ]
+    preview = ", ".join(issue_ids[:8]) if issue_ids else "unknown-issues"
+    if len(issue_ids) > 8:
+        preview = f"{preview}, +{len(issue_ids) - 8} more"
+    typer.echo(
+        f"ASPF action-plan quality warning: {preview}",
+        err=True,
+    )
 
 
 def _emit_resume_checkpoint_startup_line(
@@ -1982,10 +2133,6 @@ def _context_run_check(ctx: typer.Context) -> Callable[..., JSONObject]:
     return _context_cli_deps(ctx).run_check_fn
 
 
-def _context_run_with_timeout_retries(ctx: typer.Context) -> Callable[..., JSONObject]:
-    return _context_cli_deps(ctx).run_with_timeout_retries_fn
-
-
 def _run_dataflow_raw_argv(
     argv: list[str],
     *,
@@ -1994,34 +2141,14 @@ def _run_dataflow_raw_argv(
     opts = parse_dataflow_args_or_exit(argv)
     payload = build_dataflow_payload(opts)
     resolved_runner = runner or run_command
-    startup_resume_emitted = False
     timeline_header_emitted = False
     last_phase_progress_signature: tuple[object, ...] | None = None
     last_phase_event_seq: int | None = None
-    if opts.resume_checkpoint is not None:
-        _emit_resume_checkpoint_startup_line(
-            checkpoint_path=str(opts.resume_checkpoint),
-            status="pending",
-            reused_files=None,
-            total_files=None,
-        )
 
     def _on_notification(notification: JSONObject) -> None:
-        nonlocal startup_resume_emitted
         nonlocal timeline_header_emitted
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
-        resume = _resume_checkpoint_from_progress_notification(notification)
-        if not isinstance(resume, Mapping):
-            pass
-        elif not startup_resume_emitted:
-            _emit_resume_checkpoint_startup_line(
-                checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
-                status=str(resume.get("status", "") or ""),
-                reused_files=int(resume.get("reused_files", 0) or 0),
-                total_files=int(resume.get("total_files", 0) or 0),
-            )
-            startup_resume_emitted = True
         phase_progress = _phase_progress_from_progress_notification(notification)
         if not isinstance(phase_progress, Mapping):
             return
@@ -2057,8 +2184,6 @@ def _run_dataflow_raw_argv(
             notification_callback=_on_notification,
         ),
         root=Path(opts.root),
-        emit_timeout_progress_report=opts.emit_timeout_progress_report,
-        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
     _emit_dataflow_result_outputs(result, opts)
     _emit_analysis_resume_summary(result)
@@ -2157,6 +2282,16 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
+def _run_check_delta_gates() -> int:
+    with _cli_deadline_scope():
+        for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs()):
+            check_deadline()
+            gate_exit = int(spec.run())
+            if gate_exit != 0:
+                return gate_exit
+    return 0
+
+
 def _run_check_command(
     *,
     ctx: typer.Context,
@@ -2173,14 +2308,21 @@ def _run_check_command(
     filter_bundle: DataflowFilterBundle | None,
     allow_external: bool | None,
     strictness: str | None,
-    resume_checkpoint: Path | None,
-    timeout_progress_report: bool,
-    resume_on_timeout: int,
     analysis_budget_checks: int | None,
     gate: CheckGateMode,
     lint_mode: CheckLintMode,
     lint_jsonl_out: Path | None,
     lint_sarif_out: Path | None,
+    aspf_trace_json: Path | None,
+    aspf_import_trace: list[Path] | None,
+    aspf_equivalence_against: list[Path] | None,
+    aspf_opportunities_json: Path | None,
+    aspf_state_json: Path | None,
+    aspf_import_state: list[Path] | None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_semantic_surface: list[str] | None = None,
     aux_operation: CheckAuxOperation | None = None,
 ) -> None:
     fail_on_violations, fail_on_type_ambiguities = _check_gate_policy(gate)
@@ -2190,34 +2332,14 @@ def _run_check_command(
         lint_sarif_out=lint_sarif_out,
     )
     deps = _context_cli_deps(ctx)
-    startup_resume_emitted = False
     timeline_header_emitted = False
     last_phase_progress_signature: tuple[object, ...] | None = None
     last_phase_event_seq: int | None = None
-    if resume_checkpoint is not None:
-        _emit_resume_checkpoint_startup_line(
-            checkpoint_path=str(resume_checkpoint),
-            status="pending",
-            reused_files=None,
-            total_files=None,
-        )
 
     def _on_notification(notification: JSONObject) -> None:
-        nonlocal startup_resume_emitted
         nonlocal timeline_header_emitted
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
-        resume = _resume_checkpoint_from_progress_notification(notification)
-        if not isinstance(resume, Mapping):
-            pass
-        elif not startup_resume_emitted:
-            _emit_resume_checkpoint_startup_line(
-                checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
-                status=str(resume.get("status", "") or ""),
-                reused_files=int(resume.get("reused_files", 0) or 0),
-                total_files=int(resume.get("total_files", 0) or 0),
-            )
-            startup_resume_emitted = True
         phase_progress = _phase_progress_from_progress_notification(notification)
         if not isinstance(phase_progress, Mapping):
             return
@@ -2246,7 +2368,7 @@ def _run_check_command(
         if header is not None:
             timeline_header_emitted = True
 
-    result = deps.run_with_timeout_retries_fn(
+    result = _run_with_timeout_retries(
         run_once=lambda: deps.run_check_fn(
             paths=paths,
             report=report,
@@ -2266,16 +2388,21 @@ def _run_check_command(
             filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
-            resume_checkpoint=resume_checkpoint,
-            emit_timeout_progress_report=timeout_progress_report,
-            resume_on_timeout=resume_on_timeout,
             analysis_tick_limit=analysis_budget_checks,
+            aspf_trace_json=aspf_trace_json,
+            aspf_import_trace=aspf_import_trace,
+            aspf_equivalence_against=aspf_equivalence_against,
+            aspf_opportunities_json=aspf_opportunities_json,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aspf_action_plan_json=aspf_action_plan_json,
+            aspf_action_plan_md=aspf_action_plan_md,
+            aspf_semantic_surface=aspf_semantic_surface,
             aux_operation=aux_operation,
             notification_callback=_on_notification,
         ),
         root=Path(root),
-        emit_timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
     )
     with _cli_deadline_scope():
         lint_lines = result.get("lint_lines", []) or []
@@ -2286,8 +2413,113 @@ def _run_check_command(
             lint_sarif=lint_sarif_out,
         )
     _emit_analysis_resume_summary(result)
+    _emit_action_plan_quality_warnings(result)
     _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
+
+
+@check_app.command("delta-bundle")
+def check_delta_bundle(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    strictness: CheckStrictnessMode = typer.Option(
+        CheckStrictnessMode.high, "--strictness"
+    ),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    decision_snapshot: Optional[Path] = typer.Option(
+        None,
+        "--decision-snapshot",
+    ),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_trace_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-trace-json",
+    ),
+    aspf_import_trace: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-trace",
+    ),
+    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-equivalence-against",
+    ),
+    aspf_opportunities_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-opportunities-json",
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-state-json",
+    ),
+    aspf_delta_jsonl: Optional[Path] = typer.Option(
+        None,
+        "--aspf-delta-jsonl",
+    ),
+    aspf_action_plan_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-json",
+    ),
+    aspf_action_plan_md: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-md",
+    ),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+    aspf_semantic_surface: Optional[List[str]] = typer.Option(
+        None,
+        "--aspf-semantic-surface",
+    ),
+) -> None:
+    _run_check_command(
+        ctx=ctx,
+        paths=paths,
+        report=report,
+        root=root,
+        config=config,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=decision_snapshot,
+        artifact_flags=check_contract.delta_bundle_artifact_flags(),
+        delta_options=check_contract.delta_bundle_delta_options(),
+        exclude=None,
+        filter_bundle=DataflowFilterBundle(
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+        ),
+        allow_external=allow_external,
+        strictness=str(strictness.value),
+        analysis_budget_checks=analysis_budget_checks,
+        gate=CheckGateMode.none,
+        lint_mode=CheckLintMode.none,
+        lint_jsonl_out=None,
+        lint_sarif_out=None,
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_import_state=aspf_import_state,
+        aspf_semantic_surface=aspf_semantic_surface,
+    )
+
+
+@check_app.command("delta-gates")
+def check_delta_gates() -> None:
+    raise typer.Exit(code=_run_check_delta_gates())
 
 
 def _run_check_aux_operation(
@@ -2306,10 +2538,12 @@ def _run_check_aux_operation(
     out_md: Path | None,
     report: Path | None,
     decision_snapshot: Path | None,
-    resume_checkpoint: Path | None,
-    timeout_progress_report: bool,
-    resume_on_timeout: int,
     analysis_budget_checks: int | None,
+    aspf_state_json: Path | None,
+    aspf_import_state: list[Path] | None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
 ) -> None:
     aux_operation = CheckAuxOperation(
         domain=domain,
@@ -2337,14 +2571,21 @@ def _run_check_aux_operation(
         ),
         allow_external=allow_external,
         strictness=str(strictness.value),
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
         gate=CheckGateMode.none,
         lint_mode=CheckLintMode.none,
         lint_jsonl_out=None,
         lint_sarif_out=None,
+        aspf_trace_json=None,
+        aspf_import_trace=None,
+        aspf_equivalence_against=None,
+        aspf_opportunities_json=None,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_semantic_surface=None,
         aux_operation=aux_operation,
     )
 
@@ -2487,15 +2728,6 @@ def check_run(
         "--baseline-mode",
     ),
     gate: CheckGateMode = typer.Option(CheckGateMode.all, "--gate"),
-    resume_checkpoint: Optional[Path] = typer.Option(
-        None,
-        "--resume-checkpoint",
-    ),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
@@ -2519,10 +2751,75 @@ def check_run(
         None,
         "--lint-sarif-out",
     ),
+    aspf_trace_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-trace-json",
+    ),
+    aspf_import_trace: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-trace",
+    ),
+    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-equivalence-against",
+    ),
+    aspf_opportunities_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-opportunities-json",
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-state-json",
+    ),
+    aspf_delta_jsonl: Optional[Path] = typer.Option(
+        None,
+        "--aspf-delta-jsonl",
+    ),
+    aspf_action_plan_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-json",
+    ),
+    aspf_action_plan_md: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-md",
+    ),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+    aspf_semantic_surface: Optional[List[str]] = typer.Option(
+        None,
+        "--aspf-semantic-surface",
+    ),
+    removed_resume_checkpoint: Optional[Path] = typer.Option(
+        None,
+        "--resume-checkpoint",
+        hidden=True,
+    ),
+    removed_emit_timeout_progress_report: bool = typer.Option(
+        False,
+        "--emit-timeout-progress-report",
+        hidden=True,
+    ),
+    removed_resume_on_timeout: Optional[int] = typer.Option(
+        None,
+        "--resume-on-timeout",
+        hidden=True,
+    ),
 ) -> None:
     if removed_analysis_tick_limit is not None:
         raise typer.BadParameter(
             "Removed --analysis-tick-limit. Use --analysis-budget-checks."
+        )
+    if (
+        removed_resume_checkpoint is not None
+        or removed_emit_timeout_progress_report
+        or removed_resume_on_timeout is not None
+    ):
+        raise typer.BadParameter(
+            "Removed legacy check timeout/resume flags. "
+            "Use --aspf-state-json/--aspf-import-state and optional "
+            "--aspf-delta-jsonl/--aspf-action-plan-json/--aspf-action-plan-md."
         )
     if baseline_mode in {CheckBaselineMode.enforce, CheckBaselineMode.write} and baseline is None:
         raise typer.BadParameter(
@@ -2552,14 +2849,21 @@ def check_run(
         ),
         allow_external=allow_external,
         strictness=str(strictness.value),
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
         gate=gate,
         lint_mode=lint,
         lint_jsonl_out=lint_jsonl_out,
         lint_sarif_out=lint_sarif_out,
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_action_plan_json=aspf_action_plan_json,
+        aspf_action_plan_md=aspf_action_plan_md,
+        aspf_import_state=aspf_import_state,
+        aspf_semantic_surface=aspf_semantic_surface,
     )
 
 
@@ -2578,16 +2882,15 @@ def check_obsolescence_report(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2605,10 +2908,9 @@ def check_obsolescence_report(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2625,16 +2927,15 @@ def check_obsolescence_state(
     out_json: Optional[Path] = typer.Option(None, "--out-json"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2652,10 +2953,9 @@ def check_obsolescence_state(
         out_md=None,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2675,16 +2975,15 @@ def check_obsolescence_delta(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2702,10 +3001,9 @@ def check_obsolescence_delta(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2725,16 +3023,15 @@ def check_obsolescence_baseline_write(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2752,10 +3049,9 @@ def check_obsolescence_baseline_write(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2774,16 +3070,15 @@ def check_annotation_drift_report(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2801,10 +3096,9 @@ def check_annotation_drift_report(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2821,16 +3115,15 @@ def check_annotation_drift_state(
     out_json: Optional[Path] = typer.Option(None, "--out-json"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2848,10 +3141,9 @@ def check_annotation_drift_state(
         out_md=None,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2871,16 +3163,15 @@ def check_annotation_drift_delta(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2898,10 +3189,9 @@ def check_annotation_drift_delta(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2921,16 +3211,15 @@ def check_annotation_drift_baseline_write(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2948,10 +3237,9 @@ def check_annotation_drift_baseline_write(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -2968,16 +3256,15 @@ def check_ambiguity_state(
     out_json: Optional[Path] = typer.Option(None, "--out-json"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -2995,10 +3282,9 @@ def check_ambiguity_state(
         out_md=None,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -3018,16 +3304,15 @@ def check_ambiguity_delta(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -3045,10 +3330,9 @@ def check_ambiguity_delta(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -3068,16 +3352,15 @@ def check_ambiguity_baseline_write(
     out_md: Optional[Path] = typer.Option(None, "--out-md"),
     report: Optional[Path] = typer.Option(None, "--report"),
     decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
-    resume_checkpoint: Optional[Path] = typer.Option(None, "--resume-checkpoint"),
-    timeout_progress_report: bool = typer.Option(
-        False,
-        "--timeout-progress-report/--no-timeout-progress-report",
-    ),
-    resume_on_timeout: int = typer.Option(0, "--resume-on-timeout", min=0),
     analysis_budget_checks: Optional[int] = typer.Option(
         None,
         "--analysis-budget-checks",
         min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
     ),
 ) -> None:
     _run_check_aux_operation(
@@ -3095,10 +3378,9 @@ def check_ambiguity_baseline_write(
         out_md=out_md,
         report=report,
         decision_snapshot=decision_snapshot,
-        resume_checkpoint=resume_checkpoint,
-        timeout_progress_report=timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
         analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
     )
 
 
@@ -3130,20 +3412,58 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
     parser.add_argument(
-        "--resume-checkpoint",
+        "--aspf-trace-json",
         default=None,
-        help="Checkpoint path for resumable timeout runs.",
+        help="Write ASPF execution trace JSON to file or '-' for stdout.",
     )
     parser.add_argument(
-        "--emit-timeout-progress-report",
-        action="store_true",
-        help="Write timeout progress report artifacts on timeout.",
+        "--aspf-import-trace",
+        action="append",
+        default=None,
+        help="Import one or more prior ASPF trace JSON artifacts.",
     )
     parser.add_argument(
-        "--resume-on-timeout",
-        type=int,
-        default=0,
-        help="Retry count when timeout returns timed_out_progress_resume.",
+        "--aspf-equivalence-against",
+        action="append",
+        default=None,
+        help="One or more ASPF trace JSON artifacts used as equivalence baseline.",
+    )
+    parser.add_argument(
+        "--aspf-opportunities-json",
+        default=None,
+        help="Write ASPF simplification/fungibility opportunities JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--aspf-state-json",
+        default=None,
+        help="Write ASPF serialized state JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--aspf-delta-jsonl",
+        default=None,
+        help="Write ASPF mutation delta ledger JSONL to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--aspf-action-plan-json",
+        default=None,
+        help="Write ASPF actionable cleanup plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--aspf-action-plan-md",
+        default=None,
+        help="Write ASPF actionable cleanup plan markdown to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--aspf-import-state",
+        action="append",
+        default=None,
+        help="Import one or more prior ASPF serialized state JSON artifacts.",
+    )
+    parser.add_argument(
+        "--aspf-semantic-surface",
+        action="append",
+        default=None,
+        help="Semantic surface keys to project into ASPF representatives.",
     )
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
@@ -3531,18 +3851,21 @@ def restore_resume_checkpoint(
         "dataflow_resume_checkpoint_ci.json", "--checkpoint-name"
     ),
 ) -> None:
-    """Restore dataflow resume checkpoint files from prior workflow artifacts."""
-    deps = _context_cli_deps(ctx)
-    exit_code = deps.restore_resume_checkpoint_fn(
-        token=token,
-        repo=repo,
-        output_dir=output_dir,
-        ref_name=ref_name,
-        current_run_id=run_id,
-        artifact_name=artifact_name,
-        checkpoint_name=checkpoint_name,
+    """Removed: use ASPF state handoff instead of legacy checkpoint restore."""
+    _ = (
+        ctx,
+        token,
+        repo,
+        output_dir,
+        ref_name,
+        run_id,
+        artifact_name,
+        checkpoint_name,
     )
-    raise typer.Exit(code=exit_code)
+    raise typer.BadParameter(
+        "Removed command: restore-resume-checkpoint. "
+        "Use --aspf-state-json/--aspf-import-state with scripts/aspf_handoff.py."
+    )
 
 
 def _run_docflow_audit(
@@ -3781,6 +4104,16 @@ def _run_synth(
     synthesis_protocols_kind: str,
     refactor_plan: bool,
     fail_on_violations: bool,
+    aspf_trace_json: Path | None = None,
+    aspf_import_trace: list[Path] | None = None,
+    aspf_equivalence_against: list[Path] | None = None,
+    aspf_opportunities_json: Path | None = None,
+    aspf_state_json: Path | None = None,
+    aspf_import_state: list[Path] | None = None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_semantic_surface: list[str] | None = None,
     runner: Runner = run_command,
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
     check_deadline()
@@ -3857,6 +4190,26 @@ def _run_synth(
             fingerprint_exception_obligations_path
         ),
         "fingerprint_handledness_json": str(fingerprint_handledness_path),
+        "aspf_trace_json": str(aspf_trace_json) if aspf_trace_json is not None else None,
+        "aspf_import_trace": [str(path) for path in (aspf_import_trace or [])],
+        "aspf_equivalence_against": [
+            str(path) for path in (aspf_equivalence_against or [])
+        ],
+        "aspf_opportunities_json": (
+            str(aspf_opportunities_json) if aspf_opportunities_json is not None else None
+        ),
+        "aspf_state_json": str(aspf_state_json) if aspf_state_json is not None else None,
+        "aspf_import_state": [str(path) for path in (aspf_import_state or [])],
+        "aspf_delta_jsonl": str(aspf_delta_jsonl) if aspf_delta_jsonl is not None else None,
+        "aspf_action_plan_json": (
+            str(aspf_action_plan_json) if aspf_action_plan_json is not None else None
+        ),
+        "aspf_action_plan_md": (
+            str(aspf_action_plan_md) if aspf_action_plan_md is not None else None
+        ),
+        "aspf_semantic_surface": [
+            str(surface) for surface in (aspf_semantic_surface or [])
+        ],
     }
     result = dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -3915,6 +4268,43 @@ def synth(
     fail_on_violations: bool = typer.Option(
         False, "--fail-on-violations/--no-fail-on-violations"
     ),
+    aspf_trace_json: Optional[Path] = typer.Option(None, "--aspf-trace-json"),
+    aspf_import_trace: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-trace",
+    ),
+    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-equivalence-against",
+    ),
+    aspf_opportunities_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-opportunities-json",
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-state-json",
+    ),
+    aspf_delta_jsonl: Optional[Path] = typer.Option(
+        None,
+        "--aspf-delta-jsonl",
+    ),
+    aspf_action_plan_json: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-json",
+    ),
+    aspf_action_plan_md: Optional[Path] = typer.Option(
+        None,
+        "--aspf-action-plan-md",
+    ),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+    aspf_semantic_surface: Optional[List[str]] = typer.Option(
+        None,
+        "--aspf-semantic-surface",
+    ),
 ) -> None:
     """Run the dataflow audit and emit synthesis outputs (prototype)."""
     with _cli_deadline_scope():
@@ -3942,6 +4332,16 @@ def synth(
             synthesis_protocols_kind=synthesis_protocols_kind,
             refactor_plan=refactor_plan,
             fail_on_violations=fail_on_violations,
+            aspf_trace_json=aspf_trace_json,
+            aspf_import_trace=aspf_import_trace,
+            aspf_equivalence_against=aspf_equivalence_against,
+            aspf_opportunities_json=aspf_opportunities_json,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aspf_action_plan_json=aspf_action_plan_json,
+            aspf_action_plan_md=aspf_action_plan_md,
+            aspf_semantic_surface=aspf_semantic_surface,
         )
         _emit_synth_outputs(
             paths_out=paths_out,
@@ -4194,8 +4594,6 @@ def _invoke_argparse_command(
 
 
 _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
-    "delta-state-emit": tooling_delta_state_emit.main,
-    "delta-triplets": tooling_delta_triplets.main,
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
 }
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
@@ -4243,16 +4641,18 @@ def _run_tooling_with_argv(command_name: str, argv: list[str]) -> int:
         return _invoke_argparse_command(runner, argv)
 
 
-@app.command("delta-state-emit")
-def delta_state_emit() -> None:
-    """Emit CI delta state artifacts through the gabion CLI."""
-    raise typer.Exit(code=_run_tooling_no_arg("delta-state-emit"))
+@app.command("delta-state-emit", hidden=True)
+def removed_delta_state_emit() -> None:
+    raise typer.BadParameter(
+        "Removed command: delta-state-emit. Use `gabion check delta-bundle`."
+    )
 
 
-@app.command("delta-triplets")
-def delta_triplets() -> None:
-    """Run all delta triplets through the gabion CLI."""
-    raise typer.Exit(code=_run_tooling_no_arg("delta-triplets"))
+@app.command("delta-triplets", hidden=True)
+def removed_delta_triplets() -> None:
+    raise typer.BadParameter(
+        "Removed command: delta-triplets. Use `gabion check delta-gates`."
+    )
 
 
 @app.command("docflow-delta-emit")

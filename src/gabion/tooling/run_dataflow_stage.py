@@ -22,6 +22,7 @@ from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.commands import transport_policy
 from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
+from gabion.tooling import aspf_handoff
 from gabion.tooling import tool_specs
 from gabion.tooling.deadline_runtime import deadline_scope_from_lsp_env
 
@@ -37,9 +38,6 @@ _DELTA_GATE_STEPS: tuple[tool_specs.ToolSpec, ...] = tool_specs.dataflow_stage_g
 _DELTA_GATE_REGISTRY: dict[str, Callable[[], int]] = {
     spec.id: spec.run for spec in _DELTA_GATE_STEPS
 }
-_OBSOLESCENCE_BASELINE_PATH = Path("baselines/test_obsolescence_baseline.json")
-_ANNOTATION_DRIFT_BASELINE_PATH = Path("baselines/test_annotation_drift_baseline.json")
-_AMBIGUITY_BASELINE_PATH = Path("baselines/ambiguity_baseline.json")
 
 
 @dataclass(frozen=True)
@@ -87,6 +85,15 @@ class DebugDumpState:
     last_terminal_status: str = "none"
 
 
+@dataclass(frozen=True)
+class AspfHandoffConfig:
+    enabled: bool
+    root: Path
+    session_id: str
+    manifest_path: Path
+    state_root: Path
+
+
 def _load_json_object(path: Path) -> dict[str, object]:
     return json_io.load_json_object_path(path)
 
@@ -102,6 +109,37 @@ def _analysis_state(timeout_progress_path: Path) -> str:
         if isinstance(classification, str) and classification:
             return classification
     return "none"
+
+
+def _analysis_state_from_aspf_state(path: Path) -> str:
+    payload = _load_json_object(path)
+    state = payload.get("analysis_state")
+    if isinstance(state, str) and state:
+        return state
+    resume_projection = payload.get("resume_projection")
+    if isinstance(resume_projection, dict):
+        projection_state = resume_projection.get("analysis_state")
+        if isinstance(projection_state, str) and projection_state:
+            return projection_state
+    return "none"
+
+
+def _timeout_payload_from_aspf_state(path: Path | None) -> dict[str, object]:
+    if path is None:
+        return {}
+    payload = _load_json_object(path)
+    semantic_surfaces = payload.get("semantic_surfaces")
+    if not isinstance(semantic_surfaces, dict):
+        return {}
+    delta_payload = semantic_surfaces.get("delta_payload")
+    if isinstance(delta_payload, dict):
+        progress = delta_payload.get("progress")
+        if isinstance(progress, dict):
+            return progress
+    delta_state = semantic_surfaces.get("delta_state")
+    if isinstance(delta_state, dict):
+        return delta_state
+    return {}
 
 
 def _metrics_line(deadline_profile_path: Path) -> str:
@@ -424,16 +462,12 @@ def _unlink_if_exists(path: Path) -> None:
 def _reset_run_observability_artifacts(paths: StagePaths) -> None:
     phase_timeline_md = _phase_timeline_markdown_path(paths.report_path)
     phase_timeline_jsonl = _phase_timeline_jsonl_path(paths.report_path)
-    checkpoint_intro_timeline = paths.report_path.parent / "dataflow_checkpoint_intro_timeline.md"
     for artifact_path in (
-        paths.timeout_progress_json_path,
-        paths.timeout_progress_md_path,
         paths.deadline_profile_json_path,
         paths.deadline_profile_md_path,
         paths.obligation_trace_json_path,
         phase_timeline_md,
         phase_timeline_jsonl,
-        checkpoint_intro_timeline,
     ):
         check_deadline()
         _unlink_if_exists(artifact_path)
@@ -492,8 +526,6 @@ def _emit_debug_dump(
             f"active_stage={stage_id} active_strictness={stage_strictness} "
             f"active_elapsed_s={active_elapsed_s} wall_elapsed_s={wall_elapsed_s:.1f}"
         ),
-        f"debug dump: resume={_resume_checkpoint_metrics_line(paths.resume_checkpoint_path)}",
-        f"debug dump: timeout={_timeout_progress_metrics_line(paths.timeout_progress_json_path)}",
         f"debug dump: deadline={_metrics_line(paths.deadline_profile_json_path)}",
         (
             "debug dump: "
@@ -625,46 +657,14 @@ def _check_commands(
                 transport_override.override_record_path,
             ]
         )
+    _ = resume_on_timeout
     common_suffix = [
         "--report",
         str(paths.report_path),
-        "--resume-checkpoint",
-        str(paths.resume_checkpoint_path),
-        "--resume-on-timeout",
-        str(max(0, int(resume_on_timeout))),
-        "--timeout-progress-report",
     ]
     if strictness:
         common_suffix.extend(["--strictness", strictness])
-    return [
-        [
-            *command_prefix,
-            "check",
-            "obsolescence",
-            "delta",
-            "--baseline",
-            str(_OBSOLESCENCE_BASELINE_PATH),
-            *common_suffix,
-        ],
-        [
-            *command_prefix,
-            "check",
-            "annotation-drift",
-            "delta",
-            "--baseline",
-            str(_ANNOTATION_DRIFT_BASELINE_PATH),
-            *common_suffix,
-        ],
-        [
-            *command_prefix,
-            "check",
-            "ambiguity",
-            "delta",
-            "--baseline",
-            str(_AMBIGUITY_BASELINE_PATH),
-            *common_suffix,
-        ],
-    ]
+    return [[*command_prefix, "check", "delta-bundle", *common_suffix]]
 
 
 def run_stage(
@@ -677,15 +677,15 @@ def run_stage(
     strictness: str | None = None,
     command: Sequence[str] | None = None,
     commands: Sequence[Sequence[str]] | None = None,
+    aspf_handoff_config: AspfHandoffConfig | None = None,
 ) -> StageResult:
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
-    resume_metrics_line = _resume_checkpoint_metrics_line(paths.resume_checkpoint_path)
     strictness_note = f" strictness={strictness}" if strictness else ""
-    print(f"stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}", flush=True)
+    print(f"stage {stage_id.upper()}: start{strictness_note}", flush=True)
     _append_lines(
         step_summary_path,
-        [f"- stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}"],
+        [f"- stage {stage_id.upper()}: start{strictness_note}"],
     )
     stage_commands = (
         [list(spec) for spec in commands]
@@ -701,23 +701,54 @@ def run_stage(
         )
     )
     exit_code = 0
-    for stage_command in deadline_loop_iter(stage_commands):
-        exit_code = int(run_command_fn(stage_command))
+    last_state_path: Path | None = None
+    for command_index, stage_command in enumerate(deadline_loop_iter(stage_commands)):
+        command_to_run = list(stage_command)
+        prepared_handoff: aspf_handoff.PreparedHandoffStep | None = None
+        if aspf_handoff_config is not None and aspf_handoff_config.enabled:
+            try:
+                prepared_handoff = aspf_handoff.prepare_step(
+                    root=aspf_handoff_config.root,
+                    session_id=aspf_handoff_config.session_id,
+                    step_id=_aspf_step_id(stage_id, stage_command, command_index),
+                    command_profile="run-dataflow-stage.check",
+                    manifest_path=aspf_handoff_config.manifest_path,
+                    state_root=aspf_handoff_config.state_root,
+                )
+                command_to_run.extend(aspf_handoff.aspf_cli_args(prepared_handoff))
+            except Exception:
+                prepared_handoff = None
+        exit_code = int(run_command_fn(command_to_run))
+        if prepared_handoff is not None:
+            last_state_path = prepared_handoff.state_path
+        recorded_state = (
+            _analysis_state_from_aspf_state(last_state_path)
+            if last_state_path is not None
+            else "none"
+        )
+        if prepared_handoff is not None:
+            try:
+                aspf_handoff.record_step(
+                    manifest_path=prepared_handoff.manifest_path,
+                    session_id=prepared_handoff.session_id,
+                    sequence=prepared_handoff.sequence,
+                    status="success" if exit_code == 0 else "failed",
+                    exit_code=exit_code,
+                    analysis_state=recorded_state,
+                )
+            except Exception:
+                pass
         if exit_code != 0:
             break
-    analysis_state = _analysis_state(paths.timeout_progress_json_path)
+    analysis_state = (
+        _analysis_state_from_aspf_state(last_state_path)
+        if last_state_path is not None
+        else "none"
+    )
     is_timeout_resume = analysis_state == "timed_out_progress_resume"
     metrics_line = _metrics_line(paths.deadline_profile_json_path)
 
     _copy_if_exists(paths.report_path, _stage_snapshot_path(paths.report_path, stage_id))
-    _copy_if_exists(
-        paths.timeout_progress_json_path,
-        _stage_snapshot_path(paths.timeout_progress_json_path, stage_id),
-    )
-    _copy_if_exists(
-        paths.timeout_progress_md_path,
-        _stage_snapshot_path(paths.timeout_progress_md_path, stage_id),
-    )
     _copy_if_exists(
         paths.deadline_profile_json_path,
         _stage_snapshot_path(paths.deadline_profile_json_path, stage_id),
@@ -737,7 +768,7 @@ def run_stage(
         _stage_snapshot_path(phase_timeline_jsonl, stage_id),
     )
 
-    timeout_payload = _load_json_object(paths.timeout_progress_json_path)
+    timeout_payload = _timeout_payload_from_aspf_state(last_state_path)
     obligation_rows, incompleteness_markers = _obligation_rows_from_timeout_payload(
         stage_id=stage_id,
         analysis_state=analysis_state,
@@ -813,6 +844,21 @@ def _stage_ids(start_stage: str, max_attempts: int) -> list[str]:
     return list(_STAGE_SEQUENCE[start_idx : start_idx + max_attempts])
 
 
+def _aspf_step_id(stage_id: str, command: Sequence[str], command_index: int) -> str:
+    tokens: list[str] = [stage_id]
+    for token in command:
+        if token.startswith("-"):
+            continue
+        text = token.strip()
+        if not text:
+            continue
+        tokens.append(text)
+        if len(tokens) >= 4:
+            break
+    joined = ".".join(tokens) if tokens else f"{stage_id}.{command_index + 1}"
+    return f"{joined}.{command_index + 1}"
+
+
 def _emit_stage_outputs(
     output_path: Path | None,
     results: Sequence[StageResult],
@@ -883,6 +929,7 @@ def run_staged(
         Callable[[str, Sequence[str], str | None], None] | None
     ) = None,
     on_stage_end: Callable[[StageResult], None] | None = None,
+    aspf_handoff_config: AspfHandoffConfig | None = None,
 ) -> list[StageResult]:
     strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
@@ -921,6 +968,7 @@ def run_staged(
             run_command_fn=run_command_fn,
             strictness=stage_strictness,
             commands=stage_commands,
+            aspf_handoff_config=aspf_handoff_config,
         )
         if callable(on_stage_end):
             on_stage_end(result)
@@ -974,25 +1022,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-attempts",
         type=int,
-        default=len(_STAGE_SEQUENCE),
+        default=1,
         help=(
-            "Maximum staged attempts to execute from --stage-id."
+            "Removed built-in retries; must be 1. Reinvoke to retry with ASPF imports."
         ),
     )
     parser.add_argument(
         "--report",
         type=Path,
         default=Path("artifacts/audit_reports/dataflow_report.md"),
-    )
-    parser.add_argument(
-        "--resume-checkpoint",
-        type=Path,
-        default=Path("artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"),
-    )
-    parser.add_argument(
-        "--resume-on-timeout",
-        type=int,
-        default=0,
     )
     parser.add_argument(
         "--stage-strictness-profile",
@@ -1023,16 +1061,6 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--baseline",
         type=Path,
         default=Path("baselines/dataflow_baseline.txt"),
-    )
-    parser.add_argument(
-        "--timeout-progress-json",
-        type=Path,
-        default=Path("artifacts/audit_reports/timeout_progress.json"),
-    )
-    parser.add_argument(
-        "--timeout-progress-md",
-        type=Path,
-        default=Path("artifacts/audit_reports/timeout_progress.md"),
     )
     parser.add_argument(
         "--deadline-profile-json",
@@ -1069,6 +1097,28 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "Emit debug state dumps on this interval (seconds). "
             "Also supports on-demand dumps via SIGUSR1."
         ),
+    )
+    parser.add_argument(
+        "--no-aspf-handoff",
+        action="store_true",
+        help="Disable ASPF cross-script handoff state/manifest emission.",
+    )
+    parser.add_argument(
+        "--aspf-handoff-manifest",
+        type=Path,
+        default=Path("artifacts/out/aspf_handoff_manifest.json"),
+        help="Path to the ASPF handoff manifest.",
+    )
+    parser.add_argument(
+        "--aspf-handoff-session",
+        default="",
+        help="Session id used for ASPF handoff entries.",
+    )
+    parser.add_argument(
+        "--aspf-state-root",
+        type=Path,
+        default=Path("artifacts/out/aspf_state"),
+        help="Directory root for ASPF serialized state objects.",
     )
     parsed_argv = list(argv) if argv is not None else None
     return parser.parse_args(parsed_argv)
@@ -1118,6 +1168,13 @@ def main(
     deadline_scope_factory: Callable[[], Any] = deadline_scope_from_lsp_env,
 ) -> int:
     args = _parse_args(argv)
+    if int(args.max_attempts) != 1:
+        print(
+            "Built-in retries are removed. Reinvoke run-dataflow-stage for retries "
+            "and continue from ASPF handoff state.",
+            flush=True,
+        )
+        return 2
     github_output_path = args.github_output
     if github_output_path is None:
         output_env_text = os.getenv("GITHUB_OUTPUT", "").strip()
@@ -1135,13 +1192,27 @@ def main(
         return 2
     paths = StagePaths(
         report_path=args.report,
-        timeout_progress_json_path=args.timeout_progress_json,
-        timeout_progress_md_path=args.timeout_progress_md,
+        timeout_progress_json_path=Path("artifacts/audit_reports/timeout_progress.json"),
+        timeout_progress_md_path=Path("artifacts/audit_reports/timeout_progress.md"),
         deadline_profile_json_path=args.deadline_profile_json,
         deadline_profile_md_path=args.deadline_profile_md,
         obligation_trace_json_path=args.obligation_trace_json,
-        resume_checkpoint_path=args.resume_checkpoint,
+        resume_checkpoint_path=Path("artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"),
         baseline_path=args.baseline,
+    )
+    handoff_enabled = not bool(args.no_aspf_handoff)
+    handoff_session_id = str(args.aspf_handoff_session).strip() or os.getenv(
+        "GABION_ASPF_HANDOFF_SESSION",
+        "",
+    ).strip()
+    if handoff_enabled and not handoff_session_id:
+        handoff_session_id = aspf_handoff.new_session_id()
+    aspf_handoff_config = AspfHandoffConfig(
+        enabled=handoff_enabled,
+        root=Path(".").resolve(),
+        session_id=handoff_session_id,
+        manifest_path=Path(args.aspf_handoff_manifest),
+        state_root=Path(args.aspf_state_root),
     )
     stage_started_wall = time.monotonic()
     debug_state = DebugDumpState(
@@ -1205,7 +1276,7 @@ def main(
             results = run_staged_fn(
                 stage_ids=stage_ids,
                 paths=paths,
-                resume_on_timeout=args.resume_on_timeout,
+                resume_on_timeout=0,
                 step_summary_path=step_summary_path,
                 run_command_fn=_run_subprocess_with_debug,
                 strictness_by_stage=strictness_by_stage,
@@ -1217,9 +1288,9 @@ def main(
                 finalize_reserve_seconds=max(0, int(args.finalize_reserve_seconds)),
                 on_stage_start=_on_stage_start,
                 on_stage_end=_on_stage_end,
+                aspf_handoff_config=aspf_handoff_config,
             )
             trace_payload = write_obligation_trace_fn(paths.obligation_trace_json_path, results)
-            append_markdown_summary_fn(paths.timeout_progress_md_path, trace_payload)
             append_markdown_summary_fn(paths.deadline_profile_md_path, trace_payload)
             append_lines_fn(step_summary_path, _obligation_trace_summary_lines(trace_payload))
             emit_stage_outputs_fn(github_output_path, results)
