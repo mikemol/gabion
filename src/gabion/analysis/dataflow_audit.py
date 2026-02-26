@@ -1453,23 +1453,24 @@ def _extract_invariant_from_expr(
     *,
     scope: str,
     source: str = "assert",
-) -> InvariantProposition | None:
-    if not isinstance(expr, ast.Compare):
+) -> object:
+    if type(expr) is not ast.Compare:
         return None
-    if len(expr.ops) != 1 or len(expr.comparators) != 1:
+    compare_expr = cast(ast.Compare, expr)
+    if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
         return None
-    if not isinstance(expr.ops[0], ast.Eq):
+    if type(compare_expr.ops[0]) is not ast.Eq:
         return None
-    left = _invariant_term(expr.left, params)
-    right = _invariant_term(expr.comparators[0], params)
-    if left is None or right is None:
-        return None
-    return InvariantProposition(
-        form="Equal",
-        terms=(left, right),
-        scope=scope,
-        source=source,
-    )
+    left = _invariant_term(compare_expr.left, params)
+    right = _invariant_term(compare_expr.comparators[0], params)
+    if left is not None and right is not None:
+        return InvariantProposition(
+            form="Equal",
+            terms=(left, right),
+            scope=scope,
+            source=source,
+        )
+    return None
 
 
 class _InvariantCollector(ast.NodeVisitor):
@@ -1689,23 +1690,25 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     ]
 
 
-def _decorator_name(node: ast.AST) -> str | None:
+def _decorator_name(node: ast.AST):
     check_deadline()
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
+    node_type = type(node)
+    if node_type is ast.Name:
+        return cast(ast.Name, node).id
+    if node_type is ast.Attribute:
         parts: list[str] = []
         current: ast.AST = node
-        while isinstance(current, ast.Attribute):
+        while type(current) is ast.Attribute:
             check_deadline()
-            parts.append(current.attr)
-            current = current.value
-        if isinstance(current, ast.Name):
-            parts.append(current.id)
+            attribute_node = cast(ast.Attribute, current)
+            parts.append(attribute_node.attr)
+            current = attribute_node.value
+        if type(current) is ast.Name:
+            parts.append(cast(ast.Name, current).id)
             return ".".join(reversed(parts))
         return None
-    if isinstance(node, ast.Call):
-        return _decorator_name(node.func)
+    if node_type is ast.Call:
+        return _decorator_name(cast(ast.Call, node).func)
     return None
 
 
@@ -1888,7 +1891,7 @@ def is_decision_surface(node: ast.AST) -> bool:
 
 
 def _decision_surface_form_entries(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    fn: ast.AST,
 ) -> list[tuple[str, ast.AST]]:
     check_deadline()
     entries: list[tuple[str, ast.AST]] = []
@@ -1896,21 +1899,23 @@ def _decision_surface_form_entries(
         check_deadline()
         if not is_decision_surface(node):
             continue
-        if isinstance(node, ast.If):
-            entries.append(("if", node.test))
+        node_type = type(node)
+        if node_type is ast.If:
+            entries.append(("if", cast(ast.If, node).test))
             continue
-        if isinstance(node, ast.While):
-            entries.append(("while", node.test))
+        if node_type is ast.While:
+            entries.append(("while", cast(ast.While, node).test))
             continue
-        if isinstance(node, ast.Assert):
-            entries.append(("assert", node.test))
+        if node_type is ast.Assert:
+            entries.append(("assert", cast(ast.Assert, node).test))
             continue
-        if isinstance(node, ast.IfExp):
-            entries.append(("ifexp", node.test))
+        if node_type is ast.IfExp:
+            entries.append(("ifexp", cast(ast.IfExp, node).test))
             continue
-        if isinstance(node, ast.Match):
-            entries.append(("match_subject", node.subject))
-            for case in node.cases:
+        if node_type is ast.Match:
+            match_node = cast(ast.Match, node)
+            entries.append(("match_subject", match_node.subject))
+            for case in match_node.cases:
                 check_deadline()
                 if case.guard is not None:
                     entries.append(("match_guard", case.guard))
@@ -9235,14 +9240,14 @@ def _populate_bundle_forest(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
-    project_root: Path | None,
+    project_root = None,
     include_all_sites: bool = True,
-    ignore_params: set[str] | None = None,
+    ignore_params = None,
     strictness: str = "high",
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    on_progress: Callable[..., None] | None = None,
+    analysis_index = None,
+    on_progress = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
@@ -9278,8 +9283,8 @@ def _populate_bundle_forest(
     marker_paths_total = len(ordered_file_paths)
     marker_paths_done = 0
     progress_since_emit = 0
-    progress_accepts_payload: bool | None = None
-    last_progress_emit_monotonic: float | None = None
+    progress_accepts_payload = None
+    last_progress_emit_monotonic = None
 
     def _forest_progress_snapshot(*, marker: str) -> JSONObject:
         mutable_done = (
@@ -11603,14 +11608,13 @@ def _resolve_callee(
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable | None = None,
-    project_root: Path | None = None,
-    class_index: dict[str, ClassInfo] | None = None,
-    call: CallArgs | None = None,
-    ambiguity_sink: Callable[[FunctionInfo, CallArgs | None, list[FunctionInfo], str, str], None]
-    | None = None,
-    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
-) -> FunctionInfo | None:
+    symbol_table = None,
+    project_root = None,
+    class_index = None,
+    call = None,
+    ambiguity_sink = None,
+    local_lambda_bindings = None,
+):
     check_deadline()
     lambda_bindings = local_lambda_bindings
     if lambda_bindings is None:
@@ -11688,12 +11692,12 @@ def _resolve_callee_outcome(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     *,
-    symbol_table: SymbolTable | None = None,
-    project_root: Path | None = None,
-    class_index: dict[str, ClassInfo] | None = None,
-    call: CallArgs | None = None,
-    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] = _resolve_callee,
+    symbol_table = None,
+    project_root = None,
+    class_index = None,
+    call = None,
+    local_lambda_bindings = None,
+    resolve_callee_fn = _resolve_callee,
 ) -> _CalleeResolutionOutcome:
     check_deadline()
     ambiguous_candidates: list[FunctionInfo] = []
@@ -11702,7 +11706,7 @@ def _resolve_callee_outcome(
 
     def _sink(
         sink_caller: FunctionInfo,
-        sink_call: CallArgs | None,
+        sink_call,
         candidates: list[FunctionInfo],
         phase: str,
         sink_callee_key: str,
@@ -11714,7 +11718,6 @@ def _resolve_callee_outcome(
         ambiguity_phase = phase
         ambiguity_callee_key = sink_callee_key
 
-    resolved: FunctionInfo | None
     if resolve_callee_fn is _resolve_callee:
         lambda_bindings = local_lambda_bindings
         if lambda_bindings is None:
@@ -13575,19 +13578,21 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
     files = snapshot.get("files") or []
     for file_entry in files:
         check_deadline()
-        if not isinstance(file_entry, dict):
+        if type(file_entry) is not dict:
             continue
-        functions = file_entry.get("functions") or []
+        file_entry_obj = cast(JSONObject, file_entry)
+        functions = file_entry_obj.get("functions") or []
         for fn_entry in functions:
             check_deadline()
-            if not isinstance(fn_entry, dict):
+            if type(fn_entry) is not dict:
                 continue
-            bundles = fn_entry.get("bundles") or []
+            fn_entry_obj = cast(JSONObject, fn_entry)
+            bundles = fn_entry_obj.get("bundles") or []
             for bundle in bundles:
                 check_deadline()
-                if not isinstance(bundle, list):
+                if type(bundle) is not list:
                     continue
-                counts[tuple(bundle)] += 1
+                counts[tuple(cast(list[object], bundle))] += 1
     return counts
 
 
