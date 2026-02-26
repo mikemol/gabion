@@ -1432,18 +1432,22 @@ def _collect_functions(tree: ast.AST):
     return funcs
 
 
-def _invariant_term(expr: ast.AST, params: set[str]) -> str | None:
-    if isinstance(expr, ast.Name) and expr.id in params:
-        return expr.id
-    if (
-        isinstance(expr, ast.Call)
-        and isinstance(expr.func, ast.Name)
-        and expr.func.id == "len"
-        and len(expr.args) == 1
-    ):
-        arg = expr.args[0]
-        if isinstance(arg, ast.Name) and arg.id in params:
-            return f"{arg.id}.length"
+def _invariant_term(expr: ast.AST, params: set[str]):
+    expr_type = type(expr)
+    if expr_type is ast.Name:
+        name_expr = cast(ast.Name, expr)
+        if name_expr.id in params:
+            return name_expr.id
+    if expr_type is ast.Call:
+        call_expr = cast(ast.Call, expr)
+        if type(call_expr.func) is ast.Name:
+            func_name = cast(ast.Name, call_expr.func)
+            if func_name.id == "len" and len(call_expr.args) == 1:
+                arg = call_expr.args[0]
+                if type(arg) is ast.Name:
+                    arg_name = cast(ast.Name, arg)
+                    if arg_name.id in params:
+                        return f"{arg_name.id}.length"
     return None
 
 
@@ -2991,20 +2995,22 @@ def _raw_sorted_callsite_counts(
             stage=_ParseModuleStage.RAW_SORTED_AUDIT,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        locations: list[tuple[int, int]] = []
-        for node in ast.walk(tree):
-            check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "sorted":
-                continue
-            line = int(getattr(node, "lineno", 1))
-            col = int(getattr(node, "col_offset", 0)) + 1
-            locations.append((line, col))
-        if locations:
-            counts[_raw_sorted_baseline_key(path)] = locations
+        if tree is not None:
+            locations: list[tuple[int, int]] = []
+            for node in ast.walk(tree):
+                check_deadline()
+                if type(node) is not ast.Call:
+                    continue
+                call_node = cast(ast.Call, node)
+                if type(call_node.func) is not ast.Name:
+                    continue
+                if cast(ast.Name, call_node.func).id != "sorted":
+                    continue
+                line = int(getattr(call_node, "lineno", 1))
+                col = int(getattr(call_node, "col_offset", 0)) + 1
+                locations.append((line, col))
+            if locations:
+                counts[_raw_sorted_baseline_key(path)] = locations
     return counts
 
 
@@ -5204,17 +5210,22 @@ def _collect_exception_obligations(
     source = 'src/gabion/analysis/dataflow_audit.py:4672')
 
 
-def _never_reason(call: ast.Call) -> str | None:
+def _never_reason(call: ast.Call):
     check_deadline()
     if call.args:
         first = call.args[0]
-        if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            return first.value
+        if type(first) is ast.Constant:
+            first_value = cast(ast.Constant, first).value
+            if type(first_value) is str:
+                return first_value
     for kw in call.keywords:
         check_deadline()
         if kw.arg == "reason":
-            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
-                return kw.value.value
+            kw_value = kw.value
+            if type(kw_value) is ast.Constant:
+                constant_value = cast(ast.Constant, kw_value).value
+                if type(constant_value) is str:
+                    return constant_value
     return None
 
 
@@ -5510,29 +5521,33 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         self._record_call_span(node)
-        if isinstance(node.func, ast.Attribute):
-            if node.func.attr == "deadline_loop_iter":
+        func = node.func
+        func_type = type(func)
+        if func_type is ast.Attribute:
+            attribute_func = cast(ast.Attribute, func)
+            if attribute_func.attr == "deadline_loop_iter":
                 self._mark_ambient_check()
             if (
-                node.func.attr in _DEADLINE_CHECK_METHODS
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in self._params
+                attribute_func.attr in _DEADLINE_CHECK_METHODS
+                and type(attribute_func.value) is ast.Name
+                and cast(ast.Name, attribute_func.value).id in self._params
             ):
-                self._mark_param_check(node.func.value.id)
-            if node.func.attr == "check_deadline" and node.args:
+                self._mark_param_check(cast(ast.Name, attribute_func.value).id)
+            if attribute_func.attr == "check_deadline" and node.args:
                 first = node.args[0]
-                if isinstance(first, ast.Name) and first.id in self._params:
-                    self._mark_param_check(first.id)
-            if node.func.attr in {"check_deadline", "require_deadline"} and not node.args:
+                if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
+                    self._mark_param_check(cast(ast.Name, first).id)
+            if attribute_func.attr in {"check_deadline", "require_deadline"} and not node.args:
                 self._mark_ambient_check()
-        elif isinstance(node.func, ast.Name):
-            if node.func.id == "deadline_loop_iter":
+        elif func_type is ast.Name:
+            name_func = cast(ast.Name, func)
+            if name_func.id == "deadline_loop_iter":
                 self._mark_ambient_check()
-            if node.func.id == "check_deadline" and node.args:
+            if name_func.id == "check_deadline" and node.args:
                 first = node.args[0]
-                if isinstance(first, ast.Name) and first.id in self._params:
-                    self._mark_param_check(first.id)
-            if node.func.id in {"check_deadline", "require_deadline"} and not node.args:
+                if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
+                    self._mark_param_check(cast(ast.Name, first).id)
+            if name_func.id in {"check_deadline", "require_deadline"} and not node.args:
                 self._mark_ambient_check()
         self.generic_visit(node)
 
@@ -9014,101 +9029,107 @@ def _materialize_statement_suite_contains(
 
     for stmt in statements:
         check_deadline()
-        if isinstance(stmt, ast.If):
-            if_suite = _emit_body_suite("if_body", stmt.body)
+        stmt_type = type(stmt)
+        if stmt_type is ast.If:
+            if_stmt = cast(ast.If, stmt)
+            if_suite = _emit_body_suite("if_body", if_stmt.body)
             if if_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=if_stmt.body,
                     parent_suite=if_suite,
                 )
-            if stmt.orelse:
-                else_suite = _emit_body_suite("if_else", stmt.orelse)
+            if if_stmt.orelse:
+                else_suite = _emit_body_suite("if_else", if_stmt.orelse)
                 if else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=if_stmt.orelse,
                         parent_suite=else_suite,
                     )
             continue
-        if isinstance(stmt, ast.For):
-            for_suite = _emit_body_suite("for_body", stmt.body)
+        if stmt_type is ast.For:
+            for_stmt = cast(ast.For, stmt)
+            for_suite = _emit_body_suite("for_body", for_stmt.body)
             if for_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=for_stmt.body,
                     parent_suite=for_suite,
                 )
-            if stmt.orelse:
-                for_else_suite = _emit_body_suite("for_else", stmt.orelse)
+            if for_stmt.orelse:
+                for_else_suite = _emit_body_suite("for_else", for_stmt.orelse)
                 if for_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=for_stmt.orelse,
                         parent_suite=for_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.AsyncFor):
-            async_for_suite = _emit_body_suite("async_for_body", stmt.body)
+        if stmt_type is ast.AsyncFor:
+            async_for_stmt = cast(ast.AsyncFor, stmt)
+            async_for_suite = _emit_body_suite("async_for_body", async_for_stmt.body)
             if async_for_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=async_for_stmt.body,
                     parent_suite=async_for_suite,
                 )
-            if stmt.orelse:
-                async_for_else_suite = _emit_body_suite("async_for_else", stmt.orelse)
+            if async_for_stmt.orelse:
+                async_for_else_suite = _emit_body_suite("async_for_else", async_for_stmt.orelse)
                 if async_for_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=async_for_stmt.orelse,
                         parent_suite=async_for_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.While):
-            while_suite = _emit_body_suite("while_body", stmt.body)
+        if stmt_type is ast.While:
+            while_stmt = cast(ast.While, stmt)
+            while_suite = _emit_body_suite("while_body", while_stmt.body)
             if while_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=while_stmt.body,
                     parent_suite=while_suite,
                 )
-            if stmt.orelse:
-                while_else_suite = _emit_body_suite("while_else", stmt.orelse)
+            if while_stmt.orelse:
+                while_else_suite = _emit_body_suite("while_else", while_stmt.orelse)
                 if while_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=while_stmt.orelse,
                         parent_suite=while_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.Try):
-            try_body_suite = _emit_body_suite("try_body", stmt.body)
+        if stmt_type is ast.Try:
+            try_stmt = cast(ast.Try, stmt)
+            try_body_suite = _emit_body_suite("try_body", try_stmt.body)
             if try_body_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=try_stmt.body,
                     parent_suite=try_body_suite,
                 )
-            for handler in stmt.handlers:
+            for handler in try_stmt.handlers:
                 check_deadline()
                 except_suite = _emit_body_suite("except_body", handler.body)
                 if except_suite is not None:
@@ -10832,19 +10853,20 @@ def _string_list(node: ast.AST) -> list[str] | None:
     return None
 
 
-def _base_identifier(node: ast.AST) -> str | None:
+def _base_identifier(node: ast.AST):
     check_deadline()
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
+    node_type = type(node)
+    if node_type is ast.Name:
+        return cast(ast.Name, node).id
+    if node_type is ast.Attribute:
         try:
             return ast.unparse(node)
         except _AST_UNPARSE_ERROR_TYPES:
             return None
-    if isinstance(node, ast.Subscript):
-        return _base_identifier(node.value)
-    if isinstance(node, ast.Call):
-        return _base_identifier(node.func)
+    if node_type is ast.Subscript:
+        return _base_identifier(cast(ast.Subscript, node).value)
+    if node_type is ast.Call:
+        return _base_identifier(cast(ast.Call, node).func)
     return None
 
 
