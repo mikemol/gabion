@@ -1675,16 +1675,18 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     callables: dict[str, list[str]] = defaultdict(list)
     for hook in hooks:
         check_deadline()
-        if not isinstance(hook, Mapping):
+        if type(hook) is not dict:
             continue
-        callable_payload = hook.get("callable")
-        if not isinstance(callable_payload, Mapping):
+        hook_payload = cast(Mapping[str, JSONValue], hook)
+        callable_payload = hook_payload.get("callable")
+        if type(callable_payload) is not dict:
             continue
-        path = str(callable_payload.get("path", "") or "")
-        qual = str(callable_payload.get("qual", "") or "")
+        callable_mapping = cast(Mapping[str, JSONValue], callable_payload)
+        path = str(callable_mapping.get("path", "") or "")
+        qual = str(callable_mapping.get("qual", "") or "")
         if not path or not qual:
             continue
-        callables[f"{path}:{qual}"].append(str(hook.get("hook_id", "") or ""))
+        callables[f"{path}:{qual}"].append(str(hook_payload.get("hook_id", "") or ""))
     return [
         {
             "scope": scope,
@@ -7085,25 +7087,27 @@ def _summarize_call_ambiguities(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        kind = str(entry.get("kind", "") or "unknown")
-        site = entry.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
-        path = str(site.get("path", "") or "")
-        function = str(site.get("function", "") or "")
-        span = site.get("span")
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        kind = str(entry_payload.get("kind", "") or "unknown")
+        site_payload = entry_payload.get("site", {})
+        site = site_payload if type(site_payload) is dict else {}
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
+        function = str(site_mapping.get("function", "") or "")
+        span = site_mapping.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        if type(span) is list and len(cast(list[JSONValue], span)) == 4:
+            span_values = cast(list[JSONValue], span)
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_values[0])
+                col = int(span_values[1])
+                end_line = int(span_values[2])
+                end_col = int(span_values[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
-        candidate_count = entry.get("candidate_count")
+        candidate_count = entry_payload.get("candidate_count")
         try:
             candidate_count = int(candidate_count) if candidate_count is not None else 0
         except (TypeError, ValueError):
@@ -7239,20 +7243,24 @@ def _summarize_never_invariants(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = str(site.get("path", "") or "")
-        function = str(site.get("function", "") or "")
-        span = entry.get("span")
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        status = str(entry_payload.get("status", "UNKNOWN") or "UNKNOWN")
+        raw_site = entry_payload.get("site")
+        site = raw_site if type(raw_site) is dict else {}
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
+        function = str(site_mapping.get("function", "") or "")
+        span = entry_payload.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        if type(span) is list and len(cast(list[JSONValue], span)) == 4:
+            span_values = cast(list[JSONValue], span)
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_values[0])
+                col = int(span_values[1])
+                end_line = int(span_values[2])
+                end_col = int(span_values[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
         relation.append(
@@ -8824,21 +8832,23 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        site = entry.get("site", {})
-        if not isinstance(site, Mapping):
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        site = entry_payload.get("site", {})
+        if type(site) is not dict:
             continue
-        path = str(site.get("path", "") or "")
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
         if not path:
             continue
-        lineno, col = _span_line_col(site.get("span"))
-        candidate_count = entry.get("candidate_count")
+        lineno, col = _span_line_col(site_mapping.get("span"))
+        candidate_count = entry_payload.get("candidate_count")
         try:
             count_value = int(candidate_count) if candidate_count is not None else 0
         except (TypeError, ValueError):
             count_value = 0
-        kind = str(entry.get("kind", "") or "ambiguity")
+        kind = str(entry_payload.get("kind", "") or "ambiguity")
         message = f"{kind} candidates={count_value}"
         lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
     return lines
@@ -11027,7 +11037,7 @@ def _accumulate_class_index_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     parents = ParentAnnotator()
@@ -11035,24 +11045,26 @@ def _accumulate_class_index_for_tree(
     module = _module_name(path, project_root)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
-        scopes = _enclosing_class_scopes(node, parents.parents)
+        class_node = cast(ast.ClassDef, node)
+        scopes = _enclosing_class_scopes(class_node, parents.parents)
         qual_parts = [module] if module else []
         qual_parts.extend(scopes)
-        qual_parts.append(node.name)
+        qual_parts.append(class_node.name)
         qual = ".".join(qual_parts)
         bases: list[str] = []
-        for base in node.bases:
+        for base in class_node.bases:
             check_deadline()
             base_name = _base_identifier(base)
             if base_name:
                 bases.append(base_name)
         methods: set[str] = set()
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                methods.add(stmt.name)
+            stmt_type = type(stmt)
+            if stmt_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
+                methods.add(cast(ast.FunctionDef | ast.AsyncFunctionDef, stmt).name)
         class_index[qual] = ClassInfo(
             qual=qual,
             module=module,
