@@ -4464,8 +4464,9 @@ def _enclosing_function_node(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            return current
+        current_type = type(current)
+        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            return cast(ast.FunctionDef | ast.AsyncFunctionDef, current)
         current = parents.get(current)
     return None
 
@@ -4488,14 +4489,17 @@ def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
     candidates: set[str] = set()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name):
-            cls = _exc_builtin_exception_class(node.id)
+        node_type = type(node)
+        if node_type is ast.Name:
+            node_name = cast(ast.Name, node)
+            cls = _exc_builtin_exception_class(node_name.id)
             if cls is not None:
-                candidates.add(node.id)
-        elif isinstance(node, ast.Attribute):
-            cls = _exc_builtin_exception_class(node.attr)
+                candidates.add(node_name.id)
+        elif node_type is ast.Attribute:
+            node_attr = cast(ast.Attribute, node)
+            cls = _exc_builtin_exception_class(node_attr.attr)
             if cls is not None:
-                candidates.add(node.attr)
+                candidates.add(node_attr.attr)
     return tuple(
         sort_once(
             candidates,
@@ -4512,9 +4516,9 @@ def _refine_exception_name_from_annotations(
 ) -> tuple[str | None, str | None, tuple[str, ...]]:
     check_deadline()
     direct_name = _exception_type_name(expr)
-    if not isinstance(expr, ast.Name):
+    if type(expr) is not ast.Name:
         return direct_name, None, ()
-    annotation = param_annotations.get(expr.id)
+    annotation = param_annotations.get(cast(ast.Name, expr).id)
     candidates = _annotation_exception_candidates(annotation)
     if not candidates:
         return direct_name, None, ()
@@ -5442,8 +5446,10 @@ def _target_names(target: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(target):
         check_deadline()
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            names.add(node.id)
+        if type(node) is ast.Name:
+            name_node = cast(ast.Name, node)
+            if type(name_node.ctx) is ast.Store:
+                names.add(name_node.id)
     return names
 
 
@@ -6467,18 +6473,20 @@ def _classify_deadline_expr(
     alias_to_param: Mapping[str, str],
     origin_vars: set[str],
 ) -> _DeadlineArgInfo:
-    if isinstance(expr, ast.Name):
-        name = expr.id
+    expr_type = type(expr)
+    if expr_type is ast.Name:
+        name = cast(ast.Name, expr).id
         if name in alias_to_param:
             return _DeadlineArgInfo(kind="param", param=alias_to_param[name])
         if name in origin_vars:
             return _DeadlineArgInfo(kind="origin", param=name)
     if _is_deadline_origin_call(expr):
         return _DeadlineArgInfo(kind="origin")
-    if isinstance(expr, ast.Constant):
-        if expr.value is None:
+    if expr_type is ast.Constant:
+        constant_value = cast(ast.Constant, expr).value
+        if constant_value is None:
             return _DeadlineArgInfo(kind="none")
-        return _DeadlineArgInfo(kind="const", const=repr(expr.value))
+        return _DeadlineArgInfo(kind="const", const=repr(constant_value))
     return _DeadlineArgInfo(kind="unknown")
 
 
@@ -6965,17 +6973,18 @@ def _summarize_deadline_obligations(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        site = mapping_or_empty(entry.get("site"))
         path = str(site.get("path", "") or "")
         function = str(site.get("function", "") or "")
         span = entry.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        span_entries = sequence_or_none(span)
+        if span_entries is not None and len(span_entries) == 4:
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_entries[0])
+                col = int(span_entries[1])
+                end_line = int(span_entries[2])
+                end_col = int(span_entries[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
         relation.append(
@@ -8936,14 +8945,15 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
         status = entry.get("status", "UNKNOWN")
         if status != "PROVEN_UNREACHABLE":
             span = entry.get("span")
-            if isinstance(span, list) and len(span) == 4:
-                site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+            span_entries = sequence_or_none(span)
+            if span_entries is not None and len(span_entries) == 4:
+                site = mapping_or_empty(entry.get("site"))
                 path = str(site.get("path", "?"))
                 reason = entry.get("reason") or ""
                 witness_ref = entry.get("witness_ref")
                 env = entry.get("environment_ref")
                 undecidable = entry.get("undecidable_reason") or ""
-                line, col, _, _ = span
+                line, col, _, _ = span_entries
                 bits: list[str] = [f"status={status}"]
                 if reason:
                     bits.append(f"reason={reason}")
@@ -9805,10 +9815,10 @@ def _summarize_runtime_obligations(
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
         section_part = ""
-        if isinstance(section_id, str) and section_id:
+        if type(section_id) is str and section_id:
             section_part = f" section={section_id}"
         phase_part = ""
-        if isinstance(phase, str) and phase:
+        if type(phase) is str and phase:
             phase_part = f" phase={phase}"
         line = f"{status} {contract} {kind}{section_part}{phase_part}".strip()
         if detail:
@@ -9842,10 +9852,10 @@ def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
         detail = str(entry.get("detail", "")).strip()
         section_part = (
             f" section={section_id}"
-            if isinstance(section_id, str) and section_id
+            if type(section_id) is str and section_id
             else ""
         )
-        phase_part = f" phase={phase}" if isinstance(phase, str) and phase else ""
+        phase_part = f" phase={phase}" if type(phase) is str and phase else ""
         text = f"{contract} {kind}{section_part}{phase_part}".strip()
         if detail:
             text = f"{text} detail={detail}"
@@ -13995,10 +14005,11 @@ def _build_reuse_replacement_map(
     for suggestion in suggested:
         check_deadline()
         locations = suggestion.get("locations") or []
-        if isinstance(locations, list):
-            for location in locations:
+        location_entries = sequence_or_none(locations)
+        if location_entries is not None:
+            for location in location_entries:
                 check_deadline()
-                if isinstance(location, str):
+                if type(location) is str:
                     replacement_map.setdefault(location, []).append(
                         {
                             "kind": suggestion.get("kind"),
@@ -14021,8 +14032,13 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("# No lemma suggestions available.")
         lines.append("")
         return "\n".join(lines)
+    suggested_entries: list[Mapping[str, JSONValue]] = []
+    for raw_entry in suggested:
+        mapped_entry = mapping_or_none(raw_entry)
+        if mapped_entry is not None:
+            suggested_entries.append(mapped_entry)
     for entry in sort_once(
-        (e for e in suggested if isinstance(e, dict)),
+        suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
     source = 'src/gabion/analysis/dataflow_audit.py:14698'):
         check_deadline()
