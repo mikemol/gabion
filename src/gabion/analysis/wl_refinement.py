@@ -13,6 +13,7 @@ from gabion.analysis.determinism_invariants import (
 )
 from gabion.analysis.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection_spec import ProjectionSpec
+from gabion.analysis.resume_codec import sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -22,10 +23,12 @@ def emit_wl_refinement_facets(
     *,
     forest: Forest,
     spec: ProjectionSpec,
-    scope: set[NodeId] | None = None,
+    scope: tuple[NodeId, ...] = (),
     canon_fn: Callable[[object], JSONValue] = canon,
 ) -> None:
     check_deadline()
+    scope_lookup = set(scope)
+    include_all_scope = not scope_lookup
     target_kind = _string_param(spec.params, "target_kind", "SuiteSite")
     edge_alt_kinds = _string_list_param(
         spec.params,
@@ -43,7 +46,8 @@ def emit_wl_refinement_facets(
     raw_targets = [
         node_id
         for node_id in forest.nodes
-        if node_id.kind == target_kind and (scope is None or node_id in scope)
+        if node_id.kind == target_kind
+        and (include_all_scope or node_id in scope_lookup)
     ]
     if not raw_targets:
         return
@@ -270,16 +274,13 @@ def _seed_struct(
             seed[field] = int(degree)
             continue
         value = node.meta.get(field)
-        if value is None or isinstance(value, (str, int, float, bool)):
-            seed[field] = value
-            continue
-        if isinstance(value, Mapping):
-            seed[field] = canon_fn(value)
-            continue
-        if isinstance(value, list):
-            seed[field] = canon_fn(value)
-            continue
-        seed[field] = str(value)
+        match value:
+            case None | str() | int() | float() | bool():
+                seed[field] = value
+            case Mapping() | list() as structured_value:
+                seed[field] = canon_fn(structured_value)
+            case _:
+                seed[field] = str(value)
     return canon_fn(seed)
 
 
@@ -299,10 +300,13 @@ def _int_param(params: Mapping[str, JSONValue], name: str, default: int) -> int:
 
 def _bool_param(params: Mapping[str, JSONValue], name: str, default: bool) -> bool:
     value = params.get(name, default)
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
+    match value:
+        case bool() as bool_value:
+            return bool_value
+        case int() | float() as numeric_value:
+            return bool(numeric_value)
+        case _:
+            pass
     text = str(value or "").strip().lower()
     if text in {"1", "true", "yes", "on"}:
         return True
@@ -318,8 +322,9 @@ def _string_list_param(
     default: tuple[str, ...],
 ) -> tuple[str, ...]:
     raw = params.get(name)
-    if isinstance(raw, list):
-        values = [str(item).strip() for item in raw if str(item).strip()]
+    values_payload = sequence_or_none(raw)
+    if values_payload is not None:
+        values = [str(item).strip() for item in values_payload if str(item).strip()]
         if values:
             return tuple(values)
     return default
