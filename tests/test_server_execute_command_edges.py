@@ -842,11 +842,7 @@ def test_execute_command_timeout_writes_partial_incremental_report(
     report_text = report_path.read_text()
     assert "Incremental Status" in report_text
     assert ("PENDING (phase:" in report_text) or ("## Section `intro`" in report_text)
-    assert phase_checkpoint_path.exists()
-    phase_payload = json.loads(phase_checkpoint_path.read_text())
-    phases = phase_payload.get("phases")
-    assert isinstance(phases, dict)
-    collection_phase = phases.get("collection")
+    assert not phase_checkpoint_path.exists()
     progress = (result.get("timeout_context") or {}).get("progress")
     assert isinstance(progress, dict)
     obligations = progress.get("incremental_obligations")
@@ -868,25 +864,13 @@ def test_execute_command_timeout_writes_partial_incremental_report(
         isinstance(entry, dict) and entry.get("status") == "SATISFIED"
         for entry in progress_contract_entries
     )
-    if isinstance(collection_phase, dict):
-        assert (
-            "Collection progress checkpoint (provisional)." in report_text
-            or "Collection bootstrap checkpoint (provisional)." in report_text
-        )
-        assert "## Section `intro`\nPENDING" not in report_text
-        if collection_phase.get("status") == "checkpointed":
-            assert int(collection_phase.get("completed_files", 0)) >= 0
-            assert int(collection_phase.get("total_files", 0)) >= 1
-        else:
-            assert collection_phase.get("status") == "bootstrap"
-    else:
-        assert any(
-            isinstance(entry, dict)
-            and entry.get("contract") == "resume_contract"
-            and entry.get("kind") == "no_projection_progress"
-            and entry.get("status") == "VIOLATION"
-            for entry in obligations
-        )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "no_projection_progress"
+        and entry.get("status") in {"SATISFIED", "VIOLATION"}
+        for entry in obligations
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_marks_stale_section_journal::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
@@ -968,23 +952,7 @@ def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
         ),
         )
     assert result.get("analysis_state") == "succeeded"
-    assert phase_checkpoint_path.exists()
-    payload = json.loads(phase_checkpoint_path.read_text())
-    phases = payload.get("phases")
-    assert isinstance(phases, dict)
-    assert "collection" in phases
-    assert "forest" in phases
-    assert "edge" in phases
-    assert "post" in phases
-    post_phase = phases["post"]
-    assert isinstance(post_phase, dict)
-    assert post_phase.get("status") == "final"
-    assert post_phase.get("work_done") == 1
-    assert post_phase.get("work_total") == 1
-    edge_phase = phases["edge"]
-    assert isinstance(edge_phase, dict)
-    assert isinstance(edge_phase.get("work_done"), int)
-    assert isinstance(edge_phase.get("work_total"), int)
+    assert not phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_require_restart_on_witness_mismatch::server.py::gabion.server._incremental_progress_obligations
@@ -1224,92 +1192,23 @@ def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_resume_states_reject_path_order_regression::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
-    with pytest.raises(NeverThrown):
-        server._externalize_collection_resume_states(
-            path=tmp_path / "resume.json",
-            collection_resume={
-                "in_progress_scan_by_path": {
-                    "b.py": {"phase": "scan_pending"},
-                    "a.py": {"phase": "scan_pending"},
-                }
-            },
-        )
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_resume_states_reject_path_order_regression::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
-    with pytest.raises(NeverThrown):
-        server._inflate_collection_resume_states(
-            path=tmp_path / "resume.json",
-            collection_resume={
-                "in_progress_scan_by_path": {
-                    "b.py": {"phase": "scan_pending"},
-                    "a.py": {"phase": "scan_pending"},
-                }
-            },
-        )
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_and_inflate_analysis_index_resume_state_ref::server.py::gabion.server._externalize_collection_resume_states::server.py::gabion.server._inflate_collection_resume_states
 def test_externalize_and_inflate_analysis_index_resume_state_ref(
     tmp_path: Path,
 ) -> None:
-    payload = {
-        "in_progress_scan_by_path": {},
-        "analysis_index_resume": {
-            "format_version": 1,
-            "phase": "analysis_index_hydration",
-            "hydrated_paths": ["a.py"],
-            "hydrated_paths_count": 1,
-            "function_count": 1,
-            "class_count": 0,
-            "functions_by_qual": {
-                "m.a": {
-                    "name": "a",
-                    "qual": "m.a",
-                    "path": "a.py",
-                    "params": [],
-                    "annots": {},
-                    "calls": [],
-                    "unused_params": [],
-                    "defaults": [],
-                    "transparent": True,
-                    "scope": [],
-                    "lexical_scope": [],
-                    "decision_params": [],
-                    "value_decision_params": [],
-                    "value_decision_reasons": [],
-                    "positional_params": [],
-                    "kwonly_params": [],
-                    "param_spans": {},
-                    "padding": "x" * 70000,
-                }
-            },
-            "symbol_table": {
-                "imports": [],
-                "internal_roots": [],
-                "external_filter": True,
-                "star_imports": {},
-                "module_exports": {},
-                "module_export_map": {},
-            },
-            "class_index": {},
-        },
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=payload,
-    )
-    raw_analysis_index_resume = externalized.get("analysis_index_resume")
-    assert isinstance(raw_analysis_index_resume, dict)
-    assert isinstance(raw_analysis_index_resume.get("state_ref"), str)
-    inflated = server._inflate_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=externalized,
-    )
-    inflated_resume = inflated.get("analysis_index_resume")
-    assert isinstance(inflated_resume, dict)
-    assert inflated_resume.get("hydrated_paths_count") == 1
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest::server.py::gabion.server._analysis_index_resume_signature
@@ -1675,56 +1574,8 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_report_phase_checkpoint_validation_paths::server.py::gabion.server._load_report_phase_checkpoint
 def test_load_report_phase_checkpoint_validation_paths(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "phases.json"
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text("{")
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "other",
-                "phases": {},
-            }
-        )
-    )
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "wd",
-                "phases": {
-                    "collection": {"status": "ok"},
-                    "bad": "ignored",
-                    1: {"status": "ignored"},
-                },
-            }
-        )
-    )
-    phases = server._load_report_phase_checkpoint(
-        path=checkpoint_path,
-        witness_digest="wd",
-    )
-    assert phases == {"collection": {"status": "ok"}, "1": {"status": "ignored"}}
+    _ = tmp_path
+    assert not hasattr(server, "_load_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_marks_missing_dep_and_policy::server.py::gabion.server._render_incremental_report
@@ -1780,7 +1631,7 @@ def test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy(
     components = payload["sections"]["components"]
     assert components["reason"] == "policy"
     assert report_path.exists()
-    assert phase_checkpoint_path.exists()
+    assert not phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._clear_analysis_resume_checkpoint
@@ -2473,98 +2324,22 @@ def test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_handles_mixed_rows::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_collection_resume_states_handles_mixed_rows(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    raw_state = {
-        "phase": "function_scan",
-        "processed_functions_digest": "abc",
-        "fn_names": {"a": "x"},
-        "padding": "x" * 70_000,
-    }
-    payload = {
-        "in_progress_scan_by_path": {"a.py": raw_state, 1: {"phase": "x"}, "b.py": 1},
-        "analysis_index_resume": {},
-    }
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    stale_dir = chunks_dir / "stale.json"
-    stale_dir.mkdir(parents=True)
-    externalized = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = externalized.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    assert states["a.py"]["processed_functions_digest"] == "abc"
-    assert states["a.py"]["function_count"] == 1
-    assert states["b.py"] == 1
-    assert stale_dir.exists()
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_summarizes_processed_function_list::server.py::gabion.server._canonical_json_text::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_collection_resume_states_summarizes_processed_function_list(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    payload = {
-        "in_progress_scan_by_path": {
-            "a.py": {
-                "phase": "function_scan",
-                "processed_functions": ["pkg.a", "pkg.a", "pkg.b", 1],
-                "padding": "x" * 70_000,
-            }
-        }
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = externalized.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    summary = states["a.py"]
-    assert summary["processed_functions_count"] == 2
-    expected_digest = hashlib.sha1(
-        server._canonical_json_text(["pkg.a", "pkg.b"]).encode("utf-8")
-    ).hexdigest()
-    assert summary["processed_functions_digest"] == expected_digest
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_handles_chunk_failures::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_states_handles_chunk_failures(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    chunks_dir.mkdir(parents=True)
-    bad_chunk = chunks_dir / "bad.json"
-    bad_chunk.write_text("{")
-    wrong_chunk = chunks_dir / "wrong.json"
-    wrong_chunk.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "other.py",
-                "state": {"phase": "function_scan"},
-            }
-        )
-    )
-    payload = {
-        "in_progress_scan_by_path": {
-            "a.py": {"state_ref": "bad.json"},
-            "b.py": {"state_ref": "wrong.json"},
-            1: {"state_ref": "ignored.json"},
-            "c.py": 1,
-        },
-        "analysis_index_resume": {"state_ref": "bad.json"},
-    }
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = inflated.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    assert states["a.py"]["state_ref"] == "bad.json"
-    assert states["b.py"]["state_ref"] == "wrong.json"
-    assert states["c.py"] == 1
-    analysis_index_resume = inflated.get("analysis_index_resume")
-    assert isinstance(analysis_index_resume, dict)
-    assert analysis_index_resume["state_ref"] == "bad.json"
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_timeout_cleanup_tracks_truncated_report_steps::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -2695,47 +2470,9 @@ def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> N
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_report_phase_checkpoint_load_and_write_filters_invalid_entries::server.py::gabion.server._load_report_phase_checkpoint::server.py::gabion.server._write_report_phase_checkpoint
 def test_report_phase_checkpoint_load_and_write_filters_invalid_entries(tmp_path: Path) -> None:
-    path = tmp_path / "phase.json"
-    assert server._load_report_phase_checkpoint(path=None, witness_digest=None) == {}
-    path.write_text("[]")
-    assert server._load_report_phase_checkpoint(path=path, witness_digest=None) == {}
-    path.write_text(
-        json.dumps({"format_version": 0, "phases": {}}, sort_keys=True) + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=path, witness_digest=None) == {}
-    path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "old",
-                "phases": {},
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=path, witness_digest="new") == {}
-    path.write_text(
-        json.dumps(
-                {
-                    "format_version": 1,
-                    "witness_digest": "same",
-                    "phases": {"collection": {"status": "ok"}},
-                },
-                sort_keys=True,
-            )
-        + "\n"
-    )
-    phases = server._load_report_phase_checkpoint(path=path, witness_digest="same")
-    assert phases == {"collection": {"status": "ok"}}
-
-    server._write_report_phase_checkpoint(
-        path=path,
-        witness_digest="w",
-        phases={"collection": {"status": "ok"}, "bad": "skip", 1: {"status": "skip"}},  # type: ignore[dict-item]
-    )
-    payload = json.loads(path.read_text())
-    assert payload["phases"] == {"collection": {"status": "ok"}}
+    _ = tmp_path
+    assert not hasattr(server, "_load_report_phase_checkpoint")
+    assert not hasattr(server, "_write_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_path_none_and_empty_section_id::server.py::gabion.server._write_report_section_journal
@@ -2832,74 +2569,16 @@ def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
 def test_externalize_collection_resume_states_passthrough_and_cleanup_oserror(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    passthrough = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"x": 1},
-    )
-    assert passthrough == {"x": 1}
-
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    (chunks_dir / "keep").mkdir(parents=True)
-    payload = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": [],
-            "analysis_index_resume": {},
-        },  # type: ignore[arg-type]
-    )
-    assert payload["in_progress_scan_by_path"] == {}
-    assert chunks_dir.exists()
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_passthrough_and_chunk_success::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_states_passthrough_and_chunk_success(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    passthrough = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"x": 1},
-    )
-    assert passthrough == {"x": 1}
-
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    chunks_dir.mkdir(parents=True)
-    (chunks_dir / "state.json").write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "a.py",
-                "state": {"phase": "function_scan", "processed_functions": ["f"]},
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    (chunks_dir / "analysis.json").write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "analysis_index_resume",
-                "state": 1,
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {"a.py": {"state_ref": "state.json"}},
-            "analysis_index_resume": {"state_ref": "analysis.json", "phase": "x"},
-        },
-    )
-    states = inflated["in_progress_scan_by_path"]
-    assert isinstance(states, dict)
-    assert states["a.py"]["phase"] == "function_scan"
-    analysis_resume = inflated["analysis_index_resume"]
-    assert isinstance(analysis_resume, dict)
-    assert analysis_resume["state_ref"] == "analysis.json"
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_manifest_invalid_shapes::server.py::gabion.server._load_analysis_resume_checkpoint_manifest
@@ -3017,12 +2696,8 @@ def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_manifest_and_checkpoint_edge_paths::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._inflate_collection_resume_states::server.py::gabion.server._load_analysis_resume_checkpoint_manifest::server.py::gabion.server._write_analysis_resume_checkpoint
 def test_inflate_manifest_and_checkpoint_edge_paths(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"in_progress_scan_by_path": [], "analysis_index_resume": {}},  # type: ignore[arg-type]
-    )
-    assert inflated["in_progress_scan_by_path"] == {}
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
     assert not hasattr(server, "_load_analysis_resume_checkpoint_manifest")
     assert not hasattr(server, "_write_analysis_resume_checkpoint")
 
@@ -3083,12 +2758,8 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
     sections, _ = server._load_report_section_journal(path=journal_path, witness_digest=None)
     assert sections == {"ok": ["x"]}
 
-    phase_path = tmp_path / "phases.json"
-    phase_path.write_text(
-        json.dumps({"format_version": 1, "phases": []}, sort_keys=True) + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=phase_path, witness_digest=None) == {}
-    server._write_report_phase_checkpoint(path=None, witness_digest=None, phases={})
+    assert not hasattr(server, "_load_report_phase_checkpoint")
+    assert not hasattr(server, "_write_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_existing_reason_policy::server.py::gabion.server._write_bootstrap_incremental_artifacts
@@ -3767,94 +3438,28 @@ def test_execute_command_projection_phase_callback_emits_progress_without_report
 def test_externalize_collection_resume_state_summary_fallback_branches(
     tmp_path: Path,
 ) -> None:
-    payload: dict[str, object] = {
-        "in_progress_scan_by_path": {
-            "a.py": {
-                "phase": "function_scan",
-                "processed_functions_digest": "",
-                "padding": "x" * 70_000,
-            }
-        },
-        "analysis_index_resume": {
-            "phase": "analysis_index_hydration",
-            "hydrated_paths": {"not": "a-sequence"},
-            "function_count": "bad",
-            "class_count": None,
-            "padding": "x" * 70_000,
-        },
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=payload,
-    )
-    in_progress = externalized["in_progress_scan_by_path"]["a.py"]
-    assert isinstance(in_progress, dict)
-    assert "processed_functions_digest" not in in_progress
-    analysis_index = externalized["analysis_index_resume"]
-    assert isinstance(analysis_index, dict)
-    assert "hydrated_paths_count" not in analysis_index
-    assert "function_count" not in analysis_index
-    assert "class_count" not in analysis_index
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_chunk_state_non_mapping_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_state_chunk_name::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_chunk_state_non_mapping_falls_back(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunk_name = server._analysis_resume_state_chunk_name("a.py")
-    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
-    chunk_path.parent.mkdir(parents=True, exist_ok=True)
-    chunk_path.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-                "path": "a.py",
-                "state": ["not", "a", "mapping"],
-            }
-        )
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {
-                "a.py": {"phase": "scan_pending", "state_ref": chunk_name}
-            }
-        },
-    )
-    state = inflated["in_progress_scan_by_path"]["a.py"]
-    assert isinstance(state, dict)
-    assert state["state_ref"] == chunk_name
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_state_chunk_name")
+    assert not hasattr(server, "_analysis_resume_checkpoint_chunks_dir")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_named_chunk_name::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunk_name = server._analysis_resume_named_chunk_name("analysis_index_resume")
-    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
-    chunk_path.parent.mkdir(parents=True, exist_ok=True)
-    chunk_path.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-                "path": "wrong-path",
-                "state": {"phase": "analysis_index_hydration"},
-            }
-        )
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {},
-            "analysis_index_resume": {"state_ref": chunk_name, "phase": "fallback"},
-        },
-    )
-    analysis_index = inflated["analysis_index_resume"]
-    assert isinstance(analysis_index, dict)
-    assert analysis_index["state_ref"] == chunk_name
-    assert analysis_index["phase"] == "fallback"
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_named_chunk_name")
+    assert not hasattr(server, "_analysis_resume_checkpoint_chunks_dir")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees::server.py::gabion.server._analysis_input_witness
@@ -3994,7 +3599,7 @@ def test_write_bootstrap_incremental_artifacts_without_journal_path(
         phase_checkpoint_state=phase_state,
     )
     assert report_path.exists()
-    assert phase_path.exists()
+    assert not phase_path.exists()
     assert phase_state.get("collection") is not None
 
 

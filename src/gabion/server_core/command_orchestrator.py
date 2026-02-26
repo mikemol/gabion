@@ -612,7 +612,7 @@ class _ReportFinalizationContext:
     projection_rows: list[JSONObject]
     report_section_journal_path: Path
     report_section_witness_digest: str | None
-    report_phase_checkpoint_path: Path
+    report_phase_checkpoint_path: Path | None
     analysis_resume_checkpoint_path: Path | None
     analysis_resume_reused_files: int
     type_audit_report: bool
@@ -660,7 +660,7 @@ class _TimeoutCleanupContext:
     semantic_progress_cumulative: JSONObject | None
     report_output_path: Path | None
     projection_rows: list[JSONObject]
-    report_phase_checkpoint_path: Path
+    report_phase_checkpoint_path: Path | None
     report_section_journal_path: Path
     report_section_witness_digest: str | None
     phase_checkpoint_state: JSONObject
@@ -724,7 +724,7 @@ class _AnalysisExecutionContext:
     projection_rows: list[JSONObject]
     report_section_journal_path: Path
     report_section_witness_digest: str | None
-    report_phase_checkpoint_path: Path
+    report_phase_checkpoint_path: Path | None
     phase_checkpoint_state: JSONObject
     profile_enabled: bool
     emit_phase_progress_events: bool
@@ -1928,11 +1928,6 @@ def _finalize_report_and_violations(
                 "section_ids": sort_once(resolved_sections, source = 'src/gabion/server.py:5395'),
                 "resolved_sections": len(resolved_sections),
             }
-            _write_report_phase_checkpoint(
-                path=context.report_phase_checkpoint_path,
-                witness_digest=context.report_section_witness_digest,
-                phases=phase_checkpoint_state,
-            )
         if context.decision_snapshot_path:
             decision_payload = render_decision_snapshot(
                 surfaces=DecisionSnapshotSurfaces(
@@ -2784,7 +2779,7 @@ class _SuccessResponseContext:
     report_output_path: Path | None
     report_section_journal_path: Path
     report_section_witness_digest: str | None
-    report_phase_checkpoint_path: Path
+    report_phase_checkpoint_path: Path | None
     projection_rows: list[JSONObject]
     analysis_resume_checkpoint_path: Path | None
     analysis_resume_source: str
@@ -3266,10 +3261,7 @@ def execute_command_total(
         root=runtime_input.root,
         report_path=runtime_input.report_path_text,
     )
-    report_phase_checkpoint_path = _resolve_report_phase_checkpoint_path(
-        root=runtime_input.root,
-        report_path=runtime_input.report_path_text,
-    )
+    report_phase_checkpoint_path: Path | None = None
     projection_rows: list[JSONObject] = (
         execute_deps.report_projection_spec_rows_fn() if report_output_path else []
     )
@@ -3389,10 +3381,7 @@ def execute_command_total(
             root=Path(root),
             report_path=report_path_text,
         )
-        report_phase_checkpoint_path = _resolve_report_phase_checkpoint_path(
-            root=Path(root),
-            report_path=report_path_text,
-        )
+        report_phase_checkpoint_path = None
         projection_rows = (
             execute_deps.report_projection_spec_rows_fn() if report_output_path else []
         )
