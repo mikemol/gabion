@@ -67,6 +67,7 @@ def new_session_id() -> str:
     return f"session-{stamp}-{os.getpid()}"
 
 
+# gabion:decision_protocol
 def prepare_step(
     *,
     root: Path,
@@ -162,6 +163,7 @@ def prepare_step(
     )
 
 
+# gabion:decision_protocol gabion:boundary_normalization
 def record_step(
     *,
     manifest_path: Path,
@@ -208,6 +210,7 @@ def record_step(
     return True
 
 
+# gabion:decision_protocol
 def aspf_cli_args(
     step: PreparedHandoffStep,
     *,
@@ -236,6 +239,7 @@ def aspf_cli_args(
     return args
 
 
+# gabion:decision_protocol
 def run_with_handoff(
     *,
     spec: AspfHandoffRunSpec,
@@ -282,6 +286,7 @@ def run_with_handoff(
     )
 
 
+# gabion:decision_protocol gabion:boundary_normalization
 def load_manifest(path: Path) -> JSONObject:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -292,6 +297,7 @@ def load_manifest(path: Path) -> JSONObject:
     return {str(key): payload[key] for key in payload}
 
 
+# gabion:decision_protocol gabion:boundary_normalization
 def _successful_state_paths(entries: list[object], *, root: Path) -> list[Path]:
     paths: list[Path] = []
     for raw_entry in entries:
@@ -322,6 +328,7 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# gabion:decision_protocol gabion:boundary_normalization
 def _analysis_state_from_state_file(path: Path) -> str | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -340,6 +347,7 @@ def _analysis_state_from_state_file(path: Path) -> str | None:
     return None
 
 
+# gabion:decision_protocol
 def _path_to_manifest_ref(path: Path, *, root: Path) -> str:
     resolved_path = path.resolve()
     resolved_root = root.resolve()
@@ -350,6 +358,7 @@ def _path_to_manifest_ref(path: Path, *, root: Path) -> str:
     return relative.as_posix()
 
 
+# gabion:decision_protocol
 def _path_from_manifest_ref(value: str, *, root: Path) -> Path:
     candidate = Path(value.strip())
     if candidate.is_absolute():
