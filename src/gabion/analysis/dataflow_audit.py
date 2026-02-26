@@ -4800,6 +4800,7 @@ def _collect_handledness_witnesses(
 ) -> list[JSONObject]:
     check_deadline()
     witnesses: list[JSONObject] = []
+    raise_or_assert_types = {ast.Raise, ast.Assert}
     for path in paths:
         check_deadline()
         try:
@@ -4818,150 +4819,153 @@ def _collect_handledness_witnesses(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, (ast.Raise, ast.Assert)):
-                continue
-            try_node = _find_handling_try(node, parents)
-            source_kind = "E0"
-            kind = "raise" if isinstance(node, ast.Raise) else "assert"
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-                param_annotations: dict[str, str | None] = {}
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-                param_annotations = param_annotations_by_fn.get(fn_node, {})
-            expr = node.exc if isinstance(node, ast.Raise) else node.test
-            (
-                exception_name,
-                exception_type_source,
-                exception_type_candidates,
-            ) = _refine_exception_name_from_annotations(
-                expr,
-                param_annotations=param_annotations,
-            )
-            bundle = _exception_param_names(expr, params)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            exception_id = _exception_path_id(
-                path=path_value,
-                function=function,
-                source_kind=source_kind,
-                lineno=lineno,
-                col=col,
-                kind=kind,
-            )
-            handledness_id = f"handled:{exception_id}"
-            handler_kind = None
-            handler_boundary = None
-            compatibility = "incompatible"
-            handledness_reason_code = "NO_HANDLER"
-            handledness_reason = "no enclosing handler discharges this exception path"
-            type_refinement_opportunity = ""
-            if try_node is not None:
-                unknown_handler: ast.ExceptHandler | None = None
-                first_incompatible_handler: ast.ExceptHandler | None = None
-                for handler in try_node.handlers:
-                    check_deadline()
-                    compatibility = _exception_handler_compatibility(
-                        exception_name,
-                        handler.type,
-                    )
-                    if compatibility == "compatible":
-                        handler_kind = "catch"
-                        handler_boundary = _handler_label(handler)
-                        if handler.type is None:
-                            handledness_reason_code = "BROAD_EXCEPT"
-                            handledness_reason = (
-                                "handled by broad except: without a typed match proof"
-                            )
-                        else:
-                            handledness_reason_code = "TYPED_MATCH"
-                            handledness_reason = (
-                                "raised exception type matches an explicit except clause"
-                            )
-                        break
-                    if compatibility == "unknown" and unknown_handler is None:
-                        unknown_handler = handler
-                    if (
-                        compatibility == "incompatible"
-                        and first_incompatible_handler is None
-                    ):
-                        first_incompatible_handler = handler
-                if handler_kind is None and unknown_handler is not None:
-                    handler_kind = "catch"
-                    handler_boundary = _handler_label(unknown_handler)
-                    compatibility = "unknown"
-                    handledness_reason_code = "TYPE_UNRESOLVED"
-                    handledness_reason = (
-                        "exception or handler types are dynamic/unresolved; handledness is unknown"
-                    )
-                    if exception_type_candidates:
-                        type_refinement_opportunity = (
-                            "narrow raised exception type to a single concrete exception"
-                        )
-                elif handler_kind is None and first_incompatible_handler is not None:
-                    handler_kind = "catch"
-                    handler_boundary = _handler_label(first_incompatible_handler)
-                    compatibility = "incompatible"
-                    handledness_reason_code = "TYPED_MISMATCH"
-                    handledness_reason = (
-                        "explicit except clauses do not match the raised exception type"
-                    )
-                    type_refinement_opportunity = (
-                        f"consider except {exception_name} (or a supertype) to dominate this raise path"
-                        if exception_name
-                        else "consider a typed except clause to dominate this raise path"
-                    )
-            if handler_kind is None and exception_name == "SystemExit":
-                handler_kind = "convert"
-                handler_boundary = "process exit"
-                compatibility = "compatible"
-                handledness_reason_code = "SYSTEM_EXIT_CONVERT"
-                handledness_reason = "SystemExit is converted to process exit"
-            if handler_kind is None:
-                continue
-            witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
-            handler_type_names: tuple[str, ...] = ()
-            if try_node is not None and handler_kind == "catch":
-                handler_types_by_label: dict[str, tuple[str, ...]] = {}
-                for handler in try_node.handlers:
-                    check_deadline()
-                    handler_types_by_label[_handler_label(handler)] = _handler_type_names(
-                        handler.type
-                    )
-                handler_type_names = handler_types_by_label.get(
-                    str(handler_boundary), ()
+            if type(node) in raise_or_assert_types:
+                raise_node = cast(ast.Raise | ast.Assert, node)
+                try_node = _find_handling_try(raise_node, parents)
+                source_kind = "E0"
+                kind = "raise" if type(raise_node) is ast.Raise else "assert"
+                fn_node = _enclosing_function_node(raise_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
+                    param_annotations: dict[str, JSONValue] = {}
+                else:
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                    param_annotations = param_annotations_by_fn.get(fn_node, {})
+                expr = (
+                    cast(ast.Raise, raise_node).exc
+                    if type(raise_node) is ast.Raise
+                    else cast(ast.Assert, raise_node).test
                 )
-            witnesses.append(
-                {
-                    "handledness_id": handledness_id,
-                    "exception_path_id": exception_id,
-                    "site": {
-                        "path": path_value,
-                        "function": function,
-                        "bundle": bundle,
-                    },
-                    "handler_kind": handler_kind,
-                    "handler_boundary": handler_boundary,
-                    "handler_types": list(handler_type_names),
-                    "type_compatibility": compatibility,
-                    "exception_type_source": exception_type_source,
-                    "exception_type_candidates": list(exception_type_candidates),
-                    "type_refinement_opportunity": type_refinement_opportunity,
-                    "handledness_reason_code": handledness_reason_code,
-                    "handledness_reason": handledness_reason,
-                    "environment": {},
-                    "core": (
-                        [f"enclosed by {handler_boundary}"]
-                        if handler_kind == "catch"
-                        else ["converted to process exit"]
-                    ),
-                    "result": witness_result,
-                }
-            )
+                (
+                    exception_name,
+                    exception_type_source,
+                    exception_type_candidates,
+                ) = _refine_exception_name_from_annotations(
+                    expr,
+                    param_annotations=param_annotations,
+                )
+                bundle = _exception_param_names(expr, params)
+                lineno = getattr(raise_node, "lineno", 0)
+                col = getattr(raise_node, "col_offset", 0)
+                exception_id = _exception_path_id(
+                    path=path_value,
+                    function=function,
+                    source_kind=source_kind,
+                    lineno=lineno,
+                    col=col,
+                    kind=kind,
+                )
+                handledness_id = f"handled:{exception_id}"
+                handler_kind = None
+                handler_boundary = None
+                compatibility = "incompatible"
+                handledness_reason_code = "NO_HANDLER"
+                handledness_reason = "no enclosing handler discharges this exception path"
+                type_refinement_opportunity = ""
+                if try_node is not None:
+                    unknown_handler: ast.ExceptHandler | None = None
+                    first_incompatible_handler: ast.ExceptHandler | None = None
+                    for handler in try_node.handlers:
+                        check_deadline()
+                        compatibility = _exception_handler_compatibility(
+                            exception_name,
+                            handler.type,
+                        )
+                        if compatibility == "compatible":
+                            handler_kind = "catch"
+                            handler_boundary = _handler_label(handler)
+                            if handler.type is None:
+                                handledness_reason_code = "BROAD_EXCEPT"
+                                handledness_reason = (
+                                    "handled by broad except: without a typed match proof"
+                                )
+                            else:
+                                handledness_reason_code = "TYPED_MATCH"
+                                handledness_reason = (
+                                    "raised exception type matches an explicit except clause"
+                                )
+                            break
+                        if compatibility == "unknown" and unknown_handler is None:
+                            unknown_handler = handler
+                        if (
+                            compatibility == "incompatible"
+                            and first_incompatible_handler is None
+                        ):
+                            first_incompatible_handler = handler
+                    if handler_kind is None and unknown_handler is not None:
+                        handler_kind = "catch"
+                        handler_boundary = _handler_label(unknown_handler)
+                        compatibility = "unknown"
+                        handledness_reason_code = "TYPE_UNRESOLVED"
+                        handledness_reason = (
+                            "exception or handler types are dynamic/unresolved; handledness is unknown"
+                        )
+                        if exception_type_candidates:
+                            type_refinement_opportunity = (
+                                "narrow raised exception type to a single concrete exception"
+                            )
+                    elif handler_kind is None and first_incompatible_handler is not None:
+                        handler_kind = "catch"
+                        handler_boundary = _handler_label(first_incompatible_handler)
+                        compatibility = "incompatible"
+                        handledness_reason_code = "TYPED_MISMATCH"
+                        handledness_reason = (
+                            "explicit except clauses do not match the raised exception type"
+                        )
+                        type_refinement_opportunity = (
+                            f"consider except {exception_name} (or a supertype) to dominate this raise path"
+                            if exception_name
+                            else "consider a typed except clause to dominate this raise path"
+                        )
+                if handler_kind is None and exception_name == "SystemExit":
+                    handler_kind = "convert"
+                    handler_boundary = "process exit"
+                    compatibility = "compatible"
+                    handledness_reason_code = "SYSTEM_EXIT_CONVERT"
+                    handledness_reason = "SystemExit is converted to process exit"
+                if handler_kind is not None:
+                    witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
+                    handler_type_names: tuple[str, ...] = ()
+                    if try_node is not None and handler_kind == "catch":
+                        handler_types_by_label: dict[str, tuple[str, ...]] = {}
+                        for handler in try_node.handlers:
+                            check_deadline()
+                            handler_types_by_label[_handler_label(handler)] = _handler_type_names(
+                                handler.type
+                            )
+                        handler_type_names = handler_types_by_label.get(
+                            str(handler_boundary), ()
+                        )
+                    witnesses.append(
+                        {
+                            "handledness_id": handledness_id,
+                            "exception_path_id": exception_id,
+                            "site": {
+                                "path": path_value,
+                                "function": function,
+                                "bundle": bundle,
+                            },
+                            "handler_kind": handler_kind,
+                            "handler_boundary": handler_boundary,
+                            "handler_types": list(handler_type_names),
+                            "type_compatibility": compatibility,
+                            "exception_type_source": exception_type_source,
+                            "exception_type_candidates": list(exception_type_candidates),
+                            "type_refinement_opportunity": type_refinement_opportunity,
+                            "handledness_reason_code": handledness_reason_code,
+                            "handledness_reason": handledness_reason,
+                            "environment": {},
+                            "core": (
+                                [f"enclosed by {handler_boundary}"]
+                                if handler_kind == "catch"
+                                else ["converted to process exit"]
+                            ),
+                            "result": witness_result,
+                        }
+                    )
     return sort_once(
         witnesses,
         key=lambda entry: (
@@ -4985,23 +4989,22 @@ def _dead_env_map(
         path_value = str(entry.get("path", ""))
         function_value = str(entry.get("function", ""))
         bundle = entry.get("bundle", []) or []
-        if not isinstance(bundle, list) or not bundle:
-            continue
-        param = str(bundle[0])
-        environment = entry.get("environment", {})
-        if not isinstance(environment, dict):
-            continue
-        value_str = environment.get(param)
-        if not isinstance(value_str, str):
-            continue
-        try:
-            literal_value = ast.literal_eval(value_str)
-        except _LITERAL_EVAL_ERROR_TYPES:
-            continue
-        dead_env_map.setdefault((path_value, function_value), {})[param] = (
-            literal_value,
-            entry,
-        )
+        bundle_values = sequence_or_none(cast(JSONValue, bundle))
+        if bundle_values is not None and bundle_values:
+            param = str(bundle_values[0])
+            environment = mapping_or_none(entry.get("environment", {}))
+            if environment is not None:
+                value_str = environment.get(param)
+                if type(value_str) is str:
+                    try:
+                        literal_value = ast.literal_eval(value_str)
+                    except _LITERAL_EVAL_ERROR_TYPES:
+                        literal_value = None
+                    if literal_value is not None:
+                        dead_env_map.setdefault((path_value, function_value), {})[param] = (
+                            literal_value,
+                            entry,
+                        )
     return dead_env_map
 
 
@@ -5018,6 +5021,7 @@ def _collect_exception_obligations(
     obligations: list[JSONObject] = []
     never_exceptions_set = set(never_exceptions or [])
     handled_map: dict[str, JSONObject] = {}
+    raise_or_assert_types = {ast.Raise, ast.Assert}
     if handledness_witnesses:
         for entry in handledness_witnesses:
             check_deadline()
@@ -5041,137 +5045,140 @@ def _collect_exception_obligations(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, (ast.Raise, ast.Assert)):
-                continue
-            source_kind = "E0"
-            kind = "raise" if isinstance(node, ast.Raise) else "assert"
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-            expr = node.exc if isinstance(node, ast.Raise) else node.test
-            exception_name = _exception_type_name(expr)
-            protocol: str | None = None
-            if (
-                exception_name
-                and never_exceptions_set
-                and _decorator_matches(exception_name, never_exceptions_set)
-            ):
-                protocol = "never"
-            if _is_never_marker_raise(function, exception_name, never_exceptions_set):
-                continue
-            bundle = _exception_param_names(expr, params)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            exception_id = _exception_path_id(
-                path=path_value,
-                function=function,
-                source_kind=source_kind,
-                lineno=lineno,
-                col=col,
-                kind=kind,
-            )
-            handled = handled_map.get(exception_id)
-            status = "UNKNOWN"
-            witness_ref = None
-            remainder: JSONObject | None = {"exception_kind": kind}
-            environment_ref: JSONObject | None = None
-            handledness_reason_code = "NO_HANDLER"
-            handledness_reason = "no handledness witness"
-            exception_type_source = None
-            exception_type_candidates: list[str] = []
-            type_refinement_opportunity = ""
-            if handled:
-                witness_result = str(handled.get("result", ""))
-                handledness_reason_code = str(
-                    handled.get("handledness_reason_code", "UNKNOWN_REASON")
-                )
-                handledness_reason = str(handled.get("handledness_reason", ""))
-                exception_type_source = handled.get("exception_type_source")
-                raw_candidates = handled.get("exception_type_candidates") or []
-                if isinstance(raw_candidates, list):
-                    exception_type_candidates = [str(v) for v in raw_candidates]
-                type_refinement_opportunity = str(
-                    handled.get("type_refinement_opportunity", "")
-                )
-                if witness_result == "HANDLED":
-                    status = "HANDLED"
-                    remainder = {}
+            if type(node) in raise_or_assert_types:
+                raise_node = cast(ast.Raise | ast.Assert, node)
+                source_kind = "E0"
+                kind = "raise" if type(raise_node) is ast.Raise else "assert"
+                fn_node = _enclosing_function_node(raise_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
                 else:
-                    remainder["handledness_result"] = witness_result or "UNKNOWN"
-                    remainder["type_compatibility"] = str(
-                        handled.get("type_compatibility", "unknown")
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                expr = (
+                    cast(ast.Raise, raise_node).exc
+                    if type(raise_node) is ast.Raise
+                    else cast(ast.Assert, raise_node).test
+                )
+                exception_name = _exception_type_name(expr)
+                protocol: str | None = None
+                if (
+                    exception_name
+                    and never_exceptions_set
+                    and _decorator_matches(exception_name, never_exceptions_set)
+                ):
+                    protocol = "never"
+                if not _is_never_marker_raise(function, exception_name, never_exceptions_set):
+                    bundle = _exception_param_names(expr, params)
+                    lineno = getattr(raise_node, "lineno", 0)
+                    col = getattr(raise_node, "col_offset", 0)
+                    exception_id = _exception_path_id(
+                        path=path_value,
+                        function=function,
+                        source_kind=source_kind,
+                        lineno=lineno,
+                        col=col,
+                        kind=kind,
                     )
-                    remainder["handledness_reason_code"] = handledness_reason_code
-                    remainder["handledness_reason"] = handledness_reason
-                    if exception_type_source:
-                        remainder["exception_type_source"] = exception_type_source
-                    if exception_type_candidates:
-                        remainder["exception_type_candidates"] = exception_type_candidates
-                    if type_refinement_opportunity:
-                        remainder["type_refinement_opportunity"] = type_refinement_opportunity
-                witness_ref = handled.get("handledness_id")
-                environment_ref = handled.get("environment") or {}
-            if status != "HANDLED":
-                env_entries = dead_env_map.get((path_value, function), {})
-                if env_entries:
-                    env = {name: value for name, (value, _) in env_entries.items()}
-                    reachability = _branch_reachability_under_env(node, parents, env)
-                    if _is_reachability_false(reachability):
-                        names: set[str] = set()
-                        current = parents.get(node)
-                        while current is not None:
-                            check_deadline()
-                            if isinstance(current, ast.If):
-                                names.update(_names_in_expr(current.test))
-                            current = parents.get(current)
-                        ordered_names = sort_once(
-                            names,
-                            source="_collect_exception_obligations.names.dead",
-                            policy=OrderPolicy.SORT,
+                    handled = handled_map.get(exception_id)
+                    status = "UNKNOWN"
+                    witness_ref = None
+                    remainder: JSONObject | None = {"exception_kind": kind}
+                    environment_ref: JSONValue = None
+                    handledness_reason_code = "NO_HANDLER"
+                    handledness_reason = "no handledness witness"
+                    exception_type_source: JSONValue = None
+                    exception_type_candidates: list[str] = []
+                    type_refinement_opportunity = ""
+                    if handled:
+                        witness_result = str(handled.get("result", ""))
+                        handledness_reason_code = str(
+                            handled.get("handledness_reason_code", "UNKNOWN_REASON")
                         )
-                        for name in sort_once(
-                            ordered_names,
-                            source="_collect_exception_obligations.names.dead.enforce",
-                            policy=OrderPolicy.ENFORCE,
-                        ):
-                            check_deadline()
-                            if name not in env_entries:
-                                continue
-                            _, witness = env_entries[name]
-                            status = "DEAD"
-                            witness_ref = witness.get("deadness_id")
+                        handledness_reason = str(handled.get("handledness_reason", ""))
+                        exception_type_source = handled.get("exception_type_source")
+                        raw_candidates = sequence_or_none(handled.get("exception_type_candidates") or [])
+                        if raw_candidates is not None:
+                            exception_type_candidates = [str(v) for v in raw_candidates]
+                        type_refinement_opportunity = str(
+                            handled.get("type_refinement_opportunity", "")
+                        )
+                        if witness_result == "HANDLED":
+                            status = "HANDLED"
                             remainder = {}
-                            environment_ref = witness.get("environment") or {}
-                            break
-            if protocol == "never" and status != "DEAD":
-                status = "FORBIDDEN"
-            obligations.append(
-                {
-                    "exception_path_id": exception_id,
-                    "site": {
-                        "path": path_value,
-                        "function": function,
-                        "bundle": bundle,
-                    },
-                    "source_kind": source_kind,
-                    "status": status,
-                    "handledness_reason_code": handledness_reason_code,
-                    "handledness_reason": handledness_reason,
-                    "exception_type_source": exception_type_source,
-                    "exception_type_candidates": exception_type_candidates,
-                    "type_refinement_opportunity": type_refinement_opportunity,
-                    "witness_ref": witness_ref,
-                    "remainder": remainder,
-                    "environment_ref": environment_ref,
-                    "exception_name": exception_name,
-                    "protocol": protocol,
-                }
-            )
+                        else:
+                            remainder["handledness_result"] = witness_result or "UNKNOWN"
+                            remainder["type_compatibility"] = str(
+                                handled.get("type_compatibility", "unknown")
+                            )
+                            remainder["handledness_reason_code"] = handledness_reason_code
+                            remainder["handledness_reason"] = handledness_reason
+                            if exception_type_source:
+                                remainder["exception_type_source"] = exception_type_source
+                            if exception_type_candidates:
+                                remainder["exception_type_candidates"] = exception_type_candidates
+                            if type_refinement_opportunity:
+                                remainder["type_refinement_opportunity"] = type_refinement_opportunity
+                        witness_ref = handled.get("handledness_id")
+                        environment_ref = handled.get("environment") or {}
+                    if status != "HANDLED":
+                        env_entries = dead_env_map.get((path_value, function), {})
+                        if env_entries:
+                            env = {name: value for name, (value, _) in env_entries.items()}
+                            reachability = _branch_reachability_under_env(raise_node, parents, env)
+                            if _is_reachability_false(reachability):
+                                names: set[str] = set()
+                                current = parents.get(raise_node)
+                                while current is not None:
+                                    check_deadline()
+                                    if type(current) is ast.If:
+                                        names.update(_names_in_expr(cast(ast.If, current).test))
+                                    current = parents.get(current)
+                                ordered_names = sort_once(
+                                    names,
+                                    source="_collect_exception_obligations.names.dead",
+                                    policy=OrderPolicy.SORT,
+                                )
+                                for name in sort_once(
+                                    ordered_names,
+                                    source="_collect_exception_obligations.names.dead.enforce",
+                                    policy=OrderPolicy.ENFORCE,
+                                ):
+                                    check_deadline()
+                                    if name not in env_entries:
+                                        continue
+                                    _, witness = env_entries[name]
+                                    status = "DEAD"
+                                    witness_ref = witness.get("deadness_id")
+                                    remainder = {}
+                                    environment_ref = witness.get("environment") or {}
+                                    break
+                    if protocol == "never" and status != "DEAD":
+                        status = "FORBIDDEN"
+                    obligations.append(
+                        {
+                            "exception_path_id": exception_id,
+                            "site": {
+                                "path": path_value,
+                                "function": function,
+                                "bundle": bundle,
+                            },
+                            "source_kind": source_kind,
+                            "status": status,
+                            "handledness_reason_code": handledness_reason_code,
+                            "handledness_reason": handledness_reason,
+                            "exception_type_source": exception_type_source,
+                            "exception_type_candidates": exception_type_candidates,
+                            "type_refinement_opportunity": type_refinement_opportunity,
+                            "witness_ref": witness_ref,
+                            "remainder": remainder,
+                            "environment_ref": environment_ref,
+                            "exception_name": exception_name,
+                            "protocol": protocol,
+                        }
+                    )
     return sort_once(
         obligations,
         key=lambda entry: (
@@ -5225,104 +5232,102 @@ def _collect_never_invariants(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            if not _is_never_call(node):
-                continue
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-            bundle = _exception_param_names(node, params)
-            span = _node_span(node)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            never_id = f"never:{path_value}:{function}:{lineno}:{col}"
-            reason = _never_reason(node) or ""
-            status = "OBLIGATION"
-            witness_ref = None
-            environment_ref: JSONObject | None = None
-            undecidable_reason = None
-            env_entries = dead_env_map.get((path_value, function), {})
-            if env_entries:
-                env = {name: value for name, (value, _) in env_entries.items()}
-                reachability = _branch_reachability_under_env(node, parents, env)
-                if _is_reachability_false(reachability):
-                    names: set[str] = set()
-                    current = parents.get(node)
-                    while current is not None:
-                        check_deadline()
-                        if isinstance(current, ast.If):
-                            names.update(_names_in_expr(current.test))
-                        current = parents.get(current)
-                    ordered_names = sort_once(
-                        names,
-                        source="_collect_never_invariants.names.proven_unreachable",
-                        policy=OrderPolicy.SORT,
-                    )
-                    for name in sort_once(
-                        ordered_names,
-                        source="_collect_never_invariants.names.proven_unreachable.enforce",
-                        policy=OrderPolicy.ENFORCE,
-                    ):
-                        check_deadline()
-                        if name not in env_entries:
-                            continue
-                        _, witness = env_entries[name]
-                        status = "PROVEN_UNREACHABLE"
-                        witness_ref = witness.get("deadness_id")
-                        environment_ref = witness.get("environment") or {}
-                        break
-                    if status == "PROVEN_UNREACHABLE" and not environment_ref:
+            if type(node) is ast.Call and _is_never_call(cast(ast.Call, node)):
+                call_node = cast(ast.Call, node)
+                fn_node = _enclosing_function_node(call_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
+                else:
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                bundle = _exception_param_names(call_node, params)
+                span = _node_span(call_node)
+                lineno = getattr(call_node, "lineno", 0)
+                col = getattr(call_node, "col_offset", 0)
+                never_id = f"never:{path_value}:{function}:{lineno}:{col}"
+                reason = _never_reason(call_node) or ""
+                status = "OBLIGATION"
+                witness_ref = None
+                environment_ref: JSONValue = None
+                undecidable_reason = None
+                env_entries = dead_env_map.get((path_value, function), {})
+                if env_entries:
+                    env = {name: value for name, (value, _) in env_entries.items()}
+                    reachability = _branch_reachability_under_env(call_node, parents, env)
+                    if _is_reachability_false(reachability):
+                        names: set[str] = set()
+                        current = parents.get(call_node)
+                        while current is not None:
+                            check_deadline()
+                            if type(current) is ast.If:
+                                names.update(_names_in_expr(cast(ast.If, current).test))
+                            current = parents.get(current)
+                        ordered_names = sort_once(
+                            names,
+                            source="_collect_never_invariants.names.proven_unreachable",
+                            policy=OrderPolicy.SORT,
+                        )
+                        for name in sort_once(
+                            ordered_names,
+                            source="_collect_never_invariants.names.proven_unreachable.enforce",
+                            policy=OrderPolicy.ENFORCE,
+                        ):
+                            check_deadline()
+                            if name not in env_entries:
+                                continue
+                            _, witness = env_entries[name]
+                            status = "PROVEN_UNREACHABLE"
+                            witness_ref = witness.get("deadness_id")
+                            environment_ref = witness.get("environment") or {}
+                            break
+                        if status == "PROVEN_UNREACHABLE" and not environment_ref:
+                            environment_ref = env
+                    elif _is_reachability_true(reachability):
+                        status = "VIOLATION"
                         environment_ref = env
-                elif _is_reachability_true(reachability):
-                    status = "VIOLATION"
-                    environment_ref = env
-                elif _is_reachability_unknown(reachability):
-                    names: set[str] = set()
-                    current = parents.get(node)
-                    while current is not None:
-                        check_deadline()
-                        if isinstance(current, ast.If):
-                            names.update(_names_in_expr(current.test))
-                        current = parents.get(current)
-                    undecidable_params = sort_once(
-                        (n for n in names if n not in env_entries),
-                        source="_collect_never_invariants.undecidable_params",
-                        policy=OrderPolicy.SORT,
-                    )
-                    if undecidable_params:
-                        undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
-            entry: JSONObject = {
-                "never_id": never_id,
-                "site": {
-                    "path": path_value,
-                    "function": function,
-                    "bundle": bundle,
-                },
-                "status": status,
-                "reason": reason,
-            }
-            normalized_span = span or (lineno, col, lineno, col)
-            if undecidable_reason:
-                entry["undecidable_reason"] = undecidable_reason
-            if witness_ref is not None:
-                entry["witness_ref"] = witness_ref
-            if environment_ref is not None:
-                entry["environment_ref"] = environment_ref
-            entry["span"] = list(normalized_span)
-            invariants.append(entry)
-            site_id = forest.add_site(path.name, function)
-            paramset_id = forest.add_paramset(bundle)
-            evidence: dict[str, object] = {"path": path.name, "qual": function}
-            if reason:
-                evidence["reason"] = reason
-            evidence["span"] = list(normalized_span)
-            forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
+                    elif _is_reachability_unknown(reachability):
+                        names: set[str] = set()
+                        current = parents.get(call_node)
+                        while current is not None:
+                            check_deadline()
+                            if type(current) is ast.If:
+                                names.update(_names_in_expr(cast(ast.If, current).test))
+                            current = parents.get(current)
+                        undecidable_params = sort_once(
+                            (n for n in names if n not in env_entries),
+                            source="_collect_never_invariants.undecidable_params",
+                            policy=OrderPolicy.SORT,
+                        )
+                        if undecidable_params:
+                            undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
+                entry: JSONObject = {
+                    "never_id": never_id,
+                    "site": {
+                        "path": path_value,
+                        "function": function,
+                        "bundle": bundle,
+                    },
+                    "status": status,
+                    "reason": reason,
+                }
+                normalized_span = span or (lineno, col, lineno, col)
+                if undecidable_reason:
+                    entry["undecidable_reason"] = undecidable_reason
+                if witness_ref is not None:
+                    entry["witness_ref"] = witness_ref
+                if environment_ref is not None:
+                    entry["environment_ref"] = environment_ref
+                entry["span"] = list(normalized_span)
+                invariants.append(entry)
+                site_id = forest.add_site(path.name, function)
+                paramset_id = forest.add_paramset(bundle)
+                evidence: dict[str, object] = {"path": path.name, "qual": function}
+                if reason:
+                    evidence["reason"] = reason
+                evidence["span"] = list(normalized_span)
+                forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
     return sort_once(
         invariants,
         key=lambda entry: (
