@@ -224,6 +224,13 @@ _PARSE_MODULE_ERROR_TYPES = (
     RecursionError,
 )
 
+FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+OptionalIgnoredParams = set[str] | None
+ParamAnnotationMap = dict[str, str | None]
+ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
+OptionalReturnAliasMap = ReturnAliasMap | None
+OptionalClassName = str | None
+
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/ambiguity_delta.py": 2,
@@ -1433,15 +1440,15 @@ def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) 
     return _iter_paths([str(path) for path in paths], config)
 
 
-def _collect_functions(tree: ast.AST) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+def _collect_functions(tree: ast.AST) -> list[FunctionNode]:
     check_deadline()
-    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+    funcs: list[FunctionNode] = []
     for idx, node in enumerate(ast.walk(tree), start=1):
         if (idx & 63) == 0:
             check_deadline()
         node_type = type(node)
         if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
-            funcs.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, node))
+            funcs.append(cast(FunctionNode, node))
     return funcs
 
 
@@ -1867,8 +1874,8 @@ def _resolve_local_method_in_hierarchy(
 
 
 def _param_names(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> list[str]:
     args = (
         fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
@@ -1951,8 +1958,8 @@ def _decision_surface_form_entries(
 
 
 def _decision_surface_reason_map(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> dict[str, set[str]]:
     check_deadline()
     params = set(_param_names(fn, ignore_params))
@@ -1969,8 +1976,8 @@ def _decision_surface_reason_map(
 
 
 def _decision_surface_params(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> set[str]:
     check_deadline()
     reason_map = _decision_surface_reason_map(fn, ignore_params)
@@ -2527,8 +2534,8 @@ def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
 
 
 def _param_spans(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> dict[str, tuple[int, int, int, int]]:
     check_deadline()
     spans: dict[str, tuple[int, int, int, int]] = {}
@@ -2590,7 +2597,7 @@ def _enclosing_scopes(
         if current_type is ast.ClassDef:
             scopes.append(cast(ast.ClassDef, current).name)
         elif current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
+            scopes.append(cast(FunctionNode, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -2619,19 +2626,19 @@ def _enclosing_function_scopes(
         check_deadline()
         current_type = type(current)
         if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
+            scopes.append(cast(FunctionNode, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
 
 def _param_annotations(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> dict[str, str | None]:
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
+) -> ParamAnnotationMap:
     check_deadline()
     args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
     names = [a.arg for a in args]
-    annots: dict[str, str | None] = {}
+    annots: ParamAnnotationMap = {}
     for name, arg in zip(names, args):
         check_deadline()
         if arg.annotation is None:
@@ -2670,8 +2677,8 @@ def _param_annotations(
 
 
 def _param_defaults(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> set[str]:
     check_deadline()
     defaults: set[str] = set()
@@ -7772,16 +7779,20 @@ _ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
 _ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
 _ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
 _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
+OptionalProjectRoot = Path | None
+OptionalDecorators = set[str] | None
+OptionalParseFailures = list[JSONObject] | None
+OptionalAnalysisIndex = AnalysisIndex | None
 
 
 @dataclass(frozen=True)
 class _IndexedPassContext:
     paths: list[Path]
-    project_root: Path | None
+    project_root: OptionalProjectRoot
     ignore_params: set[str]
     strictness: str
     external_filter: bool
-    transparent_decorators: set[str] | None
+    transparent_decorators: OptionalDecorators
     parse_failure_witnesses: list[JSONObject]
     analysis_index: AnalysisIndex
 
@@ -8199,13 +8210,13 @@ def _build_analysis_index(
 def _run_indexed_pass(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
     spec: _IndexedPassSpec[_IndexedPassResult],
     build_index: Callable[..., AnalysisIndex] = _build_analysis_index,
 ) -> _IndexedPassResult:
@@ -10204,14 +10215,14 @@ def _is_test_path(path: Path) -> bool:
 
 
 def _analyze_function(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    fn: FunctionNode,
     parents: dict[ast.AST, ast.AST],
     *,
     is_test: bool,
-    ignore_params: set[str] | None = None,
+    ignore_params: OptionalIgnoredParams = None,
     strictness: str = "high",
-    class_name: str | None = None,
-    return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
+    class_name: OptionalClassName = None,
+    return_aliases: OptionalReturnAliasMap = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
@@ -12155,14 +12166,14 @@ def analyze_type_flow_repo_with_map(
 def analyze_type_flow_repo_with_evidence(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators: OptionalDecorators = None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -12194,13 +12205,13 @@ def analyze_type_flow_repo_with_evidence(
 def analyze_type_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> tuple[list[str], list[str]]:
     inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
         paths,
@@ -12218,13 +12229,13 @@ def analyze_type_flow_repo(
 def analyze_constant_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     return _run_indexed_pass(
@@ -12459,13 +12470,13 @@ def _collect_constant_flow_details(
 def analyze_deadness_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
     return _run_indexed_pass(
@@ -12745,13 +12756,13 @@ def _analyze_unused_arg_flow_indexed(
 def analyze_unused_arg_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
     check_deadline()
