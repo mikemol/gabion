@@ -3,47 +3,53 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Iterator, Mapping, Sequence, TypeVar, cast
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import TypeVar, cast
 
 from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
 
-def mapping_or_none(value: JSONValue | object) -> Mapping[str, JSONValue] | None:
-    if isinstance(value, Mapping):
-        return cast(Mapping[str, JSONValue], value)
-    return None
+_NO_VALUE = None
+
+
+def mapping_or_none(value: object):
+    match value:
+        case Mapping() as value_map:
+            return cast(Mapping[str, JSONValue], value_map)
+        case _:
+            return _NO_VALUE
 
 
 def mapping_payload(
-    payload: JSONValue | object,
-) -> Mapping[str, JSONValue] | None:
+    payload: object,
+):
     return mapping_or_none(payload)
 
 
 def payload_with_phase(
-    payload: Mapping[str, JSONValue] | None,
+    payload: object,
     *,
     phase: str,
-) -> Mapping[str, JSONValue] | None:
+) -> object:
     mapping = mapping_payload(payload)
     if mapping is None:
-        return None
+        return _NO_VALUE
     if mapping.get("phase") != phase:
-        return None
+        return _NO_VALUE
     return mapping
 
 
 def payload_with_format(
-    payload: Mapping[str, JSONValue] | None,
+    payload: object,
     *,
     format_version: int,
-) -> Mapping[str, JSONValue] | None:
+) -> object:
     mapping = mapping_payload(payload)
     if mapping is None:
-        return None
+        return _NO_VALUE
     if mapping.get("format_version") != format_version:
-        return None
+        return _NO_VALUE
     return mapping
 
 
@@ -51,102 +57,110 @@ def mapping_sections(
     payload: Mapping[str, JSONValue],
     *,
     section_keys: Sequence[str],
-) -> tuple[Mapping[str, JSONValue], ...] | None:
+) -> object:
     check_deadline()
     sections: list[Mapping[str, JSONValue]] = []
     for key in section_keys:
         check_deadline()
         section = mapping_or_none(payload.get(key))
         if section is None:
-            return None
+            return _NO_VALUE
         sections.append(section)
     return tuple(sections)
 
 
-def mapping_or_empty(value: JSONValue | object) -> Mapping[str, JSONValue]:
+def mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
     mapping = mapping_or_none(value)
     if mapping is None:
         return {}
     return mapping
 
 
-def sequence_or_none(
-    value: JSONValue | object,
-    *,
-    allow_str: bool = False,
-) -> Sequence[JSONValue] | None:
-    if not isinstance(value, Sequence):
-        return None
-    if not allow_str and isinstance(value, (str, bytes, bytearray)):
-        return None
-    return cast(Sequence[JSONValue], value)
+def sequence_or_none(value: object, *, allow_str: bool = False):
+    match value:
+        case str() | bytes() | bytearray():
+            if allow_str:
+                return cast(Sequence[JSONValue], value)
+            return _NO_VALUE
+        case Sequence() as sequence_value:
+            return cast(Sequence[JSONValue], sequence_value)
+        case _:
+            return _NO_VALUE
 
 
-def str_list_from_sequence(value: JSONValue | object) -> list[str]:
+def str_list_from_sequence(value: object) -> list[str]:
     sequence = sequence_or_none(value)
     if sequence is None:
-        return []
+        return list()
     out: list[str] = []
     for entry in sequence:
         check_deadline()
-        if isinstance(entry, str):
-            out.append(entry)
+        match entry:
+            case str() as entry_text:
+                out.append(entry_text)
+            case _:
+                pass
     return out
 
 
-def str_tuple_from_sequence(value: JSONValue | object) -> tuple[str, ...]:
+def str_tuple_from_sequence(value: object) -> tuple[str, ...]:
     return tuple(str_list_from_sequence(value))
 
 
-def str_set_from_sequence(value: JSONValue | object) -> set[str]:
+def str_set_from_sequence(value: object) -> set[str]:
     return set(str_list_from_sequence(value))
 
 
-def str_map_from_mapping(value: JSONValue | object) -> dict[str, str]:
+def str_map_from_mapping(value: object) -> dict[str, str]:
     mapping = mapping_or_none(value)
     if mapping is None:
         return {}
     out: dict[str, str] = {}
     for key, entry in mapping.items():
         check_deadline()
-        if isinstance(key, str) and isinstance(entry, str):
-            out[key] = entry
+        match (key, entry):
+            case (str() as key_text, str() as entry_text):
+                out[key_text] = entry_text
+            case _:
+                pass
     return out
 
 
-def int_tuple4_or_none(value: JSONValue | object) -> tuple[int, int, int, int] | None:
+def int_tuple4_or_none(value: object):
     sequence = sequence_or_none(value)
     if sequence is None or len(sequence) != 4:
-        return None
+        return _NO_VALUE
     try:
         parsed = tuple(int(part) for part in sequence)
     except (TypeError, ValueError):
-        return None
+        return _NO_VALUE
     return cast(tuple[int, int, int, int], parsed)
 
 
-def int_str_pairs_from_sequence(value: JSONValue | object) -> list[tuple[int, str]]:
+def int_str_pairs_from_sequence(value: object) -> list[tuple[int, str]]:
     sequence = sequence_or_none(value)
     if sequence is None:
-        return []
+        return list()
     out: list[tuple[int, str]] = []
     for entry in sequence:
         check_deadline()
         pair = sequence_or_none(entry)
-        if pair is None or len(pair) != 2:
-            continue
-        idx, name = pair
-        if not isinstance(name, str):
-            continue
-        try:
-            idx_value = int(idx)
-        except (TypeError, ValueError):
-            continue
-        out.append((idx_value, name))
+        if pair is not None and len(pair) == 2:
+            idx, name = pair
+            match name:
+                case str() as name_text:
+                    try:
+                        idx_value = int(idx)
+                    except (TypeError, ValueError):
+                        pass
+                    else:
+                        out.append((idx_value, name_text))
+                case _:
+                    pass
     return out
 
 
-def str_pair_set_from_sequence(value: JSONValue | object) -> set[tuple[str, str]]:
+def str_pair_set_from_sequence(value: object) -> set[tuple[str, str]]:
     sequence = sequence_or_none(value)
     if sequence is None:
         return set()
@@ -154,11 +168,13 @@ def str_pair_set_from_sequence(value: JSONValue | object) -> set[tuple[str, str]
     for entry in sequence:
         check_deadline()
         pair = sequence_or_none(entry)
-        if pair is None or len(pair) != 2:
-            continue
-        left, right = pair
-        if isinstance(left, str) and isinstance(right, str):
-            out.add((left, right))
+        if pair is not None and len(pair) == 2:
+            left, right = pair
+            match (left, right):
+                case (str() as left_text, str() as right_text):
+                    out.add((left_text, right_text))
+                case _:
+                    pass
     return out
 
 
@@ -169,9 +185,11 @@ def iter_valid_key_entries(
 ) -> Iterator[tuple[str, JSONValue]]:
     for key, raw_value in payload.items():
         check_deadline()
-        if not isinstance(key, str) or key not in valid_keys:
-            continue
-        yield key, raw_value
+        match key:
+            case str() as key_text if key_text in valid_keys:
+                yield key_text, raw_value
+            case _:
+                pass
 
 
 _ParsedValue = TypeVar("_ParsedValue")
@@ -186,25 +204,26 @@ def allowed_path_lookup(
 
 
 def load_allowed_paths_from_sequence(
-    value: JSONValue | object,
+    value: object,
     *,
     allowed_paths: Mapping[str, Path],
 ) -> list[Path]:
     sequence = sequence_or_none(value)
     if sequence is None:
-        return []
+        return list()
     out: list[Path] = []
     seen: set[str] = set()
     for raw_path in sequence:
         check_deadline()
-        if not isinstance(raw_path, str):
-            continue
-        if raw_path in seen:
-            continue
-        path = allowed_paths.get(raw_path)
-        if path is not None:
-            seen.add(raw_path)
-            out.append(path)
+        match raw_path:
+            case str() as raw_path_text:
+                if raw_path_text not in seen:
+                    path = allowed_paths.get(raw_path_text)
+                    if path is not None:
+                        seen.add(raw_path_text)
+                        out.append(path)
+            case _:
+                pass
     return out
 
 
@@ -212,7 +231,7 @@ def load_resume_map(
     *,
     payload: Mapping[str, JSONValue],
     valid_keys: set[str],
-    parser: Callable[[JSONValue], _ParsedValue | None],
+    parser: Callable[[JSONValue], object],
 ) -> dict[str, _ParsedValue]:
     check_deadline()
     out: dict[str, _ParsedValue] = {}
@@ -222,7 +241,6 @@ def load_resume_map(
     ):
         check_deadline()
         parsed = parser(raw_value)
-        if parsed is None:
-            continue
-        out[key] = parsed
+        if parsed is not None:
+            out[key] = cast(_ParsedValue, parsed)
     return out
