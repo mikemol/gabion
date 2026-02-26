@@ -46,10 +46,10 @@ class PackedCallStack:
 @dataclass(frozen=True)
 class TimeoutContext:
     call_stack: PackedCallStack
-    forest_spec_id: str | None = None
-    forest_signature: dict[str, JSONValue] | None = None
-    deadline_profile: dict[str, JSONValue] | None = None
-    progress: dict[str, JSONValue] | None = None
+    forest_spec_id: object = None
+    forest_signature: object = None
+    deadline_profile: object = None
+    progress: object = None
 
     def as_payload(self) -> dict[str, JSONValue]:
         payload: dict[str, JSONValue] = {"call_stack": self.call_stack.as_payload()}
@@ -144,12 +144,12 @@ class Deadline:
             raise TimeoutExceeded(builder())
 
 
-_deadline_var: ContextVar[Deadline | None] = ContextVar("gabion_deadline", default=None)
-_deadline_clock_var: ContextVar[DeadlineClock | None] = ContextVar(
+_deadline_var: ContextVar[object] = ContextVar("gabion_deadline", default=None)
+_deadline_clock_var: ContextVar[object] = ContextVar(
     "gabion_deadline_clock", default=None
 )
 _MISSING_FOREST = object()
-_forest_var: ContextVar[Forest | object] = ContextVar(
+_forest_var: ContextVar[object] = ContextVar(
     "gabion_forest", default=_MISSING_FOREST
 )
 
@@ -183,21 +183,21 @@ class _DeadlineProfileState:
     last_ns: int
     started_wall_ns: int
     last_wall_ns: int
-    project_root: Path | None = None
-    project_root_key: str | None = None
+    project_root: object = None
+    project_root_key: object = None
     sample_interval: int = 1
     checks_total: int = 0
     sampled_checks_total: int = 0
     sample_pending_checks: int = 0
     sample_pending_elapsed_ns: int = 0
     unattributed_elapsed_ns: int = 0
-    last_site_id: int | None = None
-    root_resolution_cache: dict[str, tuple[Path | None, str | None]] = field(
+    last_site_id: object = None
+    root_resolution_cache: dict[str, tuple[object, object]] = field(
         default_factory=dict
     )
     site_keys: list[tuple[str, str]] = field(default_factory=list)
     site_ids: dict[tuple[str, str], int] = field(default_factory=dict)
-    frame_site_cache: dict[tuple[object, str | None], int] = field(default_factory=dict)
+    frame_site_cache: dict[tuple[object, object], int] = field(default_factory=dict)
     site_stats: dict[int, _DeadlineSiteStats] = field(default_factory=dict)
     edge_stats: dict[
         tuple[int, int],
@@ -206,7 +206,7 @@ class _DeadlineProfileState:
     io_stats: dict[str, _DeadlineIoStats] = field(default_factory=dict)
 
 
-_deadline_profile_var: ContextVar[_DeadlineProfileState | None] = ContextVar(
+_deadline_profile_var: ContextVar[object] = ContextVar(
     "gabion_deadline_profile", default=None
 )
 
@@ -217,10 +217,10 @@ def _current_deadline_mark() -> int:
 
 def set_deadline_profile(
     *,
-    project_root: Path | None = None,
+    project_root = None,
     enabled: bool = True,
     sample_interval: int = 1,
-) -> Token[_DeadlineProfileState | None]:
+):
     normalized_sample_interval = max(1, int(sample_interval))
     resolved_root = project_root.resolve() if project_root is not None else None
     root_key = str(resolved_root) if resolved_root is not None else None
@@ -242,17 +242,17 @@ def set_deadline_profile(
     return _deadline_profile_var.set(state)
 
 
-def reset_deadline_profile(token: Token[_DeadlineProfileState | None]) -> None:
+def reset_deadline_profile(token) -> None:
     _deadline_profile_var.reset(token)
 
 
-def set_deadline(deadline: Deadline) -> Token[Deadline | None]:
+def set_deadline(deadline: Deadline):
     if deadline is None:
         never("deadline carrier missing")
     return _deadline_var.set(deadline)
 
 
-def reset_deadline(token: Token[Deadline | None]) -> None:
+def reset_deadline(token) -> None:
     _deadline_var.reset(token)
 
 
@@ -263,13 +263,13 @@ def get_deadline() -> Deadline:
     return deadline
 
 
-def set_deadline_clock(clock: DeadlineClock) -> Token[DeadlineClock | None]:
+def set_deadline_clock(clock: DeadlineClock):
     if clock is None:
         never("deadline clock missing")
     return _deadline_clock_var.set(clock)
 
 
-def reset_deadline_clock(token: Token[DeadlineClock | None]) -> None:
+def reset_deadline_clock(token) -> None:
     _deadline_clock_var.reset(token)
 
 
@@ -280,11 +280,11 @@ def get_deadline_clock() -> DeadlineClock:
     return clock
 
 
-def set_forest(forest: Forest) -> Token[Forest | object]:
+def set_forest(forest: Forest):
     return _forest_var.set(forest)
 
 
-def reset_forest(token: Token[Forest | object]) -> None:
+def reset_forest(token) -> None:
     _forest_var.reset(token)
 
 
@@ -329,7 +329,7 @@ def forest_scope(forest: Forest):
 @contextmanager
 def deadline_profile_scope(
     *,
-    project_root: Path | None = None,
+    project_root = None,
     enabled: bool = True,
     sample_interval: int = 1,
 ):
@@ -347,7 +347,7 @@ def deadline_profile_scope(
 def _profile_site_key(
     frame: FrameType,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> tuple[str, str]:
     if project_root is None:
         return _frame_site_key(frame, project_root=None)
@@ -359,9 +359,9 @@ def _profile_site_key(
 
 
 def _record_deadline_check(
-    project_root: Path | None,
+    project_root,
     *,
-    frame_getter: Callable[[], FrameType | None] = inspect.currentframe,
+    frame_getter = inspect.currentframe,
     profile_site_key_fn: Callable[..., tuple[str, str]] = _profile_site_key,
 ) -> None:
     state = _deadline_profile_var.get()
@@ -425,7 +425,7 @@ def _record_deadline_check(
     state.last_site_id = site_id
 
 
-def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
+def _deadline_profile_snapshot():
     state = _deadline_profile_var.get()
     if state is None:
         return None
@@ -433,8 +433,8 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         return None
     wall_total_elapsed_ns = max(0, state.last_wall_ns - state.started_wall_ns)
     clock = _deadline_clock_var.get()
-    ticks_consumed: int | None = None
-    ticks_per_ns: float | None = None
+    ticks_consumed = None
+    ticks_per_ns = None
     if isinstance(clock, GasMeter):
         ticks_consumed = int(clock.get_mark())
         if wall_total_elapsed_ns > 0:
@@ -522,7 +522,7 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
 def _timeout_progress_snapshot(
     *,
     forest: Forest,
-    deadline_profile: Mapping[str, JSONValue] | None,
+    deadline_profile,
 ) -> dict[str, JSONValue]:
     checks_total = 0
     site_count = 0
@@ -533,7 +533,7 @@ def _timeout_progress_snapshot(
             site_count = len(sites)
     forest_nodes = len(forest.nodes)
     forest_alts = len(forest.alts)
-    ticks_per_ns: float | None = None
+    ticks_per_ns = None
     if isinstance(deadline_profile, Mapping):
         profile_ticks_per_ns = deadline_profile.get("ticks_per_ns")
         if isinstance(profile_ticks_per_ns, (int, float)):
@@ -550,8 +550,8 @@ def _timeout_progress_snapshot(
     )
     clock = get_deadline_clock()
     tick_mark = int(clock.get_mark())
-    tick_limit: int | None = None
-    ticks_remaining: int | None = None
+    tick_limit = None
+    ticks_remaining = None
     if isinstance(clock, GasMeter):
         tick_limit = int(clock.limit)
         ticks_remaining = max(0, tick_limit - tick_mark)
@@ -661,7 +661,7 @@ def record_deadline_io(
     *,
     name: str,
     elapsed_ns: int,
-    bytes_count: int | None = None,
+    bytes_count = None,
 ) -> None:
     state = _deadline_profile_var.get()
     if state is None or not state.enabled:
@@ -677,11 +677,11 @@ def record_deadline_io(
 
 
 def check_deadline(
-    deadline: Deadline | None = None,
+    deadline = None,
     *,
-    project_root: Path | None = None,
-    forest_spec_id: str | None = None,
-    forest_signature: dict[str, JSONValue] | None = None,
+    project_root = None,
+    forest_spec_id = None,
+    forest_signature = None,
     allow_frame_fallback: bool = True,
 ) -> None:
     if deadline is None:
@@ -708,9 +708,9 @@ def deadline_loop_iter(values: Iterable[_LoopItem]) -> Iterator[_LoopItem]:
 def consume_deadline_ticks(
     ticks: int = 1,
     *,
-    project_root: Path | None = None,
-    forest_spec_id: str | None = None,
-    forest_signature: dict[str, JSONValue] | None = None,
+    project_root = None,
+    forest_spec_id = None,
+    forest_signature = None,
     allow_frame_fallback: bool = True,
 ) -> None:
     clock = _deadline_clock_var.get()
@@ -740,7 +740,7 @@ def _normalize_qualname(qualname: str) -> str:
 def _frame_site_key(
     frame: FrameType,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> tuple[str, str]:
     module = frame.f_globals.get("__name__") or ""
     qualname = _normalize_qualname(frame.f_code.co_qualname or frame.f_code.co_name)
@@ -766,7 +766,7 @@ def _site_key_payload(
     *,
     path: str,
     qual: str,
-    span: list[int] | None = None,
+    span = None,
 ) -> dict[str, JSONValue]:
     return _function_site(path=path, qual=qual, span=span).as_payload()
 
@@ -775,7 +775,7 @@ def _site_key(
     *,
     path: str,
     qual: str,
-    span: list[int] | None = None,
+    span = None,
 ) -> tuple[object, ...]:
     key: list[object] = [_FileSite(path), qual]
     if span and len(span) == 4:
@@ -787,7 +787,7 @@ def _function_site(
     *,
     path: str,
     qual: str,
-    span: list[int] | None = None,
+    span = None,
 ) -> _CallSite:
     return _CallSite(kind="FunctionSite", key=_site_key(path=path, qual=qual, span=span))
 
@@ -848,7 +848,7 @@ def build_site_index(
 
 
 def pack_call_stack(
-    sites: Iterable[_CallSite | Mapping[str, object]],
+    sites,
 ) -> PackedCallStack:
     normalized: list[_CallSite] = []
     for site in sites:
@@ -925,12 +925,12 @@ def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
 def build_timeout_context_from_stack(
     *,
     forest: Forest,
-    project_root: Path | None,
-    forest_spec_id: str | None = None,
-    forest_signature: dict[str, JSONValue] | None = None,
-    deadline_profile: dict[str, JSONValue] | None = None,
+    project_root,
+    forest_spec_id = None,
+    forest_signature = None,
+    deadline_profile = None,
     allow_frame_fallback: bool = False,
-    frames: Iterable[FrameType] | None = None,
+    frames = None,
 ) -> TimeoutContext:
     site_index = build_site_index(forest)
     frame_list = list(frames) if frames is not None else [frame.frame for frame in inspect.stack()]
