@@ -45,7 +45,6 @@ class StageResult:
     stage_id: str
     exit_code: int
     analysis_state: str
-    is_timeout_resume: bool
     metrics_line: str
     obligation_rows: tuple[dict[str, object], ...]
     incompleteness_markers: tuple[str, ...]
@@ -54,7 +53,7 @@ class StageResult:
     def terminal_status(self) -> str:
         if self.exit_code == 0:
             return "success"
-        if self.is_timeout_resume:
+        if self.analysis_state == "timed_out_progress_resume":
             return "timeout_resume"
         return "hard_failure"
 
@@ -62,12 +61,9 @@ class StageResult:
 @dataclass(frozen=True)
 class StagePaths:
     report_path: Path
-    timeout_progress_json_path: Path
-    timeout_progress_md_path: Path
     deadline_profile_json_path: Path
     deadline_profile_md_path: Path
     obligation_trace_json_path: Path
-    resume_checkpoint_path: Path
     baseline_path: Path
 
 
@@ -96,19 +92,6 @@ class AspfHandoffConfig:
 
 def _load_json_object(path: Path) -> dict[str, object]:
     return json_io.load_json_object_path(path)
-
-
-def _analysis_state(timeout_progress_path: Path) -> str:
-    payload = _load_json_object(timeout_progress_path)
-    state = payload.get("analysis_state")
-    if isinstance(state, str) and state:
-        return state
-    progress = payload.get("progress")
-    if isinstance(progress, dict):
-        classification = progress.get("classification")
-        if isinstance(classification, str) and classification:
-            return classification
-    return "none"
 
 
 def _analysis_state_from_aspf_state(path: Path) -> str:
@@ -166,30 +149,6 @@ def _copy_if_exists(source: Path, destination: Path) -> None:
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(source.read_bytes())
-
-
-def _resume_checkpoint_metrics_line(resume_checkpoint_path: Path) -> str:
-    payload = _load_json_object(resume_checkpoint_path)
-    if not payload:
-        return "resume_checkpoint=missing"
-    completed_paths = payload.get("completed_paths")
-    completed_paths_count = len(completed_paths) if isinstance(completed_paths, list) else "n/a"
-    analysis_index_resume = payload.get("analysis_index_resume")
-    if not isinstance(analysis_index_resume, dict):
-        return f"resume_checkpoint=present completed_paths={completed_paths_count} hydrated_paths=n/a"
-    hydrated_paths_count = analysis_index_resume.get("hydrated_paths_count", "n/a")
-    profiling_v1 = analysis_index_resume.get("profiling_v1")
-    parsed_paths = "n/a"
-    if isinstance(profiling_v1, dict):
-        counters = profiling_v1.get("counters")
-        if isinstance(counters, dict):
-            parsed_paths = counters.get("analysis_index.paths_parsed", "n/a")
-    return (
-        "resume_checkpoint=present "
-        f"completed_paths={completed_paths_count} "
-        f"hydrated_paths={hydrated_paths_count} "
-        f"paths_parsed_after_resume={parsed_paths}"
-    )
 
 
 def _obligation_required_action(kind: str) -> str:
@@ -292,7 +251,10 @@ def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, objec
     }
     if results and results[-1].terminal_status != "success":
         markers.add("terminal_non_success")
-    if any(result.is_timeout_resume for result in results):
+    if any(
+        result.analysis_state == "timed_out_progress_resume"
+        for result in results
+    ):
         markers.add("timeout_or_partial_run")
 
     summary = {
@@ -413,7 +375,7 @@ def _phase_timeline_stale_for_s_from_row(row: str) -> str:
         return ""
     cells = [cell.strip() for cell in stripped.strip("|").split("|")]
     # Column order is defined by gabion server telemetry timeline helpers.
-    stale_index = 10
+    stale_index = 9
     if len(cells) <= stale_index:
         return ""
     value = cells[stale_index]
@@ -425,29 +387,6 @@ def _command_preview(command: Sequence[str], *, max_chars: int = 240) -> str:
     if len(text) <= max_chars:
         return text
     return f"{text[: max_chars - 3]}..."
-
-
-def _timeout_progress_metrics_line(path: Path) -> str:
-    payload = _load_json_object(path)
-    if not payload:
-        return "timeout_progress=missing"
-    analysis_state = _analysis_state(path)
-    progress = payload.get("progress")
-    if not isinstance(progress, dict):
-        return f"timeout_progress_state={analysis_state} classification=n/a phase=n/a"
-    classification = str(progress.get("classification", "") or "n/a")
-    phase = str(progress.get("phase", "") or "n/a")
-    work_done = progress.get("work_done")
-    work_total = progress.get("work_total")
-    completed_files = progress.get("completed_files")
-    remaining_files = progress.get("remaining_files")
-    total_files = progress.get("total_files")
-    return (
-        f"timeout_progress_state={analysis_state} "
-        f"classification={classification} phase={phase} "
-        f"work={work_done}/{work_total} files={completed_files}/{total_files} "
-        f"remaining={remaining_files}"
-    )
 
 
 def _unlink_if_exists(path: Path) -> None:
@@ -597,12 +536,10 @@ def _env_int(name: str, default: int) -> int:
 def _check_command(
     *,
     paths: StagePaths,
-    resume_on_timeout: int,
     strictness: str | None = None,
 ) -> list[str]:
     return _check_commands(
         paths=paths,
-        resume_on_timeout=resume_on_timeout,
         strictness=strictness,
     )[0]
 
@@ -610,7 +547,6 @@ def _check_command(
 def _check_commands(
     *,
     paths: StagePaths,
-    resume_on_timeout: int,
     strictness: str | None = None,
 ) -> list[list[str]]:
     command_prefix = [sys.executable, "-m", "gabion"]
@@ -657,7 +593,6 @@ def _check_commands(
                 transport_override.override_record_path,
             ]
         )
-    _ = resume_on_timeout
     common_suffix = [
         "--report",
         str(paths.report_path),
@@ -671,7 +606,6 @@ def run_stage(
     *,
     stage_id: str,
     paths: StagePaths,
-    resume_on_timeout: int,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
     strictness: str | None = None,
@@ -695,7 +629,6 @@ def run_stage(
             if command is not None
             else _check_commands(
                 paths=paths,
-                resume_on_timeout=resume_on_timeout,
                 strictness=strictness,
             )
         )
@@ -745,7 +678,6 @@ def run_stage(
         if last_state_path is not None
         else "none"
     )
-    is_timeout_resume = analysis_state == "timed_out_progress_resume"
     metrics_line = _metrics_line(paths.deadline_profile_json_path)
 
     _copy_if_exists(paths.report_path, _stage_snapshot_path(paths.report_path, stage_id))
@@ -794,7 +726,6 @@ def run_stage(
         stage_id=stage_id,
         exit_code=exit_code,
         analysis_state=analysis_state,
-        is_timeout_resume=is_timeout_resume,
         metrics_line=metrics_line,
         obligation_rows=obligation_rows,
         incompleteness_markers=incompleteness_markers,
@@ -873,7 +804,6 @@ def _emit_stage_outputs(
             [
                 f"{prefix}_exit={result.exit_code}",
                 f"{prefix}_analysis_state={result.analysis_state}",
-                f"{prefix}_is_timeout_resume={'true' if result.is_timeout_resume else 'false'}",
                 f"{prefix}_metrics={result.metrics_line}",
             ]
         )
@@ -884,7 +814,6 @@ def _emit_stage_outputs(
             f"terminal_status={terminal.terminal_status}",
             f"exit_code={terminal.exit_code}",
             f"analysis_state={terminal.analysis_state}",
-            f"is_timeout_resume={'true' if terminal.is_timeout_resume else 'false'}",
             f"stage_metrics={terminal.metrics_line}",
         ]
     )
@@ -917,7 +846,6 @@ def run_staged(
     *,
     stage_ids: Sequence[str],
     paths: StagePaths,
-    resume_on_timeout: int,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
     run_gate_fn: Callable[[str], int] | None = None,
@@ -955,7 +883,6 @@ def run_staged(
         stage_strictness = _stage_strictness(stage_id, strictness_profile)
         stage_commands = _check_commands(
             paths=paths,
-            resume_on_timeout=resume_on_timeout,
             strictness=stage_strictness,
         )
         if callable(on_stage_start):
@@ -963,7 +890,6 @@ def run_staged(
         result = run_stage(
             stage_id=stage_id,
             paths=paths,
-            resume_on_timeout=resume_on_timeout,
             step_summary_path=step_summary_path,
             run_command_fn=run_command_fn,
             strictness=stage_strictness,
@@ -981,7 +907,6 @@ def run_staged(
                     stage_id=result.stage_id,
                     exit_code=gate_exit,
                     analysis_state="delta_gate_failure",
-                    is_timeout_resume=False,
                     metrics_line=result.metrics_line,
                     obligation_rows=result.obligation_rows,
                     incompleteness_markers=result.incompleteness_markers,
@@ -997,7 +922,7 @@ def run_staged(
                     ],
                 )
             break
-        if not result.is_timeout_resume:
+        if result.analysis_state != "timed_out_progress_resume":
             break
     return results
 
@@ -1192,12 +1117,9 @@ def main(
         return 2
     paths = StagePaths(
         report_path=args.report,
-        timeout_progress_json_path=Path("artifacts/audit_reports/timeout_progress.json"),
-        timeout_progress_md_path=Path("artifacts/audit_reports/timeout_progress.md"),
         deadline_profile_json_path=args.deadline_profile_json,
         deadline_profile_md_path=args.deadline_profile_md,
         obligation_trace_json_path=args.obligation_trace_json,
-        resume_checkpoint_path=Path("artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"),
         baseline_path=args.baseline,
     )
     handoff_enabled = not bool(args.no_aspf_handoff)
@@ -1276,7 +1198,6 @@ def main(
             results = run_staged_fn(
                 stage_ids=stage_ids,
                 paths=paths,
-                resume_on_timeout=0,
                 step_summary_path=step_summary_path,
                 run_command_fn=_run_subprocess_with_debug,
                 strictness_by_stage=strictness_by_stage,

@@ -40,12 +40,9 @@ def _base_paths(tmp_path: Path) -> dict[str, Path]:
 def _stage_paths(paths: dict[str, Path]) -> run_dataflow_stage.StagePaths:
     return run_dataflow_stage.StagePaths(
         report_path=paths["report"],
-        timeout_progress_json_path=paths["timeout_json"],
-        timeout_progress_md_path=paths["timeout_md"],
         deadline_profile_json_path=paths["deadline_json"],
         deadline_profile_md_path=paths["deadline_md"],
         obligation_trace_json_path=_obligation_trace_path(paths),
-        resume_checkpoint_path=paths["resume"],
         baseline_path=paths["baseline"],
     )
 
@@ -113,7 +110,6 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
     paths = _stage_paths(_base_paths(tmp_path))
     command = run_dataflow_stage._check_command(
         paths=paths,
-        resume_on_timeout=1,
         strictness="low",
     )
     assert command[:5] == [sys.executable, "-m", "gabion", "check", "delta-bundle"]
@@ -135,7 +131,6 @@ def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> Non
         ):
             command = run_dataflow_stage._check_command(
                 paths=paths,
-                resume_on_timeout=1,
                 strictness=None,
             )
     assert "--timeout" in command
@@ -159,7 +154,6 @@ def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: 
     ):
         command = run_dataflow_stage._check_command(
             paths=paths,
-            resume_on_timeout=1,
             strictness=None,
         )
     assert "--timeout" in command
@@ -192,14 +186,12 @@ def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None
     result = run_dataflow_stage.run_stage(
         stage_id="a",
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         aspf_handoff_config=handoff_config,
     )
 
     assert result.analysis_state == "timed_out_progress_resume"
-    assert result.is_timeout_resume is True
     assert result.terminal_status == "timeout_resume"
     assert "stage A" in paths["summary"].read_text()
     assert paths["report"].with_name("dataflow_report_stage_a.md").exists()
@@ -224,7 +216,6 @@ def test_run_stage_emits_aspf_state_and_cumulative_imports(tmp_path: Path) -> No
     run_dataflow_stage.run_stage(
         stage_id="run",
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         aspf_handoff_config=handoff_config,
@@ -232,7 +223,6 @@ def test_run_stage_emits_aspf_state_and_cumulative_imports(tmp_path: Path) -> No
     run_dataflow_stage.run_stage(
         stage_id="retry1",
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         aspf_handoff_config=handoff_config,
@@ -296,7 +286,6 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     results = run_dataflow_stage.run_staged(
         stage_ids=["a", "b", "c"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         run_gate_fn=lambda _cmd: 0,
@@ -345,7 +334,6 @@ def test_run_staged_skips_retry_when_wall_budget_reserved(tmp_path: Path) -> Non
     results = run_dataflow_stage.run_staged(
         stage_ids=["a", "b"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         run_gate_fn=lambda _cmd: 0,
@@ -377,7 +365,6 @@ def test_run_staged_passes_stage_specific_strictness(tmp_path: Path) -> None:
     run_dataflow_stage.run_staged(
         stage_ids=["a"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         strictness_by_stage={"a": "low"},
@@ -400,7 +387,6 @@ def test_run_staged_stops_on_hard_failure(tmp_path: Path) -> None:
     results = run_dataflow_stage.run_staged(
         stage_ids=["a", "b"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=lambda _cmd: 1,
     )
@@ -418,7 +404,6 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
             stage_id="a",
             exit_code=2,
             analysis_state="timed_out_progress_resume",
-            is_timeout_resume=True,
             metrics_line="ticks=1 checks=1 ticks_per_ns=0.1 wall_s=1.000",
             obligation_rows=(),
             incompleteness_markers=(),
@@ -427,7 +412,6 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
             stage_id="b",
             exit_code=0,
             analysis_state="done",
-            is_timeout_resume=False,
             metrics_line="ticks=2 checks=2 ticks_per_ns=0.2 wall_s=2.000",
             obligation_rows=(),
             incompleteness_markers=(),
@@ -472,7 +456,6 @@ def test_run_staged_marks_success_as_failure_when_delta_gate_fails(tmp_path: Pat
     results = run_dataflow_stage.run_staged(
         stage_ids=["a", "b"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
         run_gate_fn=_run_gate,
@@ -529,7 +512,6 @@ def test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip()
                 stage_id="a",
                 exit_code=2,
                 analysis_state="timed_out_progress_resume",
-                is_timeout_resume=True,
                 metrics_line="ticks=n/a checks=n/a ticks_per_ns=n/a wall_s=n/a",
                 obligation_rows=rows,
                 incompleteness_markers=(),
@@ -580,7 +562,6 @@ def test_debug_dump_state_transitions_track_active_stage() -> None:
         stage_id="a",
         exit_code=2,
         analysis_state="timed_out_progress_resume",
-        is_timeout_resume=True,
         metrics_line="ticks=1 checks=1 ticks_per_ns=0.1 wall_s=1.000",
         obligation_rows=(),
         incompleteness_markers=(),
@@ -638,16 +619,16 @@ def test_emit_debug_dump_writes_state_lines(tmp_path: Path, capsys) -> None:
     _write_text(
         timeline_path,
         "\n".join(
-            (
-                "# Dataflow Phase Timeline",
-                "",
-                "| ts_utc | event_seq | event_kind | phase | analysis_state | classification | progress_marker | primary | files | resume_checkpoint | stale_for_s | dimensions |",
-                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-                "| 2026-02-20T00:00:00Z | 1 | heartbeat | post | analysis_post_in_progress |  | deadline_obligations:start | 0/1 post_tasks | 283/283 rem=0 |  | 12.0 | post_tasks=0/1 |",
+                (
+                    "# Dataflow Phase Timeline",
+                    "",
+                    "| ts_utc | event_seq | event_kind | phase | analysis_state | classification | progress_marker | primary | files | stale_for_s | dimensions |",
+                    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                    "| 2026-02-20T00:00:00Z | 1 | heartbeat | post | analysis_post_in_progress |  | deadline_obligations:start | 0/1 post_tasks | 283/283 rem=0 | 12.0 | post_tasks=0/1 |",
+                )
             )
+            + "\n",
         )
-        + "\n",
-    )
     _write_text(
         timeline_jsonl_path,
         '{"event_seq":1,"event_kind":"heartbeat","phase":"post"}\n',
@@ -838,7 +819,6 @@ def test_main_supports_injected_orchestration(tmp_path: Path) -> None:
                 stage_id="run",
                 exit_code=0,
                 analysis_state="done",
-                is_timeout_resume=False,
                 metrics_line="ticks=1 checks=1 ticks_per_ns=1 wall_s=1.0",
                 obligation_rows=(),
                 incompleteness_markers=(),
@@ -929,19 +909,16 @@ def test_run_dataflow_stage_helper_branch_coverage(tmp_path: Path) -> None:
     invalid_utf_path.write_bytes(b"\xff")
     assert run_dataflow_stage._load_json_object(invalid_utf_path) == {}
 
-    # _analysis_state fallback to none
-    timeout_json = tmp_path / "timeout.json"
-    timeout_json.write_text(json.dumps({"progress": {"classification": 1}}), encoding="utf-8")
-    assert run_dataflow_stage._analysis_state(timeout_json) == "none"
+    # _analysis_state_from_aspf_state fallback to none
+    aspf_state_json = tmp_path / "aspf_state.json"
+    aspf_state_json.write_text(json.dumps({"resume_projection": {"analysis_state": 1}}), encoding="utf-8")
+    assert run_dataflow_stage._analysis_state_from_aspf_state(aspf_state_json) == "none"
 
-    # _metrics_line + resume helpers
+    # _metrics_line helper
     assert (
         run_dataflow_stage._metrics_line(tmp_path / "missing_deadline.json")
         == "ticks=n/a checks=n/a ticks_per_ns=n/a wall_s=n/a"
     )
-    resume_path = tmp_path / "resume.json"
-    resume_path.write_text(json.dumps({"completed_paths": ["x"], "analysis_index_resume": []}), encoding="utf-8")
-    assert "hydrated_paths=n/a" in run_dataflow_stage._resume_checkpoint_metrics_line(resume_path)
 
     assert run_dataflow_stage._normalize_obligation_status("OBLIGATION", "other") == "unsatisfied"
 
@@ -969,7 +946,6 @@ def test_run_dataflow_stage_helper_branch_coverage(tmp_path: Path) -> None:
                 stage_id="run",
                 exit_code=0,
                 analysis_state="done",
-                is_timeout_resume=False,
                 metrics_line="m",
                 obligation_rows=rows,
                 incompleteness_markers=(),
@@ -999,13 +975,6 @@ def test_run_dataflow_stage_helper_branch_coverage(tmp_path: Path) -> None:
     assert run_dataflow_stage._phase_timeline_stale_for_s_from_row("bad") == ""
     assert run_dataflow_stage._phase_timeline_stale_for_s_from_row("| only | two |") == ""
     assert run_dataflow_stage._command_preview(("x" * 400,), max_chars=10).endswith("...")
-
-    assert (
-        run_dataflow_stage._timeout_progress_metrics_line(tmp_path / "missing_timeout.json")
-        == "timeout_progress=missing"
-    )
-    timeout_json.write_text(json.dumps({"analysis_state": "x", "progress": []}), encoding="utf-8")
-    assert "classification=n/a phase=n/a" in run_dataflow_stage._timeout_progress_metrics_line(timeout_json)
 
     # _unlink_if_exists OSError branch via directory unlink.
     run_dataflow_stage._unlink_if_exists(tmp_path / "not_here")
@@ -1054,7 +1023,6 @@ def test_run_staged_invokes_callbacks(tmp_path: Path) -> None:
     results = run_dataflow_stage.run_staged(
         stage_ids=["run"],
         paths=_stage_paths(paths),
-        resume_on_timeout=0,
         step_summary_path=paths["summary"],
         run_command_fn=lambda _cmd: 0,
         run_gate_fn=lambda _step_id: 0,
@@ -1088,7 +1056,6 @@ def test_main_uses_env_defaults_and_exercises_debug_callbacks(tmp_path: Path) ->
             stage_id="run",
             exit_code=0,
             analysis_state="done",
-            is_timeout_resume=False,
             metrics_line="ticks=1 checks=1 ticks_per_ns=1 wall_s=1.0",
             obligation_rows=(),
             incompleteness_markers=(),
@@ -1157,13 +1124,13 @@ def test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_en
     assert signal_module.getsignal(signal_module.SIGUSR1) is not None
 
     assert run_dataflow_stage._parse_stage_strictness_profile("low,bad") == {"run": "low"}
-    timeout_json = tmp_path / "timeout_state.json"
-    timeout_json.write_text(
-        json.dumps({"progress": {"classification": "timed_out_progress_resume"}}),
+    aspf_state_json = tmp_path / "aspf_state.json"
+    aspf_state_json.write_text(
+        json.dumps({"resume_projection": {"analysis_state": "timed_out_progress_resume"}}),
         encoding="utf-8",
     )
     assert (
-        run_dataflow_stage._analysis_state(timeout_json)
+        run_dataflow_stage._analysis_state_from_aspf_state(aspf_state_json)
         == "timed_out_progress_resume"
     )
 
@@ -1219,7 +1186,6 @@ def test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_en
                 stage_id="run",
                 exit_code=0,
                 analysis_state="done",
-                is_timeout_resume=False,
                 metrics_line="m",
                 obligation_rows=(),
                 incompleteness_markers=(),
@@ -1279,59 +1245,19 @@ def test_run_dataflow_stage_additional_branch_edges_for_signal_subprocess_and_en
     assert "analysis_state=done" in output_env_file.read_text(encoding="utf-8")
 
 
-# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_env_fallbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._analysis_state::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._resume_checkpoint_metrics_line::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_env_fallbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._analysis_state_from_aspf_state::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
 def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_env_fallbacks(
     tmp_path: Path,
     capsys,
 ) -> None:
-    timeout_json = tmp_path / "timeout_non_mapping_progress.json"
-    timeout_json.write_text(json.dumps({"progress": []}), encoding="utf-8")
-    assert run_dataflow_stage._analysis_state(timeout_json) == "none"
-
-    resume_path = tmp_path / "resume_metrics.json"
-    resume_path.write_text(
-        json.dumps(
-            {
-                "completed_paths": ["a.py"],
-                "analysis_index_resume": {
-                    "hydrated_paths_count": 1,
-                    "profiling_v1": [],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert (
-        "paths_parsed_after_resume=n/a"
-        in run_dataflow_stage._resume_checkpoint_metrics_line(resume_path)
-    )
-    resume_path.write_text(
-        json.dumps(
-            {
-                "completed_paths": ["a.py"],
-                "analysis_index_resume": {
-                    "hydrated_paths_count": 1,
-                    "profiling_v1": {"counters": []},
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert (
-        "paths_parsed_after_resume=n/a"
-        in run_dataflow_stage._resume_checkpoint_metrics_line(resume_path)
-    )
+    aspf_state_json = tmp_path / "aspf_state_non_mapping_progress.json"
+    aspf_state_json.write_text(json.dumps({"resume_projection": []}), encoding="utf-8")
+    assert run_dataflow_stage._analysis_state_from_aspf_state(aspf_state_json) == "none"
 
     paths = _base_paths(tmp_path)
     _write_text(paths["report"], "# report\n")
-    _write_text(paths["timeout_md"], "timeout md\n")
     _write_text(paths["deadline_md"], "deadline md\n")
-    _write_json(paths["timeout_json"], {"analysis_state": "done"})
     _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
-    _write_json(
-        paths["resume"],
-        {"completed_paths": [], "analysis_index_resume": {"hydrated_paths_count": 0}},
-    )
     timeline_md = run_dataflow_stage._phase_timeline_markdown_path(paths["report"])
     _write_text(
         timeline_md,
@@ -1361,7 +1287,6 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
         run_dataflow_stage.run_staged(
             stage_ids=[],
             paths=_stage_paths(paths),
-            resume_on_timeout=1,
             step_summary_path=paths["summary"],
             run_command_fn=lambda _command: 0,
         )
@@ -1395,7 +1320,6 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
     results = run_dataflow_stage.run_staged(
         stage_ids=["run", "run"],
         paths=_stage_paths(paths),
-        resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run_timeout_then_fail,
         run_gate_fn=lambda _step: 0,
@@ -1418,7 +1342,6 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
                 stage_id="run",
                 exit_code=0,
                 analysis_state="done",
-                is_timeout_resume=False,
                 metrics_line="m",
                 obligation_rows=(),
                 incompleteness_markers=(),
