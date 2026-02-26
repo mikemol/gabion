@@ -2496,13 +2496,13 @@ def _internal_broad_type_lint_lines_indexed(
 def _internal_broad_type_lint_lines(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> list[str]:
     check_deadline()
     return _run_indexed_pass(
@@ -2896,9 +2896,9 @@ def _module_function_map(
 
 def _parse_witness_contract_violations(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
-    target_helpers: frozenset[str] | None = None,
+    source = None,
+    source_path = None,
+    target_helpers = None,
     module_function_map_fn: Callable[[Path], dict[str, ast.FunctionDef]] = _module_function_map,
 ) -> list[str]:
     helpers = (
@@ -3580,9 +3580,9 @@ def _param_annotations_by_path(
     *,
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
-) -> dict[Path, dict[str, dict[str, str | None]]]:
+) -> dict[Path, dict[str, ParamAnnotationMap]]:
     check_deadline()
-    annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
+    annotations: dict[Path, dict[str, ParamAnnotationMap]] = {}
     for path in paths:
         check_deadline()
         tree = _parse_module_tree(
@@ -3594,7 +3594,7 @@ def _param_annotations_by_path(
             parent = ParentAnnotator()
             parent.visit(tree)
             parents = parent.parents
-            by_fn: dict[str, dict[str, str | None]] = {}
+            by_fn: dict[str, ParamAnnotationMap] = {}
             for fn in _collect_functions(tree):
                 check_deadline()
                 scopes = _enclosing_scopes(fn, parents)
@@ -4528,10 +4528,10 @@ def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
 
 
 def _refine_exception_name_from_annotations(
-    expr: ast.AST | None,
+    expr,
     *,
-    param_annotations: dict[str, str | None],
-) -> tuple[str | None, str | None, tuple[str, ...]]:
+    param_annotations: ParamAnnotationMap,
+):
     check_deadline()
     direct_name = _exception_type_name(expr)
     if type(expr) is not ast.Name:
@@ -8294,8 +8294,8 @@ def _analysis_index_stage_cache(
     *,
     spec: _StageCacheSpec[_StageCacheValue],
     parse_failure_witnesses: list[JSONObject],
-    module_trees_fn: Callable[..., dict[Path, ast.Module | None]] | None = None,
-) -> dict[Path, _StageCacheValue | None]:
+    module_trees_fn = None,
+):
     check_deadline()
     if module_trees_fn is None:
         module_trees_fn = _analysis_index_module_trees
@@ -8308,7 +8308,7 @@ def _analysis_index_stage_cache(
     )
     scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
     cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
-    results: dict[Path, _StageCacheValue | None] = {}
+    results = {}
     for path in paths:
         check_deadline()
         tree = trees.get(path)
@@ -8626,13 +8626,13 @@ def _iter_resolved_edge_param_events(
 def _build_call_graph(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
     check_deadline()
     index = require_not_none(
@@ -8699,13 +8699,13 @@ def _collect_call_ambiguities_indexed(
 def _collect_call_ambiguities(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> list[CallAmbiguity]:
     check_deadline()
     return _run_indexed_pass(
@@ -12383,13 +12383,13 @@ class _KnobFlowFoldAccumulator:
 def _collect_constant_flow_details(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
     iter_resolved_edge_param_events_fn: Callable[..., Iterable[_ResolvedEdgeParamEvent]] = _iter_resolved_edge_param_events,
     reduce_resolved_call_edges_fn: Callable[..., _ConstantFlowFoldAccumulator] = _reduce_resolved_call_edges,
 ) -> list[ConstantFlowDetail]:
@@ -13034,9 +13034,9 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
 def _iter_dataclass_call_bundles(
     path: Path,
     *,
-    project_root: Path | None = None,
-    symbol_table: SymbolTable | None = None,
-    dataclass_registry: dict[str, list[str]] | None = None,
+    project_root = None,
+    symbol_table = None,
+    dataclass_registry = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> set[tuple[str, ...]]:
     """Return bundles promoted via @dataclass constructor calls."""
@@ -13570,10 +13570,10 @@ def _copy_forest_signature_metadata(
 def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None = None,
+    project_root = None,
     forest: Forest,
-    forest_spec: ForestSpec | None = None,
-    invariant_propositions: list[InvariantProposition] | None = None,
+    forest_spec = None,
+    invariant_propositions = None,
 ) -> JSONObject:
     check_deadline()
     root = project_root or _infer_root(groups_by_path)
@@ -13646,11 +13646,11 @@ class StructureSnapshotDiffRequest:
 def render_decision_snapshot(
     *,
     surfaces: DecisionSnapshotSurfaces,
-    project_root: Path | None = None,
+    project_root = None,
     forest: Forest,
-    forest_spec: ForestSpec | None = None,
+    forest_spec = None,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    pattern_schema_instances: list[PatternInstance] | None = None,
+    pattern_schema_instances = None,
 ) -> JSONObject:
     if type(forest) is not Forest:
         never("decision snapshot requires forest carrier")
@@ -15235,8 +15235,8 @@ def _build_analysis_collection_resume_payload(
     invariant_propositions: Sequence[InvariantProposition],
     completed_paths: set[Path],
     in_progress_scan_by_path: Mapping[Path, JSONObject],
-    analysis_index_resume: Mapping[str, JSONValue] | None = None,
-    file_stage_timings_v1_by_path: Mapping[Path, Mapping[str, JSONValue]] | None = None,
+    analysis_index_resume = None,
+    file_stage_timings_v1_by_path = None,
 ) -> JSONObject:
     check_deadline()
     groups_payload: JSONObject = {}
@@ -15259,7 +15259,7 @@ def _build_analysis_collection_resume_payload(
         sites_payload[path_key] = _serialize_bundle_sites_for_resume(
             bundle_sites_by_path.get(path, {})
         )
-    previous_path_key: str | None = None
+    previous_path_key = None
     for path in in_progress_scan_by_path:
         check_deadline()
         path_key = _analysis_collection_resume_path_key(path)
@@ -15849,12 +15849,12 @@ def _synthesis_payload_from_plan(
 def build_synthesis_plan(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None = None,
+    project_root = None,
     max_tier: int = 2,
     min_bundle_size: int = 2,
     allow_singletons: bool = False,
-    merge_overlap_threshold: float | None = None,
-    config: AuditConfig | None = None,
+    merge_overlap_threshold = None,
+    config = None,
     invariant_propositions: Sequence[InvariantProposition] = (),
     property_hook_min_confidence: float = 0.7,
     emit_hypothesis_templates: bool = False,
