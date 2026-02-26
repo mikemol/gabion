@@ -3287,9 +3287,7 @@ def execute_command_total(
     semantic_progress_cumulative: JSONObject | None = runtime_state.semantic_progress_cumulative
     latest_collection_progress: JSONObject = dict(runtime_state.latest_collection_progress)
     emit_checkpoint_intro_timeline = False
-    checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(
-        root=runtime_input.root
-    )
+    checkpoint_intro_timeline_path = runtime_input.root / "_unused_checkpoint_intro_timeline.md"
     phase_timeline_markdown_path = _phase_timeline_md_path(root=runtime_input.root)
     phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=runtime_input.root)
     progress_heartbeat_seconds = _progress_heartbeat_seconds(payload)
@@ -3413,7 +3411,7 @@ def execute_command_total(
         )
         enable_phase_projection_checkpoints = bool(report_output_path)
         emit_checkpoint_intro_timeline = False
-        checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
+        checkpoint_intro_timeline_path = Path(root) / "_unused_checkpoint_intro_timeline.md"
         phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
         phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=Path(root))
         progress_heartbeat_seconds = options.progress_heartbeat_seconds
