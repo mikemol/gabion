@@ -1756,16 +1756,18 @@ def _is_never_marker_raise(
 def _never_sort_key(entry: JSONObject) -> tuple:
     status = str(entry.get("status", "UNKNOWN"))
     order = _NEVER_STATUS_ORDER.get(status, 3)
-    site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+    raw_site = entry.get("site")
+    site = mapping_or_empty(raw_site)
     path = str(site.get("path", ""))
     function = str(site.get("function", ""))
     span = entry.get("span")
     line = -1
     col = -1
-    if isinstance(span, list) and len(span) == 4:
+    span_entries = sequence_or_none(span)
+    if span_entries is not None and len(span_entries) == 4:
         try:
-            line = int(span[0])
-            col = int(span[1])
+            line = int(span_entries[0])
+            col = int(span_entries[1])
         except (TypeError, ValueError):
             line = -1
             col = -1
@@ -1876,11 +1878,17 @@ def _param_names(
 def _decision_root_name(node: ast.AST) -> str | None:
     check_deadline()
     current = node
-    while isinstance(current, (ast.Attribute, ast.Subscript)):
+    while True:
         check_deadline()
-        current = current.value
-    if isinstance(current, ast.Name):
-        return current.id
+        current_type = type(current)
+        if current_type is ast.Attribute:
+            current = cast(ast.Attribute, current).value
+        elif current_type is ast.Subscript:
+            current = cast(ast.Subscript, current).value
+        else:
+            break
+    if type(current) is ast.Name:
+        return cast(ast.Name, current).id
     return None
 
 
@@ -1965,10 +1973,11 @@ def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
     check_deadline()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name) and node.id in params:
-            out.add(node.id)
+        node_type = type(node)
+        if node_type is ast.Name and cast(ast.Name, node).id in params:
+            out.add(cast(ast.Name, node).id)
             continue
-        if isinstance(node, (ast.Attribute, ast.Subscript)):
+        if node_type is ast.Attribute or node_type is ast.Subscript:
             root = _decision_root_name(node)
             if root in params:
                 out.add(root)
@@ -1984,9 +1993,10 @@ def _contains_boolish(expr: ast.AST) -> bool:
     check_deadline()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, (ast.Compare, ast.BoolOp)):
+        node_type = type(node)
+        if node_type is ast.Compare or node_type is ast.BoolOp:
             return True
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) is ast.Not:
             return True
     return False
 
@@ -2568,10 +2578,11 @@ def _enclosing_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            scopes.append(current.name)
-        elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            scopes.append(current.name)
+        current_type = type(current)
+        if current_type is ast.ClassDef:
+            scopes.append(cast(ast.ClassDef, current).name)
+        elif current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -5466,12 +5477,13 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
                 self._loop_stack[-1].call_spans.add(span)
 
     def _iter_marks_ambient(self, expr: ast.AST) -> bool:
-        if not isinstance(expr, ast.Call):
-            return False
-        if isinstance(expr.func, ast.Name):
-            return expr.func.id == "deadline_loop_iter"
-        if isinstance(expr.func, ast.Attribute):
-            return expr.func.attr == "deadline_loop_iter"
+        if type(expr) is ast.Call:
+            func = cast(ast.Call, expr).func
+            func_type = type(func)
+            if func_type is ast.Name:
+                return cast(ast.Name, func).id == "deadline_loop_iter"
+            if func_type is ast.Attribute:
+                return cast(ast.Attribute, func).attr == "deadline_loop_iter"
         return False
 
     def _visit_loop_body(
@@ -6366,8 +6378,8 @@ def _bind_call_args(
     star_kwargs: list[ast.AST] = []
     for idx, arg in enumerate(call_node.args):
         check_deadline()
-        if isinstance(arg, ast.Starred):
-            star_args.append(arg.value)
+        if type(arg) is ast.Starred:
+            star_args.append(cast(ast.Starred, arg).value)
             continue
         if idx < len(pos_params):
             mapping[pos_params[idx]] = arg
@@ -6384,11 +6396,11 @@ def _bind_call_args(
             mapping.setdefault(callee.kwarg, kw.value)
     if strictness == "low":
         remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5822') if p not in mapping]
-        if len(star_args) == 1 and isinstance(star_args[0], ast.Name):
+        if len(star_args) == 1 and type(star_args[0]) is ast.Name:
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_args[0])
-        if len(star_kwargs) == 1 and isinstance(star_kwargs[0], ast.Name):
+        if len(star_kwargs) == 1 and type(star_kwargs[0]) is ast.Name:
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_kwargs[0])
@@ -10899,12 +10911,14 @@ def _module_name(path: Path, project_root: Path | None = None) -> str:
 
 def _string_list(node: ast.AST) -> list[str] | None:
     check_deadline()
-    if isinstance(node, (ast.List, ast.Tuple)):
+    node_type = type(node)
+    if node_type is ast.List or node_type is ast.Tuple:
+        container = cast(ast.List | ast.Tuple, node)
         values: list[str] = []
-        for elt in node.elts:
+        for elt in container.elts:
             check_deadline()
-            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                values.append(elt.value)
+            if type(elt) is ast.Constant and type(cast(ast.Constant, elt).value) is str:
+                values.append(cast(str, cast(ast.Constant, elt).value))
             else:
                 return None
         return values
