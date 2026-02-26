@@ -242,6 +242,12 @@ OptionalSynthRegistry = SynthRegistry | None
 OptionalJsonObject = JSONObject | None
 OptionalForestSpec = ForestSpec | None
 OptionalDeprecatedExtractionArtifacts = DeprecatedExtractionArtifacts | None
+OptionalFunctionNode = FunctionNode | None
+OptionalJsonObjectList = list[JSONObject] | None
+OptionalAstNode = ast.AST | None
+OptionalAstCall = ast.Call | None
+NodeIdOrNone = NodeId | None
+ParseCacheValue = ast.Module | BaseException
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
@@ -709,10 +715,7 @@ class ReportProjectionSpec(Generic[_ReportSectionValue]):
     ]
     render: Callable[[_ReportSectionValue], list[str]]
     violation_extract: Callable[[_ReportSectionValue], list[str]]
-    preview_build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
-        _ReportSectionValue | None,
-    ] | None = None
+    preview_build: object = None
 
 
 def _report_section_identity_render(lines: list[str]) -> list[str]:
@@ -832,7 +835,7 @@ def _make_list_section_preview(
     title: str,
     count_label: str,
     values: Callable[[ReportCarrier], Sequence[str]],
-    sample_label: str | None = None,
+    sample_label = None,
     extra_count_labels: tuple[tuple[str, Callable[[ReportCarrier], int]], ...] = (),
 ) -> Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]]], list[str]]:
     def _preview(
@@ -1090,10 +1093,7 @@ def _report_section_spec(
     section_id: str,
     phase: ReportProjectionPhase,
     deps: tuple[str, ...] = (),
-    preview_build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
-        list[str] | None,
-    ] | None = None,
+    preview_build = None,
 ) -> ReportProjectionSpec[list[str]]:
     return ReportProjectionSpec[list[str]](
         section_id=section_id,
@@ -1396,7 +1396,7 @@ def _callee_name(call: ast.Call) -> str:
         return "<call>"
 
 
-def _normalize_callee(name: str, class_name: str | None) -> str:
+def _normalize_callee(name: str, class_name) -> str:
     if not class_name:
         return name
     if name.startswith("self.") or name.startswith("cls."):
@@ -1447,7 +1447,7 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
     )
 
 
-def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) -> list[Path]:
+def resolve_analysis_paths(paths: Iterable[object], *, config: AuditConfig) -> list[Path]:
     check_deadline()
     return _iter_paths([str(path) for path in paths], config)
 
@@ -1545,7 +1545,7 @@ class _InvariantCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _scope_path(path: Path, root: Path | None) -> str:
+def _scope_path(path: Path, root) -> str:
     if root is not None:
         try:
             return str(path.relative_to(root))
@@ -1558,7 +1558,7 @@ def _collect_invariant_propositions(
     path: Path,
     *,
     ignore_params: set[str],
-    project_root: Path | None,
+    project_root,
     emitters: Iterable[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]]
     ] = (),
@@ -1771,7 +1771,7 @@ def _is_never_call(call: ast.Call) -> bool:
 
 def _is_never_marker_raise(
     function: str,
-    exception_name: str | None,
+    exception_name,
     never_exceptions: set[str],
 ) -> bool:
     if not exception_name or not never_exceptions:
@@ -1844,7 +1844,7 @@ def _collect_local_class_bases(
     return class_bases
 
 
-def _local_class_name(base: str, class_bases: dict[str, list[str]]) -> str | None:
+def _local_class_name(base: str, class_bases: dict[str, list[str]]):
     if base in class_bases:
         return base
     if "." in base:
@@ -1861,7 +1861,7 @@ def _resolve_local_method_in_hierarchy(
     class_bases: dict[str, list[str]],
     local_functions: set[str],
     seen: set[str],
-) -> str | None:
+):
     check_deadline()
     if class_name in seen:
         return None
@@ -1904,7 +1904,7 @@ def _param_names(
     return names
 
 
-def _decision_root_name(node: ast.AST) -> str | None:
+def _decision_root_name(node: ast.AST):
     check_deadline()
     current = node
     while True:
@@ -2222,7 +2222,7 @@ def _analyze_decision_surface_indexed(
     context: _IndexedPassContext,
     *,
     spec: _DecisionSurfaceSpec,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
@@ -2353,7 +2353,7 @@ def _analyze_decision_surface_indexed(
 def _analyze_decision_surfaces_indexed(
     context: _IndexedPassContext,
     *,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
     run_fn: Callable[..., tuple[list[str], list[str], list[str], list[str]]] = _analyze_decision_surface_indexed,
@@ -2412,7 +2412,7 @@ def analyze_decision_surfaces_repo(
 def _analyze_value_encoded_decisions_indexed(
     context: _IndexedPassContext,
     *,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
@@ -2533,7 +2533,7 @@ def _internal_broad_type_lint_lines(
     )
 
 
-def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+def _node_span(node: ast.AST):
     if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
         return None
     start_line = max(getattr(node, "lineno", 1) - 1, 0)
@@ -2586,7 +2586,7 @@ def _function_key(scope: Iterable[str], name: str) -> str:
 
 def _enclosing_class(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> str | None:
+):
     check_deadline()
     current = parents.get(node)
     while current is not None:
@@ -2713,7 +2713,7 @@ def _param_defaults(
 def _parse_failure_witness(
     *,
     path: Path,
-    stage: str | _ParseModuleStage,
+    stage,
     error: Exception,
 ) -> JSONObject:
     stage_value = stage.value if type(stage) is _ParseModuleStage else stage
@@ -2729,14 +2729,14 @@ def _record_parse_failure_witness(
     *,
     sink: list[JSONObject],
     path: Path,
-    stage: str | _ParseModuleStage,
+    stage,
     error: Exception,
 ) -> None:
     sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
 
 
 def _parse_failure_sink(
-    parse_failure_witnesses: list[JSONObject] | None,
+    parse_failure_witnesses,
 ) -> list[JSONObject]:
     sink = parse_failure_witnesses
     if sink is None:
@@ -2775,7 +2775,7 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
 
 
 def _annotation_allows_none(
-    annotation: ast.AST | None,
+    annotation,
     *,
     unparse_fn: Callable[[ast.AST], str] = ast.unparse,
 ) -> bool:
@@ -2831,7 +2831,7 @@ def _imported_helper_targets(
 
 def _resolve_repo_module_path(
     module_name: str,
-) -> Path | None:
+):
     if not module_name.startswith("gabion."):
         return None
     src_root = Path(__file__).resolve().parents[2]
@@ -3574,7 +3574,7 @@ def _parse_module_tree(
     *,
     stage: _ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
-) -> ast.Module | None:
+):
     try:
         return ast.parse(path.read_text())
     except _PARSE_MODULE_ERROR_TYPES as exc:
@@ -4025,7 +4025,7 @@ def _compute_fingerprint_rewrite_plans(
     coherence: list[JSONObject],
     *,
     synth_version: str,
-    exception_obligations: list[JSONObject] | None = None,
+    exception_obligations = None,
 ) -> list[JSONObject]:
     return _ds_compute_fingerprint_rewrite_plans(
         provenance,
@@ -4049,7 +4049,7 @@ def _find_provenance_entry_for_site(
     provenance: list[JSONObject],
     *,
     site: Site,
-) -> JSONObject | None:
+):
     check_deadline()
     target_key = site.key()
     for entry in provenance:
@@ -4080,7 +4080,7 @@ class _RewritePredicateContext:
     post_remainder: Mapping[str, object]
     post_matches: tuple[str, ...]
     post_strata: str
-    post_exception_obligations: list[JSONObject] | None
+    post_exception_obligations: OptionalJsonObjectList
     pre: Mapping[str, object]
     plan_evidence: Mapping[str, object]
     post_entry: Mapping[str, object]
@@ -4300,7 +4300,7 @@ def verify_rewrite_plan(
     plan: JSONObject,
     *,
     post_provenance: list[JSONObject],
-    post_exception_obligations: list[JSONObject] | None = None,
+    post_exception_obligations = None,
 ) -> JSONObject:
     """Verify a single rewrite plan using a post-state provenance artifact.
 
@@ -4464,7 +4464,7 @@ def verify_rewrite_plans(
     plans: list[JSONObject],
     *,
     post_provenance: list[JSONObject],
-    post_exception_obligations: list[JSONObject] | None = None,
+    post_exception_obligations = None,
 ) -> list[JSONObject]:
     return [
         verify_rewrite_plan(
@@ -4489,7 +4489,7 @@ def _summarize_rewrite_plans(
 
 def _enclosing_function_node(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+):
     check_deadline()
     current = parents.get(node)
     while current is not None:
@@ -4501,14 +4501,14 @@ def _enclosing_function_node(
     return None
 
 
-def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
+def _exception_param_names(expr, params: set[str]) -> list[str]:
     return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
 
 def _exception_type_name(expr):
     return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 
-def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
+def _annotation_exception_candidates(annotation) -> tuple[str, ...]:
     check_deadline()
     if not annotation:
         return ()
@@ -4557,7 +4557,7 @@ def _refine_exception_name_from_annotations(
     return direct_name, "PARAM_ANNOTATION_AMBIGUOUS", candidates
 
 
-def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
+def _handler_type_names(handler_type) -> tuple[str, ...]:
     return _exc_handler_type_names(
         handler_type,
         decorator_name=_decorator_name,
@@ -4599,7 +4599,7 @@ def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
 
 def _find_handling_try(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> ast.Try | None:
+):
     check_deadline()
     current = parents.get(node)
     while current is not None:
@@ -5436,13 +5436,13 @@ _DEADLINE_HELPER_QUALS = {
 _DEADLINE_EXEMPT_PREFIXES = ("gabion.analysis.timeout_context.",)
 
 
-def _is_deadline_annot(annot: str | None) -> bool:
+def _is_deadline_annot(annot) -> bool:
     if not annot:
         return False
     return bool(re.search(r"\bDeadline\b", annot))
 
 
-def _is_deadline_param(name: str, annot: str | None) -> bool:
+def _is_deadline_param(name: str, annot) -> bool:
     if _is_deadline_annot(annot):
         return True
     if annot is None and name.lower() == "deadline":
@@ -5496,7 +5496,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
         self.ambient_check = False
         self.loop_sites: list[_DeadlineLoopFacts] = []
         self._loop_stack: list[_DeadlineLoopFacts] = []
-        self.assignments: list[tuple[list[ast.AST], ast.AST | None, tuple[int, int, int, int] | None]] = []
+        self.assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]] = []
 
     def _mark_param_check(self, name: str) -> None:
         if self._loop_stack:
@@ -5629,7 +5629,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
 @dataclass
 class _DeadlineLoopFacts:
-    span: tuple[int, int, int, int] | None
+    span: OptionalSpan4
     kind: str
     depth: int = 1
     check_params: set[str] = field(default_factory=set)
@@ -5648,7 +5648,7 @@ class _DeadlineLocalInfo:
 class _DeadlineFunctionFacts:
     path: Path
     qual: str
-    span: tuple[int, int, int, int] | None
+    span: OptionalSpan4
     loop: bool
     check_params: set[str]
     ambient_check: bool
@@ -5657,7 +5657,7 @@ class _DeadlineFunctionFacts:
 
 
 def _collect_deadline_local_info(
-    assignments: list[tuple[list[ast.AST], ast.AST | None, tuple[int, int, int, int] | None]],
+    assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]],
     params: set[str],
 ) -> _DeadlineLocalInfo:
     check_deadline()
@@ -5797,7 +5797,7 @@ def _deadline_function_facts_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
@@ -6006,7 +6006,7 @@ def _suite_caller_function_id(
 def _node_to_function_suite_id(
     forest: Forest,
     node_id: NodeId,
-) -> NodeId | None:
+):
     outcome = _node_to_function_suite_lookup_outcome(forest, node_id)
     if outcome.status is _FunctionSuiteLookupStatus.RESOLVED:
         return outcome.suite_id
@@ -6397,8 +6397,8 @@ def _reachable_from_roots(
 @dataclass(frozen=True)
 class _DeadlineArgInfo:
     kind: str
-    param: str | None = None
-    const: str | None = None
+    param: OptionalString = None
+    const: OptionalString = None
 
 
 def _bind_call_args(
@@ -6603,7 +6603,7 @@ def _deadline_arg_info_map(
     call: CallArgs,
     callee: FunctionInfo,
     *,
-    call_node: ast.Call | None,
+    call_node: OptionalAstCall,
     alias_to_param: Mapping[str, str],
     origin_vars: set[str],
     strictness: str,
@@ -6650,7 +6650,7 @@ from gabion.analysis.dataflow_obligations import (
 )
 
 
-def _spec_row_span(row: Mapping[str, JSONValue]) -> tuple[int, int, int, int] | None:
+def _spec_row_span(row: Mapping[str, JSONValue]):
     def _coerce(name: str, value: JSONValue) -> int:
         if value is None:
             never(
@@ -6686,7 +6686,7 @@ def _materialize_projection_spec_rows(
     spec: ProjectionSpec,
     projected: Iterable[Mapping[str, JSONValue]],
     forest: Forest,
-    row_to_site: Callable[[Mapping[str, JSONValue]], NodeId | None],
+    row_to_site: Callable[[Mapping[str, JSONValue]], NodeIdOrNone],
 ) -> None:
     spec_identity = projection_spec_hash(spec)
     spec_site = forest.add_spec_site(
@@ -6788,7 +6788,7 @@ def _suite_order_relation(
 def _suite_order_row_to_site(
     row: Mapping[str, JSONValue],
     suite_index: Mapping[tuple[object, ...], NodeId],
-) -> NodeId | None:
+):
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     suite_kind = str(row.get("suite_kind", "") or "")
@@ -6894,7 +6894,7 @@ def _ambiguity_suite_relation(
 def _ambiguity_suite_row_to_site(
     row: Mapping[str, JSONValue],
     function_index: Mapping[tuple[str, str], NodeId],
-) -> NodeId | None:
+):
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     if not path or not qual:
@@ -7019,7 +7019,7 @@ def _summarize_deadline_obligations(
         )
 
     projected = apply_spec(DEADLINE_OBLIGATIONS_SUMMARY_SPEC, relation)
-    def _row_to_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+    def _row_to_site(row: Mapping[str, JSONValue]):
         path = str(row.get("site_path", "") or "")
         function = str(row.get("site_function", "") or "")
         if not path or not function:
@@ -7422,7 +7422,7 @@ def _exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
     return lines
 
 
-def _parse_lint_location(line: str) -> tuple[str, int, int, str] | None:
+def _parse_lint_location(line: str):
     return _ds_parse_lint_location(line)
 
 def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
@@ -7470,7 +7470,7 @@ def _add_interned_alt(
     forest: Forest,
     kind: str,
     inputs: Iterable[NodeId],
-    evidence: dict[str, object] | None = None,
+    evidence = None,
 ) -> Alt:
     return forest.add_alt(kind, inputs, evidence=evidence)
 
@@ -7577,7 +7577,7 @@ def _project_lint_rows_from_forest(
         return []
     projected = apply_spec_fn(LINT_FINDINGS_SPEC, relation)
 
-    def _row_to_file_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+    def _row_to_file_site(row: Mapping[str, JSONValue]):
         path = str(row.get("path", "") or "")
         if not path:
             return None
@@ -7858,7 +7858,7 @@ _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
 
 
-def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
+def _sorted_text(values = None) -> tuple[str, ...]:
     if values is None:
         return ()
     cleaned = {str(value).strip() for value in values if str(value).strip()}
@@ -7906,7 +7906,7 @@ def _cache_identity_matches(actual: str, expected: str) -> bool:
 def _resume_variant_for_identity(
     variants: Mapping[str, JSONObject],
     expected_identity: str,
-) -> JSONObject | None:
+):
     direct = variants.get(expected_identity)
     if direct is not None:
         return direct
@@ -7975,7 +7975,7 @@ def _build_module_artifacts(
     check_deadline()
     if not specs:
         return ()
-    parse_cache: dict[Path, ast.Module | BaseException] = {}
+    parse_cache: dict[Path, ParseCacheValue] = {}
     accumulators = [spec.init() for spec in specs]
     for path in paths:
         check_deadline()
@@ -8364,7 +8364,7 @@ def _analysis_index_stage_cache(
 def _analysis_index_transitive_callers(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> dict[str, set[str]]:
     check_deadline()
     if analysis_index.transitive_callers is not None:
@@ -8387,7 +8387,7 @@ def _analysis_index_transitive_callers(
 def _analysis_index_resolved_call_edges(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
 ) -> tuple[_ResolvedCallEdge, ...]:
     check_deadline()
@@ -8427,7 +8427,7 @@ def _analysis_index_resolved_call_edges(
 def _analysis_index_resolved_call_edges_by_caller(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
 ) -> dict[str, tuple[_ResolvedCallEdge, ...]]:
     check_deadline()
@@ -8450,7 +8450,7 @@ def _analysis_index_resolved_call_edges_by_caller(
 def _reduce_resolved_call_edges(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
     spec: _ResolvedEdgeReducerSpec[_ResolvedEdgeAcc, _ResolvedEdgeOut],
 ) -> _ResolvedEdgeOut:
@@ -8662,14 +8662,14 @@ def _build_call_graph(
 def _collect_call_ambiguities_indexed(
     context: _IndexedPassContext,
     *,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
+    resolve_callee_fn = None,
 ) -> list[CallAmbiguity]:
     ambiguities: list[CallAmbiguity] = []
     resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
 
     def _sink(
         caller: FunctionInfo,
-        call: CallArgs | None,
+        call,
         candidates: list[FunctionInfo],
         phase: str,
         callee_key: str,
@@ -8766,7 +8766,7 @@ def _dedupe_call_ambiguities(
 def _emit_call_ambiguities(
     ambiguities: Iterable[CallAmbiguity],
     *,
-    project_root: Path | None,
+    project_root,
     forest: Forest,
 ) -> list[JSONObject]:
     check_deadline()
@@ -8915,7 +8915,7 @@ def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
         lint_line=_lint_line,
     )
 
-def _extract_smell_sample(entry: str) -> str | None:
+def _extract_smell_sample(entry: str):
     return _ds_extract_smell_sample(entry)
 
 def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
@@ -8925,7 +8925,7 @@ def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
         lint_line=_lint_line,
     )
 
-def _parse_exception_path_id(value: str) -> tuple[str, int, int] | None:
+def _parse_exception_path_id(value: str):
     parts = value.split(":", 5)
     if len(parts) != 6:
         return None
@@ -9089,7 +9089,7 @@ def _suite_span_from_statements_outcome(
 
 def _suite_span_from_statements(
     statements: Sequence[ast.stmt],
-) -> tuple[int, int, int, int] | None:
+):
     outcome = _suite_span_from_statements_outcome(statements)
     if outcome.status is _SuiteSpanStatus.PRESENT:
         return outcome.span
@@ -9110,7 +9110,7 @@ def _materialize_statement_suite_contains(
     def _emit_body_suite(
         suite_kind: str,
         body: Sequence[ast.stmt],
-    ) -> NodeId | None:
+    ):
         check_deadline()
         span_outcome = _suite_span_from_statements_outcome(body)
         if span_outcome.status is _SuiteSpanStatus.PRESENT:
@@ -9264,7 +9264,7 @@ def _materialize_structured_suite_sites_for_tree(
     forest: Forest,
     path: Path,
     tree: ast.Module,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     parent_annotator = ParentAnnotator()
@@ -9527,7 +9527,7 @@ def _populate_bundle_forest(
     def _add_alt(
         kind: str,
         inputs: Iterable[NodeId],
-        evidence: dict[str, object] | None = None,
+        evidence = None,
     ) -> None:
         _add_interned_alt(forest=forest, kind=kind, inputs=inputs, evidence=evidence)
 
@@ -9646,9 +9646,7 @@ def _compute_lint_lines(
     broad_type_lint_lines: list[str],
     constant_smells: list[str],
     unused_arg_smells: list[str],
-    project_lint_rows_from_forest_fn: Callable[
-        ..., list[dict[str, JSONValue]]
-    ] | None = None,
+    project_lint_rows_from_forest_fn = None,
 ) -> list[str]:
     if project_lint_rows_from_forest_fn is None:
         project_lint_rows_from_forest_fn = _project_lint_rows_from_forest
@@ -10017,7 +10015,7 @@ def _build_synth_registry_payload(
 
 class _ReturnAliasCollector(ast.NodeVisitor):
     def __init__(self) -> None:
-        self.returns: list[ast.AST | None] = []
+        self.returns: list[OptionalAstNode] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         return
@@ -10325,7 +10323,7 @@ def _propagate_groups(
     callee_groups: dict[str, list[set[str]]],
     callee_param_orders: dict[str, list[str]],
     strictness: str,
-    opaque_callees: set[str] | None = None,
+    opaque_callees = None,
 ) -> list[set[str]]:
     check_deadline()
     groups: list[set[str]] = []
@@ -10744,7 +10742,7 @@ def analyze_file(
     path: Path,
     recursive: bool = True,
     *,
-    config: AuditConfig | None = None,
+    config = None,
 ) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
     groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
     return groups, spans
@@ -10756,7 +10754,7 @@ def _callee_key(name: str) -> str:
     return name.split(".")[-1]
 
 
-def _is_broad_type(annot: str | None) -> bool:
+def _is_broad_type(annot) -> bool:
     if annot is None:
         return True
     base = annot.replace("typing.", "")
@@ -10791,7 +10789,7 @@ def _is_literal_type(value: str) -> bool:
     return value.startswith("Literal[")
 
 
-def _is_broad_internal_type(annot: str | None) -> bool:
+def _is_broad_internal_type(annot) -> bool:
     if annot is None:
         return False
     normalized = annot.replace("typing.", "")
@@ -10941,7 +10939,7 @@ def _module_name(path: Path, project_root = None) -> str:
     return ".".join(parts)
 
 
-def _string_list(node: ast.AST) -> list[str] | None:
+def _string_list(node: ast.AST):
     check_deadline()
     node_type = type(node)
     if node_type is ast.List or node_type is ast.Tuple:
@@ -11064,7 +11062,7 @@ def _accumulate_symbol_table_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     module = _module_name(path, project_root)
@@ -11085,7 +11083,7 @@ def _accumulate_symbol_table_for_tree(
 
 def _symbol_table_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
     external_filter: bool,
 ) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
     return _ModuleArtifactSpec[SymbolTable, SymbolTable](
@@ -11104,7 +11102,7 @@ def _symbol_table_module_artifact_spec(
 
 def _build_symbol_table(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     *,
     external_filter: bool,
     parse_failure_witnesses: list[JSONObject],
@@ -11169,7 +11167,7 @@ def _accumulate_class_index_for_tree(
 
 def _class_index_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
 ) -> _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]]:
     return _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]](
         artifact_id="class_index",
@@ -11187,7 +11185,7 @@ def _class_index_module_artifact_spec(
 
 def _collect_class_index(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, ClassInfo]:
@@ -11209,7 +11207,7 @@ def _resolve_class_candidates(
     base: str,
     *,
     module: str,
-    symbol_table: SymbolTable | None,
+    symbol_table,
     class_index: dict[str, ClassInfo],
 ) -> list[str]:
     check_deadline()
@@ -11267,7 +11265,7 @@ def _resolve_method_in_hierarchy_outcome(
     *,
     class_index: dict[str, ClassInfo],
     by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable | None,
+    symbol_table,
     seen: set[str],
 ) -> _MethodHierarchyResolutionOutcome:
     check_deadline()
@@ -11470,7 +11468,7 @@ def _collect_lambda_function_infos(
     path: Path,
     module: str,
     parent_map: Mapping[ast.AST, ast.AST],
-    ignore_params: set[str] | None,
+    ignore_params,
 ) -> list[FunctionInfo]:
     check_deadline()
     lambda_infos: list[FunctionInfo] = []
