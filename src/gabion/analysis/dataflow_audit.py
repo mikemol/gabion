@@ -5876,6 +5876,55 @@ def _function_suite_id(key: _FunctionSuiteKey) -> NodeId:
     return NodeId("SuiteSite", (key.path, key.qual, "function"))
 
 
+class _FunctionSuiteLookupStatus(StrEnum):
+    RESOLVED = "resolved"
+    NODE_MISSING = "node_missing"
+    SUITE_KIND_UNSUPPORTED = "suite_kind_unsupported"
+
+
+@dataclass(frozen=True)
+class _FunctionSuiteLookupOutcome:
+    status: _FunctionSuiteLookupStatus
+    suite_id: NodeId
+
+
+def _node_to_function_suite_lookup_outcome(
+    forest: Forest,
+    node_id: NodeId,
+) -> _FunctionSuiteLookupOutcome:
+    missing_suite_id = NodeId("MissingSuiteSite", ("", "", ""))
+    node = forest.nodes.get(node_id)
+    if node is None:
+        return _FunctionSuiteLookupOutcome(
+            _FunctionSuiteLookupStatus.NODE_MISSING,
+            missing_suite_id,
+        )
+    if node.kind == "FunctionSite":
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            never("function site missing identity", path=path, qual=qual)
+        return _FunctionSuiteLookupOutcome(
+            _FunctionSuiteLookupStatus.RESOLVED,
+            _function_suite_id(_function_suite_key(path, qual)),
+        )
+    if node.kind == "SuiteSite":
+        suite_kind = str(node.meta.get("suite_kind", "") or "")
+        if suite_kind in {"function", "function_body"}:
+            path = str(node.meta.get("path", "") or "")
+            qual = str(node.meta.get("qual", "") or "")
+            if not path or not qual:
+                never("function suite missing identity", path=path, qual=qual)
+            return _FunctionSuiteLookupOutcome(
+                _FunctionSuiteLookupStatus.RESOLVED,
+                _function_suite_id(_function_suite_key(path, qual)),
+            )
+    return _FunctionSuiteLookupOutcome(
+        _FunctionSuiteLookupStatus.SUITE_KIND_UNSUPPORTED,
+        missing_suite_id,
+    )
+
+
 def _suite_caller_function_id(
     suite_node: Node,
 ) -> NodeId:
@@ -5895,25 +5944,11 @@ def _node_to_function_suite_id(
     forest: Forest,
     node_id: NodeId,
 ) -> NodeId | None:
-    node = forest.nodes.get(node_id)
-    if node is None:
-        return None
-    if node.kind == "FunctionSite":
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never("function site missing identity", path=path, qual=qual)
-        return _function_suite_id(_function_suite_key(path, qual))
-    if node.kind == "SuiteSite":
-        suite_kind = str(node.meta.get("suite_kind", "") or "")
-        if suite_kind not in {"function", "function_body"}:
-            return None
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never("function suite missing identity", path=path, qual=qual)
-        return _function_suite_id(_function_suite_key(path, qual))
-    return None
+    outcome = _node_to_function_suite_lookup_outcome(forest, node_id)
+    if outcome.status is _FunctionSuiteLookupStatus.RESOLVED:
+        return outcome.suite_id
+    unresolved: dict[str, NodeId] = {}
+    return unresolved.get("suite_id")
 
 
 def _obligation_candidate_suite_ids(
@@ -7625,11 +7660,12 @@ def _decision_param_lint_line(
     message: str,
 ) -> str | None:
     span = info.param_spans.get(param)
-    if span is None:
-        return None
-    path = _normalize_snapshot_path(info.path, project_root)
-    line, col, _, _ = span
-    return _lint_line(path, line + 1, col + 1, code, message)
+    if span is not None:
+        path = _normalize_snapshot_path(info.path, project_root)
+        line, col, _, _ = span
+        return _lint_line(path, line + 1, col + 1, code, message)
+    missing_lines: dict[str, str] = {}
+    return missing_lines.get("lint_line")
 
 
 def _decision_tier_for(
@@ -8965,22 +9001,47 @@ def _collect_bundle_evidence_lines(
     return evidence_lines
 
 
+class _SuiteSpanStatus(StrEnum):
+    PRESENT = "present"
+    MISSING = "missing"
+
+
+@dataclass(frozen=True)
+class _SuiteSpanOutcome:
+    status: _SuiteSpanStatus
+    span: tuple[int, int, int, int]
+
+
+def _suite_span_from_statements_outcome(
+    statements: Sequence[ast.stmt],
+) -> _SuiteSpanOutcome:
+    check_deadline()
+    missing_span = (0, 0, 0, 0)
+    if not statements:
+        return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
+    first_span = _node_span(statements[0])
+    if first_span is not None:
+        last_span = first_span
+        for stmt in statements[1:]:
+            check_deadline()
+            candidate = _node_span(stmt)
+            if candidate is not None:
+                last_span = candidate
+        return _SuiteSpanOutcome(
+            _SuiteSpanStatus.PRESENT,
+            (first_span[0], first_span[1], last_span[2], last_span[3]),
+        )
+    return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
+
+
 def _suite_span_from_statements(
     statements: Sequence[ast.stmt],
 ) -> tuple[int, int, int, int] | None:
-    check_deadline()
-    if not statements:
-        return None
-    first_span = _node_span(statements[0])
-    if first_span is None:
-        return None
-    last_span = first_span
-    for stmt in statements[1:]:
-        check_deadline()
-        candidate = _node_span(stmt)
-        if candidate is not None:
-            last_span = candidate
-    return (first_span[0], first_span[1], last_span[2], last_span[3])
+    outcome = _suite_span_from_statements_outcome(statements)
+    if outcome.status is _SuiteSpanStatus.PRESENT:
+        return outcome.span
+    missing_spans: dict[str, tuple[int, int, int, int]] = {}
+    return missing_spans.get("span")
 
 
 def _materialize_statement_suite_contains(
@@ -8998,16 +9059,17 @@ def _materialize_statement_suite_contains(
         body: Sequence[ast.stmt],
     ) -> NodeId | None:
         check_deadline()
-        span = _suite_span_from_statements(body)
-        if span is None:
-            return None
-        return forest.add_suite_site(
-            path_name,
-            qual,
-            suite_kind,
-            span=span,
-            parent=parent_suite,
-        )
+        span_outcome = _suite_span_from_statements_outcome(body)
+        if span_outcome.status is _SuiteSpanStatus.PRESENT:
+            return forest.add_suite_site(
+                path_name,
+                qual,
+                suite_kind,
+                span=span_outcome.span,
+                parent=parent_suite,
+            )
+        missing_suite_ids: dict[str, NodeId] = {}
+        return missing_suite_ids.get("suite_id")
 
     for stmt in statements:
         check_deadline()
@@ -11133,6 +11195,66 @@ def _resolve_class_candidates(
     return resolved
 
 
+class _MethodHierarchyResolutionStatus(StrEnum):
+    FOUND = "found"
+    NOT_FOUND = "not_found"
+
+
+@dataclass(frozen=True)
+class _MethodHierarchyResolutionOutcome:
+    status: _MethodHierarchyResolutionStatus
+    method_qual: str
+
+
+def _resolve_method_in_hierarchy_outcome(
+    class_qual: str,
+    method: str,
+    *,
+    class_index: dict[str, ClassInfo],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable | None,
+    seen: set[str],
+) -> _MethodHierarchyResolutionOutcome:
+    check_deadline()
+    if class_qual in seen:
+        return _MethodHierarchyResolutionOutcome(
+            _MethodHierarchyResolutionStatus.NOT_FOUND,
+            "",
+        )
+    seen.add(class_qual)
+    candidate = f"{class_qual}.{method}"
+    if candidate in by_qual:
+        return _MethodHierarchyResolutionOutcome(
+            _MethodHierarchyResolutionStatus.FOUND,
+            candidate,
+        )
+    info = class_index.get(class_qual)
+    if info is not None:
+        for base in info.bases:
+            check_deadline()
+            for base_qual in _resolve_class_candidates(
+                base,
+                module=info.module,
+                symbol_table=symbol_table,
+                class_index=class_index,
+            ):
+                check_deadline()
+                resolved = _resolve_method_in_hierarchy_outcome(
+                    base_qual,
+                    method,
+                    class_index=class_index,
+                    by_qual=by_qual,
+                    symbol_table=symbol_table,
+                    seen=seen,
+                )
+                if resolved.status is _MethodHierarchyResolutionStatus.FOUND:
+                    return resolved
+    return _MethodHierarchyResolutionOutcome(
+        _MethodHierarchyResolutionStatus.NOT_FOUND,
+        "",
+    )
+
+
 def _resolve_method_in_hierarchy(
     class_qual: str,
     method: str,
@@ -11142,36 +11264,15 @@ def _resolve_method_in_hierarchy(
     symbol_table: SymbolTable | None,
     seen: set[str],
 ) -> FunctionInfo | None:
-    check_deadline()
-    if class_qual in seen:
-        return None
-    seen.add(class_qual)
-    candidate = f"{class_qual}.{method}"
-    if candidate in by_qual:
-        return by_qual[candidate]
-    info = class_index.get(class_qual)
-    if info is None:
-        return None
-    for base in info.bases:
-        check_deadline()
-        for base_qual in _resolve_class_candidates(
-            base,
-            module=info.module,
-            symbol_table=symbol_table,
-            class_index=class_index,
-        ):
-            check_deadline()
-            resolved = _resolve_method_in_hierarchy(
-                base_qual,
-                method,
-                class_index=class_index,
-                by_qual=by_qual,
-                symbol_table=symbol_table,
-                seen=seen,
-            )
-            if resolved is not None:
-                return resolved
-    return None
+    outcome = _resolve_method_in_hierarchy_outcome(
+        class_qual,
+        method,
+        class_index=class_index,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        seen=seen,
+    )
+    return by_qual.get(outcome.method_qual)
 
 
 @dataclass
