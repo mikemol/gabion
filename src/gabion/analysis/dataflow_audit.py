@@ -2778,13 +2778,10 @@ def _imported_helper_targets(
     for index, node in enumerate(tree.body):
         if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
             check_deadline()
-        if not isinstance(node, ast.ImportFrom):
-            continue
-        if not node.module:
-            continue
-        for alias in node.names:
-            local_name = alias.asname or alias.name
-            targets[local_name] = (node.module, alias.name)
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                targets[local_name] = (node.module, alias.name)
     return targets
 
 
@@ -3557,18 +3554,17 @@ def _param_annotations_by_path(
             stage=_ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        parent = ParentAnnotator()
-        parent.visit(tree)
-        parents = parent.parents
-        by_fn: dict[str, dict[str, str | None]] = {}
-        for fn in _collect_functions(tree):
-            check_deadline()
-            scopes = _enclosing_scopes(fn, parents)
-            fn_key = _function_key(scopes, fn.name)
-            by_fn[fn_key] = _param_annotations(fn, ignore_params)
-        annotations[path] = by_fn
+        if tree is not None:
+            parent = ParentAnnotator()
+            parent.visit(tree)
+            parents = parent.parents
+            by_fn: dict[str, dict[str, str | None]] = {}
+            for fn in _collect_functions(tree):
+                check_deadline()
+                scopes = _enclosing_scopes(fn, parents)
+                fn_key = _function_key(scopes, fn.name)
+                by_fn[fn_key] = _param_annotations(fn, ignore_params)
+            annotations[path] = by_fn
     return annotations
 
 
@@ -3607,49 +3603,51 @@ def _compute_fingerprint_warnings(
                             )
                         )
                     )
-                    continue
-                types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
-                    continue
-                hint_list = [t for t in types if t is not None]
-                fingerprint = bundle_fingerprint_dimensional(
-                    hint_list,
-                    registry,
-                    ctor_registry,
-                )
-                soundness_issues = _fingerprint_soundness_issues(fingerprint)
-                names = index.get(fingerprint)
+                else:
+                    types = [fn_annots[param] for param in bundle_params]
+                    if not any(t is None for t in types):
+                        hint_list = [t for t in types if t is not None]
+                        fingerprint = bundle_fingerprint_dimensional(
+                            hint_list,
+                            registry,
+                            ctor_registry,
+                        )
+                        soundness_issues = _fingerprint_soundness_issues(fingerprint)
+                        names = index.get(fingerprint)
 
-                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
-                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
-                ctor_keys = [
-                    key[len("ctor:") :] if key.startswith("ctor:") else key
-                    for key in ctor_keys
-                ]
-                base_keys_sorted = sort_once(
-                    base_keys,
-                    source="_compute_fingerprint_warnings.base_keys",
-                )
-                ctor_keys_sorted = sort_once(
-                    ctor_keys,
-                    source="_compute_fingerprint_warnings.ctor_keys",
-                )
-                details = f" base={base_keys_sorted}"
-                if ctor_keys:
-                    details += f" ctor={ctor_keys_sorted}"
-                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-                    details += f" remainder=({base_remaining},{ctor_remaining})"
-                if soundness_issues:
-                    warnings.append(
-                        f"{path.name}:{fn_name} bundle {bundle_params} fingerprint carrier soundness failed for "
-                        + ", ".join(soundness_issues)
-                        + details
-                    )
-                if names:
-                    continue
-                warnings.append(
-                    f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
-                )
+                        base_keys, base_remaining = fingerprint.base.keys_with_remainder(
+                            registry
+                        )
+                        ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(
+                            registry
+                        )
+                        ctor_keys = [
+                            key[len("ctor:") :] if key.startswith("ctor:") else key
+                            for key in ctor_keys
+                        ]
+                        base_keys_sorted = sort_once(
+                            base_keys,
+                            source="_compute_fingerprint_warnings.base_keys",
+                        )
+                        ctor_keys_sorted = sort_once(
+                            ctor_keys,
+                            source="_compute_fingerprint_warnings.ctor_keys",
+                        )
+                        details = f" base={base_keys_sorted}"
+                        if ctor_keys:
+                            details += f" ctor={ctor_keys_sorted}"
+                        if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+                            details += f" remainder=({base_remaining},{ctor_remaining})"
+                        if soundness_issues:
+                            warnings.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint carrier soundness failed for "
+                                + ", ".join(soundness_issues)
+                                + details
+                            )
+                        if not names:
+                            warnings.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
+                            )
     return sort_once(
         set(warnings),
         source="_compute_fingerprint_warnings.warnings",
@@ -3677,53 +3675,57 @@ def _compute_fingerprint_matches(
             for bundle in bundles:
                 check_deadline()
                 missing = [param for param in bundle if param not in fn_annots]
-                if missing:
-                    continue
-                bundle_params = sort_once(
-                    bundle,
-                    source="_compute_fingerprint_matches.bundle",
-                )
-                types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
-                    continue
-                hint_list = [t for t in types if t is not None]
-                fingerprint = bundle_fingerprint_dimensional(
-                    hint_list,
-                    registry,
-                    ctor_registry,
-                )
-                names = index.get(fingerprint)
-                if not names:
-                    continue
-                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
-                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
-                ctor_keys = [
-                    key[len("ctor:") :] if key.startswith("ctor:") else key
-                    for key in ctor_keys
-                ]
-                base_keys_sorted = sort_once(
-                    base_keys,
-                    source="_compute_fingerprint_matches.base_keys",
-                )
-                ctor_keys_sorted = sort_once(
-                    ctor_keys,
-                    source="_compute_fingerprint_matches.ctor_keys",
-                )
-                details = f" base={base_keys_sorted}"
-                if ctor_keys:
-                    details += f" ctor={ctor_keys_sorted}"
-                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-                    details += f" remainder=({base_remaining},{ctor_remaining})"
-                matches.append(
-                    f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
-                    + ", ".join(
-                        sort_once(
-                            names,
-                            source="_compute_fingerprint_matches.names",
-                        )
+                if not missing:
+                    bundle_params = sort_once(
+                        bundle,
+                        source="_compute_fingerprint_matches.bundle",
                     )
-                    + details
-                )
+                    types = [fn_annots[param] for param in bundle_params]
+                    if not any(t is None for t in types):
+                        hint_list = [t for t in types if t is not None]
+                        fingerprint = bundle_fingerprint_dimensional(
+                            hint_list,
+                            registry,
+                            ctor_registry,
+                        )
+                        names = index.get(fingerprint)
+                        if names:
+                            base_keys, base_remaining = fingerprint.base.keys_with_remainder(
+                                registry
+                            )
+                            ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(
+                                registry
+                            )
+                            ctor_keys = [
+                                key[len("ctor:") :] if key.startswith("ctor:") else key
+                                for key in ctor_keys
+                            ]
+                            base_keys_sorted = sort_once(
+                                base_keys,
+                                source="_compute_fingerprint_matches.base_keys",
+                            )
+                            ctor_keys_sorted = sort_once(
+                                ctor_keys,
+                                source="_compute_fingerprint_matches.ctor_keys",
+                            )
+                            details = f" base={base_keys_sorted}"
+                            if ctor_keys:
+                                details += f" ctor={ctor_keys_sorted}"
+                            if (
+                                base_remaining not in (0, 1)
+                                or ctor_remaining not in (0, 1)
+                            ):
+                                details += f" remainder=({base_remaining},{ctor_remaining})"
+                            matches.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
+                                + ", ".join(
+                                    sort_once(
+                                        names,
+                                        source="_compute_fingerprint_matches.names",
+                                    )
+                                )
+                                + details
+                            )
     return sort_once(
         set(matches),
         source="_compute_fingerprint_matches.matches",
@@ -4005,9 +4007,7 @@ def _find_provenance_entry_for_site(
     for entry in provenance:
         check_deadline()
         entry_site = Site.from_payload(entry)
-        if entry_site is None:
-            continue
-        if entry_site.key() == target_key:
+        if entry_site is not None and entry_site.key() == target_key:
             return entry
     return None
 
@@ -4136,13 +4136,12 @@ def _evaluate_witness_obligation_non_regression_predicate(
         obligations = []
     missing_required: list[str] = []
     for item in obligations:
-        if not isinstance(item, Mapping):
-            continue
-        required = bool(item.get("required"))
-        witness_ref = str(item.get("witness_ref", "") or "")
-        witness_kind = str(item.get("kind", "witness") or "witness")
-        if required and not witness_ref:
-            missing_required.append(f"{witness_kind}:missing")
+        if isinstance(item, Mapping):
+            required = bool(item.get("required"))
+            witness_ref = str(item.get("witness_ref", "") or "")
+            witness_kind = str(item.get("kind", "witness") or "witness")
+            if required and not witness_ref:
+                missing_required.append(f"{witness_kind}:missing")
     post_identity = context.post_entry.get("canonical_identity_contract")
     pre_identity = context.pre.get("canonical_identity_contract")
     identity_ok = True
@@ -5815,9 +5814,8 @@ def _collect_call_nodes_by_path(
                 stage=_ParseModuleStage.CALL_NODES,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
-        if tree is None:
-            continue
-        call_nodes[path] = _call_nodes_for_tree(tree)
+        if tree is not None:
+            call_nodes[path] = _call_nodes_for_tree(tree)
     return call_nodes
 
 
@@ -5828,12 +5826,10 @@ def _call_nodes_for_tree(
     span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Call):
-            continue
-        span = _node_span(node)
-        if span is None:
-            continue
-        span_map[span].append(node)
+        if isinstance(node, ast.Call):
+            span = _node_span(node)
+            if span is not None:
+                span_map[span].append(node)
     return span_map
 
 
@@ -8347,22 +8343,18 @@ def _analysis_index_resolved_call_edges(
             check_deadline()
             for call in info.calls:
                 check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    analysis_index.by_name,
-                    analysis_index.by_qual,
-                    analysis_index.symbol_table,
-                    project_root,
-                    analysis_index.class_index,
-                )
-                if callee is None:
-                    continue
-                if require_transparent and not callee.transparent:
-                    continue
-                edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
+                if not call.is_test:
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        analysis_index.by_name,
+                        analysis_index.by_qual,
+                        analysis_index.symbol_table,
+                        project_root,
+                        analysis_index.class_index,
+                    )
+                    if callee is not None and (not require_transparent or callee.transparent):
+                        edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
     frozen_edges = tuple(edges)
     if require_transparent:
         analysis_index.resolved_transparent_call_edges = frozen_edges
@@ -8912,32 +8904,38 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     for entry in sort_once(entries, key=_never_sort_key, source = 'src/gabion/analysis/dataflow_audit.py:9123'):
         check_deadline()
         status = entry.get("status", "UNKNOWN")
-        if status == "PROVEN_UNREACHABLE":
-            continue
-        span = entry.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            continue
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = str(site.get("path", "?"))
-        reason = entry.get("reason") or ""
-        witness_ref = entry.get("witness_ref")
-        env = entry.get("environment_ref")
-        undecidable = entry.get("undecidable_reason") or ""
-        line, col, _, _ = span
-        bits: list[str] = [f"status={status}"]
-        if reason:
-            bits.append(f"reason={reason}")
-        if witness_ref:
-            bits.append(f"witness={witness_ref}")
-        if env:
-            bits.append(f"env={json.dumps(env, sort_keys=False)}")
-        if status == "OBLIGATION":
-            if undecidable:
-                bits.append(f"why={undecidable}")
-            else:
-                bits.append("why=no witness env available")
-        message = f"never() invariant ({'; '.join(bits)})"
-        lines.append(_lint_line(path, int(line) + 1, int(col) + 1, "GABION_NEVER_INVARIANT", message))
+        if status != "PROVEN_UNREACHABLE":
+            span = entry.get("span")
+            if isinstance(span, list) and len(span) == 4:
+                site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+                path = str(site.get("path", "?"))
+                reason = entry.get("reason") or ""
+                witness_ref = entry.get("witness_ref")
+                env = entry.get("environment_ref")
+                undecidable = entry.get("undecidable_reason") or ""
+                line, col, _, _ = span
+                bits: list[str] = [f"status={status}"]
+                if reason:
+                    bits.append(f"reason={reason}")
+                if witness_ref:
+                    bits.append(f"witness={witness_ref}")
+                if env:
+                    bits.append(f"env={json.dumps(env, sort_keys=False)}")
+                if status == "OBLIGATION":
+                    if undecidable:
+                        bits.append(f"why={undecidable}")
+                    else:
+                        bits.append("why=no witness env available")
+                message = f"never() invariant ({'; '.join(bits)})"
+                lines.append(
+                    _lint_line(
+                        path,
+                        int(line) + 1,
+                        int(col) + 1,
+                        "GABION_NEVER_INVARIANT",
+                        message,
+                    )
+                )
     return lines
 
 
@@ -14206,9 +14204,8 @@ def _deserialize_param_use_map(
     for param_name, raw_value in payload.items():
         check_deadline()
         raw_mapping = mapping_or_none(raw_value)
-        if type(param_name) is not str or raw_mapping is None:
-            continue
-        use_map[param_name] = _deserialize_param_use(raw_mapping)
+        if type(param_name) is str and raw_mapping is not None:
+            use_map[param_name] = _deserialize_param_use(raw_mapping)
     return use_map
 
 
@@ -14265,11 +14262,10 @@ def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
     for raw_entry in payload:
         check_deadline()
         entry_mapping = mapping_or_none(raw_entry)
-        if entry_mapping is None:
-            continue
-        call = _deserialize_call_args(entry_mapping)
-        if call is not None:
-            call_args.append(call)
+        if entry_mapping is not None:
+            call = _deserialize_call_args(entry_mapping)
+            if call is not None:
+                call_args.append(call)
     return call_args
 
 
@@ -14810,14 +14806,15 @@ def _serialize_bundle_sites_for_resume(
             check_deadline()
             encoded_bundle: list[JSONObject] = []
             bundle_entries = sequence_or_none(cast(JSONValue, bundle))
-            if bundle_entries is None:
-                continue
-            for site in bundle_entries:
-                check_deadline()
-                site_mapping = mapping_or_none(site)
-                if site_mapping is not None:
-                    encoded_bundle.append({str(key): site_mapping[key] for key in site_mapping})
-            encoded_fn_sites.append(encoded_bundle)
+            if bundle_entries is not None:
+                for site in bundle_entries:
+                    check_deadline()
+                    site_mapping = mapping_or_none(site)
+                    if site_mapping is not None:
+                        encoded_bundle.append(
+                            {str(key): site_mapping[key] for key in site_mapping}
+                        )
+                encoded_fn_sites.append(encoded_bundle)
         payload[fn_name] = encoded_fn_sites
     return payload
 
