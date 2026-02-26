@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from collections.abc import Mapping
 
 from gabion.json_types import JSONValue
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 
 
@@ -28,6 +29,15 @@ class ProjectionSpec:
 class ProjectionOpPayload:
     op: str
     params: dict[str, JSONValue] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProjectionOpParseResult:
+    is_valid: bool
+    payload: ProjectionOpPayload
+
+
+_EMPTY_PROJECTION_OP_PAYLOAD = ProjectionOpPayload(op="", params={})
 
 
 def spec_to_dict(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -55,9 +65,9 @@ def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
         version = 1
     name = str(payload.get("name", "") or "")
     domain = str(payload.get("domain", "") or "")
-    params = payload.get("params")
+    params = mapping_or_none(payload.get("params"))
     params_map: dict[str, JSONValue] = {}
-    if isinstance(params, Mapping):
+    if params is not None:
         params_map = {str(k): v for k, v in params.items()}
     ops = tuple(
         ProjectionOp(op=op_payload.op, params=dict(op_payload.params))
@@ -73,29 +83,40 @@ def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
 
 
 def _op_payloads_from_pipeline(
-    pipeline_payload: JSONValue | None,
+    pipeline_payload: object,
 ) -> tuple[ProjectionOpPayload, ...]:
     check_deadline()
-    if not isinstance(pipeline_payload, list):
+    pipeline = sequence_or_none(pipeline_payload)
+    if pipeline is None:
         return ()
     payloads: list[ProjectionOpPayload] = []
-    for entry in pipeline_payload:
+    for entry in pipeline:
         check_deadline()
-        payload = _op_payload_from_entry(entry)
-        if payload is not None:
-            payloads.append(payload)
+        parse_result = _op_payload_from_entry(entry)
+        if parse_result.is_valid:
+            payloads.append(parse_result.payload)
     return tuple(payloads)
 
 
-def _op_payload_from_entry(entry: JSONValue) -> ProjectionOpPayload | None:
+def _op_payload_from_entry(entry: object) -> ProjectionOpParseResult:
     check_deadline()
-    if not isinstance(entry, Mapping):
-        return None
-    op_name = str(entry.get("op", "") or "").strip()
+    entry_map = mapping_or_none(entry)
+    if entry_map is None:
+        return ProjectionOpParseResult(
+            is_valid=False,
+            payload=_EMPTY_PROJECTION_OP_PAYLOAD,
+        )
+    op_name = str(entry_map.get("op", "") or "").strip()
     if not op_name:
-        return None
-    op_params = entry.get("params")
+        return ProjectionOpParseResult(
+            is_valid=False,
+            payload=_EMPTY_PROJECTION_OP_PAYLOAD,
+        )
+    op_params = mapping_or_none(entry_map.get("params"))
     params: dict[str, JSONValue] = {}
-    if isinstance(op_params, Mapping):
+    if op_params is not None:
         params = {str(key): value for key, value in op_params.items()}
-    return ProjectionOpPayload(op=op_name, params=params)
+    return ProjectionOpParseResult(
+        is_valid=True,
+        payload=ProjectionOpPayload(op=op_name, params=params),
+    )
