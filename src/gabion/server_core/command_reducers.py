@@ -42,21 +42,3 @@ def normalize_paths(raw_paths: object, *, root: Path) -> list[Path]:
     if isinstance(raw_paths, list) and raw_paths:
         return [Path(str(path_value)) for path_value in raw_paths]
     return [root]
-
-
-def normalize_resume_on_timeout_attempts(raw_value: object) -> int:
-    try:
-        return int(raw_value or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def phase_projection_checkpoints_enabled(
-    *,
-    report_output_path: Path | None,
-    emit_timeout_progress_report: bool,
-    resume_on_timeout_attempts: int,
-) -> bool:
-    return bool(report_output_path) and (
-        emit_timeout_progress_report or resume_on_timeout_attempts > 0
-    )

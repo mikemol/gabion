@@ -78,6 +78,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis import aspf_execution_fibration, aspf_resume_state
 from gabion.analysis.aspf import Forest, NodeId, structural_key_atom
 from gabion.analysis import ambiguity_delta
 from gabion.analysis import ambiguity_state
@@ -242,8 +243,12 @@ def _analysis_resume_cache_verdict(
         "checkpoint_invalid_payload",
         "checkpoint_manifest_missing",
         "checkpoint_missing_collection_resume",
+        "aspf_state_manifest_mismatch",
+        "aspf_state_missing_manifest_digest",
+        "aspf_state_missing_current_manifest_digest",
+        "aspf_state_missing_collection_resume",
     }
-    if status == "checkpoint_loaded":
+    if status in {"checkpoint_loaded", "aspf_state_loaded"}:
         if reused_files > 0:
             return "hit"
         return "miss"
@@ -270,6 +275,9 @@ class ExecuteCommandDeps:
     load_analysis_resume_checkpoint_manifest_fn: Callable[..., tuple[JSONObject | None, JSONObject] | None]
     write_analysis_resume_checkpoint_fn: Callable[..., None]
     load_analysis_resume_checkpoint_fn: Callable[..., JSONObject | None]
+    load_aspf_resume_state_fn: Callable[..., JSONObject | None]
+    append_aspf_delta_fn: Callable[..., None]
+    finalize_aspf_resume_state_fn: Callable[..., JSONObject | None]
     analysis_input_manifest_fn: Callable[..., JSONObject]
     analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
     build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
@@ -280,6 +288,12 @@ class ExecuteCommandDeps:
     collection_checkpoint_flush_due_fn: Callable[..., bool]
     write_bootstrap_incremental_artifacts_fn: Callable[..., None]
     load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
+    start_trace_fn: Callable[..., object]
+    record_1cell_fn: Callable[..., object]
+    record_2cell_witness_fn: Callable[..., object]
+    record_cofibration_fn: Callable[..., object]
+    merge_imported_trace_fn: Callable[..., object]
+    finalize_trace_fn: Callable[..., object]
 
     def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
         return replace(self, **overrides)
@@ -375,7 +389,9 @@ def _resolve_analysis_resume_checkpoint_path(
     if value is False:
         return None
     if value is None or value is True:
-        return root / _DEFAULT_ANALYSIS_RESUME_CHECKPOINT
+        # ASPF state/delta handoff is now the canonical resume substrate.
+        # Legacy checkpoint paths are only accepted when explicitly provided.
+        return None
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -1091,6 +1107,63 @@ def _write_analysis_resume_checkpoint(
         path,
         json.dumps(payload, indent=2, sort_keys=False) + "\n",
         io_name="analysis_resume.checkpoint_write",
+    )
+
+
+def _load_aspf_resume_state(
+    *,
+    import_state_paths: Sequence[Path],
+) -> JSONObject | None:
+    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
+        state_paths=import_state_paths
+    )
+    latest_manifest_digest: str | None = None
+    latest_resume_source: str | None = None
+    for path in import_state_paths:
+        try:
+            raw_payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(raw_payload, Mapping):
+            continue
+        manifest_digest = raw_payload.get("analysis_manifest_digest")
+        if isinstance(manifest_digest, str) and manifest_digest:
+            latest_manifest_digest = manifest_digest
+        resume_source = raw_payload.get("resume_source")
+        if isinstance(resume_source, str) and resume_source:
+            latest_resume_source = resume_source
+    if projection is None and not records:
+        return None
+    payload: JSONObject = {
+        "resume_projection": projection if projection is not None else {},
+        "delta_records": [dict(record) for record in records],
+        "analysis_manifest_digest": latest_manifest_digest,
+        "resume_source": latest_resume_source,
+    }
+    return payload
+
+
+def _append_aspf_delta(
+    *,
+    path: Path,
+    record: Mapping[str, object],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps({str(key): record[key] for key in record}, sort_keys=False)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+
+
+def _finalize_aspf_resume_state(
+    *,
+    snapshot: Mapping[str, object],
+    delta_records: Sequence[Mapping[str, object]],
+) -> JSONObject | None:
+    if not snapshot and not delta_records:
+        return None
+    return aspf_resume_state.replay_resume_projection(
+        snapshot=snapshot,
+        delta_records=delta_records,
     )
 
 
@@ -3085,6 +3158,13 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     lint_lines = [str(line) for line in lint_lines_raw] if isinstance(lint_lines_raw, list) else []
     lint_entries_raw = response.get("lint_entries")
     lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else _lint_entries_from_lines(lint_lines)
+    aspf_trace_raw = response.get("aspf_trace")
+    aspf_equivalence_raw = response.get("aspf_equivalence")
+    aspf_opportunities_raw = response.get("aspf_opportunities")
+    aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
+    aspf_action_plan_raw = response.get("aspf_action_plan")
+    aspf_action_plan_quality_raw = response.get("aspf_action_plan_quality")
+    aspf_state_raw = response.get("aspf_state")
     base = DataflowAuditResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
@@ -3092,6 +3172,27 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
         lint_lines=lint_lines,
         lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
+        aspf_trace=aspf_trace_raw if isinstance(aspf_trace_raw, Mapping) else None,
+        aspf_equivalence=(
+            aspf_equivalence_raw if isinstance(aspf_equivalence_raw, Mapping) else None
+        ),
+        aspf_opportunities=(
+            aspf_opportunities_raw
+            if isinstance(aspf_opportunities_raw, Mapping)
+            else None
+        ),
+        aspf_delta_ledger=(
+            aspf_delta_ledger_raw if isinstance(aspf_delta_ledger_raw, Mapping) else None
+        ),
+        aspf_action_plan=(
+            aspf_action_plan_raw if isinstance(aspf_action_plan_raw, Mapping) else None
+        ),
+        aspf_action_plan_quality=(
+            aspf_action_plan_quality_raw
+            if isinstance(aspf_action_plan_quality_raw, Mapping)
+            else None
+        ),
+        aspf_state=aspf_state_raw if isinstance(aspf_state_raw, Mapping) else None,
         payload={str(key): response[key] for key in response},
     )
     normalized = dict(base.payload)
@@ -3117,6 +3218,22 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     normalized["errors"] = base.errors
     normalized["lint_lines"] = base.lint_lines
     normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    if base.aspf_trace is not None:
+        normalized["aspf_trace"] = base.aspf_trace.model_dump()
+    if base.aspf_equivalence is not None:
+        normalized["aspf_equivalence"] = base.aspf_equivalence.model_dump()
+    if base.aspf_opportunities is not None:
+        normalized["aspf_opportunities"] = base.aspf_opportunities.model_dump()
+    if base.aspf_delta_ledger is not None:
+        normalized["aspf_delta_ledger"] = base.aspf_delta_ledger.model_dump()
+    if base.aspf_action_plan is not None:
+        normalized["aspf_action_plan"] = base.aspf_action_plan.model_dump()
+    if base.aspf_action_plan_quality is not None:
+        normalized["aspf_action_plan_quality"] = (
+            base.aspf_action_plan_quality.model_dump()
+        )
+    if base.aspf_state is not None:
+        normalized["aspf_state"] = base.aspf_state.model_dump()
     return boundary_order.canonicalize_boundary_mapping(
         normalized,
         source="server._normalize_dataflow_response",
@@ -3577,6 +3694,9 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
         load_analysis_resume_checkpoint_manifest_fn=_load_analysis_resume_checkpoint_manifest,
         write_analysis_resume_checkpoint_fn=_write_analysis_resume_checkpoint,
         load_analysis_resume_checkpoint_fn=_load_analysis_resume_checkpoint,
+        load_aspf_resume_state_fn=_load_aspf_resume_state,
+        append_aspf_delta_fn=_append_aspf_delta,
+        finalize_aspf_resume_state_fn=_finalize_aspf_resume_state,
         analysis_input_manifest_fn=_analysis_input_manifest,
         analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
         build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
@@ -3587,6 +3707,12 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
         collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
         write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
         load_report_section_journal_fn=_load_report_section_journal,
+        start_trace_fn=aspf_execution_fibration.start_execution_trace,
+        record_1cell_fn=aspf_execution_fibration.record_1cell,
+        record_2cell_witness_fn=aspf_execution_fibration.record_2cell_witness,
+        record_cofibration_fn=aspf_execution_fibration.record_cofibration,
+        merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
+        finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
     )
 
 

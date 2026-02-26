@@ -6,9 +6,135 @@ run_dataflow=true
 run_tests=true
 list_only=false
 docflow_mode="required"
+aspf_handoff=true
+aspf_handoff_manifest="${GABION_ASPF_HANDOFF_MANIFEST:-artifacts/out/aspf_handoff_manifest.json}"
+aspf_handoff_session="${GABION_ASPF_HANDOFF_SESSION:-}"
+aspf_state_root="${GABION_ASPF_STATE_ROOT:-artifacts/out/aspf_state}"
 
-for arg in "$@"; do
-  case "$arg" in
+usage() {
+  cat <<'USAGE' >&2
+Usage: scripts/checks.sh [--docflow|--no-docflow|--docflow-only|--dataflow-only|--tests-only|--docflow-advisory|--list]
+                         [--no-aspf-handoff|--aspf-handoff-manifest <path>|--aspf-handoff-session <id>|--aspf-state-root <path>]
+USAGE
+}
+
+ensure_aspf_handoff_session() {
+  if ! $aspf_handoff; then
+    return 0
+  fi
+  if [ -n "$aspf_handoff_session" ]; then
+    return 0
+  fi
+  aspf_handoff_session="$(mise exec -- python - <<'PY'
+from gabion.tooling import aspf_handoff
+print(aspf_handoff.new_session_id())
+PY
+)"
+}
+
+prepare_aspf_handoff_step() {
+  local step_id="$1"
+  local command_profile="$2"
+  shift 2
+  if ! $aspf_handoff; then
+    "$@"
+    return $?
+  fi
+  ensure_aspf_handoff_session
+  mise exec -- python scripts/aspf_handoff.py run \
+    --root . \
+    --session-id "$aspf_handoff_session" \
+    --step-id "$step_id" \
+    --command-profile "$command_profile" \
+    --manifest "$aspf_handoff_manifest" \
+    --state-root "$aspf_state_root" \
+    -- "$@"
+}
+
+emit_aspf_action_plan_warning() {
+  if ! $aspf_handoff; then
+    return 0
+  fi
+  ensure_aspf_handoff_session
+  warning_line="$(mise exec -- python - "$aspf_handoff_manifest" "$aspf_handoff_session" <<'PY' || true
+import json
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+session_id = sys.argv[2]
+if not manifest_path.exists():
+    raise SystemExit(0)
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    raise SystemExit(0)
+if str(manifest.get("session_id", "")).strip() != session_id:
+    raise SystemExit(0)
+entries = manifest.get("entries")
+if not isinstance(entries, list):
+    raise SystemExit(0)
+latest = None
+for entry in entries:
+    if not isinstance(entry, dict):
+        continue
+    if str(entry.get("status", "")).strip().lower() != "success":
+        continue
+    try:
+        sequence = int(entry.get("sequence", 0))
+    except (TypeError, ValueError):
+        continue
+    if latest is None or sequence > latest[0]:
+        latest = (sequence, entry)
+if latest is None:
+    raise SystemExit(0)
+state_path = latest[1].get("state_path")
+if not isinstance(state_path, str) or not state_path.strip():
+    raise SystemExit(0)
+path = Path(state_path)
+if not path.exists():
+    raise SystemExit(0)
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    raise SystemExit(0)
+quality = payload.get("action_plan_quality")
+if not isinstance(quality, dict):
+    raise SystemExit(0)
+if str(quality.get("status", "")).strip().lower() != "warning":
+    raise SystemExit(0)
+issues = quality.get("issues")
+ids: list[str] = []
+if isinstance(issues, list):
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        issue_id = str(issue.get("issue_id", "")).strip()
+        if issue_id:
+            ids.append(issue_id)
+if ids:
+    preview = ", ".join(ids[:8])
+    if len(ids) > 8:
+        preview = f"{preview}, +{len(ids) - 8} more"
+else:
+    preview = "unknown-issues"
+print(f"ASPF action-plan quality warning: {preview}")
+PY
+)"
+  if [ -z "${warning_line:-}" ]; then
+    return 0
+  fi
+  echo "$warning_line" >&2
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    echo "::warning::$warning_line"
+  fi
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf -- "- %s\n" "$warning_line" >>"$GITHUB_STEP_SUMMARY"
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --no-docflow) run_docflow=false ;;
     --docflow) run_docflow=true ;;
     --docflow-only) run_docflow=true; run_dataflow=false; run_tests=false ;;
@@ -16,17 +142,49 @@ for arg in "$@"; do
     --dataflow-only) run_dataflow=true; run_docflow=false; run_tests=false ;;
     --list) list_only=true ;;
     --docflow-advisory) docflow_mode="advisory" ;;
+    --no-aspf-handoff) aspf_handoff=false ;;
+    --aspf-handoff-manifest)
+      if [ "$#" -lt 2 ]; then
+        echo "missing value for --aspf-handoff-manifest" >&2
+        exit 2
+      fi
+      aspf_handoff_manifest="$2"
+      shift
+      ;;
+    --aspf-handoff-session)
+      if [ "$#" -lt 2 ]; then
+        echo "missing value for --aspf-handoff-session" >&2
+        exit 2
+      fi
+      aspf_handoff_session="$2"
+      shift
+      ;;
+    --aspf-state-root)
+      if [ "$#" -lt 2 ]; then
+        echo "missing value for --aspf-state-root" >&2
+        exit 2
+      fi
+      aspf_state_root="$2"
+      shift
+      ;;
     -h|--help)
-      echo "Usage: scripts/checks.sh [--docflow|--no-docflow|--docflow-only|--dataflow-only|--tests-only|--docflow-advisory|--list]" >&2
+      usage
       exit 0
       ;;
+    *)
+      echo "unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
   esac
+  shift
 done
 
 if $list_only; then
   echo "Checks to run:" >&2
   $run_dataflow && echo "- lsp parity gate (gabion lsp-parity-gate --command gabion.check)" >&2
   $run_dataflow && echo "- dataflow (gabion check run)" >&2
+  $run_dataflow && $aspf_handoff && echo "- aspf handoff (state + cumulative imports)" >&2
   $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
   exit 0
@@ -36,7 +194,6 @@ if ! command -v mise >/dev/null 2>&1; then
   echo "mise is required. Install from https://mise.jdx.dev" >&2
   exit 1
 fi
-
 
 ensure_mise_trust() {
   if ! mise trust --yes >/dev/null 2>&1; then
@@ -55,7 +212,12 @@ if $run_dataflow; then
   if [ -f baselines/dataflow_baseline.txt ]; then
     baseline_arg+=(--baseline baselines/dataflow_baseline.txt --baseline-mode enforce)
   fi
-  mise exec -- python -m gabion check run "${baseline_arg[@]}"
+  prepare_aspf_handoff_step \
+    "checks.check.run" \
+    "checks.check.run" \
+    mise exec -- python -m gabion check run \
+    "${baseline_arg[@]}"
+  emit_aspf_action_plan_warning
 fi
 if $run_docflow; then
   docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")

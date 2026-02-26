@@ -112,6 +112,144 @@ class LintEntryDTO(BaseModel):
     severity: str = "warning"
 
 
+class AspfOneCellDTO(BaseModel):
+    source: str
+    target: str
+    representative: str
+    basis_path: List[str]
+    kind: Optional[str] = None
+    surface: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class AspfTwoCellWitnessDTO(BaseModel):
+    left: AspfOneCellDTO
+    right: AspfOneCellDTO
+    witness_id: str
+    reason: str
+
+
+class AspfTraceDTO(BaseModel):
+    format_version: int = 1
+    trace_id: str
+    started_at_utc: str
+    controls: Dict[str, Any] = {}
+    one_cells: List[AspfOneCellDTO] = []
+    two_cell_witnesses: List[AspfTwoCellWitnessDTO] = []
+    cofibration_witnesses: List[Dict[str, Any]] = []
+    surface_representatives: Dict[str, str] = {}
+    imported_trace_count: int = 0
+
+
+class AspfEquivalenceSurfaceDTO(BaseModel):
+    surface: str
+    classification: str
+    baseline_representative: Optional[str] = None
+    current_representative: Optional[str] = None
+    witness_id: Optional[str] = None
+    representative_selection: Optional[Dict[str, Any]] = None
+
+
+class AspfEquivalenceDTO(BaseModel):
+    format_version: int = 1
+    trace_id: str
+    verdict: str
+    surface_table: List[AspfEquivalenceSurfaceDTO] = []
+
+
+class AspfOpportunityDTO(BaseModel):
+    opportunity_id: str
+    kind: str
+    confidence: float
+    affected_surfaces: List[str] = []
+    witness_ids: List[str] = []
+    reason: str
+
+
+class AspfOpportunitiesDTO(BaseModel):
+    format_version: int = 1
+    trace_id: str
+    opportunities: List[AspfOpportunityDTO] = []
+
+
+class AspfDeltaRecordDTO(BaseModel):
+    seq: int
+    ts_utc: str
+    event_kind: str
+    phase: str
+    analysis_state: Optional[str] = None
+    mutation_target: str
+    mutation_value: Any = None
+    one_cell_ref: Optional[str] = None
+
+
+class AspfDeltaLedgerDTO(BaseModel):
+    format_version: int = 1
+    trace_id: str
+    records: List[AspfDeltaRecordDTO] = []
+
+
+class AspfActionItemDTO(BaseModel):
+    action_id: str
+    priority: str
+    opportunity_kind: str
+    confidence: float
+    targets: Dict[str, Any] = {}
+    affected_surfaces: List[str] = []
+    evidence_refs: Dict[str, Any] = {}
+    implementation_steps: List[str] = []
+    validation_commands: List[str] = []
+
+
+class AspfActionPlanDTO(BaseModel):
+    format_version: int = 1
+    trace_id: str
+    generated_at_utc: str
+    summary: Dict[str, Any] = {}
+    actions: List[AspfActionItemDTO] = []
+
+
+class AspfActionPlanQualityIssueDTO(BaseModel):
+    issue_id: str
+    severity: str
+    message: str
+    action_id: Optional[str] = None
+
+
+class AspfActionPlanQualityDTO(BaseModel):
+    status: str
+    summary: Dict[str, Any] = {}
+    issues: List[AspfActionPlanQualityIssueDTO] = []
+
+
+class AspfResumeProjectionDTO(BaseModel):
+    analysis_state: Optional[str] = None
+    semantic_surfaces: Dict[str, Any] = {}
+    exit_code: Optional[int] = None
+
+
+class AspfStateDTO(BaseModel):
+    format_version: int = 1
+    state_id: str
+    session_id: str
+    step_id: str
+    created_at_utc: str
+    command_profile: str
+    analysis_manifest_digest: Optional[str] = None
+    resume_source: Optional[str] = None
+    resume_compatibility_status: Optional[str] = None
+    trace: Dict[str, Any] = {}
+    equivalence: Dict[str, Any] = {}
+    opportunities: Dict[str, Any] = {}
+    semantic_surfaces: Dict[str, Any] = {}
+    resume_projection: Dict[str, Any] = {}
+    delta_ledger: Dict[str, Any] = {}
+    action_plan_refs: Dict[str, Any] = {}
+    action_plan_quality: Dict[str, Any] = {}
+    exit_code: Optional[int] = None
+    analysis_state: Optional[str] = None
+
+
 class DataflowAuditResponseDTO(BaseModel):
     exit_code: int = 0
     timeout: bool = False
@@ -121,6 +259,13 @@ class DataflowAuditResponseDTO(BaseModel):
     errors: List[str] = []
     lint_lines: List[str] = []
     lint_entries: List[LintEntryDTO] = []
+    aspf_trace: Optional[AspfTraceDTO] = None
+    aspf_equivalence: Optional[AspfEquivalenceDTO] = None
+    aspf_opportunities: Optional[AspfOpportunitiesDTO] = None
+    aspf_delta_ledger: Optional[AspfDeltaLedgerDTO] = None
+    aspf_action_plan: Optional[AspfActionPlanDTO] = None
+    aspf_action_plan_quality: Optional[AspfActionPlanQualityDTO] = None
+    aspf_state: Optional[AspfStateDTO] = None
     payload: Dict[str, Any] = {}
 
 

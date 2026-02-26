@@ -23,19 +23,8 @@ def _check_obj(captured: list[dict[str, object]]) -> dict[str, object]:
         captured.append({str(key): kwargs[key] for key in kwargs})
         return {"exit_code": 0, "lint_lines": []}
 
-    def _run_with_timeout_retries(
-        *,
-        run_once,
-        root: Path,
-        emit_timeout_progress_report: bool,
-        resume_on_timeout: int,
-    ) -> dict[str, object]:
-        _ = root, emit_timeout_progress_report, resume_on_timeout
-        return run_once()
-
     return {
         "run_check": _run_check,
-        "run_with_timeout_retries": _run_with_timeout_retries,
     }
 
 
@@ -149,6 +138,60 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     assert invalid.exit_code != 0
     assert "--baseline is only valid" in _normalize_output(invalid.output)
 
+    removed_resume = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--resume-checkpoint", "resume.json"],
+    )
+    assert removed_resume.exit_code != 0
+    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+        removed_resume.output
+    )
+
+    removed_progress = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--emit-timeout-progress-report"],
+    )
+    assert removed_progress.exit_code != 0
+    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+        removed_progress.output
+    )
+
+    removed_retry = runner.invoke(
+        cli.app,
+        ["check", "run", "sample.py", "--resume-on-timeout", "2"],
+    )
+    assert removed_retry.exit_code != 0
+    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+        removed_retry.output
+    )
+
+
+def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
+    runner = CliRunner()
+    captured: list[dict[str, object]] = []
+    result = runner.invoke(
+        cli.app,
+        ["check", "delta-bundle", "sample.py"],
+        obj=_check_obj(captured),
+    )
+    assert result.exit_code == 0
+    assert len(captured) == 1
+    kwargs = captured[0]
+    delta_options = kwargs["delta_options"]
+    assert isinstance(delta_options, cli.CheckDeltaOptions)
+    assert delta_options.emit_test_obsolescence_state is True
+    assert delta_options.emit_test_obsolescence_delta is True
+    assert delta_options.emit_test_annotation_drift_delta is True
+    assert delta_options.emit_ambiguity_state is True
+    assert delta_options.emit_ambiguity_delta is True
+
+
+def test_check_delta_gates_uses_gate_runner_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = CliRunner()
+    monkeypatch.setattr(cli, "_run_check_delta_gates", lambda: 7)
+    result = runner.invoke(cli.app, ["check", "delta-gates"])
+    assert result.exit_code == 7
+
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_lint_mode_validation_errors
 def test_check_lint_mode_validation_errors() -> None:
@@ -237,9 +280,6 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
             "transparent_decorators_csv",
             "allow_external",
             "strictness",
-            "resume_checkpoint",
-            "emit_timeout_progress_report",
-            "resume_on_timeout",
             "fail_on_violations",
             "fail_on_type_ambiguities",
             "lint",
@@ -271,9 +311,6 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
         ),
         allow_external=False,
         strictness="low",
-        resume_checkpoint=Path("resume.json"),
-        emit_timeout_progress_report=True,
-        resume_on_timeout=2,
         fail_on_type_ambiguities=True,
         lint=True,
         lint_jsonl=Path("lint.jsonl"),
@@ -300,9 +337,6 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
             ),
             allow_external=False,
             strictness="low",
-            resume_checkpoint=Path("resume.json"),
-            emit_timeout_progress_report=True,
-            resume_on_timeout=2,
             fail_on_type_ambiguities=True,
             lint=True,
             lint_jsonl=Path("lint.jsonl"),
@@ -326,9 +360,6 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
         filter_bundle=None,
         allow_external=None,
         strictness=None,
-        resume_checkpoint=None,
-        emit_timeout_progress_report=False,
-        resume_on_timeout=0,
         fail_on_type_ambiguities=False,
         lint=False,
         lint_jsonl=None,

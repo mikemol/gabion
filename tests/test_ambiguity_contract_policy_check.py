@@ -59,7 +59,7 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
     assert all("__pycache__" not in item.path for item in violations)
     rendered = violations[0].render()
     assert "[ACP-" in rendered
-    assert violations[0].key.count(":") >= 3
+    assert violations[0].key.count(":") >= 2
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_helper_predicates_cover_all_sentinels::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._module_boundary::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._has_marker::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._annotation_is_dynamic::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._looks_like_guard::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._single_sentinel_stmt
@@ -160,7 +160,7 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    assert policy._load_baseline(mixed) == {"ACP-001:a.py:f:3"}
+    assert policy._load_baseline(mixed) == {"ACP-001:a.py:f"}
     non_list = tmp_path / "non_list.json"
     non_list.write_text("{\"violations\": {}}\n", encoding="utf-8")
     assert policy._load_baseline(non_list) == set()

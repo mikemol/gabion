@@ -1,5 +1,5 @@
 ---
-doc_revision: 76
+doc_revision: 80
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -171,82 +171,69 @@ violations and `--baseline path/to/baseline.txt --baseline-mode write` to
 generate/update the baseline file
 ([`NCI-BASELINE-RATCHET`](docs/normative_clause_index.md#clause-baseline-ratchet)).
 
-For iterative local cleanup, keep a warm resume checkpoint between runs:
-```
+For iterative local cleanup, use ASPF snapshot + delta as the continuation
+substrate:
+```bash
 mise exec -- python -m gabion check run \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+  --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md
 ```
-Recommended iterative loop (especially on larger repos):
-```
+
+### ASPF Cross-Execution Equivalence + Cross-Script Handoff (phase 1)
+
+Phase-1 supports both:
+- trace/equivalence/opportunity artifacts (`--aspf-trace-json`, `--aspf-import-trace`)
+- serialized ASPF state objects for cross-script reuse (`--aspf-state-json`, `--aspf-import-state`)
+- append-only mutation ledgers (`--aspf-delta-jsonl`)
+- ranked cleanup plans (`--aspf-action-plan-json`, `--aspf-action-plan-md`)
+
+Capture a baseline lane as a first-class state object:
+```bash
 mise exec -- python -m gabion check run \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 2 \
-  --timeout-progress-report
+  --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md \
+  --aspf-semantic-surface groups_by_path \
+  --aspf-semantic-surface decision_surfaces \
+  --aspf-semantic-surface rewrite_plans \
+  --aspf-semantic-surface violation_summary
 ```
-This keeps retry behavior local to one command invocation while preserving a
-single checkpoint file for cache hydration.
 
-### Timeout/resume quick guide (`gabion check run`)
+Run another lane and import prior state for glued equivalence reasoning:
+```bash
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-a/0002_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0002_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0002_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0002_check-run.action_plan.md \
+  --aspf-import-state artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
+  --aspf-opportunities-json artifacts/out/aspf_opportunities.json
+```
 
-When a run times out, read `analysis_state` and timeout `classification`
-together:
+For script orchestration, use `scripts/aspf_handoff.py` to reserve state paths
+and cumulative imports through `artifacts/out/aspf_handoff_manifest.json`.
+The repo scripts `scripts/checks.sh`, `scripts/ci_local_repro.sh`,
+`scripts/refresh_baselines.py`, and `scripts/audit_snapshot.sh` now enable this
+handoff loop by default (disable with `--no-aspf-handoff`).
 
-- `timed_out_progress_resume`: Gabion observed resumable progress and the
-  checkpoint can continue useful work; retries are usually worthwhile.
-- `timed_out_no_progress`: timeout happened without useful resumable progress;
-  repeating the exact same attempt is unlikely to help.
+Phase-1 ASPF outputs:
+- `artifacts/out/aspf_trace.json`
+- `artifacts/out/aspf_equivalence.json`
+- `artifacts/out/aspf_opportunities.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
+- `artifacts/out/aspf_handoff_manifest.json`
 
-Timeout artifacts and their purposes:
+See `docs/aspf_execution_fibration.md` for surface/witness/handoff details.
 
-- `artifacts/audit_reports/timeout_progress.json` (written when
-  `--timeout-progress-report` is set): machine-readable timeout payload
-  (`analysis_state` + `progress`) for automation and scripts.
-- `artifacts/audit_reports/timeout_progress.md` (written when
-  `--timeout-progress-report` is set): human-readable timeout summary,
-  including retry hints and resume token details.
-- `artifacts/out/deadline_profile.json` (written on timeout): raw deadline
-  telemetry/profile data.
-- `artifacts/out/deadline_profile.md` (written on timeout): markdown rendering
-  of the deadline profile for quick diagnosis.
-
-Concise retry decision tree:
-
-1. Start by keeping the same `--resume-checkpoint` and the same identity knobs
-   (`--strictness`, `--allow-external`/external-filter mode,
-   `--ignore-params`, `--transparent-decorators`, and any fingerprint/forest
-   config inputs) to maximize warm-cache reuse.
-2. Only relax or tighten knobs when timeout artifacts indicate why:
-   - tighten (`--strictness high`, stricter filtering) for final verification;
-   - relax (`--strictness low`, broader excludes/filtering) when you need faster
-     incremental progress before tightening again.
-3. Intentionally rotate `--resume-checkpoint` to a new path when switching to a
-   materially different audit mode (large semantic/config changes) so each loop
-   keeps a coherent hot cache.
-
-Use the same checkpoint path across runs while tuning issues.
-Cache reuse is strongest when audit identity inputs stay stable (for example:
-strictness, external-filter mode, fingerprint seed revision, and forest spec).
-Change those knobs only when needed; otherwise you can invalidate hydration
-reuse and force larger reparse/index work.
-
-Gabion's resume loader checks both `index_cache_identity` and
-`projection_cache_identity` before accepting hydrated data from a checkpoint.
-This means incompatible settings are rejected safely by default: if identity
-inputs differ, the run falls back to a cold parse/index instead of reusing
-possibly-invalid cached state.
-
-Compatibility-first guidance (to maximize warm-cache reuse):
-- Reuse the same `--resume-checkpoint` path.
-- Keep `external_filter` and `decision_require_tiers` stable while iterating.
-- Keep `ignore_params` / `decision_ignore_params` / `transparent_decorators`
-  stable while iterating.
-- `strictness` can now alternate safely on the same checkpoint: Gabion keeps a
-  bounded set of recent analysis-index resume variants keyed by cache identity,
-  so switching back to a prior strictness level can reuse previously hydrated
-  index data instead of forcing a cold reparse.
-- If you intentionally change many semantics at once, consider separate
-  checkpoint files to keep each loop's cache hot.
+Legacy timeout/resume checkpoint flags were removed from `gabion check run`.
+Use ASPF state import (`--aspf-import-state`) plus per-run delta/action-plan
+artifacts for continuation and progress tracking.
 
 Run the dataflow grammar audit in raw profile mode (prototype):
 ```
@@ -258,6 +245,15 @@ mise exec -- python -m gabion check obsolescence delta --baseline baselines/test
 mise exec -- python -m gabion check annotation-drift baseline-write --baseline baselines/test_annotation_drift_baseline.json
 mise exec -- python -m gabion check ambiguity state
 ```
+Delta-analysis fast path (single analysis pass + gate-only follow-up):
+```
+mise exec -- python -m gabion check delta-bundle
+mise exec -- python -m gabion check delta-gates
+```
+Removed top-level wrappers:
+- `gabion delta-state-emit` -> `gabion check delta-bundle`
+- `gabion delta-triplets` -> `gabion check delta-gates`
+
 Global runtime controls are now:
 - `--timeout <duration>` (for example `750ms`, `2s`, `1m30s`)
 - `--carrier {lsp|direct}`
@@ -361,23 +357,16 @@ GitHub-hosted CI runs `gabion check run`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
-The `dataflow-grammar` job now performs a best-effort warm-cache restore of
-`dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
-before running a single `gabion run-dataflow-stage` invocation (`run=high`
-strictness profile). When available, this primes Gabion's resume mechanism and
-reduces repeated parsing/indexing of unchanged paths.
+The `dataflow-grammar` job now performs ASPF handoff by default across staged
+invocations, emitting per-step snapshot/delta/action-plan artifacts under
+`artifacts/out/aspf_state/` and recording cumulative imports in
+`artifacts/out/aspf_handoff_manifest.json`.
 
-Cache effectiveness can be audited in CI logs and step summaries via
-`completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
-`gabion run-dataflow-stage`. Unified all-phase progress telemetry is also
-persisted to:
+Cross-step effectiveness can be audited in CI logs and summaries from the
+handoff manifest (`sequence`, `import_state_paths`, `status`) plus generated
+action-plan artifacts. Unified all-phase progress telemetry is also persisted to:
 - `artifacts/audit_reports/dataflow_phase_timeline.md`
 - `artifacts/audit_reports/dataflow_phase_timeline.jsonl`
-
-Because restore is constrained to a same-branch prior push artifact, teams can
-reuse one default checkpoint artifact safely even when each run touches a
-different chunk of the repository. The loader only hydrates paths present in
-the current run's file set *and* only when cache identities match.
 
 Allow-listed actions are defined in `docs/allowed_actions.txt` and governed by
 [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).

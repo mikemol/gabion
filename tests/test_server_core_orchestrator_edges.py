@@ -64,6 +64,7 @@ def _timeout_context(
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
+        aspf_trace_state=None,
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=lambda **_kwargs: None,
     )
@@ -79,6 +80,7 @@ def _analysis_context(
 ) -> orchestrator._AnalysisExecutionContext:
     return orchestrator._AnalysisExecutionContext(
         execute_deps=deps,
+        aspf_trace_state=None,
         runtime_state=orchestrator.CommandRuntimeState(latest_collection_progress={}),
         forest=Forest(),
         paths=[source_path],
@@ -361,6 +363,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
+        aspf_trace_state=None,
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=None,
     )
@@ -409,6 +412,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
     _file_paths_for_run, collection_resume_payload = orchestrator._prepare_analysis_resume_state(
         execute_deps=deps,
+        aspf_trace_state=None,
         needs_analysis=True,
         paths=[source_path],
         root=str(tmp_path),

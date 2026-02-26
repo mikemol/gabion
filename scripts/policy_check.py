@@ -749,10 +749,12 @@ def _check_ci_script_entrypoints(doc, path, errors):
     if not isinstance(jobs, dict):
         return
     required_tokens = {
-        "scripts/ci_seed_dataflow_checkpoint.py",
         "scripts/ci_finalize_dataflow_outcome.py",
         "scripts/ci_controller_drift_gate.py",
         "scripts/ci_override_record_emit.py",
+        "scripts/aspf_handoff.py run",
+        "check delta-bundle",
+        "check delta-gates",
     }
     steps = []
     for job in jobs.values():
@@ -1232,8 +1234,6 @@ def check_ambiguity_contract() -> None:
         "ambiguity-contract-gate",
         "--root",
         str(REPO_ROOT),
-        "--baseline",
-        str(REPO_ROOT / "scripts" / "baselines" / "ambiguity_contract_policy_baseline.json"),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:

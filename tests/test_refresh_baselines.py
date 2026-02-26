@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 from tests.env_helpers import env_scope as _env_scope
@@ -10,6 +13,16 @@ def _load_refresh_baselines():
     from scripts import refresh_baselines
 
     return refresh_baselines
+
+
+@contextmanager
+def _cwd(path: Path):
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
@@ -48,8 +61,6 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
             ],
             timeout=5,
             timeout_env=timeout_env,
-            resume_on_timeout=1,
-            resume_checkpoint=None,
             run_fn=_fake_run,
         )
         assert os.environ.get("GABION_LSP_TIMEOUT_TICKS") == original_ticks
@@ -81,9 +92,7 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
         subcommand: list[str],
         timeout: int | None,
         timeout_env: module._RefreshLspTimeoutEnv,
-        resume_on_timeout: int,
         *,
-        resume_checkpoint,
         report_path=module.DEFAULT_CHECK_REPORT_PATH,
         extra: list[str] | None = None,
         run_fn=module.subprocess.run,
@@ -91,8 +100,6 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
         _ = (
             subcommand,
             timeout,
-            resume_on_timeout,
-            resume_checkpoint,
             report_path,
             extra,
             run_fn,
@@ -144,3 +151,122 @@ def test_requires_block_allows_override_token_with_rationale() -> None:
         }
     ):
         assert module._requires_block("obsolescence_opaque", 1) is False
+
+
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_enables_default_aspf_handoff_and_writes_manifest::refresh_baselines.py::scripts.refresh_baselines.main
+def test_main_enables_default_aspf_handoff_and_writes_manifest(tmp_path: Path) -> None:
+    module = _load_refresh_baselines()
+    captured: list[list[str]] = []
+
+    def _capture_run_check(
+        subcommand: list[str],
+        timeout: int | None,
+        timeout_env: module._RefreshLspTimeoutEnv,
+        *,
+        report_path=module.DEFAULT_CHECK_REPORT_PATH,
+        extra: list[str] | None = None,
+        run_fn=module.subprocess.run,
+    ) -> None:
+        _ = (
+            subcommand,
+            timeout,
+            timeout_env,
+            report_path,
+            run_fn,
+        )
+        captured.append(list(extra or []))
+
+    with _cwd(tmp_path):
+        exit_code = module.main(
+            [
+                "--obsolescence",
+                "--aspf-handoff-session",
+                "session-refresh",
+                "--aspf-handoff-manifest",
+                "artifacts/out/aspf_handoff_manifest.json",
+                "--aspf-state-root",
+                "artifacts/out/aspf_state",
+            ],
+            deadline_scope_factory=lambda: module.deadline_scope_from_lsp_env(
+                default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
+            ),
+            run_check_fn=_capture_run_check,
+            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
+            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
+            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+        )
+
+    assert exit_code == 0
+    assert captured
+    first_extra = captured[0]
+    assert "--aspf-state-json" in first_extra
+    assert "--aspf-import-state" not in first_extra
+
+    manifest_path = tmp_path / "artifacts/out/aspf_handoff_manifest.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["session_id"] == "session-refresh"
+    assert payload["entries"][0]["status"] == "success"
+
+
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_aspf_handoff_imports_prior_successful_state::refresh_baselines.py::scripts.refresh_baselines.main
+def test_main_aspf_handoff_imports_prior_successful_state(tmp_path: Path) -> None:
+    module = _load_refresh_baselines()
+    captures: list[list[str]] = []
+
+    def _capture_run_check(
+        subcommand: list[str],
+        timeout: int | None,
+        timeout_env: module._RefreshLspTimeoutEnv,
+        *,
+        report_path=module.DEFAULT_CHECK_REPORT_PATH,
+        extra: list[str] | None = None,
+        run_fn=module.subprocess.run,
+    ) -> None:
+        _ = (
+            subcommand,
+            timeout,
+            timeout_env,
+            report_path,
+            run_fn,
+        )
+        captures.append(list(extra or []))
+
+    args = [
+        "--obsolescence",
+        "--aspf-handoff-session",
+        "session-refresh",
+        "--aspf-handoff-manifest",
+        "artifacts/out/aspf_handoff_manifest.json",
+        "--aspf-state-root",
+        "artifacts/out/aspf_state",
+    ]
+    with _cwd(tmp_path):
+        first_exit = module.main(
+            args,
+            deadline_scope_factory=lambda: module.deadline_scope_from_lsp_env(
+                default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
+            ),
+            run_check_fn=_capture_run_check,
+            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
+            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
+            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+        )
+        first_extra = captures.pop()
+        first_state_path = first_extra[first_extra.index("--aspf-state-json") + 1]
+        second_exit = module.main(
+            args,
+            deadline_scope_factory=lambda: module.deadline_scope_from_lsp_env(
+                default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
+            ),
+            run_check_fn=_capture_run_check,
+            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
+            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
+            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+        )
+        second_extra = captures.pop()
+
+    assert first_exit == 0
+    assert second_exit == 0
+    assert "--aspf-import-state" in second_extra
+    import_index = second_extra.index("--aspf-import-state")
+    assert second_extra[import_index + 1] == first_state_path

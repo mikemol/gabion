@@ -11,9 +11,7 @@ from gabion.server_core.command_reducers import (
     initial_collection_progress,
     initial_paths_count,
     normalize_paths,
-    normalize_resume_on_timeout_attempts,
     normalize_timeout_total_ticks,
-    phase_projection_checkpoints_enabled,
 )
 
 
@@ -87,34 +85,6 @@ def test_normalize_paths_converts_entries() -> None:
     root = Path("/tmp/demo")
     actual = normalize_paths(["a.py", Path("b.py")], root=root)
     assert actual == [Path("a.py"), Path("b.py")]
-
-
-# gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_resume_on_timeout_attempts
-@pytest.mark.parametrize(
-    ("raw_value", "expected"),
-    [
-        (None, 0),
-        ("2", 2),
-        ("", 0),
-        ("bad", 0),
-    ],
-)
-def test_normalize_resume_on_timeout_attempts(raw_value: object, expected: int) -> None:
-    assert normalize_resume_on_timeout_attempts(raw_value) == expected
-
-
-# gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.phase_projection_checkpoints_enabled
-def test_phase_projection_checkpoints_enabled() -> None:
-    assert not phase_projection_checkpoints_enabled(
-        report_output_path=None,
-        emit_timeout_progress_report=True,
-        resume_on_timeout_attempts=0,
-    )
-    assert phase_projection_checkpoints_enabled(
-        report_output_path=Path("report.md"),
-        emit_timeout_progress_report=False,
-        resume_on_timeout_attempts=1,
-    )
 
 
 # gabion:evidence E:function_site::command_contract.py::gabion.server_core.command_contract.CommandRuntimeInput

@@ -194,10 +194,45 @@ class DataflowPayloadCommonOptions:
     allow_external: bool | None
     strictness: str | None
     lint: bool
-    resume_checkpoint: Path | None
-    emit_timeout_progress_report: bool
-    resume_on_timeout: int
     deadline_profile: bool = True
+    aspf_trace_json: Path | None = None
+    aspf_import_trace: list[Path] | None = None
+    aspf_equivalence_against: list[Path] | None = None
+    aspf_opportunities_json: Path | None = None
+    aspf_state_json: Path | None = None
+    aspf_import_state: list[Path] | None = None
+    aspf_delta_jsonl: Path | None = None
+    aspf_action_plan_json: Path | None = None
+    aspf_action_plan_md: Path | None = None
+    aspf_semantic_surface: list[str] | None = None
+
+
+def delta_bundle_artifact_flags() -> CheckArtifactFlags:
+    return CheckArtifactFlags(
+        emit_test_obsolescence=False,
+        emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
+        emit_call_cluster_consolidation=False,
+        emit_test_annotation_drift=True,
+        emit_semantic_coverage_map=False,
+    )
+
+
+def delta_bundle_delta_options() -> CheckDeltaOptions:
+    return CheckDeltaOptions(
+        emit_test_obsolescence_state=True,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=True,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=True,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=True,
+        emit_ambiguity_state=True,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        semantic_coverage_mapping=None,
+    )
 
 
 def build_dataflow_payload_common(
@@ -232,12 +267,33 @@ def build_dataflow_payload_common(
         "allow_external": options.allow_external,
         "strictness": options.strictness,
         "lint": options.lint,
-        "resume_checkpoint": str(options.resume_checkpoint)
-        if options.resume_checkpoint is not None
-        else None,
-        "emit_timeout_progress_report": bool(options.emit_timeout_progress_report),
-        "resume_on_timeout": int(options.resume_on_timeout),
         "deadline_profile": bool(options.deadline_profile),
+        "aspf_trace_json": str(options.aspf_trace_json)
+        if options.aspf_trace_json is not None
+        else None,
+        "aspf_import_trace": [str(path) for path in (options.aspf_import_trace or [])],
+        "aspf_equivalence_against": [
+            str(path) for path in (options.aspf_equivalence_against or [])
+        ],
+        "aspf_opportunities_json": str(options.aspf_opportunities_json)
+        if options.aspf_opportunities_json is not None
+        else None,
+        "aspf_state_json": str(options.aspf_state_json)
+        if options.aspf_state_json is not None
+        else None,
+        "aspf_import_state": [str(path) for path in (options.aspf_import_state or [])],
+        "aspf_delta_jsonl": str(options.aspf_delta_jsonl)
+        if options.aspf_delta_jsonl is not None
+        else None,
+        "aspf_action_plan_json": str(options.aspf_action_plan_json)
+        if options.aspf_action_plan_json is not None
+        else None,
+        "aspf_action_plan_md": str(options.aspf_action_plan_md)
+        if options.aspf_action_plan_md is not None
+        else None,
+        "aspf_semantic_surface": [
+            str(surface) for surface in (options.aspf_semantic_surface or [])
+        ],
     }
 
 
@@ -259,11 +315,18 @@ def build_check_payload(
     strictness: str | None,
     fail_on_type_ambiguities: bool,
     lint: bool,
-    resume_checkpoint: Path | None = None,
-    emit_timeout_progress_report: bool = False,
-    resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
     aux_operation: CheckAuxOperation | None = None,
+    aspf_trace_json: Path | None = None,
+    aspf_import_trace: list[Path] | None = None,
+    aspf_equivalence_against: list[Path] | None = None,
+    aspf_opportunities_json: Path | None = None,
+    aspf_state_json: Path | None = None,
+    aspf_import_state: list[Path] | None = None,
+    aspf_delta_jsonl: Path | None = None,
+    aspf_action_plan_json: Path | None = None,
+    aspf_action_plan_md: Path | None = None,
+    aspf_semantic_surface: list[str] | None = None,
     split_csv_entries_fn: SplitCsvEntriesFn = split_csv_entries,
     split_csv_fn: SplitCsvFn = split_csv,
 ) -> JSONObject:
@@ -287,9 +350,16 @@ def build_check_payload(
             allow_external=allow_external,
             strictness=strictness,
             lint=lint,
-            resume_checkpoint=resume_checkpoint,
-            emit_timeout_progress_report=emit_timeout_progress_report,
-            resume_on_timeout=resume_on_timeout,
+            aspf_trace_json=aspf_trace_json,
+            aspf_import_trace=aspf_import_trace,
+            aspf_equivalence_against=aspf_equivalence_against,
+            aspf_opportunities_json=aspf_opportunities_json,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aspf_action_plan_json=aspf_action_plan_json,
+            aspf_action_plan_md=aspf_action_plan_md,
+            aspf_semantic_surface=aspf_semantic_surface,
         ),
         split_csv_entries_fn=split_csv_entries_fn,
         split_csv_fn=split_csv_fn,

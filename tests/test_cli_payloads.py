@@ -74,8 +74,6 @@ def test_check_builds_payload() -> None:
     assert payload["exclude"] is None
     assert payload["ignore_params"] is None
     assert payload["transparent_decorators"] is None
-    assert payload["emit_timeout_progress_report"] is False
-    assert payload["resume_on_timeout"] == 0
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_check_builds_payload_with_none_filter_bundle::cli.py::gabion.cli.build_check_payload
@@ -333,9 +331,6 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
         strictness="low",
         fail_on_type_ambiguities=True,
         lint=True,
-        resume_checkpoint=Path("resume.json"),
-        emit_timeout_progress_report=True,
-        resume_on_timeout=2,
     )
     raw_opts = cli.parse_dataflow_args_or_exit(
         [
@@ -363,11 +358,6 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
             "--strictness",
             "low",
             "--lint",
-            "--resume-checkpoint",
-            "resume.json",
-            "--emit-timeout-progress-report",
-            "--resume-on-timeout",
-            "2",
         ]
     )
     raw_payload = cli.build_dataflow_payload(raw_opts)
@@ -387,9 +377,6 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
         "allow_external",
         "strictness",
         "lint",
-        "resume_checkpoint",
-        "emit_timeout_progress_report",
-        "resume_on_timeout",
         "deadline_profile",
     ]
     assert {key: check_payload[key] for key in common_keys} == {
@@ -397,24 +384,89 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
     }
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.parse_dataflow_args_or_exit
+def test_dataflow_payload_rejects_legacy_resume_and_timeout_flags() -> None:
+    with pytest.raises(typer.Exit):
+        cli.parse_dataflow_args_or_exit(
+            [
+                ".",
+                "--resume-checkpoint",
+                "resume.json",
+                "--emit-timeout-progress-report",
+                "--resume-on-timeout",
+                "2",
+            ]
+        )
+
+
 # gabion:evidence E:function_site::cli.py::gabion.cli.build_dataflow_payload
-def test_dataflow_payload_resume_checkpoint_and_timeout_flags() -> None:
+def test_dataflow_payload_includes_aspf_controls() -> None:
     opts = cli.parse_dataflow_args_or_exit(
         [
             ".",
-            "--resume-checkpoint",
-            "resume.json",
-            "--emit-timeout-progress-report",
-            "--resume-on-timeout",
-            "2",
+            "--aspf-trace-json",
+            "artifacts/out/aspf_trace.json",
+            "--aspf-import-trace",
+            "artifacts/out/prev_trace.json",
+            "--aspf-equivalence-against",
+            "artifacts/out/baseline_trace.json",
+            "--aspf-opportunities-json",
+            "artifacts/out/aspf_opportunities.json",
+            "--aspf-state-json",
+            "artifacts/out/aspf_state/session/0001_step.json",
+            "--aspf-import-state",
+            "artifacts/out/aspf_state/session/0000_prev.json",
+            "--aspf-semantic-surface",
+            "groups_by_path,violation_summary",
         ]
     )
     payload = cli.build_dataflow_payload(opts)
-    assert payload["resume_checkpoint"] == "resume.json"
-    assert payload["emit_timeout_progress_report"] is True
-    assert payload["resume_on_timeout"] == 2
-    assert opts.emit_timeout_progress_report is True
-    assert opts.resume_on_timeout == 2
+    assert payload["aspf_trace_json"] == "artifacts/out/aspf_trace.json"
+    assert payload["aspf_import_trace"] == ["artifacts/out/prev_trace.json"]
+    assert payload["aspf_equivalence_against"] == [
+        "artifacts/out/baseline_trace.json"
+    ]
+    assert payload["aspf_opportunities_json"] == "artifacts/out/aspf_opportunities.json"
+    assert payload["aspf_state_json"] == "artifacts/out/aspf_state/session/0001_step.json"
+    assert payload["aspf_import_state"] == [
+        "artifacts/out/aspf_state/session/0000_prev.json"
+    ]
+    assert payload["aspf_semantic_surface"] == [
+        "groups_by_path",
+        "violation_summary",
+    ]
+
+
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_check_execution_plan_request
+def test_build_check_execution_plan_request_includes_default_aspf_artifacts() -> None:
+    request = cli.build_check_execution_plan_request(
+        payload={"analysis_timeout_ticks": 11, "analysis_timeout_tick_ns": 22},
+        report=Path("artifacts/audit_reports/dataflow_report.md"),
+        decision_snapshot=None,
+        baseline=None,
+        baseline_write=False,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=False,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        ),
+        profile="strict",
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        emit_test_obsolescence_delta=False,
+        emit_test_annotation_drift_delta=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        aspf_trace_json=None,
+        aspf_opportunities_json=None,
+        aspf_state_json=None,
+        aspf_equivalence_enabled=True,
+    )
+    payload = request.to_payload()
+    artifacts = payload["derived_artifacts"]
+    assert "artifacts/out/aspf_trace.json" in artifacts
+    assert "artifacts/out/aspf_equivalence.json" in artifacts
+    assert "artifacts/out/aspf_opportunities.json" in artifacts
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::stale_dbf18f3b60dd

@@ -11,9 +11,7 @@ from gabion.server_core.command_reducers import (
     initial_collection_progress,
     initial_paths_count,
     normalize_paths,
-    normalize_resume_on_timeout_attempts,
     normalize_timeout_total_ticks,
-    phase_projection_checkpoints_enabled,
 )
 
 if TYPE_CHECKING:
@@ -33,6 +31,33 @@ def _bind_server_symbols() -> None:
     for name, value in _server.__dict__.items():
         module_globals.setdefault(name, value)
     _BOUND = True
+
+
+def _reject_removed_legacy_payload_keys(payload: dict[str, object]) -> None:
+    removed_keys = {
+        "resume_checkpoint": "--resume-checkpoint",
+        "resume_on_timeout": "--resume-on-timeout",
+        "emit_timeout_progress_report": "--emit-timeout-progress-report",
+        "emit_checkpoint_intro_timeline": "--emit-checkpoint-intro-timeline",
+    }
+    present_flags: list[str] = []
+    present_payload_keys: list[str] = []
+    for payload_key, cli_flag in removed_keys.items():
+        if payload_key not in payload:
+            continue
+        present_flags.append(cli_flag)
+        present_payload_keys.append(payload_key)
+    if not present_flags:
+        return
+    never(
+        "removed legacy check timeout/resume flags",
+        flags=present_flags,
+        payload_keys=present_payload_keys,
+        guidance=(
+            "Use ASPF state handoff via aspf_state_json/aspf_import_state and "
+            "optional aspf_delta_jsonl/aspf_action_plan_json/aspf_action_plan_md."
+        ),
+    )
 
 
 def _validate_auxiliary_flag_conflicts(
@@ -645,8 +670,11 @@ class _TimeoutCleanupContext:
     runtime_root: Path
     initial_paths_count_value: int
     execution_plan: ExecutionPlan
+    aspf_trace_state: object | None
     ensure_report_sections_cache_fn: object
     emit_lsp_progress_fn: object
+    analysis_resume_source: str = "cold_start"
+    analysis_resume_checkpoint_compatibility_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -659,6 +687,7 @@ class _ProgressEmitter:
 @dataclass(frozen=True)
 class _AnalysisExecutionContext:
     execute_deps: CommandEffects
+    aspf_trace_state: object | None
     runtime_state: CommandRuntimeState
     forest: Forest
     paths: list[Path]
@@ -739,11 +768,37 @@ class _AnalysisResumePreparationState:
     phase_checkpoint_state: JSONObject
     semantic_progress_cumulative: JSONObject | None
     last_collection_resume_payload: JSONObject | None
+    analysis_resume_source: str = "cold_start"
+
+
+def _aspf_import_state_paths(payload_value: object, *, root: Path) -> tuple[Path, ...]:
+    raw_items: list[object] = []
+    if payload_value is None:
+        return ()
+    if isinstance(payload_value, (str, Path)):
+        raw_items = [payload_value]
+    elif isinstance(payload_value, list):
+        raw_items = list(payload_value)
+    elif isinstance(payload_value, tuple):
+        raw_items = list(payload_value)
+    else:
+        raw_items = [payload_value]
+    resolved: list[Path] = []
+    for item in raw_items:
+        text = str(item).strip()
+        if not text:
+            continue
+        candidate = Path(text)
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        resolved.append(candidate)
+    return tuple(resolved)
 
 
 def _prepare_analysis_resume_state(
     *,
     execute_deps: CommandEffects,
+    aspf_trace_state: object | None,
     needs_analysis: bool,
     paths: list[Path],
     root: str,
@@ -763,27 +818,120 @@ def _prepare_analysis_resume_state(
     file_paths_for_run: list[Path] | None = None
     collection_resume_payload: JSONObject | None = None
     if needs_analysis:
+        resolved_root = Path(root)
         file_paths_for_run = resolve_analysis_paths(paths, config=config)
         state.analysis_resume_total_files = len(file_paths_for_run)
         state.analysis_resume_checkpoint_path = _resolve_analysis_resume_checkpoint_path(
             payload.get("resume_checkpoint"),
-            root=Path(root),
+            root=resolved_root,
         )
-        if state.analysis_resume_checkpoint_path is not None:
-            input_manifest = execute_deps.analysis_input_manifest_fn(
-                root=Path(root),
-                file_paths=file_paths_for_run,
-                recursive=not no_recursive,
-                include_invariant_propositions=bool(report_path),
-                include_wl_refinement=include_wl_refinement,
-                config=config,
+        input_manifest = execute_deps.analysis_input_manifest_fn(
+            root=resolved_root,
+            file_paths=file_paths_for_run,
+            recursive=not no_recursive,
+            include_invariant_propositions=bool(report_path),
+            include_wl_refinement=include_wl_refinement,
+            config=config,
+        )
+        state.analysis_resume_input_manifest_digest = (
+            execute_deps.analysis_input_manifest_digest_fn(input_manifest)
+        )
+        import_state_paths = _aspf_import_state_paths(
+            payload.get("aspf_import_state"),
+            root=resolved_root,
+        )
+        if import_state_paths:
+            imported_manifest_digest: str | None = None
+            imported_collection_resume: JSONObject | None = None
+            aspf_resume_payload = execute_deps.load_aspf_resume_state_fn(
+                import_state_paths=import_state_paths
             )
-            state.analysis_resume_input_manifest_digest = (
-                execute_deps.analysis_input_manifest_digest_fn(input_manifest)
+            if isinstance(aspf_resume_payload, Mapping):
+                imported_manifest_digest_raw = aspf_resume_payload.get(
+                    "analysis_manifest_digest"
+                )
+                if isinstance(imported_manifest_digest_raw, str):
+                    imported_manifest_digest = imported_manifest_digest_raw
+                resume_projection = aspf_resume_payload.get("resume_projection")
+                if isinstance(resume_projection, Mapping):
+                    raw_collection_resume = resume_projection.get("collection_resume")
+                    if isinstance(raw_collection_resume, Mapping):
+                        imported_collection_resume = {
+                            str(key): raw_collection_resume[key]
+                            for key in raw_collection_resume
+                        }
+                if imported_collection_resume is None:
+                    raw_collection_resume = aspf_resume_payload.get("collection_resume")
+                    if isinstance(raw_collection_resume, Mapping):
+                        imported_collection_resume = {
+                            str(key): raw_collection_resume[key]
+                            for key in raw_collection_resume
+                        }
+            if imported_collection_resume is None:
+                compatibility_status = "aspf_state_missing_collection_resume"
+            elif not isinstance(imported_manifest_digest, str):
+                compatibility_status = "aspf_state_missing_manifest_digest"
+            elif state.analysis_resume_input_manifest_digest is None:
+                compatibility_status = "aspf_state_missing_current_manifest_digest"
+            elif imported_manifest_digest != state.analysis_resume_input_manifest_digest:
+                compatibility_status = "aspf_state_manifest_mismatch"
+            else:
+                compatibility_status = "aspf_state_compatible"
+            if compatibility_status == "aspf_state_compatible":
+                collection_resume_payload = imported_collection_resume
+                state.analysis_resume_reused_files = _analysis_resume_progress(
+                    collection_resume=imported_collection_resume or {},
+                    total_files=state.analysis_resume_total_files,
+                )["completed_files"]
+                state.analysis_resume_checkpoint_status = "aspf_state_loaded"
+                state.analysis_resume_source = "aspf_state"
+            else:
+                state.analysis_resume_checkpoint_status = "aspf_state_skipped"
+            state.analysis_resume_checkpoint_compatibility_status = compatibility_status
+            execute_deps.record_1cell_fn(
+                aspf_trace_state,
+                kind="resume_load",
+                source_label="runtime:aspf_state",
+                target_label="analysis:resume_seed",
+                representative=(
+                    "aspf_state_loaded"
+                    if collection_resume_payload is not None
+                    else "aspf_state_skipped"
+                ),
+                basis_path=("resume", "load", "aspf_state"),
+                surface="delta_state",
+                metadata={
+                    "import_state_paths": [str(path) for path in import_state_paths],
+                    "status": state.analysis_resume_checkpoint_status,
+                    "compatibility_status": compatibility_status,
+                    "import_manifest_digest": imported_manifest_digest,
+                    "current_manifest_digest": state.analysis_resume_input_manifest_digest,
+                },
             )
+        if (
+            collection_resume_payload is None
+            and state.analysis_resume_checkpoint_path is not None
+        ):
             manifest_resume = execute_deps.load_analysis_resume_checkpoint_manifest_fn(
                 path=state.analysis_resume_checkpoint_path,
                 manifest_digest=state.analysis_resume_input_manifest_digest,
+            )
+            execute_deps.record_1cell_fn(
+                aspf_trace_state,
+                kind="resume_load",
+                source_label="runtime:resume_checkpoint",
+                target_label="analysis:resume_seed",
+                representative=(
+                    "resume_checkpoint_loaded"
+                    if manifest_resume is not None
+                    else "resume_checkpoint_missing"
+                ),
+                basis_path=("resume", "load", "checkpoint"),
+                surface="delta_state",
+                metadata={
+                    "checkpoint_path": str(state.analysis_resume_checkpoint_path),
+                    "manifest_digest": str(state.analysis_resume_input_manifest_digest or ""),
+                },
             )
             state.analysis_resume_checkpoint_status = _analysis_resume_checkpoint_compatibility(
                 path=state.analysis_resume_checkpoint_path,
@@ -802,6 +950,7 @@ def _prepare_analysis_resume_state(
                     total_files=state.analysis_resume_total_files,
                 )["completed_files"]
                 state.analysis_resume_checkpoint_status = "checkpoint_loaded"
+                state.analysis_resume_source = "resume_checkpoint"
             if (
                 collection_resume_payload is None
                 and state.analysis_resume_input_manifest_digest is not None
@@ -818,6 +967,18 @@ def _prepare_analysis_resume_state(
                     input_manifest_digest=state.analysis_resume_input_manifest_digest,
                     collection_resume=collection_resume_payload,
                 )
+                execute_deps.record_1cell_fn(
+                    aspf_trace_state,
+                    kind="resume_write",
+                    source_label="analysis:resume_seed",
+                    target_label="runtime:resume_checkpoint",
+                    representative="resume_checkpoint_seeded",
+                    basis_path=("resume", "write", "checkpoint"),
+                    surface="delta_state",
+                    metadata={
+                        "checkpoint_path": str(state.analysis_resume_checkpoint_path),
+                    },
+                )
                 state.analysis_resume_checkpoint_status = "checkpoint_seeded"
                 if emit_checkpoint_intro_timeline:
                     (
@@ -832,28 +993,17 @@ def _prepare_analysis_resume_state(
                         checkpoint_reused_files=state.analysis_resume_reused_files,
                         checkpoint_total_files=state.analysis_resume_total_files,
                     )
-            if explicit_resume_checkpoint:
+            if explicit_resume_checkpoint and state.analysis_resume_checkpoint_path is not None:
                 state.analysis_resume_intro_payload = {
                     "checkpoint_path": str(state.analysis_resume_checkpoint_path),
                     "status": state.analysis_resume_checkpoint_status or "unknown",
                     "reused_files": state.analysis_resume_reused_files,
                     "total_files": state.analysis_resume_total_files,
                 }
-        if (
-            file_paths_for_run is not None
-            and state.analysis_resume_input_manifest_digest is None
-        ):
-            input_manifest = execute_deps.analysis_input_manifest_fn(
-                root=Path(root),
-                file_paths=file_paths_for_run,
-                recursive=not no_recursive,
-                include_invariant_propositions=bool(report_path),
-                include_wl_refinement=include_wl_refinement,
-                config=config,
-            )
-            state.analysis_resume_input_manifest_digest = (
-                execute_deps.analysis_input_manifest_digest_fn(input_manifest)
-            )
+        if state.analysis_resume_checkpoint_status is None:
+            state.analysis_resume_checkpoint_status = "cold_start"
+        if state.analysis_resume_checkpoint_compatibility_status is None:
+            state.analysis_resume_checkpoint_compatibility_status = "cold_start"
         state.report_section_witness_digest = _report_witness_digest(
             input_witness=state.analysis_resume_input_witness,
             manifest_digest=state.analysis_resume_input_manifest_digest,
@@ -862,6 +1012,18 @@ def _prepare_analysis_resume_state(
             state.phase_checkpoint_state = execute_deps.load_report_phase_checkpoint_fn(
                 path=report_phase_checkpoint_path,
                 witness_digest=state.report_section_witness_digest,
+            )
+            execute_deps.record_1cell_fn(
+                aspf_trace_state,
+                kind="report_phase_load",
+                source_label="runtime:report_phase_checkpoint",
+                target_label="report:projection_state",
+                representative="report_phase_checkpoint_loaded",
+                basis_path=("report", "phase_checkpoint", "load"),
+                metadata={
+                    "checkpoint_path": str(report_phase_checkpoint_path),
+                    "witness_digest": str(state.report_section_witness_digest or ""),
+                },
             )
     state.last_collection_resume_payload = collection_resume_payload
     if isinstance(collection_resume_payload, Mapping):
@@ -1001,6 +1163,18 @@ def _run_analysis_with_progress(
                     input_witness=context.analysis_resume_input_witness,
                     input_manifest_digest=context.analysis_resume_input_manifest_digest,
                     collection_resume=persisted_progress_payload,
+                )
+                context.execute_deps.record_1cell_fn(
+                    context.aspf_trace_state,
+                    kind="resume_write",
+                    source_label="analysis:collection_progress",
+                    target_label="runtime:resume_checkpoint",
+                    representative="resume_checkpoint_incremental_write",
+                    basis_path=("resume", "write", "incremental"),
+                    surface="delta_state",
+                    metadata={
+                        "checkpoint_path": str(context.analysis_resume_checkpoint_path),
+                    },
                 )
                 last_collection_checkpoint_flush_ns = now_ns
                 checkpoint_timeline_header: str | None = None
@@ -1212,6 +1386,19 @@ def _run_analysis_with_progress(
             include_previews=True,
             preview_only=True,
         )
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="report_projection",
+            source_label="analysis:groups_by_path",
+            target_label="report:sections",
+            representative=f"projection:{phase}",
+            basis_path=("report", "projection", str(phase)),
+            surface="groups_by_path",
+            metadata={
+                "phase": phase,
+                "section_count": len(available_sections),
+            },
+        )
         sections, journal_reason = context.ensure_report_sections_cache_fn()
         sections.update(available_sections)
         partial_report, pending_reasons = _render_incremental_report(
@@ -1281,6 +1468,14 @@ def _run_analysis_with_progress(
 
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="analysis_call_start",
+            source_label="runtime:inputs",
+            target_label="analysis:engine",
+            representative="analyze_paths.start",
+            basis_path=("analysis", "call", "start"),
+        )
         analysis = context.execute_deps.analyze_paths_fn(
             context.paths,
             forest=context.forest,
@@ -1316,10 +1511,26 @@ def _run_analysis_with_progress(
                 else None
             ),
         )
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="analysis_call_end",
+            source_label="analysis:engine",
+            target_label="analysis:result",
+            representative="analyze_paths.end",
+            basis_path=("analysis", "call", "end"),
+        )
         context.profiling_stage_ns["server.analysis_call"] += (
             time.monotonic_ns() - analysis_started_ns
         )
     else:
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="analysis_call_skipped",
+            source_label="runtime:inputs",
+            target_label="analysis:result",
+            representative="analyze_paths.skipped",
+            basis_path=("analysis", "call", "skipped"),
+        )
         analysis = AnalysisResult(
             groups_by_path={},
             param_spans_by_path={},
@@ -2468,23 +2679,105 @@ def _handle_timeout_cleanup(
             ),
             event_kind="terminal",
         )
-        return _normalize_dataflow_response(
-            {
-                "exit_code": 2,
-                "timeout": True,
-                "analysis_state": analysis_state,
-                "execution_plan": context.execution_plan.as_json_dict(),
-                "timeout_context": timeout_payload,
-            }
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="timeout_cleanup",
+            source_label="analysis:engine",
+            target_label="runtime:timeout_context",
+            representative="analysis.timeout.cleanup",
+            basis_path=("timeout", "cleanup"),
+            surface="violation_summary",
         )
+        timeout_response: dict[str, object] = {
+            "exit_code": 2,
+            "timeout": True,
+            "analysis_state": analysis_state,
+            "execution_plan": context.execution_plan.as_json_dict(),
+            "timeout_context": timeout_payload,
+        }
+        trace_artifacts = context.execute_deps.finalize_trace_fn(
+            state=context.aspf_trace_state,
+            root=context.runtime_root,
+            semantic_surface_payloads={
+                "groups_by_path": {},
+                "decision_surfaces": [],
+                "rewrite_plans": [],
+                "synthesis_plan": [],
+                "delta_state": progress_payload,
+                "delta_payload": timeout_payload,
+                "violation_summary": {"timeout": True, "analysis_state": analysis_state},
+                "_resume_collection": (
+                    timeout_collection_resume_payload
+                    if isinstance(timeout_collection_resume_payload, Mapping)
+                    else {}
+                ),
+                "_latest_collection_progress": context.latest_collection_progress,
+                "_semantic_progress": (
+                    context.semantic_progress_cumulative
+                    if isinstance(context.semantic_progress_cumulative, Mapping)
+                    else {}
+                ),
+                "_analysis_manifest_digest": context.analysis_resume_input_manifest_digest,
+                "_resume_source": context.analysis_resume_source,
+                "_resume_compatibility_status": (
+                    context.analysis_resume_checkpoint_compatibility_status
+                ),
+            },
+            exit_code=2,
+            analysis_state=analysis_state,
+        )
+        if trace_artifacts is not None:
+            trace_payload = getattr(trace_artifacts, "trace_payload", None)
+            if isinstance(trace_payload, Mapping):
+                timeout_response["aspf_trace"] = {
+                    str(key): trace_payload[key] for key in trace_payload
+                }
+            equivalence_payload = getattr(trace_artifacts, "equivalence_payload", None)
+            if isinstance(equivalence_payload, Mapping):
+                timeout_response["aspf_equivalence"] = {
+                    str(key): equivalence_payload[key] for key in equivalence_payload
+                }
+            opportunities_payload = getattr(trace_artifacts, "opportunities_payload", None)
+            if isinstance(opportunities_payload, Mapping):
+                timeout_response["aspf_opportunities"] = {
+                    str(key): opportunities_payload[key]
+                    for key in opportunities_payload
+                }
+            delta_ledger_payload = getattr(trace_artifacts, "delta_ledger_payload", None)
+            if isinstance(delta_ledger_payload, Mapping):
+                timeout_response["aspf_delta_ledger"] = {
+                    str(key): delta_ledger_payload[key]
+                    for key in delta_ledger_payload
+                }
+            action_plan_payload = getattr(trace_artifacts, "action_plan_payload", None)
+            if isinstance(action_plan_payload, Mapping):
+                timeout_response["aspf_action_plan"] = {
+                    str(key): action_plan_payload[key]
+                    for key in action_plan_payload
+                }
+            action_plan_quality_payload = getattr(
+                trace_artifacts, "action_plan_quality_payload", None
+            )
+            if isinstance(action_plan_quality_payload, Mapping):
+                timeout_response["aspf_action_plan_quality"] = {
+                    str(key): action_plan_quality_payload[key]
+                    for key in action_plan_quality_payload
+                }
+            action_plan_markdown = getattr(trace_artifacts, "action_plan_markdown", None)
+            if isinstance(action_plan_markdown, str) and action_plan_markdown:
+                timeout_response["aspf_action_plan_markdown"] = action_plan_markdown
+            state_payload = getattr(trace_artifacts, "state_payload", None)
+            if isinstance(state_payload, Mapping):
+                timeout_response["aspf_state"] = {
+                    str(key): state_payload[key] for key in state_payload
+                }
+        return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
 
 
 @dataclass(frozen=True)
 class _ExecutionPayloadOptions:
-    emit_timeout_progress_report: bool
-    resume_on_timeout_attempts: int
     emit_checkpoint_intro_timeline: bool
     progress_heartbeat_seconds: float
     dot_path: object
@@ -2541,6 +2834,16 @@ class _ExecutionPayloadOptions:
     fingerprint_exception_obligations_json: object
     fingerprint_handledness_json: object
     include_wl_refinement: bool
+    aspf_trace_json: object
+    aspf_import_trace: object
+    aspf_equivalence_against: object
+    aspf_opportunities_json: object
+    aspf_state_json: object
+    aspf_import_state: object
+    aspf_delta_jsonl: object
+    aspf_action_plan_json: object
+    aspf_action_plan_md: object
+    aspf_semantic_surface: object
 
 
 @dataclass(frozen=True)
@@ -2640,13 +2943,7 @@ def _parse_execution_payload_options(
                 action=aux_action,
             )
     return _ExecutionPayloadOptions(
-        emit_timeout_progress_report=_truthy_flag(
-            payload.get("emit_timeout_progress_report")
-        ),
-        resume_on_timeout_attempts=normalize_resume_on_timeout_attempts(
-            payload.get("resume_on_timeout")
-        ),
-        emit_checkpoint_intro_timeline=_checkpoint_intro_timeline_enabled(payload),
+        emit_checkpoint_intro_timeline=False,
         progress_heartbeat_seconds=_progress_heartbeat_seconds(payload),
         dot_path=payload.get("dot"),
         fail_on_violations=payload.get("fail_on_violations", False),
@@ -2709,6 +3006,16 @@ def _parse_execution_payload_options(
         ),
         fingerprint_handledness_json=payload.get("fingerprint_handledness_json"),
         include_wl_refinement=_truthy_flag(payload.get("include_wl_refinement")),
+        aspf_trace_json=payload.get("aspf_trace_json"),
+        aspf_import_trace=payload.get("aspf_import_trace"),
+        aspf_equivalence_against=payload.get("aspf_equivalence_against"),
+        aspf_opportunities_json=payload.get("aspf_opportunities_json"),
+        aspf_state_json=payload.get("aspf_state_json"),
+        aspf_import_state=payload.get("aspf_import_state"),
+        aspf_delta_jsonl=payload.get("aspf_delta_jsonl"),
+        aspf_action_plan_json=payload.get("aspf_action_plan_json"),
+        aspf_action_plan_md=payload.get("aspf_action_plan_md"),
+        aspf_semantic_surface=payload.get("aspf_semantic_surface"),
     )
 
 
@@ -2768,6 +3075,15 @@ def _compute_analysis_inclusion_flags(
         or bool(options.lint)
         or bool(options.emit_test_evidence_suggestions)
         or bool(include_ambiguities)
+        or bool(options.aspf_trace_json)
+        or bool(options.aspf_import_trace)
+        or bool(options.aspf_equivalence_against)
+        or bool(options.aspf_opportunities_json)
+        or bool(options.aspf_state_json)
+        or bool(options.aspf_import_state)
+        or bool(options.aspf_delta_jsonl)
+        or bool(options.aspf_action_plan_json)
+        or bool(options.aspf_action_plan_md)
     )
     return _AnalysisInclusionFlags(
         type_audit=type_audit,
@@ -2785,6 +3101,8 @@ def _compute_analysis_inclusion_flags(
 
 @dataclass(frozen=True)
 class _SuccessResponseContext:
+    execute_deps: CommandEffects
+    aspf_trace_state: object | None
     analysis: AnalysisResult
     root: str
     paths: list[Path]
@@ -2799,14 +3117,17 @@ class _SuccessResponseContext:
     report_phase_checkpoint_path: Path
     projection_rows: list[JSONObject]
     analysis_resume_checkpoint_path: Path | None
+    analysis_resume_source: str
     analysis_resume_checkpoint_status: str | None
     analysis_resume_checkpoint_compatibility_status: str | None
+    analysis_resume_manifest_digest: str | None
     analysis_resume_reused_files: int
     analysis_resume_total_files: int
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
     phase_checkpoint_state: JSONObject
     execution_plan: ExecutionPlan
+    last_collection_resume_payload: JSONObject | None
     semantic_progress_cumulative: JSONObject | None
     latest_collection_progress: JSONObject
     emit_lsp_progress_fn: Callable[..., None]
@@ -2850,14 +3171,24 @@ def _build_success_response(
         ],
         "context_suggestions": analysis.context_suggestions,
     }
-    if context.analysis_resume_checkpoint_path is not None:
+    if (
+        context.analysis_resume_checkpoint_path is not None
+        or context.analysis_resume_source != "cold_start"
+        or context.analysis_resume_reused_files > 0
+    ):
         cache_verdict = _analysis_resume_cache_verdict(
             status=context.analysis_resume_checkpoint_status,
             reused_files=context.analysis_resume_reused_files,
             compatibility_status=context.analysis_resume_checkpoint_compatibility_status,
         )
         response["analysis_resume"] = {
-            "checkpoint_path": str(context.analysis_resume_checkpoint_path),
+            "checkpoint_path": (
+                str(context.analysis_resume_checkpoint_path)
+                if context.analysis_resume_checkpoint_path is not None
+                else None
+            ),
+            "source": context.analysis_resume_source,
+            "manifest_digest": context.analysis_resume_manifest_digest,
             "reused_files": context.analysis_resume_reused_files,
             "total_files": context.analysis_resume_total_files,
             "remaining_files": max(
@@ -2909,6 +3240,26 @@ def _build_success_response(
     synthesis_plan = primary_outputs.synthesis_plan
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
+    if synthesis_plan is not None:
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="artifact_emit",
+            source_label="analysis:result",
+            target_label="artifact:synthesis_plan",
+            representative="emit:synthesis_plan",
+            basis_path=("artifact", "emit", "synthesis_plan"),
+            surface="synthesis_plan",
+        )
+    if plan_payload is not None:
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="artifact_emit",
+            source_label="analysis:result",
+            target_label="artifact:refactor_plan",
+            representative="emit:refactor_plan",
+            basis_path=("artifact", "emit", "refactor_plan"),
+            surface="rewrite_plans",
+        )
 
     _apply_auxiliary_artifact_outputs(
         response=response,
@@ -2943,6 +3294,62 @@ def _build_success_response(
         ),
         ambiguity_baseline_path=context.options.ambiguity_baseline_path_override,
     )
+    for artifact_key, representative in (
+        ("test_obsolescence_delta_summary", "emit:test_obsolescence_delta"),
+        ("test_annotation_drift_delta_summary", "emit:test_annotation_drift_delta"),
+        ("ambiguity_delta_summary", "emit:ambiguity_delta"),
+        ("test_obsolescence_summary", "emit:test_obsolescence_state"),
+        ("test_annotation_drift_summary", "emit:test_annotation_drift_state"),
+        ("ambiguity_state_summary", "emit:ambiguity_state"),
+    ):
+        if artifact_key not in response:
+            continue
+        context.execute_deps.record_1cell_fn(
+            context.aspf_trace_state,
+            kind="artifact_emit",
+            source_label="analysis:result",
+            target_label=f"artifact:{artifact_key}",
+            representative=representative,
+            basis_path=("artifact", "emit", artifact_key),
+            surface="delta_payload"
+            if "delta" in artifact_key
+            else "delta_state",
+        )
+    if context.aspf_trace_state is not None:
+        one_cells = getattr(context.aspf_trace_state, "one_cells", None)
+        one_cell_metadata = getattr(context.aspf_trace_state, "one_cell_metadata", None)
+        if isinstance(one_cells, list):
+            materialized_one_cells: list[JSONObject] = []
+            for index, cell in enumerate(one_cells):
+                if not hasattr(cell, "as_dict"):
+                    continue
+                payload = cell.as_dict()
+                if isinstance(one_cell_metadata, list) and index < len(one_cell_metadata):
+                    metadata = one_cell_metadata[index]
+                    if isinstance(metadata, Mapping):
+                        payload["kind"] = str(metadata.get("kind", ""))
+                        payload["surface"] = str(metadata.get("surface", ""))
+                materialized_one_cells.append(payload)
+            analysis.aspf_one_cells = materialized_one_cells
+        two_cells = getattr(context.aspf_trace_state, "two_cell_witnesses", None)
+        if isinstance(two_cells, list):
+            analysis.aspf_two_cell_witnesses = [
+                witness.as_dict()
+                for witness in two_cells
+                if hasattr(witness, "as_dict")
+            ]
+        cofibrations = getattr(context.aspf_trace_state, "cofibrations", None)
+        if isinstance(cofibrations, list):
+            analysis.aspf_cofibration_witnesses = [
+                carrier.as_dict()
+                for carrier in cofibrations
+                if hasattr(carrier, "as_dict")
+            ]
+        representatives = getattr(context.aspf_trace_state, "surface_representatives", None)
+        if isinstance(representatives, Mapping):
+            analysis.aspf_surface_representatives = {
+                str(key): str(representatives[key]) for key in representatives
+            }
     report_outcome = _finalize_report_and_violations(
         context=_ReportFinalizationContext(
             analysis=analysis,
@@ -3012,6 +3419,97 @@ def _build_success_response(
             )
     response["analysis_state"] = "succeeded"
     response["execution_plan"] = context.execution_plan.as_json_dict()
+    trace_artifacts = context.execute_deps.finalize_trace_fn(
+        state=context.aspf_trace_state,
+        root=Path(context.root),
+        semantic_surface_payloads={
+            "groups_by_path": analysis.groups_by_path,
+            "decision_surfaces": analysis.decision_surfaces,
+            "rewrite_plans": analysis.rewrite_plans,
+            "synthesis_plan": synthesis_plan if synthesis_plan is not None else [],
+            "delta_state": {
+                "test_obsolescence": response.get("test_obsolescence_summary"),
+                "test_annotation_drift": response.get("test_annotation_drift_summary"),
+                "ambiguity": response.get("ambiguity_state_summary"),
+            },
+            "delta_payload": {
+                "test_obsolescence_delta": response.get("test_obsolescence_delta_summary"),
+                "test_annotation_drift_delta": response.get(
+                    "test_annotation_drift_delta_summary"
+                ),
+                "ambiguity_delta": response.get("ambiguity_delta_summary"),
+            },
+            "violation_summary": {
+                "violations": len(effective_violations),
+                "decision_warnings": analysis.decision_warnings,
+                "errors": response.get("errors", []),
+            },
+            "_resume_collection": (
+                context.last_collection_resume_payload
+                if isinstance(context.last_collection_resume_payload, Mapping)
+                else {}
+            ),
+            "_latest_collection_progress": context.latest_collection_progress,
+            "_semantic_progress": (
+                context.semantic_progress_cumulative
+                if isinstance(context.semantic_progress_cumulative, Mapping)
+                else {}
+            ),
+            "_analysis_manifest_digest": context.analysis_resume_manifest_digest,
+            "_resume_source": context.analysis_resume_source,
+            "_resume_compatibility_status": (
+                context.analysis_resume_checkpoint_compatibility_status
+            ),
+        },
+        exit_code=int(response.get("exit_code", 0) or 0),
+        analysis_state=(
+            str(response.get("analysis_state"))
+            if response.get("analysis_state") is not None
+            else None
+        ),
+    )
+    if trace_artifacts is not None:
+        trace_payload = getattr(trace_artifacts, "trace_payload", None)
+        if isinstance(trace_payload, Mapping):
+            response["aspf_trace"] = {str(key): trace_payload[key] for key in trace_payload}
+        equivalence_payload = getattr(trace_artifacts, "equivalence_payload", None)
+        if isinstance(equivalence_payload, Mapping):
+            response["aspf_equivalence"] = {
+                str(key): equivalence_payload[key] for key in equivalence_payload
+            }
+        opportunities_payload = getattr(trace_artifacts, "opportunities_payload", None)
+        if isinstance(opportunities_payload, Mapping):
+            response["aspf_opportunities"] = {
+                str(key): opportunities_payload[key]
+                for key in opportunities_payload
+            }
+        delta_ledger_payload = getattr(trace_artifacts, "delta_ledger_payload", None)
+        if isinstance(delta_ledger_payload, Mapping):
+            response["aspf_delta_ledger"] = {
+                str(key): delta_ledger_payload[key]
+                for key in delta_ledger_payload
+            }
+        action_plan_payload = getattr(trace_artifacts, "action_plan_payload", None)
+        if isinstance(action_plan_payload, Mapping):
+            response["aspf_action_plan"] = {
+                str(key): action_plan_payload[key] for key in action_plan_payload
+            }
+        action_plan_quality_payload = getattr(
+            trace_artifacts, "action_plan_quality_payload", None
+        )
+        if isinstance(action_plan_quality_payload, Mapping):
+            response["aspf_action_plan_quality"] = {
+                str(key): action_plan_quality_payload[key]
+                for key in action_plan_quality_payload
+            }
+        action_plan_markdown = getattr(trace_artifacts, "action_plan_markdown", None)
+        if isinstance(action_plan_markdown, str) and action_plan_markdown:
+            response["aspf_action_plan_markdown"] = action_plan_markdown
+        state_payload = getattr(trace_artifacts, "state_payload", None)
+        if isinstance(state_payload, Mapping):
+            response["aspf_state"] = {
+                str(key): state_payload[key] for key in state_payload
+            }
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
@@ -3039,6 +3537,7 @@ def execute_command_total(
     execute_deps: CommandEffects = deps or _default_execute_command_deps()
     execution_plan = _materialize_execution_plan(payload)
     payload = dict(execution_plan.inputs)
+    _reject_removed_legacy_payload_keys(payload)
     write_execution_plan_artifact(
         execution_plan,
         root=Path(str(payload.get("root") or ls.workspace.root_path or ".")),
@@ -3087,6 +3586,7 @@ def execute_command_total(
     analysis_resume_reused_files = 0
     analysis_resume_checkpoint_status: str | None = None
     analysis_resume_checkpoint_compatibility_status: str | None = None
+    analysis_resume_source = "cold_start"
     analysis_resume_intro_payload: JSONObject | None = None
     analysis_resume_intro_timeline_header: str | None = None
     analysis_resume_intro_timeline_row: str | None = None
@@ -3127,6 +3627,7 @@ def execute_command_total(
     phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=runtime_input.root)
     progress_heartbeat_seconds = _progress_heartbeat_seconds(payload)
     dot_path = payload.get("dot")
+    aspf_trace_state: object | None = None
     progress_emitter: _ProgressEmitter | None = None
     emit_phase_progress_events = False
 
@@ -3231,13 +3732,19 @@ def execute_command_total(
             execute_deps.report_projection_spec_rows_fn() if report_output_path else []
         )
         options = _parse_execution_payload_options(payload=payload, root=Path(root))
-        emit_timeout_progress_report = options.emit_timeout_progress_report
-        resume_on_timeout_attempts = options.resume_on_timeout_attempts
-        enable_phase_projection_checkpoints = phase_projection_checkpoints_enabled(
-            report_output_path=report_output_path,
-            emit_timeout_progress_report=emit_timeout_progress_report,
-            resume_on_timeout_attempts=resume_on_timeout_attempts,
+        aspf_trace_state = execute_deps.start_trace_fn(
+            root=Path(root),
+            payload=payload,
         )
+        execute_deps.record_1cell_fn(
+            aspf_trace_state,
+            kind="command_start",
+            source_label="runtime:command",
+            target_label="analysis:entry",
+            representative="gabion.dataflow.start",
+            basis_path=("command", "start"),
+        )
+        enable_phase_projection_checkpoints = bool(report_output_path)
         emit_checkpoint_intro_timeline = options.emit_checkpoint_intro_timeline
         checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
         phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
@@ -3355,9 +3862,11 @@ def execute_command_total(
             phase_checkpoint_state=phase_checkpoint_state,
             semantic_progress_cumulative=semantic_progress_cumulative,
             last_collection_resume_payload=last_collection_resume_payload,
+            analysis_resume_source=analysis_resume_source,
         )
         file_paths_for_run, collection_resume_payload = _prepare_analysis_resume_state(
             execute_deps=execute_deps,
+            aspf_trace_state=aspf_trace_state,
             needs_analysis=needs_analysis,
             paths=paths,
             root=str(root),
@@ -3385,6 +3894,7 @@ def execute_command_total(
         analysis_resume_checkpoint_compatibility_status = (
             analysis_resume_state.analysis_resume_checkpoint_compatibility_status
         )
+        analysis_resume_source = analysis_resume_state.analysis_resume_source
         analysis_resume_intro_payload = analysis_resume_state.analysis_resume_intro_payload
         analysis_resume_intro_timeline_header = (
             analysis_resume_state.analysis_resume_intro_timeline_header
@@ -3436,6 +3946,7 @@ def execute_command_total(
             analysis_outcome = _run_analysis_with_progress(
                 context=_AnalysisExecutionContext(
                     execute_deps=execute_deps,
+                    aspf_trace_state=aspf_trace_state,
                     runtime_state=runtime_state,
                     forest=forest,
                     paths=paths,
@@ -3504,6 +4015,8 @@ def execute_command_total(
         latest_collection_progress = analysis_outcome.latest_collection_progress
         success_outcome = _build_success_response(
             context=_SuccessResponseContext(
+                execute_deps=execute_deps,
+                aspf_trace_state=aspf_trace_state,
                 analysis=analysis,
                 root=str(root),
                 paths=paths,
@@ -3518,16 +4031,19 @@ def execute_command_total(
                 report_phase_checkpoint_path=report_phase_checkpoint_path,
                 projection_rows=projection_rows,
                 analysis_resume_checkpoint_path=analysis_resume_checkpoint_path,
+                analysis_resume_source=analysis_resume_source,
                 analysis_resume_checkpoint_status=analysis_resume_checkpoint_status,
                 analysis_resume_checkpoint_compatibility_status=(
                     analysis_resume_checkpoint_compatibility_status
                 ),
+                analysis_resume_manifest_digest=analysis_resume_input_manifest_digest,
                 analysis_resume_reused_files=analysis_resume_reused_files,
                 analysis_resume_total_files=analysis_resume_total_files,
                 profiling_stage_ns=profiling_stage_ns,
                 profiling_counters=profiling_counters,
                 phase_checkpoint_state=phase_checkpoint_state,
                 execution_plan=execution_plan,
+                last_collection_resume_payload=last_collection_resume_payload,
                 semantic_progress_cumulative=semantic_progress_cumulative,
                 latest_collection_progress=latest_collection_progress,
                 emit_lsp_progress_fn=_emit_lsp_progress,
@@ -3551,7 +4067,11 @@ def execute_command_total(
                 emit_checkpoint_intro_timeline=emit_checkpoint_intro_timeline,
                 checkpoint_intro_timeline_path=checkpoint_intro_timeline_path,
                 analysis_resume_total_files=analysis_resume_total_files,
+                analysis_resume_source=analysis_resume_source,
                 analysis_resume_checkpoint_status=analysis_resume_checkpoint_status,
+                analysis_resume_checkpoint_compatibility_status=(
+                    analysis_resume_checkpoint_compatibility_status
+                ),
                 analysis_resume_reused_files=analysis_resume_reused_files,
                 profile_enabled=profile_enabled,
                 latest_collection_progress=latest_collection_progress,
@@ -3568,6 +4088,7 @@ def execute_command_total(
                 runtime_root=runtime_input.root,
                 initial_paths_count_value=initial_paths_count_value,
                 execution_plan=execution_plan,
+                aspf_trace_state=aspf_trace_state,
                 ensure_report_sections_cache_fn=_ensure_report_sections_cache,
                 emit_lsp_progress_fn=_emit_lsp_progress,
             ),
