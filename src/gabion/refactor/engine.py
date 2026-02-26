@@ -21,7 +21,7 @@ from gabion.order_contract import sort_once
 
 
 class RefactorEngine:
-    def __init__(self, project_root: Path | None = None) -> None:
+    def __init__(self, project_root = None) -> None:
         self.project_root = project_root
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
@@ -67,7 +67,7 @@ class RefactorEngine:
         insert_idx = _find_import_insert_index(body)
 
         protocol_base: cst.CSTNode
-        import_stmt: cst.SimpleStatementLine | None = None
+        import_stmt = None
         if _has_typing_import(body):
             protocol_base = cst.Attribute(cst.Name("typing"), cst.Name("Protocol"))
         elif _has_typing_protocol_import(body):
@@ -88,7 +88,7 @@ class RefactorEngine:
         warnings: list[str] = []
         rewrite_plans: list[RewritePlanEntry] = []
 
-        def _annotation_for(hint: str | None) -> cst.BaseExpression:
+        def _annotation_for(hint) -> cst.BaseExpression:
             if not hint:
                 return cst.Name("object")
             try:
@@ -208,7 +208,7 @@ class RefactorEngine:
         return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
 
 
-def _module_name(path: Path, project_root: Path | None) -> str:
+def _module_name(path: Path, project_root) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
         try:
@@ -245,7 +245,7 @@ def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
     return insert_idx
 
 
-def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
+def _module_expr_to_str(expr):
     check_deadline()
     if expr is None:
         return None
@@ -253,7 +253,7 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
         return expr.value
     if isinstance(expr, cst.Attribute):
         parts = []
-        current: cst.BaseExpression | None = expr
+        current = expr
         while isinstance(current, cst.Attribute):
             check_deadline()
             parts.append(current.attr.value)
@@ -384,11 +384,11 @@ def _collect_import_context(
     *,
     target_module: str,
     protocol_name: str,
-) -> tuple[dict[str, str], dict[str, str], str | None]:
+):
     check_deadline()
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
-    protocol_alias: str | None = None
+    protocol_alias = None
     for stmt in module.body:
         check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
@@ -435,7 +435,7 @@ def _rewrite_call_sites(
     protocol_name: str,
     bundle_fields: list[str],
     targets: set[str],
-) -> tuple[list[str], cst.Module | None]:
+):
     check_deadline()
     warnings: list[str] = []
     file_is_target = file_path == target_path
@@ -453,7 +453,7 @@ def _rewrite_call_sites(
         target_methods.setdefault(class_name, set()).add(method)
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
-    protocol_alias: str | None = None
+    protocol_alias = None
     if not file_is_target and target_module:
         module_aliases, imported_targets, protocol_alias = _collect_import_context(
             module, target_module=target_module, protocol_name=protocol_name
@@ -678,7 +678,7 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
 
     def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.CSTNode:
         func = updated_node.func
-        target_name: str | None = None
+        target_name = None
         if isinstance(func, cst.Name):
             target_name = func.value
         elif isinstance(func, cst.Attribute) and isinstance(func.attr, cst.Name):
@@ -745,7 +745,7 @@ class _AmbientRewriteTransformer(cst.CSTTransformer):
     ) -> cst.CSTNode:
         return self._rewrite_function(updated_node)
 
-    def _rewrite_function(self, node: cst.FunctionDef | cst.AsyncFunctionDef) -> cst.CSTNode:
+    def _rewrite_function(self, node) -> cst.CSTNode:
         check_deadline()
         name = node.name.value
         if name not in self.targets:
@@ -900,7 +900,7 @@ class _RefactorTransformer(cst.CSTTransformer):
     def _maybe_rewrite_function(
         self,
         original_node: cst.FunctionDef,
-        updated_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        updated_node,
     ) -> cst.CSTNode:
         qualname = ".".join(self._stack)
         name = original_node.name.value
@@ -947,10 +947,10 @@ class _RefactorTransformer(cst.CSTTransformer):
     def _build_compat_shim(
         self,
         *,
-        original_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        original_node,
         impl_name: str,
         bundle_param: str,
-        self_param: cst.Param | None,
+        self_param,
     ) -> list[cst.CSTNode]:
         decorators = list(original_node.decorators)
         overload_decorators = [cst.Decorator(cst.Name("overload")), *decorators]
@@ -1016,7 +1016,7 @@ class _RefactorTransformer(cst.CSTTransformer):
             decorators=decorators,
         )
 
-    def _build_shim_parameters(self, self_param: cst.Param | None) -> cst.Parameters:
+    def _build_shim_parameters(self, self_param) -> cst.Parameters:
         params: list[cst.Param] = []
         if self_param is not None:
             params.append(self_param)
@@ -1034,7 +1034,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         *,
         impl_name: str,
         bundle_type: str,
-        self_param: cst.Param | None,
+        self_param,
         is_async: bool,
         public_name: str,
     ) -> cst.BaseSuite:
@@ -1075,7 +1075,7 @@ class _RefactorTransformer(cst.CSTTransformer):
 
     def _find_self_param(
         self, params: cst.Parameters, name: str
-    ) -> cst.Param | None:
+    ):
         check_deadline()
         for param in params.posonly_params:
             check_deadline()
@@ -1099,7 +1099,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         return f"bundle_{idx}"
 
     def _build_parameters(
-        self, self_param: cst.Param | None, bundle_name: str
+        self, self_param, bundle_name: str
     ) -> cst.Parameters:
         params: list[cst.Param] = []
         if self_param is not None:
@@ -1244,7 +1244,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             return value.func.attr.value == self.constructor_expr.attr.value
         return False
 
-    def _build_bundle_args(self, call: cst.Call) -> list[cst.Arg] | None:
+    def _build_bundle_args(self, call: cst.Call):
         check_deadline()
         if any(arg.star in {"*", "**"} for arg in call.args):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")

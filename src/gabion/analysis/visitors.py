@@ -84,12 +84,12 @@ class UseVisitor(ProjectVisitor):
         alias_to_param: dict[str, str],
         is_test: bool,
         strictness: str,
-        const_repr: Callable[[ast.AST], str | None],
+        const_repr,
         callee_name: Callable[[ast.Call], str],
         call_args_factory: Callable[..., CallArgs],
-        call_context: Callable[[ast.AST, dict[ast.AST, ast.AST]], tuple[ast.Call | None, bool]],
-        return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
-        normalize_key_expr: Callable[[ast.AST, dict[str, ast.AST]], Hashable | None] | None = None,
+        call_context,
+        return_aliases = None,
+        normalize_key_expr = None,
     ) -> None:
         # dataflow-bundle: alias_to_param, call_args, call_args_factory, call_context, callee_name, const_repr, is_test, parents, strictness, use_map
         self.parents = parents
@@ -111,7 +111,7 @@ class UseVisitor(ProjectVisitor):
         self._const_bindings: dict[str, ast.AST] = {}
 
     @staticmethod
-    def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+    def _node_span(node: ast.AST):
         if not (hasattr(node, "lineno") and hasattr(node, "col_offset")):
             return None
         start_line = max(getattr(node, "lineno", 1) - 1, 0)
@@ -122,16 +122,13 @@ class UseVisitor(ProjectVisitor):
             end_col = start_col + 1
         return (start_line, start_col, end_line, end_col)
 
-    def _record_forward(self, param_name: str, callee: str, slot: str, call: ast.Call | None) -> None:
+    def _record_forward(self, param_name: str, callee: str, slot: str, call = None) -> None:
         # dataflow-bundle: callee, slot
         self.use_map[param_name].direct_forward.add((callee, slot))
-        if call is None:
-            return
-        span = self._node_span(call)
-        if span is None:
-            return
-        sites = self.use_map[param_name].forward_sites.setdefault((callee, slot), set())
-        sites.add(span)
+        span = self._node_span(call) if call is not None else None
+        if span is not None:
+            sites = self.use_map[param_name].forward_sites.setdefault((callee, slot), set())
+            sites.add(span)
 
     def _record_unknown_key(self, param_name: str, node: ast.AST) -> None:
         span = self._node_span(node)
@@ -139,7 +136,7 @@ class UseVisitor(ProjectVisitor):
         if span is not None:
             self.use_map[param_name].unknown_key_sites.add(span)
 
-    def _normalize_key(self, node: ast.AST) -> Hashable | None:
+    def _normalize_key(self, node: ast.AST):
         if self.normalize_key_expr is None:
             return None
         return self.normalize_key_expr(node, const_bindings=self._const_bindings)
@@ -159,7 +156,7 @@ class UseVisitor(ProjectVisitor):
 
     @staticmethod
     def _slot_for_call_node(call: ast.Call, node: ast.AST) -> str:
-        slot: str | None = None
+        slot = None
         for idx, arg in enumerate(call.args):
             check_deadline()
             if arg is node:
@@ -316,7 +313,7 @@ class UseVisitor(ProjectVisitor):
             return sources
         return set()
 
-    def _alias_from_call(self, call: ast.Call) -> list[str] | None:
+    def _alias_from_call(self, call: ast.Call):
         check_deadline()
         if not self.return_aliases:
             return None
@@ -327,7 +324,7 @@ class UseVisitor(ProjectVisitor):
         params, aliases = info
         if not aliases:
             return None
-        mapping: dict[str, str | None] = {}
+        mapping: dict[str, object] = {}
         for idx, arg in enumerate(call.args):
             check_deadline()
             if _is_ast(arg, ast.Starred):
@@ -448,40 +445,39 @@ class UseVisitor(ProjectVisitor):
             self.visit(node.value)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        if node.value is None:
-            return
-        if _is_ast(node.value, ast.Call) and _is_ast(node.target, ast.Name):
-            aliases = self._alias_from_call(node.value)
-            if aliases and len(aliases) == 1:
-                param = aliases[0]
-                self.alias_to_param[node.target.id] = param
-                if param in self.use_map:
-                    self.use_map[param].current_aliases.add(node.target.id)
-                self.visit(node.value)
-                return
-        rhs_param = None
-        if _is_ast(node.value, ast.Name) and node.value.id in self.alias_to_param:
-            rhs_param = self.alias_to_param[node.value.id]
-        handled_alias = False
-        if _is_ast(node.target, ast.Name) and rhs_param:
-            self.alias_to_param[node.target.id] = rhs_param
-            self.use_map[rhs_param].current_aliases.add(node.target.id)
-            handled_alias = True
-        else:
-            self._check_write(node.target)
-        if _is_ast(node.target, ast.Name):
-            normalized_const = self._normalize_key(node.value)
-            if normalized_const is None:
-                self._const_bindings.pop(node.target.id, None)
+        if node.value is not None:
+            if _is_ast(node.value, ast.Call) and _is_ast(node.target, ast.Name):
+                aliases = self._alias_from_call(node.value)
+                if aliases and len(aliases) == 1:
+                    param = aliases[0]
+                    self.alias_to_param[node.target.id] = param
+                    if param in self.use_map:
+                        self.use_map[param].current_aliases.add(node.target.id)
+                    self.visit(node.value)
+                    return
+            rhs_param = None
+            if _is_ast(node.value, ast.Name) and node.value.id in self.alias_to_param:
+                rhs_param = self.alias_to_param[node.value.id]
+            handled_alias = False
+            if _is_ast(node.target, ast.Name) and rhs_param:
+                self.alias_to_param[node.target.id] = rhs_param
+                self.use_map[rhs_param].current_aliases.add(node.target.id)
+                handled_alias = True
             else:
-                self._const_bindings[node.target.id] = node.value
-        if handled_alias:
-            sources = self._collect_alias_sources(node.value)
-            self._suspend_non_forward.update(sources)
-            self.visit(node.value)
-            self._suspend_non_forward.difference_update(sources)
-        else:
-            self.visit(node.value)
+                self._check_write(node.target)
+            if _is_ast(node.target, ast.Name):
+                normalized_const = self._normalize_key(node.value)
+                if normalized_const is None:
+                    self._const_bindings.pop(node.target.id, None)
+                else:
+                    self._const_bindings[node.target.id] = node.value
+            if handled_alias:
+                sources = self._collect_alias_sources(node.value)
+                self._suspend_non_forward.update(sources)
+                self.visit(node.value)
+                self._suspend_non_forward.difference_update(sources)
+            else:
+                self.visit(node.value)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self._check_write(node.target)
@@ -521,7 +517,7 @@ class UseVisitor(ProjectVisitor):
         slot = self._slot_for_call_node(call, node)
         self._record_forward(param_name, callee, slot, call)
 
-    def _root_name(self, node: ast.AST) -> str | None:
+    def _root_name(self, node: ast.AST):
         check_deadline()
         current = node
         while _is_ast_one_of(current, (ast.Attribute, ast.Subscript)):
