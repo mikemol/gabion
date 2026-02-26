@@ -705,7 +705,7 @@ def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
         parent.parents,
         {"flag": True},
     )
-    assert reach is False
+    assert reach is da._EvalDecision.FALSE
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_all_assignment_none_values_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
@@ -1370,7 +1370,7 @@ def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
             parent.parents,
             {"flag": False},
         )
-        is True
+        is da._EvalDecision.TRUE
     )
 
 
@@ -1870,7 +1870,10 @@ def test_additional_branch_edges_fingerprint_and_rewrite() -> None:
     parent = da.ParentAnnotator()
     parent.visit(tree)
     if_node = tree.body[0]
-    assert da._branch_reachability_under_env(if_node.test, parent.parents, {"cond": True}) is None
+    assert (
+        da._branch_reachability_under_env(if_node.test, parent.parents, {"cond": True})
+        is da._EvalDecision.UNKNOWN
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_render::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_deadline_scope::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resolved_call_edges_by_caller::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load

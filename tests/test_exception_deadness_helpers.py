@@ -80,8 +80,11 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     assert da._eval_bool_expr(ast.parse("2 >= 2").body[0].value, {}).as_bool() is True
     assert da._eval_bool_expr(ast.parse("foo()").body[0].value, {}).is_unknown() is True
 
-    # _branch_reachability_under_env: no constraints => None
-    assert da._branch_reachability_under_env(ast.parse("1").body[0].value, {}, {}) is None
+    # _branch_reachability_under_env: no constraints => unknown decision
+    assert (
+        da._branch_reachability_under_env(ast.parse("1").body[0].value, {}, {})
+        is da._EvalDecision.UNKNOWN
+    )
 
     # Reachability for body + orelse branches + unknown env.
     mod = ast.parse(
@@ -93,9 +96,18 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     parent.visit(mod)
     if_stmt = mod.body[0].body[0]
     raise_body = if_stmt.body[0]
-    assert da._branch_reachability_under_env(raise_body, parent.parents, {"x": 1}) is True
-    assert da._branch_reachability_under_env(raise_body, parent.parents, {"x": 0}) is False
-    assert da._branch_reachability_under_env(raise_body, parent.parents, {}) is None
+    assert (
+        da._branch_reachability_under_env(raise_body, parent.parents, {"x": 1})
+        is da._EvalDecision.TRUE
+    )
+    assert (
+        da._branch_reachability_under_env(raise_body, parent.parents, {"x": 0})
+        is da._EvalDecision.FALSE
+    )
+    assert (
+        da._branch_reachability_under_env(raise_body, parent.parents, {})
+        is da._EvalDecision.UNKNOWN
+    )
 
     mod = ast.parse(
         "def g(x):\n"
@@ -108,8 +120,14 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     parent.visit(mod)
     if_stmt = mod.body[0].body[0]
     raise_else = if_stmt.orelse[0]
-    assert da._branch_reachability_under_env(raise_else, parent.parents, {"x": 0}) is True
-    assert da._branch_reachability_under_env(raise_else, parent.parents, {"x": 1}) is False
+    assert (
+        da._branch_reachability_under_env(raise_else, parent.parents, {"x": 0})
+        is da._EvalDecision.TRUE
+    )
+    assert (
+        da._branch_reachability_under_env(raise_else, parent.parents, {"x": 1})
+        is da._EvalDecision.FALSE
+    )
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::stale_72be7680c751
 def test_exception_obligation_deadness_parsing_skips_invalid_entries(tmp_path: Path) -> None:

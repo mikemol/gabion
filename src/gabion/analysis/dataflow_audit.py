@@ -4600,88 +4600,148 @@ def _unknown_value_outcome() -> _ValueEvalOutcome:
     return _ValueEvalOutcome(_EvalDecision.UNKNOWN, False)
 
 
+def _constant_scalar_outcome(expr: ast.Constant) -> _ValueEvalOutcome:
+    value = expr.value
+    value_type = type(value)
+    if value is None or value_type in {str, int, float, bool}:
+        return _known_value_outcome(cast(JSONValue, value))
+    return _unknown_value_outcome()
+
+
+def _is_numeric_value(value: JSONValue) -> bool:
+    return issubclass(type(value), (int, float))
+
+
+def _unary_numeric_outcome(
+    expr: ast.UnaryOp,
+    env: dict[str, JSONValue],
+) -> _ValueEvalOutcome:
+    op_type = type(expr.op)
+    if op_type not in {ast.USub, ast.UAdd}:
+        return _unknown_value_outcome()
+    operand = _eval_value_expr(expr.operand, env)
+    if operand.is_unknown():
+        return _unknown_value_outcome()
+    value = operand.value
+    if not _is_numeric_value(value):
+        return _unknown_value_outcome()
+    if op_type is ast.USub:
+        return _known_value_outcome(-value)
+    return _known_value_outcome(value)
+
+
 def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
     check_deadline()
-    if isinstance(expr, ast.Constant):
-        value = expr.value
-        if value is None or isinstance(value, (str, int, float, bool)):
-            return _known_value_outcome(value)
+    expr_type = type(expr)
+    if expr_type is ast.Constant:
+        return _constant_scalar_outcome(cast(ast.Constant, expr))
+    if expr_type is ast.Name:
+        name_expr = cast(ast.Name, expr)
+        if name_expr.id in env:
+            return _known_value_outcome(env[name_expr.id])
         return _unknown_value_outcome()
-    if isinstance(expr, ast.Name):
-        if expr.id in env:
-            return _known_value_outcome(env[expr.id])
-        return _unknown_value_outcome()
-    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)):
-        operand = _eval_value_expr(expr.operand, env)
-        if operand.is_unknown():
-            return _unknown_value_outcome()
-        value = operand.value
-        if isinstance(value, (int, float)):
-            return _known_value_outcome(
-                -value if isinstance(expr.op, ast.USub) else value
-            )
+    if expr_type is ast.UnaryOp:
+        return _unary_numeric_outcome(cast(ast.UnaryOp, expr), env)
     return _unknown_value_outcome()
+
+
+def _eval_bool_not_expr(expr: ast.UnaryOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    if type(expr.op) is not ast.Not:
+        return _unknown_bool_outcome()
+    inner = _eval_bool_expr(expr.operand, env)
+    if inner.is_unknown():
+        return _unknown_bool_outcome()
+    return _bool_outcome(not inner.as_bool())
+
+
+def _eval_bool_and_values(
+    values: Sequence[ast.expr],
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    any_unknown = False
+    for value in values:
+        check_deadline()
+        result = _eval_bool_expr(value, env)
+        if result.decision is _EvalDecision.FALSE:
+            return _bool_outcome(False)
+        if result.is_unknown():
+            any_unknown = True
+    return _unknown_bool_outcome() if any_unknown else _bool_outcome(True)
+
+
+def _eval_bool_or_values(
+    values: Sequence[ast.expr],
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    any_unknown = False
+    for value in values:
+        check_deadline()
+        result = _eval_bool_expr(value, env)
+        if result.decision is _EvalDecision.TRUE:
+            return _bool_outcome(True)
+        if result.is_unknown():
+            any_unknown = True
+    return _unknown_bool_outcome() if any_unknown else _bool_outcome(False)
+
+
+def _eval_bool_compare_expr(
+    expr: ast.Compare,
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    if len(expr.ops) != 1 or len(expr.comparators) != 1:
+        return _unknown_bool_outcome()
+    left_outcome = _eval_value_expr(expr.left, env)
+    right_outcome = _eval_value_expr(expr.comparators[0], env)
+    if left_outcome.is_unknown() or right_outcome.is_unknown():
+        return _unknown_bool_outcome()
+    left = left_outcome.value
+    right = right_outcome.value
+    op_type = type(expr.ops[0])
+    if op_type is ast.Eq:
+        return _bool_outcome(left == right)
+    if op_type is ast.NotEq:
+        return _bool_outcome(left != right)
+    if _is_numeric_value(left) and _is_numeric_value(right):
+        if op_type is ast.Lt:
+            return _bool_outcome(left < right)
+        if op_type is ast.LtE:
+            return _bool_outcome(left <= right)
+        if op_type is ast.Gt:
+            return _bool_outcome(left > right)
+        if op_type is ast.GtE:
+            return _bool_outcome(left >= right)
+    return _unknown_bool_outcome()
+
+
+def _eval_bool_boolop_expr(expr: ast.BoolOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    op_type = type(expr.op)
+    if op_type is ast.And:
+        return _eval_bool_and_values(expr.values, env)
+    if op_type is ast.Or:
+        return _eval_bool_or_values(expr.values, env)
+    return _unknown_bool_outcome()
+
+
+def _eval_bool_name_expr(expr: ast.Name, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    if expr.id not in env:
+        return _unknown_bool_outcome()
+    return _bool_outcome(bool(env[expr.id]))
 
 
 def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
     check_deadline()
-    if isinstance(expr, ast.Constant):
-        return _bool_outcome(bool(expr.value))
-    if isinstance(expr, ast.Name):
-        if expr.id not in env:
-            return _unknown_bool_outcome()
-        return _bool_outcome(bool(env[expr.id]))
-    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
-        inner = _eval_bool_expr(expr.operand, env)
-        if inner.is_unknown():
-            return _unknown_bool_outcome()
-        return _bool_outcome(not inner.as_bool())
-    if isinstance(expr, ast.BoolOp):
-        if isinstance(expr.op, ast.And):
-            any_unknown = False
-            for value in expr.values:
-                check_deadline()
-                result = _eval_bool_expr(value, env)
-                if result.decision is _EvalDecision.FALSE:
-                    return _bool_outcome(False)
-                if result.is_unknown():
-                    any_unknown = True
-            return _unknown_bool_outcome() if any_unknown else _bool_outcome(True)
-        any_unknown = False
-        for value in expr.values:
-            check_deadline()
-            result = _eval_bool_expr(value, env)
-            if result.decision is _EvalDecision.TRUE:
-                return _bool_outcome(True)
-            if result.is_unknown():
-                any_unknown = True
-        return _unknown_bool_outcome() if any_unknown else _bool_outcome(False)
-    if (
-        isinstance(expr, ast.Compare)
-        and len(expr.ops) == 1
-        and len(expr.comparators) == 1
-    ):
-        left_outcome = _eval_value_expr(expr.left, env)
-        right_outcome = _eval_value_expr(expr.comparators[0], env)
-        if left_outcome.is_unknown() or right_outcome.is_unknown():
-            return _unknown_bool_outcome()
-        left = left_outcome.value
-        right = right_outcome.value
-        op = expr.ops[0]
-        if isinstance(op, ast.Eq):
-            return _bool_outcome(left == right)
-        if isinstance(op, ast.NotEq):
-            return _bool_outcome(left != right)
-        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            if isinstance(op, ast.Lt):
-                return _bool_outcome(left < right)
-            if isinstance(op, ast.LtE):
-                return _bool_outcome(left <= right)
-            if isinstance(op, ast.Gt):
-                return _bool_outcome(left > right)
-            if isinstance(op, ast.GtE):
-                return _bool_outcome(left >= right)
-        return _unknown_bool_outcome()
+    expr_type = type(expr)
+    if expr_type is ast.Constant:
+        constant_expr = cast(ast.Constant, expr)
+        return _bool_outcome(bool(constant_expr.value))
+    if expr_type is ast.Name:
+        return _eval_bool_name_expr(cast(ast.Name, expr), env)
+    if expr_type is ast.UnaryOp:
+        return _eval_bool_not_expr(cast(ast.UnaryOp, expr), env)
+    if expr_type is ast.BoolOp:
+        return _eval_bool_boolop_expr(cast(ast.BoolOp, expr), env)
+    if expr_type is ast.Compare:
+        return _eval_bool_compare_expr(cast(ast.Compare, expr), env)
     return _unknown_bool_outcome()
 
 
@@ -4689,7 +4749,7 @@ def _branch_reachability_under_env(
     node: ast.AST,
     parents: dict[ast.AST, ast.AST],
     env: dict[str, JSONValue],
-) -> bool | None:
+) -> _EvalDecision:
     """Conservatively evaluate nested-if constraints for `node` under `env`."""
     check_deadline()
     constraints: list[tuple[ast.AST, bool]] = []
@@ -4705,7 +4765,7 @@ def _branch_reachability_under_env(
         current_node = current
         current = parents.get(current_node)
     if not constraints:
-        return None
+        return _EvalDecision.UNKNOWN
     any_unknown = False
     for test, want_true in constraints:
         check_deadline()
@@ -4714,8 +4774,22 @@ def _branch_reachability_under_env(
             any_unknown = True
             continue
         if result.as_bool() != want_true:
-            return False
-    return None if any_unknown else True
+            return _EvalDecision.FALSE
+    return _EvalDecision.UNKNOWN if any_unknown else _EvalDecision.TRUE
+
+
+def _is_reachability_false(reachability: _EvalDecision) -> bool:
+    return reachability is _EvalDecision.FALSE
+
+
+def _is_reachability_true(reachability: _EvalDecision) -> bool:
+    return reachability is _EvalDecision.TRUE
+
+
+def _is_reachability_unknown(reachability: _EvalDecision) -> bool:
+    return reachability is _EvalDecision.UNKNOWN
+
+
 
 
 def _collect_handledness_witnesses(
@@ -5047,7 +5121,7 @@ def _collect_exception_obligations(
                 if env_entries:
                     env = {name: value for name, (value, _) in env_entries.items()}
                     reachability = _branch_reachability_under_env(node, parents, env)
-                    if reachability is False:
+                    if _is_reachability_false(reachability):
                         names: set[str] = set()
                         current = parents.get(node)
                         while current is not None:
@@ -5177,7 +5251,7 @@ def _collect_never_invariants(
             if env_entries:
                 env = {name: value for name, (value, _) in env_entries.items()}
                 reachability = _branch_reachability_under_env(node, parents, env)
-                if reachability is False:
+                if _is_reachability_false(reachability):
                     names: set[str] = set()
                     current = parents.get(node)
                     while current is not None:
@@ -5205,10 +5279,10 @@ def _collect_never_invariants(
                         break
                     if status == "PROVEN_UNREACHABLE" and not environment_ref:
                         environment_ref = env
-                elif reachability is True:
+                elif _is_reachability_true(reachability):
                     status = "VIOLATION"
                     environment_ref = env
-                else:
+                elif _is_reachability_unknown(reachability):
                     names: set[str] = set()
                     current = parents.get(node)
                     while current is not None:
