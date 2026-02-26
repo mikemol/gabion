@@ -4556,76 +4556,133 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     return names
 
 
-def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> JSONValue | None:
+class _EvalDecision(StrEnum):
+    TRUE = "true"
+    FALSE = "false"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class _BoolEvalOutcome:
+    decision: _EvalDecision
+
+    def is_unknown(self) -> bool:
+        return self.decision is _EvalDecision.UNKNOWN
+
+    def as_bool(self) -> bool:
+        return self.decision is _EvalDecision.TRUE
+
+
+@dataclass(frozen=True)
+class _ValueEvalOutcome:
+    decision: _EvalDecision
+    value: JSONValue
+
+    def is_unknown(self) -> bool:
+        return self.decision is _EvalDecision.UNKNOWN
+
+
+def _bool_outcome(value: bool) -> _BoolEvalOutcome:
+    return _BoolEvalOutcome(
+        _EvalDecision.TRUE if value else _EvalDecision.FALSE
+    )
+
+
+def _unknown_bool_outcome() -> _BoolEvalOutcome:
+    return _BoolEvalOutcome(_EvalDecision.UNKNOWN)
+
+
+def _known_value_outcome(value: JSONValue) -> _ValueEvalOutcome:
+    return _ValueEvalOutcome(_EvalDecision.TRUE, value)
+
+
+def _unknown_value_outcome() -> _ValueEvalOutcome:
+    return _ValueEvalOutcome(_EvalDecision.UNKNOWN, False)
+
+
+def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
     check_deadline()
     if isinstance(expr, ast.Constant):
         value = expr.value
         if value is None or isinstance(value, (str, int, float, bool)):
-            return value
-        return None
+            return _known_value_outcome(value)
+        return _unknown_value_outcome()
     if isinstance(expr, ast.Name):
         if expr.id in env:
-            return env[expr.id]
-        return None
+            return _known_value_outcome(env[expr.id])
+        return _unknown_value_outcome()
     if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)):
         operand = _eval_value_expr(expr.operand, env)
-        if isinstance(operand, (int, float)):
-            return -operand if isinstance(expr.op, ast.USub) else operand
-    return None
+        if operand.is_unknown():
+            return _unknown_value_outcome()
+        value = operand.value
+        if isinstance(value, (int, float)):
+            return _known_value_outcome(
+                -value if isinstance(expr.op, ast.USub) else value
+            )
+    return _unknown_value_outcome()
 
 
-def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> bool | None:
+def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
     check_deadline()
     if isinstance(expr, ast.Constant):
-        return bool(expr.value)
+        return _bool_outcome(bool(expr.value))
     if isinstance(expr, ast.Name):
         if expr.id not in env:
-            return None
-        return bool(env[expr.id])
+            return _unknown_bool_outcome()
+        return _bool_outcome(bool(env[expr.id]))
     if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
         inner = _eval_bool_expr(expr.operand, env)
-        if inner is None:
-            return None
-        return not inner
+        if inner.is_unknown():
+            return _unknown_bool_outcome()
+        return _bool_outcome(not inner.as_bool())
     if isinstance(expr, ast.BoolOp):
         if isinstance(expr.op, ast.And):
             any_unknown = False
             for value in expr.values:
                 check_deadline()
                 result = _eval_bool_expr(value, env)
-                if result is False:
-                    return False
-                if result is None:
+                if result.decision is _EvalDecision.FALSE:
+                    return _bool_outcome(False)
+                if result.is_unknown():
                     any_unknown = True
-            return None if any_unknown else True
+            return _unknown_bool_outcome() if any_unknown else _bool_outcome(True)
         any_unknown = False
         for value in expr.values:
             check_deadline()
             result = _eval_bool_expr(value, env)
-            if result is True:
-                return True
-            if result is None:
+            if result.decision is _EvalDecision.TRUE:
+                return _bool_outcome(True)
+            if result.is_unknown():
                 any_unknown = True
-        return None if any_unknown else False
-    if isinstance(expr, ast.Compare) and len(expr.ops) == 1 and len(expr.comparators) == 1:
-        left = _eval_value_expr(expr.left, env)
-        right = _eval_value_expr(expr.comparators[0], env)
-        if left is None or right is None:
-            return None
+        return _unknown_bool_outcome() if any_unknown else _bool_outcome(False)
+    if (
+        isinstance(expr, ast.Compare)
+        and len(expr.ops) == 1
+        and len(expr.comparators) == 1
+    ):
+        left_outcome = _eval_value_expr(expr.left, env)
+        right_outcome = _eval_value_expr(expr.comparators[0], env)
+        if left_outcome.is_unknown() or right_outcome.is_unknown():
+            return _unknown_bool_outcome()
+        left = left_outcome.value
+        right = right_outcome.value
         op = expr.ops[0]
         if isinstance(op, ast.Eq):
-            return left == right
+            return _bool_outcome(left == right)
         if isinstance(op, ast.NotEq):
-            return left != right
-        if isinstance(op, ast.Lt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left < right
-        if isinstance(op, ast.LtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left <= right
-        if isinstance(op, ast.Gt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left > right
-        if isinstance(op, ast.GtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left >= right
-    return None
+            return _bool_outcome(left != right)
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            if isinstance(op, ast.Lt):
+                return _bool_outcome(left < right)
+            if isinstance(op, ast.LtE):
+                return _bool_outcome(left <= right)
+            if isinstance(op, ast.Gt):
+                return _bool_outcome(left > right)
+            if isinstance(op, ast.GtE):
+                return _bool_outcome(left >= right)
+        return _unknown_bool_outcome()
+    return _unknown_bool_outcome()
 
 
 def _branch_reachability_under_env(
@@ -4653,10 +4710,10 @@ def _branch_reachability_under_env(
     for test, want_true in constraints:
         check_deadline()
         result = _eval_bool_expr(test, env)
-        if result is None:
+        if result.is_unknown():
             any_unknown = True
             continue
-        if result != want_true:
+        if result.as_bool() != want_true:
             return False
     return None if any_unknown else True
 
