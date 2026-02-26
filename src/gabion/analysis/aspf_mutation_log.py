@@ -7,6 +7,7 @@ import json
 from typing import Mapping
 
 from gabion.analysis.json_types import JSONObject, JSONValue
+from gabion.analysis.resume_codec import sequence_or_none
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,8 @@ def apply_mutation(state: JSONObject, record: AspfMutationRecord) -> JSONObject:
         if key:
             next_state.pop(key, None)
     else:
-        ops = list(next_state.get("_unknown_ops") or []) if isinstance(next_state.get("_unknown_ops"), list) else []
+        unknown_ops = sequence_or_none(next_state.get("_unknown_ops"), allow_str=False)
+        ops = list(unknown_ops) if unknown_ops is not None else []
         ops.append(record.op_kind)
         next_state["_unknown_ops"] = ops
     return next_state
