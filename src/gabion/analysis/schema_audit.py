@@ -5,7 +5,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 import re
-from typing import Iterable
+from collections.abc import Iterable
 from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -14,7 +14,7 @@ from gabion.order_contract import sort_once
 _DOC_ROLE_RE = re.compile(r"^test_")
 
 
-def _normalize_path(path: Path, root: Path | None) -> str:
+def _normalize_path(path: Path, root: object) -> str:
     if root is not None:
         try:
             return str(path.relative_to(root))
@@ -32,17 +32,21 @@ def _unparse(node: ast.AST) -> str:
 
 def _subscript_args(node: ast.Subscript) -> list[ast.AST]:
     slice_node = node.slice
-    if isinstance(slice_node, ast.Tuple):
-        return list(slice_node.elts)
-    return [slice_node]
+    match slice_node:
+        case ast.Tuple(elts=elements):
+            return list(elements)
+        case _:
+            return [slice_node]
 
 
-def _name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
+def _name(node: ast.AST) -> object:
+    match node:
+        case ast.Name(id=name_text):
+            return name_text
+        case ast.Attribute(attr=attr_text):
+            return attr_text
+        case _:
+            return None
 
 
 def _is_str(node: ast.AST) -> bool:
@@ -67,8 +71,12 @@ def _contains_anonymous_dict(annotation: ast.AST) -> bool:
     check_deadline()
     for node in ast.walk(annotation):
         check_deadline()
-        if isinstance(node, ast.Subscript) and _is_anonymous_dict_subscript(node):
-            return True
+        match node:
+            case ast.Subscript() as subscript_node:
+                if _is_anonymous_dict_subscript(subscript_node):
+                    return True
+            case _:
+                pass
     return False
 
 
@@ -82,7 +90,7 @@ def _singularize_token(token: str) -> str:
     return token
 
 
-def _suggest_type_name(name: str) -> str | None:
+def _suggest_type_name(name: str) -> object:
     if not name:
         return None
     parts = [part for part in name.split("_") if part]
@@ -101,7 +109,7 @@ class AnonymousSchemaSurface:
     col: int
     context: str
     annotation: str
-    suggestion: str | None = None
+    suggestion: object = None
 
     def format(self) -> str:
         suffix = f" -> consider {self.suggestion}" if self.suggestion else ""
@@ -176,11 +184,12 @@ class _SurfaceVisitor(ast.NodeVisitor):
             target = node.target
             name_hint = ""
             label = ""
-            if isinstance(target, ast.Name):
-                name_hint = target.id
-                label = target.id
-            else:
-                label = _unparse(target)
+            match target:
+                case ast.Name(id=target_name):
+                    name_hint = target_name
+                    label = target_name
+                case _:
+                    label = _unparse(target)
             prefix = self._context_prefix()
             context = f"{prefix}.{label}" if prefix else label
             self._record(
@@ -197,7 +206,7 @@ class _SurfaceVisitor(ast.NodeVisitor):
 def find_anonymous_schema_surfaces(
     paths: Iterable[Path],
     *,
-    project_root: Path | None = None,
+    project_root: object = None,
 ) -> list[AnonymousSchemaSurface]:
     """Find uses of dict[str, object] (and containers thereof) in annotations.
 
@@ -206,18 +215,20 @@ def find_anonymous_schema_surfaces(
     """
     check_deadline()
     surfaces: list[AnonymousSchemaSurface] = []
-    previous_path_text: str | None = None
+    previous_path_text = ""
+    has_previous_path = False
     seen_paths: set[Path] = set()
     for path in paths:
         check_deadline()
         path_text = str(path)
-        if previous_path_text is not None and previous_path_text > path_text:
+        if has_previous_path and previous_path_text > path_text:
             never(
                 "schema audit path order regression",
                 previous_path=previous_path_text,
                 current_path=path_text,
             )
         previous_path_text = path_text
+        has_previous_path = True
         if path in seen_paths:
             never(
                 "schema audit duplicate path input",
