@@ -473,23 +473,27 @@ class SymbolTable:
         ):
             check_deadline()
             exports = self.module_exports.get(module)
-            if exports is None or name not in exports:
-                continue
-            export_map = self.module_export_map.get(module, {})
-            mapped = export_map.get(name)
-            if mapped:
-                if self.external_filter and mapped:
-                    root = mapped.split(".")[0]
-                    if root not in self.internal_roots:
-                        continue
-                return mapped
-            if self.external_filter and module:
-                root = module.split(".")[0]
-                if root not in self.internal_roots:
-                    continue
-            if module:
-                return f"{module}.{name}"
-            return name
+            if exports is not None and name in exports:
+                export_map = self.module_export_map.get(module, {})
+                mapped = export_map.get(name)
+                if mapped:
+                    if self.external_filter:
+                        root = mapped.split(".")[0]
+                        if root in self.internal_roots:
+                            return mapped
+                    else:
+                        return mapped
+                if self.external_filter:
+                    if module:
+                        root = module.split(".")[0]
+                        if root in self.internal_roots:
+                            return f"{module}.{name}"
+                    else:
+                        return name
+                else:
+                    if module:
+                        return f"{module}.{name}"
+                    return name
         return None
 
 
@@ -1794,19 +1798,18 @@ def _collect_local_class_bases(
     class_bases: dict[str, list[str]] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
-            continue
-        scopes = _enclosing_class_scopes(node, parents)
-        qual_parts = list(scopes)
-        qual_parts.append(node.name)
-        qual = ".".join(qual_parts)
-        bases: list[str] = []
-        for base in node.bases:
-            check_deadline()
-            base_name = _base_identifier(base)
-            if base_name:
-                bases.append(base_name)
-        class_bases[qual] = bases
+        if isinstance(node, ast.ClassDef):
+            scopes = _enclosing_class_scopes(node, parents)
+            qual_parts = list(scopes)
+            qual_parts.append(node.name)
+            qual = ".".join(qual_parts)
+            bases: list[str] = []
+            for base in node.bases:
+                check_deadline()
+                base_name = _base_identifier(base)
+                if base_name:
+                    bases.append(base_name)
+            class_bases[qual] = bases
     return class_bases
 
 
@@ -1838,17 +1841,16 @@ def _resolve_local_method_in_hierarchy(
     for base in class_bases.get(class_name, []):
         check_deadline()
         base_name = _local_class_name(base, class_bases)
-        if base_name is None:
-            continue
-        resolved = _resolve_local_method_in_hierarchy(
-            base_name,
-            method,
-            class_bases=class_bases,
-            local_functions=local_functions,
-            seen=seen,
-        )
-        if resolved is not None:
-            return resolved
+        if base_name is not None:
+            resolved = _resolve_local_method_in_hierarchy(
+                base_name,
+                method,
+                class_bases=class_bases,
+                local_functions=local_functions,
+                seen=seen,
+            )
+            if resolved is not None:
+                return resolved
     return None
 
 
@@ -5449,12 +5451,10 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
             self.ambient_check = True
 
     def _record_call_span(self, node: ast.AST) -> None:
-        if not self._loop_stack:
-            return
-        span = _node_span(node)
-        if span is None:
-            return
-        self._loop_stack[-1].call_spans.add(span)
+        if self._loop_stack:
+            span = _node_span(node)
+            if span is not None:
+                self._loop_stack[-1].call_spans.add(span)
 
     def _iter_marks_ambient(self, expr: ast.AST) -> bool:
         if not isinstance(expr, ast.Call):
@@ -5604,15 +5604,14 @@ def _collect_deadline_local_info(
     origin_spans: dict[str, tuple[int, int, int, int]] = {}
     for targets, value, span in assignments:
         check_deadline()
-        if value is None or not _is_deadline_origin_call(value):
-            continue
-        for target in targets:
-            check_deadline()
-            for name in _target_names(target):
+        if value is not None and _is_deadline_origin_call(value):
+            for target in targets:
                 check_deadline()
-                origin_assign.add(name)
-                if span is not None and name not in origin_spans:
-                    origin_spans[name] = span
+                for name in _target_names(target):
+                    check_deadline()
+                    origin_assign.add(name)
+                    if span is not None and name not in origin_spans:
+                        origin_spans[name] = span
 
     alias_assign: dict[str, set[str]] = defaultdict(set)
     origin_alias: set[str] = set()
@@ -5623,29 +5622,24 @@ def _collect_deadline_local_info(
             for target in targets:
                 check_deadline()
                 unknown_assign.update(_target_names(target))
-            continue
-        if _is_deadline_origin_call(value):
-            continue
-        alias_source = None
-        if isinstance(value, ast.Name):
-            if value.id in params:
-                alias_source = value.id
-            elif value.id in origin_assign:
-                alias_source = None
-                for target in targets:
-                    check_deadline()
-                    for name in _target_names(target):
-                        check_deadline()
-                        origin_alias.add(name)
-                continue
-        for target in targets:
-            check_deadline()
-            for name in _target_names(target):
+        elif not _is_deadline_origin_call(value):
+            alias_source = None
+            propagate_origin_alias = False
+            if isinstance(value, ast.Name):
+                if value.id in params:
+                    alias_source = value.id
+                elif value.id in origin_assign:
+                    propagate_origin_alias = True
+            for target in targets:
                 check_deadline()
-                if alias_source is not None:
-                    alias_assign[name].add(alias_source)
-                else:
-                    unknown_assign.add(name)
+                for name in _target_names(target):
+                    check_deadline()
+                    if propagate_origin_alias:
+                        origin_alias.add(name)
+                    elif alias_source is not None:
+                        alias_assign[name].add(alias_source)
+                    else:
+                        unknown_assign.add(name)
 
     origin_candidates = origin_assign | origin_alias
     origin_vars = {
@@ -9232,14 +9226,13 @@ def _materialize_structured_suite_sites(
     ):
         check_deadline()
         tree = trees[path]
-        if tree is None:
-            continue
-        _materialize_structured_suite_sites_for_tree(
-            forest=forest,
-            path=path,
-            tree=tree,
-            project_root=project_root,
-        )
+        if tree is not None:
+            _materialize_structured_suite_sites_for_tree(
+                forest=forest,
+                path=path,
+                tree=tree,
+                project_root=project_root,
+            )
 
 
 def _populate_bundle_forest(
@@ -9351,42 +9344,39 @@ def _populate_bundle_forest(
 
     def _notify_progress(progress_delta: int, *, marker: str) -> None:
         nonlocal progress_accepts_payload
-        if on_progress is None:
-            return
-        snapshot = _forest_progress_snapshot(marker=marker)
-        normalized_delta = max(int(progress_delta), 0)
-        if progress_accepts_payload is True:
-            on_progress(snapshot)
-            return
-        if progress_accepts_payload is False:
-            try:
-                on_progress(normalized_delta)
-            except TypeError:
-                on_progress()
-            return
-        try:
-            on_progress(snapshot)
-            progress_accepts_payload = True
-        except TypeError:
-            progress_accepts_payload = False
-            try:
-                on_progress(normalized_delta)
-            except TypeError:
-                on_progress()
+        if on_progress is not None:
+            snapshot = _forest_progress_snapshot(marker=marker)
+            normalized_delta = max(int(progress_delta), 0)
+            if progress_accepts_payload is True:
+                on_progress(snapshot)
+            elif progress_accepts_payload is False:
+                try:
+                    on_progress(normalized_delta)
+                except TypeError:
+                    on_progress()
+            else:
+                try:
+                    on_progress(snapshot)
+                    progress_accepts_payload = True
+                except TypeError:
+                    progress_accepts_payload = False
+                    try:
+                        on_progress(normalized_delta)
+                    except TypeError:
+                        on_progress()
 
     def _emit_progress(*, force: bool = False, marker: str) -> None:
         nonlocal last_progress_emit_monotonic
-        if on_progress is None:
-            return
-        now = time.monotonic()
-        if (
-            not force
-            and last_progress_emit_monotonic is not None
-            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ):
-            return
-        last_progress_emit_monotonic = now
-        _notify_progress(1, marker=marker)
+        if on_progress is not None:
+            now = time.monotonic()
+            min_interval_elapsed = (
+                last_progress_emit_monotonic is None
+                or now - last_progress_emit_monotonic
+                >= _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+            )
+            if force or min_interval_elapsed:
+                last_progress_emit_monotonic = now
+                _notify_progress(1, marker=marker)
 
     _notify_progress(0, marker="start")
     if include_all_sites:
@@ -10279,48 +10269,55 @@ def _callsite_evidence_for_bundle(
     seen: set[tuple[tuple[int, int, int, int], str, tuple[str, ...], tuple[str, ...]]] = set()
     for call in calls:
         check_deadline()
-        if call.span is None:
-            continue
-        params_in_call: list[str] = []
-        slots: list[str] = []
-        for idx_str, param in call.pos_map.items():
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"arg[{idx_str}]")
-        for name, param in call.kw_map.items():
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"kw[{name}]")
-        for idx, param in call.star_pos:
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"arg[{idx}]*")
-        for param in call.star_kw:
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append("kw[**]")
-        distinct = tuple(sort_once(set(params_in_call), source = 'src/gabion/analysis/dataflow_audit.py:10516'))
-        if not distinct:
-            continue
-        slot_list = tuple(sort_once(set(slots), source = 'src/gabion/analysis/dataflow_audit.py:10519'))
-        key = (call.span, call.callee, distinct, slot_list)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(
-            {
-                "callee": call.callee,
-                "span": list(call.span),
-                "params": list(distinct),
-                "slots": list(slot_list),
-                "callable_kind": call.callable_kind,
-                "callable_source": call.callable_source,
-            }
-        )
+        if call.span is not None:
+            params_in_call: list[str] = []
+            slots: list[str] = []
+            for idx_str, param in call.pos_map.items():
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"arg[{idx_str}]")
+            for name, param in call.kw_map.items():
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"kw[{name}]")
+            for idx, param in call.star_pos:
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"arg[{idx}]*")
+            for param in call.star_kw:
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append("kw[**]")
+            distinct = tuple(
+                sort_once(
+                    set(params_in_call),
+                    source="src/gabion/analysis/dataflow_audit.py:10516",
+                )
+            )
+            if distinct:
+                slot_list = tuple(
+                    sort_once(
+                        set(slots),
+                        source="src/gabion/analysis/dataflow_audit.py:10519",
+                    )
+                )
+                key = (call.span, call.callee, distinct, slot_list)
+                if key not in seen:
+                    seen.add(key)
+                    out.append(
+                        {
+                            "callee": call.callee,
+                            "span": list(call.span),
+                            "params": list(distinct),
+                            "slots": list(slot_list),
+                            "callable_kind": call.callable_kind,
+                            "callable_source": call.callable_source,
+                        }
+                    )
     out = sort_once(
         out,
         source="_ranked_callargs_evidence.out",
@@ -10438,11 +10435,13 @@ def _analyze_file_internal(
         return True
 
     def _emit_file_profile() -> None:
-        if on_profile is None:
-            return
-        on_profile(
-            _profiling_v1_payload(stage_ns=profile_stage_ns, counters=profile_counters)
-        )
+        if on_profile is not None:
+            on_profile(
+                _profiling_v1_payload(
+                    stage_ns=profile_stage_ns,
+                    counters=profile_counters,
+                )
+            )
 
     try:
         scan_started_ns = time.monotonic_ns()
@@ -12261,16 +12260,17 @@ def _collect_constant_flow_details(
             check_deadline()
             key = (edge.callee.qual, event.param)
             if event.kind == "const":
-                if event.value is None:
-                    continue
-                acc.const_values[key].add(event.value)
+                if event.value is not None:
+                    acc.const_values[key].add(event.value)
+                    if event.countable:
+                        acc.call_counts[key] += 1
+                        acc.call_sites[key].add(
+                            _format_call_site(edge.caller, edge.call)
+                        )
+            else:
+                acc.non_const[key] = True
                 if event.countable:
                     acc.call_counts[key] += 1
-                    acc.call_sites[key].add(_format_call_site(edge.caller, edge.call))
-                continue
-            acc.non_const[key] = True
-            if event.countable:
-                acc.call_counts[key] += 1
 
     folded = reduce_resolved_call_edges_fn(
         index,
@@ -13299,10 +13299,8 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
         if section_id is not None:
             active_section_id = section_id
             sections.setdefault(section_id, [])
-            continue
-        if active_section_id is None:
-            continue
-        sections[active_section_id].append(raw_line)
+        elif active_section_id is not None:
+            sections[active_section_id].append(raw_line)
     return sections
 
 
@@ -13900,22 +13898,21 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     source = 'src/gabion/analysis/dataflow_audit.py:14698'):
         check_deadline()
         name = entry.get("suggested_name")
-        if not isinstance(name, str) or not name:
-            continue
-        kind = entry.get("kind", "lemma")
-        count = entry.get("count", 0)
-        value = entry.get("value")
-        child_count = entry.get("child_count")
-        lines.append(f"def {name}() -> None:")
-        lines.append('    """Auto-generated lemma stub."""')
-        lines.append(f"    # kind: {kind}")
-        lines.append(f"    # count: {count}")
-        if value is not None:
-            lines.append(f"    # value: {value}")
-        if child_count is not None:
-            lines.append(f"    # child_count: {child_count}")
-        lines.append("    ...")
-        lines.append("")
+        if isinstance(name, str) and name:
+            kind = entry.get("kind", "lemma")
+            count = entry.get("count", 0)
+            value = entry.get("value")
+            child_count = entry.get("child_count")
+            lines.append(f"def {name}() -> None:")
+            lines.append('    """Auto-generated lemma stub."""')
+            lines.append(f"    # kind: {kind}")
+            lines.append(f"    # count: {count}")
+            if value is not None:
+                lines.append(f"    # value: {value}")
+            if child_count is not None:
+                lines.append(f"    # child_count: {child_count}")
+            lines.append("    ...")
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -15612,38 +15609,33 @@ def _infer_synthesis_field_types(
             check_deadline()
             for call in info.calls:
                 check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    context.by_name,
-                    context.by_qual,
-                    context.symbol_table,
-                    context.root,
-                    context.class_index,
-                )
-                if callee is None or not callee.transparent:
-                    continue
-                callee_params = callee.params
-                for idx_str, value in call.const_pos.items():
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    param = callee_params[idx]
-                    if param not in bundle_fields:
-                        continue
-                    hint = _type_from_const_repr(value)
-                    if hint:
-                        type_sets[param].add(hint)
-                for kw, value in call.const_kw.items():
-                    check_deadline()
-                    if kw not in callee_params or kw not in bundle_fields:
-                        continue
-                    hint = _type_from_const_repr(value)
-                    if hint:
-                        type_sets[kw].add(hint)
+                if not call.is_test:
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        context.by_name,
+                        context.by_qual,
+                        context.symbol_table,
+                        context.root,
+                        context.class_index,
+                    )
+                    if callee is not None and callee.transparent:
+                        callee_params = callee.params
+                        for idx_str, value in call.const_pos.items():
+                            check_deadline()
+                            idx = int(idx_str)
+                            if idx < len(callee_params):
+                                param = callee_params[idx]
+                                if param in bundle_fields:
+                                    hint = _type_from_const_repr(value)
+                                    if hint:
+                                        type_sets[param].add(hint)
+                        for kw, value in call.const_kw.items():
+                            check_deadline()
+                            if kw in callee_params and kw in bundle_fields:
+                                hint = _type_from_const_repr(value)
+                                if hint:
+                                    type_sets[kw].add(hint)
     for name, types in type_sets.items():
         check_deadline()
         combined, conflicted = _combine_type_hints(types)
@@ -15835,11 +15827,11 @@ def build_refactor_plan(
                     config.project_root,
                     class_index,
                 )
-                if callee is None:
-                    continue
-                if not callee.transparent:
-                    continue
-                if callee.qual in comp:
+                if (
+                    callee is not None
+                    and callee.transparent
+                    and callee.qual in comp
+                ):
                     deps[info.qual].add(callee.qual)
         schedule = topological_schedule(deps)
         plans.append(
