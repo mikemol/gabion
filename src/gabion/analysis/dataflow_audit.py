@@ -1979,8 +1979,8 @@ def _contains_boolish(expr: ast.AST) -> bool:
 
 
 def _value_encoded_decision_params(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: ast.AST,
+    ignore_params = None,
 ) -> tuple[set[str], set[str]]:
     check_deadline()
     params = set(_param_names(fn, ignore_params))
@@ -1990,44 +1990,49 @@ def _value_encoded_decision_params(
     reasons: set[str] = set()
     for node in ast.walk(fn):
         check_deadline()
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id in {"min", "max"}:
+        node_type = type(node)
+        if node_type is ast.Call:
+            call_node = cast(ast.Call, node)
+            func = call_node.func
+            func_type = type(func)
+            if func_type is ast.Name and cast(ast.Name, func).id in {"min", "max"}:
                 reasons.add("min/max")
-                _mark_param_roots(node, params, flagged)
-            elif isinstance(func, ast.Attribute) and func.attr in {"min", "max"}:
+                _mark_param_roots(call_node, params, flagged)
+            elif func_type is ast.Attribute and cast(ast.Attribute, func).attr in {"min", "max"}:
                 reasons.add("min/max")
-                _mark_param_roots(node, params, flagged)
-        elif isinstance(node, ast.BinOp):
-            op = node.op
-            left_bool = _contains_boolish(node.left)
-            right_bool = _contains_boolish(node.right)
-            if isinstance(
-                op,
-                (
-                    ast.Mult,
-                    ast.Add,
-                    ast.Sub,
-                    ast.FloorDiv,
-                    ast.Mod,
+                _mark_param_roots(call_node, params, flagged)
+        elif node_type is ast.BinOp:
+            binop_node = cast(ast.BinOp, node)
+            op_type = type(binop_node.op)
+            left_bool = _contains_boolish(binop_node.left)
+            right_bool = _contains_boolish(binop_node.right)
+            if op_type in {
+                ast.Mult,
+                ast.Add,
+                ast.Sub,
+                ast.FloorDiv,
+                ast.Mod,
+                ast.BitAnd,
+                ast.BitOr,
+                ast.BitXor,
+                ast.LShift,
+                ast.RShift,
+            }:
+                if left_bool or right_bool:
+                    reasons.add("boolean arithmetic")
+                    if left_bool:
+                        flagged |= _collect_param_roots(binop_node.left, params)
+                    if right_bool:
+                        flagged |= _collect_param_roots(binop_node.right, params)
+                if op_type in {
                     ast.BitAnd,
                     ast.BitOr,
                     ast.BitXor,
                     ast.LShift,
                     ast.RShift,
-                ),
-            ):
-                if left_bool or right_bool:
-                    reasons.add("boolean arithmetic")
-                    if left_bool:
-                        flagged |= _collect_param_roots(node.left, params)
-                    if right_bool:
-                        flagged |= _collect_param_roots(node.right, params)
-                if isinstance(
-                    op, (ast.BitAnd, ast.BitOr, ast.BitXor, ast.LShift, ast.RShift)
-                ) and not (left_bool or right_bool):
-                    left_roots = _collect_param_roots(node.left, params)
-                    right_roots = _collect_param_roots(node.right, params)
+                } and not (left_bool or right_bool):
+                    left_roots = _collect_param_roots(binop_node.left, params)
+                    right_roots = _collect_param_roots(binop_node.right, params)
                     if left_roots or right_roots:
                         reasons.add("bitmask")
                         flagged |= left_roots | right_roots
@@ -3079,8 +3084,8 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
 
 def _indexed_pass_ingress_members(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> tuple[str, ...]:
     module_path = source_path or Path(__file__)
     if source is None:
@@ -3095,25 +3100,28 @@ def _indexed_pass_ingress_members(
     indexed_members: list[str] = []
     for node in tree.body:
         check_deadline()
-        if not isinstance(node, ast.FunctionDef):
+        if type(node) is not ast.FunctionDef:
             continue
-        param_names = _function_param_names(node)
+        function_node = cast(ast.FunctionDef, node)
+        param_names = _function_param_names(function_node)
         if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
             continue
         calls_index_ingress = False
-        for index, child in enumerate(ast.walk(node), start=1):
+        for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if not isinstance(child, ast.Call):
+            if type(child) is not ast.Call:
                 continue
-            if not isinstance(child.func, ast.Name):
+            call_node = cast(ast.Call, child)
+            if type(call_node.func) is not ast.Name:
                 continue
-            if child.func.id in {"_build_analysis_index", "_build_call_graph"}:
+            call_name = cast(ast.Name, call_node.func)
+            if call_name.id in {"_build_analysis_index", "_build_call_graph"}:
                 calls_index_ingress = True
                 break
         if not calls_index_ingress:
             continue
-        indexed_members.append(node.name)
+        indexed_members.append(function_node.name)
     return tuple(
         sort_once(
             indexed_members,
@@ -3124,8 +3132,8 @@ def _indexed_pass_ingress_members(
 
 def _detect_execution_pattern_matches(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[_ExecutionPatternMatch]:
     matches: list[_ExecutionPatternMatch] = []
     members = _indexed_pass_ingress_members(source=source, source_path=source_path)
@@ -5957,10 +5965,10 @@ def _collect_call_edges_from_forest(
 
 def _collect_call_resolution_obligations_from_forest(
     forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]:
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]:
     check_deadline()
-    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = []
-    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = set()
+    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = []
+    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = set()
     for alt in forest.alts:
         check_deadline()
         if alt.kind != "CallResolutionObligation":
@@ -5969,26 +5977,31 @@ def _collect_call_resolution_obligations_from_forest(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
+        suite_kind = suite_node.kind if suite_node is not None else ""
+        if suite_kind != "SuiteSite":
             continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
+        if suite_node is None:
+            never("call resolution obligation suite node missing", suite_id=str(suite_id))
+        node_suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+        if node_suite_kind != "call":
             continue
         caller_id = _suite_caller_function_id(suite_node)
         raw_span = suite_node.meta.get("span")
-        span: tuple[int, int, int, int] | None = None
-        if isinstance(raw_span, list) and len(raw_span) == 4:
+        span = (0, 0, 0, 0)
+        span_valid = False
+        if type(raw_span) is list and len(raw_span) == 4:
             coerced: list[int] = []
             valid = True
             for value in raw_span:
                 check_deadline()
-                if not isinstance(value, int):
+                if type(value) is not int:
                     valid = False
                     break
-                coerced.append(value)
+                coerced.append(cast(int, value))
             if valid:
                 span = (coerced[0], coerced[1], coerced[2], coerced[3])
-        if span is None:
+                span_valid = True
+        if not span_valid:
             caller_path = str(suite_node.meta.get("path", "") or "")
             caller_qual = str(suite_node.meta.get("qual", "") or "")
             never(
@@ -6009,7 +6022,7 @@ def _collect_call_resolution_obligations_from_forest(
 
 def _collect_call_resolution_obligation_details_from_forest(
     forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]]:
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]]:
     evidence_by_key: dict[tuple[NodeId, str], JSONObject] = {}
     for alt in forest.alts:
         check_deadline()
@@ -6024,7 +6037,7 @@ def _collect_call_resolution_obligation_details_from_forest(
         if key not in evidence_by_key:
             evidence_by_key[key] = alt.evidence
 
-    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]] = []
+    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]] = []
     for caller_id, suite_id, span, callee_key in _collect_call_resolution_obligations_from_forest(
         forest
     ):
@@ -6059,11 +6072,11 @@ def _call_resolution_obligation_evidence(
 def _collect_unresolved_call_sites_from_forest(
     forest: Forest,
     collect_call_resolution_obligations_from_forest_fn: Callable[
-        [Forest], list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
+        [Forest], list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]
     ] = _collect_call_resolution_obligations_from_forest,
-) -> list[tuple[str, str, tuple[int, int, int, int] | None, str]]:
+) -> list[tuple[str, str, tuple[int, int, int, int], str]]:
     """Backward-compatible alias for call resolution obligations."""
-    out: list[tuple[str, str, tuple[int, int, int, int] | None, str]] = []
+    out: list[tuple[str, str, tuple[int, int, int, int], str]] = []
     for caller_id, _, span, callee_key in collect_call_resolution_obligations_from_forest_fn(
         forest
     ):
@@ -12600,44 +12613,52 @@ def analyze_unused_arg_flow_repo(
 def _iter_config_fields(
     path: Path,
     *,
-    tree: ast.AST | None = None,
+    tree = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, set[str]]:
     """Best-effort extraction of config bundles from dataclasses."""
     check_deadline()
-    if tree is None:
-        tree = _parse_module_tree(
+    module_tree = tree
+    if module_tree is None:
+        module_tree = _parse_module_tree(
             path,
             stage=_ParseModuleStage.CONFIG_FIELDS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-    if tree is None:
+    if module_tree is None:
         return {}
     bundles: dict[str, set[str]] = {}
-    for node in ast.walk(tree):
+    for node in ast.walk(module_tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
-        decorators = {getattr(d, "id", None) for d in node.decorator_list}
+        class_node = cast(ast.ClassDef, node)
+        decorators = {getattr(d, "id", None) for d in class_node.decorator_list}
         is_dataclass = "dataclass" in decorators
-        is_config = node.name.endswith("Config")
+        is_config = class_node.name.endswith("Config")
         if not is_dataclass and not is_config:
             continue
         fields: set[str] = set()
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                name = stmt.target.id
+            stmt_type = type(stmt)
+            if stmt_type is ast.AnnAssign:
+                ann_stmt = cast(ast.AnnAssign, stmt)
+                if type(ann_stmt.target) is not ast.Name:
+                    continue
+                name = cast(ast.Name, ann_stmt.target).id
                 if is_config or name.endswith("_fn"):
                     fields.add(name)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
+            elif stmt_type is ast.Assign:
+                assign_stmt = cast(ast.Assign, stmt)
+                for target in assign_stmt.targets:
                     check_deadline()
-                    if isinstance(target, ast.Name):
-                        if is_config or target.id.endswith("_fn"):
-                            fields.add(target.id)
+                    if type(target) is ast.Name:
+                        target_name = cast(ast.Name, target).id
+                        if is_config or target_name.endswith("_fn"):
+                            fields.add(target_name)
         if fields:
-            bundles[node.name] = fields
+            bundles[class_node.name] = fields
     return bundles
 
 
@@ -12770,37 +12791,42 @@ def _dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root: Path | None,
+    project_root = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     registry: dict[str, list[str]] = {}
     module = _module_name(path, project_root)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
+        class_node = cast(ast.ClassDef, node)
         decorators = {
             ast.unparse(dec) if hasattr(ast, "unparse") else ""
-            for dec in node.decorator_list
+            for dec in class_node.decorator_list
         }
         if not any("dataclass" in dec for dec in decorators):
             continue
         fields: list[str] = []
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                fields.append(stmt.target.id)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
+            stmt_type = type(stmt)
+            if stmt_type is ast.AnnAssign:
+                ann_stmt = cast(ast.AnnAssign, stmt)
+                if type(ann_stmt.target) is ast.Name:
+                    fields.append(cast(ast.Name, ann_stmt.target).id)
+            elif stmt_type is ast.Assign:
+                assign_stmt = cast(ast.Assign, stmt)
+                for target in assign_stmt.targets:
                     check_deadline()
-                    if isinstance(target, ast.Name):
-                        fields.append(target.id)
+                    if type(target) is ast.Name:
+                        fields.append(cast(ast.Name, target).id)
         if not fields:
             continue
         if module:
-            registry[f"{module}.{node.name}"] = fields
+            registry[f"{module}.{class_node.name}"] = fields
         else:  # pragma: no cover - module name is always non-empty for file paths
-            registry[node.name] = fields
+            registry[class_node.name] = fields
     return registry
 
 
@@ -13629,21 +13655,21 @@ def compute_structure_reuse(
     snapshot: JSONObject,
     *,
     min_count: int = 2,
-    hash_fn: Callable[[str, object | None, list[str]], str] | None = None,
+    hash_fn = None,
 ) -> JSONObject:
     check_deadline()
     if min_count < 2:
         min_count = 2
     files = snapshot.get("files") or []
     root_value = snapshot.get("root")
-    root_path = Path(root_value) if isinstance(root_value, str) else None
+    root_path = Path(root_value) if type(root_value) is str else None
     bundle_name_map: dict[tuple[str, ...], set[str]] = {}
     if root_path is not None and root_path.exists():
         bundle_name_map = _bundle_name_registry(root_path)
     reuse_map: dict[str, JSONObject] = {}
     warnings: list[str] = []
 
-    def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
+    def _hash_node(kind: str, value, child_hashes: list[str]) -> str:
         structure_class = build_structure_class(
             kind=kind,
             value=value,
@@ -13654,15 +13680,15 @@ def compute_structure_reuse(
         )
         return structure_class.digest()
 
-    hasher = hash_fn or _hash_node
+    hasher = cast(Callable[[str, object, list[str]], str], hash_fn) if callable(hash_fn) else _hash_node
 
     def _record(
         *,
         node_hash: str,
         kind: str,
         location: str,
-        value: object | None = None,
-        child_count: int | None = None,
+        value = None,
+        child_count = -1,
     ) -> None:
         entry = reuse_map.get(node_hash)
         if entry is None:
@@ -13680,7 +13706,7 @@ def compute_structure_reuse(
             }
             if value is not None:
                 entry["value"] = value
-            if child_count is not None:
+            if child_count >= 0:
                 entry["child_count"] = child_count
             reuse_map[node_hash] = entry
         entry["count"] += 1
@@ -13689,24 +13715,27 @@ def compute_structure_reuse(
     file_hashes: list[str] = []
     for file_entry in files:
         check_deadline()
-        if isinstance(file_entry, dict):
-            file_path = file_entry.get("path")
-            if isinstance(file_path, str):
+        if type(file_entry) is dict:
+            file_entry_obj = cast(JSONObject, file_entry)
+            file_path = file_entry_obj.get("path")
+            if type(file_path) is str:
                 function_hashes: list[str] = []
-                functions = file_entry.get("functions") or []
+                functions = file_entry_obj.get("functions") or []
                 for fn_entry in functions:
                     check_deadline()
-                    if isinstance(fn_entry, dict):
-                        fn_name = fn_entry.get("name")
-                        if isinstance(fn_name, str):
+                    if type(fn_entry) is dict:
+                        fn_entry_obj = cast(JSONObject, fn_entry)
+                        fn_name = fn_entry_obj.get("name")
+                        if type(fn_name) is str:
                             bundle_hashes: list[str] = []
-                            bundles = fn_entry.get("bundles") or []
+                            bundles = fn_entry_obj.get("bundles") or []
                             for bundle in bundles:
                                 check_deadline()
-                                if isinstance(bundle, list):
+                                if type(bundle) is list:
+                                    bundle_items = cast(list[object], bundle)
                                     normalized = tuple(
                                         sort_once(
-                                            (str(item) for item in bundle),
+                                            (str(item) for item in bundle_items),
                                             source="src/gabion/analysis/dataflow_audit.py:14567",
                                         )
                                     )
@@ -13741,7 +13770,7 @@ def compute_structure_reuse(
     reused = [
         entry
         for entry in reuse_map.values()
-        if isinstance(entry.get("count"), int) and entry["count"] >= min_count
+        if type(entry.get("count")) is int and entry["count"] >= min_count
     ]
     reused = sort_once(
         reused,
@@ -13761,7 +13790,7 @@ def compute_structure_reuse(
         if kind in {"bundle", "function"}:
             count = int(entry.get("count", 0))
             hash_value = entry.get("hash")
-            if isinstance(hash_value, str) and hash_value:
+            if type(hash_value) is str and hash_value:
                 suggestion = {
                     "hash": hash_value,
                     "kind": kind,
