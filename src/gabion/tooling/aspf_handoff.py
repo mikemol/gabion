@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Callable, Mapping, Sequence
+from typing import Mapping
 
 from gabion.json_types import JSONObject
 
@@ -23,43 +23,9 @@ class PreparedHandoffStep:
     command_profile: str
     state_path: Path
     delta_path: Path
-    action_plan_json_path: Path
-    action_plan_md_path: Path
     import_state_paths: tuple[Path, ...]
     manifest_path: Path
     started_at_utc: str
-
-
-@dataclass(frozen=True)
-class AspfHandoffRunSpec:
-    root: Path
-    session_id: str | None
-    step_id: str
-    command_profile: str
-    command: tuple[str, ...]
-    manifest_path: Path | None = None
-    state_root: Path | None = None
-    aspf_cli_mode: str = "full"
-    infer_analysis_state_from_state_file: bool = True
-
-
-@dataclass(frozen=True)
-class AspfHandoffRunResult:
-    ok: bool
-    exit_code: int
-    status: str
-    analysis_state: str | None
-    prepared: PreparedHandoffStep
-    command: tuple[str, ...]
-    command_with_aspf: tuple[str, ...]
-
-
-def default_manifest_path(root: Path) -> Path:
-    return root / _DEFAULT_MANIFEST_PATH
-
-
-def default_state_root(root: Path) -> Path:
-    return root / _DEFAULT_STATE_ROOT
 
 
 def new_session_id() -> str:
@@ -78,15 +44,13 @@ def prepare_step(
     state_root: Path | None = None,
 ) -> PreparedHandoffStep:
     resolved_root = root.resolve()
-    resolved_manifest_path = (
-        (resolved_root / manifest_path).resolve()
-        if manifest_path is not None and not manifest_path.is_absolute()
-        else (manifest_path if manifest_path is not None else default_manifest_path(resolved_root))
+    resolved_manifest_path = _resolve_under_root(
+        root=resolved_root,
+        value=manifest_path if manifest_path is not None else _DEFAULT_MANIFEST_PATH,
     )
-    resolved_state_root = (
-        (resolved_root / state_root).resolve()
-        if state_root is not None and not state_root.is_absolute()
-        else (state_root if state_root is not None else default_state_root(resolved_root))
+    resolved_state_root = _resolve_under_root(
+        root=resolved_root,
+        value=state_root if state_root is not None else _DEFAULT_STATE_ROOT,
     )
     resolved_session_id = (session_id or "").strip() or new_session_id()
     manifest = load_manifest(resolved_manifest_path)
@@ -97,8 +61,7 @@ def prepare_step(
             "root": str(resolved_root),
             "entries": [],
         }
-    entries_raw = manifest.get("entries")
-    entries = list(entries_raw) if isinstance(entries_raw, list) else []
+    entries = _manifest_entries(manifest)
     import_state_paths = tuple(_successful_state_paths(entries, root=resolved_root))
     sequence = len(entries) + 1
     safe_step_id = _step_slug(step_id)
@@ -112,16 +75,6 @@ def prepare_step(
         / resolved_session_id
         / f"{sequence:04d}_{safe_step_id}.delta.jsonl"
     )
-    action_plan_json_path = (
-        resolved_state_root
-        / resolved_session_id
-        / f"{sequence:04d}_{safe_step_id}.action_plan.json"
-    )
-    action_plan_md_path = (
-        resolved_state_root
-        / resolved_session_id
-        / f"{sequence:04d}_{safe_step_id}.action_plan.md"
-    )
     started_at_utc = _now_utc()
     entry: JSONObject = {
         "sequence": sequence,
@@ -129,12 +82,6 @@ def prepare_step(
         "command_profile": command_profile,
         "state_path": _path_to_manifest_ref(state_path, root=resolved_root),
         "delta_path": _path_to_manifest_ref(delta_path, root=resolved_root),
-        "action_plan_json_path": _path_to_manifest_ref(
-            action_plan_json_path, root=resolved_root
-        ),
-        "action_plan_md_path": _path_to_manifest_ref(
-            action_plan_md_path, root=resolved_root
-        ),
         "import_state_paths": [
             _path_to_manifest_ref(path, root=resolved_root)
             for path in import_state_paths
@@ -155,8 +102,6 @@ def prepare_step(
         command_profile=command_profile,
         state_path=state_path,
         delta_path=delta_path,
-        action_plan_json_path=action_plan_json_path,
-        action_plan_md_path=action_plan_md_path,
         import_state_paths=import_state_paths,
         manifest_path=resolved_manifest_path,
         started_at_utc=started_at_utc,
@@ -174,18 +119,12 @@ def record_step(
     analysis_state: str | None,
 ) -> bool:
     manifest = load_manifest(manifest_path)
-    if manifest.get("session_id") != session_id:
-        return False
-    entries_raw = manifest.get("entries")
-    if not isinstance(entries_raw, list):
-        return False
+    assert manifest.get("session_id") == session_id
+    entries_raw = _manifest_entries(manifest)
     target: JSONObject | None = None
     for raw_entry in entries_raw:
-        if not isinstance(raw_entry, Mapping):
-            continue
         seq_value = raw_entry.get("sequence")
-        if not isinstance(seq_value, int):
-            continue
+        assert isinstance(seq_value, int)
         if seq_value != sequence:
             continue
         target = {str(key): raw_entry[key] for key in raw_entry}
@@ -198,9 +137,8 @@ def record_step(
     target["completed_at_utc"] = _now_utc()
     normalized_entries: list[JSONObject] = []
     for raw_entry in entries_raw:
-        if not isinstance(raw_entry, Mapping):
-            continue
         seq_value = raw_entry.get("sequence")
+        assert isinstance(seq_value, int)
         if isinstance(seq_value, int) and seq_value == sequence:
             normalized_entries.append(target)
             continue
@@ -213,87 +151,24 @@ def record_step(
 # gabion:decision_protocol
 def aspf_cli_args(
     step: PreparedHandoffStep,
-    *,
-    mode: str = "full",
 ) -> list[str]:
-    normalized_mode = mode.strip().lower()
-    if normalized_mode not in {"full", "state_only"}:
-        raise ValueError(f"unsupported ASPF CLI mode: {mode}")
     args = [
         "--aspf-state-json",
         str(step.state_path),
+        "--aspf-delta-jsonl",
+        str(step.delta_path),
     ]
-    if normalized_mode == "full":
-        args.extend(
-            [
-                "--aspf-delta-jsonl",
-                str(step.delta_path),
-                "--aspf-action-plan-json",
-                str(step.action_plan_json_path),
-                "--aspf-action-plan-md",
-                str(step.action_plan_md_path),
-            ]
-        )
     for import_path in step.import_state_paths:
         args.extend(["--aspf-import-state", str(import_path)])
     return args
 
 
-# gabion:decision_protocol
-def run_with_handoff(
-    *,
-    spec: AspfHandoffRunSpec,
-    run_command_fn: Callable[[Sequence[str]], int],
-    derive_analysis_state_fn: Callable[[PreparedHandoffStep, int], str | None]
-    | None = None,
-) -> AspfHandoffRunResult:
-    prepared = prepare_step(
-        root=spec.root,
-        session_id=spec.session_id,
-        step_id=spec.step_id,
-        command_profile=spec.command_profile,
-        manifest_path=spec.manifest_path,
-        state_root=spec.state_root,
-    )
-    aspf_args = aspf_cli_args(prepared, mode=spec.aspf_cli_mode)
-    command_with_aspf = tuple([*spec.command, *aspf_args])
-    exit_code = int(run_command_fn(command_with_aspf))
-    status = "success" if exit_code == 0 else "failed"
-    if derive_analysis_state_fn is not None:
-        analysis_state = derive_analysis_state_fn(prepared, exit_code)
-    elif spec.infer_analysis_state_from_state_file:
-        analysis_state = _analysis_state_from_state_file(prepared.state_path)
-    else:
-        analysis_state = None
-    if not analysis_state:
-        analysis_state = "succeeded" if exit_code == 0 else "failed"
-    ok = record_step(
-        manifest_path=prepared.manifest_path,
-        session_id=prepared.session_id,
-        sequence=prepared.sequence,
-        status=status,
-        exit_code=exit_code,
-        analysis_state=analysis_state,
-    )
-    return AspfHandoffRunResult(
-        ok=ok,
-        exit_code=exit_code,
-        status=status,
-        analysis_state=analysis_state,
-        prepared=prepared,
-        command=tuple(spec.command),
-        command_with_aspf=command_with_aspf,
-    )
-
-
 # gabion:decision_protocol gabion:boundary_normalization
 def load_manifest(path: Path) -> JSONObject:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    if not path.exists():
         return {}
-    if not isinstance(payload, Mapping):
-        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(payload, Mapping)
     return {str(key): payload[key] for key in payload}
 
 
@@ -301,13 +176,11 @@ def load_manifest(path: Path) -> JSONObject:
 def _successful_state_paths(entries: list[object], *, root: Path) -> list[Path]:
     paths: list[Path] = []
     for raw_entry in entries:
-        if not isinstance(raw_entry, Mapping):
-            continue
         status = str(raw_entry.get("status", "")).strip().lower()
         if status != "success":
             continue
-        state_path = raw_entry.get("state_path")
-        if not isinstance(state_path, str) or not state_path.strip():
+        state_path = str(raw_entry.get("state_path", "")).strip()
+        if not state_path:
             continue
         paths.append(_path_from_manifest_ref(state_path, root=root))
     return paths
@@ -328,39 +201,27 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# gabion:decision_protocol gabion:boundary_normalization
-def _analysis_state_from_state_file(path: Path) -> str | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(payload, Mapping):
-        return None
-    analysis_state = payload.get("analysis_state")
-    if isinstance(analysis_state, str) and analysis_state.strip():
-        return analysis_state.strip()
-    resume_projection = payload.get("resume_projection")
-    if isinstance(resume_projection, Mapping):
-        projected_state = resume_projection.get("analysis_state")
-        if isinstance(projected_state, str) and projected_state.strip():
-            return projected_state.strip()
-    return None
+def _resolve_under_root(*, root: Path, value: Path) -> Path:
+    if value.is_absolute():
+        return value
+    return (root / value).resolve()
+
+
+def _manifest_entries(payload: Mapping[str, object]) -> list[JSONObject]:
+    entries_raw = payload.get("entries", [])
+    assert isinstance(entries_raw, list)
+    return [{str(key): raw_entry[key] for key in raw_entry} for raw_entry in entries_raw]
 
 
 # gabion:decision_protocol
 def _path_to_manifest_ref(path: Path, *, root: Path) -> str:
     resolved_path = path.resolve()
     resolved_root = root.resolve()
-    try:
-        relative = resolved_path.relative_to(resolved_root)
-    except ValueError:
-        return str(resolved_path)
+    relative = resolved_path.relative_to(resolved_root)
     return relative.as_posix()
 
 
 # gabion:decision_protocol
 def _path_from_manifest_ref(value: str, *, root: Path) -> Path:
     candidate = Path(value.strip())
-    if candidate.is_absolute():
-        return candidate
-    return (root / candidate).resolve()
+    return candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()

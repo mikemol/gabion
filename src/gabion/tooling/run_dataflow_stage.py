@@ -115,14 +115,10 @@ def _timeout_payload_from_aspf_state(path: Path | None) -> dict[str, object]:
     if not isinstance(semantic_surfaces, dict):
         return {}
     delta_payload = semantic_surfaces.get("delta_payload")
-    if isinstance(delta_payload, dict):
-        progress = delta_payload.get("progress")
-        if isinstance(progress, dict):
-            return progress
-    delta_state = semantic_surfaces.get("delta_state")
-    if isinstance(delta_state, dict):
-        return delta_state
-    return {}
+    if not isinstance(delta_payload, dict):
+        return {}
+    progress = delta_payload.get("progress")
+    return progress if isinstance(progress, dict) else {}
 
 
 def _metrics_line(deadline_profile_path: Path) -> str:
@@ -639,18 +635,15 @@ def run_stage(
         command_to_run = list(stage_command)
         prepared_handoff: aspf_handoff.PreparedHandoffStep | None = None
         if aspf_handoff_config is not None and aspf_handoff_config.enabled:
-            try:
-                prepared_handoff = aspf_handoff.prepare_step(
-                    root=aspf_handoff_config.root,
-                    session_id=aspf_handoff_config.session_id,
-                    step_id=_aspf_step_id(stage_id, stage_command, command_index),
-                    command_profile="run-dataflow-stage.check",
-                    manifest_path=aspf_handoff_config.manifest_path,
-                    state_root=aspf_handoff_config.state_root,
-                )
-                command_to_run.extend(aspf_handoff.aspf_cli_args(prepared_handoff))
-            except Exception:
-                prepared_handoff = None
+            prepared_handoff = aspf_handoff.prepare_step(
+                root=aspf_handoff_config.root,
+                session_id=aspf_handoff_config.session_id,
+                step_id=_aspf_step_id(stage_id, stage_command, command_index),
+                command_profile="run-dataflow-stage.check",
+                manifest_path=aspf_handoff_config.manifest_path,
+                state_root=aspf_handoff_config.state_root,
+            )
+            command_to_run.extend(aspf_handoff.aspf_cli_args(prepared_handoff))
         exit_code = int(run_command_fn(command_to_run))
         if prepared_handoff is not None:
             last_state_path = prepared_handoff.state_path
@@ -660,17 +653,14 @@ def run_stage(
             else "none"
         )
         if prepared_handoff is not None:
-            try:
-                aspf_handoff.record_step(
-                    manifest_path=prepared_handoff.manifest_path,
-                    session_id=prepared_handoff.session_id,
-                    sequence=prepared_handoff.sequence,
-                    status="success" if exit_code == 0 else "failed",
-                    exit_code=exit_code,
-                    analysis_state=recorded_state,
-                )
-            except Exception:
-                pass
+            aspf_handoff.record_step(
+                manifest_path=prepared_handoff.manifest_path,
+                session_id=prepared_handoff.session_id,
+                sequence=prepared_handoff.sequence,
+                status="success" if exit_code == 0 else "failed",
+                exit_code=exit_code,
+                analysis_state=recorded_state,
+            )
         if exit_code != 0:
             break
     analysis_state = (
@@ -1112,9 +1102,6 @@ def main(
             step_summary_path = Path(summary_env_text)
 
     stage_ids = _stage_ids(args.stage_id, int(args.max_attempts))
-    if not stage_ids:
-        print("No stages requested; max-attempts must be > 0.", flush=True)
-        return 2
     paths = StagePaths(
         report_path=args.report,
         deadline_profile_json_path=args.deadline_profile_json,
@@ -1123,12 +1110,11 @@ def main(
         baseline_path=args.baseline,
     )
     handoff_enabled = not bool(args.no_aspf_handoff)
-    handoff_session_id = str(args.aspf_handoff_session).strip() or os.getenv(
-        "GABION_ASPF_HANDOFF_SESSION",
-        "",
-    ).strip()
-    if handoff_enabled and not handoff_session_id:
-        handoff_session_id = aspf_handoff.new_session_id()
+    handoff_session_id = (
+        str(args.aspf_handoff_session).strip()
+        or os.getenv("GABION_ASPF_HANDOFF_SESSION", "").strip()
+        or (aspf_handoff.new_session_id() if handoff_enabled else "")
+    )
     aspf_handoff_config = AspfHandoffConfig(
         enabled=handoff_enabled,
         root=Path(".").resolve(),

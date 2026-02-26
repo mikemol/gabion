@@ -15,7 +15,6 @@ from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 from gabion.runtime.stable_encode import stable_compact_text
 
-from . import aspf_action_plan
 from . import aspf_resume_state
 from .aspf_core import (
     AspfOneCell,
@@ -63,8 +62,6 @@ class AspfTraceControls:
     aspf_state_json: Path | None
     aspf_import_state: tuple[Path, ...]
     aspf_delta_jsonl: Path | None
-    aspf_action_plan_json: Path | None
-    aspf_action_plan_md: Path | None
     aspf_semantic_surface: tuple[str, ...]
 
     def enabled(self) -> bool:
@@ -76,8 +73,6 @@ class AspfTraceControls:
             or self.aspf_state_json is not None
             or self.aspf_import_state
             or self.aspf_delta_jsonl is not None
-            or self.aspf_action_plan_json is not None
-            or self.aspf_action_plan_md is not None
             or self.aspf_semantic_surface != DEFAULT_PHASE1_SEMANTIC_SURFACES
         )
 
@@ -103,15 +98,10 @@ class AspfFinalizationArtifacts:
     equivalence_payload: JSONObject
     opportunities_payload: JSONObject
     delta_ledger_payload: JSONObject
-    action_plan_payload: JSONObject
-    action_plan_quality_payload: JSONObject
-    action_plan_markdown: str
     trace_path: Path
     equivalence_path: Path
     opportunities_path: Path
     delta_jsonl_path: Path
-    action_plan_json_path: Path
-    action_plan_md_path: Path
     state_payload: JSONObject | None = None
     state_path: Path | None = None
 
@@ -125,8 +115,6 @@ def controls_from_payload(payload: Mapping[str, object]) -> AspfTraceControls:
         aspf_state_json=_optional_path(payload.get("aspf_state_json")),
         aspf_import_state=_path_sequence(payload.get("aspf_import_state")),
         aspf_delta_jsonl=_optional_path(payload.get("aspf_delta_jsonl")),
-        aspf_action_plan_json=_optional_path(payload.get("aspf_action_plan_json")),
-        aspf_action_plan_md=_optional_path(payload.get("aspf_action_plan_md")),
         aspf_semantic_surface=_semantic_surface_sequence(
             payload.get("aspf_semantic_surface")
         ),
@@ -171,16 +159,6 @@ def start_execution_trace(
                     if controls.aspf_delta_jsonl is not None
                     else None
                 ),
-                "aspf_action_plan_json": (
-                    str(controls.aspf_action_plan_json)
-                    if controls.aspf_action_plan_json is not None
-                    else None
-                ),
-                "aspf_action_plan_md": (
-                    str(controls.aspf_action_plan_md)
-                    if controls.aspf_action_plan_md is not None
-                    else None
-                ),
                 "aspf_semantic_surface": list(controls.aspf_semantic_surface),
             },
         }
@@ -213,7 +191,7 @@ def start_execution_trace(
 
 
 def record_1cell(
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     *,
     kind: str,
     source_label: str,
@@ -222,9 +200,7 @@ def record_1cell(
     basis_path: Sequence[str],
     surface: str | None = None,
     metadata: Mapping[str, object] | None = None,
-) -> AspfOneCell | None:
-    if state is None:
-        return None
+) -> AspfOneCell:
     normalized_basis = tuple(str(step) for step in basis_path)
     cell = AspfOneCell(
         source=BasisZeroCell(str(source_label)),
@@ -272,15 +248,13 @@ def record_1cell(
 
 
 def record_2cell_witness(
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     *,
     left: AspfOneCell,
     right: AspfOneCell,
     witness_id: str,
     reason: str,
-) -> AspfTwoCellWitness | None:
-    if state is None:
-        return None
+) -> AspfTwoCellWitness:
     witness = AspfTwoCellWitness(
         left=left,
         right=right,
@@ -294,12 +268,10 @@ def record_2cell_witness(
 
 def record_cofibration(
     *,
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     canonical_identity_kind: str,
     cofibration: DomainToAspfCofibration,
 ) -> None:
-    if state is None:
-        return
     cofibration.validate()
     state.cofibrations.append(
         CofibrationWitnessCarrier(
@@ -311,11 +283,9 @@ def record_cofibration(
 
 def merge_imported_trace(
     *,
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     trace_payload: Mapping[str, object],
 ) -> None:
-    if state is None:
-        return
     payload = {str(key): trace_payload[key] for key in trace_payload}
     state.imported_trace_payloads.append(payload)
     _merge_surface_representatives(state=state, trace_payload=payload)
@@ -326,27 +296,21 @@ def merge_imported_trace(
 
 def merge_imported_trace_paths(
     *,
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     paths: Sequence[Path],
 ) -> None:
-    if state is None:
-        return
     for path in paths:
         payload = load_trace_payload(path)
-        if payload is None:
-            continue
         merge_imported_trace(state=state, trace_payload=payload)
 
 
 def register_semantic_surface(
     *,
-    state: AspfExecutionTraceState | None,
+    state: AspfExecutionTraceState,
     surface: str,
     value: object,
     phase: str = "post",
-) -> AspfOneCell | None:
-    if state is None:
-        return None
+) -> AspfOneCell:
     normalized_value = _as_json_value(value)
     representative = stable_compact_text(normalized_value)
     state.surface_representatives[str(surface)] = representative
@@ -411,16 +375,6 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
             "aspf_delta_jsonl": (
                 str(state.controls.aspf_delta_jsonl)
                 if state.controls.aspf_delta_jsonl is not None
-                else None
-            ),
-            "aspf_action_plan_json": (
-                str(state.controls.aspf_action_plan_json)
-                if state.controls.aspf_action_plan_json is not None
-                else None
-            ),
-            "aspf_action_plan_md": (
-                str(state.controls.aspf_action_plan_md)
-                if state.controls.aspf_action_plan_md is not None
                 else None
             ),
             "aspf_semantic_surface": list(state.controls.aspf_semantic_surface),
@@ -550,11 +504,7 @@ def finalize_execution_trace(
         if state.controls.aspf_equivalence_against
         else (state.controls.aspf_import_trace + state.controls.aspf_import_state)
     )
-    baseline_traces = [
-        payload
-        for path in baseline_paths
-        if (payload := load_trace_payload(path)) is not None
-    ]
+    baseline_traces = [load_trace_payload(path) for path in baseline_paths]
     trace_payload = build_trace_payload(state)
     equivalence_payload = build_equivalence_payload(
         state=state,
@@ -596,22 +546,6 @@ def finalize_execution_trace(
         trace_id=state.trace_id,
         records=state.delta_records,
     )
-    action_plan_payload = aspf_action_plan.build_action_plan_payload(
-        trace_id=state.trace_id,
-        command_profile=state.command_profile,
-        opportunities_payload=opportunities_payload,
-        semantic_surface_payloads=semantic_surface_payloads,
-        root=root,
-        delta_ledger_payload=delta_ledger_payload,
-        trace_payload=trace_payload,
-    )
-    action_plan_quality_payload = aspf_action_plan.evaluate_action_plan_quality(
-        action_plan_payload=action_plan_payload,
-        opportunities_payload=opportunities_payload,
-    )
-    action_plan_markdown = aspf_action_plan.render_action_plan_markdown(
-        action_plan_payload
-    )
     trace_path = state.controls.aspf_trace_json or (root / "artifacts/out/aspf_trace.json")
     equivalence_path = root / "artifacts/out/aspf_equivalence.json"
     opportunities_path = state.controls.aspf_opportunities_json or (
@@ -620,97 +554,70 @@ def finalize_execution_trace(
     delta_jsonl_path = state.controls.aspf_delta_jsonl or (
         root / "artifacts/out/aspf_delta.jsonl"
     )
-    action_plan_json_path = state.controls.aspf_action_plan_json or (
-        root / "artifacts/out/aspf_action_plan.json"
-    )
-    action_plan_md_path = state.controls.aspf_action_plan_md or (
-        root / "artifacts/out/aspf_action_plan.md"
-    )
     _write_json(trace_path, trace_payload)
     _write_json(equivalence_path, equivalence_payload)
     _write_json(opportunities_path, opportunities_payload)
-    _write_json(action_plan_json_path, action_plan_payload)
-    action_plan_md_path.parent.mkdir(parents=True, exist_ok=True)
-    action_plan_md_path.write_text(action_plan_markdown, encoding="utf-8")
     aspf_resume_state.write_delta_jsonl(
         path=delta_jsonl_path,
         records=state.delta_records,
     )
-    state_payload: JSONObject | None = None
-    state_path: Path | None = state.controls.aspf_state_json
-    if state_path is not None:
-        state_payload = _build_state_payload(
-            state=state,
-            state_path=state_path,
-            trace_payload=trace_payload,
-            equivalence_payload=equivalence_payload,
-            opportunities_payload=opportunities_payload,
-            semantic_surface_payloads=semantic_surface_payloads,
-            exit_code=exit_code,
-            analysis_state=analysis_state,
-            resume_projection=resume_projection,
-            delta_ledger_payload=delta_ledger_payload,
-            action_plan_json_path=action_plan_json_path,
-            action_plan_md_path=action_plan_md_path,
-            action_plan_payload=action_plan_payload,
-            action_plan_quality_payload=action_plan_quality_payload,
-        )
-        _write_json(state_path, state_payload)
+    state_path = state.controls.aspf_state_json or (
+        root / "artifacts/out/aspf_state/default/0001_aspf.snapshot.json"
+    )
+    state_payload = _build_state_payload(
+        state=state,
+        state_path=state_path,
+        trace_payload=trace_payload,
+        equivalence_payload=equivalence_payload,
+        opportunities_payload=opportunities_payload,
+        semantic_surface_payloads=semantic_surface_payloads,
+        exit_code=exit_code,
+        analysis_state=analysis_state,
+        resume_projection=resume_projection,
+        delta_ledger_payload=delta_ledger_payload,
+    )
+    _write_json(state_path, state_payload)
     return AspfFinalizationArtifacts(
         trace_payload=trace_payload,
         equivalence_payload=equivalence_payload,
         opportunities_payload=opportunities_payload,
         delta_ledger_payload=delta_ledger_payload,
-        action_plan_payload=action_plan_payload,
-        action_plan_quality_payload=action_plan_quality_payload,
-        action_plan_markdown=action_plan_markdown,
         trace_path=trace_path,
         equivalence_path=equivalence_path,
         opportunities_path=opportunities_path,
         delta_jsonl_path=delta_jsonl_path,
-        action_plan_json_path=action_plan_json_path,
-        action_plan_md_path=action_plan_md_path,
         state_payload=state_payload,
         state_path=state_path,
     )
 
 
-def load_trace_payload(path: Path) -> JSONObject | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+def load_trace_payload(path: Path) -> JSONObject:
+    payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, Mapping):
-        return None
+        raise ValueError(f"ASPF trace payload must be a JSON object: {path}")
     normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
     trace_payload = normalized_payload.get("trace")
-    if isinstance(trace_payload, Mapping):
-        normalized_trace = {
-            str(key): _as_json_value(trace_payload[key]) for key in trace_payload
+    if trace_payload is None:
+        return normalized_payload
+    if not isinstance(trace_payload, Mapping):
+        raise ValueError(f"ASPF state trace envelope must be a JSON object: {path}")
+    normalized_trace: JSONObject = {
+        str(key): _as_json_value(trace_payload[key]) for key in trace_payload
+    }
+    equivalence_payload = normalized_payload.get("equivalence", {})
+    opportunities_payload = normalized_payload.get("opportunities", {})
+    if isinstance(equivalence_payload, Mapping):
+        normalized_trace["equivalence"] = {
+            str(key): _as_json_value(equivalence_payload[key]) for key in equivalence_payload
         }
-        equivalence_payload = normalized_payload.get("equivalence")
-        if isinstance(equivalence_payload, Mapping):
-            normalized_trace["equivalence"] = {
-                str(key): _as_json_value(equivalence_payload[key])
-                for key in equivalence_payload
-            }
-        opportunities_payload = normalized_payload.get("opportunities")
-        if isinstance(opportunities_payload, Mapping):
-            normalized_trace["opportunities"] = {
-                str(key): _as_json_value(opportunities_payload[key])
-                for key in opportunities_payload
-            }
-        return normalized_trace
-    return normalized_payload
+    if isinstance(opportunities_payload, Mapping):
+        normalized_trace["opportunities"] = {
+            str(key): _as_json_value(opportunities_payload[key]) for key in opportunities_payload
+        }
+    return normalized_trace
 
 
 def _command_profile_from_payload(payload: Mapping[str, object]) -> str:
-    aux_operation = payload.get("aux_operation")
-    if isinstance(aux_operation, Mapping):
-        domain = str(aux_operation.get("domain", "")).strip()
-        action = str(aux_operation.get("action", "")).strip()
-        if domain and action:
-            return f"check.{domain}.{action}"
     if payload.get("synthesis_plan") is not None or payload.get("synthesis_report"):
         return "synth"
     return "check.run"
@@ -728,10 +635,6 @@ def _build_state_payload(
     analysis_state: str | None,
     resume_projection: Mapping[str, object],
     delta_ledger_payload: Mapping[str, object],
-    action_plan_json_path: Path,
-    action_plan_md_path: Path,
-    action_plan_payload: Mapping[str, object],
-    action_plan_quality_payload: Mapping[str, object],
 ) -> JSONObject:
     session_id, step_id = _session_and_step_from_path(state_path)
     state_material = stable_compact_text(
@@ -787,19 +690,6 @@ def _build_state_payload(
             str(key): _as_json_value(delta_ledger_payload[key])
             for key in delta_ledger_payload
         },
-        "action_plan_refs": {
-            "json_path": str(action_plan_json_path),
-            "markdown_path": str(action_plan_md_path),
-            "action_count": (
-                len(action_plan_payload.get("actions", []))
-                if isinstance(action_plan_payload.get("actions"), list)
-                else 0
-            ),
-        },
-        "action_plan_quality": {
-            str(key): _as_json_value(action_plan_quality_payload[key])
-            for key in action_plan_quality_payload
-        },
         "exit_code": int(exit_code) if exit_code is not None else None,
         "analysis_state": str(analysis_state) if analysis_state is not None else None,
     }
@@ -814,48 +704,19 @@ def _session_and_step_from_path(path: Path) -> tuple[str, str]:
 def _optional_path(value: object) -> Path | None:
     if value is None:
         return None
-    text = str(value).strip()
-    if not text:
-        return None
-    return Path(text)
+    return Path(str(value).strip())
 
 
 def _path_sequence(value: object) -> tuple[Path, ...]:
     if value is None:
         return ()
-    if isinstance(value, str):
-        raw = [part.strip() for part in value.split(",") if part.strip()]
-        return tuple(Path(part) for part in raw)
-    if isinstance(value, Sequence):
-        out: list[Path] = []
-        for item in value:
-            text = str(item).strip()
-            if not text:
-                continue
-            out.append(Path(text))
-        return tuple(out)
-    text = str(value).strip()
-    if not text:
-        return ()
-    return (Path(text),)
+    return tuple(Path(str(item).strip()) for item in value)
 
 
 def _semantic_surface_sequence(value: object) -> tuple[str, ...]:
     if value is None:
         return DEFAULT_PHASE1_SEMANTIC_SURFACES
-    surfaces: list[str] = []
-    if isinstance(value, str):
-        surfaces.extend([part.strip() for part in value.split(",") if part.strip()])
-    elif isinstance(value, Sequence):
-        for item in value:
-            text = str(item).strip()
-            if not text:
-                continue
-            surfaces.append(text)
-    else:
-        text = str(value).strip()
-        if text:
-            surfaces.append(text)
+    surfaces = [str(item).strip() for item in value if str(item).strip()]
     if not surfaces:
         return DEFAULT_PHASE1_SEMANTIC_SURFACES
     return tuple(
@@ -867,8 +728,6 @@ def _semantic_surface_sequence(value: object) -> tuple[str, ...]:
 
 
 def _first_primes(count: int) -> tuple[int, ...]:
-    if count <= 0:
-        return ()
     primes: list[int] = []
     candidate = 2
     while len(primes) < count:
@@ -879,8 +738,6 @@ def _first_primes(count: int) -> tuple[int, ...]:
 
 
 def _is_prime(value: int) -> bool:
-    if value < 2:
-        return False
     if value == 2:
         return True
     if value % 2 == 0:
@@ -906,8 +763,6 @@ def _as_json_value(value: object) -> JSONValue:
             text_key: _as_json_value(value[raw_key])
             for text_key, raw_key in key_pairs
         }
-    if isinstance(value, Path):
-        return str(value)
     if isinstance(value, (list, tuple)):
         return [_as_json_value(item) for item in value]
     if isinstance(value, set):
@@ -918,7 +773,7 @@ def _as_json_value(value: object) -> JSONValue:
         )
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
-    return {"unsupported_type": type(value).__name__}
+    return str(value)
 
 
 def _write_json(path: Path, payload: Mapping[str, object]) -> None:
@@ -931,14 +786,9 @@ def _merge_surface_representatives(
     state: AspfExecutionTraceState,
     trace_payload: Mapping[str, object],
 ) -> None:
-    raw = trace_payload.get("surface_representatives")
-    if not isinstance(raw, Mapping):
-        return
+    raw = trace_payload["surface_representatives"]
     for key in raw:
-        value = raw[key]
-        if not isinstance(value, str):
-            continue
-        state.surface_representatives.setdefault(str(key), value)
+        state.surface_representatives.setdefault(str(key), str(raw[key]))
 
 
 def _merge_one_cells(
@@ -946,39 +796,21 @@ def _merge_one_cells(
     state: AspfExecutionTraceState,
     trace_payload: Mapping[str, object],
 ) -> None:
-    raw_cells = trace_payload.get("one_cells")
-    if not isinstance(raw_cells, list):
-        return
+    raw_cells = trace_payload["one_cells"]
     for raw in raw_cells:
-        if not isinstance(raw, Mapping):
-            continue
-        source = raw.get("source")
-        target = raw.get("target")
-        representative = raw.get("representative")
-        basis_path = raw.get("basis_path")
-        if (
-            not isinstance(source, str)
-            or not isinstance(target, str)
-            or not isinstance(representative, str)
-            or not isinstance(basis_path, list)
-            or not all(isinstance(item, str) for item in basis_path)
-        ):
-            continue
+        source = str(raw["source"])
+        target = str(raw["target"])
+        representative = str(raw["representative"])
+        basis_path = tuple(str(item) for item in raw["basis_path"])
         record_1cell(
             state,
             kind=str(raw.get("kind", "imported_1cell")),
             source_label=source,
             target_label=target,
             representative=representative,
-            basis_path=tuple(basis_path),
-            surface=(
-                str(raw.get("surface", "")) if isinstance(raw.get("surface"), str) else None
-            ),
-            metadata=(
-                raw.get("metadata")
-                if isinstance(raw.get("metadata"), Mapping)
-                else None
-            ),
+            basis_path=basis_path,
+            surface=str(raw.get("surface", "")) or None,
+            metadata=raw.get("metadata"),
         )
 
 
@@ -987,17 +819,11 @@ def _merge_two_cells(
     state: AspfExecutionTraceState,
     trace_payload: Mapping[str, object],
 ) -> None:
-    raw_witnesses = trace_payload.get("two_cell_witnesses")
-    if not isinstance(raw_witnesses, list):
-        return
+    raw_witnesses = trace_payload["two_cell_witnesses"]
     for raw in raw_witnesses:
-        if not isinstance(raw, Mapping):
-            continue
         witness = parse_2cell_witness(raw)
-        if witness is None:
-            continue
-        if not witness.is_compatible():
-            continue
+        assert witness is not None
+        assert witness.is_compatible()
         state.two_cell_witnesses.append(witness)
 
 
@@ -1006,62 +832,34 @@ def _merge_cofibrations(
     state: AspfExecutionTraceState,
     trace_payload: Mapping[str, object],
 ) -> None:
-    raw_cofibrations = trace_payload.get("cofibration_witnesses")
-    if not isinstance(raw_cofibrations, list):
-        return
+    raw_cofibrations = trace_payload["cofibration_witnesses"]
     for raw in raw_cofibrations:
-        if not isinstance(raw, Mapping):
-            continue
-        canonical_identity_kind = raw.get("canonical_identity_kind")
-        cofibration_raw = raw.get("cofibration")
-        if not isinstance(canonical_identity_kind, str) or not isinstance(
-            cofibration_raw, Mapping
-        ):
-            continue
-        cofibration = _parse_cofibration(cofibration_raw)
-        if cofibration is None:
-            continue
-        try:
-            record_cofibration(
-                state=state,
-                canonical_identity_kind=canonical_identity_kind,
-                cofibration=cofibration,
-            )
-        except ValueError:
-            continue
+        cofibration = _parse_cofibration(raw["cofibration"])
+        record_cofibration(
+            state=state,
+            canonical_identity_kind=str(raw["canonical_identity_kind"]),
+            cofibration=cofibration,
+        )
 
 
-def _parse_cofibration(raw: Mapping[str, object]) -> DomainToAspfCofibration | None:
-    entries_raw = raw.get("entries")
-    if not isinstance(entries_raw, list):
-        return None
+def _parse_cofibration(raw: Mapping[str, object]) -> DomainToAspfCofibration:
+    entries_raw = raw["entries"]
     entries: list[DomainToAspfCofibrationEntry] = []
     for raw_entry in entries_raw:
-        if not isinstance(raw_entry, Mapping):
-            continue
-        domain_raw = raw_entry.get("domain")
-        aspf_raw = raw_entry.get("aspf")
-        if not isinstance(domain_raw, Mapping) or not isinstance(aspf_raw, Mapping):
-            continue
-        domain_key = domain_raw.get("key")
-        aspf_key = aspf_raw.get("key")
-        domain_prime = domain_raw.get("prime")
-        aspf_prime = aspf_raw.get("prime")
-        if (
-            not isinstance(domain_key, str)
-            or not isinstance(aspf_key, str)
-            or not isinstance(domain_prime, int)
-            or not isinstance(aspf_prime, int)
-        ):
-            continue
+        domain_raw = raw_entry["domain"]
+        aspf_raw = raw_entry["aspf"]
         entries.append(
             DomainToAspfCofibrationEntry(
-                domain=DomainPrimeBasis(domain_key=domain_key, prime=domain_prime),
-                aspf=AspfPrimeBasis(aspf_key=aspf_key, prime=aspf_prime),
+                domain=DomainPrimeBasis(
+                    domain_key=str(domain_raw["key"]),
+                    prime=int(domain_raw["prime"]),
+                ),
+                aspf=AspfPrimeBasis(
+                    aspf_key=str(aspf_raw["key"]),
+                    prime=int(aspf_raw["prime"]),
+                ),
             )
         )
-    if not entries:
-        return None
     return DomainToAspfCofibration(entries=tuple(entries))
 
 
@@ -1069,24 +867,16 @@ def _surface_candidates_from_trace_payload(
     payload: Mapping[str, object],
 ) -> dict[str, list[str]]:
     candidates: dict[str, list[str]] = {}
-    raw = payload.get("surface_representatives")
-    if isinstance(raw, Mapping):
-        for key in raw:
-            value = raw[key]
-            if not isinstance(value, str):
-                continue
-            candidates.setdefault(str(key), []).append(value)
-    equivalence = payload.get("equivalence")
-    if isinstance(equivalence, Mapping):
-        table = equivalence.get("surface_table")
-        if isinstance(table, list):
-            for row in table:
-                if not isinstance(row, Mapping):
-                    continue
-                surface = row.get("surface")
-                baseline_rep = row.get("baseline_representative")
-                if isinstance(surface, str) and isinstance(baseline_rep, str):
-                    candidates.setdefault(surface, []).append(baseline_rep)
+    raw = payload.get("surface_representatives", {})
+    for key in raw:
+        candidates.setdefault(str(key), []).append(str(raw[key]))
+    equivalence = payload.get("equivalence", {})
+    table = equivalence.get("surface_table", [])
+    for row in table:
+        surface = str(row.get("surface", "")).strip()
+        baseline_rep = str(row.get("baseline_representative", "")).strip()
+        if surface and baseline_rep:
+            candidates.setdefault(surface, []).append(baseline_rep)
     return candidates
 
 
@@ -1107,15 +897,11 @@ def _all_known_witnesses(
 ) -> list[AspfTwoCellWitness]:
     witnesses: list[AspfTwoCellWitness] = list(state.two_cell_witnesses)
     for payload in baseline_traces:
-        raw = payload.get("two_cell_witnesses")
-        if not isinstance(raw, list):
-            continue
+        raw = payload.get("two_cell_witnesses", [])
         for entry in raw:
-            if not isinstance(entry, Mapping):
-                continue
             witness = parse_2cell_witness(entry)
-            if witness is None or not witness.is_compatible():
-                continue
+            assert witness is not None
+            assert witness.is_compatible()
             witnesses.append(witness)
     return witnesses
 
@@ -1139,10 +925,10 @@ def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSON
     by_resume_ref: dict[str, set[str]] = {}
     for metadata in state.one_cell_metadata:
         kind = str(metadata.get("kind", ""))
-        raw_payload = metadata.get("metadata")
+        raw_payload = metadata.get("metadata", {})
         payload = raw_payload if isinstance(raw_payload, Mapping) else {}
         resume_ref = ""
-        for candidate_key in ("state_path", "import_state_path", "checkpoint_path"):
+        for candidate_key in ("state_path", "import_state_path"):
             candidate = str(payload.get(candidate_key, "")).strip()
             if candidate:
                 resume_ref = candidate
@@ -1186,8 +972,6 @@ def _reusable_artifact_opportunities(state: AspfExecutionTraceState) -> list[JSO
                 source="aspf_execution_fibration._reusable_artifact_opportunities.surfaces",
             )
         )
-        if len(surfaces) < 2:
-            continue
         digest = hashlib.sha256(representative.encode("utf-8")).hexdigest()[:12]
         opportunities.append(
             {
@@ -1205,13 +989,9 @@ def _reusable_artifact_opportunities(state: AspfExecutionTraceState) -> list[JSO
 def _fungible_execution_opportunities(
     equivalence_payload: Mapping[str, object],
 ) -> list[JSONObject]:
-    table = equivalence_payload.get("surface_table")
-    if not isinstance(table, list):
-        return []
+    table = equivalence_payload.get("surface_table", [])
     opportunities: list[JSONObject] = []
     for row in table:
-        if not isinstance(row, Mapping):
-            continue
         if str(row.get("classification", "")) != "non_drift":
             continue
         witness_id = row.get("witness_id")

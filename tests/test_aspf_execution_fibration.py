@@ -28,9 +28,9 @@ def _trace_payload(
         "aspf_state_json": state_json or trace_json.with_name("state.json"),
     }
     if equivalence_against:
-        payload["aspf_equivalence_against"] = equivalence_against
+        payload["aspf_equivalence_against"] = [str(path) for path in equivalence_against]
     if import_state:
-        payload["aspf_import_state"] = import_state
+        payload["aspf_import_state"] = [str(path) for path in import_state]
     if surfaces is not None:
         payload["aspf_semantic_surface"] = surfaces
     return payload
@@ -184,6 +184,7 @@ def test_merge_imported_trace_preserves_surface_representatives(tmp_path: Path) 
             "surface_representatives": {"groups_by_path": "rep:stable"},
             "one_cells": [],
             "two_cell_witnesses": [],
+            "cofibration_witnesses": [],
         },
     )
     assert state.surface_representatives["groups_by_path"] == "rep:stable"

@@ -33,6 +33,32 @@ def _bind_server_symbols() -> None:
     _BOUND = True
 
 
+def _record_trace_1cell(
+    *,
+    execute_deps: CommandEffects,
+    state: object | None,
+    kind: str,
+    source_label: str,
+    target_label: str,
+    representative: str,
+    basis_path: tuple[str, ...],
+    surface: str | None = None,
+    metadata: Mapping[str, object] | None = None,
+) -> None:
+    if state is None:
+        return
+    execute_deps.record_1cell_fn(
+        state,
+        kind=kind,
+        source_label=source_label,
+        target_label=target_label,
+        representative=representative,
+        basis_path=basis_path,
+        surface=surface,
+        metadata=metadata,
+    )
+
+
 def _reject_removed_legacy_payload_keys(payload: dict[str, object]) -> None:
     removed_keys = {
         "resume_checkpoint": "--resume-checkpoint",
@@ -55,7 +81,7 @@ def _reject_removed_legacy_payload_keys(payload: dict[str, object]) -> None:
         payload_keys=present_payload_keys,
         guidance=(
             "Use ASPF state handoff via aspf_state_json/aspf_import_state and "
-            "optional aspf_delta_jsonl/aspf_action_plan_json/aspf_action_plan_md."
+            "optional aspf_delta_jsonl."
         ),
     )
 
@@ -772,22 +798,17 @@ class _AnalysisResumePreparationState:
 
 
 def _aspf_import_state_paths(payload_value: object, *, root: Path) -> tuple[Path, ...]:
-    raw_items: list[object] = []
     if payload_value is None:
         return ()
-    if isinstance(payload_value, (str, Path)):
-        raw_items = [payload_value]
-    elif isinstance(payload_value, list):
-        raw_items = list(payload_value)
-    elif isinstance(payload_value, tuple):
-        raw_items = list(payload_value)
-    else:
-        raw_items = [payload_value]
+    if not isinstance(payload_value, list):
+        raise ValueError("aspf_import_state must be a list of path strings")
     resolved: list[Path] = []
-    for item in raw_items:
-        text = str(item).strip()
+    for item in payload_value:
+        if not isinstance(item, str):
+            raise ValueError("aspf_import_state entries must be strings")
+        text = item.strip()
         if not text:
-            continue
+            raise ValueError("aspf_import_state entries cannot be empty")
         candidate = Path(text)
         if not candidate.is_absolute():
             candidate = root / candidate
@@ -883,8 +904,9 @@ def _prepare_analysis_resume_state(
             else:
                 state.analysis_resume_state_status = "aspf_state_skipped"
             state.analysis_resume_state_compatibility_status = compatibility_status
-            execute_deps.record_1cell_fn(
-                aspf_trace_state,
+            _record_trace_1cell(
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="resume_load",
                 source_label="runtime:aspf_state",
                 target_label="analysis:resume_seed",
@@ -1213,8 +1235,9 @@ def _run_analysis_with_progress(
             include_previews=True,
             preview_only=True,
         )
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="report_projection",
             source_label="analysis:groups_by_path",
             target_label="report:sections",
@@ -1290,8 +1313,9 @@ def _run_analysis_with_progress(
 
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="analysis_call_start",
             source_label="runtime:inputs",
             target_label="analysis:engine",
@@ -1333,8 +1357,9 @@ def _run_analysis_with_progress(
                 else None
             ),
         )
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="analysis_call_end",
             source_label="analysis:engine",
             target_label="analysis:result",
@@ -1345,8 +1370,9 @@ def _run_analysis_with_progress(
             time.monotonic_ns() - analysis_started_ns
         )
     else:
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="analysis_call_skipped",
             source_label="runtime:inputs",
             target_label="analysis:result",
@@ -2057,6 +2083,25 @@ def _initialize_timeout_payload(
     return timeout_payload, progress_payload
 
 
+def _copy_json_mapping(payload: Mapping[str, object]) -> JSONObject:
+    return {str(key): payload[key] for key in payload}
+
+
+def _emit_trace_artifacts_payloads(
+    *,
+    response: dict[str, object],
+    trace_artifacts: object | None,
+) -> None:
+    if trace_artifacts is None:
+        return
+    response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
+    response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
+    response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
+    response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
+    if trace_artifacts.state_payload is not None:
+        response["aspf_state"] = _copy_json_mapping(trace_artifacts.state_payload)
+
+
 def _persist_timeout_resume_state(
     *,
     context: _TimeoutCleanupContext,
@@ -2344,8 +2389,9 @@ def _handle_timeout_cleanup(
             ),
             event_kind="terminal",
         )
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="timeout_cleanup",
             source_label="analysis:engine",
             target_label="runtime:timeout_context",
@@ -2391,51 +2437,10 @@ def _handle_timeout_cleanup(
             exit_code=2,
             analysis_state=analysis_state,
         )
-        if trace_artifacts is not None:
-            trace_payload = getattr(trace_artifacts, "trace_payload", None)
-            if isinstance(trace_payload, Mapping):
-                timeout_response["aspf_trace"] = {
-                    str(key): trace_payload[key] for key in trace_payload
-                }
-            equivalence_payload = getattr(trace_artifacts, "equivalence_payload", None)
-            if isinstance(equivalence_payload, Mapping):
-                timeout_response["aspf_equivalence"] = {
-                    str(key): equivalence_payload[key] for key in equivalence_payload
-                }
-            opportunities_payload = getattr(trace_artifacts, "opportunities_payload", None)
-            if isinstance(opportunities_payload, Mapping):
-                timeout_response["aspf_opportunities"] = {
-                    str(key): opportunities_payload[key]
-                    for key in opportunities_payload
-                }
-            delta_ledger_payload = getattr(trace_artifacts, "delta_ledger_payload", None)
-            if isinstance(delta_ledger_payload, Mapping):
-                timeout_response["aspf_delta_ledger"] = {
-                    str(key): delta_ledger_payload[key]
-                    for key in delta_ledger_payload
-                }
-            action_plan_payload = getattr(trace_artifacts, "action_plan_payload", None)
-            if isinstance(action_plan_payload, Mapping):
-                timeout_response["aspf_action_plan"] = {
-                    str(key): action_plan_payload[key]
-                    for key in action_plan_payload
-                }
-            action_plan_quality_payload = getattr(
-                trace_artifacts, "action_plan_quality_payload", None
-            )
-            if isinstance(action_plan_quality_payload, Mapping):
-                timeout_response["aspf_action_plan_quality"] = {
-                    str(key): action_plan_quality_payload[key]
-                    for key in action_plan_quality_payload
-                }
-            action_plan_markdown = getattr(trace_artifacts, "action_plan_markdown", None)
-            if isinstance(action_plan_markdown, str) and action_plan_markdown:
-                timeout_response["aspf_action_plan_markdown"] = action_plan_markdown
-            state_payload = getattr(trace_artifacts, "state_payload", None)
-            if isinstance(state_payload, Mapping):
-                timeout_response["aspf_state"] = {
-                    str(key): state_payload[key] for key in state_payload
-                }
+        _emit_trace_artifacts_payloads(
+            response=timeout_response,
+            trace_artifacts=trace_artifacts,
+        )
         return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
@@ -2506,8 +2511,6 @@ class _ExecutionPayloadOptions:
     aspf_state_json: object
     aspf_import_state: object
     aspf_delta_jsonl: object
-    aspf_action_plan_json: object
-    aspf_action_plan_md: object
     aspf_semantic_surface: object
 
 
@@ -2678,8 +2681,6 @@ def _parse_execution_payload_options(
         aspf_state_json=payload.get("aspf_state_json"),
         aspf_import_state=payload.get("aspf_import_state"),
         aspf_delta_jsonl=payload.get("aspf_delta_jsonl"),
-        aspf_action_plan_json=payload.get("aspf_action_plan_json"),
-        aspf_action_plan_md=payload.get("aspf_action_plan_md"),
         aspf_semantic_surface=payload.get("aspf_semantic_surface"),
     )
 
@@ -2747,8 +2748,6 @@ def _compute_analysis_inclusion_flags(
         or bool(options.aspf_state_json)
         or bool(options.aspf_import_state)
         or bool(options.aspf_delta_jsonl)
-        or bool(options.aspf_action_plan_json)
-        or bool(options.aspf_action_plan_md)
     )
     return _AnalysisInclusionFlags(
         type_audit=type_audit,
@@ -2906,8 +2905,9 @@ def _build_success_response(
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
     if synthesis_plan is not None:
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:synthesis_plan",
@@ -2916,8 +2916,9 @@ def _build_success_response(
             surface="synthesis_plan",
         )
     if plan_payload is not None:
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:refactor_plan",
@@ -2969,8 +2970,9 @@ def _build_success_response(
     ):
         if artifact_key not in response:
             continue
-        context.execute_deps.record_1cell_fn(
-            context.aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=context.execute_deps,
+            state=context.aspf_trace_state,
             kind="artifact_emit",
             source_label="analysis:result",
             target_label=f"artifact:{artifact_key}",
@@ -2981,40 +2983,25 @@ def _build_success_response(
             else "delta_state",
         )
     if context.aspf_trace_state is not None:
-        one_cells = getattr(context.aspf_trace_state, "one_cells", None)
-        one_cell_metadata = getattr(context.aspf_trace_state, "one_cell_metadata", None)
-        if isinstance(one_cells, list):
-            materialized_one_cells: list[JSONObject] = []
-            for index, cell in enumerate(one_cells):
-                if not hasattr(cell, "as_dict"):
-                    continue
-                payload = cell.as_dict()
-                if isinstance(one_cell_metadata, list) and index < len(one_cell_metadata):
-                    metadata = one_cell_metadata[index]
-                    if isinstance(metadata, Mapping):
-                        payload["kind"] = str(metadata.get("kind", ""))
-                        payload["surface"] = str(metadata.get("surface", ""))
-                materialized_one_cells.append(payload)
-            analysis.aspf_one_cells = materialized_one_cells
-        two_cells = getattr(context.aspf_trace_state, "two_cell_witnesses", None)
-        if isinstance(two_cells, list):
-            analysis.aspf_two_cell_witnesses = [
-                witness.as_dict()
-                for witness in two_cells
-                if hasattr(witness, "as_dict")
-            ]
-        cofibrations = getattr(context.aspf_trace_state, "cofibrations", None)
-        if isinstance(cofibrations, list):
-            analysis.aspf_cofibration_witnesses = [
-                carrier.as_dict()
-                for carrier in cofibrations
-                if hasattr(carrier, "as_dict")
-            ]
-        representatives = getattr(context.aspf_trace_state, "surface_representatives", None)
-        if isinstance(representatives, Mapping):
-            analysis.aspf_surface_representatives = {
-                str(key): str(representatives[key]) for key in representatives
-            }
+        materialized_one_cells: list[JSONObject] = []
+        for index, cell in enumerate(context.aspf_trace_state.one_cells):
+            payload = cell.as_dict()
+            if index < len(context.aspf_trace_state.one_cell_metadata):
+                metadata = context.aspf_trace_state.one_cell_metadata[index]
+                payload["kind"] = str(metadata.get("kind", ""))
+                payload["surface"] = str(metadata.get("surface", ""))
+            materialized_one_cells.append(payload)
+        analysis.aspf_one_cells = materialized_one_cells
+        analysis.aspf_two_cell_witnesses = [
+            witness.as_dict() for witness in context.aspf_trace_state.two_cell_witnesses
+        ]
+        analysis.aspf_cofibration_witnesses = [
+            carrier.as_dict() for carrier in context.aspf_trace_state.cofibrations
+        ]
+        analysis.aspf_surface_representatives = {
+            str(key): str(context.aspf_trace_state.surface_representatives[key])
+            for key in context.aspf_trace_state.surface_representatives
+        }
     report_outcome = _finalize_report_and_violations(
         context=_ReportFinalizationContext(
             analysis=analysis,
@@ -3133,48 +3120,10 @@ def _build_success_response(
             else None
         ),
     )
-    if trace_artifacts is not None:
-        trace_payload = getattr(trace_artifacts, "trace_payload", None)
-        if isinstance(trace_payload, Mapping):
-            response["aspf_trace"] = {str(key): trace_payload[key] for key in trace_payload}
-        equivalence_payload = getattr(trace_artifacts, "equivalence_payload", None)
-        if isinstance(equivalence_payload, Mapping):
-            response["aspf_equivalence"] = {
-                str(key): equivalence_payload[key] for key in equivalence_payload
-            }
-        opportunities_payload = getattr(trace_artifacts, "opportunities_payload", None)
-        if isinstance(opportunities_payload, Mapping):
-            response["aspf_opportunities"] = {
-                str(key): opportunities_payload[key]
-                for key in opportunities_payload
-            }
-        delta_ledger_payload = getattr(trace_artifacts, "delta_ledger_payload", None)
-        if isinstance(delta_ledger_payload, Mapping):
-            response["aspf_delta_ledger"] = {
-                str(key): delta_ledger_payload[key]
-                for key in delta_ledger_payload
-            }
-        action_plan_payload = getattr(trace_artifacts, "action_plan_payload", None)
-        if isinstance(action_plan_payload, Mapping):
-            response["aspf_action_plan"] = {
-                str(key): action_plan_payload[key] for key in action_plan_payload
-            }
-        action_plan_quality_payload = getattr(
-            trace_artifacts, "action_plan_quality_payload", None
-        )
-        if isinstance(action_plan_quality_payload, Mapping):
-            response["aspf_action_plan_quality"] = {
-                str(key): action_plan_quality_payload[key]
-                for key in action_plan_quality_payload
-            }
-        action_plan_markdown = getattr(trace_artifacts, "action_plan_markdown", None)
-        if isinstance(action_plan_markdown, str) and action_plan_markdown:
-            response["aspf_action_plan_markdown"] = action_plan_markdown
-        state_payload = getattr(trace_artifacts, "state_payload", None)
-        if isinstance(state_payload, Mapping):
-            response["aspf_state"] = {
-                str(key): state_payload[key] for key in state_payload
-            }
+    _emit_trace_artifacts_payloads(
+        response=response,
+        trace_artifacts=trace_artifacts,
+    )
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
@@ -3390,8 +3339,9 @@ def execute_command_total(
             root=Path(root),
             payload=payload,
         )
-        execute_deps.record_1cell_fn(
-            aspf_trace_state,
+        _record_trace_1cell(
+            execute_deps=execute_deps,
+            state=aspf_trace_state,
             kind="command_start",
             source_label="runtime:command",
             target_label="analysis:entry",

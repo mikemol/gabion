@@ -563,18 +563,16 @@ def main(
 
             step_name = ".".join(token for token in subcommand[:2] if token)
             step_id = f"refresh-baselines.{step_name or 'check'}"
+            prepared = aspf_handoff.prepare_step(
+                root=Path(".").resolve(),
+                session_id=handoff_session,
+                step_id=step_id,
+                command_profile="refresh-baselines.check",
+                manifest_path=handoff_manifest_path,
+                state_root=handoff_state_root,
+            )
+            merged_extra.extend(aspf_handoff.aspf_cli_args(prepared))
             if raw_run_check_fn is not _run_check:
-                prepared = aspf_handoff.prepare_step(
-                    root=Path(".").resolve(),
-                    session_id=handoff_session,
-                    step_id=step_id,
-                    command_profile="refresh-baselines.check",
-                    manifest_path=handoff_manifest_path,
-                    state_root=handoff_state_root,
-                )
-                merged_extra.extend(
-                    aspf_handoff.aspf_cli_args(prepared, mode="state_only")
-                )
                 try:
                     raw_run_check_fn(
                         subcommand,
@@ -615,8 +613,8 @@ def main(
                 *subcommand,
                 "--report",
                 str(report_path),
-                *merged_extra,
             ]
+            base_command.extend(merged_extra)
 
             failure: RefreshBaselinesSubprocessFailure | None = None
             timeout_error: subprocess.TimeoutExpired | None = None
@@ -651,28 +649,26 @@ def main(
                     )
                 return exit_code
 
-            run_result = aspf_handoff.run_with_handoff(
-                spec=aspf_handoff.AspfHandoffRunSpec(
-                    root=Path(".").resolve(),
-                    session_id=handoff_session,
-                    step_id=step_id,
-                    command_profile="refresh-baselines.check",
-                    command=tuple(base_command),
-                    manifest_path=handoff_manifest_path,
-                    state_root=handoff_state_root,
-                    aspf_cli_mode="state_only",
-                ),
-                run_command_fn=_run_command_with_env,
+            command_with_aspf = [*base_command]
+            exit_code = _run_command_with_env(command_with_aspf)
+            analysis_state = "succeeded" if exit_code == 0 else "failed"
+            aspf_handoff.record_step(
+                manifest_path=prepared.manifest_path,
+                session_id=prepared.session_id,
+                sequence=prepared.sequence,
+                status="success" if exit_code == 0 else "failed",
+                exit_code=exit_code,
+                analysis_state=analysis_state,
             )
             if timeout_error is not None:
                 raise timeout_error
             if failure is not None:
                 raise failure
-            if run_result.exit_code != 0:
+            if exit_code != 0:
                 raise RefreshBaselinesSubprocessFailure(
-                    command=list(run_result.command_with_aspf),
+                    command=command_with_aspf,
                     timeout_seconds=timeout,
-                    exit_code=int(run_result.exit_code),
+                    exit_code=int(exit_code),
                     expected_artifacts=[DEFAULT_DEADLINE_PROFILE_PATH, report_path],
                 )
 

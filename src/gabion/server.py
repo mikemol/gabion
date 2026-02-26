@@ -684,10 +684,12 @@ def _load_aspf_resume_state(
     for path in import_state_paths:
         try:
             raw_payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
+        except OSError as exc:
+            raise ValueError(f"failed to read ASPF state file: {path}") from exc
+        except ValueError as exc:
+            raise ValueError(f"invalid ASPF state JSON: {path}") from exc
         if not isinstance(raw_payload, Mapping):
-            continue
+            raise ValueError(f"ASPF state payload must be a JSON object: {path}")
         manifest_digest = raw_payload.get("analysis_manifest_digest")
         if isinstance(manifest_digest, str) and manifest_digest:
             latest_manifest_digest = manifest_digest
@@ -2460,8 +2462,6 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     aspf_equivalence_raw = response.get("aspf_equivalence")
     aspf_opportunities_raw = response.get("aspf_opportunities")
     aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
-    aspf_action_plan_raw = response.get("aspf_action_plan")
-    aspf_action_plan_quality_raw = response.get("aspf_action_plan_quality")
     aspf_state_raw = response.get("aspf_state")
     base = DataflowAuditResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
@@ -2481,14 +2481,6 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         ),
         aspf_delta_ledger=(
             aspf_delta_ledger_raw if isinstance(aspf_delta_ledger_raw, Mapping) else None
-        ),
-        aspf_action_plan=(
-            aspf_action_plan_raw if isinstance(aspf_action_plan_raw, Mapping) else None
-        ),
-        aspf_action_plan_quality=(
-            aspf_action_plan_quality_raw
-            if isinstance(aspf_action_plan_quality_raw, Mapping)
-            else None
         ),
         aspf_state=aspf_state_raw if isinstance(aspf_state_raw, Mapping) else None,
         payload={str(key): response[key] for key in response},
@@ -2524,12 +2516,6 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         normalized["aspf_opportunities"] = base.aspf_opportunities.model_dump()
     if base.aspf_delta_ledger is not None:
         normalized["aspf_delta_ledger"] = base.aspf_delta_ledger.model_dump()
-    if base.aspf_action_plan is not None:
-        normalized["aspf_action_plan"] = base.aspf_action_plan.model_dump()
-    if base.aspf_action_plan_quality is not None:
-        normalized["aspf_action_plan_quality"] = (
-            base.aspf_action_plan_quality.model_dump()
-        )
     if base.aspf_state is not None:
         normalized["aspf_state"] = base.aspf_state.model_dump()
     return boundary_order.canonicalize_boundary_mapping(

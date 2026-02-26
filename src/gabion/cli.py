@@ -934,8 +934,6 @@ def build_check_payload(
     aspf_state_json: Path | None = None,
     aspf_import_state: Optional[List[Path]] = None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_semantic_surface: Optional[List[str]] = None,
 ) -> JSONObject:
     return check_contract.build_check_payload(
@@ -964,8 +962,6 @@ def build_check_payload(
         aspf_state_json=aspf_state_json,
         aspf_import_state=aspf_import_state,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_semantic_surface=aspf_semantic_surface,
     )
 
@@ -986,8 +982,6 @@ def _check_derived_artifacts(
     aspf_opportunities_json: Path | None,
     aspf_state_json: Path | None,
     aspf_delta_jsonl: Path | None,
-    aspf_action_plan_json: Path | None,
-    aspf_action_plan_md: Path | None,
     aspf_equivalence_enabled: bool,
 ) -> list[str]:
     derived = [str(report), "artifacts/out/execution_plan.json"]
@@ -1040,16 +1034,6 @@ def _check_derived_artifacts(
             if aspf_delta_jsonl is not None
             else "artifacts/out/aspf_delta.jsonl"
         )
-        derived.append(
-            str(aspf_action_plan_json)
-            if aspf_action_plan_json is not None
-            else "artifacts/out/aspf_action_plan.json"
-        )
-        derived.append(
-            str(aspf_action_plan_md)
-            if aspf_action_plan_md is not None
-            else "artifacts/out/aspf_action_plan.md"
-        )
     return derived
 
 
@@ -1072,8 +1056,6 @@ def build_check_execution_plan_request(
     aspf_opportunities_json: Path | None = None,
     aspf_state_json: Path | None = None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_equivalence_enabled: bool = False,
 ) -> ExecutionPlanRequest:
     operations = [DATAFLOW_COMMAND, CHECK_COMMAND]
@@ -1116,8 +1098,6 @@ def build_check_execution_plan_request(
             aspf_opportunities_json=aspf_opportunities_json,
             aspf_state_json=aspf_state_json,
             aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_action_plan_json=aspf_action_plan_json,
-            aspf_action_plan_md=aspf_action_plan_md,
             aspf_equivalence_enabled=aspf_equivalence_enabled,
         ),
         obligations=obligations,
@@ -1193,12 +1173,6 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     )
     aspf_state_json_target = _normalize_optional_output_target(opts.aspf_state_json)
     aspf_delta_jsonl_target = _normalize_optional_output_target(opts.aspf_delta_jsonl)
-    aspf_action_plan_json_target = _normalize_optional_output_target(
-        opts.aspf_action_plan_json
-    )
-    aspf_action_plan_md_target = _normalize_optional_output_target(
-        opts.aspf_action_plan_md
-    )
     structure_tree_target = _normalize_optional_output_target(opts.emit_structure_tree)
     structure_metrics_target = _normalize_optional_output_target(
         opts.emit_structure_metrics
@@ -1258,12 +1232,6 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
             aspf_import_state=[Path(path) for path in aspf_import_state],
             aspf_delta_jsonl=Path(aspf_delta_jsonl_target)
             if aspf_delta_jsonl_target
-            else None,
-            aspf_action_plan_json=Path(aspf_action_plan_json_target)
-            if aspf_action_plan_json_target
-            else None,
-            aspf_action_plan_md=Path(aspf_action_plan_md_target)
-            if aspf_action_plan_md_target
             else None,
             aspf_semantic_surface=list(aspf_semantic_surface),
         )
@@ -1505,8 +1473,6 @@ def run_check(
     aspf_state_json: Path | None = None,
     aspf_import_state: Optional[List[Path]] = None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_semantic_surface: Optional[List[str]] = None,
     runner: Runner = run_command,
     notification_callback: Callable[[JSONObject], None] | None = None,
@@ -1542,8 +1508,6 @@ def run_check(
         aspf_state_json=aspf_state_json,
         aspf_import_state=aspf_import_state,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_semantic_surface=aspf_semantic_surface,
     )
     execution_plan_request = build_check_execution_plan_request(
@@ -1564,8 +1528,6 @@ def run_check(
         aspf_opportunities_json=aspf_opportunities_json,
         aspf_state_json=aspf_state_json,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_equivalence_enabled=bool(
             aspf_trace_json
             or aspf_import_trace
@@ -1574,8 +1536,6 @@ def run_check(
             or aspf_state_json
             or aspf_import_state
             or aspf_delta_jsonl
-            or aspf_action_plan_json
-            or aspf_action_plan_md
             or aspf_semantic_surface
         ),
     )
@@ -1766,24 +1726,6 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
                 json.dumps(result["aspf_state"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
-        if (
-            _is_stdout_target(opts.aspf_action_plan_json)
-            and "aspf_action_plan" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["aspf_action_plan"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.aspf_action_plan_md)
-            and "aspf_action_plan_markdown" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                str(result["aspf_action_plan_markdown"]),
-                ensure_trailing_newline=True,
-            )
 
 
 def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
@@ -1967,39 +1909,6 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
         return
     causes = "; ".join(_nonzero_exit_causes(result))
     typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
-
-
-def _emit_action_plan_quality_warnings(result: JSONObject) -> None:
-    payload = result.get("aspf_action_plan_quality")
-    if not isinstance(payload, Mapping):
-        return
-    status = str(payload.get("status", "")).strip().lower()
-    if status != "warning":
-        return
-    issues_raw = payload.get("issues")
-    issues = (
-        [entry for entry in issues_raw if isinstance(entry, Mapping)]
-        if isinstance(issues_raw, list)
-        else []
-    )
-    if not issues:
-        typer.echo(
-            "ASPF action-plan quality warning: status=warning (no structured issues)",
-            err=True,
-        )
-        return
-    issue_ids = [
-        str(entry.get("issue_id", "")).strip()
-        for entry in issues
-        if str(entry.get("issue_id", "")).strip()
-    ]
-    preview = ", ".join(issue_ids[:8]) if issue_ids else "unknown-issues"
-    if len(issue_ids) > 8:
-        preview = f"{preview}, +{len(issue_ids) - 8} more"
-    typer.echo(
-        f"ASPF action-plan quality warning: {preview}",
-        err=True,
-    )
 
 
 def _emit_resume_state_startup_line(
@@ -2306,8 +2215,6 @@ def _run_check_command(
     aspf_state_json: Path | None,
     aspf_import_state: list[Path] | None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_semantic_surface: list[str] | None = None,
     aux_operation: CheckAuxOperation | None = None,
 ) -> None:
@@ -2382,8 +2289,6 @@ def _run_check_command(
             aspf_state_json=aspf_state_json,
             aspf_import_state=aspf_import_state,
             aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_action_plan_json=aspf_action_plan_json,
-            aspf_action_plan_md=aspf_action_plan_md,
             aspf_semantic_surface=aspf_semantic_surface,
             aux_operation=aux_operation,
             notification_callback=_on_notification,
@@ -2399,7 +2304,6 @@ def _run_check_command(
             lint_sarif=lint_sarif_out,
         )
     _emit_analysis_resume_summary(result)
-    _emit_action_plan_quality_warnings(result)
     _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
@@ -2450,14 +2354,6 @@ def check_delta_bundle(
         None,
         "--aspf-delta-jsonl",
     ),
-    aspf_action_plan_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-json",
-    ),
-    aspf_action_plan_md: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-md",
-    ),
     aspf_import_state: Optional[List[Path]] = typer.Option(
         None,
         "--aspf-import-state",
@@ -2496,8 +2392,6 @@ def check_delta_bundle(
         aspf_opportunities_json=aspf_opportunities_json,
         aspf_state_json=aspf_state_json,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_import_state=aspf_import_state,
         aspf_semantic_surface=aspf_semantic_surface,
     )
@@ -2529,8 +2423,6 @@ def _run_check_aux_operation(
     aspf_state_json: Path | None,
     aspf_import_state: list[Path] | None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
 ) -> None:
     aux_operation = CheckAuxOperation(
         domain=domain,
@@ -2570,8 +2462,6 @@ def _run_check_aux_operation(
         aspf_state_json=aspf_state_json,
         aspf_import_state=aspf_import_state,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_semantic_surface=None,
         aux_operation=aux_operation,
     )
@@ -2762,14 +2652,6 @@ def check_run(
         None,
         "--aspf-delta-jsonl",
     ),
-    aspf_action_plan_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-json",
-    ),
-    aspf_action_plan_md: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-md",
-    ),
     aspf_import_state: Optional[List[Path]] = typer.Option(
         None,
         "--aspf-import-state",
@@ -2822,8 +2704,6 @@ def check_run(
         aspf_opportunities_json=aspf_opportunities_json,
         aspf_state_json=aspf_state_json,
         aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_action_plan_json=aspf_action_plan_json,
-        aspf_action_plan_md=aspf_action_plan_md,
         aspf_import_state=aspf_import_state,
         aspf_semantic_surface=aspf_semantic_surface,
     )
@@ -3404,16 +3284,6 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--aspf-delta-jsonl",
         default=None,
         help="Write ASPF mutation delta ledger JSONL to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-action-plan-json",
-        default=None,
-        help="Write ASPF actionable cleanup plan JSON to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-action-plan-md",
-        default=None,
-        help="Write ASPF actionable cleanup plan markdown to file or '-' for stdout.",
     )
     parser.add_argument(
         "--aspf-import-state",
@@ -4037,8 +3907,6 @@ def _run_synth(
     aspf_state_json: Path | None = None,
     aspf_import_state: list[Path] | None = None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_semantic_surface: list[str] | None = None,
     runner: Runner = run_command,
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
@@ -4127,12 +3995,6 @@ def _run_synth(
         "aspf_state_json": str(aspf_state_json) if aspf_state_json is not None else None,
         "aspf_import_state": [str(path) for path in (aspf_import_state or [])],
         "aspf_delta_jsonl": str(aspf_delta_jsonl) if aspf_delta_jsonl is not None else None,
-        "aspf_action_plan_json": (
-            str(aspf_action_plan_json) if aspf_action_plan_json is not None else None
-        ),
-        "aspf_action_plan_md": (
-            str(aspf_action_plan_md) if aspf_action_plan_md is not None else None
-        ),
         "aspf_semantic_surface": [
             str(surface) for surface in (aspf_semantic_surface or [])
         ],
@@ -4215,14 +4077,6 @@ def synth(
         None,
         "--aspf-delta-jsonl",
     ),
-    aspf_action_plan_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-json",
-    ),
-    aspf_action_plan_md: Optional[Path] = typer.Option(
-        None,
-        "--aspf-action-plan-md",
-    ),
     aspf_import_state: Optional[List[Path]] = typer.Option(
         None,
         "--aspf-import-state",
@@ -4265,8 +4119,6 @@ def synth(
             aspf_state_json=aspf_state_json,
             aspf_import_state=aspf_import_state,
             aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_action_plan_json=aspf_action_plan_json,
-            aspf_action_plan_md=aspf_action_plan_md,
             aspf_semantic_surface=aspf_semantic_surface,
         )
         _emit_synth_outputs(

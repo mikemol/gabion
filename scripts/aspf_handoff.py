@@ -26,8 +26,6 @@ def _prepare(args: argparse.Namespace) -> int:
         "command_profile": prepared.command_profile,
         "state_path": str(prepared.state_path),
         "delta_path": str(prepared.delta_path),
-        "action_plan_json_path": str(prepared.action_plan_json_path),
-        "action_plan_md_path": str(prepared.action_plan_md_path),
         "import_state_paths": [str(path) for path in prepared.import_state_paths],
         "manifest_path": str(prepared.manifest_path),
         "started_at_utc": prepared.started_at_utc,
@@ -64,46 +62,47 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 2
 
-    spec = aspf_handoff.AspfHandoffRunSpec(
+    prepared = aspf_handoff.prepare_step(
         root=Path(args.root),
         session_id=args.session_id,
         step_id=args.step_id,
         command_profile=args.command_profile,
-        command=tuple(raw_command),
         manifest_path=Path(args.manifest) if args.manifest else None,
         state_root=Path(args.state_root) if args.state_root else None,
     )
-
-    def _run_command(command: Sequence[str]) -> int:
-        completed = subprocess.run(list(command), check=False)
-        return int(completed.returncode)
-
-    result = aspf_handoff.run_with_handoff(
-        spec=spec,
-        run_command_fn=_run_command,
+    command_with_aspf = tuple([*raw_command, *aspf_handoff.aspf_cli_args(prepared)])
+    completed = subprocess.run(list(command_with_aspf), check=False)
+    exit_code = int(completed.returncode)
+    analysis_state = "succeeded" if exit_code == 0 else "failed"
+    status = "success" if exit_code == 0 else "failed"
+    ok = aspf_handoff.record_step(
+        manifest_path=prepared.manifest_path,
+        session_id=prepared.session_id,
+        sequence=prepared.sequence,
+        status=status,
+        exit_code=exit_code,
+        analysis_state=analysis_state,
     )
     payload = {
-        "ok": bool(result.ok),
-        "exit_code": int(result.exit_code),
-        "status": result.status,
-        "analysis_state": result.analysis_state,
-        "sequence": result.prepared.sequence,
-        "session_id": result.prepared.session_id,
-        "step_id": result.prepared.step_id,
-        "command_profile": result.prepared.command_profile,
-        "state_path": str(result.prepared.state_path),
-        "delta_path": str(result.prepared.delta_path),
-        "action_plan_json_path": str(result.prepared.action_plan_json_path),
-        "action_plan_md_path": str(result.prepared.action_plan_md_path),
-        "import_state_paths": [str(path) for path in result.prepared.import_state_paths],
-        "manifest_path": str(result.prepared.manifest_path),
-        "command": list(result.command),
-        "command_with_aspf": list(result.command_with_aspf),
+        "ok": bool(ok),
+        "exit_code": exit_code,
+        "status": status,
+        "analysis_state": analysis_state,
+        "sequence": prepared.sequence,
+        "session_id": prepared.session_id,
+        "step_id": prepared.step_id,
+        "command_profile": prepared.command_profile,
+        "state_path": str(prepared.state_path),
+        "delta_path": str(prepared.delta_path),
+        "import_state_paths": [str(path) for path in prepared.import_state_paths],
+        "manifest_path": str(prepared.manifest_path),
+        "command": list(raw_command),
+        "command_with_aspf": list(command_with_aspf),
     }
     print(json.dumps(payload, indent=2, sort_keys=False))
-    if result.exit_code != 0:
-        return int(result.exit_code)
-    return 0 if result.ok else 1
+    if exit_code != 0:
+        return exit_code
+    return 0 if ok else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:

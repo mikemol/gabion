@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, cast
 
 from gabion.json_types import JSONObject, JSONValue
 
@@ -73,12 +73,8 @@ def replay_resume_projection(
 ) -> JSONObject:
     projection: JSONObject = {str(key): _as_json_value(snapshot[key]) for key in snapshot}
     for record in delta_records:
-        target_raw = record.get("mutation_target")
-        if not isinstance(target_raw, str):
-            continue
-        target = target_raw.strip()
-        if not target:
-            continue
+        target = str(record.get("mutation_target", "")).strip()
+        assert target
         _assign_by_path(
             projection,
             target.split("."),
@@ -95,30 +91,24 @@ def load_resume_projection_from_state_files(
     all_records: list[JSONObject] = []
     for path in state_paths:
         payload = _load_json(path)
-        if payload is None:
-            continue
         resume = payload.get("resume_projection")
-        if isinstance(resume, Mapping):
-            latest_projection = {str(key): _as_json_value(resume[key]) for key in resume}
+        assert isinstance(resume, Mapping)
+        latest_projection = {str(key): _as_json_value(resume[key]) for key in resume}
         ledger = payload.get("delta_ledger")
-        if isinstance(ledger, Mapping):
-            raw_records = ledger.get("records")
-            if isinstance(raw_records, list):
-                for raw_record in raw_records:
-                    if isinstance(raw_record, Mapping):
-                        all_records.append(
-                            {str(key): _as_json_value(raw_record[key]) for key in raw_record}
-                        )
+        assert isinstance(ledger, Mapping)
+        raw_records = ledger.get("records")
+        assert isinstance(raw_records, list)
+        for raw_record in raw_records:
+            assert isinstance(raw_record, Mapping)
+            all_records.append(
+                {str(key): _as_json_value(raw_record[key]) for key in raw_record}
+            )
     return latest_projection, tuple(all_records)
 
 
-def _load_json(path: Path) -> JSONObject | None:
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(raw, Mapping):
-        return None
+def _load_json(path: Path) -> JSONObject:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(raw, Mapping)
     return {str(key): _as_json_value(raw[key]) for key in raw}
 
 
@@ -127,36 +117,22 @@ def _assign_by_path(
     path_tokens: Sequence[str],
     value: JSONValue,
 ) -> None:
-    if not path_tokens:
-        return
+    assert path_tokens
     cursor: JSONObject = payload
     for raw_token in path_tokens[:-1]:
         token = str(raw_token).strip()
-        if not token:
-            return
-        existing = cursor.get(token)
-        if not isinstance(existing, dict):
-            existing = {}
-            cursor[token] = existing
-        cursor = existing
+        if token:
+            cursor = cast(JSONObject, cursor.setdefault(token, {}))
     leaf = str(path_tokens[-1]).strip()
-    if not leaf:
-        return
+    assert leaf
     cursor[leaf] = value
 
 
 def _as_json_value(value: object) -> JSONValue:
     if isinstance(value, Mapping):
         return {str(key): _as_json_value(value[key]) for key in value}
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple, set)):
         return [_as_json_value(item) for item in value]
-    if isinstance(value, tuple):
-        return [_as_json_value(item) for item in value]
-    if isinstance(value, set):
-        normalized = [_as_json_value(item) for item in value]
-        return sorted(normalized, key=lambda item: json.dumps(item, sort_keys=True))
-    if isinstance(value, Path):
-        return str(value)
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
-    return {"unsupported_type": type(value).__name__}
+    return str(value)

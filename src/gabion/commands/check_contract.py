@@ -202,8 +202,6 @@ class DataflowPayloadCommonOptions:
     aspf_state_json: Path | None = None
     aspf_import_state: list[Path] | None = None
     aspf_delta_jsonl: Path | None = None
-    aspf_action_plan_json: Path | None = None
-    aspf_action_plan_md: Path | None = None
     aspf_semantic_surface: list[str] | None = None
 
 
@@ -285,12 +283,6 @@ def build_dataflow_payload_common(
         "aspf_delta_jsonl": str(options.aspf_delta_jsonl)
         if options.aspf_delta_jsonl is not None
         else None,
-        "aspf_action_plan_json": str(options.aspf_action_plan_json)
-        if options.aspf_action_plan_json is not None
-        else None,
-        "aspf_action_plan_md": str(options.aspf_action_plan_md)
-        if options.aspf_action_plan_md is not None
-        else None,
         "aspf_semantic_surface": [
             str(surface) for surface in (options.aspf_semantic_surface or [])
         ],
@@ -324,8 +316,6 @@ def build_check_payload(
     aspf_state_json: Path | None = None,
     aspf_import_state: list[Path] | None = None,
     aspf_delta_jsonl: Path | None = None,
-    aspf_action_plan_json: Path | None = None,
-    aspf_action_plan_md: Path | None = None,
     aspf_semantic_surface: list[str] | None = None,
     split_csv_entries_fn: SplitCsvEntriesFn = split_csv_entries,
     split_csv_fn: SplitCsvFn = split_csv,
@@ -357,8 +347,6 @@ def build_check_payload(
             aspf_state_json=aspf_state_json,
             aspf_import_state=aspf_import_state,
             aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_action_plan_json=aspf_action_plan_json,
-            aspf_action_plan_md=aspf_action_plan_md,
             aspf_semantic_surface=aspf_semantic_surface,
         ),
         split_csv_entries_fn=split_csv_entries_fn,

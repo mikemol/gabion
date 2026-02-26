@@ -189,39 +189,6 @@ class AspfDeltaLedgerDTO(BaseModel):
     records: List[AspfDeltaRecordDTO] = []
 
 
-class AspfActionItemDTO(BaseModel):
-    action_id: str
-    priority: str
-    opportunity_kind: str
-    confidence: float
-    targets: Dict[str, Any] = {}
-    affected_surfaces: List[str] = []
-    evidence_refs: Dict[str, Any] = {}
-    implementation_steps: List[str] = []
-    validation_commands: List[str] = []
-
-
-class AspfActionPlanDTO(BaseModel):
-    format_version: int = 1
-    trace_id: str
-    generated_at_utc: str
-    summary: Dict[str, Any] = {}
-    actions: List[AspfActionItemDTO] = []
-
-
-class AspfActionPlanQualityIssueDTO(BaseModel):
-    issue_id: str
-    severity: str
-    message: str
-    action_id: Optional[str] = None
-
-
-class AspfActionPlanQualityDTO(BaseModel):
-    status: str
-    summary: Dict[str, Any] = {}
-    issues: List[AspfActionPlanQualityIssueDTO] = []
-
-
 class AspfResumeProjectionDTO(BaseModel):
     analysis_state: Optional[str] = None
     semantic_surfaces: Dict[str, Any] = {}
@@ -244,8 +211,6 @@ class AspfStateDTO(BaseModel):
     semantic_surfaces: Dict[str, Any] = {}
     resume_projection: Dict[str, Any] = {}
     delta_ledger: Dict[str, Any] = {}
-    action_plan_refs: Dict[str, Any] = {}
-    action_plan_quality: Dict[str, Any] = {}
     exit_code: Optional[int] = None
     analysis_state: Optional[str] = None
 
@@ -263,8 +228,6 @@ class DataflowAuditResponseDTO(BaseModel):
     aspf_equivalence: Optional[AspfEquivalenceDTO] = None
     aspf_opportunities: Optional[AspfOpportunitiesDTO] = None
     aspf_delta_ledger: Optional[AspfDeltaLedgerDTO] = None
-    aspf_action_plan: Optional[AspfActionPlanDTO] = None
-    aspf_action_plan_quality: Optional[AspfActionPlanQualityDTO] = None
     aspf_state: Optional[AspfStateDTO] = None
     payload: Dict[str, Any] = {}
 

@@ -3118,8 +3118,6 @@ def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
         aspf_opportunities_json=None,
         aspf_state_json=None,
         aspf_delta_jsonl=None,
-        aspf_action_plan_json=None,
-        aspf_action_plan_md=None,
         aspf_equivalence_enabled=False,
     )
     assert "artifacts/out/decision_snapshot.json" in derived
