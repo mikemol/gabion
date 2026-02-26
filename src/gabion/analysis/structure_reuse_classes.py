@@ -36,7 +36,7 @@ class AspfStructureClass:
 def build_structure_class(
     *,
     kind: str,
-    value: object | None,
+    value: object,
     child_hashes: Iterable[str],
 ) -> AspfStructureClass:
     atom = structural_key_atom(value, source="structure_reuse_classes.value")
