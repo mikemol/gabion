@@ -14281,53 +14281,51 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
 
 def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> SymbolTable:
     table = SymbolTable(external_filter=bool(payload.get("external_filter", True)))
-    raw_imports = payload.get("imports")
-    if isinstance(raw_imports, Sequence):
+    raw_imports = sequence_or_none(payload.get("imports"))
+    if raw_imports is not None:
         for entry in raw_imports:
             check_deadline()
-            if not isinstance(entry, Sequence) or len(entry) != 3:
-                continue
-            module, name, fqn = entry
-            if (
-                isinstance(module, str)
-                and isinstance(name, str)
-                and isinstance(fqn, str)
-            ):
-                table.imports[(module, name)] = fqn
-    raw_internal_roots = payload.get("internal_roots")
-    if isinstance(raw_internal_roots, Sequence):
+            if isinstance(entry, Sequence) and len(entry) == 3:
+                module, name, fqn = entry
+                if (
+                    isinstance(module, str)
+                    and isinstance(name, str)
+                    and isinstance(fqn, str)
+                ):
+                    table.imports[(module, name)] = fqn
+    raw_internal_roots = sequence_or_none(payload.get("internal_roots"))
+    if raw_internal_roots is not None:
         for entry in raw_internal_roots:
             check_deadline()
             if isinstance(entry, str):
                 table.internal_roots.add(entry)
-    raw_star_imports = payload.get("star_imports")
-    if isinstance(raw_star_imports, Mapping):
+    raw_star_imports = mapping_or_none(payload.get("star_imports"))
+    if raw_star_imports is not None:
         for module, raw_names in raw_star_imports.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
-                continue
-            names = {name for name in raw_names if isinstance(name, str)}
-            table.star_imports[module] = names
-    raw_module_exports = payload.get("module_exports")
-    if isinstance(raw_module_exports, Mapping):
+            if isinstance(module, str):
+                names = str_set_from_sequence(raw_names)
+                table.star_imports[module] = names
+    raw_module_exports = mapping_or_none(payload.get("module_exports"))
+    if raw_module_exports is not None:
         for module, raw_names in raw_module_exports.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
-                continue
-            names = {name for name in raw_names if isinstance(name, str)}
-            table.module_exports[module] = names
-    raw_module_export_map = payload.get("module_export_map")
-    if isinstance(raw_module_export_map, Mapping):
+            if isinstance(module, str):
+                names = str_set_from_sequence(raw_names)
+                table.module_exports[module] = names
+    raw_module_export_map = mapping_or_none(payload.get("module_export_map"))
+    if raw_module_export_map is not None:
         for module, raw_mapping in raw_module_export_map.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_mapping, Mapping):
-                continue
-            mapping: dict[str, str] = {}
-            for name, mapped in raw_mapping.items():
-                check_deadline()
-                if isinstance(name, str) and isinstance(mapped, str):
-                    mapping[name] = mapped
-            table.module_export_map[module] = mapping
+            if isinstance(module, str):
+                mapping: dict[str, str] = {}
+                mapping_payload = mapping_or_none(raw_mapping)
+                if mapping_payload is not None:
+                    for name, mapped in mapping_payload.items():
+                        check_deadline()
+                        if isinstance(name, str) and isinstance(mapped, str):
+                            mapping[name] = mapped
+                table.module_export_map[module] = mapping
     return table
 
 
