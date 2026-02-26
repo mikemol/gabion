@@ -4795,7 +4795,7 @@ def _is_reachability_unknown(reachability: _EvalDecision) -> bool:
 def _collect_handledness_witnesses(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
 ) -> list[JSONObject]:
     check_deadline()
@@ -4811,7 +4811,7 @@ def _collect_handledness_witnesses(
         parent.visit(tree)
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
-        param_annotations_by_fn: dict[ast.AST, dict[str, str | None]] = {}
+        param_annotations_by_fn = {}
         for fn in _collect_functions(tree):
             check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
@@ -4866,8 +4866,8 @@ def _collect_handledness_witnesses(
                 handledness_reason = "no enclosing handler discharges this exception path"
                 type_refinement_opportunity = ""
                 if try_node is not None:
-                    unknown_handler: ast.ExceptHandler | None = None
-                    first_incompatible_handler: ast.ExceptHandler | None = None
+                    unknown_handler = None
+                    first_incompatible_handler = None
                     for handler in try_node.handlers:
                         check_deadline()
                         compatibility = _exception_handler_compatibility(
@@ -4978,7 +4978,7 @@ def _collect_handledness_witnesses(
 
 
 def _dead_env_map(
-    deadness_witnesses: list[JSONObject] | None,
+    deadness_witnesses,
 ) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
     check_deadline()
     dead_env_map: dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]] = {}
@@ -5011,11 +5011,11 @@ def _dead_env_map(
 def _collect_exception_obligations(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
-    handledness_witnesses: list[JSONObject] | None = None,
-    deadness_witnesses: list[JSONObject] | None = None,
-    never_exceptions: set[str] | None = None,
+    handledness_witnesses=None,
+    deadness_witnesses=None,
+    never_exceptions=None,
 ) -> list[JSONObject]:
     check_deadline()
     obligations: list[JSONObject] = []
@@ -5063,7 +5063,7 @@ def _collect_exception_obligations(
                     else cast(ast.Assert, raise_node).test
                 )
                 exception_name = _exception_type_name(expr)
-                protocol: str | None = None
+                protocol = None
                 if (
                     exception_name
                     and never_exceptions_set
@@ -5085,7 +5085,7 @@ def _collect_exception_obligations(
                     handled = handled_map.get(exception_id)
                     status = "UNKNOWN"
                     witness_ref = None
-                    remainder: JSONObject | None = {"exception_kind": kind}
+                    remainder = {"exception_kind": kind}
                     environment_ref: JSONValue = None
                     handledness_reason_code = "NO_HANDLER"
                     handledness_reason = "no handledness witness"
@@ -5208,10 +5208,10 @@ def _never_reason(call: ast.Call) -> str | None:
 def _collect_never_invariants(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     forest: Forest,
-    deadness_witnesses: list[JSONObject] | None = None,
+    deadness_witnesses=None,
 ) -> list[JSONObject]:
     check_deadline()
     invariants: list[JSONObject] = []
@@ -7912,18 +7912,18 @@ def _build_module_artifacts(
 def _build_analysis_index(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators=None,
     parse_failure_witnesses: list[JSONObject],
-    resume_payload: Mapping[str, JSONValue] | None = None,
-    on_progress: Callable[[JSONObject], None] | None = None,
-    accumulate_function_index_for_tree_fn: Callable[..., None] | None = None,
-    forest_spec_id: str | None = None,
-    fingerprint_seed_revision: str | None = None,
-    decision_ignore_params: set[str] | None = None,
+    resume_payload=None,
+    on_progress=None,
+    accumulate_function_index_for_tree_fn=None,
+    forest_spec_id=None,
+    fingerprint_seed_revision=None,
+    decision_ignore_params=None,
     decision_require_tiers: bool = False,
 ) -> AnalysisIndex:
     check_deadline()
@@ -10008,7 +10008,7 @@ def _normalize_key_expr(
     node: ast.AST,
     *,
     const_bindings: Mapping[str, ast.AST],
-) -> Hashable | None:
+):
     """Normalize deterministic subscript key forms.
 
     Recognizes literal string/int keys, constant-bound names resolving to
@@ -10053,7 +10053,7 @@ def _normalize_key_expr(
     return normalized_key
 
 
-def _type_from_const_repr(value: str) -> str | None:
+def _type_from_const_repr(value: str):
     try:
         literal = ast.literal_eval(value)
     except _LITERAL_EVAL_ERROR_TYPES:
@@ -14243,7 +14243,7 @@ def _deserialize_function_info_for_resume(
     payload: Mapping[str, JSONValue],
     *,
     allowed_paths: Mapping[str, Path],
-) -> FunctionInfo | None:
+):
     name = payload.get("name")
     qual = payload.get("qual")
     path_key = payload.get("path")
@@ -14577,7 +14577,7 @@ def _serialize_analysis_index_resume_payload(
 
 def _load_analysis_index_resume_payload(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     file_paths: Sequence[Path],
     expected_index_cache_identity: str = "",
     expected_projection_cache_identity: str = "",
@@ -14914,18 +14914,9 @@ def _empty_file_scan_resume_state() -> tuple[
 
 def _load_file_scan_resume_state(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     valid_fn_keys: set[str],
-) -> tuple[
-    dict[str, dict[str, ParamUse]],
-    dict[str, list[CallArgs]],
-    dict[str, list[str]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, str],
-    dict[str, tuple[str, ...]],
-    dict[str, str | None],
-    set[str],
-]:
+):
     (
         fn_use,
         fn_calls,
@@ -15149,18 +15140,10 @@ def _empty_analysis_collection_resume_payload() -> tuple[
 
 def _load_analysis_collection_resume_payload(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     file_paths: Sequence[Path],
     include_invariant_propositions: bool,
-) -> tuple[
-    dict[Path, dict[str, list[set[str]]]],
-    dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
-    dict[Path, dict[str, list[list[JSONObject]]]],
-    list[InvariantProposition],
-    set[Path],
-    dict[Path, JSONObject],
-    JSONObject | None,
-]:
+):
     (
         groups_by_path,
         param_spans_by_path,
