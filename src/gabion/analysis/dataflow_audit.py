@@ -10016,36 +10016,41 @@ def _normalize_key_expr(
     """
     check_deadline()
     node_type = type(node)
+    normalized_key = None
     if node_type is ast.Constant:
         value = cast(ast.Constant, node).value
         value_type = type(value)
         if value_type in {str, int}:
-            return ("literal", value_type.__name__, value)
-        return None
-    if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) in {ast.USub, ast.UAdd}:
+            normalized_key = ("literal", value_type.__name__, value)
+    elif node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) in {
+        ast.USub,
+        ast.UAdd,
+    }:
+        evaluated_value = None
         try:
-            value = ast.literal_eval(node)
+            evaluated_value = ast.literal_eval(node)
         except _LITERAL_EVAL_ERROR_TYPES:
-            return None
-        if type(value) is int:
-            return ("literal", "int", value)
-        return None
-    if node_type is ast.Name:
+            pass
+        if type(evaluated_value) is int:
+            normalized_key = ("literal", "int", evaluated_value)
+    elif node_type is ast.Name:
         bound = const_bindings.get(cast(ast.Name, node).id)
-        if bound is None:
-            return None
-        return _normalize_key_expr(bound, const_bindings=const_bindings)
-    if node_type is ast.Tuple:
+        if bound is not None:
+            normalized_key = _normalize_key_expr(bound, const_bindings=const_bindings)
+    elif node_type is ast.Tuple:
         tuple_node = cast(ast.Tuple, node)
         items: list[Hashable] = []
+        complete = True
         for elt in tuple_node.elts:
             check_deadline()
-            normalized = _normalize_key_expr(elt, const_bindings=const_bindings)
-            if normalized is None:
-                return None
-            items.append(normalized)
-        return ("tuple", tuple(items))
-    return None
+            normalized_item = _normalize_key_expr(elt, const_bindings=const_bindings)
+            if normalized_item is None:
+                complete = False
+            else:
+                items.append(normalized_item)
+        if complete:
+            normalized_key = ("tuple", tuple(items))
+    return normalized_key
 
 
 def _type_from_const_repr(value: str) -> str | None:
@@ -14795,45 +14800,45 @@ def _deserialize_invariants_for_resume(
     for entry in payload:
         check_deadline()
         entry_mapping = mapping_or_none(entry)
-        if entry_mapping is None:
-            continue
-        form = entry_mapping.get("form")
-        terms = sequence_or_none(entry_mapping.get("terms"))
-        if type(form) is not str or terms is None:
-            continue
-        normalized_terms: list[str] = []
-        for term in terms:
-            check_deadline()
-            if type(term) is str:
-                normalized_terms.append(term)
-        scope = entry_mapping.get("scope")
-        source = entry_mapping.get("source")
-        invariant_id = entry_mapping.get("invariant_id")
-        confidence_raw = entry_mapping.get("confidence")
-        confidence = (
-            float(confidence_raw)
-            if type(confidence_raw) in {int, float}
-            else None
-        )
-        raw_evidence = entry_mapping.get("evidence_keys")
-        evidence_keys: tuple[str, ...] = ()
-        evidence_sequence = sequence_or_none(raw_evidence)
-        if evidence_sequence is not None:
-            evidence_keys = tuple(str(item) for item in evidence_sequence if str(item).strip())
-        normalized = _normalize_invariant_proposition(
-            InvariantProposition(
-                form=form,
-                terms=tuple(normalized_terms),
-                scope=scope if type(scope) is str else None,
-                source=source if type(source) is str else None,
-                invariant_id=invariant_id if type(invariant_id) is str else None,
-                confidence=confidence,
-                evidence_keys=evidence_keys,
-            ),
-            default_scope=scope if type(scope) is str else "",
-            default_source=source if type(source) is str else "resume",
-        )
-        invariants.append(normalized)
+        if entry_mapping is not None:
+            form = entry_mapping.get("form")
+            terms = sequence_or_none(entry_mapping.get("terms"))
+            if type(form) is str and terms is not None:
+                normalized_terms: list[str] = []
+                for term in terms:
+                    check_deadline()
+                    if type(term) is str:
+                        normalized_terms.append(term)
+                scope = entry_mapping.get("scope")
+                source = entry_mapping.get("source")
+                invariant_id = entry_mapping.get("invariant_id")
+                confidence_raw = entry_mapping.get("confidence")
+                confidence = (
+                    float(confidence_raw)
+                    if type(confidence_raw) in {int, float}
+                    else None
+                )
+                raw_evidence = entry_mapping.get("evidence_keys")
+                evidence_keys: tuple[str, ...] = ()
+                evidence_sequence = sequence_or_none(raw_evidence)
+                if evidence_sequence is not None:
+                    evidence_keys = tuple(
+                        str(item) for item in evidence_sequence if str(item).strip()
+                    )
+                normalized = _normalize_invariant_proposition(
+                    InvariantProposition(
+                        form=form,
+                        terms=tuple(normalized_terms),
+                        scope=scope if type(scope) is str else None,
+                        source=source if type(source) is str else None,
+                        invariant_id=invariant_id if type(invariant_id) is str else None,
+                        confidence=confidence,
+                        evidence_keys=evidence_keys,
+                    ),
+                    default_scope=scope if type(scope) is str else "",
+                    default_source=source if type(source) is str else "resume",
+                )
+                invariants.append(normalized)
     return invariants
 
 
