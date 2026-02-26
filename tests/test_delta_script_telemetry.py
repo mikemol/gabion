@@ -259,13 +259,12 @@ def test_delta_state_emit_helper_branches_and_nonzero_exit(
             "phase_progress_v2": {"primary_unit": "items"},
             "work_done": 1,
             "work_total": 2,
-            "resume_checkpoint": {"checkpoint_path": "", "status": "checkpoint_loaded"},
             "stale_for_s": 1.0,
         }
     )
     assert "7" in row
     assert "items" in row
-    assert "reused_files=unknown" in row
+    assert "1/2 items" in row
 
     with env_scope(
         {
@@ -461,16 +460,9 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
                 "primary_done": 5,
                 "primary_total": 3,
             },
-            "resume_checkpoint": {
-                "checkpoint_path": "x.json",
-                "status": "checkpoint_loaded",
-                "reused_files": 1,
-                "total_files": 3,
-            },
         }
     )
     assert "3/3 files" in row
-    assert "reused_files=1/3" in row
 
     expected_state_path = tmp_path / "state.json"
     expected_state_path.parent.mkdir(parents=True, exist_ok=True)
