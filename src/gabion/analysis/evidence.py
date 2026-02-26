@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 
@@ -121,5 +122,5 @@ def exception_obligation_summary_for_site(
                 summary[status] += 1
                 summary["total"] += 1
             case _:
-                pass
+                continue
     return summary
