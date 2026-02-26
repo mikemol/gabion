@@ -2964,7 +2964,10 @@ def _parse_witness_contract_violations(
             )
         default_map = _parameter_default_map(node)
         default_node = default_map.get("parse_failure_witnesses")
-        if isinstance(default_node, ast.Constant) and default_node.value is None:
+        if (
+            type(default_node) is ast.Constant
+            and cast(ast.Constant, default_node).value is None
+        ):
             violations.append(
                 f"{helper_module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
             )
@@ -4133,17 +4136,20 @@ def _evaluate_witness_obligation_non_regression_predicate(
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
     evidence = context.plan_evidence
-    obligations = evidence.get("witness_obligations")
-    if not isinstance(obligations, list):
-        obligations = []
+    obligations: list[Mapping[str, JSONValue]] = []
+    raw_obligations = sequence_or_none(evidence.get("witness_obligations"))
+    if raw_obligations is not None:
+        for item in raw_obligations:
+            mapped_item = mapping_or_none(item)
+            if mapped_item is not None:
+                obligations.append(mapped_item)
     missing_required: list[str] = []
     for item in obligations:
-        if isinstance(item, Mapping):
-            required = bool(item.get("required"))
-            witness_ref = str(item.get("witness_ref", "") or "")
-            witness_kind = str(item.get("kind", "witness") or "witness")
-            if required and not witness_ref:
-                missing_required.append(f"{witness_kind}:missing")
+        required = bool(item.get("required"))
+        witness_ref = str(item.get("witness_ref", "") or "")
+        witness_kind = str(item.get("kind", "witness") or "witness")
+        if required and not witness_ref:
+            missing_required.append(f"{witness_kind}:missing")
     post_identity = context.post_entry.get("canonical_identity_contract")
     pre_identity = context.pre.get("canonical_identity_contract")
     identity_ok = True
@@ -4157,7 +4163,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
         "passed": passed,
         "expected": {
             "required_witnesses": [
-                item for item in obligations if isinstance(item, Mapping) and bool(item.get("required"))
+                item for item in obligations if bool(item.get("required"))
             ],
             "identity_contract": pre_identity,
         },
@@ -4315,7 +4321,7 @@ def verify_rewrite_plan(
     pre = mapping_or_empty(plan.get("pre"))
     evidence = mapping_or_empty(plan.get("evidence"))
     raw_pre_remainder = pre.get("remainder")
-    if raw_pre_remainder not in (None, {}) and not isinstance(raw_pre_remainder, Mapping):
+    if raw_pre_remainder not in (None, {}) and mapping_or_none(raw_pre_remainder) is None:
         issues.append("invalid pre remainder payload")
     expected_base = list(pre.get("base_keys") or [])
     expected_ctor = list(pre.get("ctor_keys") or [])
@@ -4335,7 +4341,7 @@ def verify_rewrite_plan(
     rewrite = mapping_or_empty(plan.get("rewrite"))
     rewrite_kind = str(rewrite.get("kind", "") or "")
     raw_params_payload = rewrite.get("parameters")
-    if raw_params_payload not in (None, {}) and not isinstance(raw_params_payload, Mapping):
+    if raw_params_payload not in (None, {}) and mapping_or_none(raw_params_payload) is None:
         issues.append("invalid rewrite parameters payload")
     params = mapping_or_empty(rewrite.get("parameters"))
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
@@ -4344,9 +4350,12 @@ def verify_rewrite_plan(
     verification = mapping_or_empty(plan.get("verification"))
     predicates = sequence_or_none(verification.get("predicates"))
     if predicates is not None:
-        requested_predicates = [
-            p for p in predicates if isinstance(p, dict) and p.get("kind")
-        ]
+        for predicate in predicates:
+            mapped_predicate = mapping_or_none(predicate)
+            if mapped_predicate is not None and mapped_predicate.get("kind"):
+                requested_predicates.append(
+                    {str(key): mapped_predicate[key] for key in mapped_predicate}
+                )
     if not requested_predicates:
         schema = rewrite_plan_schema(rewrite_kind)
         defaults = list(schema.required_predicates) if schema is not None else [
@@ -11421,12 +11430,13 @@ def _collect_lambda_function_infos(
     lambda_infos: list[FunctionInfo] = []
     for node in ast.walk(tree):
         check_deadline()
-        if isinstance(node, ast.Lambda):
-            span = _node_span(node)
+        if type(node) is ast.Lambda:
+            lambda_node = cast(ast.Lambda, node)
+            span = _node_span(lambda_node)
             if span is not None:
-                lexical_scopes = _enclosing_function_scopes(node, parent_map)
-                scopes = _enclosing_scopes(node, parent_map)
-                class_name = _enclosing_class(node, parent_map)
+                lexical_scopes = _enclosing_function_scopes(lambda_node, parent_map)
+                scopes = _enclosing_scopes(lambda_node, parent_map)
+                class_name = _enclosing_class(lambda_node, parent_map)
                 synthetic_name = _synthetic_lambda_name(
                     module=module,
                     lexical_scope=lexical_scopes,
@@ -11439,7 +11449,11 @@ def _collect_lambda_function_infos(
                 qual = ".".join(qual_parts)
                 params = [
                     arg.arg
-                    for arg in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs)
+                    for arg in (
+                        lambda_node.args.posonlyargs
+                        + lambda_node.args.args
+                        + lambda_node.args.kwonlyargs
+                    )
                 ]
                 if ignore_params:
                     params = [name for name in params if name not in ignore_params]
@@ -13604,7 +13618,7 @@ def render_decision_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     pattern_schema_instances: list[PatternInstance] | None = None,
 ) -> JSONObject:
-    if not isinstance(forest, Forest):
+    if type(forest) is not Forest:
         never("decision snapshot requires forest carrier")
     instances = pattern_schema_instances
     if instances is None:
@@ -15242,9 +15256,11 @@ def _build_analysis_collection_resume_payload(
                 key=_analysis_collection_resume_path_key,
             source = 'src/gabion/analysis/dataflow_audit.py:15945')
         }
-    if isinstance(analysis_index_resume, Mapping):
+    analysis_index_resume_mapping = mapping_or_none(analysis_index_resume)
+    if analysis_index_resume_mapping is not None:
         payload["analysis_index_resume"] = {
-            str(key): analysis_index_resume[key] for key in analysis_index_resume
+            str(key): analysis_index_resume_mapping[key]
+            for key in analysis_index_resume_mapping
         }
     return payload
 
