@@ -13941,29 +13941,25 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
     for raw_entry in sequence_or_none(payload.get("forward_sites")) or ():
         check_deadline()
         entry = mapping_or_none(raw_entry)
-        if entry is None:
-            continue
-        callee = entry.get("callee")
-        slot = entry.get("slot")
-        if not isinstance(callee, str) or not isinstance(slot, str):
-            continue
-        span_set: set[tuple[int, int, int, int]] = set()
-        for raw_span in sequence_or_none(entry.get("spans")) or ():
-            check_deadline()
-            span = int_tuple4_or_none(raw_span)
-            if span is None:
-                continue
-            span_set.add(span)
-        forward_sites[(callee, slot)] = span_set
+        if entry is not None:
+            callee = entry.get("callee")
+            slot = entry.get("slot")
+            if isinstance(callee, str) and isinstance(slot, str):
+                span_set: set[tuple[int, int, int, int]] = set()
+                for raw_span in sequence_or_none(entry.get("spans")) or ():
+                    check_deadline()
+                    span = int_tuple4_or_none(raw_span)
+                    if span is not None:
+                        span_set.add(span)
+                forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
     unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
     unknown_key_sites: set[tuple[int, int, int, int]] = set()
     for raw_span in sequence_or_none(payload.get("unknown_key_sites")) or ():
         check_deadline()
         span = int_tuple4_or_none(raw_span)
-        if span is None:
-            continue
-        unknown_key_sites.add(span)
+        if span is not None:
+            unknown_key_sites.add(span)
     return ParamUse(
         direct_forward=direct_forward,
         non_forward=non_forward,
@@ -14473,15 +14469,13 @@ def _load_analysis_index_resume_payload(
     if isinstance(raw_functions, Mapping):
         for qual, raw_info in raw_functions.items():
             check_deadline()
-            if not isinstance(qual, str) or not isinstance(raw_info, Mapping):
-                continue
-            info = _deserialize_function_info_for_resume(
-                raw_info,
-                allowed_paths=allowed_paths,
-            )
-            if info is None:
-                continue
-            by_qual[qual] = info
+            if isinstance(qual, str) and isinstance(raw_info, Mapping):
+                info = _deserialize_function_info_for_resume(
+                    raw_info,
+                    allowed_paths=allowed_paths,
+                )
+                if info is not None:
+                    by_qual[qual] = info
     raw_symbol_table = selected_payload.get("symbol_table")
     if isinstance(raw_symbol_table, Mapping):
         symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table)
@@ -14489,12 +14483,10 @@ def _load_analysis_index_resume_payload(
     if isinstance(raw_class_index, Mapping):
         for qual, raw_class in raw_class_index.items():
             check_deadline()
-            if not isinstance(qual, str) or not isinstance(raw_class, Mapping):
-                continue
-            class_info = _deserialize_class_info_for_resume(raw_class)
-            if class_info is None:
-                continue
-            class_index[qual] = class_info
+            if isinstance(qual, str) and isinstance(raw_class, Mapping):
+                class_info = _deserialize_class_info_for_resume(raw_class)
+                if class_info is not None:
+                    class_index[qual] = class_info
     return hydrated_paths, by_qual, symbol_table, class_index
 
 
