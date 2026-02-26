@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from gabion.analysis.json_types import JSONObject
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.order_contract import sort_once
 
 
@@ -61,12 +62,35 @@ _REWRITE_PLAN_SCHEMAS: dict[RewritePlanKind, RewritePlanSchema] = {
 }
 
 
-def rewrite_plan_schema(kind: str | RewritePlanKind) -> RewritePlanSchema | None:
+_EMPTY_REWRITE_PLAN_SCHEMA = RewritePlanSchema(
+    kind=RewritePlanKind.BUNDLE_ALIGN,
+    required_parameters=tuple(),
+    required_evidence_refs=tuple(),
+    required_predicates=tuple(),
+)
+
+
+@dataclass(frozen=True)
+class RewritePlanSchemaLookup:
+    is_known: bool
+    schema: RewritePlanSchema
+
+
+def rewrite_plan_schema(kind: object) -> RewritePlanSchemaLookup:
     try:
-        parsed = kind if isinstance(kind, RewritePlanKind) else RewritePlanKind(str(kind))
+        parsed = RewritePlanKind(str(kind))
     except ValueError:
-        return None
-    return _REWRITE_PLAN_SCHEMAS.get(parsed)
+        return RewritePlanSchemaLookup(
+            is_known=False,
+            schema=_EMPTY_REWRITE_PLAN_SCHEMA,
+        )
+    schema = _REWRITE_PLAN_SCHEMAS.get(parsed)
+    if schema is None:
+        return RewritePlanSchemaLookup(
+            is_known=False,
+            schema=_EMPTY_REWRITE_PLAN_SCHEMA,
+        )
+    return RewritePlanSchemaLookup(is_known=True, schema=schema)
 
 
 def rewrite_plan_kind_sort_key(kind: str) -> int:
@@ -80,24 +104,26 @@ def rewrite_plan_kind_sort_key(kind: str) -> int:
 
 
 def _missing_keys(container: object, required: tuple[str, ...]) -> list[str]:
-    if not isinstance(container, dict):
+    container_map = mapping_or_none(container)
+    if container_map is None:
         return list(required)
     missing: list[str] = []
     for key in required:
-        value = container.get(key)
+        value = container_map.get(key)
         if value in (None, "", []):
             missing.append(key)
     return missing
 
 
 def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
-    rewrite = plan.get("rewrite")
-    if not isinstance(rewrite, dict):
+    rewrite = mapping_or_none(plan.get("rewrite"))
+    if rewrite is None:
         return ["missing rewrite payload"]
     kind = str(rewrite.get("kind", ""))
-    schema = rewrite_plan_schema(kind)
-    if schema is None:
+    schema_lookup = rewrite_plan_schema(kind)
+    if not schema_lookup.is_known:
         return [f"unknown rewrite kind: {kind}"]
+    schema = schema_lookup.schema
 
     issues: list[str] = []
     params = rewrite.get("parameters")
@@ -110,14 +136,16 @@ def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
     if missing_evidence:
         issues.append(f"missing evidence refs: {', '.join(missing_evidence)}")
 
-    verification = plan.get("verification")
+    verification = mapping_or_none(plan.get("verification"))
     predicates = []
-    if isinstance(verification, dict) and isinstance(verification.get("predicates"), list):
-        predicates = [
-            str(predicate.get("kind", ""))
-            for predicate in verification.get("predicates", [])
-            if isinstance(predicate, dict)
-        ]
+    if verification is not None:
+        predicate_list = sequence_or_none(verification.get("predicates"))
+        if predicate_list is not None:
+            predicates = []
+            for predicate in predicate_list:
+                parsed_predicate = mapping_or_none(predicate)
+                if parsed_predicate is not None:
+                    predicates.append(str(parsed_predicate.get("kind", "")))
     for required in schema.required_predicates:
         if required not in predicates:
             issues.append(f"missing predicate: {required}")
@@ -139,12 +167,12 @@ def normalize_rewrite_plan_order(plans: list[JSONObject]) -> list[JSONObject]:
 
 
 def attach_plan_schema(plan: JSONObject) -> JSONObject:
-    rewrite = plan.get("rewrite")
-    if not isinstance(rewrite, dict):
+    rewrite = mapping_or_none(plan.get("rewrite"))
+    if rewrite is None:
         return plan
-    schema = rewrite_plan_schema(str(rewrite.get("kind", "")))
-    if schema is None:
+    schema_lookup = rewrite_plan_schema(str(rewrite.get("kind", "")))
+    if not schema_lookup.is_known:
         return plan
     out = dict(plan)
-    out["payload_schema"] = schema.as_json()
+    out["payload_schema"] = schema_lookup.schema.as_json()
     return out
