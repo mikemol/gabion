@@ -6,10 +6,11 @@ import inspect
 import os
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
-from typing import Callable, Iterable, Iterator, Mapping, TypeVar
+from typing import TypeVar
 
 from contextvars import ContextVar, Token
 
@@ -28,6 +29,7 @@ from gabion.order_contract import OrderPolicy, sort_once
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
+_NO_DEADLINE_PROFILE_SNAPSHOT = None
 _LoopItem = TypeVar("_LoopItem")
 
 
@@ -292,9 +294,12 @@ def get_forest() -> Forest:
     forest = _forest_var.get()
     if forest is _MISSING_FOREST:
         never("forest carrier missing")
-    if not isinstance(forest, Forest):
-        never("invalid forest carrier", carrier_type=type(forest).__name__)
-    return forest
+    match forest:
+        case Forest() as valid_forest:
+            return valid_forest
+        case _:
+            never("invalid forest carrier", carrier_type=type(forest).__name__)
+            return forest  # pragma: no cover - never() raises
 
 
 @contextmanager
@@ -365,80 +370,85 @@ def _record_deadline_check(
     profile_site_key_fn: Callable[..., tuple[str, str]] = _profile_site_key,
 ) -> None:
     state = _deadline_profile_var.get()
-    if state is None:
-        return
-    if not state.enabled:
-        return
-    frame = frame_getter()
-    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
-        return
-    caller_frame = frame.f_back.f_back
-    effective_root = state.project_root
-    effective_root_key = state.project_root_key
-    if project_root is not None:
-        cache_key = str(project_root)
-        cached_root = state.root_resolution_cache.get(cache_key)
-        if cached_root is None:
-            resolved_root = project_root.resolve()
-            resolved_root_key = str(resolved_root)
-            cached_root = (resolved_root, resolved_root_key)
-            state.root_resolution_cache[cache_key] = cached_root
-        effective_root, effective_root_key = cached_root
-    now = _current_deadline_mark()
-    delta = max(0, now - state.last_ns)
-    state.last_ns = now
-    state.last_wall_ns = _SYSTEM_CLOCK.get_mark()
-    state.checks_total += 1
-    state.sample_pending_checks += 1
-    state.sample_pending_elapsed_ns += delta
-    if state.sample_pending_checks < max(1, state.sample_interval):
-        return
-    sampled_checks = state.sample_pending_checks
-    sampled_elapsed_ns = state.sample_pending_elapsed_ns
-    state.sample_pending_checks = 0
-    state.sample_pending_elapsed_ns = 0
-    state.sampled_checks_total += sampled_checks
-    cache_key = (caller_frame.f_code, effective_root_key)
-    site_id = state.frame_site_cache.get(cache_key)
-    if site_id is None:
-        site_key = profile_site_key_fn(caller_frame, project_root=effective_root)
-        site_id = state.site_ids.get(site_key)
-        if site_id is None:
-            site_id = len(state.site_keys)
-            state.site_ids[site_key] = site_id
-            state.site_keys.append(site_key)
-        state.frame_site_cache[cache_key] = site_id
-    stats = state.site_stats.setdefault(site_id, _DeadlineSiteStats())
-    stats.checks += sampled_checks
-    stats.elapsed_ns += sampled_elapsed_ns
-    if sampled_elapsed_ns > stats.max_gap_ns:
-        stats.max_gap_ns = sampled_elapsed_ns
-    if state.last_site_id is None:
-        state.unattributed_elapsed_ns += sampled_elapsed_ns
-    else:
-        edge_key = (state.last_site_id, site_id)
-        edge_stats = state.edge_stats.setdefault(edge_key, _DeadlineEdgeStats())
-        edge_stats.transitions += 1
-        edge_stats.elapsed_ns += sampled_elapsed_ns
-        if sampled_elapsed_ns > edge_stats.max_gap_ns:
-            edge_stats.max_gap_ns = sampled_elapsed_ns
-    state.last_site_id = site_id
+    if state is not None and state.enabled:
+        frame = frame_getter()
+        has_caller = (
+            frame is not None
+            and frame.f_back is not None
+            and frame.f_back.f_back is not None
+        )
+        if has_caller:
+            caller_frame = frame.f_back.f_back
+            effective_root = state.project_root
+            effective_root_key = state.project_root_key
+            if project_root is not None:
+                cache_key = str(project_root)
+                cached_root = state.root_resolution_cache.get(cache_key)
+                if cached_root is None:
+                    resolved_root = project_root.resolve()
+                    resolved_root_key = str(resolved_root)
+                    cached_root = (resolved_root, resolved_root_key)
+                    state.root_resolution_cache[cache_key] = cached_root
+                effective_root, effective_root_key = cached_root
+            now = _current_deadline_mark()
+            delta = max(0, now - state.last_ns)
+            state.last_ns = now
+            state.last_wall_ns = _SYSTEM_CLOCK.get_mark()
+            state.checks_total += 1
+            state.sample_pending_checks += 1
+            state.sample_pending_elapsed_ns += delta
+            sample_interval = max(1, state.sample_interval)
+            if state.sample_pending_checks >= sample_interval:
+                sampled_checks = state.sample_pending_checks
+                sampled_elapsed_ns = state.sample_pending_elapsed_ns
+                state.sample_pending_checks = 0
+                state.sample_pending_elapsed_ns = 0
+                state.sampled_checks_total += sampled_checks
+                frame_cache_key = (caller_frame.f_code, effective_root_key)
+                site_id = state.frame_site_cache.get(frame_cache_key)
+                if site_id is None:
+                    site_key = profile_site_key_fn(
+                        caller_frame,
+                        project_root=effective_root,
+                    )
+                    site_id = state.site_ids.get(site_key)
+                    if site_id is None:
+                        site_id = len(state.site_keys)
+                        state.site_ids[site_key] = site_id
+                        state.site_keys.append(site_key)
+                    state.frame_site_cache[frame_cache_key] = site_id
+                stats = state.site_stats.setdefault(site_id, _DeadlineSiteStats())
+                stats.checks += sampled_checks
+                stats.elapsed_ns += sampled_elapsed_ns
+                if sampled_elapsed_ns > stats.max_gap_ns:
+                    stats.max_gap_ns = sampled_elapsed_ns
+                if state.last_site_id is None:
+                    state.unattributed_elapsed_ns += sampled_elapsed_ns
+                else:
+                    edge_key = (state.last_site_id, site_id)
+                    edge_stats = state.edge_stats.setdefault(edge_key, _DeadlineEdgeStats())
+                    edge_stats.transitions += 1
+                    edge_stats.elapsed_ns += sampled_elapsed_ns
+                    if sampled_elapsed_ns > edge_stats.max_gap_ns:
+                        edge_stats.max_gap_ns = sampled_elapsed_ns
+                state.last_site_id = site_id
 
 
 def _deadline_profile_snapshot():
     state = _deadline_profile_var.get()
-    if state is None:
-        return None
-    if not state.enabled:
-        return None
+    if state is None or not state.enabled:
+        return _NO_DEADLINE_PROFILE_SNAPSHOT
     wall_total_elapsed_ns = max(0, state.last_wall_ns - state.started_wall_ns)
     clock = _deadline_clock_var.get()
     ticks_consumed = None
     ticks_per_ns = None
-    if isinstance(clock, GasMeter):
-        ticks_consumed = int(clock.get_mark())
-        if wall_total_elapsed_ns > 0:
-            ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
+    match clock:
+        case GasMeter() as gas_clock:
+            ticks_consumed = int(gas_clock.get_mark())
+            if wall_total_elapsed_ns > 0:
+                ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
+        case _:
+            pass
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
     for site_id, stats in sort_once(
@@ -526,18 +536,29 @@ def _timeout_progress_snapshot(
 ) -> dict[str, JSONValue]:
     checks_total = 0
     site_count = 0
-    if isinstance(deadline_profile, Mapping):
-        checks_total = int(deadline_profile.get("checks_total", 0) or 0)
-        sites = deadline_profile.get("sites")
-        if isinstance(sites, list):
-            site_count = len(sites)
+    match deadline_profile:
+        case Mapping() as profile_map:
+            checks_total = int(profile_map.get("checks_total", 0) or 0)
+            match profile_map.get("sites"):
+                case list() as site_rows:
+                    site_count = len(site_rows)
+                case _:
+                    pass
+        case _:
+            pass
     forest_nodes = len(forest.nodes)
     forest_alts = len(forest.alts)
     ticks_per_ns = None
-    if isinstance(deadline_profile, Mapping):
-        profile_ticks_per_ns = deadline_profile.get("ticks_per_ns")
-        if isinstance(profile_ticks_per_ns, (int, float)):
-            ticks_per_ns = float(profile_ticks_per_ns)
+    match deadline_profile:
+        case Mapping() as profile_map:
+            profile_ticks_per_ns = profile_map.get("ticks_per_ns")
+            match profile_ticks_per_ns:
+                case int() | float():
+                    ticks_per_ns = float(profile_ticks_per_ns)
+                case _:
+                    pass
+        case _:
+            pass
     progressed = (
         (forest_nodes + forest_alts) > 0
         or checks_total >= _TIMEOUT_PROGRESS_CHECKS_FLOOR
@@ -552,9 +573,12 @@ def _timeout_progress_snapshot(
     tick_mark = int(clock.get_mark())
     tick_limit = None
     ticks_remaining = None
-    if isinstance(clock, GasMeter):
-        tick_limit = int(clock.limit)
-        ticks_remaining = max(0, tick_limit - tick_mark)
+    match clock:
+        case GasMeter() as gas_clock:
+            tick_limit = int(gas_clock.limit)
+            ticks_remaining = max(0, tick_limit - tick_mark)
+        case _:
+            pass
     return {
         "classification": classification,
         "retry_recommended": progressed,
@@ -587,8 +611,11 @@ def render_deadline_profile_markdown(
     lines.append(f"- wall_total_elapsed_ns: `{wall_total_elapsed_ns}`")
     if ticks_consumed is not None:
         lines.append(f"- ticks_consumed: `{int(ticks_consumed)}`")
-    if isinstance(ticks_per_ns, (int, float)):
-        lines.append(f"- ticks_per_ns: `{ticks_per_ns:.9f}`")
+    match ticks_per_ns:
+        case int() | float():
+            lines.append(f"- ticks_per_ns: `{ticks_per_ns:.9f}`")
+        case _:
+            pass
     lines.append(f"- unattributed_elapsed_ns: `{unattributed_ns}`")
     lines.append("")
     lines.append("## Site Heat")
@@ -596,63 +623,80 @@ def render_deadline_profile_markdown(
     lines.append("| path | qual | checks | elapsed_ns | max_gap_ns |")
     lines.append("| --- | --- | ---: | ---: | ---: |")
     sites = profile.get("sites", [])
-    if isinstance(sites, list):
-        for row in sites[:max_rows]:
-            if not isinstance(row, Mapping):
-                continue
-            lines.append(
-                "| {path} | {qual} | {checks} | {elapsed} | {gap} |".format(
-                    path=str(row.get("path", "") or ""),
-                    qual=str(row.get("qual", "") or ""),
-                    checks=int(row.get("check_count", 0) or 0),
-                    elapsed=int(row.get("elapsed_between_checks_ns", 0) or 0),
-                    gap=int(row.get("max_gap_ns", 0) or 0),
-                )
-            )
-        if len(sites) > max_rows:
-            lines.append(f"| ... | ... | ... | ... | ... |")
+    match sites:
+        case list() as site_rows:
+            for row in site_rows[:max_rows]:
+                match row:
+                    case Mapping() as row_map:
+                        lines.append(
+                            "| {path} | {qual} | {checks} | {elapsed} | {gap} |".format(
+                                path=str(row_map.get("path", "") or ""),
+                                qual=str(row_map.get("qual", "") or ""),
+                                checks=int(row_map.get("check_count", 0) or 0),
+                                elapsed=int(
+                                    row_map.get("elapsed_between_checks_ns", 0) or 0
+                                ),
+                                gap=int(row_map.get("max_gap_ns", 0) or 0),
+                            )
+                        )
+                    case _:
+                        pass
+            if len(site_rows) > max_rows:
+                lines.append("| ... | ... | ... | ... | ... |")
+        case _:
+            pass
     lines.append("")
     lines.append("## Transition Heat")
     lines.append("")
     lines.append("| from | to | transitions | elapsed_ns | max_gap_ns |")
     lines.append("| --- | --- | ---: | ---: | ---: |")
     edges = profile.get("edges", [])
-    if isinstance(edges, list):
-        for row in edges[:max_rows]:
-            if not isinstance(row, Mapping):
-                continue
-            lines.append(
-                "| {source} | {target} | {count} | {elapsed} | {gap} |".format(
-                    source=f"{str(row.get('from_path', '') or '')}:{str(row.get('from_qual', '') or '')}",
-                    target=f"{str(row.get('to_path', '') or '')}:{str(row.get('to_qual', '') or '')}",
-                    count=int(row.get("transition_count", 0) or 0),
-                    elapsed=int(row.get("elapsed_ns", 0) or 0),
-                    gap=int(row.get("max_gap_ns", 0) or 0),
-                )
-            )
-        if len(edges) > max_rows:
-            lines.append(f"| ... | ... | ... | ... | ... |")
+    match edges:
+        case list() as edge_rows:
+            for row in edge_rows[:max_rows]:
+                match row:
+                    case Mapping() as row_map:
+                        lines.append(
+                            "| {source} | {target} | {count} | {elapsed} | {gap} |".format(
+                                source=f"{str(row_map.get('from_path', '') or '')}:{str(row_map.get('from_qual', '') or '')}",
+                                target=f"{str(row_map.get('to_path', '') or '')}:{str(row_map.get('to_qual', '') or '')}",
+                                count=int(row_map.get("transition_count", 0) or 0),
+                                elapsed=int(row_map.get("elapsed_ns", 0) or 0),
+                                gap=int(row_map.get("max_gap_ns", 0) or 0),
+                            )
+                        )
+                    case _:
+                        pass
+            if len(edge_rows) > max_rows:
+                lines.append("| ... | ... | ... | ... | ... |")
+        case _:
+            pass
     lines.append("")
     lines.append("## I/O Heat")
     lines.append("")
     lines.append("| io | events | elapsed_ns | max_event_ns | bytes_total |")
     lines.append("| --- | ---: | ---: | ---: | ---: |")
     io_rows = profile.get("io", [])
-    if isinstance(io_rows, list):
-        for row in io_rows[:max_rows]:
-            if not isinstance(row, Mapping):
-                continue
-            lines.append(
-                "| {name} | {events} | {elapsed} | {max_event} | {bytes_total} |".format(
-                    name=str(row.get("name", "") or ""),
-                    events=int(row.get("event_count", 0) or 0),
-                    elapsed=int(row.get("elapsed_ns", 0) or 0),
-                    max_event=int(row.get("max_event_ns", 0) or 0),
-                    bytes_total=int(row.get("bytes_total", 0) or 0),
-                )
-            )
-        if len(io_rows) > max_rows:
-            lines.append("| ... | ... | ... | ... | ... |")
+    match io_rows:
+        case list() as deadline_io_rows:
+            for row in deadline_io_rows[:max_rows]:
+                match row:
+                    case Mapping() as row_map:
+                        lines.append(
+                            "| {name} | {events} | {elapsed} | {max_event} | {bytes_total} |".format(
+                                name=str(row_map.get("name", "") or ""),
+                                events=int(row_map.get("event_count", 0) or 0),
+                                elapsed=int(row_map.get("elapsed_ns", 0) or 0),
+                                max_event=int(row_map.get("max_event_ns", 0) or 0),
+                                bytes_total=int(row_map.get("bytes_total", 0) or 0),
+                            )
+                        )
+                    case _:
+                        pass
+            if len(deadline_io_rows) > max_rows:
+                lines.append("| ... | ... | ... | ... | ... |")
+        case _:
+            pass
     lines.append("")
     return "\n".join(lines)
 
@@ -664,16 +708,15 @@ def record_deadline_io(
     bytes_count = None,
 ) -> None:
     state = _deadline_profile_var.get()
-    if state is None or not state.enabled:
-        return
-    safe_elapsed_ns = max(0, int(elapsed_ns))
-    safe_bytes_count = max(0, int(bytes_count)) if bytes_count is not None else 0
-    stats = state.io_stats.setdefault(name, _DeadlineIoStats())
-    stats.events += 1
-    stats.elapsed_ns += safe_elapsed_ns
-    stats.bytes_total += safe_bytes_count
-    if safe_elapsed_ns > stats.max_event_ns:
-        stats.max_event_ns = safe_elapsed_ns
+    if state is not None and state.enabled:
+        safe_elapsed_ns = max(0, int(elapsed_ns))
+        safe_bytes_count = max(0, int(bytes_count)) if bytes_count is not None else 0
+        stats = state.io_stats.setdefault(name, _DeadlineIoStats())
+        stats.events += 1
+        stats.elapsed_ns += safe_elapsed_ns
+        stats.bytes_total += safe_bytes_count
+        if safe_elapsed_ns > stats.max_event_ns:
+            stats.max_event_ns = safe_elapsed_ns
 
 
 def check_deadline(
@@ -793,33 +836,38 @@ def _function_site(
 
 
 def _site_part_from_payload(value: object) -> object:
-    if isinstance(value, _FileSite):
-        return value
-    if isinstance(value, Mapping):
-        kind = str(value.get("kind", "") or "")
-        key_payload = value.get("key")
-        if kind == "FileSite" and isinstance(key_payload, list) and len(key_payload) == 1:
-            path = key_payload[0]
-            if isinstance(path, str):
-                return _FileSite(path)
-        never("invalid site key mapping payload", payload_kind=kind)
-    if isinstance(value, list):
-        return tuple(_site_part_from_payload(part) for part in value)
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    never("invalid site key payload value", value_type=type(value).__name__)
-    return value  # pragma: no cover - never() raises
+    match value:
+        case _FileSite():
+            return value
+        case Mapping() as mapping_value:
+            kind = str(mapping_value.get("kind", "") or "")
+            key_payload = mapping_value.get("key")
+            match (kind, key_payload):
+                case ("FileSite", [str() as path]):
+                    return _FileSite(path)
+                case _:
+                    never("invalid site key mapping payload", payload_kind=kind)
+                    return mapping_value  # pragma: no cover - never() raises
+        case list() as payload_list:
+            return tuple(_site_part_from_payload(part) for part in payload_list)
+        case None | str() | int() | float() | bool():
+            return value
+        case _:
+            never("invalid site key payload value", value_type=type(value).__name__)
+            return value  # pragma: no cover - never() raises
 
 
 def _site_part_to_payload(value: object) -> JSONValue:
-    if isinstance(value, _FileSite):
-        return value.as_payload()
-    if isinstance(value, tuple):
-        return [_site_part_to_payload(part) for part in value]
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    never("invalid site key value", value_type=type(value).__name__)
-    return None  # pragma: no cover - never() raises
+    match value:
+        case _FileSite() as file_site:
+            return file_site.as_payload()
+        case tuple() as key_tuple:
+            return [_site_part_to_payload(part) for part in key_tuple]
+        case None | str() | int() | float() | bool():
+            return value
+        case _:
+            never("invalid site key value", value_type=type(value).__name__)
+            return _NO_DEADLINE_PROFILE_SNAPSHOT  # pragma: no cover - never() raises
 
 
 def build_site_index(
@@ -839,7 +887,11 @@ def build_site_index(
         if not path or not qual:
             continue
         span = node.meta.get("span")
-        span_list = list(span) if isinstance(span, list) else None
+        match span:
+            case list() as span_values:
+                span_list = list(span_values)
+            case _:
+                span_list = None
         index.setdefault(
             (path, qual),
             _function_site(path=path, qual=qual, span=span_list),
@@ -852,7 +904,11 @@ def pack_call_stack(
 ) -> PackedCallStack:
     normalized: list[_CallSite] = []
     for site in sites:
-        payload = site if isinstance(site, _CallSite) else _normalize_site_payload(site)
+        match site:
+            case _CallSite() as payload:
+                pass
+            case _:
+                payload = _normalize_site_payload(site)
         normalized.append(payload)
     unique: dict[tuple[str, tuple[object, ...]], _InternedCallSite] = {}
     for entry in normalized:
@@ -885,37 +941,48 @@ def _normalize_site_payload(
 ) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
-    if isinstance(key_payload, list) and key_payload:
-        key = [value for value in key_payload]
-        if (
-            len(key) >= 2
-            and isinstance(key[0], str)
-            and isinstance(key[1], str)
-        ):
-            key = [_FileSite(key[0]), key[1], *key[2:]]
-        key_tuple = tuple(_site_part_from_payload(value) for value in key)
-        return _CallSite(
-            kind=kind,
-            key=key_tuple,
-        )
+    match key_payload:
+        case list() as key_entries if key_entries:
+            key = [value for value in key_entries]
+            if len(key) >= 2:
+                first = key[0]
+                second = key[1]
+                match (first, second):
+                    case (str() as path_value, str() as qual_value):
+                        key = [_FileSite(path_value), qual_value, *key[2:]]
+                    case _:
+                        pass
+            key_tuple = tuple(_site_part_from_payload(value) for value in key)
+            return _CallSite(
+                kind=kind,
+                key=key_tuple,
+            )
+        case _:
+            pass
     path = str(site.get("path", "") or "")
     qual = str(site.get("qual", "") or "")
     if not path or not qual:
         never("site payload missing path/qual", site=dict(site))
     span = site.get("span")
-    span_list = list(span) if isinstance(span, list) else None
+    match span:
+        case list() as span_values:
+            span_list = list(span_values)
+        case _:
+            span_list = None
     return _function_site(path=path, qual=qual, span=span_list)
 
 
 def _freeze_value(value: object) -> object:
-    if isinstance(value, _FileSite):
-        return ("FileSite", value.path)
-    if isinstance(value, tuple):
-        return ("tuple", tuple(_freeze_value(item) for item in value))
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return ("atom", value)
-    never("invalid site key value for freezing", value_type=type(value).__name__)
-    return value  # pragma: no cover - never() raises
+    match value:
+        case _FileSite() as file_site:
+            return ("FileSite", file_site.path)
+        case tuple() as key_tuple:
+            return ("tuple", tuple(_freeze_value(item) for item in key_tuple))
+        case None | str() | int() | float() | bool():
+            return ("atom", value)
+        case _:
+            never("invalid site key value for freezing", value_type=type(value).__name__)
+            return value  # pragma: no cover - never() raises
 
 
 def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
