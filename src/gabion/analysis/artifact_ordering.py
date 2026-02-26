@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
 
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, sort_once
 
 
-def canonical_protocol_specs(protocols: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+def canonical_protocol_specs(
+    protocols: Iterable[Mapping[str, object]],
+) -> list[Mapping[str, object]]:
     """Canonicalize synthesis protocol ordering for markdown emission."""
 
     indexed = list(enumerate(protocols))
 
-    def _key(item: tuple[int, Mapping[str, Any]]) -> tuple[str, str, str, str, int]:
+    def _key(item: tuple[int, Mapping[str, object]]) -> tuple[str, str, str, str, int]:
         index, spec = item
         name = str(spec.get("name", ""))
         tier = str(spec.get("tier", ""))
@@ -42,13 +44,12 @@ def canonical_field_display_parts(fields: Iterable[object]) -> list[str]:
     parts: list[str] = []
     for field in fields:
         check_deadline()
-        if not isinstance(field, Mapping):
-            continue
-        fname = str(field.get("name", "")).strip()
-        if not fname:
-            continue
-        type_hint = str(field.get("type_hint") or "Any")
-        parts.append(f"{fname}: {type_hint}")
+        field_map = mapping_or_none(field)
+        if field_map is not None:
+            fname = str(field_map.get("name", "")).strip()
+            if fname:
+                type_hint = str(field_map.get("type_hint") or "Any")
+                parts.append(f"{fname}: {type_hint}")
     return parts
 
 
@@ -70,7 +71,13 @@ def canonical_count_summary_items(counts: Mapping[str, int]) -> list[tuple[str, 
 
 
 def canonical_doc_scope(scope: Iterable[str]) -> list[str]:
-    cleaned = [entry.strip() for entry in scope if isinstance(entry, str) and entry.strip()]
+    cleaned: list[str] = []
+    for entry in scope:
+        match entry:
+            case str() as entry_text if entry_text.strip():
+                cleaned.append(entry_text.strip())
+            case _:
+                pass
     if not cleaned:
         return ["repo", "artifacts"]
     return sort_once(
@@ -80,7 +87,7 @@ def canonical_doc_scope(scope: Iterable[str]) -> list[str]:
     )
 
 
-def canonical_mapping_keys(mapping: Mapping[str, Any]) -> list[str]:
+def canonical_mapping_keys(mapping: Mapping[str, object]) -> list[str]:
     return sort_once(
         (str(key) for key in mapping.keys()),
         source="artifact_ordering.canonical_mapping_keys",
