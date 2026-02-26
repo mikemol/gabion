@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import libcst as cst
 
@@ -222,16 +223,25 @@ def _module_name(path: Path, project_root) -> str:
 
 
 def _is_docstring(stmt: cst.CSTNode) -> bool:
-    if not isinstance(stmt, cst.SimpleStatementLine) or not stmt.body:
-        return False
-    expr = stmt.body[0]
-    return isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString)
+    if type(stmt) is cst.SimpleStatementLine:
+        line = cast(cst.SimpleStatementLine, stmt)
+        if line.body:
+            expr = line.body[0]
+            if type(expr) is cst.Expr:
+                value = cast(cst.Expr, expr).value
+                return type(value) is cst.SimpleString
+    return False
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:
-    if not isinstance(stmt, cst.SimpleStatementLine):
-        return False
-    return any(isinstance(item, (cst.Import, cst.ImportFrom)) for item in stmt.body)
+    if type(stmt) is cst.SimpleStatementLine:
+        line = cast(cst.SimpleStatementLine, stmt)
+        for item in line.body:
+            check_deadline()
+            item_type = type(item)
+            if item_type is cst.Import or item_type is cst.ImportFrom:
+                return True
+    return False
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
@@ -247,19 +257,18 @@ def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
 
 def _module_expr_to_str(expr):
     check_deadline()
-    if expr is None:
-        return None
-    if isinstance(expr, cst.Name):
-        return expr.value
-    if isinstance(expr, cst.Attribute):
+    if type(expr) is cst.Name:
+        return cast(cst.Name, expr).value
+    if type(expr) is cst.Attribute:
         parts = []
         current = expr
-        while isinstance(current, cst.Attribute):
+        while type(current) is cst.Attribute:
             check_deadline()
-            parts.append(current.attr.value)
-            current = current.value
-        if isinstance(current, cst.Name):
-            parts.append(current.value)
+            current_attr = cast(cst.Attribute, current)
+            parts.append(current_attr.attr.value)
+            current = current_attr.value
+        if type(current) is cst.Name:
+            parts.append(cast(cst.Name, current).value)
         if parts:
             return ".".join(reversed(parts))
     return None  # pragma: no cover
@@ -269,21 +278,22 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                        if alias.name.value == "typing":
-                            return True
-                    if isinstance(alias, cst.ImportAlias) and isinstance(
-                        alias.name, cst.Attribute
-                    ):
-                        if _module_expr_to_str(alias.name) == "typing":
-                            return True  # pragma: no cover
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        if type(alias) is cst.ImportAlias:
+                            import_alias = cast(cst.ImportAlias, alias)
+                            if type(import_alias.name) is cst.Name:
+                                if cast(cst.Name, import_alias.name).value == "typing":
+                                    return True
+                            elif type(import_alias.name) is cst.Attribute:
+                                if _module_expr_to_str(import_alias.name) == "typing":
+                                    return True  # pragma: no cover
     return False
 
 
@@ -291,22 +301,22 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            module = _module_expr_to_str(item.module)
-            if module != "typing":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
                 check_deadline()
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "Protocol":
-                        return True
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module == "typing" and isinstance(names, Sequence):
+                        for alias in names:
+                            check_deadline()
+                            if type(alias) is cst.ImportAlias:
+                                alias_name = cast(cst.ImportAlias, alias).name
+                                if type(alias_name) is cst.Name:
+                                    if cast(cst.Name, alias_name).value == "Protocol":
+                                        return True
     return False
 
 
@@ -314,22 +324,22 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            module = _module_expr_to_str(item.module)
-            if module != "typing":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
                 check_deadline()
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "overload":
-                        return True
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module == "typing" and isinstance(names, Sequence):
+                        for alias in names:
+                            check_deadline()
+                            if type(alias) is cst.ImportAlias:
+                                alias_name = cast(cst.ImportAlias, alias).name
+                                if type(alias_name) is cst.Name:
+                                    if cast(cst.Name, alias_name).value == "overload":
+                                        return True
     return False
 
 
@@ -337,16 +347,19 @@ def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                        if alias.name.value == "warnings":
-                            return True
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        if type(alias) is cst.ImportAlias:
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if type(alias_name) is cst.Name:
+                                if cast(cst.Name, alias_name).value == "warnings":
+                                    return True
     return False
 
 
@@ -391,38 +404,44 @@ def _collect_import_context(
     protocol_alias = None
     for stmt in module.body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if not isinstance(alias, cst.ImportAlias):  # pragma: no cover
-                        continue
-                    module_name = _module_expr_to_str(alias.name)
-                    if not module_name:  # pragma: no cover
-                        continue
-                    if module_name != target_module:
-                        continue
-                    local = alias.asname.name.value if alias.asname else module_name
-                    module_aliases[local] = module_name
-            elif isinstance(item, cst.ImportFrom):
-                module_name = _module_expr_to_str(item.module)
-                if module_name != target_module:
-                    continue
-                if not isinstance(item.names, Sequence):
-                    continue
-                for alias in item.names:
-                    check_deadline()
-                    if not isinstance(alias, cst.ImportAlias):
-                        continue
-                    if not isinstance(alias.name, cst.Name):
-                        continue
-                    local = alias.asname.name.value if alias.asname else alias.name.value
-                    imported_targets[local] = alias.name.value
-                    if alias.name.value == protocol_name:
-                        protocol_alias = local
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                item_type = type(item)
+                if item_type is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        if type(alias) is cst.ImportAlias:  # pragma: no branch
+                            import_alias = cast(cst.ImportAlias, alias)
+                            module_name = _module_expr_to_str(import_alias.name)
+                            if module_name and module_name == target_module:
+                                local = (
+                                    import_alias.asname.name.value
+                                    if import_alias.asname
+                                    else module_name
+                                )
+                                module_aliases[local] = module_name
+                elif item_type is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module_name = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module_name == target_module and isinstance(names, Sequence):
+                        for alias in names:
+                            check_deadline()
+                            if type(alias) is cst.ImportAlias:
+                                import_alias = cast(cst.ImportAlias, alias)
+                                alias_name = import_alias.name
+                                if type(alias_name) is cst.Name:
+                                    local = (
+                                        import_alias.asname.name.value
+                                        if import_alias.asname
+                                        else alias_name.value
+                                    )
+                                    imported_targets[local] = alias_name.value
+                                    if alias_name.value == protocol_name:
+                                        protocol_alias = local
     return module_aliases, imported_targets, protocol_alias
 
 
@@ -499,7 +518,7 @@ def _rewrite_call_sites(
             module_expr = cst.parse_expression(target_module)
         except Exception:  # pragma: no cover
             module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
-        if not isinstance(module_expr, (cst.Name, cst.Attribute)):
+        if type(module_expr) is not cst.Name and type(module_expr) is not cst.Attribute:
             module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
         import_stmt = cst.SimpleStatementLine(
             [
@@ -601,9 +620,9 @@ def _ensure_ambient_scaffolding(
         insert_idx += 1
 
     existing_top_level = {
-        node.name.value
+        cast(cst.FunctionDef, node).name.value
         for node in body
-        if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
+        if type(node) is cst.FunctionDef and type(cast(cst.FunctionDef, node).name) is cst.Name
     }
     for context_name in sort_once(
         context_names,
@@ -639,20 +658,22 @@ def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            if _module_expr_to_str(item.module) != "contextvars":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "ContextVar":
-                        return True
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    names = import_from.names
+                    if _module_expr_to_str(import_from.module) == "contextvars" and isinstance(
+                        names, Sequence
+                    ):
+                        for alias in names:
+                            if type(alias) is cst.ImportAlias:
+                                alias_name = cast(cst.ImportAlias, alias).name
+                                if type(alias_name) is cst.Name:
+                                    if alias_name.value == "ContextVar":
+                                        return True
     return False
 
 
