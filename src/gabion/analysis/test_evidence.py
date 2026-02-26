@@ -50,15 +50,14 @@ def build_test_evidence_payload(
     paths: Iterable[Path],
     *,
     root: Path,
-    include: Iterable[str] | None = None,
-    exclude: Iterable[str] | None = None,
-    root_display: str | None = None,
+    include: Iterable[str] = (),
+    exclude: Iterable[str] = (),
 ) -> dict[str, object]:
     check_deadline()
     root = root.resolve()
     display_root = "."
-    exclude_set = {str(item) for item in (exclude or [])}
-    include_list = [str(item) for item in (include or [])]
+    exclude_set = {str(item) for item in exclude}
+    include_list = [str(item) for item in include]
     files = _collect_test_files(paths, root=root, exclude=exclude_set)
     entries: list[TestEvidence] = []
     for path in files:
@@ -133,12 +132,12 @@ def collect_test_tags(
     paths: Iterable[Path],
     *,
     root: Path,
-    include: Iterable[str] | None = None,
-    exclude: Iterable[str] | None = None,
+    include: Iterable[str] = (),
+    exclude: Iterable[str] = (),
 ) -> list[TestEvidenceTag]:
     check_deadline()
     root = root.resolve()
-    exclude_set = {str(item) for item in (exclude or [])}
+    exclude_set = {str(item) for item in exclude}
     files = _collect_test_files(paths, root=root, exclude=exclude_set)
     entries: list[TestEvidenceTag] = []
     for path in files:

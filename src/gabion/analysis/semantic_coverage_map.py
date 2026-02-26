@@ -42,11 +42,13 @@ def build_semantic_coverage_payload(
 ) -> dict[str, JSONValue]:
     check_deadline()
     entries = load_mapping_entries(mapping_path)
+    include_values = () if include is None else include
+    exclude_values = () if exclude is None else exclude
     tags = test_evidence.collect_test_tags(
         paths,
         root=root,
-        include=include,
-        exclude=exclude,
+        include=include_values,
+        exclude=exclude_values,
     )
     annotation_index = _annotation_index(tags)
     artifact_index = _artifact_evidence_index(evidence_path)
