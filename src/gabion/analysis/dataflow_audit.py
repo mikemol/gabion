@@ -10006,24 +10006,30 @@ def _normalize_key_expr(
     literals, and literal tuples composed from those forms.
     """
     check_deadline()
-    if isinstance(node, ast.Constant) and isinstance(node.value, (str, int)):
-        return ("literal", type(node.value).__name__, node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+    node_type = type(node)
+    if node_type is ast.Constant:
+        value = cast(ast.Constant, node).value
+        value_type = type(value)
+        if value_type in {str, int}:
+            return ("literal", value_type.__name__, value)
+        return None
+    if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) in {ast.USub, ast.UAdd}:
         try:
             value = ast.literal_eval(node)
         except _LITERAL_EVAL_ERROR_TYPES:
             return None
-        if isinstance(value, int):
+        if type(value) is int:
             return ("literal", "int", value)
         return None
-    if isinstance(node, ast.Name):
-        bound = const_bindings.get(node.id)
+    if node_type is ast.Name:
+        bound = const_bindings.get(cast(ast.Name, node).id)
         if bound is None:
             return None
         return _normalize_key_expr(bound, const_bindings=const_bindings)
-    if isinstance(node, ast.Tuple):
+    if node_type is ast.Tuple:
+        tuple_node = cast(ast.Tuple, node)
         items: list[Hashable] = []
-        for elt in node.elts:
+        for elt in tuple_node.elts:
             check_deadline()
             normalized = _normalize_key_expr(elt, const_bindings=const_bindings)
             if normalized is None:
@@ -10040,25 +10046,26 @@ def _type_from_const_repr(value: str) -> str | None:
         return None
     if literal is None:
         return "None"
-    if isinstance(literal, bool):
+    literal_type = type(literal)
+    if literal_type is bool:
         return "bool"
-    if isinstance(literal, int):
+    if literal_type is int:
         return "int"
-    if isinstance(literal, float):
+    if literal_type is float:
         return "float"
-    if isinstance(literal, complex):
+    if literal_type is complex:
         return "complex"
-    if isinstance(literal, str):
+    if literal_type is str:
         return "str"
-    if isinstance(literal, bytes):
+    if literal_type is bytes:
         return "bytes"
-    if isinstance(literal, list):
+    if literal_type is list:
         return "list"
-    if isinstance(literal, tuple):
+    if literal_type is tuple:
         return "tuple"
-    if isinstance(literal, set):
+    if literal_type is set:
         return "set"
-    if isinstance(literal, dict):
+    if literal_type is dict:
         return "dict"
     return None
 
