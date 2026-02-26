@@ -7,6 +7,8 @@ from typing import Mapping
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
+_AUTO_TRANSITION_DELTA = object()
+
 
 def coerce_int(value: object, default: int = 0) -> int:
     try:
@@ -29,11 +31,11 @@ class TransitionPair:
 
 def format_transition(
     pair: TransitionPair,
-    delta: object | None = None,
+    delta: object = _AUTO_TRANSITION_DELTA,
 ) -> str:
     base = coerce_int(pair.baseline, 0)
     curr = coerce_int(pair.current, 0)
-    if delta is None:
+    if delta is _AUTO_TRANSITION_DELTA:
         delta_value = curr - base
     else:
         delta_value = coerce_int(delta, curr - base)
