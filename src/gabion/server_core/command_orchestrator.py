@@ -807,11 +807,7 @@ def _prepare_analysis_resume_state(
     report_path: object,
     include_wl_refinement: bool,
     config: AuditConfig,
-    explicit_resume_checkpoint: bool,
-    emit_checkpoint_intro_timeline: bool,
-    checkpoint_intro_timeline_path: Path,
     report_output_path: Path | None,
-    report_phase_checkpoint_path: Path,
     state: _AnalysisResumePreparationState,
     runtime_state: CommandRuntimeState,
 ) -> tuple[list[Path] | None, JSONObject | None]:
@@ -907,98 +903,6 @@ def _prepare_analysis_resume_state(
                     "current_manifest_digest": state.analysis_resume_input_manifest_digest,
                 },
             )
-        if (
-            collection_resume_payload is None
-            and state.analysis_resume_checkpoint_path is not None
-        ):
-            manifest_resume = execute_deps.load_analysis_resume_checkpoint_manifest_fn(
-                path=state.analysis_resume_checkpoint_path,
-                manifest_digest=state.analysis_resume_input_manifest_digest,
-            )
-            execute_deps.record_1cell_fn(
-                aspf_trace_state,
-                kind="resume_load",
-                source_label="runtime:resume_checkpoint",
-                target_label="analysis:resume_seed",
-                representative=(
-                    "resume_checkpoint_loaded"
-                    if manifest_resume is not None
-                    else "resume_checkpoint_missing"
-                ),
-                basis_path=("resume", "load", "checkpoint"),
-                surface="delta_state",
-                metadata={
-                    "checkpoint_path": str(state.analysis_resume_checkpoint_path),
-                    "manifest_digest": str(state.analysis_resume_input_manifest_digest or ""),
-                },
-            )
-            state.analysis_resume_checkpoint_status = _analysis_resume_checkpoint_compatibility(
-                path=state.analysis_resume_checkpoint_path,
-                manifest_digest=state.analysis_resume_input_manifest_digest,
-            )
-            state.analysis_resume_checkpoint_compatibility_status = (
-                state.analysis_resume_checkpoint_status
-            )
-            if manifest_resume is not None:
-                checkpoint_witness, checkpoint_resume = manifest_resume
-                if checkpoint_witness is not None:
-                    state.analysis_resume_input_witness = checkpoint_witness
-                collection_resume_payload = checkpoint_resume
-                state.analysis_resume_reused_files = _analysis_resume_progress(
-                    collection_resume=checkpoint_resume,
-                    total_files=state.analysis_resume_total_files,
-                )["completed_files"]
-                state.analysis_resume_checkpoint_status = "checkpoint_loaded"
-                state.analysis_resume_source = "resume_checkpoint"
-            if (
-                collection_resume_payload is None
-                and state.analysis_resume_input_manifest_digest is not None
-            ):
-                seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
-                collection_resume_payload = (
-                    execute_deps.build_analysis_collection_resume_seed_fn(
-                        in_progress_paths=seed_paths
-                    )
-                )
-                execute_deps.write_analysis_resume_checkpoint_fn(
-                    path=state.analysis_resume_checkpoint_path,
-                    input_witness=state.analysis_resume_input_witness,
-                    input_manifest_digest=state.analysis_resume_input_manifest_digest,
-                    collection_resume=collection_resume_payload,
-                )
-                execute_deps.record_1cell_fn(
-                    aspf_trace_state,
-                    kind="resume_write",
-                    source_label="analysis:resume_seed",
-                    target_label="runtime:resume_checkpoint",
-                    representative="resume_checkpoint_seeded",
-                    basis_path=("resume", "write", "checkpoint"),
-                    surface="delta_state",
-                    metadata={
-                        "checkpoint_path": str(state.analysis_resume_checkpoint_path),
-                    },
-                )
-                state.analysis_resume_checkpoint_status = "checkpoint_seeded"
-                if emit_checkpoint_intro_timeline:
-                    (
-                        state.analysis_resume_intro_timeline_header,
-                        state.analysis_resume_intro_timeline_row,
-                    ) = _append_checkpoint_intro_timeline_row(
-                        path=checkpoint_intro_timeline_path,
-                        collection_resume=collection_resume_payload,
-                        total_files=state.analysis_resume_total_files,
-                        checkpoint_path=state.analysis_resume_checkpoint_path,
-                        checkpoint_status=state.analysis_resume_checkpoint_status,
-                        checkpoint_reused_files=state.analysis_resume_reused_files,
-                        checkpoint_total_files=state.analysis_resume_total_files,
-                    )
-            if explicit_resume_checkpoint and state.analysis_resume_checkpoint_path is not None:
-                state.analysis_resume_intro_payload = {
-                    "checkpoint_path": str(state.analysis_resume_checkpoint_path),
-                    "status": state.analysis_resume_checkpoint_status or "unknown",
-                    "reused_files": state.analysis_resume_reused_files,
-                    "total_files": state.analysis_resume_total_files,
-                }
         if state.analysis_resume_checkpoint_status is None:
             state.analysis_resume_checkpoint_status = "cold_start"
         if state.analysis_resume_checkpoint_compatibility_status is None:
@@ -1008,22 +912,7 @@ def _prepare_analysis_resume_state(
             manifest_digest=state.analysis_resume_input_manifest_digest,
         )
         if report_output_path is not None:
-            state.phase_checkpoint_state = execute_deps.load_report_phase_checkpoint_fn(
-                path=report_phase_checkpoint_path,
-                witness_digest=state.report_section_witness_digest,
-            )
-            execute_deps.record_1cell_fn(
-                aspf_trace_state,
-                kind="report_phase_load",
-                source_label="runtime:report_phase_checkpoint",
-                target_label="report:projection_state",
-                representative="report_phase_checkpoint_loaded",
-                basis_path=("report", "phase_checkpoint", "load"),
-                metadata={
-                    "checkpoint_path": str(report_phase_checkpoint_path),
-                    "witness_digest": str(state.report_section_witness_digest or ""),
-                },
-            )
+            state.phase_checkpoint_state = {}
     state.last_collection_resume_payload = collection_resume_payload
     if isinstance(collection_resume_payload, Mapping):
         raw_semantic_progress = collection_resume_payload.get("semantic_progress")
@@ -1078,9 +967,6 @@ def _run_analysis_with_progress(
             include_timing=context.profile_enabled,
             analysis_state="analysis_collection_bootstrap",
             classification="resume_checkpoint_detected",
-            resume_checkpoint=context.analysis_resume_intro_payload,
-            checkpoint_intro_timeline_header=context.analysis_resume_intro_timeline_header,
-            checkpoint_intro_timeline_row=context.analysis_resume_intro_timeline_row,
             event_kind="checkpoint",
         )
 
@@ -1145,67 +1031,14 @@ def _run_analysis_with_progress(
             else False
         )
         now_ns = time.monotonic_ns()
-        if (
-            context.analysis_resume_checkpoint_path is not None
-            and context.analysis_resume_input_manifest_digest is not None
-            and (intro_changed or semantic_changed or analysis_index_changed)
+        if intro_changed and context.execute_deps.collection_checkpoint_flush_due_fn(
+            intro_changed=True,
+            remaining_files=collection_progress["remaining_files"],
+            semantic_substantive_progress=semantic_substantive_progress,
+            now_ns=now_ns,
+            last_flush_ns=last_collection_checkpoint_flush_ns,
         ):
-            if context.execute_deps.collection_checkpoint_flush_due_fn(
-                intro_changed=intro_changed,
-                remaining_files=collection_progress["remaining_files"],
-                semantic_substantive_progress=semantic_substantive_progress,
-                now_ns=now_ns,
-                last_flush_ns=last_collection_checkpoint_flush_ns,
-            ):
-                context.execute_deps.write_analysis_resume_checkpoint_fn(
-                    path=context.analysis_resume_checkpoint_path,
-                    input_witness=context.analysis_resume_input_witness,
-                    input_manifest_digest=context.analysis_resume_input_manifest_digest,
-                    collection_resume=persisted_progress_payload,
-                )
-                context.execute_deps.record_1cell_fn(
-                    context.aspf_trace_state,
-                    kind="resume_write",
-                    source_label="analysis:collection_progress",
-                    target_label="runtime:resume_checkpoint",
-                    representative="resume_checkpoint_incremental_write",
-                    basis_path=("resume", "write", "incremental"),
-                    surface="delta_state",
-                    metadata={
-                        "checkpoint_path": str(context.analysis_resume_checkpoint_path),
-                    },
-                )
-                last_collection_checkpoint_flush_ns = now_ns
-                checkpoint_timeline_header: str | None = None
-                checkpoint_timeline_row: str | None = None
-                if context.emit_checkpoint_intro_timeline:
-                    (
-                        checkpoint_timeline_header,
-                        checkpoint_timeline_row,
-                    ) = _append_checkpoint_intro_timeline_row(
-                        path=context.checkpoint_intro_timeline_path,
-                        collection_resume=persisted_progress_payload,
-                        total_files=context.analysis_resume_total_files,
-                        checkpoint_path=context.analysis_resume_checkpoint_path,
-                        checkpoint_status=context.analysis_resume_checkpoint_status,
-                        checkpoint_reused_files=context.analysis_resume_reused_files,
-                        checkpoint_total_files=context.analysis_resume_total_files,
-                    )
-                if checkpoint_timeline_row is not None:
-                    context.emit_lsp_progress_fn(
-                        phase="collection",
-                        collection_progress=collection_progress,
-                        semantic_progress=semantic_progress,
-                        work_done=collection_progress.get("completed_files"),
-                        work_total=collection_progress.get("total_files"),
-                        include_timing=context.profile_enabled,
-                        analysis_state="analysis_collection_checkpoint_serialized",
-                        classification="checkpoint_serialized",
-                        resume_checkpoint=context.analysis_resume_intro_payload,
-                        checkpoint_intro_timeline_header=checkpoint_timeline_header,
-                        checkpoint_intro_timeline_row=checkpoint_timeline_row,
-                        event_kind="checkpoint",
-                    )
+            last_collection_checkpoint_flush_ns = now_ns
         last_collection_semantic_witness_digest = semantic_witness_digest
         last_analysis_index_resume_signature = analysis_index_signature
         if not intro_changed:
@@ -1289,11 +1122,6 @@ def _run_analysis_with_progress(
             "total_files": collection_progress["total_files"],
             "section_ids": sort_once(sections, source="src/gabion/server.py:4603"),
         }
-        _write_report_phase_checkpoint(
-            path=context.report_phase_checkpoint_path,
-            witness_digest=context.report_section_witness_digest,
-            phases=context.phase_checkpoint_state,
-        )
 
     def _projection_phase_signature(
         phase: Literal["collection", "forest", "edge", "post"],
@@ -1444,11 +1272,6 @@ def _run_analysis_with_progress(
             "section_ids": sort_once(sections, source="src/gabion/server.py:4748"),
             "resolved_sections": len(sections),
         }
-        _write_report_phase_checkpoint(
-            path=context.report_phase_checkpoint_path,
-            witness_digest=context.report_section_witness_digest,
-            phases=context.phase_checkpoint_state,
-        )
         context.profiling_stage_ns["server.projection_emit"] += (
             time.monotonic_ns() - projection_started_ns
         )
@@ -1621,9 +1444,6 @@ def _create_progress_emitter(
         done: bool = False,
         analysis_state: str | None = None,
         classification: str | None = None,
-        resume_checkpoint: Mapping[str, JSONValue] | None = None,
-        checkpoint_intro_timeline_header: str | None = None,
-        checkpoint_intro_timeline_row: str | None = None,
         phase_progress_v2: Mapping[str, JSONValue] | None = None,
         progress_marker: str | None = None,
         event_kind: Literal["progress", "heartbeat", "terminal", "checkpoint"] = "progress",
@@ -1691,24 +1511,6 @@ def _create_progress_emitter(
             progress_value["analysis_state"] = analysis_state
         if isinstance(classification, str) and classification:
             progress_value["classification"] = classification
-        if isinstance(resume_checkpoint, Mapping):
-            progress_value["resume_checkpoint"] = {
-                str(key): resume_checkpoint[key] for key in resume_checkpoint
-            }
-        if (
-            isinstance(checkpoint_intro_timeline_header, str)
-            and checkpoint_intro_timeline_header
-        ):
-            progress_value["checkpoint_intro_timeline_header"] = (
-                checkpoint_intro_timeline_header
-            )
-        if (
-            isinstance(checkpoint_intro_timeline_row, str)
-            and checkpoint_intro_timeline_row
-        ):
-            progress_value["checkpoint_intro_timeline_row"] = (
-                checkpoint_intro_timeline_row
-            )
         now_ns = time.monotonic_ns()
         with progress_state_lock:
             progress_event_seq += 1
@@ -1760,13 +1562,6 @@ def _create_progress_emitter(
                     "include_timing": include_timing,
                     "analysis_state": analysis_state,
                     "classification": classification,
-                    "resume_checkpoint": (
-                        {str(key): resume_checkpoint[key] for key in resume_checkpoint}
-                        if isinstance(resume_checkpoint, Mapping)
-                        else None
-                    ),
-                    "checkpoint_intro_timeline_header": checkpoint_intro_timeline_header,
-                    "checkpoint_intro_timeline_row": checkpoint_intro_timeline_row,
                     "phase_progress_v2": {
                         str(key): normalized_phase_progress_v2[key]
                         for key in normalized_phase_progress_v2
@@ -1833,18 +1628,6 @@ def _create_progress_emitter(
                         done=False,
                         analysis_state=cast(str | None, template.get("analysis_state")),
                         classification=cast(str | None, template.get("classification")),
-                        resume_checkpoint=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("resume_checkpoint"),
-                        ),
-                        checkpoint_intro_timeline_header=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_header"),
-                        ),
-                        checkpoint_intro_timeline_row=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_row"),
-                        ),
                         phase_progress_v2=cast(
                             Mapping[str, JSONValue] | None,
                             template.get("phase_progress_v2"),
@@ -1876,18 +1659,6 @@ def _create_progress_emitter(
                         done=False,
                         analysis_state=cast(str | None, template.get("analysis_state")),
                         classification=cast(str | None, template.get("classification")),
-                        resume_checkpoint=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("resume_checkpoint"),
-                        ),
-                        checkpoint_intro_timeline_header=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_header"),
-                        ),
-                        checkpoint_intro_timeline_row=cast(
-                            str | None,
-                            template.get("checkpoint_intro_timeline_row"),
-                        ),
                         phase_progress_v2=cast(
                             Mapping[str, JSONValue] | None,
                             template.get("phase_progress_v2"),
@@ -2298,73 +2069,12 @@ def _persist_timeout_resume_checkpoint(
     mark_cleanup_timeout_fn: Callable[[str], None],
     emit_lsp_progress_fn: object,
 ) -> JSONObject | None:
-    if not (
-        context.analysis_resume_checkpoint_path is not None
-        and context.analysis_resume_input_manifest_digest is not None
-        and isinstance(context.last_collection_resume_payload, Mapping)
-    ):
-        return timeout_collection_resume_payload
-    try:
-        latest_collection_resume_payload: JSONObject = {
+    _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
+    if isinstance(context.last_collection_resume_payload, Mapping):
+        return {
             str(key): context.last_collection_resume_payload[key]
             for key in context.last_collection_resume_payload
         }
-        context.execute_deps.write_analysis_resume_checkpoint_fn(
-            path=context.analysis_resume_checkpoint_path,
-            input_witness=context.analysis_resume_input_witness,
-            input_manifest_digest=context.analysis_resume_input_manifest_digest,
-            collection_resume=latest_collection_resume_payload,
-        )
-        timeout_collection_resume_payload = latest_collection_resume_payload
-        checkpoint_timeline_header: str | None = None
-        checkpoint_timeline_row: str | None = None
-        if context.emit_checkpoint_intro_timeline:
-            (
-                checkpoint_timeline_header,
-                checkpoint_timeline_row,
-            ) = _append_checkpoint_intro_timeline_row(
-                path=context.checkpoint_intro_timeline_path,
-                collection_resume=latest_collection_resume_payload,
-                total_files=context.analysis_resume_total_files,
-                checkpoint_path=context.analysis_resume_checkpoint_path,
-                checkpoint_status=context.analysis_resume_checkpoint_status,
-                checkpoint_reused_files=context.analysis_resume_reused_files,
-                checkpoint_total_files=context.analysis_resume_total_files,
-            )
-        if checkpoint_timeline_row is not None and callable(emit_lsp_progress_fn):
-            timeout_resume_progress = _analysis_resume_progress(
-                collection_resume=latest_collection_resume_payload,
-                total_files=context.analysis_resume_total_files,
-            )
-            timeout_semantic_progress = latest_collection_resume_payload.get(
-                "semantic_progress"
-            )
-            timeout_resume_checkpoint_payload: JSONObject = {
-                "checkpoint_path": str(context.analysis_resume_checkpoint_path),
-                "status": context.analysis_resume_checkpoint_status or "unknown",
-                "reused_files": context.analysis_resume_reused_files,
-                "total_files": context.analysis_resume_total_files,
-            }
-            emit_lsp_progress_fn(
-                phase="collection",
-                collection_progress=timeout_resume_progress,
-                semantic_progress=(
-                    timeout_semantic_progress
-                    if isinstance(timeout_semantic_progress, Mapping)
-                    else None
-                ),
-                work_done=timeout_resume_progress.get("completed_files"),
-                work_total=timeout_resume_progress.get("total_files"),
-                include_timing=context.profile_enabled,
-                analysis_state="analysis_collection_checkpoint_serialized",
-                classification="checkpoint_serialized",
-                resume_checkpoint=timeout_resume_checkpoint_payload,
-                checkpoint_intro_timeline_header=checkpoint_timeline_header,
-                checkpoint_intro_timeline_row=checkpoint_timeline_row,
-                event_kind="checkpoint",
-            )
-    except TimeoutExceeded:
-        mark_cleanup_timeout_fn("write_analysis_resume_checkpoint")
     return timeout_collection_resume_payload
 
 
@@ -2375,27 +2085,15 @@ def _load_timeout_resume_progress(
     timeout_collection_resume_payload: JSONObject | None,
     mark_cleanup_timeout_fn: Callable[[str], None],
 ) -> JSONObject | None:
-    if context.analysis_resume_checkpoint_path is None:
-        return timeout_collection_resume_payload
     try:
-        collection_resume: JSONObject | None = None
-        resume_input_witness: JSONObject | None = context.analysis_resume_input_witness
-        if timeout_collection_resume_payload is not None:
-            collection_resume = timeout_collection_resume_payload
-        elif context.analysis_resume_input_witness is not None:
-            collection_resume = context.execute_deps.load_analysis_resume_checkpoint_fn(
-                path=context.analysis_resume_checkpoint_path,
-                input_witness=context.analysis_resume_input_witness,
-            )
-        elif context.analysis_resume_input_manifest_digest is not None:
-            manifest_resume = (
-                context.execute_deps.load_analysis_resume_checkpoint_manifest_fn(
-                    path=context.analysis_resume_checkpoint_path,
-                    manifest_digest=context.analysis_resume_input_manifest_digest,
-                )
-            )
-            if manifest_resume is not None:
-                resume_input_witness, collection_resume = manifest_resume
+        collection_resume: JSONObject | None = timeout_collection_resume_payload
+        if collection_resume is None and isinstance(
+            context.last_collection_resume_payload, Mapping
+        ):
+            collection_resume = {
+                str(key): context.last_collection_resume_payload[key]
+                for key in context.last_collection_resume_payload
+            }
         if collection_resume is None:
             return timeout_collection_resume_payload
         timeout_collection_resume_payload = collection_resume
@@ -2423,26 +2121,16 @@ def _load_timeout_resume_progress(
                 True: True,
                 False: False,
             }.get(raw_semantic_substantive)
-        witness_digest = (
-            resume_input_witness.get("witness_digest")
-            if resume_input_witness is not None
-            else None
-        )
-        if not isinstance(witness_digest, str):
-            witness_digest = None
         resume_token: JSONObject = {
             "phase": "analysis_collection",
-            "checkpoint_path": str(context.analysis_resume_checkpoint_path),
             "carrier_refs": {
                 "collection_resume": True,
             },
             **resume_progress,
         }
-        if witness_digest is not None:
-            resume_token["witness_digest"] = witness_digest
         resume_payload: JSONObject = {"resume_token": resume_token}
-        if resume_input_witness is not None:
-            resume_payload["input_witness"] = resume_input_witness
+        if context.analysis_resume_input_witness is not None:
+            resume_payload["input_witness"] = context.analysis_resume_input_witness
         progress_payload["resume"] = resume_payload
         classification = progress_payload.get("classification")
         if (
@@ -2455,12 +2143,6 @@ def _load_timeout_resume_progress(
             )
         ):
             progress_payload["classification"] = "timed_out_progress_resume"
-        elif (
-            (not resume_supported or semantic_substantive_progress is False)
-            and isinstance(classification, str)
-            and classification == "timed_out_progress_resume"
-        ):
-            progress_payload["classification"] = "timed_out_no_progress"
     except TimeoutExceeded:
         mark_cleanup_timeout_fn("load_resume_progress")
     return timeout_collection_resume_payload
@@ -2490,13 +2172,7 @@ def _render_timeout_partial_report(
     pending_reasons: dict[str, str] = {}
     if context.report_output_path is not None and context.projection_rows:
         try:
-            loaded_phase_checkpoint_state = context.execute_deps.load_report_phase_checkpoint_fn(
-                path=context.report_phase_checkpoint_path,
-                witness_digest=context.report_section_witness_digest,
-            )
-            phase_checkpoint_state = (
-                phase_checkpoint_state or loaded_phase_checkpoint_state or {}
-            )
+            phase_checkpoint_state = phase_checkpoint_state or {}
             ensure_report_sections_cache = context.ensure_report_sections_cache_fn
             if callable(ensure_report_sections_cache):
                 resolved_sections, journal_reason = ensure_report_sections_cache()
@@ -2576,11 +2252,6 @@ def _render_timeout_partial_report(
                 "resolved_sections": len(resolved_sections),
                 "completed_phase": _latest_report_phase(phase_checkpoint_state),
             }
-            _write_report_phase_checkpoint(
-                path=context.report_phase_checkpoint_path,
-                witness_digest=context.report_section_witness_digest,
-                phases=phase_checkpoint_state,
-            )
             partial_report_written = True
         except TimeoutExceeded:
             mark_cleanup_timeout_fn("render_timeout_report")
@@ -3871,11 +3542,7 @@ def execute_command_total(
             report_path=report_path,
             include_wl_refinement=include_wl_refinement,
             config=config,
-            explicit_resume_checkpoint=explicit_resume_checkpoint,
-            emit_checkpoint_intro_timeline=emit_checkpoint_intro_timeline,
-            checkpoint_intro_timeline_path=checkpoint_intro_timeline_path,
             report_output_path=report_output_path,
-            report_phase_checkpoint_path=report_phase_checkpoint_path,
             state=analysis_resume_state,
             runtime_state=runtime_state,
         )

@@ -272,9 +272,6 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
 @dataclass(frozen=True)
 class ExecuteCommandDeps:
     analyze_paths_fn: Callable[..., AnalysisResult]
-    load_analysis_resume_checkpoint_manifest_fn: Callable[..., tuple[JSONObject | None, JSONObject] | None]
-    write_analysis_resume_checkpoint_fn: Callable[..., None]
-    load_analysis_resume_checkpoint_fn: Callable[..., JSONObject | None]
     load_aspf_resume_state_fn: Callable[..., JSONObject | None]
     append_aspf_delta_fn: Callable[..., None]
     finalize_aspf_resume_state_fn: Callable[..., JSONObject | None]
@@ -282,7 +279,6 @@ class ExecuteCommandDeps:
     analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
     build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
     collection_semantic_progress_fn: Callable[..., JSONObject]
-    load_report_phase_checkpoint_fn: Callable[..., JSONObject]
     project_report_sections_fn: Callable[..., dict[str, list[str]]]
     report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
     collection_checkpoint_flush_due_fn: Callable[..., bool]
@@ -3691,9 +3687,6 @@ def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
 def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
         analyze_paths_fn=analyze_paths,
-        load_analysis_resume_checkpoint_manifest_fn=_load_analysis_resume_checkpoint_manifest,
-        write_analysis_resume_checkpoint_fn=_write_analysis_resume_checkpoint,
-        load_analysis_resume_checkpoint_fn=_load_analysis_resume_checkpoint,
         load_aspf_resume_state_fn=_load_aspf_resume_state,
         append_aspf_delta_fn=_append_aspf_delta,
         finalize_aspf_resume_state_fn=_finalize_aspf_resume_state,
@@ -3701,7 +3694,6 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
         analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
         build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
         collection_semantic_progress_fn=_collection_semantic_progress,
-        load_report_phase_checkpoint_fn=_load_report_phase_checkpoint,
         project_report_sections_fn=project_report_sections,
         report_projection_spec_rows_fn=report_projection_spec_rows,
         collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,

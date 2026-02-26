@@ -2787,10 +2787,12 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     report_path = tmp_path / "report.md"
-    phase_checkpoint_path = tmp_path / "report_phase_checkpoint.json"
 
     def _raise_timeout(*_args: object, **_kwargs: object) -> None:
         raise server.TimeoutExceeded("timeout")
+
+    def _raise_projection_timeout(*_args: object, **_kwargs: object) -> dict[str, list[str]]:
+        raise server.TimeoutExceeded("projection-timeout")
 
     result = server._execute_command_total(
         _DummyServer(str(tmp_path)),
@@ -2804,7 +2806,8 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
             }
         ),
         deps=server._default_execute_command_deps().with_overrides(
-            load_report_phase_checkpoint_fn=_raise_timeout
+            project_report_sections_fn=_raise_projection_timeout,
+            analyze_paths_fn=_raise_timeout,
         ),
     )
     assert result["timeout"] is True
@@ -2814,7 +2817,6 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
     assert isinstance(cleanup_steps, list)
     assert "render_timeout_report" in cleanup_steps
     assert report_path.exists()
-    assert phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_apply_journal_pending_reason_only_for_stale_or_policy::server.py::gabion.server._apply_journal_pending_reason
@@ -3797,15 +3799,10 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     report_path = tmp_path / "report.md"
-    phase_checkpoint_loads = {"count": 0}
     preview_calls = {"count": 0}
 
     def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
         raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
-
-    def _load_phase_checkpoint(**_kwargs: object) -> dict[str, object]:
-        phase_checkpoint_loads["count"] += 1
-        return {}
 
     original_project = server.project_report_sections
 
@@ -3826,12 +3823,10 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
             }
         ),
         analyze_paths_fn=_raise_timeout,
-        load_report_phase_checkpoint_fn=_load_phase_checkpoint,
         project_report_sections_fn=_project_sections,
     )
     assert result["timeout"] is True
     assert result["analysis_state"] == "timed_out_progress_resume"
-    assert phase_checkpoint_loads["count"] >= 1
     assert preview_calls["count"] >= 1
 
 
@@ -3902,12 +3897,7 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    phase_checkpoint_loads = {"count": 0}
     preview_calls = {"count": 0}
-
-    def _load_phase_checkpoint(**_kwargs: object) -> dict[str, object]:
-        phase_checkpoint_loads["count"] += 1
-        return {}
 
     original_project = server.project_report_sections
 
@@ -3929,7 +3919,6 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
         ),
         deps=server._default_execute_command_deps().with_overrides(
             collection_checkpoint_flush_due_fn=lambda **_kwargs: False,
-            load_report_phase_checkpoint_fn=_load_phase_checkpoint,
             project_report_sections_fn=_project_sections,
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
@@ -3937,7 +3926,6 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
         ),
     )
     assert result["timeout"] is True
-    assert phase_checkpoint_loads["count"] >= 1
     assert preview_calls["count"] >= 1
 
 
@@ -3983,7 +3971,6 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
         deps=server._default_execute_command_deps().with_overrides(
             write_bootstrap_incremental_artifacts_fn=lambda **_kwargs: None,
             load_report_section_journal_fn=lambda **_kwargs: ({}, None),
-            load_report_phase_checkpoint_fn=lambda **_kwargs: {},
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
             ),

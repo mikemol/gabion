@@ -237,13 +237,12 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
         "in_progress_scan_by_path": {"c.py": {"phase": "collection"}},
         "semantic_progress": {"substantive_progress": True},
     }
-    deps = server._default_execute_command_deps().with_overrides(
-        load_analysis_resume_checkpoint_manifest_fn=lambda **_kwargs: (
-            {"witness_digest": "digest-1"},
-            resume_payload,
-        )
+    deps = server._default_execute_command_deps()
+    context = _timeout_context(
+        tmp_path=tmp_path,
+        deps=deps,
+        last_collection_resume_payload=resume_payload,
     )
-    context = _timeout_context(tmp_path=tmp_path, deps=deps)
     progress_payload: dict[str, object] = {"classification": "timed_out_no_progress"}
     loaded = orchestrator._load_timeout_resume_progress(
         context=context,
@@ -256,7 +255,7 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
     assert progress_payload["resume_supported"] is True
     resume = progress_payload.get("resume")
     assert isinstance(resume, dict)
-    assert resume["resume_token"]["witness_digest"] == "digest-1"
+    assert resume["resume_token"]["completed_files"] == 2
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_c63e5782a009_20498f3c
@@ -264,9 +263,7 @@ def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payloa
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
-    deps = server._default_execute_command_deps().with_overrides(
-        load_analysis_resume_checkpoint_manifest_fn=lambda **_kwargs: None
-    )
+    deps = server._default_execute_command_deps()
     context = _timeout_context(tmp_path=tmp_path, deps=deps)
     progress_payload: dict[str, object] = {"classification": "timed_out_no_progress"}
     loaded = orchestrator._load_timeout_resume_progress(
@@ -386,13 +383,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     orchestrator._bind_server_symbols()
     source_path = tmp_path / "module.py"
     source_path.write_text("def f() -> None:\n    return None\n", encoding="utf-8")
-    checkpoint_writes: list[dict[str, object]] = []
-    deps = server._default_execute_command_deps().with_overrides(
-        load_analysis_resume_checkpoint_manifest_fn=lambda **_kwargs: None,
-        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
-            {str(key): kwargs[key] for key in kwargs}
-        ),
-    )
+    deps = server._default_execute_command_deps()
     state = orchestrator._AnalysisResumePreparationState(
         analysis_resume_checkpoint_path=None,
         analysis_resume_input_witness=None,
@@ -416,21 +407,16 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         needs_analysis=True,
         paths=[source_path],
         root=str(tmp_path),
-        payload={"resume_checkpoint": str(tmp_path / "resume.json")},
+        payload={},
         no_recursive=False,
         report_path=False,
         include_wl_refinement=False,
         config=orchestrator.AuditConfig(project_root=tmp_path),
-        explicit_resume_checkpoint=False,
-        emit_checkpoint_intro_timeline=False,
-        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
         report_output_path=None,
-        report_phase_checkpoint_path=tmp_path / "phase.json",
         state=state,
         runtime_state=runtime_state,
     )
     assert collection_resume_payload is None
-    assert not checkpoint_writes
     assert state.analysis_resume_checkpoint_path is None
     assert state.analysis_resume_checkpoint_status == "cold_start"
     assert state.analysis_resume_intro_timeline_header is None
@@ -445,7 +431,6 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
     source_path = tmp_path / "module.py"
     source_path.write_text("def f() -> int:\n    return 1\n", encoding="utf-8")
     emitted_events: list[dict[str, object]] = []
-    checkpoint_writes: list[dict[str, object]] = []
     deps = server._default_execute_command_deps().with_overrides(
         analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
         collection_semantic_progress_fn=lambda **_kwargs: {
@@ -453,9 +438,6 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
             "current_witness_digest": "digest-1",
         },
         collection_checkpoint_flush_due_fn=lambda **_kwargs: True,
-        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
-            {str(key): kwargs[key] for key in kwargs}
-        ),
     )
     context = _analysis_context(
         tmp_path=tmp_path,
@@ -474,7 +456,6 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
         state=state,
         collection_resume_payload=None,
     )
-    assert checkpoint_writes
     assert outcome.latest_collection_progress["total_files"] == 1
     assert not any(
         event.get("analysis_state") == "analysis_collection_checkpoint_serialized"
@@ -487,13 +468,8 @@ def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
-    checkpoint_writes: list[dict[str, object]] = []
     emitted_events: list[dict[str, object]] = []
-    deps = server._default_execute_command_deps().with_overrides(
-        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
-            {str(key): kwargs[key] for key in kwargs}
-        ),
-    )
+    deps = server._default_execute_command_deps()
     context = _timeout_context(
         tmp_path=tmp_path,
         deps=deps,
@@ -511,7 +487,6 @@ def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_
         ),
     )
     assert isinstance(persisted_payload, dict)
-    assert checkpoint_writes
     assert emitted_events == []
 
 
