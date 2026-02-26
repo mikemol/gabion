@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
 from gabion.analysis.baseline_io import write_json
@@ -23,6 +23,7 @@ from gabion.analysis.projection_registry import (
 )
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.report_doc import ReportDoc
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
@@ -43,8 +44,8 @@ def build_call_clusters_payload(
     *,
     root: Path,
     evidence_path: Path,
-    config: AuditConfig | None = None,
-    summary_spec: ProjectionSpec | None = None,
+    config: object = None,
+    summary_spec: ProjectionSpec = CALL_CLUSTER_SUMMARY_SPEC,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_path, paths, root, config
     check_deadline(allow_frame_fallback=True)
@@ -94,24 +95,23 @@ def build_call_clusters_payload(
             }
         )
 
-    spec = summary_spec or CALL_CLUSTER_SUMMARY_SPEC
+    spec = summary_spec
     projected = apply_spec(spec, cluster_rows)
     ordered: list[CallClusterEntry] = []
     for row in projected:
         check_deadline()
         identity = str(row.get("identity", "") or "")
         cluster = clusters.get(identity)
-        if cluster is None:
-            continue
-        ordered.append(
-            CallClusterEntry(
-                identity=identity,
-                key=cluster["key"],
-                display=str(cluster["display"]),
-                tests=tuple(cluster["tests"]),
-                count=int(cluster["count"]),
+        if cluster is not None:
+            ordered.append(
+                CallClusterEntry(
+                    identity=identity,
+                    key=cluster["key"],
+                    display=str(cluster["display"]),
+                    tests=tuple(cluster["tests"]),
+                    count=int(cluster["count"]),
+                )
             )
-        )
 
     summary = {
         "clusters": len(ordered),
@@ -138,27 +138,30 @@ def render_markdown(
     payload: Mapping[str, JSONValue],
 ) -> str:
     check_deadline(allow_frame_fallback=True)
-    summary = payload.get("summary", {})
-    clusters = payload.get("clusters", [])
+    summary = mapping_or_none(payload.get("summary", {}))
+    clusters = sequence_or_none(payload.get("clusters", []))
     doc = ReportDoc("out_call_clusters")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
-    doc.codeblock(summary)
+    doc.codeblock(summary or {})
     doc.line()
-    if not isinstance(clusters, list) or not clusters:
+    if clusters is None or not clusters:
         doc.line("No call clusters found.")
         return doc.emit()
     doc.section("Call clusters")
     for entry in clusters:
         check_deadline()
-        if not isinstance(entry, Mapping):
-            continue
-        display = str(entry.get("display", "") or "")
-        count = entry.get("count", 0)
-        render_cluster_heading(doc, display=display, count=count)
-        tests = entry.get("tests", [])
-        if isinstance(tests, list) and tests:
-            render_string_codeblock(doc, tests)
+        entry_mapping = mapping_or_none(entry)
+        if entry_mapping is not None:
+            display = str(entry_mapping.get("display", "") or "")
+            count = entry_mapping.get("count", 0)
+            render_cluster_heading(doc, display=display, count=count)
+            tests = sequence_or_none(entry_mapping.get("tests", []))
+            if tests:
+                render_string_codeblock(
+                    doc,
+                    [str(test_value) for test_value in tests],
+                )
     return doc.emit()
 
 
