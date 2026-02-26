@@ -2335,16 +2335,16 @@ def _analyze_decision_surfaces_indexed(
 def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    decision_tiers: dict[str, int] | None = None,
+    transparent_decorators = None,
+    decision_tiers = None,
     require_tiers: bool = False,
     forest: Forest,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -2387,16 +2387,16 @@ def _analyze_value_encoded_decisions_indexed(
 def analyze_value_encoded_decisions_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    decision_tiers: dict[str, int] | None = None,
+    transparent_decorators = None,
+    decision_tiers = None,
     require_tiers: bool = False,
     forest: Forest,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -9794,14 +9794,14 @@ def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
 
 def _compute_fingerprint_synth(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, object]]],
     *,
     registry: PrimeRegistry,
-    ctor_registry: TypeConstructorRegistry | None,
+    ctor_registry,
     min_occurrences: int,
     version: str,
-    existing: SynthRegistry | None = None,
-) -> tuple[list[str], JSONObject | None]:
+    existing = None,
+):
     check_deadline()
     if min_occurrences < 2 and existing is None:
         return [], None
@@ -9817,9 +9817,9 @@ def _compute_fingerprint_synth(
                 if any(param not in fn_annots for param in bundle):
                     continue
                 types = [fn_annots[param] for param in sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:10035')]
-                if any(t is None for t in types):
+                hint_list = [str(value) for value in types if value is not None]
+                if len(hint_list) != len(types):
                     continue
-                hint_list = [t for t in types if t is not None]
                 fingerprint = bundle_fingerprint_dimensional(
                     hint_list,
                     registry,
@@ -11852,15 +11852,15 @@ def _format_type_flow_site(
 def _infer_type_flow(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
+    analysis_index = None,
+):
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
     index = require_not_none(
@@ -11875,15 +11875,18 @@ def _infer_type_flow(
         project_root=project_root,
         require_transparent=True,
     )
-    inferred: dict[str, dict[str, str | None]] = {}
+    inferred: dict[str, dict[str, object]] = {}
     for infos in by_name.values():
         check_deadline()
         for info in infos:
             check_deadline()
             inferred[info.qual] = dict(info.annots)
 
-    def _get_annot(info: FunctionInfo, param: str) -> str | None:
-        return inferred.get(info.qual, {}).get(param)
+    def _get_annot(info: FunctionInfo, param: str):
+        value = inferred.get(info.qual, {}).get(param)
+        if type(value) is str:
+            return value
+        return None
 
     def _downstream_for(info: FunctionInfo) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
         check_deadline()
@@ -11986,14 +11989,14 @@ def _infer_type_flow(
 def analyze_type_flow_repo_with_map(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
-) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
+    transparent_decorators = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
+):
     """Repo-wide fixed-point pass for downstream type tightening."""
     check_deadline()
     return _run_indexed_pass(
@@ -12766,10 +12769,10 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
 def _collect_dataclass_registry(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    stage_cache_fn: Callable[..., dict[Path, dict[str, list[str]] | None]] | None = None,
+    analysis_index = None,
+    stage_cache_fn = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     if stage_cache_fn is None:
@@ -12799,9 +12802,8 @@ def _collect_dataclass_registry(
         )
         for entries in registry_by_path.values():
             check_deadline()
-            if entries is None:
-                continue
-            registry.update(entries)
+            if entries is not None:
+                registry.update(entries)
         return registry
     for path in paths:
         check_deadline()
@@ -12810,9 +12812,8 @@ def _collect_dataclass_registry(
             stage=_ParseModuleStage.DATACLASS_REGISTRY,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        registry.update(_dataclass_registry_for_tree(path, tree, project_root=project_root))
+        if tree is not None:
+            registry.update(_dataclass_registry_for_tree(path, tree, project_root=project_root))
     return registry
 
 
@@ -16046,11 +16047,11 @@ def _emit_sidecar_outputs(
     *,
     args: argparse.Namespace,
     analysis: AnalysisResult,
-    fingerprint_deadness_json: str | None,
-    fingerprint_coherence_json: str | None,
-    fingerprint_rewrite_plans_json: str | None,
-    fingerprint_exception_obligations_json: str | None,
-    fingerprint_handledness_json: str | None,
+    fingerprint_deadness_json,
+    fingerprint_coherence_json,
+    fingerprint_rewrite_plans_json,
+    fingerprint_exception_obligations_json,
+    fingerprint_handledness_json,
 ) -> None:
     # dataflow-bundle: fingerprint_coherence_json, fingerprint_deadness_json, fingerprint_exception_obligations_json, fingerprint_handledness_json, fingerprint_rewrite_plans_json
     for path, payload, require_content in deadline_loop_iter(
@@ -16394,21 +16395,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _normalize_transparent_decorators(
     value: object,
-) -> set[str] | None:
+) -> object:
     check_deadline()
-    if value is None:
-        return None
-    items: list[str] = []
-    if isinstance(value, str):
-        items = [part.strip() for part in value.split(",") if part.strip()]
-    elif isinstance(value, (list, tuple, set)):
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
-    if not items:
-        return None
-    return set(items)
+    if value is not None:
+        items: list[str] = []
+        value_type = type(value)
+        if value_type is str:
+            items = [part.strip() for part in cast(str, value).split(",") if part.strip()]
+        elif value_type in {list, tuple, set}:
+            for item in cast(Iterable[object], value):
+                check_deadline()
+                if type(item) is str:
+                    parts = [part.strip() for part in cast(str, item).split(",") if part.strip()]
+                    items.extend(parts)
+        if items:
+            return set(items)
+    return None
 
 
 @contextmanager
