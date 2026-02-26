@@ -660,7 +660,7 @@ def test_format_fingerprint_str_and_synth_dimension_none() -> None:
     fingerprint = tf.Fingerprint(base=dim)
     assert str(fingerprint).startswith("{base=")
     synth_registry = tf.SynthRegistry(registry=registry)
-    assert synth_registry.synth_dimension_for(fingerprint) is None
+    assert synth_registry.synth_dimension_for(fingerprint).is_empty()
 
 # gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.apply_synth_dimension
 def test_apply_synth_dimension_noop_when_missing() -> None:
