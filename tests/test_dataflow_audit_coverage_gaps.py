@@ -683,9 +683,13 @@ def test_verify_rewrite_plan_verification_and_remainder_edges() -> None:
 def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
     da = _load()
     or_expr = ast.parse("a or b").body[0].value
-    assert da._eval_bool_expr(or_expr, {"a": False, "b": True}) is True
+    or_outcome = da._eval_bool_expr(or_expr, {"a": False, "b": True})
+    assert or_outcome.is_unknown() is False
+    assert or_outcome.as_bool() is True
     gte_expr = ast.parse("x >= 1").body[0].value
-    assert da._eval_bool_expr(gte_expr, {"x": 2}) is True
+    gte_outcome = da._eval_bool_expr(gte_expr, {"x": 2})
+    assert gte_outcome.is_unknown() is False
+    assert gte_outcome.as_bool() is True
 
     tree = ast.parse(
         "if flag:\n"
@@ -1164,7 +1168,8 @@ def test_fingerprint_provenance_index_lookup_and_types_summary_branch() -> None:
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_value_expr_unary_non_numeric_and_parse_range_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_value_expr_unary_non_numeric_and_parse_range_branch() -> None:
     da = _load()
-    assert da._eval_value_expr(ast.parse("-'x'").body[0].value, {}) is None
+    unary_outcome = da._eval_value_expr(ast.parse("-'x'").body[0].value, {})
+    assert unary_outcome.is_unknown() is True
     assert da._parse_lint_location("a.py:1:2:-3:4: GABION_X message") is not None
 
 
@@ -1338,9 +1343,17 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_expr_and_branch_reachability_else_constraint_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._branch_reachability_under_env::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_bool_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
     da = _load()
-    assert da._eval_value_expr(ast.parse("+2").body[0].value, {}) == 2
-    assert da._eval_bool_expr(ast.parse("a or b").body[0].value, {"a": False, "b": False}) is False
-    assert da._eval_bool_expr(ast.parse("'x' >= 'a'").body[0].value, {}) is None
+    unary_plus_outcome = da._eval_value_expr(ast.parse("+2").body[0].value, {})
+    assert unary_plus_outcome.is_unknown() is False
+    assert unary_plus_outcome.value == 2
+    or_outcome = da._eval_bool_expr(
+        ast.parse("a or b").body[0].value,
+        {"a": False, "b": False},
+    )
+    assert or_outcome.is_unknown() is False
+    assert or_outcome.as_bool() is False
+    gte_outcome = da._eval_bool_expr(ast.parse("'x' >= 'a'").body[0].value, {})
+    assert gte_outcome.is_unknown() is True
 
     tree = ast.parse(
         "if flag:\n"

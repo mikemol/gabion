@@ -30,39 +30,55 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     assert names == {"a", "b"}
 
     # _eval_value_expr
-    assert da._eval_value_expr(ast.parse("1").body[0].value, {}) == 1
-    assert da._eval_value_expr(ast.parse("x").body[0].value, {}) is None
-    assert da._eval_value_expr(ast.parse("-1").body[0].value, {}) == -1
-    assert da._eval_value_expr(ast.parse("+2").body[0].value, {}) == 2
-    assert da._eval_value_expr(ast.parse("b'hi'").body[0].value, {}) is None
-    assert da._eval_value_expr(ast.parse("foo()").body[0].value, {}) is None
+    value_outcome = da._eval_value_expr(ast.parse("1").body[0].value, {})
+    assert value_outcome.is_unknown() is False
+    assert value_outcome.value == 1
+    assert da._eval_value_expr(ast.parse("x").body[0].value, {}).is_unknown() is True
+    neg_outcome = da._eval_value_expr(ast.parse("-1").body[0].value, {})
+    assert neg_outcome.is_unknown() is False
+    assert neg_outcome.value == -1
+    plus_outcome = da._eval_value_expr(ast.parse("+2").body[0].value, {})
+    assert plus_outcome.is_unknown() is False
+    assert plus_outcome.value == 2
+    assert da._eval_value_expr(ast.parse("b'hi'").body[0].value, {}).is_unknown() is True
+    assert da._eval_value_expr(ast.parse("foo()").body[0].value, {}).is_unknown() is True
 
     # _eval_bool_expr: constants + unknown names.
-    assert da._eval_bool_expr(ast.parse("0").body[0].value, {}) is False
-    assert da._eval_bool_expr(ast.parse("x").body[0].value, {}) is None
+    bool_outcome = da._eval_bool_expr(ast.parse("0").body[0].value, {})
+    assert bool_outcome.is_unknown() is False
+    assert bool_outcome.as_bool() is False
+    assert da._eval_bool_expr(ast.parse("x").body[0].value, {}).is_unknown() is True
 
     # not <unknown> => unknown; not 0 => True
-    assert da._eval_bool_expr(ast.parse("not x").body[0].value, {}) is None
-    assert da._eval_bool_expr(ast.parse("not 0").body[0].value, {}) is True
+    assert da._eval_bool_expr(ast.parse("not x").body[0].value, {}).is_unknown() is True
+    not_zero_outcome = da._eval_bool_expr(ast.parse("not 0").body[0].value, {})
+    assert not_zero_outcome.is_unknown() is False
+    assert not_zero_outcome.as_bool() is True
 
     # BoolOp AND: false dominates even if earlier terms are unknown.
-    assert da._eval_bool_expr(ast.parse("x and 0").body[0].value, {}) is False
-    assert da._eval_bool_expr(ast.parse("x and 1").body[0].value, {}) is None
+    and_false = da._eval_bool_expr(ast.parse("x and 0").body[0].value, {})
+    assert and_false.is_unknown() is False
+    assert and_false.as_bool() is False
+    assert da._eval_bool_expr(ast.parse("x and 1").body[0].value, {}).is_unknown() is True
 
     # BoolOp OR: true dominates even if later terms are unknown.
-    assert da._eval_bool_expr(ast.parse("1 or x").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("x or 0").body[0].value, {}) is None
-    assert da._eval_bool_expr(ast.parse("0 or 0").body[0].value, {}) is False
+    or_true = da._eval_bool_expr(ast.parse("1 or x").body[0].value, {})
+    assert or_true.is_unknown() is False
+    assert or_true.as_bool() is True
+    assert da._eval_bool_expr(ast.parse("x or 0").body[0].value, {}).is_unknown() is True
+    or_false = da._eval_bool_expr(ast.parse("0 or 0").body[0].value, {})
+    assert or_false.is_unknown() is False
+    assert or_false.as_bool() is False
 
     # Compare: unknown side => unknown; cover comparison ops.
-    assert da._eval_bool_expr(ast.parse("x == 1").body[0].value, {}) is None
-    assert da._eval_bool_expr(ast.parse("1 == 1").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("1 != 2").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("1 < 2").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("1 <= 1").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("2 > 1").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("2 >= 2").body[0].value, {}) is True
-    assert da._eval_bool_expr(ast.parse("foo()").body[0].value, {}) is None
+    assert da._eval_bool_expr(ast.parse("x == 1").body[0].value, {}).is_unknown() is True
+    assert da._eval_bool_expr(ast.parse("1 == 1").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("1 != 2").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("1 < 2").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("1 <= 1").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("2 > 1").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("2 >= 2").body[0].value, {}).as_bool() is True
+    assert da._eval_bool_expr(ast.parse("foo()").body[0].value, {}).is_unknown() is True
 
     # _branch_reachability_under_env: no constraints => None
     assert da._branch_reachability_under_env(ast.parse("1").body[0].value, {}, {}) is None
