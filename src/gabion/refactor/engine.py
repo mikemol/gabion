@@ -309,7 +309,7 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
                     import_from = cast(cst.ImportFrom, item)
                     module = _module_expr_to_str(import_from.module)
                     names = import_from.names
-                    if module == "typing" and isinstance(names, Sequence):
+                    if module == "typing" and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
                             if type(alias) is cst.ImportAlias:
@@ -332,7 +332,7 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
                     import_from = cast(cst.ImportFrom, item)
                     module = _module_expr_to_str(import_from.module)
                     names = import_from.names
-                    if module == "typing" and isinstance(names, Sequence):
+                    if module == "typing" and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
                             if type(alias) is cst.ImportAlias:
@@ -427,7 +427,7 @@ def _collect_import_context(
                     import_from = cast(cst.ImportFrom, item)
                     module_name = _module_expr_to_str(import_from.module)
                     names = import_from.names
-                    if module_name == target_module and isinstance(names, Sequence):
+                    if module_name == target_module and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
                             if type(alias) is cst.ImportAlias:
@@ -576,20 +576,18 @@ def _rewrite_call_sites_in_project(
             targets=targets,
         )
         warnings.extend(call_warnings)
-        if updated_module is None:
-            continue
-        new_source = updated_module.code
-        if new_source == source:  # pragma: no cover
-            continue
-        end_line = len(source.splitlines())
-        edits.append(
-            TextEdit(
-                path=str(path),
-                start=(0, 0),
-                end=(end_line, 0),
-                replacement=new_source,
-            )
-        )
+        if updated_module is not None:
+            new_source = updated_module.code
+            if new_source != source:  # pragma: no cover
+                end_line = len(source.splitlines())
+                edits.append(
+                    TextEdit(
+                        path=str(path),
+                        start=(0, 0),
+                        end=(end_line, 0),
+                        replacement=new_source,
+                    )
+                )
     return edits, warnings
 
 
@@ -665,8 +663,8 @@ def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
                 if type(item) is cst.ImportFrom:
                     import_from = cast(cst.ImportFrom, item)
                     names = import_from.names
-                    if _module_expr_to_str(import_from.module) == "contextvars" and isinstance(
-                        names, Sequence
+                    if _module_expr_to_str(import_from.module) == "contextvars" and (
+                        type(names) is list or type(names) is tuple
                     ):
                         for alias in names:
                             if type(alias) is cst.ImportAlias:
@@ -700,10 +698,12 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
     def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.CSTNode:
         func = updated_node.func
         target_name = None
-        if isinstance(func, cst.Name):
-            target_name = func.value
-        elif isinstance(func, cst.Attribute) and isinstance(func.attr, cst.Name):
-            target_name = func.attr.value
+        if type(func) is cst.Name:
+            target_name = cast(cst.Name, func).value
+        elif type(func) is cst.Attribute:
+            attr = cast(cst.Attribute, func).attr
+            if type(attr) is cst.Name:
+                target_name = cast(cst.Name, attr).value
         if target_name not in self.targets:
             return updated_node
         if target_name == self.current:
@@ -717,9 +717,9 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
         removed = False
         for arg in updated_node.args:
             check_deadline()
-            is_name = isinstance(arg.value, cst.Name) and arg.value.value == self.context_name
-            if arg.keyword is not None and isinstance(arg.keyword, cst.Name):
-                if arg.keyword.value == self.context_name and is_name:
+            is_name = type(arg.value) is cst.Name and cast(cst.Name, arg.value).value == self.context_name
+            if arg.keyword is not None and type(arg.keyword) is cst.Name:
+                if cast(cst.Name, arg.keyword).value == self.context_name and is_name:
                     removed = True
                     continue
             if arg.keyword is None and is_name and len(updated_node.args) == 1:
@@ -742,7 +742,7 @@ class _AmbientSafetyVisitor(cst.CSTVisitor):
         self.reasons: list[str] = []
 
     def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
-        if isinstance(node.target, cst.Name) and node.target.value == self.context_name:
+        if type(node.target) is cst.Name and cast(cst.Name, node.target).value == self.context_name:
             self.reasons.append(
                 f"writes to parameter '{self.context_name}' prevent a safe ambient rewrite"
             )
@@ -823,16 +823,18 @@ else:
 """
             ).body
         )
-        if isinstance(updated_body, cst.IndentedBlock):
-            existing = list(updated_body.body)
+        if type(updated_body) is cst.IndentedBlock:
+            updated_block = cast(cst.IndentedBlock, updated_body)
+            existing = list(updated_block.body)
             insert_at = 0
             if existing:
                 first = existing[0]
-                if isinstance(first, cst.SimpleStatementLine) and first.body:
-                    expr = first.body[0]
-                    if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+                if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                    first_line = cast(cst.SimpleStatementLine, first)
+                    expr = first_line.body[0]
+                    if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
                         insert_at = 1
-            updated_body = updated_body.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
+            updated_body = updated_block.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
 
         updated_params: list[cst.Param] = []
         for param in node.params.params:
@@ -1153,8 +1155,9 @@ class _RefactorTransformer(cst.CSTTransformer):
     ) -> cst.BaseSuite:
         if not fields:
             return body
-        if not isinstance(body, cst.IndentedBlock):
+        if type(body) is not cst.IndentedBlock:
             return body
+        body_block = cast(cst.IndentedBlock, body)
         assign_lines = [
             cst.SimpleStatementLine(
                 [
@@ -1169,16 +1172,17 @@ class _RefactorTransformer(cst.CSTTransformer):
             )
             for name in fields
         ]
-        existing = list(body.body)
+        existing = list(body_block.body)
         insert_at = 0
         if existing:
             first = existing[0]
-            if isinstance(first, cst.SimpleStatementLine) and first.body:
-                expr = first.body[0]
-                if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+            if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                first_line = cast(cst.SimpleStatementLine, first)
+                expr = first_line.body[0]
+                if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
                     insert_at = 1
         new_body = existing[:insert_at] + assign_lines + existing[insert_at:]
-        return body.with_changes(body=new_body)
+        return body_block.with_changes(body=new_body)
 
 
 class _CallSiteTransformer(cst.CSTTransformer):
@@ -1229,24 +1233,28 @@ class _CallSiteTransformer(cst.CSTTransformer):
         return updated_node.with_changes(args=[cst.Arg(value=bundle_call)])
 
     def _is_target_call(self, func: cst.BaseExpression) -> bool:
-        if isinstance(func, cst.Name):
-            if self.file_is_target and func.value in self.target_simple:
+        if type(func) is cst.Name:
+            func_name = cast(cst.Name, func)
+            if self.file_is_target and func_name.value in self.target_simple:
                 return True
-            if not self.file_is_target and func.value in self.imported_targets:
+            if not self.file_is_target and func_name.value in self.imported_targets:
                 return True
             return False
-        if isinstance(func, cst.Attribute):
-            if not isinstance(func.attr, cst.Name):  # pragma: no cover
+        if type(func) is cst.Attribute:
+            func_attr = cast(cst.Attribute, func)
+            if type(func_attr.attr) is not cst.Name:  # pragma: no cover
                 return False
-            attr = func.attr.value
+            attr = cast(cst.Name, func_attr.attr).value
             if self.file_is_target and self._class_stack:
                 class_name = ".".join(self._class_stack)
                 methods = self.target_methods.get(class_name, set())
-                if attr in methods and isinstance(func.value, cst.Name):
-                    if func.value.value in {"self", "cls", self._class_stack[-1]}:
+                if attr in methods and type(func_attr.value) is cst.Name:
+                    value_name = cast(cst.Name, func_attr.value).value
+                    if value_name in {"self", "cls", self._class_stack[-1]}:
                         return True
-            if not self.file_is_target and isinstance(func.value, cst.Name):
-                if func.value.value in self.module_aliases and attr in self.target_simple:
+            if not self.file_is_target and type(func_attr.value) is cst.Name:
+                value_name = cast(cst.Name, func_attr.value).value
+                if value_name in self.module_aliases and attr in self.target_simple:
                     return True
         return False
 
@@ -1257,12 +1265,15 @@ class _CallSiteTransformer(cst.CSTTransformer):
         if arg.star:
             return False
         value = arg.value
-        if not isinstance(value, cst.Call):
+        if type(value) is not cst.Call:
             return False
-        if isinstance(value.func, cst.Name) and isinstance(self.constructor_expr, cst.Name):
-            return value.func.value == self.constructor_expr.value
-        if isinstance(value.func, cst.Attribute) and isinstance(self.constructor_expr, cst.Attribute):
-            return value.func.attr.value == self.constructor_expr.attr.value
+        value_call = cast(cst.Call, value)
+        if type(value_call.func) is cst.Name and type(self.constructor_expr) is cst.Name:
+            return cast(cst.Name, value_call.func).value == cast(cst.Name, self.constructor_expr).value
+        if type(value_call.func) is cst.Attribute and type(self.constructor_expr) is cst.Attribute:
+            return cast(cst.Attribute, value_call.func).attr.value == cast(
+                cst.Attribute, self.constructor_expr
+            ).attr.value
         return False
 
     def _build_bundle_args(self, call: cst.Call):
@@ -1271,11 +1282,11 @@ class _CallSiteTransformer(cst.CSTTransformer):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")
             return None
         positional = [arg for arg in call.args if arg.keyword is None]
-        keyword_args = {
-            arg.keyword.value: arg.value
-            for arg in call.args
-            if arg.keyword is not None and isinstance(arg.keyword, cst.Name)
-        }
+        keyword_args: dict[str, cst.BaseExpression] = {}
+        for arg in call.args:
+            check_deadline()
+            if arg.keyword is not None and type(arg.keyword) is cst.Name:
+                keyword_args[cast(cst.Name, arg.keyword).value] = arg.value
         for key in keyword_args:
             check_deadline()
             if key not in self.bundle_fields:
