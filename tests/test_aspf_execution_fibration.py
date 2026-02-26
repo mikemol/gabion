@@ -210,20 +210,20 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
     aspf_execution_fibration.record_1cell(
         state,
         kind="resume_load",
-        source_label="runtime:resume_checkpoint",
+        source_label="runtime:aspf_state",
         target_label="analysis:resume_seed",
-        representative="resume_checkpoint_loaded",
-        basis_path=("resume", "load", "checkpoint"),
-        metadata={"checkpoint_path": "artifacts/audit_reports/dataflow_resume_checkpoint.json"},
+        representative="aspf_state_loaded",
+        basis_path=("resume", "load", "aspf_state"),
+        metadata={"import_state_path": "artifacts/out/aspf_state/session/step.snapshot.json"},
     )
     aspf_execution_fibration.record_1cell(
         state,
         kind="resume_write",
         source_label="analysis:resume_seed",
-        target_label="runtime:resume_checkpoint",
-        representative="resume_checkpoint_written",
-        basis_path=("resume", "write", "checkpoint"),
-        metadata={"checkpoint_path": "artifacts/audit_reports/dataflow_resume_checkpoint.json"},
+        target_label="runtime:aspf_state",
+        representative="aspf_state_written",
+        basis_path=("resume", "write", "aspf_state"),
+        metadata={"state_path": "artifacts/out/aspf_state/session/step.snapshot.json"},
     )
     baseline_rep = "baseline-groups-rep"
     baseline_cell = AspfOneCell(

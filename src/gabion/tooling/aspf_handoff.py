@@ -73,7 +73,6 @@ def prepare_step(
     session_id: str | None,
     step_id: str,
     command_profile: str,
-    resume_checkpoint_path: Path | None = None,
     manifest_path: Path | None = None,
     state_root: Path | None = None,
 ) -> PreparedHandoffStep:

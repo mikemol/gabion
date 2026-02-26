@@ -39,15 +39,15 @@ def _timeout_context(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        analysis_resume_checkpoint_path=tmp_path / "resume.json",
+        analysis_resume_state_path=tmp_path / "resume.json",
         analysis_resume_input_manifest_digest="digest",
         last_collection_resume_payload=last_collection_resume_payload,
         execute_deps=deps,
         analysis_resume_input_witness=None,
-        emit_checkpoint_intro_timeline=False,
-        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
+        emit_phase_timeline=False,
+        phase_timeline_path=tmp_path / "timeline.md",
         analysis_resume_total_files=5,
-        analysis_resume_checkpoint_status="checkpoint_seeded",
+        analysis_resume_state_status="checkpoint_seeded",
         analysis_resume_reused_files=0,
         profile_enabled=False,
         latest_collection_progress={},
@@ -75,7 +75,7 @@ def _analysis_context(
     tmp_path: Path,
     deps: server.ExecuteCommandDeps,
     source_path: Path,
-    emit_checkpoint_intro_timeline: bool,
+    emit_phase_timeline: bool,
     emitted_events: list[dict[str, object]],
 ) -> orchestrator._AnalysisExecutionContext:
     return orchestrator._AnalysisExecutionContext(
@@ -104,14 +104,14 @@ def _analysis_context(
         analysis_resume_intro_payload=None,
         analysis_resume_reused_files=0,
         analysis_resume_total_files=1,
-        analysis_resume_checkpoint_path=tmp_path / "resume.json",
-        analysis_resume_checkpoint_status="checkpoint_seeded",
+        analysis_resume_state_path=tmp_path / "resume.json",
+        analysis_resume_state_status="checkpoint_seeded",
         analysis_resume_input_manifest_digest="digest",
         analysis_resume_input_witness=None,
         analysis_resume_intro_timeline_header=None,
         analysis_resume_intro_timeline_row=None,
-        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
-        emit_checkpoint_intro_timeline=emit_checkpoint_intro_timeline,
+        phase_timeline_path=tmp_path / "timeline.md",
+        emit_phase_timeline=emit_phase_timeline,
         enable_phase_projection_checkpoints=False,
         report_output_path=None,
         projection_rows=[],
@@ -205,7 +205,7 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
             report_section_journal_path=tmp_path / "sections.json",
             report_section_witness_digest=None,
             report_phase_checkpoint_path=tmp_path / "phase.json",
-            analysis_resume_checkpoint_path=None,
+            analysis_resume_state_path=None,
             analysis_resume_reused_files=0,
             type_audit_report=False,
             baseline_path=None,
@@ -291,7 +291,7 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
         report_section_journal_path=tmp_path / "sections.json",
         report_section_witness_digest=None,
         report_phase_checkpoint_path=tmp_path / "phase.json",
-        analysis_resume_checkpoint_path=None,
+        analysis_resume_state_path=None,
         analysis_resume_reused_files=0,
         type_audit_report=False,
         baseline_path=baseline_path,
@@ -335,15 +335,15 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        analysis_resume_checkpoint_path=None,
+        analysis_resume_state_path=None,
         analysis_resume_input_manifest_digest=None,
         last_collection_resume_payload=None,
         execute_deps=deps,
         analysis_resume_input_witness=None,
-        emit_checkpoint_intro_timeline=False,
-        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
+        emit_phase_timeline=False,
+        phase_timeline_path=tmp_path / "timeline.md",
         analysis_resume_total_files=0,
-        analysis_resume_checkpoint_status=None,
+        analysis_resume_state_status=None,
         analysis_resume_reused_files=0,
         profile_enabled=False,
         latest_collection_progress={},
@@ -385,13 +385,13 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     source_path.write_text("def f() -> None:\n    return None\n", encoding="utf-8")
     deps = server._default_execute_command_deps()
     state = orchestrator._AnalysisResumePreparationState(
-        analysis_resume_checkpoint_path=None,
+        analysis_resume_state_path=None,
         analysis_resume_input_witness=None,
         analysis_resume_input_manifest_digest=None,
         analysis_resume_total_files=0,
         analysis_resume_reused_files=0,
-        analysis_resume_checkpoint_status=None,
-        analysis_resume_checkpoint_compatibility_status=None,
+        analysis_resume_state_status=None,
+        analysis_resume_state_compatibility_status=None,
         analysis_resume_intro_payload=None,
         analysis_resume_intro_timeline_header=None,
         analysis_resume_intro_timeline_row=None,
@@ -417,8 +417,8 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         runtime_state=runtime_state,
     )
     assert collection_resume_payload is None
-    assert state.analysis_resume_checkpoint_path is None
-    assert state.analysis_resume_checkpoint_status == "cold_start"
+    assert state.analysis_resume_state_path is None
+    assert state.analysis_resume_state_status == "cold_start"
     assert state.analysis_resume_intro_timeline_header is None
     assert state.analysis_resume_intro_timeline_row is None
 
@@ -443,7 +443,7 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
         tmp_path=tmp_path,
         deps=deps,
         source_path=source_path,
-        emit_checkpoint_intro_timeline=False,
+        emit_phase_timeline=False,
         emitted_events=emitted_events,
     )
     state = orchestrator._AnalysisExecutionMutableState(
@@ -463,8 +463,8 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
     )
 
 
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_checkpoint
-def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_disabled(
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_state
+def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disabled(
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
@@ -478,7 +478,7 @@ def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_
             "in_progress_scan_by_path": {},
         },
     )
-    persisted_payload = orchestrator._persist_timeout_resume_checkpoint(
+    persisted_payload = orchestrator._persist_timeout_resume_state(
         context=context,
         timeout_collection_resume_payload=None,
         mark_cleanup_timeout_fn=lambda _step: None,

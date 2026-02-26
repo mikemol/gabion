@@ -397,7 +397,8 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
             }
         ):
             payload = delta_state_emit._build_payload()
-        assert payload["resume_checkpoint"] is False
+        assert payload["analysis_timeout_ticks"] == 1
+        assert payload["analysis_timeout_tick_ns"] == 1
     finally:
         os.chdir(previous_cwd)
 
@@ -690,33 +691,18 @@ def test_delta_state_emit_main_for_emitter_without_output_path_branch(
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned::delta_triplets.py::gabion.tooling.delta_triplets._triplet_resume_checkpoint_path
-def test_delta_triplets_emit_checkpoint_paths_are_partitioned() -> None:
-    obsolescence_path = delta_triplets._triplet_resume_checkpoint_path("obsolescence")
-    annotation_path = delta_triplets._triplet_resume_checkpoint_path("annotation-drift")
-    ambiguity_path = delta_triplets._triplet_resume_checkpoint_path("ambiguity")
-    assert obsolescence_path.name == "dataflow_resume_checkpoint_ci_obsolescence.json"
-    assert annotation_path.name == "dataflow_resume_checkpoint_ci_annotation_drift.json"
-    assert ambiguity_path.name == "dataflow_resume_checkpoint_ci_ambiguity.json"
-    assert len({obsolescence_path, annotation_path, ambiguity_path}) == 3
+# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_call_emitters_without_resume_checkpoint::delta_triplets.py::gabion.tooling.delta_triplets._run_ambiguity_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_annotation_drift_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_obsolescence_emit
+def test_delta_triplets_emit_wrappers_call_emitters_without_resume_checkpoint() -> None:
+    calls: list[str] = []
 
-
-# gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints::delta_triplets.py::gabion.tooling.delta_triplets._run_ambiguity_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_annotation_drift_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_obsolescence_emit
-def test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints() -> None:
-    captured: list[Path] = []
-
-    def _capture(*, resume_checkpoint: Path) -> int:
-        captured.append(resume_checkpoint)
+    def _capture() -> int:
+        calls.append("called")
         return 0
 
     assert delta_triplets._run_obsolescence_emit(run_emit=_capture) == 0
     assert delta_triplets._run_annotation_drift_emit(run_emit=_capture) == 0
     assert delta_triplets._run_ambiguity_emit(run_emit=_capture) == 0
-    assert [path.name for path in captured] == [
-        "dataflow_resume_checkpoint_ci_obsolescence.json",
-        "dataflow_resume_checkpoint_ci_annotation_drift.json",
-        "dataflow_resume_checkpoint_ci_ambiguity.json",
-    ]
+    assert len(calls) == 3
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_stream_phase_timeline_rows::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main

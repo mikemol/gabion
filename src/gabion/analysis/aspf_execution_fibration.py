@@ -88,7 +88,6 @@ class AspfExecutionTraceState:
     controls: AspfTraceControls
     started_at_utc: str
     command_profile: str
-    resume_checkpoint_path: str | None
     one_cells: list[AspfOneCell] = field(default_factory=list)
     one_cell_metadata: list[JSONObject] = field(default_factory=list)
     two_cell_witnesses: list[AspfTwoCellWitness] = field(default_factory=list)
@@ -192,11 +191,6 @@ def start_execution_trace(
         controls=controls,
         started_at_utc=datetime.now(timezone.utc).isoformat(),
         command_profile=_command_profile_from_payload(payload),
-        resume_checkpoint_path=(
-            str(payload.get("resume_checkpoint"))
-            if payload.get("resume_checkpoint") is not None
-            else None
-        ),
     )
     entries = tuple(
         DomainToAspfCofibrationEntry(
@@ -772,7 +766,6 @@ def _build_state_payload(
             if resume_compatibility_status is not None
             else None
         ),
-        "resume_checkpoint_path": state.resume_checkpoint_path,
         "trace": {str(key): _as_json_value(trace_payload[key]) for key in trace_payload},
         "equivalence": {
             str(key): _as_json_value(equivalence_payload[key])
@@ -1143,30 +1136,35 @@ def _find_witness(
 
 
 def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
-    by_checkpoint: dict[str, set[str]] = {}
+    by_resume_ref: dict[str, set[str]] = {}
     for metadata in state.one_cell_metadata:
         kind = str(metadata.get("kind", ""))
         raw_payload = metadata.get("metadata")
         payload = raw_payload if isinstance(raw_payload, Mapping) else {}
-        checkpoint = str(payload.get("checkpoint_path", "")).strip()
-        if not checkpoint:
+        resume_ref = ""
+        for candidate_key in ("state_path", "import_state_path", "checkpoint_path"):
+            candidate = str(payload.get(candidate_key, "")).strip()
+            if candidate:
+                resume_ref = candidate
+                break
+        if not resume_ref:
             continue
-        by_checkpoint.setdefault(checkpoint, set()).add(kind)
+        by_resume_ref.setdefault(resume_ref, set()).add(kind)
     opportunities: list[JSONObject] = []
-    for checkpoint in sort_once(
-        by_checkpoint,
-        source="aspf_execution_fibration._materialize_load_opportunities.checkpoint",
+    for resume_ref in sort_once(
+        by_resume_ref,
+        source="aspf_execution_fibration._materialize_load_opportunities.resume_ref",
     ):
-        kinds = by_checkpoint[checkpoint]
+        kinds = by_resume_ref[resume_ref]
         if "resume_load" in kinds and "resume_write" in kinds:
             opportunities.append(
                 {
-                    "opportunity_id": f"opp:materialize-load-fusion:{checkpoint}",
+                    "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
                     "kind": "materialize_load_fusion",
                     "confidence": 0.74,
                     "affected_surfaces": [],
                     "witness_ids": [],
-                    "reason": "resume load and write boundaries share checkpoint path",
+                    "reason": "resume load and write boundaries share state reference",
                 }
             )
     return opportunities

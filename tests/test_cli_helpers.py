@@ -1196,30 +1196,30 @@ def test_emit_phase_progress_line_omits_optional_fragments_when_values_missing(c
     assert line == "progress phase=collection"
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
-def test_emit_resume_checkpoint_startup_line(capsys) -> None:
-    cli._emit_resume_checkpoint_startup_line(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_state_startup_line::cli.py::gabion.cli._emit_resume_state_startup_line
+def test_emit_resume_state_startup_line(capsys) -> None:
+    cli._emit_resume_state_startup_line(
         checkpoint_path="artifacts/audit_reports/resume.json",
         status="checkpoint_loaded",
         reused_files=3,
         total_files=7,
     )
     output = capsys.readouterr().out
-    assert "resume checkpoint detected..." in output
+    assert "resume state detected..." in output
     assert "status=checkpoint_loaded" in output
     assert "reused_files=3/7" in output
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line_unknown_pending::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
-def test_emit_resume_checkpoint_startup_line_unknown_pending(capsys) -> None:
-    cli._emit_resume_checkpoint_startup_line(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_state_startup_line_unknown_pending::cli.py::gabion.cli._emit_resume_state_startup_line
+def test_emit_resume_state_startup_line_unknown_pending(capsys) -> None:
+    cli._emit_resume_state_startup_line(
         checkpoint_path="artifacts/audit_reports/resume.json",
         status="pending",
         reused_files=None,
         total_files=None,
     )
     output = capsys.readouterr().out
-    assert "resume checkpoint detected..." in output
+    assert "resume state detected..." in output
     assert "status=pending" in output
     assert "reused_files=unknown" in output
 
@@ -1239,7 +1239,7 @@ def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag(
                 "token": "gabion.dataflowAudit/progress-v1",
                 "value": {
                     "resume_checkpoint": {
-                        "checkpoint_path": str(checkpoint_path),
+                        "state_path": str(checkpoint_path),
                         "status": "checkpoint_loaded",
                         "reused_files": 2,
                         "total_files": 5,
@@ -1575,7 +1575,7 @@ def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
     cli._emit_analysis_resume_summary(
         {
             "analysis_resume": {
-                "checkpoint_path": "artifacts/audit_reports/resume.json",
+                "state_path": "artifacts/audit_reports/resume.json",
                 "status": "checkpoint_loaded",
                 "reused_files": 3,
                 "total_files": 5,
@@ -1585,7 +1585,7 @@ def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
         }
     )
     output = capsys.readouterr().out
-    assert "Resume checkpoint:" in output
+    assert "Resume state:" in output
     assert "status=checkpoint_loaded" in output
     assert "reused_files=3/5" in output
     assert f"cache_verdict={cache_verdict}" in output
@@ -2517,11 +2517,11 @@ def test_emit_structure_reuse_errors_exit(capsys) -> None:
     assert "bad reuse" in captured.err
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
-def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_aspf_state_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+def test_restore_aspf_state_from_github_artifacts_restores_files(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w") as zf:
         zf.writestr(
@@ -2566,7 +2566,7 @@ def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files
             return _Resp(json.dumps(payload).encode("utf-8"))
         return _Resp(zip_buf.getvalue())
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -2580,11 +2580,11 @@ def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files
     assert (tmp_path / f"{checkpoint_name}.chunks/part-000.json").exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w") as zf:
         zf.writestr(
@@ -2625,7 +2625,7 @@ def test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts(
             return _Resp(json.dumps(payload).encode("utf-8"))
         return _Resp(zip_buf.getvalue())
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -2638,11 +2638,11 @@ def test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts(
     assert (tmp_path / checkpoint_name).exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w") as zf:
         zf.writestr(
@@ -2682,7 +2682,7 @@ def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event
             return _Resp(json.dumps(payload).encode("utf-8"))
         return _Resp(zip_buf.getvalue())
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -2695,11 +2695,11 @@ def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event
     assert (tmp_path / checkpoint_name).exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     state_ref = "chunk-state.json"
     incomplete_zip = io.BytesIO()
     with zipfile.ZipFile(incomplete_zip, "w") as zf:
@@ -2777,7 +2777,7 @@ def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
             return _Resp(complete_zip.getvalue())
         raise AssertionError(f"unexpected url: {url}")
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -2791,11 +2791,11 @@ def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
     assert (tmp_path / f"{checkpoint_name}.chunks/{state_ref}").exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     state_ref = "chunk-state.json"
     archive = io.BytesIO()
     checkpoint_payload = json.dumps(
@@ -2846,7 +2846,7 @@ def test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files(
             return _Resp(json.dumps(payload).encode("utf-8"))
         return _Resp(archive.getvalue())
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -2861,11 +2861,11 @@ def test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files(
     assert (chunk_dir / state_ref).exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preserves_non_file_chunk_entries::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preserves_non_file_chunk_entries::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preserves_non_file_chunk_entries(
     tmp_path: Path,
 ) -> None:
-    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    checkpoint_name = "aspf_state_ci.json"
     archive = io.BytesIO()
     checkpoint_payload = json.dumps(
         {"collection_resume": {"analysis_index_resume": {"state_ref": "chunk.json"}}}
@@ -2914,7 +2914,7 @@ def test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preser
             return _Resp(json.dumps(payload).encode("utf-8"))
         return _Resp(archive.getvalue())
 
-    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+    exit_code = cli._restore_aspf_state_from_github_artifacts(
         token="token",
         repo="owner/repo",
         output_dir=tmp_path,
@@ -3076,12 +3076,12 @@ def test_download_artifact_archive_bytes_raises_when_redirect_location_missing()
         )
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_requires_chunk_artifacts_invalid_payload_shapes::cli.py::gabion.cli._checkpoint_requires_chunk_artifacts
-def test_checkpoint_requires_chunk_artifacts_invalid_payload_shapes() -> None:
-    assert cli._checkpoint_requires_chunk_artifacts(checkpoint_bytes=b"{not-json") is False
-    assert cli._checkpoint_requires_chunk_artifacts(checkpoint_bytes=b"[]") is False
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_state_requires_chunk_artifacts_invalid_payload_shapes::cli.py::gabion.cli._state_requires_chunk_artifacts
+def test_state_requires_chunk_artifacts_invalid_payload_shapes() -> None:
+    assert cli._state_requires_chunk_artifacts(checkpoint_bytes=b"{not-json") is False
+    assert cli._state_requires_chunk_artifacts(checkpoint_bytes=b"[]") is False
     assert (
-        cli._checkpoint_requires_chunk_artifacts(
+        cli._state_requires_chunk_artifacts(
             checkpoint_bytes=json.dumps({"collection_resume": {}}).encode("utf-8")
         )
         is False
@@ -3171,7 +3171,7 @@ def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag_once(
                 "token": "gabion.dataflowAudit/progress-v1",
                 "value": {
                     "resume_checkpoint": {
-                        "checkpoint_path": str(checkpoint_path),
+                        "state_path": str(checkpoint_path),
                         "status": "checkpoint_loaded",
                         "reused_files": 2,
                         "total_files": 5,
@@ -3210,7 +3210,7 @@ def test_check_rejects_removed_resume_checkpoint_flag(
                 "token": "gabion.dataflowAudit/progress-v1",
                 "value": {
                     "resume_checkpoint": {
-                        "checkpoint_path": "resume.json",
+                        "state_path": "resume.json",
                         "status": "checkpoint_loaded",
                         "reused_files": 1,
                         "total_files": 2,
@@ -3242,7 +3242,7 @@ def test_check_rejects_removed_resume_checkpoint_flag(
         },
     )
     assert result.exit_code != 0
-    assert "Removed legacy check timeout/resume flags." in result.output
+    assert "No such option: --resume-checkpoint" in result.output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_checkpoint_intro_timeline_header_once::cli.py::gabion.cli.app
@@ -3519,13 +3519,13 @@ def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
 def test_restore_resume_checkpoint_handles_guard_and_error_branches(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="",
             repo="",
             output_dir=tmp_path,
@@ -3538,7 +3538,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         raise RuntimeError("query boom")
 
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="token",
             repo="owner/repo",
             output_dir=tmp_path,
@@ -3587,7 +3587,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         return _Resp(json.dumps(payload).encode("utf-8"))
 
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="token",
             repo="owner/repo",
             output_dir=tmp_path,
@@ -3615,7 +3615,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         raise RuntimeError("download boom")
 
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="token",
             repo="owner/repo",
             output_dir=tmp_path,
@@ -3627,7 +3627,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
 
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w") as zf:
-        zf.writestr("dataflow-report/dataflow_resume_checkpoint_ci.json.chunks/", "")
+        zf.writestr("dataflow-report/aspf_state_ci.json.chunks/", "")
 
     def _zip_with_only_directory(req, timeout=0):
         url = str(getattr(req, "full_url", req))
@@ -3636,7 +3636,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         return _Resp(zip_buf.getvalue())
 
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="token",
             repo="owner/repo",
             output_dir=tmp_path,
@@ -3653,7 +3653,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         return _Resp(b"not-a-zip")
 
     assert (
-        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        cli._restore_aspf_state_from_github_artifacts(
             token="token",
             repo="owner/repo",
             output_dir=tmp_path,

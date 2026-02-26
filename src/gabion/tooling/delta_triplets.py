@@ -16,7 +16,6 @@ from gabion.order_contract import sort_once
 StepKind = tool_specs.StepKind
 StepSpec = tool_specs.ToolSpec
 
-_triplet_resume_checkpoint_path = tool_specs.triplet_resume_checkpoint_path
 _run_obsolescence_emit = tool_specs.run_obsolescence_emit
 _run_annotation_drift_emit = tool_specs.run_annotation_drift_emit
 _run_ambiguity_emit = tool_specs.run_ambiguity_emit

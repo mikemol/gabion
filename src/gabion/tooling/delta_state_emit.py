@@ -24,7 +24,6 @@ _TIMELINE_MIN_INTERVAL_SECONDS = (
 )
 _LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_METHOD
 _LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
-_DEFAULT_RESUME_CHECKPOINT_PATH = delta_emit_runtime.DEFAULT_RESUME_CHECKPOINT_PATH
 _EXPECTED_STATE_PATHS = (
     Path("artifacts/out/test_obsolescence_state.json"),
     Path("artifacts/out/test_annotation_drift.json"),
@@ -52,7 +51,6 @@ _EMITTER_CONFIGS: dict[EmitterId, DeltaEmitterConfig] = {
                 "emit_test_annotation_drift",
                 "emit_ambiguity_state",
             ),
-            default_resume_checkpoint_path=_DEFAULT_RESUME_CHECKPOINT_PATH,
         ),
         run_spec=delta_emit_runtime.DeltaEmitRunSpec(
             script_name="delta_state_emit",
@@ -70,7 +68,6 @@ _EMITTER_CONFIGS: dict[EmitterId, DeltaEmitterConfig] = {
                     path=_OBSOLESCENCE_STATE_PATH,
                 ),
             ),
-            default_resume_checkpoint_path=_DEFAULT_RESUME_CHECKPOINT_PATH,
         ),
         run_spec=delta_emit_runtime.DeltaEmitRunSpec(
             script_name="obsolescence_delta_emit",
@@ -88,7 +85,6 @@ _EMITTER_CONFIGS: dict[EmitterId, DeltaEmitterConfig] = {
                     path=_ANNOTATION_DRIFT_STATE_PATH,
                 ),
             ),
-            default_resume_checkpoint_path=_DEFAULT_RESUME_CHECKPOINT_PATH,
         ),
         run_spec=delta_emit_runtime.DeltaEmitRunSpec(
             script_name="annotation_drift_delta_emit",
@@ -106,7 +102,6 @@ _EMITTER_CONFIGS: dict[EmitterId, DeltaEmitterConfig] = {
                     path=_AMBIGUITY_STATE_PATH,
                 ),
             ),
-            default_resume_checkpoint_path=_DEFAULT_RESUME_CHECKPOINT_PATH,
         ),
         run_spec=delta_emit_runtime.DeltaEmitRunSpec(
             script_name="ambiguity_delta_emit",
@@ -152,14 +147,9 @@ def _build_payload() -> dict[str, object]:
 
 def _build_payload_for_emitter(
     emitter_id: EmitterId,
-    *,
-    resume_checkpoint: Path | bool | None = None,
 ) -> dict[str, object]:
     config = _EMITTER_CONFIGS[emitter_id]
-    return delta_emit_runtime.build_payload(
-        config.payload_spec,
-        resume_checkpoint=resume_checkpoint,
-    )
+    return delta_emit_runtime.build_payload(config.payload_spec)
 
 
 def _supports_notification_callback(
@@ -201,7 +191,6 @@ def main_for_emitter(
     root_path: Path = Path("."),
     output_path: Path | None = None,
     expected_outputs: tuple[Path, ...] | None = None,
-    resume_checkpoint: Path | bool | None = None,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> int:
@@ -211,10 +200,7 @@ def main_for_emitter(
         run_spec = replace(run_spec, expected_outputs=expected_outputs)
     elif isinstance(output_path, Path):
         run_spec = replace(run_spec, expected_outputs=(output_path,))
-    payload = _build_payload_for_emitter(
-        emitter_id,
-        resume_checkpoint=resume_checkpoint,
-    )
+    payload = _build_payload_for_emitter(emitter_id)
     return delta_emit_runtime.run_delta_emit(
         run_spec=run_spec,
         payload=payload,
@@ -253,7 +239,6 @@ def obsolescence_main(
     run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _OBSOLESCENCE_DELTA_PATH,
-    resume_checkpoint: Path | bool | None = None,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> int:
@@ -263,7 +248,6 @@ def obsolescence_main(
         run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
-        resume_checkpoint=resume_checkpoint,
         print_fn=print_fn,
         monotonic_fn=monotonic_fn,
     )
@@ -275,7 +259,6 @@ def annotation_drift_main(
     run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _ANNOTATION_DRIFT_DELTA_PATH,
-    resume_checkpoint: Path | bool | None = None,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> int:
@@ -285,7 +268,6 @@ def annotation_drift_main(
         run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
-        resume_checkpoint=resume_checkpoint,
         print_fn=print_fn,
         monotonic_fn=monotonic_fn,
     )
@@ -297,7 +279,6 @@ def ambiguity_main(
     run_command_fn: Callable[..., Mapping[str, object]] = run_command,
     root_path: Path = Path("."),
     delta_path: Path = _AMBIGUITY_DELTA_PATH,
-    resume_checkpoint: Path | bool | None = None,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> int:
@@ -307,7 +288,6 @@ def ambiguity_main(
         run_command_fn=run_command_fn,
         root_path=root_path,
         output_path=delta_path,
-        resume_checkpoint=resume_checkpoint,
         print_fn=print_fn,
         monotonic_fn=monotonic_fn,
     )

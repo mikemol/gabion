@@ -1992,7 +1992,7 @@ def _emit_action_plan_quality_warnings(result: JSONObject) -> None:
     )
 
 
-def _emit_resume_checkpoint_startup_line(
+def _emit_resume_state_startup_line(
     *,
     checkpoint_path: str,
     status: str,
@@ -2003,7 +2003,7 @@ def _emit_resume_checkpoint_startup_line(
     if isinstance(reused_files, int) and isinstance(total_files, int):
         reused_display = f"{int(reused_files)}/{int(total_files)}"
     typer.echo(
-        "resume checkpoint detected... "
+        "resume state detected... "
         f"path={checkpoint_path or '<none>'} "
         f"status={status or 'unknown'} "
         f"reused_files={reused_display}"
@@ -2076,7 +2076,7 @@ def _emit_phase_progress_line(phase_progress: Mapping[str, object]) -> None:
     typer.echo(f"{prefix} {' '.join(fragments)}")
 
 
-def _emit_checkpoint_intro_timeline_progress(*, header: str | None, row: str) -> None:
+def _emit_phase_timeline_progress(*, header: str | None, row: str) -> None:
     if isinstance(header, str) and header:
         typer.echo(header)
     typer.echo(row)
@@ -2086,7 +2086,7 @@ def _emit_analysis_resume_summary(result: JSONObject) -> None:
     resume = result.get("analysis_resume")
     if not isinstance(resume, Mapping):
         return
-    path = str(resume.get("checkpoint_path", "") or "")
+    path = str(resume.get("state_path", "") or "")
     status = str(resume.get("status", "") or "")
     reused_files = int(resume.get("reused_files", 0) or 0)
     total_files = int(resume.get("total_files", 0) or 0)
@@ -2095,7 +2095,7 @@ def _emit_analysis_resume_summary(result: JSONObject) -> None:
     status_suffix = f" status={status}" if status else ""
     verdict_suffix = f" cache_verdict={cache_verdict}" if cache_verdict else ""
     typer.echo(
-        "Resume checkpoint: "
+        "Resume state: "
         f"path={path or '<none>'} reused_files={reused_files}/{total_files} "
         f"remaining_files={remaining_files}{status_suffix}{verdict_suffix}"
     )
@@ -2147,7 +2147,7 @@ def _run_dataflow_raw_argv(
             if not timeline_header_emitted and isinstance(header_value, str) and header_value
             else None
         )
-        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        _emit_phase_timeline_progress(header=header, row=row)
         if header is not None:
             timeline_header_emitted = True
 
@@ -2340,7 +2340,7 @@ def _run_check_command(
             and header_value
             else None
         )
-        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        _emit_phase_timeline_progress(header=header, row=row)
         if header is not None:
             timeline_header_emitted = True
 
@@ -2767,35 +2767,10 @@ def check_run(
         None,
         "--aspf-semantic-surface",
     ),
-    removed_resume_checkpoint: Optional[Path] = typer.Option(
-        None,
-        "--resume-checkpoint",
-        hidden=True,
-    ),
-    removed_emit_timeout_progress_report: bool = typer.Option(
-        False,
-        "--emit-timeout-progress-report",
-        hidden=True,
-    ),
-    removed_resume_on_timeout: Optional[int] = typer.Option(
-        None,
-        "--resume-on-timeout",
-        hidden=True,
-    ),
 ) -> None:
     if removed_analysis_tick_limit is not None:
         raise typer.BadParameter(
             "Removed --analysis-tick-limit. Use --analysis-budget-checks."
-        )
-    if (
-        removed_resume_checkpoint is not None
-        or removed_emit_timeout_progress_report
-        or removed_resume_on_timeout is not None
-    ):
-        raise typer.BadParameter(
-            "Removed legacy check timeout/resume flags. "
-            "Use --aspf-state-json/--aspf-import-state and optional "
-            "--aspf-delta-jsonl/--aspf-action-plan-json/--aspf-action-plan-md."
         )
     if baseline_mode in {CheckBaselineMode.enforce, CheckBaselineMode.write} and baseline is None:
         raise typer.BadParameter(
@@ -3610,7 +3585,7 @@ def _run_governance_runner(
         return 1
 
 
-def _restore_dataflow_resume_checkpoint_from_github_artifacts(
+def _restore_aspf_state_from_github_artifacts(
     *,
     token: str,
     repo: str,
@@ -3618,7 +3593,7 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     ref_name: str = "",
     current_run_id: str = "",
     artifact_name: str = "dataflow-report",
-    checkpoint_name: str = "dataflow_resume_checkpoint_ci.json",
+    state_name: str = "aspf_state_ci.json",
     per_page: int = 100,
     urlopen_fn: Callable[..., object] = urllib.request.urlopen,
     no_redirect_open_fn: Callable[..., object] | None = None,
@@ -3629,9 +3604,9 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     ref_name = ref_name.strip()
     current_run_id = current_run_id.strip()
     artifact_name = artifact_name.strip() or "dataflow-report"
-    checkpoint_name = checkpoint_name.strip() or "dataflow_resume_checkpoint_ci.json"
+    state_name = state_name.strip() or "aspf_state_ci.json"
     if not token or not repo:
-        typer.echo("GitHub token/repository unavailable; skipping checkpoint restore.")
+        typer.echo("GitHub token/repository unavailable; skipping ASPF state restore.")
         return 0
 
     api_url = (
@@ -3649,7 +3624,7 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
         with urlopen_fn(req, timeout=20) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception as exc:
-        typer.echo(f"Unable to query prior artifacts ({exc}); skipping checkpoint restore.")
+        typer.echo(f"Unable to query prior artifacts ({exc}); skipping ASPF state restore.")
         return 0
 
     artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
@@ -3680,7 +3655,7 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
             "No reusable same-branch dataflow-report artifact found; continuing without checkpoint."
         )
         return 0
-    chunk_prefix = f"{checkpoint_name}.chunks/"
+    chunk_prefix = f"{state_name}.chunks/"
     output_dir.mkdir(parents=True, exist_ok=True)
     last_error: Exception | None = None
     for artifact in artifact_candidates:
@@ -3699,19 +3674,19 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
                 names = [name for name in zf.namelist() if not name.endswith("/")]
                 for name in names:
                     base = name.split("/", 1)[-1]
-                    if base == checkpoint_name:
+                    if base == state_name:
                         checkpoint_member = name
                     elif base.startswith(chunk_prefix):
                         chunk_members.append(name)
                 if checkpoint_member is None:
                     continue
                 checkpoint_bytes = zf.read(checkpoint_member)
-                if _checkpoint_requires_chunk_artifacts(
+                if _state_requires_chunk_artifacts(
                     checkpoint_bytes=checkpoint_bytes
                 ) and not chunk_members:
                     continue
-                checkpoint_output = output_dir / checkpoint_name
-                chunk_output_dir = output_dir / f"{checkpoint_name}.chunks"
+                checkpoint_output = output_dir / state_name
+                chunk_output_dir = output_dir / f"{state_name}.chunks"
                 if checkpoint_output.exists():
                     checkpoint_output.unlink()
                 if chunk_output_dir.exists():
@@ -3728,7 +3703,7 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
                     destination.write_bytes(zf.read(name))
                     restored += 1
                 typer.echo(
-                    f"Restored {restored} checkpoint artifact file(s) from prior run."
+                    f"Restored {restored} ASPF state artifact file(s) from prior run."
                 )
                 return 0
         except Exception as exc:
@@ -3736,11 +3711,11 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
             continue
     if last_error is not None:
         typer.echo(
-            f"Unable to restore checkpoint from prior artifacts ({last_error}); continuing without checkpoint."
+            f"Unable to restore ASPF state from prior artifacts ({last_error}); continuing without checkpoint."
         )
         return 0
     typer.echo(
-        "Prior artifacts did not include usable resume checkpoint files; continuing without restore."
+        "Prior artifacts did not include usable ASPF state files; continuing without restore."
     )
     return 0
 
@@ -3791,7 +3766,7 @@ def _download_artifact_archive_bytes(
             return response.read()
 
 
-def _checkpoint_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
+def _state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
     try:
         payload = json.loads(checkpoint_bytes.decode("utf-8"))
     except Exception:

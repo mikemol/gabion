@@ -967,7 +967,7 @@ def test_incremental_obligations_require_restart_on_witness_mismatch(
             "classification": "timed_out_progress_resume",
             "resume_supported": True,
         },
-        resume_checkpoint_path=checkpoint_path,
+        resume_payload_available=True,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1000,7 +1000,7 @@ def test_incremental_obligations_flag_no_projection_progress() -> None:
             "classification": "timed_out_progress_resume",
             "resume_supported": True,
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1031,7 +1031,7 @@ def test_incremental_obligations_require_substantive_progress_for_resume() -> No
                 "monotonic_progress": True,
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1061,7 +1061,7 @@ def test_incremental_obligations_flag_semantic_progress_regression() -> None:
                 "monotonic_progress": False,
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=False,
         projection_rows=[],
@@ -2621,7 +2621,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
         progress_payload={"classification": "timed_out_progress_resume", "resume_supported": True},
-        resume_checkpoint_path=tmp_path / "missing.json",
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "", "phase": "collection"}],
@@ -2636,7 +2636,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
         progress_payload={"classification": "timed_out_progress_resume", "resume_supported": True},
-        resume_checkpoint_path=tmp_path / "missing.json",
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "intro", "phase": "collection"}],
@@ -3725,7 +3725,7 @@ def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() ->
                 "substantive_progress": "no",
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=False,
         projection_rows=[],

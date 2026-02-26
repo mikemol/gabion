@@ -1952,7 +1952,7 @@ def _collection_progress_intro_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
     total_files: int,
-    resume_checkpoint_intro: Mapping[str, JSONValue] | None = None,
+    resume_state_intro: Mapping[str, JSONValue] | None = None,
 ) -> list[str]:
     check_deadline()
     progress = _analysis_resume_progress(
@@ -1966,16 +1966,16 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    if isinstance(resume_checkpoint_intro, Mapping):
-        checkpoint_path = str(resume_checkpoint_intro.get("checkpoint_path", "") or "")
-        status = str(resume_checkpoint_intro.get("status", "") or "")
-        reused_files = int(resume_checkpoint_intro.get("reused_files", 0) or 0)
+    if isinstance(resume_state_intro, Mapping):
+        state_path = str(resume_state_intro.get("state_path", "") or "")
+        status = str(resume_state_intro.get("status", "") or "")
+        reused_files = int(resume_state_intro.get("reused_files", 0) or 0)
         total_resume_files = int(
-            resume_checkpoint_intro.get("total_files", progress["total_files"]) or 0
+            resume_state_intro.get("total_files", progress["total_files"]) or 0
         )
         lines.append(
-            "- `resume_checkpoint`: "
-            f"`path={checkpoint_path or '<none>'} "
+            "- `resume_state`: "
+            f"`path={state_path or '<none>'} "
             f"status={status or 'unknown'} "
             f"reused_files={reused_files}/{total_resume_files}`"
         )
@@ -2143,7 +2143,7 @@ def _incremental_progress_obligations(
     *,
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
-    resume_checkpoint_path: Path | None,
+    resume_payload_available: bool,
     partial_report_written: bool,
     report_requested: bool,
     projection_rows: Sequence[Mapping[str, JSONValue]],
@@ -2226,19 +2226,17 @@ def _incremental_progress_obligations(
             }
         )
 
-    checkpoint_ok = True
+    resume_payload_ok = True
     if resume_supported and is_timeout_state:
-        checkpoint_ok = bool(resume_checkpoint_path and resume_checkpoint_path.exists())
+        resume_payload_ok = resume_payload_available
     obligations.append(
         {
-            "status": "SATISFIED" if checkpoint_ok else "VIOLATION",
+            "status": "SATISFIED" if resume_payload_ok else "VIOLATION",
             "contract": "resume_contract",
-            "kind": "checkpoint_present_when_resumable",
-            "detail": (
-                str(resume_checkpoint_path)
-                if resume_checkpoint_path is not None
-                else "checkpoint path missing"
-            ),
+            "kind": "resume_payload_present_when_resumable",
+            "detail": "resume payload available"
+            if resume_payload_ok
+            else "resume payload missing",
         }
     )
     stale_input_detected = any(

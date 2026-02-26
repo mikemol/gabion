@@ -35,7 +35,7 @@ def _cwd(path: Path):
         os.chdir(previous)
 
 
-# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults::delta_state_emit.py::gabion.tooling.delta_state_emit._build_payload_for_emitter
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_inputs_and_timeout_defaults::delta_state_emit.py::gabion.tooling.delta_state_emit._build_payload_for_emitter
 @pytest.mark.parametrize(
     ("emitter_id", "state_path", "state_key"),
     [
@@ -56,7 +56,7 @@ def _cwd(path: Path):
         ),
     ],
 )
-def test_emit_build_payload_handles_state_resume_and_timeout_defaults(
+def test_emit_build_payload_handles_state_inputs_and_timeout_defaults(
     tmp_path: Path,
     emitter_id: str,
     state_path: Path,
@@ -73,27 +73,11 @@ def test_emit_build_payload_handles_state_resume_and_timeout_defaults(
         assert payload["analysis_timeout_ticks"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
         assert payload["analysis_timeout_tick_ns"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
         assert payload.get(state_key) is None
-        assert payload["resume_checkpoint"] is False
 
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text("{}\n", encoding="utf-8")
-        delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH.write_text("{}\n", encoding="utf-8")
         payload = delta_state_emit._build_payload_for_emitter(emitter_id)
         assert payload[state_key] == str(state_path)
-        assert payload["resume_checkpoint"] == str(delta_state_emit._DEFAULT_RESUME_CHECKPOINT_PATH)
-
-        override_resume = tmp_path / f"{emitter_id}.resume.json"
-        payload = delta_state_emit._build_payload_for_emitter(
-            emitter_id,
-            resume_checkpoint=override_resume,
-        )
-        assert payload["resume_checkpoint"] == str(override_resume)
-        payload = delta_state_emit._build_payload_for_emitter(
-            emitter_id,
-            resume_checkpoint=False,
-        )
-        assert payload["resume_checkpoint"] is False
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main

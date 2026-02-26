@@ -12,14 +12,12 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
     manifest_path = root / "artifacts/out/aspf_handoff_manifest.json"
     state_root = root / "artifacts/out/aspf_state"
     session_id = "session-test"
-    checkpoint = root / "artifacts/audit_reports/checkpoint.json"
 
     step1 = aspf_handoff.prepare_step(
         root=root,
         session_id=session_id,
         step_id="check.run",
         command_profile="check.run",
-        resume_checkpoint_path=checkpoint,
         manifest_path=manifest_path,
         state_root=state_root,
     )
@@ -39,7 +37,6 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
         session_id=session_id,
         step_id="check.annotation-drift.delta",
         command_profile="check.annotation-drift.delta",
-        resume_checkpoint_path=checkpoint,
         manifest_path=manifest_path,
         state_root=state_root,
     )
@@ -59,7 +56,6 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
         session_id=session_id,
         step_id="check.ambiguity.delta",
         command_profile="check.ambiguity.delta",
-        resume_checkpoint_path=checkpoint,
         manifest_path=manifest_path,
         state_root=state_root,
     )
@@ -83,7 +79,6 @@ def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> No
         session_id="session-a",
         step_id="one",
         command_profile="check.run",
-        resume_checkpoint_path=None,
         manifest_path=manifest_path,
         state_root=state_root,
     )
@@ -101,7 +96,6 @@ def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> No
         session_id="session-b",
         step_id="two",
         command_profile="check.run",
-        resume_checkpoint_path=None,
         manifest_path=manifest_path,
         state_root=state_root,
     )

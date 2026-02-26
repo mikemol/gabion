@@ -143,7 +143,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
         ["check", "run", "sample.py", "--resume-checkpoint", "resume.json"],
     )
     assert removed_resume.exit_code != 0
-    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+    assert "No such option: --resume-checkpoint" in _normalize_output(
         removed_resume.output
     )
 
@@ -152,7 +152,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
         ["check", "run", "sample.py", "--emit-timeout-progress-report"],
     )
     assert removed_progress.exit_code != 0
-    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+    assert "No such option: --emit-timeout-progress-report" in _normalize_output(
         removed_progress.output
     )
 
@@ -161,7 +161,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
         ["check", "run", "sample.py", "--resume-on-timeout", "2"],
     )
     assert removed_retry.exit_code != 0
-    assert "Removed legacy check timeout/resume flags" in _normalize_output(
+    assert "No such option: --resume-on-timeout" in _normalize_output(
         removed_retry.output
     )
 
