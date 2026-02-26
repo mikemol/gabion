@@ -3748,12 +3748,12 @@ def _fingerprint_soundness_issues(
 
 def _compute_fingerprint_provenance(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, object]]],
     *,
     registry: PrimeRegistry,
-    project_root: Path | None = None,
-    index: dict[Fingerprint, set[str]] | None = None,
-    ctor_registry: TypeConstructorRegistry | None = None,
+    project_root = None,
+    index = None,
+    ctor_registry = None,
 ) -> list[JSONObject]:
     check_deadline()
     entries: list[JSONObject] = []
@@ -3774,9 +3774,9 @@ def _compute_fingerprint_provenance(
                     source="_compute_fingerprint_provenance.bundle",
                 )
                 types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
+                hint_list = [str(value) for value in types if value is not None]
+                if len(hint_list) != len(types):
                     continue
-                hint_list = [t for t in types if t is not None]
                 fingerprint = bundle_fingerprint_dimensional(
                     hint_list,
                     registry,
@@ -3810,7 +3810,7 @@ def _compute_fingerprint_provenance(
                 )
                 higher_path_witness = (
                     parse_2cell_witness(higher_path_payload)
-                    if isinstance(higher_path_payload, dict)
+                    if type(higher_path_payload) is dict
                     else None
                 )
                 drift_classification = classify_drift_by_homotopy(
@@ -5656,12 +5656,12 @@ def _collect_deadline_local_info(
 def _collect_deadline_function_facts(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root = None,
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
-    trees: Mapping[Path, ast.AST | None] | None = None,
-    analysis_index: AnalysisIndex | None = None,
-    stage_cache_fn: Callable[..., dict[Path, dict[str, "_DeadlineFunctionFacts"] | None]] | None = None,
+    trees = None,
+    analysis_index = None,
+    stage_cache_fn = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
     ignore_param_names = set(ignore_params or ())
@@ -5694,9 +5694,8 @@ def _collect_deadline_function_facts(
         facts: dict[str, _DeadlineFunctionFacts] = {}
         for entry in facts_by_path.values():
             check_deadline()
-            if entry is None:
-                continue
-            facts.update(entry)
+            if entry is not None:
+                facts.update(entry)
         return facts
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
@@ -5709,16 +5708,15 @@ def _collect_deadline_function_facts(
                 stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
-        if tree is None:
-            continue
-        facts.update(
-            _deadline_function_facts_for_tree(
-                path,
-                tree,
-                project_root=project_root,
-                ignore_params=ignore_param_names,
+        if tree is not None:
+            facts.update(
+                _deadline_function_facts_for_tree(
+                    path,
+                    tree,
+                    project_root=project_root,
+                    ignore_params=ignore_param_names,
+                )
             )
-        )
     return facts
 
 
@@ -9921,9 +9919,9 @@ class _ReturnAliasCollector(ast.NodeVisitor):
 
 
 def _return_aliases(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> list[str] | None:
+    fn: ast.AST,
+    ignore_params = None,
+):
     check_deadline()
     params = _param_names(fn, ignore_params)
     if not params:
@@ -9935,35 +9933,39 @@ def _return_aliases(
         collector.visit(stmt)
     if not collector.returns:
         return None
-    alias: list[str] | None = None
+    alias = None
 
-    def _alias_from_expr(expr: ast.AST | None) -> list[str] | None:
+    def _alias_from_expr(expr = None):
         check_deadline()
-        if expr is None:
-            return None
-        if isinstance(expr, ast.Name) and expr.id in param_set:
-            return [expr.id]
-        if isinstance(expr, (ast.Tuple, ast.List)):
-            names: list[str] = []
-            for elt in expr.elts:
-                check_deadline()
-                if isinstance(elt, ast.Name) and elt.id in param_set:
-                    names.append(elt.id)
-                else:
-                    return None
-            return names
+        if expr is not None:
+            expr_type = type(expr)
+            if expr_type is ast.Name:
+                name_node = cast(ast.Name, expr)
+                if name_node.id in param_set:
+                    return [name_node.id]
+            if expr_type in {ast.Tuple, ast.List}:
+                sequence_node = cast(ast.Tuple | ast.List, expr)
+                names: list[str] = []
+                for elt in sequence_node.elts:
+                    check_deadline()
+                    if type(elt) is ast.Name and cast(ast.Name, elt).id in param_set:
+                        names.append(cast(ast.Name, elt).id)
+                    else:
+                        return None
+                return names
         return None
 
     for expr in collector.returns:
         check_deadline()
         candidate = _alias_from_expr(expr)
-        if candidate is None:
-            return None
-        if alias is None:
-            alias = candidate
+        if candidate is not None:
+            if alias is None:
+                alias = candidate
+                continue
+            if alias != candidate:
+                return None
             continue
-        if alias != candidate:
-            return None
+        return None
     return alias
 
 
@@ -10002,20 +10004,22 @@ def _collect_return_aliases(
     return aliases
 
 
-def _const_repr(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant):
-        return repr(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(
-        node.op, (ast.USub, ast.UAdd)
-    ) and isinstance(node.operand, ast.Constant):
-        try:
-            return ast.unparse(node)
-        except _AST_UNPARSE_ERROR_TYPES:
-            return None
-    if isinstance(node, ast.Attribute):
-        if node.attr.isupper():
+def _const_repr(node: ast.AST):
+    node_type = type(node)
+    if node_type is ast.Constant:
+        return repr(cast(ast.Constant, node).value)
+    if node_type is ast.UnaryOp:
+        unary_node = cast(ast.UnaryOp, node)
+        if type(unary_node.op) in {ast.USub, ast.UAdd} and type(unary_node.operand) is ast.Constant:
             try:
-                return ast.unparse(node)
+                return ast.unparse(unary_node)
+            except _AST_UNPARSE_ERROR_TYPES:
+                return None
+    if node_type is ast.Attribute:
+        attribute_node = cast(ast.Attribute, node)
+        if attribute_node.attr.isupper():
+            try:
+                return ast.unparse(attribute_node)
             except _AST_UNPARSE_ERROR_TYPES:
                 return None
         return None
@@ -10326,11 +10330,11 @@ def _analyze_file_internal(
     path: Path,
     recursive: bool = True,
     *,
-    config: AuditConfig | None = None,
-    resume_state: Mapping[str, JSONValue] | None = None,
-    on_progress: Callable[[JSONObject], None] | None = None,
-    on_profile: Callable[[JSONObject], None] | None = None,
-    analyze_function_fn: Callable[..., tuple[dict[str, set[str]], list[CallArgs]]] | None = None,
+    config = None,
+    resume_state = None,
+    on_progress = None,
+    on_profile = None,
+    analyze_function_fn = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
@@ -10393,7 +10397,7 @@ def _analyze_file_internal(
         valid_fn_keys=fn_keys_in_file,
     )
     scanned_since_emit = 0
-    last_scan_progress_emit_monotonic: float | None = None
+    last_scan_progress_emit_monotonic = None
 
     def _emit_scan_progress(*, force: bool = False) -> bool:
         nonlocal last_scan_progress_emit_monotonic
