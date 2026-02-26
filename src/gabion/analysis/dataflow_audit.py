@@ -2697,9 +2697,10 @@ def _record_parse_failure_witness(
 def _parse_failure_sink(
     parse_failure_witnesses: list[JSONObject] | None,
 ) -> list[JSONObject]:
-    if parse_failure_witnesses is None:
-        return []
-    return parse_failure_witnesses
+    sink = parse_failure_witnesses
+    if sink is None:
+        sink = []
+    return sink
 
 
 _NON_NULL_PARSE_WITNESS_HELPERS = frozenset(
@@ -11343,43 +11344,44 @@ def _collect_lambda_function_infos(
     lambda_infos: list[FunctionInfo] = []
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Lambda):
-            continue
-        span = _node_span(node)
-        if span is None:
-            continue
-        lexical_scopes = _enclosing_function_scopes(node, parent_map)
-        scopes = _enclosing_scopes(node, parent_map)
-        class_name = _enclosing_class(node, parent_map)
-        synthetic_name = _synthetic_lambda_name(
-            module=module,
-            lexical_scope=lexical_scopes,
-            span=span,
-        )
-        qual_parts = [module] if module else []
-        if scopes:
-            qual_parts.extend(scopes)
-        qual_parts.append(synthetic_name)
-        qual = ".".join(qual_parts)
-        params = [arg.arg for arg in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs)]
-        if ignore_params:
-            params = [name for name in params if name not in ignore_params]
-        lambda_infos.append(
-            FunctionInfo(
-                name=synthetic_name,
-                qual=qual,
-                path=path,
-                params=params,
-                annots={name: None for name in params},
-                calls=[],
-                unused_params=set(),
-                class_name=class_name,
-                scope=tuple(scopes),
-                lexical_scope=tuple(lexical_scopes),
-                positional_params=tuple(params),
-                function_span=span,
-            )
-        )
+        if isinstance(node, ast.Lambda):
+            span = _node_span(node)
+            if span is not None:
+                lexical_scopes = _enclosing_function_scopes(node, parent_map)
+                scopes = _enclosing_scopes(node, parent_map)
+                class_name = _enclosing_class(node, parent_map)
+                synthetic_name = _synthetic_lambda_name(
+                    module=module,
+                    lexical_scope=lexical_scopes,
+                    span=span,
+                )
+                qual_parts = [module] if module else []
+                if scopes:
+                    qual_parts.extend(scopes)
+                qual_parts.append(synthetic_name)
+                qual = ".".join(qual_parts)
+                params = [
+                    arg.arg
+                    for arg in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs)
+                ]
+                if ignore_params:
+                    params = [name for name in params if name not in ignore_params]
+                lambda_infos.append(
+                    FunctionInfo(
+                        name=synthetic_name,
+                        qual=qual,
+                        path=path,
+                        params=params,
+                        annots={name: None for name in params},
+                        calls=[],
+                        unused_params=set(),
+                        class_name=class_name,
+                        scope=tuple(scopes),
+                        lexical_scope=tuple(lexical_scopes),
+                        positional_params=tuple(params),
+                        function_span=span,
+                    )
+                )
     return lambda_infos
 
 
@@ -12965,27 +12967,29 @@ def _bundle_projection_from_forest(
     bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
     for alt in forest.alts:
         check_deadline()
-        if alt.kind != "SignatureBundle":
-            continue
-        site_id = _alt_input(alt, "FunctionSite")
-        paramset_id = _alt_input(alt, "ParamSet")
-        if site_id is None or paramset_id is None:
-            continue
-        site_node = forest.nodes.get(site_id)
-        if site_node is None:
-            continue
-        path = str(site_node.meta.get("path", "?"))
-        qual = str(site_node.meta.get("qual", "?"))
-        nodes[site_id] = {"kind": "fn", "label": f"{path}:{qual}", "path": path, "qual": qual}
-        bundle_key = _paramset_key(forest, paramset_id)
-        nodes[paramset_id] = {
-            "kind": "bundle",
-            "label": ", ".join(bundle_key),
-        }
-        bundle_map[paramset_id] = bundle_key
-        adj[site_id].add(paramset_id)
-        adj[paramset_id].add(site_id)
-        bundle_counts[bundle_key] += 1
+        if alt.kind == "SignatureBundle":
+            site_id = _alt_input(alt, "FunctionSite")
+            paramset_id = _alt_input(alt, "ParamSet")
+            if site_id is not None and paramset_id is not None:
+                site_node = forest.nodes.get(site_id)
+                if site_node is not None:
+                    path = str(site_node.meta.get("path", "?"))
+                    qual = str(site_node.meta.get("qual", "?"))
+                    nodes[site_id] = {
+                        "kind": "fn",
+                        "label": f"{path}:{qual}",
+                        "path": path,
+                        "qual": qual,
+                    }
+                    bundle_key = _paramset_key(forest, paramset_id)
+                    nodes[paramset_id] = {
+                        "kind": "bundle",
+                        "label": ", ".join(bundle_key),
+                    }
+                    bundle_map[paramset_id] = bundle_key
+                    adj[site_id].add(paramset_id)
+                    adj[paramset_id].add(site_id)
+                    bundle_counts[bundle_key] += 1
 
     declared_global: set[tuple[str, ...]] = set()
     declared_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
@@ -12993,18 +12997,17 @@ def _bundle_projection_from_forest(
     for alt in forest.alts:
         check_deadline()
         paramset_id = _alt_input(alt, "ParamSet")
-        if paramset_id is None:
-            continue
-        bundle_key = _paramset_key(forest, paramset_id)
-        if alt.kind == "ConfigBundle":
-            declared_global.add(bundle_key)
-            path = str(alt.evidence.get("path") or "")
-            if path:
-                declared_by_path[path].add(bundle_key)
-        elif alt.kind in ("MarkerBundle", "DataclassCallBundle"):
-            path = str(alt.evidence.get("path") or "")
-            if path:
-                documented_by_path[path].add(bundle_key)
+        if paramset_id is not None:
+            bundle_key = _paramset_key(forest, paramset_id)
+            if alt.kind == "ConfigBundle":
+                declared_global.add(bundle_key)
+                path = str(alt.evidence.get("path") or "")
+                if path:
+                    declared_by_path[path].add(bundle_key)
+            elif alt.kind in ("MarkerBundle", "DataclassCallBundle"):
+                path = str(alt.evidence.get("path") or "")
+                if path:
+                    documented_by_path[path].add(bundle_key)
 
     if file_paths:
         root = Path(os.path.commonpath([str(p) for p in file_paths]))
@@ -14546,12 +14549,12 @@ def _analysis_index_resume_variants(
         for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
             raw_variant_mapping = mapping_or_none(raw_variant)
-            if type(identity) is not str or raw_variant_mapping is None:
-                continue
-            variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
-            if variant_payload is None:
-                continue
-            variants[identity] = _analysis_index_resume_variant_payload(variant_payload)
+            if type(identity) is str and raw_variant_mapping is not None:
+                variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
+                if variant_payload is not None:
+                    variants[identity] = _analysis_index_resume_variant_payload(
+                        variant_payload
+                    )
     return variants
 
 
@@ -14746,16 +14749,14 @@ def _deserialize_groups_for_resume(
     for fn_name, bundles in payload.items():
         check_deadline()
         bundle_entries = sequence_or_none(bundles)
-        if type(fn_name) is not str or bundle_entries is None:
-            continue
-        normalized: list[set[str]] = []
-        for bundle in bundle_entries:
-            check_deadline()
-            bundle_params = sequence_or_none(bundle)
-            if bundle_params is None:
-                continue
-            normalized.append({str(param) for param in bundle_params})
-        groups[fn_name] = normalized
+        if type(fn_name) is str and bundle_entries is not None:
+            normalized: list[set[str]] = []
+            for bundle in bundle_entries:
+                check_deadline()
+                bundle_params = sequence_or_none(bundle)
+                if bundle_params is not None:
+                    normalized.append({str(param) for param in bundle_params})
+            groups[fn_name] = normalized
     return groups
 
 
@@ -14781,22 +14782,19 @@ def _deserialize_param_spans_for_resume(
     for fn_name, raw_map in payload.items():
         check_deadline()
         param_map = mapping_or_none(raw_map)
-        if type(fn_name) is not str or param_map is None:
-            continue
-        fn_spans: dict[str, tuple[int, int, int, int]] = {}
-        for param_name, raw_span in param_map.items():
-            check_deadline()
-            span_parts = sequence_or_none(raw_span)
-            if type(param_name) is not str or span_parts is None:
-                continue
-            if len(span_parts) != 4:
-                continue
-            try:
-                span = tuple(int(part) for part in span_parts)
-            except (TypeError, ValueError):
-                continue
-            fn_spans[param_name] = cast(tuple[int, int, int, int], span)
-        spans[fn_name] = fn_spans
+        if type(fn_name) is str and param_map is not None:
+            fn_spans: dict[str, tuple[int, int, int, int]] = {}
+            for param_name, raw_span in param_map.items():
+                check_deadline()
+                span_parts = sequence_or_none(raw_span)
+                if type(param_name) is str and span_parts is not None and len(span_parts) == 4:
+                    try:
+                        span = tuple(int(part) for part in span_parts)
+                    except (TypeError, ValueError):
+                        span = None
+                    if span is not None:
+                        fn_spans[param_name] = cast(tuple[int, int, int, int], span)
+            spans[fn_name] = fn_spans
     return spans
 
 
@@ -14831,22 +14829,20 @@ def _deserialize_bundle_sites_for_resume(
     for fn_name, raw_sites in payload.items():
         check_deadline()
         site_groups = sequence_or_none(raw_sites)
-        if type(fn_name) is not str or site_groups is None:
-            continue
-        fn_sites: list[list[JSONObject]] = []
-        for raw_bundle in site_groups:
-            check_deadline()
-            bundle_entries = sequence_or_none(raw_bundle)
-            if bundle_entries is None:
-                continue
-            bundle: list[JSONObject] = []
-            for site in bundle_entries:
+        if type(fn_name) is str and site_groups is not None:
+            fn_sites: list[list[JSONObject]] = []
+            for raw_bundle in site_groups:
                 check_deadline()
-                site_mapping = mapping_or_none(site)
-                if site_mapping is not None:
-                    bundle.append({str(key): site_mapping[key] for key in site_mapping})
-            fn_sites.append(bundle)
-        bundle_sites[fn_name] = fn_sites
+                bundle_entries = sequence_or_none(raw_bundle)
+                if bundle_entries is not None:
+                    bundle: list[JSONObject] = []
+                    for site in bundle_entries:
+                        check_deadline()
+                        site_mapping = mapping_or_none(site)
+                        if site_mapping is not None:
+                            bundle.append({str(key): site_mapping[key] for key in site_mapping})
+                    fn_sites.append(bundle)
+            bundle_sites[fn_name] = fn_sites
     return bundle_sites
 
 
