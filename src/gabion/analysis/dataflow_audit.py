@@ -14018,7 +14018,7 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
         if entry is not None:
             callee = entry.get("callee")
             slot = entry.get("slot")
-            if isinstance(callee, str) and isinstance(slot, str):
+            if type(callee) is str and type(slot) is str:
                 span_set: set[tuple[int, int, int, int]] = set()
                 for raw_span in sequence_or_none(entry.get("spans")) or ():
                     check_deadline()
@@ -14060,9 +14060,10 @@ def _deserialize_param_use_map(
     use_map: dict[str, ParamUse] = {}
     for param_name, raw_value in payload.items():
         check_deadline()
-        if not isinstance(param_name, str) or not isinstance(raw_value, Mapping):
+        raw_mapping = mapping_or_none(raw_value)
+        if type(param_name) is not str or raw_mapping is None:
             continue
-        use_map[param_name] = _deserialize_param_use(raw_value)
+        use_map[param_name] = _deserialize_param_use(raw_mapping)
     return use_map
 
 
@@ -14088,7 +14089,7 @@ def _serialize_call_args(call: CallArgs) -> JSONObject:
 
 def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
     callee = payload.get("callee")
-    if not isinstance(callee, str):
+    if type(callee) is not str:
         return None
     star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
     span = int_tuple4_or_none(payload.get("span"))
@@ -14118,9 +14119,10 @@ def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
     call_args: list[CallArgs] = []
     for raw_entry in payload:
         check_deadline()
-        if not isinstance(raw_entry, Mapping):
+        entry_mapping = mapping_or_none(raw_entry)
+        if entry_mapping is None:
             continue
-        call = _deserialize_call_args(raw_entry)
+        call = _deserialize_call_args(entry_mapping)
         if call is not None:
             call_args.append(call)
     return call_args
@@ -14178,20 +14180,20 @@ def _deserialize_function_info_for_resume(
     path_key = payload.get("path")
     raw_params = payload.get("params")
     params_payload = sequence_or_none(raw_params)
-    path = allowed_paths.get(path_key) if isinstance(path_key, str) else None
+    path = allowed_paths.get(path_key) if type(path_key) is str else None
     if (
-        not isinstance(name, str)
-        or not isinstance(qual, str)
+        type(name) is not str
+        or type(qual) is not str
         or path is None
         or params_payload is None
     ):
         return None
     params = str_list_from_sequence(params_payload)
     raw_annots = payload.get("annots")
-    annots: dict[str, str | None] = {}
+    annots: dict[str, JSONValue] = {}
     for param, annot in mapping_or_empty(raw_annots).items():
         check_deadline()
-        if isinstance(param, str) and (annot is None or isinstance(annot, str)):
+        if type(param) is str and (annot is None or type(annot) is str):
             annots[param] = annot
     raw_calls = payload.get("calls")
     calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
@@ -14199,7 +14201,7 @@ def _deserialize_function_info_for_resume(
     unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
     defaults = str_set_from_sequence(payload.get("defaults"))
     class_name = payload.get("class_name")
-    if class_name is not None and not isinstance(class_name, str):
+    if class_name is not None and type(class_name) is not str:
         class_name = None
     scope = str_tuple_from_sequence(payload.get("scope"))
     lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
@@ -14207,7 +14209,7 @@ def _deserialize_function_info_for_resume(
     decision_surface_reasons: dict[str, set[str]] = {}
     for param, raw_reasons in mapping_or_empty(payload.get("decision_surface_reasons")).items():
         check_deadline()
-        if isinstance(param, str):
+        if type(param) is str:
             reasons = str_set_from_sequence(raw_reasons)
             if reasons:
                 decision_surface_reasons[param] = reasons
@@ -14216,13 +14218,13 @@ def _deserialize_function_info_for_resume(
     positional_params = str_tuple_from_sequence(payload.get("positional_params"))
     kwonly_params = str_tuple_from_sequence(payload.get("kwonly_params"))
     raw_vararg = payload.get("vararg")
-    vararg = raw_vararg if isinstance(raw_vararg, str) else None
+    vararg = raw_vararg if type(raw_vararg) is str else None
     raw_kwarg = payload.get("kwarg")
-    kwarg = raw_kwarg if isinstance(raw_kwarg, str) else None
+    kwarg = raw_kwarg if type(raw_kwarg) is str else None
     param_spans: dict[str, tuple[int, int, int, int]] = {}
     for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
         check_deadline()
-        if isinstance(param, str):
+        if type(param) is str:
             span = int_tuple4_or_none(raw_span)
             if span is not None:
                 param_spans[param] = span
@@ -14268,7 +14270,7 @@ def _deserialize_class_info_for_resume(
 ) -> ClassInfo | None:
     qual = payload.get("qual")
     module = payload.get("module")
-    if not isinstance(qual, str) or not isinstance(module, str):
+    if type(qual) is not str or type(module) is not str:
         return None
     bases = str_list_from_sequence(payload.get("bases"))
     methods = str_set_from_sequence(payload.get("methods"))
@@ -14339,45 +14341,42 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
     if raw_imports is not None:
         for entry in raw_imports:
             check_deadline()
-            if isinstance(entry, Sequence) and len(entry) == 3:
-                module, name, fqn = entry
-                if (
-                    isinstance(module, str)
-                    and isinstance(name, str)
-                    and isinstance(fqn, str)
-                ):
+            entry_sequence = sequence_or_none(entry)
+            if entry_sequence is not None and len(entry_sequence) == 3:
+                module, name, fqn = entry_sequence
+                if type(module) is str and type(name) is str and type(fqn) is str:
                     table.imports[(module, name)] = fqn
     raw_internal_roots = sequence_or_none(payload.get("internal_roots"))
     if raw_internal_roots is not None:
         for entry in raw_internal_roots:
             check_deadline()
-            if isinstance(entry, str):
+            if type(entry) is str:
                 table.internal_roots.add(entry)
     raw_star_imports = mapping_or_none(payload.get("star_imports"))
     if raw_star_imports is not None:
         for module, raw_names in raw_star_imports.items():
             check_deadline()
-            if isinstance(module, str):
+            if type(module) is str:
                 names = str_set_from_sequence(raw_names)
                 table.star_imports[module] = names
     raw_module_exports = mapping_or_none(payload.get("module_exports"))
     if raw_module_exports is not None:
         for module, raw_names in raw_module_exports.items():
             check_deadline()
-            if isinstance(module, str):
+            if type(module) is str:
                 names = str_set_from_sequence(raw_names)
                 table.module_exports[module] = names
     raw_module_export_map = mapping_or_none(payload.get("module_export_map"))
     if raw_module_export_map is not None:
         for module, raw_mapping in raw_module_export_map.items():
             check_deadline()
-            if isinstance(module, str):
+            if type(module) is str:
                 mapping: dict[str, str] = {}
                 mapping_payload = mapping_or_none(raw_mapping)
                 if mapping_payload is not None:
                     for name, mapped in mapping_payload.items():
                         check_deadline()
-                        if isinstance(name, str) and isinstance(mapped, str):
+                        if type(name) is str and type(mapped) is str:
                             mapping[name] = mapped
                 table.module_export_map[module] = mapping
     return table
@@ -14395,15 +14394,17 @@ def _analysis_index_resume_variants(
     payload: Mapping[str, JSONValue] | None,
 ) -> dict[str, JSONObject]:
     variants: dict[str, JSONObject] = {}
-    if not isinstance(payload, Mapping):
+    if payload is None:
         return variants
     raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
-    if isinstance(raw_variants, Mapping):
-        for identity, raw_variant in raw_variants.items():
+    raw_variants_mapping = mapping_or_none(raw_variants)
+    if raw_variants_mapping is not None:
+        for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
-            if not isinstance(identity, str) or not isinstance(raw_variant, Mapping):
+            raw_variant_mapping = mapping_or_none(raw_variant)
+            if type(identity) is not str or raw_variant_mapping is None:
                 continue
-            variant_payload = payload_with_format(raw_variant, format_version=1)
+            variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
             if variant_payload is None:
                 continue
             variants[identity] = _analysis_index_resume_variant_payload(variant_payload)
@@ -14494,8 +14495,9 @@ def _serialize_analysis_index_resume_payload(
             for qual, class_info in ordered_class_items
         },
     }
-    if isinstance(profiling_v1, Mapping):
-        payload["profiling_v1"] = {str(key): profiling_v1[key] for key in profiling_v1}
+    profiling_payload = mapping_or_none(cast(JSONValue, profiling_v1))
+    if profiling_payload is not None:
+        payload["profiling_v1"] = {str(key): profiling_payload[key] for key in profiling_payload}
     return _with_analysis_index_resume_variants(
         payload=payload,
         previous_payload=previous_payload,
@@ -14540,25 +14542,30 @@ def _load_analysis_index_resume_payload(
         )
     )
     raw_functions = selected_payload.get("functions_by_qual")
-    if isinstance(raw_functions, Mapping):
-        for qual, raw_info in raw_functions.items():
+    raw_functions_mapping = mapping_or_none(raw_functions)
+    if raw_functions_mapping is not None:
+        for qual, raw_info in raw_functions_mapping.items():
             check_deadline()
-            if isinstance(qual, str) and isinstance(raw_info, Mapping):
+            raw_info_mapping = mapping_or_none(raw_info)
+            if type(qual) is str and raw_info_mapping is not None:
                 info = _deserialize_function_info_for_resume(
-                    raw_info,
+                    raw_info_mapping,
                     allowed_paths=allowed_paths,
                 )
                 if info is not None:
                     by_qual[qual] = info
     raw_symbol_table = selected_payload.get("symbol_table")
-    if isinstance(raw_symbol_table, Mapping):
-        symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table)
+    raw_symbol_table_mapping = mapping_or_none(raw_symbol_table)
+    if raw_symbol_table_mapping is not None:
+        symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table_mapping)
     raw_class_index = selected_payload.get("class_index")
-    if isinstance(raw_class_index, Mapping):
-        for qual, raw_class in raw_class_index.items():
+    raw_class_index_mapping = mapping_or_none(raw_class_index)
+    if raw_class_index_mapping is not None:
+        for qual, raw_class in raw_class_index_mapping.items():
             check_deadline()
-            if isinstance(qual, str) and isinstance(raw_class, Mapping):
-                class_info = _deserialize_class_info_for_resume(raw_class)
+            raw_class_mapping = mapping_or_none(raw_class)
+            if type(qual) is str and raw_class_mapping is not None:
+                class_info = _deserialize_class_info_for_resume(raw_class_mapping)
                 if class_info is not None:
                     class_index[qual] = class_info
     return hydrated_paths, by_qual, symbol_table, class_index
@@ -14594,14 +14601,16 @@ def _deserialize_groups_for_resume(
     groups: dict[str, list[set[str]]] = {}
     for fn_name, bundles in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(bundles, list):
+        bundle_entries = sequence_or_none(bundles)
+        if type(fn_name) is not str or bundle_entries is None:
             continue
         normalized: list[set[str]] = []
-        for bundle in bundles:
+        for bundle in bundle_entries:
             check_deadline()
-            if not isinstance(bundle, list):
+            bundle_params = sequence_or_none(bundle)
+            if bundle_params is None:
                 continue
-            normalized.append({str(param) for param in bundle})
+            normalized.append({str(param) for param in bundle_params})
         groups[fn_name] = normalized
     return groups
 
