@@ -275,10 +275,6 @@ def test_context_cli_deps_use_defaults_for_non_mapping_context() -> None:
     deps = cli._context_cli_deps(_CtxNoMapping())
     assert deps.run_dataflow_raw_argv_fn is cli._run_dataflow_raw_argv
     assert deps.run_check_fn is cli.run_check
-    assert (
-        deps.restore_resume_checkpoint_fn
-        is cli._restore_dataflow_resume_checkpoint_from_github_artifacts
-    )
     assert deps.run_sppf_sync_fn is cli._run_sppf_sync
 
 
@@ -300,14 +296,12 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
         obj = {
             "run_dataflow_raw_argv": _run_dataflow,
             "run_check": _run_check,
-            "restore_resume_checkpoint": _restore,
             "run_sppf_sync": _run_sppf,
         }
 
     deps = cli._context_cli_deps(_Ctx())
     assert deps.run_dataflow_raw_argv_fn is _run_dataflow
     assert deps.run_check_fn is _run_check
-    assert deps.restore_resume_checkpoint_fn is _restore
     assert deps.run_sppf_sync_fn is _run_sppf
 
 
@@ -322,28 +316,18 @@ def test_context_dependency_helpers_reject_noncallables() -> None:
         cli._context_run_dataflow_raw_argv(DummyCtx())
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_restore_resume_checkpoint::cli.py::gabion.cli._context_run_sppf_sync
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_sppf_sync
 def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -> None:
     class _Ctx:
         obj = {
             "run_check": "not-callable",
-            "restore_resume_checkpoint": "not-callable",
             "run_sppf_sync": "not-callable",
         }
-
-    class _CtxNoMapping:
-        obj = None
 
     with pytest.raises(NeverThrown):
         cli._context_run_check(_Ctx())
     with pytest.raises(NeverThrown):
-        cli._context_restore_resume_checkpoint(_Ctx())
-    with pytest.raises(NeverThrown):
         cli._context_run_sppf_sync(_Ctx())
-    assert (
-        cli._context_restore_resume_checkpoint(_CtxNoMapping())
-        is cli._restore_dataflow_resume_checkpoint_from_github_artifacts
-    )
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_a0c064f7325b
@@ -3104,40 +3088,12 @@ def test_checkpoint_requires_chunk_artifacts_invalid_payload_shapes() -> None:
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_cli_maps_options::cli.py::gabion.cli.app
-def test_restore_resume_checkpoint_cli_maps_options(tmp_path: Path) -> None:
-    captured: dict[str, object] = {}
-
-    def _fake_restore(**kwargs):
-        captured.update(kwargs)
-        return 0
-
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_command_removed::cli.py::gabion.cli.app
+def test_restore_resume_checkpoint_command_removed() -> None:
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        [
-            "restore-resume-checkpoint",
-            "--token",
-            "abc",
-            "--repo",
-            "owner/repo",
-            "--output-dir",
-            str(tmp_path),
-            "--ref-name",
-            "stage",
-            "--run-id",
-            "123",
-            "--artifact-name",
-            "dataflow-report",
-            "--checkpoint-name",
-            "dataflow_resume_checkpoint_ci.json",
-        ],
-        obj={"restore_resume_checkpoint": _fake_restore},
-    )
-
+    result = runner.invoke(cli.app, ["restore-resume-checkpoint"])
     assert result.exit_code != 0
-    assert "Removed command: restore-resume-checkpoint." in result.output
-    assert captured == {}
+    assert "No such command 'restore-resume-checkpoint'" in result.output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_derived_artifacts_includes_all_optional_outputs::cli.py::gabion.cli._check_derived_artifacts
@@ -3706,15 +3662,6 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
         )
         == 0
     )
-
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_restore_resume_checkpoint_rejects_non_callable_override::cli.py::gabion.cli._context_restore_resume_checkpoint
-def test_context_restore_resume_checkpoint_rejects_non_callable_override() -> None:
-    class _Ctx:
-        obj = {"restore_resume_checkpoint": "not-callable"}
-
-    with pytest.raises(NeverThrown):
-        cli._context_restore_resume_checkpoint(_Ctx())
-
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_sppf_sync_label_only_branch::cli.py::gabion.cli._run_sppf_sync
 def test_run_sppf_sync_label_only_branch() -> None:

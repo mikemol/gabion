@@ -109,7 +109,6 @@ DEFAULT_RUNNER: Runner = run_command
 
 CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
 CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
-CliRestoreResumeCheckpointFn: TypeAlias = Callable[..., int]
 CliRunSppfSyncFn: TypeAlias = Callable[..., int]
 
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
@@ -177,7 +176,6 @@ class SppfSyncCommitInfo:
 class CliDeps:
     run_dataflow_raw_argv_fn: CliRunDataflowRawArgvFn
     run_check_fn: CliRunCheckFn
-    restore_resume_checkpoint_fn: CliRestoreResumeCheckpointFn
     run_sppf_sync_fn: CliRunSppfSyncFn
 
 
@@ -219,14 +217,6 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
                 ctx=ctx,
                 key="run_check",
                 default=run_check,
-            ),
-        ),
-        restore_resume_checkpoint_fn=cast(
-            CliRestoreResumeCheckpointFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="restore_resume_checkpoint",
-                default=_restore_dataflow_resume_checkpoint_from_github_artifacts,
             ),
         ),
         run_sppf_sync_fn=cast(
@@ -3816,42 +3806,6 @@ def _checkpoint_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
         return False
     state_ref = analysis_index_resume.get("state_ref")
     return isinstance(state_ref, str) and bool(state_ref.strip())
-
-
-def _context_restore_resume_checkpoint(
-    ctx: typer.Context,
-) -> Callable[..., int]:
-    return _context_cli_deps(ctx).restore_resume_checkpoint_fn
-
-
-@app.command("restore-resume-checkpoint")
-def restore_resume_checkpoint(
-    ctx: typer.Context,
-    token: str = typer.Option("", "--token", envvar="GH_TOKEN"),
-    repo: str = typer.Option("", "--repo", envvar="GH_REPO"),
-    output_dir: Path = typer.Option(Path("artifacts/audit_reports"), "--output-dir"),
-    ref_name: str = typer.Option("", "--ref-name", envvar="GH_REF_NAME"),
-    run_id: str = typer.Option("", "--run-id", envvar="GH_RUN_ID"),
-    artifact_name: str = typer.Option("dataflow-report", "--artifact-name"),
-    checkpoint_name: str = typer.Option(
-        "dataflow_resume_checkpoint_ci.json", "--checkpoint-name"
-    ),
-) -> None:
-    """Removed: use ASPF state handoff instead of legacy checkpoint restore."""
-    _ = (
-        ctx,
-        token,
-        repo,
-        output_dir,
-        ref_name,
-        run_id,
-        artifact_name,
-        checkpoint_name,
-    )
-    raise typer.BadParameter(
-        "Removed command: restore-resume-checkpoint. "
-        "Use --aspf-state-json/--aspf-import-state with scripts/aspf_handoff.py."
-    )
 
 
 def _run_docflow_audit(
