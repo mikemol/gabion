@@ -230,6 +230,18 @@ ParamAnnotationMap = dict[str, str | None]
 ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
 OptionalReturnAliasMap = ReturnAliasMap | None
 OptionalClassName = str | None
+Span4 = tuple[int, int, int, int]
+OptionalSpan4 = Span4 | None
+OptionalString = str | None
+OptionalFloat = float | None
+OptionalPath = Path | None
+OptionalStringSet = set[str] | None
+OptionalPrimeRegistry = PrimeRegistry | None
+OptionalTypeConstructorRegistry = TypeConstructorRegistry | None
+OptionalSynthRegistry = SynthRegistry | None
+OptionalJsonObject = JSONObject | None
+OptionalForestSpec = ForestSpec | None
+OptionalDeprecatedExtractionArtifacts = DeprecatedExtractionArtifacts | None
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
@@ -346,7 +358,7 @@ class CallArgs:
     star_pos: list[tuple[int, str]]
     star_kw: list[str]
     is_test: bool
-    span: tuple[int, int, int, int] | None = None
+    span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
 
@@ -355,10 +367,10 @@ class CallArgs:
 class InvariantProposition:
     form: str
     terms: tuple[str, ...]
-    scope: str | None = None
-    source: str | None = None
-    invariant_id: str | None = None
-    confidence: float | None = None
+    scope: OptionalString = None
+    source: OptionalString = None
+    invariant_id: OptionalString = None
+    confidence: OptionalFloat = None
     evidence_keys: tuple[str, ...] = ()
 
     def as_dict(self) -> JSONObject:
@@ -385,7 +397,7 @@ def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
     return f"{prefix}:{digest}"
 
 
-def _invariant_confidence(value: float | None) -> float:
+def _invariant_confidence(value: OptionalFloat) -> float:
     if value is None:
         return 1.0
     return max(0.0, min(1.0, float(value)))
@@ -459,7 +471,7 @@ class SymbolTable:
     module_exports: dict[str, set[str]] = field(default_factory=dict)
     module_export_map: dict[str, dict[str, str]] = field(default_factory=dict)
 
-    def resolve(self, current_module: str, name: str) -> str | None:
+    def resolve(self, current_module: str, name: str) -> OptionalString:
         if (current_module, name) in self.imports:
             fqn = self.imports[(current_module, name)]
             if self.external_filter:
@@ -469,7 +481,7 @@ class SymbolTable:
             return fqn
         return f"{current_module}.{name}"
 
-    def resolve_star(self, current_module: str, name: str) -> str | None:
+    def resolve_star(self, current_module: str, name: str) -> OptionalString:
         check_deadline()
         candidates = self.star_imports.get(current_module, set())
         if not candidates:
@@ -506,24 +518,24 @@ class SymbolTable:
 
 @dataclass
 class AuditConfig:
-    project_root: Path | None = None
+    project_root: OptionalPath = None
     exclude_dirs: set[str] = field(default_factory=set)
     ignore_params: set[str] = field(default_factory=set)
     decision_ignore_params: set[str] = field(default_factory=set)
     external_filter: bool = True
     strictness: str = "high"
-    transparent_decorators: set[str] | None = None
+    transparent_decorators: OptionalStringSet = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
     decision_require_tiers: bool = False
     never_exceptions: set[str] = field(default_factory=set)
     deadline_roots: set[str] = field(default_factory=set)
-    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_registry: OptionalPrimeRegistry = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
-    constructor_registry: TypeConstructorRegistry | None = None
-    fingerprint_seed_revision: str | None = None
+    constructor_registry: OptionalTypeConstructorRegistry = None
+    fingerprint_seed_revision: OptionalString = None
     fingerprint_synth_min_occurrences: int = 0
     fingerprint_synth_version: str = "synth@1"
-    fingerprint_synth_registry: SynthRegistry | None = None
+    fingerprint_synth_registry: OptionalSynthRegistry = None
     invariant_emitters: tuple[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
@@ -534,7 +546,7 @@ class AuditConfig:
         return bool(self.exclude_dirs & parts)
 
 
-def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.Call | None, bool]:
+def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
     check_deadline()
     child = node
     parent = parents.get(child)
@@ -578,7 +590,7 @@ class AnalysisResult:
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
     fingerprint_synth: list[str] = field(default_factory=list)
-    fingerprint_synth_registry: JSONObject | None = None
+    fingerprint_synth_registry: OptionalJsonObject = None
     fingerprint_provenance: list[JSONObject] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
@@ -586,9 +598,9 @@ class AnalysisResult:
     ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
-    forest_spec: ForestSpec | None = None
-    profiling_v1: JSONObject | None = None
-    deprecated_artifacts: DeprecatedExtractionArtifacts | None = None
+    forest_spec: OptionalForestSpec = None
+    profiling_v1: OptionalJsonObject = None
+    deprecated_artifacts: OptionalDeprecatedExtractionArtifacts = None
     deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
 
 
@@ -636,7 +648,7 @@ class ReportCarrier:
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
-    phase_progress_v2: JSONObject | None = None
+    phase_progress_v2: OptionalJsonObject = None
     deprecated_signals: tuple[str, ...] = ()
 
     @classmethod
@@ -1330,7 +1342,7 @@ def project_report_sections(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     report: ReportCarrier,
     *,
-    max_phase: ReportProjectionPhase | None = None,
+    max_phase = None,
     include_previews: bool = False,
     preview_only: bool = False,
 ) -> dict[str, list[str]]:
@@ -1342,7 +1354,7 @@ def project_report_sections(
             report=report,
         )
         extracted = extract_report_sections(rendered)
-    max_rank: int | None = None
+    max_rank = None
     if max_phase is not None:
         max_rank = report_projection_phase_rank(max_phase)
 
@@ -1371,7 +1383,7 @@ def project_report_sections(
 class CallAmbiguity:
     kind: str
     caller: FunctionInfo
-    call: CallArgs | None
+    call: "CallArgs | None"
     callee_key: str
     candidates: tuple[FunctionInfo, ...]
     phase: str
@@ -1791,8 +1803,8 @@ def _never_sort_key(entry: JSONObject) -> tuple:
 
 
 def _decorators_transparent(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    transparent_decorators: set[str] | None,
+    fn: FunctionNode,
+    transparent_decorators,
 ) -> bool:
     check_deadline()
     if not fn.decorator_list:
@@ -2087,11 +2099,11 @@ class _DecisionSurfaceSpec:
     alt_evidence: Callable[[str, str], JSONObject]
     surface_lint_code: str
     surface_lint_message: Callable[[str, str, str], str]
-    emit_surface_lint: Callable[[int, int | None], bool]
+    emit_surface_lint: Callable[[int, object], bool]
     tier_lint_code: str
     tier_missing_message: Callable[[str, str], str]
     tier_internal_message: Callable[[str, int, str, str], str]
-    rewrite_line: Callable[[FunctionInfo, list[str], str], str] | None = None
+    rewrite_line: object = None
 
 
 def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
@@ -2779,9 +2791,9 @@ def _annotation_allows_none(
 
 def _parameter_default_map(
     node: ast.FunctionDef,
-) -> dict[str, ast.expr | None]:
+):
     check_deadline()
-    mapping: dict[str, ast.expr | None] = {}
+    mapping = {}
     positional = list(node.args.posonlyargs) + list(node.args.args)
     defaults = list(node.args.defaults)
     if defaults:
@@ -3054,8 +3066,8 @@ def _raw_sorted_contract_violations(
     paths: Iterable[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
-    strict_forbid: bool | None = None,
-    baseline_counts: Mapping[str, int] | None = None,
+    strict_forbid = None,
+    baseline_counts = None,
 ) -> list[str]:
     counts = _raw_sorted_callsite_counts(
         paths,
@@ -3203,8 +3215,8 @@ def _detect_execution_pattern_matches(
 
 def _execution_pattern_instances(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
     for match in _detect_execution_pattern_matches(
@@ -3400,8 +3412,8 @@ def _pattern_schema_matches(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     include_execution: bool = True,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
     if include_execution:
@@ -3432,8 +3444,8 @@ def _pattern_schema_suggestions(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     include_execution: bool = True,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[str]:
     instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
@@ -3541,8 +3553,8 @@ def _pattern_schema_snapshot_entries(
 
 def _execution_pattern_suggestions(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[str]:
     suggestions: list[str] = []
     for instance in _execution_pattern_instances(
@@ -3606,11 +3618,11 @@ def _param_annotations_by_path(
 
 def _compute_fingerprint_warnings(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
     *,
     registry: PrimeRegistry,
     index: dict[Fingerprint, set[str]],
-    ctor_registry: TypeConstructorRegistry | None = None,
+    ctor_registry = None,
 ) -> list[str]:
     check_deadline()
     warnings: list[str] = []
@@ -3692,11 +3704,11 @@ def _compute_fingerprint_warnings(
 
 def _compute_fingerprint_matches(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
     *,
     registry: PrimeRegistry,
     index: dict[Fingerprint, set[str]],
-    ctor_registry: TypeConstructorRegistry | None = None,
+    ctor_registry = None,
 ) -> list[str]:
     check_deadline()
     matches: list[str] = []
@@ -4492,7 +4504,7 @@ def _enclosing_function_node(
 def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
     return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
 
-def _exception_type_name(expr: ast.AST | None) -> str | None:
+def _exception_type_name(expr):
     return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 
@@ -4554,8 +4566,8 @@ def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
 
 
 def _exception_handler_compatibility(
-    exception_name: str | None,
-    handler_type: ast.AST | None,
+    exception_name,
+    handler_type,
 ) -> str:
     return _exc_exception_handler_compatibility(
         exception_name,
@@ -5821,9 +5833,9 @@ def _deadline_function_facts_for_tree(
 def _collect_call_nodes_by_path(
     paths: list[Path],
     *,
-    trees: Mapping[Path, ast.AST | None] | None = None,
+    trees = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
     if analysis_index is not None and trees is None:
@@ -5883,9 +5895,9 @@ def _collect_call_edges(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
+    resolve_callee_outcome_fn = None,
 ) -> dict[str, set[str]]:
     check_deadline()
     if resolve_callee_outcome_fn is None:
@@ -6205,9 +6217,9 @@ def _materialize_call_candidates(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
+    resolve_callee_outcome_fn = None,
 ) -> None:
     check_deadline()
     if resolve_callee_outcome_fn is None:
@@ -7057,7 +7069,7 @@ def _summarize_deadline_obligations(
     return lines
 
 
-def _span_line_col(span: JSONValue | object) -> tuple[int | None, int | None]:
+def _span_line_col(span):
     parsed = int_tuple4_or_none(span)
     if parsed is None:
         return None, None
@@ -7689,10 +7701,10 @@ def _decision_param_lint_line(
     info: "FunctionInfo",
     param: str,
     *,
-    project_root: Path | None,
+    project_root,
     code: str,
     message: str,
-) -> str | None:
+):
     span = info.param_spans.get(param)
     if span is not None:
         path = _normalize_snapshot_path(info.path, project_root)
@@ -7707,8 +7719,8 @@ def _decision_tier_for(
     param: str,
     *,
     tier_map: dict[str, int],
-    project_root: Path | None,
-) -> int | None:
+    project_root,
+):
     check_deadline()
     if not tier_map:
         return None
@@ -7760,10 +7772,10 @@ class AnalysisIndex:
     stage_cache_by_key: dict[Hashable, dict[Path, object]] = field(default_factory=dict)
     index_cache_identity: str = ""
     projection_cache_identity: str = ""
-    transitive_callers: dict[str, set[str]] | None = None
-    resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
-    resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
-    resolved_transparent_edges_by_caller: dict[str, tuple["_ResolvedCallEdge", ...]] | None = None
+    transitive_callers: "dict[str, set[str]] | None" = None
+    resolved_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
+    resolved_transparent_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
+    resolved_transparent_edges_by_caller: 'dict[str, tuple["_ResolvedCallEdge", ...]] | None' = None
 
 
 @dataclass(frozen=True)
@@ -7824,7 +7836,7 @@ class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
 class _ResolvedEdgeParamEvent:
     kind: str
     param: str
-    value: str | None
+    value: OptionalString
     countable: bool
 
 
@@ -7837,8 +7849,8 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
 
 @dataclass(frozen=True)
 class _CacheSemanticContext:
-    forest_spec_id: str | None = None
-    fingerprint_seed_revision: str | None = None
+    forest_spec_id: OptionalString = None
+    fingerprint_seed_revision: OptionalString = None
 
 
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
@@ -8252,9 +8264,9 @@ def _analysis_index_module_trees(
     *,
     stage: _ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
-) -> dict[Path, ast.Module | None]:
+):
     check_deadline()
-    trees: dict[Path, ast.Module | None] = {}
+    trees = {}
     for path in paths:
         check_deadline()
         cached_tree = analysis_index.parsed_modules_by_path.get(path)
@@ -9297,9 +9309,9 @@ def _materialize_structured_suite_sites(
     *,
     forest: Forest,
     file_paths: list[Path],
-    project_root: Path | None,
+    project_root,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> None:
     check_deadline()
     ordered_file_paths = _iter_monotonic_paths(
@@ -10072,10 +10084,10 @@ def _return_aliases(
 
 
 def _collect_return_aliases(
-    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    funcs: list[FunctionNode],
     parents: dict[ast.AST, ast.AST],
     *,
-    ignore_params: set[str] | None,
+    ignore_params,
 ) -> dict[str, tuple[list[str], list[str]]]:
     check_deadline()
     aliases: dict[str, tuple[list[str], list[str]]] = {}
@@ -10886,13 +10898,13 @@ class FunctionInfo:
     qual: str
     path: Path
     params: list[str]
-    annots: dict[str, str | None]
+    annots: ParamAnnotationMap
     calls: list[CallArgs]
     unused_params: set[str]
     unknown_key_carriers: set[str] = field(default_factory=set)
     defaults: set[str] = field(default_factory=set)
     transparent: bool = True
-    class_name: str | None = None
+    class_name: OptionalString = None
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
     decision_params: set[str] = field(default_factory=set)
@@ -10901,10 +10913,10 @@ class FunctionInfo:
     value_decision_reasons: set[str] = field(default_factory=set)
     positional_params: tuple[str, ...] = ()
     kwonly_params: tuple[str, ...] = ()
-    vararg: str | None = None
-    kwarg: str | None = None
+    vararg: OptionalString = None
+    kwarg: OptionalString = None
     param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
-    function_span: tuple[int, int, int, int] | None = None
+    function_span: OptionalSpan4 = None
     local_lambda_bindings: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
@@ -10916,7 +10928,7 @@ class ClassInfo:
     methods: set[str]
 
 
-def _module_name(path: Path, project_root: Path | None = None) -> str:
+def _module_name(path: Path, project_root = None) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
         try:
@@ -11304,9 +11316,9 @@ def _resolve_method_in_hierarchy(
     *,
     class_index: dict[str, ClassInfo],
     by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable | None,
+    symbol_table,
     seen: set[str],
-) -> FunctionInfo | None:
+):
     outcome = _resolve_method_in_hierarchy_outcome(
         class_qual,
         method,
@@ -11331,10 +11343,10 @@ def _accumulate_function_index_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None,
+    transparent_decorators,
 ) -> None:
     check_deadline()
     funcs = _collect_functions(tree)
@@ -11709,10 +11721,10 @@ def _materialize_direct_lambda_callees(
 
 def _function_index_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None,
+    transparent_decorators,
 ) -> _ModuleArtifactSpec[
     _FunctionIndexAccumulator,
     tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
@@ -11739,10 +11751,10 @@ def _function_index_module_artifact_spec(
 
 def _build_function_index(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
@@ -12512,10 +12524,10 @@ def _compute_knob_param_names(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
     strictness: str,
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> set[str]:
     check_deadline()
     index = analysis_index
@@ -14716,8 +14728,8 @@ def _serialize_analysis_index_resume_payload(
     class_index: Mapping[str, ClassInfo],
     index_cache_identity: str,
     projection_cache_identity: str,
-    profiling_v1: Mapping[str, JSONValue] | None = None,
-    previous_payload: Mapping[str, JSONValue] | None = None,
+    profiling_v1 = None,
+    previous_payload = None,
 ) -> JSONObject:
     hydrated_path_keys = sort_once(
         (
@@ -15501,8 +15513,8 @@ class _SynthesisPlanContext:
 def _build_synthesis_plan_context(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None,
-    config: AuditConfig | None,
+    project_root,
+    config,
 ) -> _SynthesisPlanContext:
     check_deadline()
     parse_failure_witnesses: list[JSONObject] = []
@@ -16113,7 +16125,7 @@ def _compute_violations(
     )
 
 
-def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+def _resolve_baseline_path(path, root: Path):
     if not path:
         return None
     baseline = Path(path)
@@ -16122,7 +16134,7 @@ def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
     return baseline
 
 
-def _resolve_synth_registry_path(path: str | None, root: Path) -> Path | None:
+def _resolve_synth_registry_path(path, root: Path):
     if not path:
         return None
     value = str(path).strip()
@@ -16255,7 +16267,7 @@ def _apply_baseline(
     return new, suppressed
 
 
-def resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+def resolve_baseline_path(path, root: Path):
     return _resolve_baseline_path(path, root)
 
 
