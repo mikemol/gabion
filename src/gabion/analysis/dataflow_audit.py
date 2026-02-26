@@ -13546,51 +13546,46 @@ def compute_structure_reuse(
     file_hashes: list[str] = []
     for file_entry in files:
         check_deadline()
-        if not isinstance(file_entry, dict):
-            continue
-        file_path = file_entry.get("path")
-        if not isinstance(file_path, str):
-            continue
-        function_hashes: list[str] = []
-        functions = file_entry.get("functions") or []
-        for fn_entry in functions:
-            check_deadline()
-            if not isinstance(fn_entry, dict):
-                continue
-            fn_name = fn_entry.get("name")
-            if not isinstance(fn_name, str):
-                continue
-            bundle_hashes: list[str] = []
-            bundles = fn_entry.get("bundles") or []
-            for bundle in bundles:
-                check_deadline()
-                if not isinstance(bundle, list):
-                    continue
-                normalized = tuple(
-                    sort_once(
-                        (str(item) for item in bundle),
-                        source="src/gabion/analysis/dataflow_audit.py:14567",
-                    )
-                )
-                bundle_hash = hasher("bundle", normalized, [])
-                bundle_hashes.append(bundle_hash)
-                _record(
-                    node_hash=bundle_hash,
-                    kind="bundle",
-                    location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
-                    value=list(normalized),
-                )
-            fn_hash = hasher("function", None, bundle_hashes)
-            function_hashes.append(fn_hash)
-            _record(
-                node_hash=fn_hash,
-                kind="function",
-                location=f"{file_path}::{fn_name}",
-                child_count=len(bundle_hashes),
-            )
-        file_hash = hasher("file", None, function_hashes)
-        file_hashes.append(file_hash)
-        _record(node_hash=file_hash, kind="file", location=f"{file_path}")
+        if isinstance(file_entry, dict):
+            file_path = file_entry.get("path")
+            if isinstance(file_path, str):
+                function_hashes: list[str] = []
+                functions = file_entry.get("functions") or []
+                for fn_entry in functions:
+                    check_deadline()
+                    if isinstance(fn_entry, dict):
+                        fn_name = fn_entry.get("name")
+                        if isinstance(fn_name, str):
+                            bundle_hashes: list[str] = []
+                            bundles = fn_entry.get("bundles") or []
+                            for bundle in bundles:
+                                check_deadline()
+                                if isinstance(bundle, list):
+                                    normalized = tuple(
+                                        sort_once(
+                                            (str(item) for item in bundle),
+                                            source="src/gabion/analysis/dataflow_audit.py:14567",
+                                        )
+                                    )
+                                    bundle_hash = hasher("bundle", normalized, [])
+                                    bundle_hashes.append(bundle_hash)
+                                    _record(
+                                        node_hash=bundle_hash,
+                                        kind="bundle",
+                                        location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
+                                        value=list(normalized),
+                                    )
+                            fn_hash = hasher("function", None, bundle_hashes)
+                            function_hashes.append(fn_hash)
+                            _record(
+                                node_hash=fn_hash,
+                                kind="function",
+                                location=f"{file_path}::{fn_name}",
+                                child_count=len(bundle_hashes),
+                            )
+                file_hash = hasher("file", None, function_hashes)
+                file_hashes.append(file_hash)
+                _record(node_hash=file_hash, kind="file", location=f"{file_path}")
 
     root_hash = hasher("root", None, file_hashes)
     _record(
@@ -13620,44 +13615,42 @@ def compute_structure_reuse(
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
-        if kind not in {"bundle", "function"}:
-            continue
-        count = int(entry.get("count", 0))
-        hash_value = entry.get("hash")
-        if not isinstance(hash_value, str) or not hash_value:
-            continue
-        suggestion = {
-            "hash": hash_value,
-            "kind": kind,
-            "count": count,
-            "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
-            "locations": entry.get("locations", []),
-        }
-        if "value" in entry:
-            suggestion["value"] = entry.get("value")
-        if "child_count" in entry:
-            suggestion["child_count"] = entry.get("child_count")
-        if kind == "bundle" and "value" in entry:
-            value = entry.get("value")
-            key = tuple(
-                sort_once(
-                    (str(item) for item in cast(list[object], value)),
-                    source="src/gabion/analysis/dataflow_audit.py:14635",
-                )
-            )
-            name_candidates = bundle_name_map.get(key)
-            if name_candidates:
-                sorted_names = sort_once(name_candidates, source = 'src/gabion/analysis/dataflow_audit.py:14638')
-                if len(sorted_names) == 1:
-                    suggestion["suggested_name"] = sorted_names[0]
-                    suggestion["name_source"] = "declared_bundle"
-                else:
-                    suggestion["name_candidates"] = sorted_names
-            else:
-                warnings.append(
-                    f"Missing declared bundle name for {list(key)}"
-                )
-        suggested.append(suggestion)
+        if kind in {"bundle", "function"}:
+            count = int(entry.get("count", 0))
+            hash_value = entry.get("hash")
+            if isinstance(hash_value, str) and hash_value:
+                suggestion = {
+                    "hash": hash_value,
+                    "kind": kind,
+                    "count": count,
+                    "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
+                    "locations": entry.get("locations", []),
+                }
+                if "value" in entry:
+                    suggestion["value"] = entry.get("value")
+                if "child_count" in entry:
+                    suggestion["child_count"] = entry.get("child_count")
+                if kind == "bundle" and "value" in entry:
+                    value = entry.get("value")
+                    key = tuple(
+                        sort_once(
+                            (str(item) for item in cast(list[object], value)),
+                            source="src/gabion/analysis/dataflow_audit.py:14635",
+                        )
+                    )
+                    name_candidates = bundle_name_map.get(key)
+                    if name_candidates:
+                        sorted_names = sort_once(name_candidates, source = 'src/gabion/analysis/dataflow_audit.py:14638')
+                        if len(sorted_names) == 1:
+                            suggestion["suggested_name"] = sorted_names[0]
+                            suggestion["name_source"] = "declared_bundle"
+                        else:
+                            suggestion["name_candidates"] = sorted_names
+                    else:
+                        warnings.append(
+                            f"Missing declared bundle name for {list(key)}"
+                        )
+                suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
         "format_version": 1,
@@ -13679,19 +13672,17 @@ def _build_reuse_replacement_map(
     for suggestion in suggested:
         check_deadline()
         locations = suggestion.get("locations") or []
-        if not isinstance(locations, list):
-            continue
-        for location in locations:
-            check_deadline()
-            if not isinstance(location, str):
-                continue
-            replacement_map.setdefault(location, []).append(
-                {
-                    "kind": suggestion.get("kind"),
-                    "hash": suggestion.get("hash"),
-                    "suggested_name": suggestion.get("suggested_name"),
-                }
-            )
+        if isinstance(locations, list):
+            for location in locations:
+                check_deadline()
+                if isinstance(location, str):
+                    replacement_map.setdefault(location, []).append(
+                        {
+                            "kind": suggestion.get("kind"),
+                            "hash": suggestion.get("hash"),
+                            "suggested_name": suggestion.get("suggested_name"),
+                        }
+                    )
     return replacement_map
 
 
