@@ -403,3 +403,47 @@ def test_deadline_profile_sample_interval_rejects_invalid_values() -> None:
         server._deadline_profile_sample_interval(
             {"deadline_profile_sample_interval": 0}
         )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._load_aspf_resume_state
+def test_load_aspf_resume_state_folds_jsonl_mutations_with_bounded_tail(tmp_path: Path) -> None:
+    server = _load()
+
+    state_path = tmp_path / "0001_step.snapshot.json"
+    state_path.write_text(
+        '{"analysis_manifest_digest":"manifest-1","resume_source":"handoff","delta_ledger":{"records":[]}}',
+        encoding="utf-8",
+    )
+    delta_path = tmp_path / "0001_step.delta.jsonl"
+    delta_path.write_text(
+        "\n".join(
+            [
+                '{"seq":1,"mutation_target":"collection_resume.a","mutation_value":1}',
+                '{"seq":2,"mutation_target":"collection_resume.b","mutation_value":2}',
+                '{"seq":3,"mutation_target":"collection_resume.c","mutation_value":3}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = server._load_aspf_resume_state(
+        import_state_paths=(state_path,),
+        diagnostic_tail_limit=2,
+    )
+
+    assert payload is not None
+    assert payload["analysis_manifest_digest"] == "manifest-1"
+    assert payload["resume_source"] == "handoff"
+    assert payload["delta_record_count"] == 3
+    assert payload["resume_projection"]["collection_resume"] == {"a": 1, "b": 2, "c": 3}
+    assert [record["seq"] for record in payload["delta_records_tail"]] == [2, 3]
+    assert "delta_records" not in payload
+
+    with_history = server._load_aspf_resume_state(
+        import_state_paths=(state_path,),
+        include_delta_records=True,
+        diagnostic_tail_limit=1,
+    )
+    assert with_history is not None
+    assert [record["seq"] for record in with_history["delta_records"]] == [1, 2, 3]
