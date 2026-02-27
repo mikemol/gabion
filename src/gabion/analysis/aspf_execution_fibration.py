@@ -53,8 +53,8 @@ from .aspf_visitors import (
     OpportunityPayloadEmitter,
     StatePayloadEmitter,
     TracePayloadEmitter,
-    replay_equivalence_payload_to_visitor,
-    replay_trace_payload_to_visitor,
+    adapt_event_log_reader_iterator_to_visitor,
+    adapt_live_event_stream_to_visitor,
 )
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
@@ -353,7 +353,22 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
     replay_payload, delta_record_count = _build_trace_replay_payload(state=state)
 
     emitter = TracePayloadEmitter()
-    replay_trace_payload_to_visitor(trace_payload=replay_payload, visitor=emitter)
+    adapt_live_event_stream_to_visitor(
+        one_cells=cast(list[Mapping[str, object]], replay_payload["one_cells"]),
+        two_cell_witnesses=cast(
+            list[Mapping[str, object]],
+            replay_payload["two_cell_witnesses"],
+        ),
+        cofibration_witnesses=cast(
+            list[Mapping[str, object]],
+            replay_payload["cofibration_witnesses"],
+        ),
+        surface_representatives=cast(
+            Mapping[str, str],
+            replay_payload["surface_representatives"],
+        ),
+        visitor=emitter,
+    )
     return {
         "format_version": _TRACE_FORMAT_VERSION,
         "trace_id": state.trace_id,
@@ -470,12 +485,28 @@ def build_opportunities_payload(
     equivalence_payload: Mapping[str, object],
 ) -> JSONObject:
     emitter = OpportunityPayloadEmitter()
-    replay_trace_payload_to_visitor(
-        trace_payload=build_trace_payload(state),
+    trace_payload = build_trace_payload(state)
+    adapt_live_event_stream_to_visitor(
+        one_cells=cast(list[Mapping[str, object]], trace_payload["one_cells"]),
+        two_cell_witnesses=cast(
+            list[Mapping[str, object]],
+            trace_payload["two_cell_witnesses"],
+        ),
+        cofibration_witnesses=cast(
+            list[Mapping[str, object]],
+            trace_payload["cofibration_witnesses"],
+        ),
+        surface_representatives=cast(
+            Mapping[str, str],
+            trace_payload["surface_representatives"],
+        ),
         visitor=emitter,
     )
-    replay_equivalence_payload_to_visitor(
-        equivalence_payload=equivalence_payload,
+    adapt_event_log_reader_iterator_to_visitor(
+        event_log_rows=cast(
+            list[Mapping[str, object]],
+            equivalence_payload.get("surface_table", []),
+        ),
         visitor=emitter,
     )
     opportunities = emitter.build_rows()

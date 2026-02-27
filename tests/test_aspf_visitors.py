@@ -6,8 +6,8 @@ from gabion.analysis.aspf import Alt, Forest, Node
 from gabion.analysis.aspf_visitors import (
     NullAspfTraversalVisitor,
     OpportunityPayloadEmitter,
-    replay_equivalence_payload_to_visitor,
-    replay_trace_payload_to_visitor,
+    adapt_event_log_reader_iterator_to_visitor,
+    adapt_live_event_stream_to_visitor,
     traverse_forest_to_visitor,
 )
 
@@ -40,37 +40,33 @@ def test_traverse_forest_to_visitor_uses_deterministic_order() -> None:
 
 def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     emitter = OpportunityPayloadEmitter()
-    replay_trace_payload_to_visitor(
-        trace_payload={
-            "one_cells": [
-                {
-                    "kind": "resume_load",
-                    "metadata": {"import_state_path": "state/a.json"},
-                },
-                {
-                    "kind": "resume_write",
-                    "metadata": {"state_path": "state/a.json"},
-                },
-            ],
-            "surface_representatives": {
-                "violation_summary": "rep:b",
-                "groups_by_path": "rep:a",
+    adapt_live_event_stream_to_visitor(
+        one_cells=[
+            {
+                "kind": "resume_load",
+                "metadata": {"import_state_path": "state/a.json"},
             },
-            "two_cell_witnesses": [],
-            "cofibration_witnesses": [],
+            {
+                "kind": "resume_write",
+                "metadata": {"state_path": "state/a.json"},
+            },
+        ],
+        surface_representatives={
+            "violation_summary": "rep:b",
+            "groups_by_path": "rep:a",
         },
+        two_cell_witnesses=[],
+        cofibration_witnesses=[],
         visitor=emitter,
     )
-    replay_equivalence_payload_to_visitor(
-        equivalence_payload={
-            "surface_table": [
-                {
-                    "surface": "groups_by_path",
-                    "classification": "non_drift",
-                    "witness_id": "w:1",
-                }
-            ]
-        },
+    adapt_event_log_reader_iterator_to_visitor(
+        event_log_rows=[
+            {
+                "surface": "groups_by_path",
+                "classification": "non_drift",
+                "witness_id": "w:1",
+            }
+        ],
         visitor=emitter,
     )
 
