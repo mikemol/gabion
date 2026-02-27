@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: universal_curve_lab_tc_design_bridge
 doc_role: research_mapping
@@ -35,6 +35,24 @@ Gabion runtime surfaces so experiments can stay aligned with practical outputs.
 | `CommandSurface` (`SIG`) | `gabion` command outputs (e.g., check/audit style commands) | Treats command names + maturity epoch as a typed surface descriptor. |
 | Constructor helpers (`CONSTR`) | Runtime payload assembly pathways | Mirrors how handlers build output records, but currently only as lab constructors. |
 | `BridgePlan` (`GLUE`) | Cross-surface traceability docs and prototype adapters | Encodes mapping bundles and an explicit non-production-enforced flag. |
+
+## SIGv2 decomposition to runtime surfaces
+
+`SIGv2` introduces sub-records so bridge coverage can be tracked field-by-field while
+`SIG`, `CONSTR`, and `GLUE` remain compatibility modules.
+
+| `SIGv2` concept | Closest runtime surface today | Bridge coverage status |
+| --- | --- | --- |
+| `KanSandwich` | Ingress validation + evidence egress boundaries in command handlers | Mapped conceptually; **not runtime-enforced.** |
+| `StratifiedSite` | Layered ambiguity/correction semantics in policy and docs | Documented in governance language; **not runtime-enforced.** |
+| `QuantaleMetric` | Evidence-drift / projection-distance ideas in audit outputs | Descriptive naming only; **not runtime-enforced.** |
+| `Cotower` | Snapshot/baseline continuity across check-delta style runs | Operationally adjacent only; **not runtime-enforced.** |
+| `TowerOps` | Composition/normalization steps around payload shaping | No first-class runtime carrier; **not runtime-enforced.** |
+| `Stabilization` | Fixed-point style convergence expectations in policy loop docs | Conceptual traceability only; **not runtime-enforced.** |
+
+The v2 modules (`CONSTRv2.agda`, `GLUEv2.agda`) intentionally remain dual-tracked
+with the existing modules until each `SIGv2` field has explicit bridge coverage
+captured in this document and any future runtime contract docs.
 
 ## Intended usage
 
