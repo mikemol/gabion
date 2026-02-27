@@ -809,8 +809,8 @@ def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
         len(state.cofibrations),
         dict(state.surface_representatives),
     )
-    visitor.run_boundary(
-        aspf_execution_fibration.AspfRunBoundaryEvent(
+    visitor.on_replay_event(
+        event=aspf_execution_fibration.AspfRunBoundaryEvent(
             boundary="equivalence_surface_row",
             payload={"surface": "groups_by_path"},
         )
@@ -832,3 +832,38 @@ def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
         }
     )
     assert controls.aspf_semantic_surface == aspf_execution_fibration.DEFAULT_PHASE1_SEMANTIC_SURFACES
+
+
+def test_normalize_imported_trace_payload_filters_invalid_two_cell_witnesses() -> None:
+    payload = aspf_execution_fibration.normalize_imported_trace_payload(
+        {
+            "one_cells": [],
+            "surface_representatives": {},
+            "cofibration_witnesses": [],
+            "two_cell_witnesses": [
+                {
+                    "witness_id": "w:valid",
+                    "left_representative": "rep:left",
+                    "right_representative": "rep:right",
+                },
+                {
+                    "witness_id": "",
+                    "left_representative": "rep:left",
+                    "right_representative": "rep:right",
+                },
+                {
+                    "witness_id": "w:missing-right",
+                    "left_representative": "rep:left",
+                    "right_representative": "",
+                },
+            ],
+        }
+    )
+
+    assert payload["two_cell_witnesses"] == [
+        {
+            "witness_id": "w:valid",
+            "left_representative": "rep:left",
+            "right_representative": "rep:right",
+        }
+    ]

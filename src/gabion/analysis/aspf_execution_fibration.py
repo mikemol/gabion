@@ -701,11 +701,43 @@ def _load_trace_payload_for_import(path: Path) -> JSONObject:
     return load_trace_payload(path)
 
 
+def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSONObject]:
+    normalized_witnesses: list[JSONObject] = []
+    for payload in payloads:
+        if not isinstance(payload, Mapping):
+            continue
+        normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
+        witness_id = str(normalized_payload.get("witness_id", "")).strip()
+        left = str(normalized_payload.get("left_representative", "")).strip()
+        right = str(normalized_payload.get("right_representative", "")).strip()
+        if witness_id and left and right:
+            normalized_payload["witness_id"] = witness_id
+            normalized_payload["left_representative"] = left
+            normalized_payload["right_representative"] = right
+            normalized_witnesses.append(normalized_payload)
+            continue
+
+        parsed = parse_2cell_witness(cast(Mapping[str, object], normalized_payload))
+        if not isinstance(parsed, AspfTwoCellWitness):
+            continue
+        normalized_payload["witness_id"] = parsed.witness_id
+        normalized_payload["left_representative"] = parsed.left.representative
+        normalized_payload["right_representative"] = parsed.right.representative
+        normalized_witnesses.append(normalized_payload)
+    return normalized_witnesses
+
+
 def _normalize_legacy_trace_payload(payload: Mapping[str, object]) -> JSONObject:
     normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
     normalized_payload.setdefault("surface_representatives", {})
     normalized_payload.setdefault("one_cells", [])
-    normalized_payload.setdefault("two_cell_witnesses", [])
+    raw_two_cell_witnesses = normalized_payload.get("two_cell_witnesses", [])
+    if isinstance(raw_two_cell_witnesses, Sequence) and not isinstance(raw_two_cell_witnesses, str):
+        normalized_payload["two_cell_witnesses"] = _normalize_two_cell_witness_payloads(
+            raw_two_cell_witnesses
+        )
+    else:
+        normalized_payload["two_cell_witnesses"] = []
     normalized_payload.setdefault("cofibration_witnesses", [])
     return normalized_payload
 
@@ -756,14 +788,14 @@ def _adapt_streamed_trace_events_to_visitor(
         sequence = int(event.get("sequence", event.get("index", event.get("line", 0))))
         payload = cast(Mapping[str, object], event.get("payload", {}))
         if kind == "one_cell":
-            visitor.one_cell(AspfOneCellEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(event=AspfOneCellEvent(index=sequence, payload=payload))
         elif kind == "two_cell":
-            visitor.two_cell(AspfTwoCellEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(event=AspfTwoCellEvent(index=sequence, payload=payload))
         elif kind == "cofibration":
-            visitor.cofibration(AspfCofibrationEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(event=AspfCofibrationEvent(index=sequence, payload=payload))
         elif kind == "surface_update":
-            visitor.surface_update(
-                AspfSurfaceUpdateEvent(
+            visitor.on_replay_event(
+                event=AspfSurfaceUpdateEvent(
                     surface=str(event.get("surface", "")),
                     representative=str(event.get("representative", "")),
                 )
@@ -776,24 +808,22 @@ def _adapt_streamed_trace_events_to_visitor(
 class _ImportedTraceMergeVisitor:
     state: AspfExecutionTraceState
 
-    def one_cell(self, event: AspfOneCellEvent) -> None:
-        _merge_one_cell_payload(state=self.state, one_cell_payload=event.payload)
-
-    def two_cell(self, event: AspfTwoCellEvent) -> None:
-        _merge_two_cell_payload(state=self.state, witness_payload=event.payload)
-
-    def cofibration(self, event: AspfCofibrationEvent) -> None:
-        _merge_cofibration_payload(state=self.state, cofibration_payload=event.payload)
-
-    def surface_update(self, event: AspfSurfaceUpdateEvent) -> None:
-        _merge_surface_representative(
-            state=self.state,
-            surface=event.surface,
-            representative=event.representative,
-        )
-
-    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
-        return None
+    def on_replay_event(self, *, event: AspfTraceReplayEvent) -> None:
+        match event:
+            case AspfOneCellEvent(payload=payload):
+                _merge_one_cell_payload(state=self.state, one_cell_payload=payload)
+            case AspfTwoCellEvent(payload=payload):
+                _merge_two_cell_payload(state=self.state, witness_payload=payload)
+            case AspfCofibrationEvent(payload=payload):
+                _merge_cofibration_payload(state=self.state, cofibration_payload=payload)
+            case AspfSurfaceUpdateEvent(surface=surface, representative=representative):
+                _merge_surface_representative(
+                    state=self.state,
+                    surface=surface,
+                    representative=representative,
+                )
+            case AspfRunBoundaryEvent():
+                return None
 
 
 def _merge_imported_trace_with_visitor(
