@@ -19,6 +19,9 @@ jobs:
     timeout-minutes: 70
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      GABION_ASPF_HANDOFF_SESSION: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      GABION_ASPF_HANDOFF_MANIFEST: artifacts/out/aspf_handoff_manifest.json
+      GABION_ASPF_STATE_ROOT: artifacts/out/aspf_state
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
@@ -39,25 +42,12 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip uv
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
-      - name: Seed version-controlled dataflow resume checkpoint (best effort)
-        run: .venv/bin/python scripts/ci_seed_dataflow_checkpoint.py
-      - name: Restore previous dataflow resume checkpoint (best effort)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          GH_REF_NAME: ${{ github.ref_name }}
-          GH_RUN_ID: ${{ github.run_id }}
-        run: |
-          .venv/bin/python -m gabion restore-resume-checkpoint \
-            --output-dir artifacts/audit_reports \
-            --artifact-name dataflow-report \
-            --checkpoint-name dataflow_resume_checkpoint_ci.json
       - name: Dataflow audit invocation
         id: dataflow_stage
         run: |
           .venv/bin/python -m gabion \
             --carrier direct \
-            --timeout 65000000000000ns \
+            --timeout 130000000000000ns \
             run-dataflow-stage \
             --debug-dump-interval-seconds 60 \
             --stage-strictness-profile "run=high"
@@ -95,19 +85,20 @@ jobs:
           path: |
             artifacts/audit_reports/dataflow_report.md
             artifacts/audit_reports/dataflow_report_stage_*.md
-            artifacts/audit_reports/timeout_progress.md
-            artifacts/audit_reports/timeout_progress.json
-            artifacts/audit_reports/timeout_progress_stage_*.md
-            artifacts/audit_reports/timeout_progress_stage_*.json
-            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
-            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json.chunks/**
-            artifacts/audit_reports/dataflow_checkpoint_intro_timeline.md
             artifacts/out/deadline_profile.json
             artifacts/out/deadline_profile.md
             artifacts/out/deadline_profile_stage_*.json
             artifacts/out/deadline_profile_stage_*.md
             artifacts/out/deadline_profile_ci_summary.json
             artifacts/out/deadline_profile_ci_summary.md
+      - name: Upload ASPF handoff state
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aspf-handoff-state
+          path: |
+            artifacts/out/aspf_handoff_manifest.json
+            artifacts/out/aspf_state/**
 
   checks:
     name: audit
@@ -115,6 +106,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      GABION_ASPF_HANDOFF_SESSION: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      GABION_ASPF_HANDOFF_MANIFEST: artifacts/out/aspf_handoff_manifest.json
+      GABION_ASPF_STATE_ROOT: artifacts/out/aspf_state
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
@@ -246,18 +240,26 @@ jobs:
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
-      - name: Delta state emit
+      - name: Delta bundle
+        run: |
+          .venv/bin/python scripts/aspf_handoff.py run \
+            --root . \
+            --session-id "${GABION_ASPF_HANDOFF_SESSION}" \
+            --step-id "ci.checks.delta-bundle" \
+            --command-profile "ci.checks.delta-bundle" \
+            --manifest "${GABION_ASPF_HANDOFF_MANIFEST}" \
+            --state-root "${GABION_ASPF_STATE_ROOT}" \
+            -- \
+            .venv/bin/python -m gabion \
+              --carrier direct \
+              --timeout 130000000000000ns \
+              check delta-bundle
+      - name: Delta gates (default-on burn-down gates)
         run: |
           .venv/bin/python -m gabion \
             --carrier direct \
-            --timeout 65000000000000ns \
-            delta-state-emit
-      - name: Delta triplets (default-on burn-down gates)
-        run: |
-          .venv/bin/python -m gabion \
-            --carrier direct \
-            --timeout 65000000000000ns \
-            delta-triplets
+            --timeout 130000000000000ns \
+            check delta-gates
       - name: Governance telemetry emit
         run: |
           .venv/bin/python scripts/governance_telemetry_emit.py \

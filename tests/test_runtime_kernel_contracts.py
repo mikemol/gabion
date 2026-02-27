@@ -232,18 +232,21 @@ def test_json_io_dump_rejects_unsorted_mapping_payload() -> None:
         json_io.dump_json_pretty({"z": 1, "a": 2})
 
 
-# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_stable_encode_compact_bytes_and_stringify_fallback::stable_encode.py::gabion.runtime.stable_encode.stable_compact_bytes::stable_encode.py::gabion.runtime.stable_encode.stable_json_value
-def test_stable_encode_compact_bytes_and_stringify_fallback() -> None:
+# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_stable_encode_rejects_unsupported_objects::stable_encode.py::gabion.runtime.stable_encode.stable_compact_bytes::stable_encode.py::gabion.runtime.stable_encode.stable_json_value
+def test_stable_encode_rejects_unsupported_objects() -> None:
     class _Custom:
         def __str__(self) -> str:
             return "custom-value"
 
-    payload = {"b": 2, "a": _Custom()}
-    encoded = stable_encode.stable_compact_bytes(payload)
-    assert isinstance(encoded, bytes)
-    text = encoded.decode("utf-8")
-    assert text == stable_encode.stable_compact_text(payload)
-    assert '"a":"custom-value"' in text
+    class _Unmapped:
+        pass
+
+    with pytest.raises(TypeError, match="stable_json_value does not support value type _Custom"):
+        stable_encode.stable_compact_bytes({"b": 2, "a": _Custom()})
+    # Regression: default object repr contains runtime memory identity (e.g. 0x...).
+    # Unsupported objects must fail instead of leaking identity text into carriers.
+    with pytest.raises(TypeError, match="stable_json_value does not support value type _Unmapped"):
+        stable_encode.stable_compact_text({"a": _Unmapped()})
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_delta_gate_load_payload_handles_unicode_error::delta_gate.py::gabion.tooling.delta_gate._load_payload

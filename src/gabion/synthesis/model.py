@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 @dataclass(frozen=True)
 class FieldSpec:
     name: str
-    type_hint: str | None = None
+    type_hint: str = ""
     source_params: Set[str] = field(default_factory=set)
 
 
@@ -17,7 +17,7 @@ class ProtocolSpec:
     fields: List[FieldSpec]
     bundle: Set[str]
     tier: int
-    rationale: str | None = None
+    rationale: str = ""
 
 
 @dataclass(frozen=True)

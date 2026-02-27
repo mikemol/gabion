@@ -2,8 +2,9 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, cast
 import math
 
 from gabion.analysis.aspf_core import (
@@ -27,6 +28,7 @@ from gabion.analysis.aspf_morphisms import (
 )
 from gabion.analysis.evidence_keys import fingerprint_identity_layers
 from gabion.analysis.json_types import JSONObject, JSONValue
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none, str_list_from_sequence
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
@@ -58,6 +60,64 @@ def _namespace_key(key: str) -> tuple[str, str]:
 def _raw_key(namespace: str, key: str) -> str:
     prefix = _NAMESPACE_TO_PREFIX.get(namespace, "")
     return f"{prefix}{key}"
+
+
+@dataclass(frozen=True)
+class _MaybeInt:
+    is_present: bool
+    value: int = 0
+
+
+def _mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
+    mapping = mapping_or_none(value)
+    if mapping is None:
+        return {}
+    return mapping
+
+
+def _mapping_sequence(value: object) -> list[object]:
+    out: list[object] = []
+    sequence = sequence_or_none(value)
+    if sequence is not None:
+        for entry in sequence:
+            check_deadline()
+            mapping = mapping_or_none(entry)
+            if mapping is not None:
+                out.append(dict(mapping))
+    return out
+
+
+def _str_int_pairs(value: object) -> list[tuple[str, int]]:
+    out: list[tuple[str, int]] = []
+    mapping = mapping_or_none(value)
+    if mapping is not None:
+        for key, raw_value in mapping.items():
+            check_deadline()
+            match (key, raw_value):
+                case (str() as key_text, int() as value_int):
+                    out.append((key_text, value_int))
+                case _:
+                    pass
+    return out
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    parsed = _maybe_int(value)
+    return parsed.value if parsed.is_present else default
+
+
+def _maybe_int(value: object) -> _MaybeInt:
+    text = str(value).strip()
+    normalized = text.removeprefix("-")
+    is_digit = normalized.isdigit()
+    return _MaybeInt(is_present=is_digit, value=int(text) if is_digit else 0)
+
+
+def _dimension_from_payload(value: object) -> FingerprintDimension:
+    payload = _mapping_or_empty(value)
+    product = _coerce_int(payload.get("product"), default=1)
+    mask = _coerce_int(payload.get("mask"), default=0)
+    return FingerprintDimension(product=product, mask=mask)
 
 def _split_top_level(value: str, sep: str) -> list[str]:
     check_deadline()
@@ -215,10 +275,10 @@ class PrimeRegistry:
             self.next_bit += 1
         return prime
 
-    def prime_for(self, key: str) -> int | None:
+    def prime_for(self, key: str) -> object:
         return self.primes.get(key)
 
-    def key_for_prime(self, prime: int) -> str | None:
+    def key_for_prime(self, prime: int) -> object:
         check_deadline()
         for key, value in self.primes.items():
             check_deadline()
@@ -226,7 +286,7 @@ class PrimeRegistry:
                 return key
         return None
 
-    def bit_for(self, key: str) -> int | None:
+    def bit_for(self, key: str) -> object:
         return self.bit_positions.get(key)
 
     def seed_payload(self) -> JSONObject:
@@ -290,39 +350,35 @@ class PrimeRegistry:
 
     def load_seed_payload(self, payload: object) -> None:
         check_deadline()
-        if not isinstance(payload, dict):
-            return
-        namespaces = payload.get("namespaces")
-        if not isinstance(namespaces, dict):
-            _apply_registry_payload(payload, self)
-            return
-        flat_primes: dict[str, int] = {}
-        flat_bits: dict[str, int] = {}
-        for namespace, section in namespaces.items():
-            check_deadline()
-            if not isinstance(namespace, str) or not isinstance(section, dict):
-                continue
-            primes = section.get("primes")
-            bits = section.get("bit_positions")
-            if isinstance(primes, dict):
-                for key, value in primes.items():
-                    check_deadline()
-                    if isinstance(key, str) and isinstance(value, int):
-                        flat_primes[_raw_key(namespace, key)] = value
-            if isinstance(bits, dict):
-                for key, value in bits.items():
-                    check_deadline()
-                    if isinstance(key, str) and isinstance(value, int):
-                        flat_bits[_raw_key(namespace, key)] = value
-        _apply_registry_payload(
-            {
-                "primes": flat_primes,
-                "bit_positions": flat_bits,
-                "assignment_policy": payload.get("assignment_policy"),
-            },
-            self,
-            assignment_kind="seeded",
-        )
+        payload_map = _mapping_or_empty(payload)
+        namespaces = mapping_or_none(payload_map.get("namespaces"))
+        if namespaces is None:
+            _apply_registry_payload(payload_map, self)
+        else:
+            flat_primes: dict[str, int] = {}
+            flat_bits: dict[str, int] = {}
+            for namespace, section in namespaces.items():
+                check_deadline()
+                match namespace:
+                    case str() as namespace_text:
+                        section_map = _mapping_or_empty(section)
+                        for key, value in _str_int_pairs(section_map.get("primes")):
+                            check_deadline()
+                            flat_primes[_raw_key(namespace_text, key)] = value
+                        for key, value in _str_int_pairs(section_map.get("bit_positions")):
+                            check_deadline()
+                            flat_bits[_raw_key(namespace_text, key)] = value
+                    case _:
+                        pass
+            _apply_registry_payload(
+                {
+                    "primes": flat_primes,
+                    "bit_positions": flat_bits,
+                    "assignment_policy": payload_map.get("assignment_policy"),
+                },
+                self,
+                assignment_kind="seeded",
+            )
 
 
 @dataclass(frozen=True)
@@ -667,15 +723,23 @@ def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
 def _normalize_type_list(value: object) -> list[str]:
     check_deadline()
     items: list[str] = []
-    if value is None:
-        return items
-    if isinstance(value, str):
-        items = [part.strip() for part in value.split(",") if part.strip()]
-    elif isinstance(value, (list, tuple, set)):
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    match value:
+        case None:
+            pass
+        case str() as value_text:
+            items = [part.strip() for part in value_text.split(",") if part.strip()]
+        case list() | tuple() | set() as value_sequence:
+            for item in value_sequence:
+                check_deadline()
+                match item:
+                    case str() as item_text:
+                        items.extend(
+                            [part.strip() for part in item_text.split(",") if part.strip()]
+                        )
+                    case _:
+                        pass
+        case _:
+            pass
     return [item for item in items if item]
 
 
@@ -809,14 +873,14 @@ class SynthRegistry:
         self.tails[prime] = fingerprint
         return prime
 
-    def synth_dimension_for(self, fingerprint: Fingerprint) -> FingerprintDimension | None:
+    def synth_dimension_for(self, fingerprint: Fingerprint) -> FingerprintDimension:
         prime = self.primes.get(fingerprint)
-        if prime is None:
-            return None
-        key = _synth_key(self.version, fingerprint)
-        bit = self.registry.bit_for(key)
-        mask = 0 if bit is None else 1 << bit
-        return FingerprintDimension(product=prime, mask=mask, exponents=((key, 1),))
+        if prime is not None:
+            key = _synth_key(self.version, fingerprint)
+            bit = self.registry.bit_for(key)
+            mask = 0 if bit is None else 1 << bit
+            return FingerprintDimension(product=prime, mask=mask, exponents=((key, 1),))
+        return FingerprintDimension()
 
 
 def build_synth_registry(
@@ -849,7 +913,7 @@ def apply_synth_dimension(
     synth_registry: SynthRegistry,
 ) -> Fingerprint:
     synth_dim = synth_registry.synth_dimension_for(fingerprint)
-    if synth_dim is None:
+    if synth_dim.is_empty():
         return fingerprint
     return Fingerprint(
         base=fingerprint.base,
@@ -954,9 +1018,7 @@ def load_synth_registry_payload(
 ) -> tuple[list[JSONObject], str, int]:
     version = str(payload.get("version", "synth@1"))
     min_occurrences = int(payload.get("min_occurrences", 2))
-    entries = payload.get("entries", [])
-    if not isinstance(entries, list):
-        entries = []
+    entries = cast(list[JSONObject], _mapping_sequence(payload.get("entries")))
     return entries, version, min_occurrences
 
 
@@ -965,44 +1027,28 @@ def build_synth_registry_from_payload(
     registry: PrimeRegistry,
 ) -> SynthRegistry:
     check_deadline()
-    registry_payload = payload.get("registry")
-    if isinstance(registry_payload, dict):
-        registry.load_seed_payload(registry_payload.get("seed"))
+    registry_payload = mapping_or_none(payload.get("registry"))
+    registry_seed = None
+    if registry_payload is not None:
+        registry_seed = registry_payload.get("seed")
+    registry.load_seed_payload(registry_seed)
     _apply_registry_payload(registry_payload, registry, assignment_kind="seeded")
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, dict):
-            continue
-        prime = entry.get("prime")
-        tail = entry.get("tail", {})
-        base = tail.get("base", {}) if isinstance(tail, dict) else {}
-        ctor = tail.get("ctor", {}) if isinstance(tail, dict) else {}
-        provenance = tail.get("provenance", {}) if isinstance(tail, dict) else {}
-        synth = tail.get("synth", {}) if isinstance(tail, dict) else {}
+        prime = _maybe_int(entry.get("prime"))
+        tail = _mapping_or_empty(entry.get("tail"))
         fingerprint = Fingerprint(
-            base=FingerprintDimension(
-                product=int(base.get("product", 1)),
-                mask=int(base.get("mask", 0)),
-            ),
-            ctor=FingerprintDimension(
-                product=int(ctor.get("product", 1)),
-                mask=int(ctor.get("mask", 0)),
-            ),
-            provenance=FingerprintDimension(
-                product=int(provenance.get("product", 1)),
-                mask=int(provenance.get("mask", 0)),
-            ),
-            synth=FingerprintDimension(
-                product=int(synth.get("product", 1)),
-                mask=int(synth.get("mask", 0)),
-            ),
+            base=_dimension_from_payload(tail.get("base")),
+            ctor=_dimension_from_payload(tail.get("ctor")),
+            provenance=_dimension_from_payload(tail.get("provenance")),
+            synth=_dimension_from_payload(tail.get("synth")),
         )
         assigned_prime = synth_registry.get_or_assign(fingerprint)
-        if isinstance(prime, int) and assigned_prime != prime:
-            synth_registry.tails[prime] = fingerprint
-            synth_registry.primes[fingerprint] = prime
+        if prime.is_present and assigned_prime != prime.value:
+            synth_registry.tails[prime.value] = fingerprint
+            synth_registry.primes[fingerprint] = prime.value
     return synth_registry
 
 
@@ -1019,26 +1065,9 @@ def _apply_registry_payload(
     stale or non-deterministic basis and must be handled explicitly.
     """
     check_deadline()
-    if not isinstance(payload, dict):
-        return
-    primes = payload.get("primes")
-    bits = payload.get("bit_positions")
-    primes_map: dict[str, int] = {}
-    bits_map: dict[str, int] = {}
-    if isinstance(primes, dict):
-        for key, value in primes.items():
-            check_deadline()
-            if not isinstance(key, str):
-                continue
-            if isinstance(value, int):
-                primes_map[key] = value
-    if isinstance(bits, dict):
-        for key, value in bits.items():
-            check_deadline()
-            if not isinstance(key, str):
-                continue
-            if isinstance(value, int):
-                bits_map[key] = value
+    payload_map = _mapping_or_empty(payload)
+    primes_map = dict(_str_int_pairs(payload_map.get("primes")))
+    bits_map = dict(_str_int_pairs(payload_map.get("bit_positions")))
 
     for key in sort_once(
         primes_map,
@@ -1069,20 +1098,13 @@ def _apply_registry_payload(
             )
         registry.bit_positions.setdefault(key, bit)
 
-    assignment_policy = payload.get("assignment_policy") if isinstance(payload, dict) else None
-    if isinstance(assignment_policy, dict):
-        seeded = assignment_policy.get("seeded")
-        learned = assignment_policy.get("learned")
-        if isinstance(seeded, list):
-            for key in seeded:
-                check_deadline()
-                if isinstance(key, str) and key in registry.primes:
-                    registry.assignment_origin[key] = "seeded"
-        if isinstance(learned, list):
-            for key in learned:
-                check_deadline()
-                if isinstance(key, str) and key in registry.primes:
-                    registry.assignment_origin[key] = "learned"
+    assignment_policy = _mapping_or_empty(payload_map.get("assignment_policy"))
+    for key in str_list_from_sequence(assignment_policy.get("seeded")):
+        check_deadline()
+        registry.assignment_origin[key] = "seeded"
+    for key in str_list_from_sequence(assignment_policy.get("learned")):
+        check_deadline()
+        registry.assignment_origin[key] = "learned"
 
     if registry.primes and len(set(registry.primes.values())) != len(registry.primes):
         raise ValueError("Registry basis contains duplicate primes.")
@@ -1126,7 +1148,7 @@ def fingerprint_carrier_soundness(a: FingerprintDimension, b: FingerprintDimensi
 def bundle_fingerprint_dimensional(
     types: Iterable[str],
     registry: PrimeRegistry,
-    ctor_registry: TypeConstructorRegistry | None = None,
+    ctor_registry: object = None,
 ) -> Fingerprint:
     check_deadline()
     base_keys: list[str] = []
@@ -1199,13 +1221,11 @@ def fingerprint_bitmask(types: Iterable[str], registry: PrimeRegistry) -> int:
     for hint in types:
         check_deadline()
         key = canonical_type_key(hint)
-        if not key:
-            continue
-        registry.get_or_assign(key)
-        bit = registry.bit_for(key)
-        if bit is None:
-            continue
-        mask |= 1 << bit
+        if key:
+            registry.get_or_assign(key)
+            bit = registry.bit_for(key)
+            if bit is not None:
+                mask |= 1 << bit
     return mask
 
 

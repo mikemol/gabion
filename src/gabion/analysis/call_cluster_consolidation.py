@@ -3,7 +3,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
 from gabion.analysis.baseline_io import write_json
@@ -67,17 +67,15 @@ def build_call_cluster_consolidation_payload(
         for token in entry.evidence:
             check_deadline()
             key = evidence_keys.parse_display(token)
-            if key is None:
-                continue
-            normalized = evidence_keys.normalize_key(key)
-            kind = str(normalized.get("k", ""))
-            targets = _targets_signature(normalized.get("targets"))
-            if not targets:
-                continue
-            if kind == "call_footprint":
-                call_footprints.append((targets, token))
-            elif kind == "call_cluster":  # pragma: no branch
-                call_clusters.add(targets)
+            if key is not None:
+                normalized = evidence_keys.normalize_key(key)
+                kind = str(normalized.get("k", ""))
+                targets = _targets_signature(normalized.get("targets"))
+                if targets:
+                    if kind == "call_footprint":
+                        call_footprints.append((targets, token))
+                    elif kind == "call_cluster":  # pragma: no branch
+                        call_clusters.add(targets)
         if not call_footprints:
             continue
         target_sets = {targets for targets, _ in call_footprints}
@@ -145,20 +143,19 @@ def build_call_cluster_consolidation_payload(
     for entry in plan:
         check_deadline()
         summary = eligible.get(entry.cluster_identity)
-        if summary is None:
-            continue
-        relation.append(
-            {
-                "cluster_identity": entry.cluster_identity,
-                "cluster_display": entry.cluster_display,
-                "cluster_count": summary.count,
-                "test_id": entry.test_id,
-                "file": entry.file,
-                "line": entry.line,
-                "replace": list(entry.replace),
-                "with": {"key": entry.cluster_key, "display": entry.cluster_display},
-            }
-        )
+        if summary is not None:
+            relation.append(
+                {
+                    "cluster_identity": entry.cluster_identity,
+                    "cluster_display": entry.cluster_display,
+                    "cluster_count": summary.count,
+                    "test_id": entry.test_id,
+                    "file": entry.file,
+                    "line": entry.line,
+                    "replace": list(entry.replace),
+                    "with": {"key": entry.cluster_key, "display": entry.cluster_display},
+                }
+            )
 
     ordered_plan = apply_spec(CALL_CLUSTER_CONSOLIDATION_SPEC, relation)
     ordered_clusters = sort_once(
@@ -204,18 +201,26 @@ def render_markdown(
     doc.section("Summary")
     doc.codeblock(summary)
     doc.line()
-    if not isinstance(plan, list) or not plan:
-        doc.line("No consolidation candidates.")
-        return doc.emit()
+    match plan:
+        case list() as plan_entries if plan_entries:
+            plan = plan_entries
+        case _:
+            doc.line("No consolidation candidates.")
+            return doc.emit()
     cluster_index: dict[str, Mapping[str, JSONValue]] = {}
-    if isinstance(clusters, list):
-        for cluster in clusters:
-            check_deadline()
-            if not isinstance(cluster, Mapping):
-                continue
-            identity = str(cluster.get("identity", "") or "")
-            if identity:
-                cluster_index[identity] = cluster
+    match clusters:
+        case list() as cluster_entries:
+            for cluster in cluster_entries:
+                check_deadline()
+                match cluster:
+                    case Mapping() as cluster_payload:
+                        identity = str(cluster_payload.get("identity", "") or "")
+                        if identity:
+                            cluster_index[identity] = cluster_payload
+                    case _:
+                        pass
+        case _:
+            pass
     doc.line("Consolidation plan:")
     current_cluster = None
     current_lines: list[str] = []
@@ -229,31 +234,37 @@ def render_markdown(
 
     for entry in plan:
         check_deadline()
-        if not isinstance(entry, Mapping):
-            continue
-        identity = str(entry.get("cluster_identity", "") or "")
-        if identity != current_cluster:
-            _flush_current_lines()
-            current_cluster = identity
-            cluster = cluster_index.get(identity, {})
-            display = str(cluster.get("display", "") or entry.get("cluster_display", ""))
-            count = cluster.get("count", entry.get("cluster_count", 0))
-            render_cluster_heading(doc, display=display, count=count)
-        test_id = str(entry.get("test_id", "") or "")
-        file_path = str(entry.get("file", "") or "")
-        line = entry.get("line", 0)
-        replace = entry.get("replace", [])
-        if isinstance(replace, list):
-            replace_tokens = ", ".join(str(item) for item in replace)
-        else:
-            replace_tokens = str(replace)
-        with_entry = entry.get("with", {})
-        with_display = ""
-        if isinstance(with_entry, Mapping):
-            with_display = str(with_entry.get("display", "") or "")
-        current_lines.append(
-            f"{test_id} ({file_path}:{line}) replace [{replace_tokens}] -> {with_display}"
-        )
+        match entry:
+            case Mapping() as entry_payload:
+                identity = str(entry_payload.get("cluster_identity", "") or "")
+                if identity != current_cluster:
+                    _flush_current_lines()
+                    current_cluster = identity
+                    cluster = cluster_index.get(identity, {})
+                    display = str(cluster.get("display", "") or entry_payload.get("cluster_display", ""))
+                    count = cluster.get("count", entry_payload.get("cluster_count", 0))
+                    render_cluster_heading(doc, display=display, count=count)
+                test_id = str(entry_payload.get("test_id", "") or "")
+                file_path = str(entry_payload.get("file", "") or "")
+                line = entry_payload.get("line", 0)
+                replace = entry_payload.get("replace", [])
+                match replace:
+                    case list() as replace_list:
+                        replace_tokens = ", ".join(str(item) for item in replace_list)
+                    case _:
+                        replace_tokens = str(replace)
+                with_entry = entry_payload.get("with", {})
+                with_display = ""
+                match with_entry:
+                    case Mapping() as with_payload:
+                        with_display = str(with_payload.get("display", "") or "")
+                    case _:
+                        pass
+                current_lines.append(
+                    f"{test_id} ({file_path}:{line}) replace [{replace_tokens}] -> {with_display}"
+                )
+            case _:
+                pass
     _flush_current_lines()
     return doc.emit()
 
@@ -269,18 +280,21 @@ def write_call_cluster_consolidation(
 
 def _targets_signature(value: object) -> tuple[tuple[str, str], ...]:
     check_deadline()
-    if not isinstance(value, Iterable):
-        return ()
     pairs: list[tuple[str, str]] = []
-    for item in value:
-        check_deadline()
-        if not isinstance(item, Mapping):
-            continue
-        path = str(item.get("path", "") or "").strip()
-        qual = str(item.get("qual", "") or "").strip()
-        if not path or not qual:
-            continue
-        pairs.append((path, qual))
+    match value:
+        case Iterable() as values:
+            for item in values:
+                check_deadline()
+                match item:
+                    case Mapping() as target_payload:
+                        path = str(target_payload.get("path", "") or "").strip()
+                        qual = str(target_payload.get("qual", "") or "").strip()
+                        if path and qual:
+                            pairs.append((path, qual))
+                    case _:
+                        pass
+        case _:
+            return ()
     return tuple(pairs)
 
 

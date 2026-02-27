@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 TARGETS = (
@@ -29,7 +29,9 @@ class Violation:
 
     @property
     def key(self) -> str:
-        return f"{self.rule_id}:{self.path}:{self.qualname}:{self.line}"
+        # Baseline identity is line-insensitive so routine line motion in
+        # unchanged semantics does not churn policy deltas.
+        return f"{self.rule_id}:{self.path}:{self.qualname}"
 
     def render(self) -> str:
         return f"{self.path}:{self.line}:{self.column}: [{self.rule_id}] [{self.qualname}] {self.message}"
@@ -217,9 +219,9 @@ def _load_baseline(path: Path) -> set[str]:
                     isinstance(rule_id, str)
                     and isinstance(path_value, str)
                     and isinstance(qualname, str)
-                    and isinstance(line, int)
                 ):
-                    keys.add(f"{rule_id}:{path_value}:{qualname}:{line}")
+                    _ = line
+                    keys.add(f"{rule_id}:{path_value}:{qualname}")
     return keys
 
 
@@ -228,7 +230,11 @@ def _write_baseline(path: Path, violations: list[Violation]) -> None:
     payload = {
         "version": BASELINE_VERSION,
         "violations": [
-            asdict(item)
+            {
+                "rule_id": item.rule_id,
+                "path": item.path,
+                "qualname": item.qualname,
+            }
             for item in sorted(violations, key=lambda v: (v.rule_id, v.path, v.qualname, v.line, v.column))
         ],
     }

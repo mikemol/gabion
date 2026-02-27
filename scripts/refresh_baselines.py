@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import inspect
 import json
 import os
 import shutil
@@ -8,12 +10,14 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.tooling import aspf_handoff
 from gabion.tooling.governance_rules import load_governance_rules
 
 
@@ -30,9 +34,7 @@ AMBIGUITY_BASELINE_PATH = Path("baselines/ambiguity_baseline.json")
 DOCFLOW_BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 DOCFLOW_CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
 DEFAULT_CHECK_REPORT_PATH = Path("artifacts/audit_reports/dataflow_report.md")
-DEFAULT_TIMEOUT_PROGRESS_PATH = Path("artifacts/audit_reports/timeout_progress.md")
 DEFAULT_DEADLINE_PROFILE_PATH = Path("artifacts/out/deadline_profile.json")
-DEFAULT_RESUME_CHECKPOINT_PATH = Path("artifacts/out/refresh_baselines_resume.json")
 FAILURE_ARTIFACT_PATH = Path("artifacts/out/refresh_baselines_failure.json")
 
 _DEFAULT_TIMEOUT_TICKS = 120_000
@@ -136,17 +138,6 @@ def _deadline_scope():
         default_budget=_DEFAULT_TIMEOUT_BUDGET,
     )
 
-
-def _default_resume_on_timeout() -> int:
-    return 1
-
-
-def _default_resume_checkpoint() -> Path | None:
-    if os.getenv("CI", "").strip().lower() in {"1", "true", "yes", "on"}:
-        return DEFAULT_RESUME_CHECKPOINT_PATH
-    return None
-
-
 def _format_run_check_failure(
     *,
     cmd: list[str],
@@ -159,7 +150,6 @@ def _format_run_check_failure(
         f"Command: {command_display}\n"
         f"Exit code: {returncode}\n"
         "Expected diagnostics artifacts:\n"
-        f"- timeout progress report: {DEFAULT_TIMEOUT_PROGRESS_PATH}\n"
         f"- deadline profile json: {DEFAULT_DEADLINE_PROFILE_PATH}\n"
         f"- check report: {report_path}"
     )
@@ -174,9 +164,7 @@ def _run_check(
     subcommand: list[str],
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
-    resume_on_timeout: int,
     *,
-    resume_checkpoint: Path | None,
     report_path: Path = DEFAULT_CHECK_REPORT_PATH,
     extra: list[str] | None = None,
     run_fn=subprocess.run,
@@ -192,12 +180,7 @@ def _run_check(
         *subcommand,
         "--report",
         str(report_path),
-        "--timeout-progress-report",
-        "--resume-on-timeout",
-        str(resume_on_timeout),
     ]
-    if resume_checkpoint is not None:
-        cmd.extend(["--resume-checkpoint", str(resume_checkpoint)])
     if extra:
         cmd.extend(extra)
     try:
@@ -209,7 +192,6 @@ def _run_check(
         )
     except subprocess.CalledProcessError as error:
         expected_artifacts = [
-            DEFAULT_TIMEOUT_PROGRESS_PATH,
             DEFAULT_DEADLINE_PROFILE_PATH,
             report_path,
         ]
@@ -338,16 +320,13 @@ def _ensure_delta(
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
     *,
-    resume_on_timeout: int,
-    resume_checkpoint: Path | None,
     extra: list[str] | None = None,
+    run_check_fn=_run_check,
 ) -> dict[str, object]:
-    _run_check(
+    run_check_fn(
         subcommand,
         timeout,
         timeout_env,
-        resume_on_timeout,
-        resume_checkpoint=resume_checkpoint,
         extra=extra,
     )
     if not path.exists():
@@ -359,8 +338,7 @@ def _guard_obsolescence_delta(
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
     *,
-    resume_on_timeout: int,
-    resume_checkpoint: Path | None,
+    run_check_fn=_run_check,
 ) -> None:
     payload = _ensure_delta(
         [
@@ -372,9 +350,8 @@ def _guard_obsolescence_delta(
         OBSOLESCENCE_DELTA_PATH,
         timeout,
         timeout_env,
-        resume_on_timeout=resume_on_timeout,
-        resume_checkpoint=resume_checkpoint,
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--state-in"),
+        run_check_fn=run_check_fn,
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
     if _requires_block("obsolescence_opaque", opaque_delta):
@@ -393,8 +370,7 @@ def _guard_annotation_drift_delta(
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
     *,
-    resume_on_timeout: int,
-    resume_checkpoint: Path | None,
+    run_check_fn=_run_check,
 ) -> None:
     if not _gate_enabled(gate_id="annotation_orphaned"):
         return
@@ -408,9 +384,8 @@ def _guard_annotation_drift_delta(
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
         timeout_env,
-        resume_on_timeout=resume_on_timeout,
-        resume_checkpoint=resume_checkpoint,
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--state-in"),
+        run_check_fn=run_check_fn,
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
     if _requires_block("annotation_orphaned", orphaned_delta):
@@ -423,8 +398,7 @@ def _guard_ambiguity_delta(
     timeout: int | None,
     timeout_env: _RefreshLspTimeoutEnv,
     *,
-    resume_on_timeout: int,
-    resume_checkpoint: Path | None,
+    run_check_fn=_run_check,
 ) -> None:
     if not _gate_enabled(gate_id="ambiguity"):
         return
@@ -438,9 +412,8 @@ def _guard_ambiguity_delta(
         AMBIGUITY_DELTA_PATH,
         timeout,
         timeout_env,
-        resume_on_timeout=resume_on_timeout,
-        resume_checkpoint=resume_checkpoint,
         extra=_state_args(AMBIGUITY_STATE_PATH, "--state-in"),
+        run_check_fn=run_check_fn,
     )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
     if _requires_block("ambiguity", total_delta):
@@ -533,30 +506,183 @@ def main(
             ),
         )
         parser.add_argument(
-            "--resume-on-timeout",
-            type=int,
-            default=_default_resume_on_timeout(),
-            help="Resume budget passed to gabion check --resume-on-timeout (default: 1).",
+            "--no-aspf-handoff",
+            action="store_true",
+            help="Disable ASPF cross-script handoff state/manifest emission.",
         )
         parser.add_argument(
-            "--resume-checkpoint",
-            default=_default_resume_checkpoint(),
-            help=(
-                "Checkpoint path passed to gabion check --resume-checkpoint. "
-                "Defaults to artifacts/out/refresh_baselines_resume.json in CI and disabled locally; "
-                "set to 'none' to disable explicitly."
-            ),
+            "--aspf-handoff-manifest",
+            default="artifacts/out/aspf_handoff_manifest.json",
+            help="Path to ASPF handoff manifest.",
+        )
+        parser.add_argument(
+            "--aspf-handoff-session",
+            default="",
+            help="Session id used for ASPF handoff entries.",
+        )
+        parser.add_argument(
+            "--aspf-state-root",
+            default="artifacts/out/aspf_state",
+            help="Root directory for ASPF serialized state objects.",
         )
         args = parser.parse_args(argv)
         timeout_env = _refresh_lsp_timeout_env(
             args.lsp_timeout_ticks,
             args.lsp_timeout_tick_ns,
         )
-        resume_checkpoint = args.resume_checkpoint
-        if isinstance(resume_checkpoint, str) and resume_checkpoint.strip().lower() == "none":
-            resume_checkpoint = None
-        if isinstance(resume_checkpoint, str):
-            resume_checkpoint = Path(resume_checkpoint)
+        handoff_enabled = not bool(args.no_aspf_handoff)
+        handoff_session = str(args.aspf_handoff_session).strip() or os.getenv(
+            "GABION_ASPF_HANDOFF_SESSION",
+            "",
+        ).strip()
+        if handoff_enabled and not handoff_session:
+            handoff_session = (
+                f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}"
+            )
+        handoff_manifest_path = Path(str(args.aspf_handoff_manifest))
+        handoff_state_root = Path(str(args.aspf_state_root))
+        raw_run_check_fn = run_check_fn
+
+        def _run_check_with_handoff(
+            subcommand: list[str],
+            timeout: int | None,
+            timeout_env: _RefreshLspTimeoutEnv,
+            *,
+            report_path: Path = DEFAULT_CHECK_REPORT_PATH,
+            extra: list[str] | None = None,
+            run_fn=subprocess.run,
+        ) -> None:
+            merged_extra = list(extra or [])
+            if not handoff_enabled:
+                raw_run_check_fn(
+                    subcommand,
+                    timeout,
+                    timeout_env,
+                    report_path=report_path,
+                    extra=merged_extra,
+                    run_fn=run_fn,
+                )
+                return
+
+            step_name = ".".join(token for token in subcommand[:2] if token)
+            step_id = f"refresh-baselines.{step_name or 'check'}"
+            prepared = aspf_handoff.prepare_step(
+                root=Path(".").resolve(),
+                session_id=handoff_session,
+                step_id=step_id,
+                command_profile="refresh-baselines.check",
+                manifest_path=handoff_manifest_path,
+                state_root=handoff_state_root,
+            )
+            merged_extra.extend(aspf_handoff.aspf_cli_args(prepared))
+            if raw_run_check_fn is not _run_check:
+                try:
+                    raw_run_check_fn(
+                        subcommand,
+                        timeout,
+                        timeout_env,
+                        report_path=report_path,
+                        extra=merged_extra,
+                        run_fn=run_fn,
+                    )
+                except Exception:
+                    aspf_handoff.record_step(
+                        manifest_path=prepared.manifest_path,
+                        session_id=prepared.session_id,
+                        sequence=prepared.sequence,
+                        status="failed",
+                        exit_code=1,
+                        analysis_state="failed",
+                    )
+                    raise
+                aspf_handoff.record_step(
+                    manifest_path=prepared.manifest_path,
+                    session_id=prepared.session_id,
+                    sequence=prepared.sequence,
+                    status="success",
+                    exit_code=0,
+                    analysis_state="succeeded",
+                )
+                return
+
+            timeout_text = f"{int(timeout_env.ticks) * int(timeout_env.tick_ns)}ns"
+            base_command = [
+                sys.executable,
+                "-m",
+                "gabion",
+                "--timeout",
+                timeout_text,
+                "check",
+                *subcommand,
+                "--report",
+                str(report_path),
+            ]
+            base_command.extend(merged_extra)
+
+            failure: RefreshBaselinesSubprocessFailure | None = None
+            timeout_error: subprocess.TimeoutExpired | None = None
+
+            def _run_command_with_env(command: Sequence[str]) -> int:
+                nonlocal failure
+                nonlocal timeout_error
+                try:
+                    completed = run_fn(
+                        list(command),
+                        check=False,
+                        timeout=timeout,
+                        env=_refresh_subprocess_env(timeout_env),
+                    )
+                except subprocess.TimeoutExpired as exc:
+                    timeout_error = exc
+                    return 124
+                exit_code = int(getattr(completed, "returncode", 0))
+                if exit_code != 0:
+                    expected_artifacts = [
+                        DEFAULT_DEADLINE_PROFILE_PATH,
+                        report_path,
+                    ]
+                    expected_artifacts.extend(
+                        Path(arg) for arg in command if not str(arg).startswith("-")
+                    )
+                    failure = RefreshBaselinesSubprocessFailure(
+                        command=[str(part) for part in command],
+                        timeout_seconds=timeout,
+                        exit_code=exit_code,
+                        expected_artifacts=expected_artifacts,
+                    )
+                return exit_code
+
+            command_with_aspf = [*base_command]
+            exit_code = _run_command_with_env(command_with_aspf)
+            analysis_state = "succeeded" if exit_code == 0 else "failed"
+            aspf_handoff.record_step(
+                manifest_path=prepared.manifest_path,
+                session_id=prepared.session_id,
+                sequence=prepared.sequence,
+                status="success" if exit_code == 0 else "failed",
+                exit_code=exit_code,
+                analysis_state=analysis_state,
+            )
+            if timeout_error is not None:
+                raise timeout_error
+            if failure is not None:
+                raise failure
+            if exit_code != 0:
+                raise RefreshBaselinesSubprocessFailure(
+                    command=command_with_aspf,
+                    timeout_seconds=timeout,
+                    exit_code=int(exit_code),
+                    expected_artifacts=[DEFAULT_DEADLINE_PROFILE_PATH, report_path],
+                )
+
+        def _invoke_guard_with_optional_handoff(guard_fn, *args, **kwargs):
+            try:
+                params = inspect.signature(guard_fn).parameters
+            except (TypeError, ValueError):
+                params = {}
+            if "run_check_fn" in params:
+                return guard_fn(*args, **kwargs, run_check_fn=_run_check_with_handoff)
+            return guard_fn(*args, **kwargs)
 
         if not (
             args.obsolescence
@@ -568,13 +694,12 @@ def main(
             args.all = True
 
         if args.all or args.obsolescence:
-            guard_obsolescence_delta_fn(
+            _invoke_guard_with_optional_handoff(
+                guard_obsolescence_delta_fn,
                 args.timeout,
                 timeout_env,
-                resume_on_timeout=args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
             )
-            run_check_fn(
+            _run_check_with_handoff(
                 [
                     "obsolescence",
                     "baseline-write",
@@ -583,18 +708,15 @@ def main(
                 ],
                 args.timeout,
                 timeout_env,
-                args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
                 extra=_state_args(OBSOLESCENCE_STATE_PATH, "--state-in"),
             )
         if args.all or args.annotation_drift:
-            guard_annotation_drift_delta_fn(
+            _invoke_guard_with_optional_handoff(
+                guard_annotation_drift_delta_fn,
                 args.timeout,
                 timeout_env,
-                resume_on_timeout=args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
             )
-            run_check_fn(
+            _run_check_with_handoff(
                 [
                     "annotation-drift",
                     "baseline-write",
@@ -603,20 +725,17 @@ def main(
                 ],
                 args.timeout,
                 timeout_env,
-                args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
                 extra=_state_args(
                     ANNOTATION_DRIFT_STATE_PATH, "--state-in"
                 ),
             )
         if args.all or args.ambiguity:
-            guard_ambiguity_delta_fn(
+            _invoke_guard_with_optional_handoff(
+                guard_ambiguity_delta_fn,
                 args.timeout,
                 timeout_env,
-                resume_on_timeout=args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
             )
-            run_check_fn(
+            _run_check_with_handoff(
                 [
                     "ambiguity",
                     "baseline-write",
@@ -625,8 +744,6 @@ def main(
                 ],
                 args.timeout,
                 timeout_env,
-                args.resume_on_timeout,
-                resume_checkpoint=resume_checkpoint,
                 extra=_state_args(AMBIGUITY_STATE_PATH, "--state-in"),
             )
         if args.all or args.docflow:

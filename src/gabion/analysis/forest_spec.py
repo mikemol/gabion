@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 from gabion.json_types import JSONValue
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.order_contract import sort_once
 from gabion.analysis.timeout_context import check_deadline
 
@@ -42,7 +43,7 @@ def build_forest_spec(
     decision_ignore_params: Iterable[str] = (),
     transparent_decorators: Iterable[str] = (),
     strictness: str = "high",
-    decision_tiers: Mapping[str, int] | None = None,
+    decision_tiers: object = None,
     require_tiers: bool = False,
     external_filter: bool = True,
 ) -> ForestSpec:
@@ -249,41 +250,64 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
     spec_name = str(payload.get("name", "") or "")
     params = payload.get("params")
     spec_params: dict[str, JSONValue] = {}
-    if isinstance(params, Mapping):
-        spec_params = {str(k): v for k, v in params.items()}
+    match params:
+        case Mapping() as params_payload:
+            spec_params = {str(k): v for k, v in params_payload.items()}
+        case _:
+            pass
     declared_outputs: tuple[str, ...] = ()
     outputs_payload = payload.get("declared_outputs", [])
-    if isinstance(outputs_payload, list):
-        declared_outputs = tuple(
-            str(entry) for entry in outputs_payload if str(entry).strip()
-        )
+    match outputs_payload:
+        case list() as outputs_list:
+            declared_outputs = tuple(
+                str(entry) for entry in outputs_list if str(entry).strip()
+            )
+        case _:
+            pass
     collectors_payload = payload.get("collectors", [])
     collectors: list[ForestCollectorSpec] = []
-    if isinstance(collectors_payload, list):
-        for entry in collectors_payload:
-            check_deadline()
-            if not isinstance(entry, Mapping):
-                continue
-            collector_name = str(entry.get("name", "") or "").strip()
-            if not collector_name:
-                continue
-            outputs = entry.get("outputs", [])
-            outputs_list: tuple[str, ...] = ()
-            if isinstance(outputs, list):
-                outputs_list = tuple(
-                    str(item) for item in outputs if str(item).strip()
-                )
-            params = entry.get("params")
-            collector_params: dict[str, JSONValue] = {}
-            if isinstance(params, Mapping):
-                collector_params = {str(k): v for k, v in params.items()}
-            collectors.append(
-                ForestCollectorSpec(
-                    name=collector_name,
-                    outputs=outputs_list,
-                    params=collector_params,
-                )
-            )
+    match collectors_payload:
+        case list() as collectors_list:
+            for entry in collectors_list:
+                check_deadline()
+                match entry:
+                    case Mapping() as collector_payload:
+                        collector_name = str(
+                            collector_payload.get("name", "") or ""
+                        ).strip()
+                        if not collector_name:
+                            continue
+                        outputs = collector_payload.get("outputs", [])
+                        outputs_list: tuple[str, ...] = ()
+                        match outputs:
+                            case list() as collector_outputs:
+                                outputs_list = tuple(
+                                    str(item)
+                                    for item in collector_outputs
+                                    if str(item).strip()
+                                )
+                            case _:
+                                pass
+                        params = collector_payload.get("params")
+                        collector_params: dict[str, JSONValue] = {}
+                        match params:
+                            case Mapping() as collector_params_payload:
+                                collector_params = {
+                                    str(k): v for k, v in collector_params_payload.items()
+                                }
+                            case _:
+                                pass
+                        collectors.append(
+                            ForestCollectorSpec(
+                                name=collector_name,
+                                outputs=outputs_list,
+                                params=collector_params,
+                            )
+                        )
+                    case _:
+                        pass
+        case _:
+            pass
     return ForestSpec(
         spec_version=version,
         name=spec_name,
@@ -320,12 +344,14 @@ def forest_spec_hash_spec(spec: ForestSpec) -> str:
     return forest_spec_canonical_json(spec)
 
 
-def forest_spec_hash(spec: ForestSpec | Mapping[str, JSONValue] | str) -> str:
-    if isinstance(spec, str):
-        return spec
-    if not isinstance(spec, ForestSpec):
-        spec = forest_spec_from_dict(spec)
-    return forest_spec_hash_spec(spec)
+def forest_spec_hash(spec: object) -> str:
+    match spec:
+        case str() as spec_hash:
+            return spec_hash
+        case ForestSpec() as spec_model:
+            return forest_spec_hash_spec(spec_model)
+    spec_payload = mapping_or_none(spec) or {}
+    return forest_spec_hash_spec(forest_spec_from_dict(spec_payload))
 
 
 def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
@@ -336,7 +362,7 @@ def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
 
 
 def _normalize_decision_tiers(
-    tiers: Mapping[str, int] | None,
+    tiers: object,
 ) -> dict[str, int]:
     check_deadline()
     if not tiers:
@@ -355,19 +381,33 @@ def _normalize_decision_tiers(
     return {key: normalized[key] for key in sort_once(normalized, source = 'src/gabion/analysis/forest_spec.py:353')}
 
 
-def _sorted_strings(values: Iterable[str] | None) -> list[str]:
-    if values is None:
-        return []
-    cleaned = {str(value).strip() for value in values if str(value).strip()}
+def _sorted_strings(values: object) -> list[str]:
+    iterable_values: Iterable[str] = ()
+    match values:
+        case Iterable() as values_iterable:
+            iterable_values = values_iterable
+        case _:
+            pass
+    cleaned = {
+        str(value).strip()
+        for value in iterable_values
+        if str(value).strip()
+    }
     return sort_once(cleaned, source = 'src/gabion/analysis/forest_spec.py:360')
 
 
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
-    if isinstance(value, dict):
-        return {str(k): _normalize_value(value[k]) for k in sort_once(value, source = 'src/gabion/analysis/forest_spec.py:366')}
-    if isinstance(value, list):
-        if value and all(isinstance(entry, str) for entry in value):
-            return _sorted_strings([str(entry) for entry in value])
-        return [_normalize_value(entry) for entry in value]
-    return value
+    match value:
+        case dict() as mapping_value:
+            return {
+                str(k): _normalize_value(mapping_value[k])
+                for k in sort_once(mapping_value, source = 'src/gabion/analysis/forest_spec.py:366')
+            }
+        case list() as list_value:
+            all_strings = all(type(entry) is str for entry in list_value)
+            if list_value and all_strings:
+                return _sorted_strings([str(entry) for entry in list_value])
+            return [_normalize_value(entry) for entry in list_value]
+        case _:
+            return value

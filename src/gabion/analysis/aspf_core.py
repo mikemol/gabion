@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from collections.abc import Mapping
 from typing import Protocol
+
+from gabion.analysis.resume_codec import mapping_or_none
 
 
 class AspfZeroCell(Protocol):
@@ -104,37 +106,80 @@ class AspfCanonicalIdentityContract:
         }
 
 
-def parse_2cell_witness(payload: Mapping[str, object]) -> AspfTwoCellWitness | None:
+@dataclass(frozen=True)
+class _DecodeOneCellOutcome:
+    valid: bool
+    cell: AspfOneCell
+
+
+def parse_2cell_witness(payload: Mapping[str, object]) -> object:
     left_payload = payload.get("left")
     right_payload = payload.get("right")
-    witness_id = payload.get("witness_id")
-    reason = payload.get("reason")
-    if not isinstance(left_payload, Mapping) or not isinstance(right_payload, Mapping):
-        return None
-    if not isinstance(witness_id, str) or not isinstance(reason, str):
-        return None
+    witness_id_raw = payload.get("witness_id")
+    reason_raw = payload.get("reason")
 
-    def _decode_1cell(raw: Mapping[str, object]) -> AspfOneCell | None:
+    def _decode_1cell(raw: Mapping[str, object]) -> _DecodeOneCellOutcome:
         source = raw.get("source")
         target = raw.get("target")
         representative = raw.get("representative")
         basis_path = raw.get("basis_path")
-        if not isinstance(source, str) or not isinstance(target, str) or not isinstance(representative, str):
-            return None
-        if not isinstance(basis_path, list) or not all(isinstance(item, str) for item in basis_path):
-            return None
-        return AspfOneCell(
-            source=BasisZeroCell(source),
-            target=BasisZeroCell(target),
-            representative=representative,
-            basis_path=tuple(basis_path),
+        source_label = ""
+        target_label = ""
+        representative_label = ""
+        basis_items: tuple[str, ...] = ()
+        basis_valid = False
+
+        match source:
+            case str() as source_text:
+                source_label = source_text
+        match target:
+            case str() as target_text:
+                target_label = target_text
+        match representative:
+            case str() as representative_text:
+                representative_label = representative_text
+        match basis_path:
+            case list() as basis_list:
+                basis_items = tuple(str(item) for item in basis_list)
+                basis_valid = True
+        decoded_cell = AspfOneCell(
+            source=BasisZeroCell(source_label),
+            target=BasisZeroCell(target_label),
+            representative=representative_label,
+            basis_path=basis_items,
+        )
+        return _DecodeOneCellOutcome(
+            valid=bool(
+                source_label and target_label and representative_label and basis_valid
+            ),
+            cell=decoded_cell,
         )
 
-    left = _decode_1cell(left_payload)
-    right = _decode_1cell(right_payload)
-    if left is None or right is None:
-        return None
-    return AspfTwoCellWitness(left=left, right=right, witness_id=witness_id, reason=reason)
+    left_outcome = _DecodeOneCellOutcome(
+        valid=False,
+        cell=AspfOneCell(
+            source=BasisZeroCell(""),
+            target=BasisZeroCell(""),
+            representative="",
+            basis_path=(),
+        ),
+    )
+    right_outcome = left_outcome
+    left_outcome = _decode_1cell(mapping_or_none(left_payload) or {})
+    right_outcome = _decode_1cell(mapping_or_none(right_payload) or {})
+
+    match (witness_id_raw, reason_raw):
+        case (str() as witness_id, str() as reason):
+            if left_outcome.valid and right_outcome.valid:
+                return AspfTwoCellWitness(
+                    left=left_outcome.cell,
+                    right=right_outcome.cell,
+                    witness_id=witness_id,
+                    reason=reason,
+                )
+            return None
+        case _:
+            return None
 
 
 def identity_1cell(cell: BasisZeroCell) -> AspfOneCell:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Callable, Mapping
+from collections.abc import Callable, Mapping
 
 from gabion.analysis.json_types import JSONObject, JSONValue
 
@@ -29,14 +29,14 @@ class DataflowRunOutputContext:
     paths: list[Path]
     config: AuditConfig
     synth_defaults: Mapping[str, object]
-    baseline_path: Path | None
+    baseline_path: object
     baseline_write: bool
-    decision_snapshot_path: str | None
-    fingerprint_deadness_json: str | None
-    fingerprint_coherence_json: str | None
-    fingerprint_rewrite_plans_json: str | None
-    fingerprint_exception_obligations_json: str | None
-    fingerprint_handledness_json: str | None
+    decision_snapshot_path: object
+    fingerprint_deadness_json: object
+    fingerprint_coherence_json: object
+    fingerprint_rewrite_plans_json: object
+    fingerprint_exception_obligations_json: object
+    fingerprint_handledness_json: object
 
 
 @dataclass(frozen=True)
@@ -54,13 +54,13 @@ class RunOutputOp:
 class _ProjectionOutputEffect:
     effect_id: str
     output_path: str
-    payload: JSONValue | object
+    payload: object
 
 
 @dataclass(frozen=True)
 class _RunOutputState:
-    synthesis_plan: JSONObject | None = None
-    refactor_plan: JSONObject | None = None
+    synthesis_plan: object = None
+    refactor_plan: object = None
 
 
 def plan_run_output_ops(_: DataflowRunOutputContext) -> tuple[RunOutputOp, ...]:
@@ -234,22 +234,23 @@ def plan_projection_output_effects(
 def merge_overlap_threshold(
     args: argparse.Namespace,
     synth_defaults: Mapping[str, object],
-) -> float | None:
+) -> object:
     if args.synthesis_merge_overlap is not None:
-        threshold: float | None = args.synthesis_merge_overlap
+        threshold = args.synthesis_merge_overlap
     else:
         threshold = None
         value = synth_defaults.get("merge_overlap_threshold")
-        if isinstance(value, (int, float)):
-            threshold = float(value)
-    if threshold is None:
-        return None
-    return max(0.0, min(1.0, threshold))
+        match value:
+            case int() | float():
+                threshold = float(value)
+    if threshold is not None:
+        return max(0.0, min(1.0, float(threshold)))
+    return threshold
 
 
 def emit_optional_synthesis_outputs(
     context: DataflowRunOutputContext,
-) -> JSONObject | None:
+) -> object:
     args = context.args
     analysis = context.analysis
     if not (args.synthesis_plan or args.synthesis_report or args.synthesis_protocols):
@@ -276,7 +277,7 @@ def emit_optional_synthesis_outputs(
 
 def emit_optional_refactor_outputs(
     context: DataflowRunOutputContext,
-) -> JSONObject | None:
+) -> object:
     args = context.args
     if not (args.refactor_plan or args.refactor_plan_json):
         return None
@@ -325,52 +326,59 @@ def emit_optional_type_audit_output(context: DataflowRunOutputContext) -> bool:
 def emit_report_output(
     *,
     context: DataflowRunOutputContext,
-    synthesis_plan: JSONObject | None,
-    refactor_plan: JSONObject | None,
+    synthesis_plan: object,
+    refactor_plan: object,
     emit_report_fn: Callable[..., tuple[str, list[str]]],
-) -> int | None:
+) -> object:
     args = context.args
-    if args.report is None:
-        return None
-    report_carrier = ReportCarrier.from_analysis_result(
-        context.analysis,
-        include_type_audit=args.type_audit_report,
-    )
-    report, violations = emit_report_fn(
-        context.analysis.groups_by_path,
-        args.max_components,
-        report=report_carrier,
-    )
-    suppressed: list[str] = []
-    new_violations = violations
-    if context.baseline_path is not None:
-        baseline_entries = _load_baseline(context.baseline_path)
-        if context.baseline_write:
-            _write_baseline(context.baseline_path, violations)
-            baseline_entries = set(violations)
-            new_violations = []
-        else:
-            new_violations, suppressed = _apply_baseline(violations, baseline_entries)
-        report = (
-            report
-            + "\n\nBaseline/Ratchet:\n```\n"
-            + f"Baseline: {context.baseline_path}\n"
-            + f"Baseline entries: {len(baseline_entries)}\n"
-            + f"Suppressed: {len(suppressed)}\n"
-            + f"New violations: {len(new_violations)}\n"
-            + "```\n"
+    report_target = args.report
+    report_exit_code: object = None
+    if report_target is not None:
+        report_carrier = ReportCarrier.from_analysis_result(
+            context.analysis,
+            include_type_audit=args.type_audit_report,
         )
-    if synthesis_plan and (args.synthesis_report or args.synthesis_plan or args.synthesis_protocols):
-        report = report + render_synthesis_section(synthesis_plan)
-    if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
-        report = report + render_refactor_plan(refactor_plan)
-    _write_text_or_stdout(args.report, report)
-    if args.fail_on_violations and violations:
-        if context.baseline_write:
-            return 0
-        if new_violations:
-            return 1
-    return 0
+        report, violations = emit_report_fn(
+            context.analysis.groups_by_path,
+            args.max_components,
+            report=report_carrier,
+        )
+        suppressed: list[str] = []
+        new_violations = violations
+        if context.baseline_path is not None:
+            baseline_entries = _load_baseline(context.baseline_path)
+            if context.baseline_write:
+                _write_baseline(context.baseline_path, violations)
+                baseline_entries = set(violations)
+                new_violations = []
+            else:
+                new_violations, suppressed = _apply_baseline(
+                    violations,
+                    baseline_entries,
+                )
+            report = (
+                report
+                + "\n\nBaseline/Ratchet:\n```\n"
+                + f"Baseline: {context.baseline_path}\n"
+                + f"Baseline entries: {len(baseline_entries)}\n"
+                + f"Suppressed: {len(suppressed)}\n"
+                + f"New violations: {len(new_violations)}\n"
+                + "```\n"
+            )
+        if synthesis_plan and (
+            args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
+        ):
+            report = report + render_synthesis_section(synthesis_plan)
+        if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
+            report = report + render_refactor_plan(refactor_plan)
+        _write_text_or_stdout(report_target, report)
+        report_exit_code = 0
+        if args.fail_on_violations and violations:
+            if context.baseline_write:
+                report_exit_code = 0
+            elif new_violations:
+                report_exit_code = 1
+    return report_exit_code
 
 
 def emit_console_output_and_violation_gate(

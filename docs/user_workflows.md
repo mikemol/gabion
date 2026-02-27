@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -72,25 +72,40 @@ mise exec -- python -m gabion check \
   --baseline-write
 ```
 
-### Iterative loop with resume checkpoint reuse
+### Iterative loop with ASPF snapshot + delta
 ```bash
-mise exec -- python -m gabion check \
+mise exec -- python -m gabion check run \
   --baseline artifacts/audit_reports/dataflow_baseline.txt \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+  --baseline-mode enforce \
+  --aspf-state-json artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0001_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0001_check-run.action_plan.md
 ```
 
-### Timeout handling
-If a run times out, re-run the same command and keep the same checkpoint path.
-Gabion can hydrate cached parse/index state when identity inputs are compatible.
-If you intentionally changed core identity knobs and results look unexpectedly cold,
-remove the local checkpoint once and rerun:
+### Continuation handling
+To continue from previous work, import prior state snapshot(s):
 ```bash
-rm -f artifacts/audit_reports/dataflow_resume_checkpoint_local.json
-mise exec -- python -m gabion check \
-  --baseline artifacts/audit_reports/dataflow_baseline.txt \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-local/0002_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0002_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0002_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0002_check-run.action_plan.md \
+  --aspf-import-state artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json
+```
+
+### Delta bundle/gates cutover
+Use the single-pass delta emitter and gate-only follow-up to avoid duplicate
+re-analysis:
+```bash
+mise exec -- python -m gabion check delta-bundle \
+  --aspf-state-json artifacts/out/aspf_state/session-local/0003_delta-bundle.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0003_delta-bundle.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0003_delta-bundle.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0003_delta-bundle.action_plan.md \
+  --aspf-import-state artifacts/out/aspf_state/session-local/0002_check-run.snapshot.json
+
+mise exec -- python -m gabion check delta-gates
 ```
 
 ## 2) Dual-sensor remediation loop
@@ -100,15 +115,35 @@ to drive correction together.
 
 ### Terminal A: local repro lane
 ```bash
-mise exec -- python -m gabion check \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_action_plan.md
 ```
 
 ### Terminal B: remote status-check lane
 ```bash
-mise exec -- python scripts/ci_watch.py --branch stage
+mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
 ```
+
+On watched-run failure, collect run metadata/logs/artifacts into:
+
+`artifacts/out/ci_watch/run_<run_id>/`
+
+Use explicit artifact filters when only selected bundles are needed:
+
+```bash
+mise exec -- python scripts/ci_watch.py \
+  --branch stage \
+  --workflow ci \
+  --artifact-name test-runs \
+  --artifact-name dataflow-report
+```
+
+If run watching fails and failure-bundle collection also fails, `ci_watch` exits
+with code `2` so automation can distinguish collection errors from watched-run
+status.
 
 ### Correction cadence
 1. Start both lanes concurrently when available.
@@ -121,15 +156,61 @@ mise exec -- python scripts/ci_watch.py --branch stage
 If only one lane is available, continue with that lane and restore dual-sensor
 operation when possible.
 
-## 3) VS Code-assisted remediation loop
+## 3) ASPF cross-script handoff loop
+
+Use this loop when you want cumulative ASPF state reuse plus glued reasoning across
+separate invocations.
+
+### Script/lane A: emit first state object
+```bash
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md
+```
+
+### Script/lane B: import cumulative prior state
+```bash
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-a/0002_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0002_check-run.delta.jsonl \
+  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0002_check-run.action_plan.json \
+  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0002_check-run.action_plan.md \
+  --aspf-import-state artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json
+```
+
+### Use helper-driven cumulative planning
+```bash
+mise exec -- python scripts/aspf_handoff.py prepare \
+  --session-id session-a \
+  --step-id script-a.check.run \
+  --command-profile check.run
+```
+
+The helper writes/updates `artifacts/out/aspf_handoff_manifest.json` and emits
+`--aspf-state-json` plus cumulative `--aspf-import-state` args for the next
+step.
+
+### Read phase-1 artifacts
+- `artifacts/out/aspf_trace.json`
+- `artifacts/out/aspf_equivalence.json`
+- `artifacts/out/aspf_opportunities.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
+- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
+- `artifacts/out/aspf_handoff_manifest.json`
+
+## 4) VS Code-assisted remediation loop
 
 Use this loop when you want quick fix-and-verify cycles in the editor.
 
 ### Start from the CLI once (optional warm-up)
 ```bash
-mise exec -- python -m gabion check \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-vscode/0001_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-vscode/0001_check-run.delta.jsonl
 ```
 
 ### In VS Code
@@ -144,12 +225,13 @@ mise exec -- python -m gabion check \
 
 ### Validate after editor changes
 ```bash
-mise exec -- python -m gabion check \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-vscode/0002_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-vscode/0002_check-run.delta.jsonl \
+  --aspf-import-state artifacts/out/aspf_state/session-vscode/0001_check-run.snapshot.json
 ```
 
-## 4) CI/PR loop
+## 5) CI/PR loop
 
 Use this loop to review whether a PR is healthy and whether cache reuse behaved as expected.
 
@@ -158,25 +240,21 @@ Use this loop to review whether a PR is healthy and whether cache reuse behaved 
 - Job/step summaries emitted by CI helper scripts.
 - PR comment output (same-repo PRs) from the dataflow grammar workflow.
 
-### Cache-effectiveness counters
-Look for the counters emitted by `gabion run-dataflow-stage` in logs/summaries:
-- `completed_paths`: paths fully handled this run.
-- `hydrated_paths`: paths restored from resume data.
-- `paths_parsed_after_resume`: additional paths that still required parsing.
-
-Interpretation quick guide:
-- Higher `hydrated_paths` with lower `paths_parsed_after_resume` usually means good reuse.
-- Very low hydration plus high post-resume parsing often indicates identity drift,
-  changed file sets, or a cold-start path.
+### ASPF continuity signals
+Look at:
+- `artifacts/out/aspf_handoff_manifest.json` entries (`sequence`, `import_state_paths`, `status`).
+- per-step `*.snapshot.json` and `*.delta.jsonl` artifacts for deterministic continuation.
+- per-step action plans (`*.action_plan.json`/`*.action_plan.md`) for ranked cleanup work.
 
 ### Re-run with stable identity settings
-If cache behavior seems unexpectedly poor, re-run while keeping identity-affecting
-settings stable (strictness profile, external filtering mode, and checkpoint identity inputs).
+If continuity behavior seems unexpectedly poor, re-run while keeping identity-affecting
+settings stable (strictness profile, external filtering mode, and semantic surfaces).
 For local reproduction before pushing another commit:
 ```bash
-mise exec -- python -m gabion check \
-  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
-  --resume-on-timeout 1
+mise exec -- python -m gabion check run \
+  --aspf-state-json artifacts/out/aspf_state/session-ci/0002_check-run.snapshot.json \
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-ci/0002_check-run.delta.jsonl \
+  --aspf-import-state artifacts/out/aspf_state/session-ci/0001_check-run.snapshot.json
 ```
 
 For deeper policy/governance expectations around CI execution and protections,

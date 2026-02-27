@@ -19,6 +19,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines_from_payload,
 )
 from gabion.analysis.report_doc import ReportDoc
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -33,6 +34,13 @@ class AnnotationDriftBaseline:
     summary: dict[str, int]
     generated_by_spec_id: str
     generated_by_spec: dict[str, JSONValue]
+
+
+@dataclass(frozen=True)
+class _AnnotationDriftDeltaSummary:
+    baseline: dict[str, int]
+    current: dict[str, int]
+    delta: dict[str, int]
 
 
 def resolve_baseline_path(root: Path) -> Path:
@@ -76,7 +84,7 @@ def build_delta_payload(
     baseline: AnnotationDriftBaseline,
     current: AnnotationDriftBaseline,
     *,
-    baseline_path: str | None = None,
+    baseline_path: str = "",
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: baseline, current
     payload: dict[str, JSONValue] = {
@@ -90,21 +98,35 @@ def build_delta_payload(
 
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
-    summary = payload.get("summary", {})
-    baseline = summary.get("baseline", {}) if isinstance(summary, Mapping) else {}
-    current = summary.get("current", {}) if isinstance(summary, Mapping) else {}
-    delta = summary.get("delta", {}) if isinstance(summary, Mapping) else {}
-    keys = sort_once({*baseline.keys(), *current.keys(), *delta.keys()}, source = 'src/gabion/analysis/test_annotation_drift_delta.py:96')
+    summary = _parse_delta_summary(payload)
+    keys = sort_once(
+        {*summary.baseline.keys(), *summary.current.keys(), *summary.delta.keys()},
+        source="test_annotation_drift_delta.render_markdown.keys",
+    )
     doc = ReportDoc("out_test_annotation_drift_delta")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
     rows = [
-        f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} "
-        f"({format_delta(delta.get(key, current.get(key, 0) - baseline.get(key, 0)))})"
+        f"- {key}: {summary.baseline.get(key, 0)} -> {summary.current.get(key, 0)} "
+        f"({format_delta(summary.delta.get(key, summary.current.get(key, 0) - summary.baseline.get(key, 0)))})"
         for key in keys
     ]
     doc.codeblock("\n".join(rows))
     return doc.emit()
+
+
+def _parse_delta_summary(
+    payload: Mapping[str, JSONValue],
+) -> _AnnotationDriftDeltaSummary:
+    summary_payload = mapping_or_none(payload.get("summary")) or {}
+    baseline_payload = mapping_or_none(summary_payload.get("baseline")) or {}
+    current_payload = mapping_or_none(summary_payload.get("current")) or {}
+    delta_payload = mapping_or_none(summary_payload.get("delta")) or {}
+    return _AnnotationDriftDeltaSummary(
+        baseline=_normalize_summary(baseline_payload),
+        current=_normalize_summary(current_payload),
+        delta=_normalize_summary(delta_payload),
+    )
 
 
 def _normalize_summary(summary: Mapping[str, object]) -> dict[str, int]:

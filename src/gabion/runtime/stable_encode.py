@@ -50,7 +50,7 @@ def stable_json_value(
     - Mapping keys use lexical key text ordering.
     - List/tuple preserve sequence semantics and normalize recursively to lists.
     - Sets normalize to deterministically sorted lists.
-    - Non-JSON scalar objects are stringified once at boundary normalization.
+    - Unsupported objects are rejected to prevent non-deterministic identity leaks.
     """
     return _normalize(value, source=source)
 
@@ -90,4 +90,7 @@ def _normalize(value: object, *, source: str) -> object:
         )
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
-    return str(value)
+    raise TypeError(
+        "stable_json_value does not support value type "
+        f"{type(value).__name__} at {source}"
+    )

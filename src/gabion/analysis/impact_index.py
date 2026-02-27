@@ -39,7 +39,7 @@ class ImpactLink:
 @dataclass(frozen=True)
 class ImpactIndex:
     links: tuple[ImpactLink, ...]
-    graph: dict[str, object] | None
+    graph: object = None
 
 
 @dataclass(frozen=True)
@@ -152,11 +152,11 @@ class _SymbolCollector(ast.NodeVisitor):
 
 
 def build_impact_index(
-    repo_root: Path | None = None,
+    repo_root = None,
     *,
-    root: Path | None = None,
-    test_paths: Iterable[Path] | None = None,
-    doc_paths: Iterable[Path] | None = None,
+    root = None,
+    test_paths = None,
+    doc_paths = None,
     include_graph: bool = True,
 ) -> ImpactIndex:
     check_deadline()
@@ -203,9 +203,9 @@ def build_impact_index(
 
 
 def emit_impact_index(
-    repo_root: Path | None = None,
+    repo_root = None,
     *,
-    root: Path | None = None,
+    root = None,
 ) -> Path:
     resolved_root = (root or repo_root or Path.cwd()).resolve()
     artifact_path = resolved_root / _DEFAULT_ARTIFACT_PATH
@@ -237,51 +237,58 @@ def _links_from_test(*, path: Path, root: Path) -> list[ImpactLink]:
     check_deadline()
     text = _read_text(path)
     if text is None:
-        return []
+        return list()
     tree = _parse_ast(text)
     if tree is None:
-        return []
+        return list()
     rel = _relative(path, root)
     comment_map = _impact_comments(text)
     imports = _import_aliases(tree)
     links: list[ImpactLink] = []
     for node in tree.body:
         check_deadline()
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            links.extend(
-                _links_from_test_function(
-                    node=node,
-                    rel=rel,
-                    imports=imports,
-                    comment_map=comment_map,
-                )
-            )
-        elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-            for child in node.body:
-                check_deadline()
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    links.extend(
-                        _links_from_test_function(
-                            node=child,
-                            rel=rel,
-                            imports=imports,
-                            comment_map=comment_map,
-                        )
+        match node:
+            case ast.FunctionDef() | ast.AsyncFunctionDef():
+                links.extend(
+                    _links_from_test_function(
+                        node=node,
+                        rel=rel,
+                        imports=imports,
+                        comment_map=comment_map,
                     )
+                )
+            case ast.ClassDef(name=class_name, body=class_body) if class_name.startswith("Test"):
+                for child in class_body:
+                    check_deadline()
+                    match child:
+                        case ast.FunctionDef() | ast.AsyncFunctionDef():
+                            links.extend(
+                                _links_from_test_function(
+                                    node=child,
+                                    rel=rel,
+                                    imports=imports,
+                                    comment_map=comment_map,
+                                )
+                            )
+                        case _:
+                            pass
+            case _:
+                pass
     return links
 
 
 def _links_from_test_function(
     *,
-    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    node: ast.AST,
     rel: str,
     imports: dict[str, str],
     comment_map: dict[int, list[str]],
 ) -> list[ImpactLink]:
     check_deadline()
-    if not node.name.startswith("test"):
+    node_name = str(getattr(node, "name", ""))
+    if not node_name.startswith("test"):
         return []
-    source = f"{rel}::{node.name}"
+    source = f"{rel}::{node_name}"
     explicit = _decorator_targets(node.decorator_list)
     if not explicit:
         explicit = _nearest_comment_targets(node.lineno, comment_map)
@@ -328,7 +335,7 @@ def _links_from_doc(*, path: Path, root: Path, symbols: set[str]) -> list[Impact
     check_deadline()
     text = _read_text(path)
     if text is None:
-        return []
+        return list()
     rel = _relative(path, root)
     frontmatter, body = _parse_frontmatter(text)
     source = rel
@@ -378,42 +385,41 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
         rel_path = str(path.relative_to(root))
         module = _module_from_path(path.relative_to(root))
         tree = _parse_python_file(path)
-        if tree is None:
-            continue
-        collector = _SymbolCollector(rel_path, module)
-        collector.visit(tree)
-        for symbol in collector.symbols:
-            check_deadline()
-            symbols_by_id[symbol.node_id] = symbol
-            short_name = symbol.qualname.split(".")[-1]
-            symbol_lookup_by_name.setdefault(short_name, set()).add(symbol.node_id)
-            symbol_lookup_by_name.setdefault(symbol.qualname, set()).add(symbol.node_id)
-            symbol_node = graph.add_node(
-                "symbol",
-                f"{symbol.module}:{symbol.qualname}",
-                {
-                    "id": symbol.node_id,
-                    "module": symbol.module,
-                    "qualname": symbol.qualname,
-                },
-            )
-            span_key = (
-                f"{symbol.path}:{symbol.start_line}:{symbol.end_line}:"
-                f"{symbol.start_col}:{symbol.end_col}"
-            )
-            span_node = graph.add_node(
-                "span",
-                span_key,
-                {
-                    "id": f"span:{span_key}",
-                    "path": symbol.path,
-                    "start_line": symbol.start_line,
-                    "end_line": symbol.end_line,
-                    "start_col": symbol.start_col,
-                    "end_col": symbol.end_col,
-                },
-            )
-            graph.add_edge(span_node, "span_to_symbol", symbol_node)
+        if tree is not None:
+            collector = _SymbolCollector(rel_path, module)
+            collector.visit(tree)
+            for symbol in collector.symbols:
+                check_deadline()
+                symbols_by_id[symbol.node_id] = symbol
+                short_name = symbol.qualname.split(".")[-1]
+                symbol_lookup_by_name.setdefault(short_name, set()).add(symbol.node_id)
+                symbol_lookup_by_name.setdefault(symbol.qualname, set()).add(symbol.node_id)
+                symbol_node = graph.add_node(
+                    "symbol",
+                    f"{symbol.module}:{symbol.qualname}",
+                    {
+                        "id": symbol.node_id,
+                        "module": symbol.module,
+                        "qualname": symbol.qualname,
+                    },
+                )
+                span_key = (
+                    f"{symbol.path}:{symbol.start_line}:{symbol.end_line}:"
+                    f"{symbol.start_col}:{symbol.end_col}"
+                )
+                span_node = graph.add_node(
+                    "span",
+                    span_key,
+                    {
+                        "id": f"span:{span_key}",
+                        "path": symbol.path,
+                        "start_line": symbol.start_line,
+                        "end_line": symbol.end_line,
+                        "start_col": symbol.start_col,
+                        "end_col": symbol.end_col,
+                    },
+                )
+                graph.add_edge(span_node, "span_to_symbol", symbol_node)
 
     command_nodes = _emit_command_nodes(graph, root)
     report_section_nodes = _emit_registry_sections(graph)
@@ -423,99 +429,99 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
         rel_path = str(path.relative_to(root))
         module = _module_from_path(path.relative_to(root))
         tree = _parse_python_file(path)
-        if tree is None:
-            continue
-        imports = _collect_import_aliases_for_graph(tree)
+        if tree is not None:
+            imports = _collect_import_aliases_for_graph(tree)
 
-        class _UsageCollector(ast.NodeVisitor):
-            def __init__(self) -> None:
-                self.stack: list[str] = []
+            class _UsageCollector(ast.NodeVisitor):
+                def __init__(self) -> None:
+                    self.stack: list[str] = []
 
-            def _visit_symbol(self, node: ast.AST, name: str) -> None:
-                check_deadline()
-                self.stack.append(name)
-                caller_qual = ".".join(self.stack)
-                caller_id = f"symbol:{module}:{caller_qual}"
-
-                for child in _iter_local_calls(node):
+                def _visit_symbol(self, node: ast.AST, name: str) -> None:
                     check_deadline()
-                    call_name = _extract_call_name(child)
-                    if not call_name:
-                        continue
-                    callsite_key = (
-                        f"{rel_path}:{child.lineno}:{child.col_offset}:"
-                        f"{caller_qual}:{call_name}"
-                    )
-                    callsite_node = graph.add_node(
-                        "callsite",
-                        callsite_key,
-                        {
-                            "id": f"callsite:{callsite_key}",
-                            "path": rel_path,
-                            "line": child.lineno,
-                            "col": child.col_offset,
-                            "caller_symbol": caller_id,
-                            "call_expr": call_name,
-                        },
-                    )
-                    graph.add_edge(callsite_node, "callsite_to_caller", caller_id)
-                    for callee_symbol_id in sort_once(
-                        symbol_lookup_by_name.get(call_name, set()),
-                        source="impact_index.graph.callee_symbols",
-                    ):
-                        check_deadline()
-                        graph.add_edge(callee_symbol_id, "symbol_to_caller_symbol", caller_id)
-                        graph.add_edge(callsite_node, "callsite_to_symbol", callee_symbol_id)
+                    self.stack.append(name)
+                    caller_qual = ".".join(self.stack)
+                    caller_id = f"symbol:{module}:{caller_qual}"
 
-                if (
-                    rel_path.startswith("tests/")
-                    and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                    and name.startswith("test_")
-                ):
-                    test_key = f"{rel_path}::{name}"
-                    test_node = graph.add_node(
-                        "test",
-                        test_key,
-                        {
-                            "id": f"test:{test_key}",
-                            "test_file": rel_path,
-                            "test_function_id": name,
-                        },
-                    )
-                    names = set(_iter_local_names(node))
-                    for name_ref in sort_once(
-                        names,
-                        source="impact_index.graph.test_name_refs",
-                    ):
+                    for child in _iter_local_calls(node):
                         check_deadline()
-                        if name_ref in imports and imports[name_ref].startswith("gabion"):
-                            target_name = imports[name_ref].split(".")[-1]
+                        call_name = _extract_call_name(child)
+                        if call_name:
+                            callsite_key = (
+                                f"{rel_path}:{child.lineno}:{child.col_offset}:"
+                                f"{caller_qual}:{call_name}"
+                            )
+                            callsite_node = graph.add_node(
+                                "callsite",
+                                callsite_key,
+                                {
+                                    "id": f"callsite:{callsite_key}",
+                                    "path": rel_path,
+                                    "line": child.lineno,
+                                    "col": child.col_offset,
+                                    "caller_symbol": caller_id,
+                                    "call_expr": call_name,
+                                },
+                            )
+                            graph.add_edge(callsite_node, "callsite_to_caller", caller_id)
+                            for callee_symbol_id in sort_once(
+                                symbol_lookup_by_name.get(call_name, set()),
+                                source="impact_index.graph.callee_symbols",
+                            ):
+                                check_deadline()
+                                graph.add_edge(callee_symbol_id, "symbol_to_caller_symbol", caller_id)
+                                graph.add_edge(callsite_node, "callsite_to_symbol", callee_symbol_id)
+
+                    is_test_function = False
+                    match node:
+                        case ast.FunctionDef() | ast.AsyncFunctionDef():
+                            is_test_function = name.startswith("test_")
+                        case _:
+                            pass
+                    if rel_path.startswith("tests/") and is_test_function:
+                        test_key = f"{rel_path}::{name}"
+                        test_node = graph.add_node(
+                            "test",
+                            test_key,
+                            {
+                                "id": f"test:{test_key}",
+                                "test_file": rel_path,
+                                "test_function_id": name,
+                            },
+                        )
+                        names = set(_iter_local_names(node))
+                        for name_ref in sort_once(
+                            names,
+                            source="impact_index.graph.test_name_refs",
+                        ):
+                            check_deadline()
+                            if name_ref in imports and imports[name_ref].startswith("gabion"):
+                                target_name = imports[name_ref].split(".")[-1]
+                                for symbol_id in sort_once(
+                                    symbol_lookup_by_name.get(target_name, set()),
+                                    source="impact_index.graph.test_import_symbol",
+                                ):
+                                    check_deadline()
+                                    graph.add_edge(test_node, "test_to_symbol", symbol_id)
                             for symbol_id in sort_once(
-                                symbol_lookup_by_name.get(target_name, set()),
-                                source="impact_index.graph.test_import_symbol",
+                                symbol_lookup_by_name.get(name_ref, set()),
+                                source="impact_index.graph.test_name_symbol",
                             ):
                                 check_deadline()
                                 graph.add_edge(test_node, "test_to_symbol", symbol_id)
-                        for symbol_id in sort_once(
-                            symbol_lookup_by_name.get(name_ref, set()),
-                            source="impact_index.graph.test_name_symbol",
-                        ):
-                            check_deadline()
-                            graph.add_edge(test_node, "test_to_symbol", symbol_id)
 
-                self.generic_visit(node)
-                self.stack.pop()
+                    self.generic_visit(node)
+                    self.stack.pop()
 
-            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-                self._visit_symbol(node, node.name)
+                def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                    self._visit_symbol(node, node.name)
 
-            def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-                self._visit_symbol(node, node.name)
+                def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+                    self._visit_symbol(node, node.name)
 
-            def visit_ClassDef(self, node: ast.ClassDef) -> None:
-                self._visit_symbol(node, node.name)
+                def visit_ClassDef(self, node: ast.ClassDef) -> None:
+                    self._visit_symbol(node, node.name)
 
-        _UsageCollector().visit(tree)
+            _UsageCollector().visit(tree)
 
     for path in _iter_markdown_files(root):
         check_deadline()
@@ -584,7 +590,7 @@ def _module_from_path(path: Path) -> str:
     return ".".join(parts)
 
 
-def _parse_python_file(path: Path) -> ast.AST | None:
+def _parse_python_file(path: Path):
     try:
         source = path.read_text(encoding="utf-8")
     except OSError:
@@ -595,54 +601,59 @@ def _parse_python_file(path: Path) -> ast.AST | None:
         return None
 
 
-def _extract_call_name(call: ast.Call) -> str | None:
-    if isinstance(call.func, ast.Name):
-        return call.func.id
-    if isinstance(call.func, ast.Attribute):
-        return call.func.attr
-    return None
+def _extract_call_name(call: ast.Call):
+    match call.func:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(attr=attribute):
+            return attribute
+        case _:
+            return None
 
 
 def _collect_import_aliases_for_graph(tree: ast.AST) -> dict[str, str]:
     aliases: dict[str, str] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            for alias in node.names:
-                check_deadline()
-                aliases[alias.asname or alias.name] = f"{module}.{alias.name}".strip(".")
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                check_deadline()
-                aliases[alias.asname or alias.name] = alias.name
+        match node:
+            case ast.ImportFrom(module=module_name, names=names):
+                module = module_name or ""
+                for alias in names:
+                    check_deadline()
+                    aliases[alias.asname or alias.name] = f"{module}.{alias.name}".strip(".")
+            case ast.Import(names=names):
+                for alias in names:
+                    check_deadline()
+                    aliases[alias.asname or alias.name] = alias.name
+            case _:
+                pass
     return aliases
 
 
 def _iter_local_calls(node: ast.AST) -> Iterable[ast.Call]:
     for child in ast.iter_child_nodes(node):
         check_deadline()
-        if isinstance(
-            child,
-            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda),
-        ):
-            continue
-        if isinstance(child, ast.Call):
-            yield child
-        yield from _iter_local_calls(child)
+        match child:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef() | ast.Lambda():
+                pass
+            case ast.Call():
+                yield child
+                yield from _iter_local_calls(child)
+            case _:
+                yield from _iter_local_calls(child)
 
 
 def _iter_local_names(node: ast.AST) -> Iterable[str]:
     for child in ast.iter_child_nodes(node):
         check_deadline()
-        if isinstance(
-            child,
-            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda),
-        ):
-            continue
-        if isinstance(child, ast.Name):
-            yield child.id
-        yield from _iter_local_names(child)
+        match child:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef() | ast.Lambda():
+                pass
+            case ast.Name(id=identifier):
+                yield identifier
+                yield from _iter_local_names(child)
+            case _:
+                yield from _iter_local_names(child)
 
 
 def _iter_markdown_files(root: Path) -> Iterable[Path]:
@@ -664,8 +675,8 @@ def _section_node_id(path: str, anchor: str) -> str:
 def _emit_registry_sections(
     graph: ImpactIndexGraph,
     *,
-    rows: Iterable[dict[str, object]] | None = None,
-    specs: Iterable[Any] | None = None,
+    rows = None,
+    specs = None,
 ) -> list[str]:
     section_ids: list[str] = []
     row_iter = rows if rows is not None else report_projection_spec_rows()
@@ -746,14 +757,14 @@ def _emit_command_nodes(graph: ImpactIndexGraph, root: Path) -> list[str]:
     return command_ids
 
 
-def _read_text(path: Path) -> str | None:
+def _read_text(path: Path):
     try:
         return path.read_text(encoding="utf-8")
     except OSError:
         return None
 
 
-def _parse_ast(text: str) -> ast.Module | None:
+def _parse_ast(text: str):
     try:
         return ast.parse(text)
     except SyntaxError:
@@ -791,19 +802,21 @@ def _import_aliases(tree: ast.Module) -> dict[str, str]:
     aliases: dict[str, str] = {}
     for node in tree.body:
         check_deadline()
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                check_deadline()
-                name = alias.asname or alias.name.split(".")[-1]
-                aliases[name] = alias.name
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            for alias in node.names:
-                check_deadline()
-                if alias.name == "*":
-                    continue
-                name = alias.asname or alias.name
-                aliases[name] = f"{module}.{alias.name}" if module else alias.name
+        match node:
+            case ast.Import(names=names):
+                for alias in names:
+                    check_deadline()
+                    name = alias.asname or alias.name.split(".")[-1]
+                    aliases[name] = alias.name
+            case ast.ImportFrom(module=module_name, names=names):
+                module = module_name or ""
+                for alias in names:
+                    check_deadline()
+                    if alias.name != "*":
+                        name = alias.asname or alias.name
+                        aliases[name] = f"{module}.{alias.name}" if module else alias.name
+            case _:
+                pass
     return aliases
 
 
@@ -811,29 +824,38 @@ def _decorator_targets(decorators: list[ast.expr]) -> list[str]:
     targets: list[str] = []
     for decorator in decorators:
         check_deadline()
-        if not isinstance(decorator, ast.Call):
-            continue
-        name = _call_name(decorator.func)
-        if name not in {"impact_target", "impact_targets"}:
-            continue
-        for arg in decorator.args:
-            check_deadline()
-            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                targets.extend(_split_targets(arg.value))
-            elif isinstance(arg, (ast.List, ast.Tuple)):
-                for item in arg.elts:
-                    check_deadline()
-                    if isinstance(item, ast.Constant) and isinstance(item.value, str):
-                        targets.extend(_split_targets(item.value))
+        match decorator:
+            case ast.Call(func=func_expr, args=args):
+                name = _call_name(func_expr)
+                if name in {"impact_target", "impact_targets"}:
+                    for arg in args:
+                        check_deadline()
+                        match arg:
+                            case ast.Constant(value=str() as target_literal):
+                                targets.extend(_split_targets(target_literal))
+                            case ast.List(elts=elts) | ast.Tuple(elts=elts):
+                                for item in elts:
+                                    check_deadline()
+                                    match item:
+                                        case ast.Constant(value=str() as target_literal):
+                                            targets.extend(_split_targets(target_literal))
+                                        case _:
+                                            pass
+                            case _:
+                                pass
+            case _:
+                pass
     return sort_once(set(targets), source="impact_index.decorator_targets")
 
 
 def _call_name(expr: ast.expr) -> str:
-    if isinstance(expr, ast.Name):
-        return expr.id
-    if isinstance(expr, ast.Attribute):
-        return expr.attr
-    return ""
+    match expr:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(attr=attribute):
+            return attribute
+        case _:
+            return ""
 
 
 def _nearest_comment_targets(line: int, comment_map: dict[int, list[str]]) -> list[str]:
@@ -849,35 +871,39 @@ def _nearest_comment_targets(line: int, comment_map: dict[int, list[str]]) -> li
 
 def _inferred_targets_from_body(
     *,
-    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    node: ast.AST,
     imports: dict[str, str],
 ) -> list[str]:
     mentioned: set[str] = set()
     for child in ast.walk(node):
         check_deadline()
-        if isinstance(child, ast.Name) and child.id in imports:
-            mentioned.add(imports[child.id])
-        elif isinstance(child, ast.Attribute):
-            path = _attribute_path(child)
-            if not path:
-                continue
-            root = path[0]
-            if root in imports:
-                mentioned.add(".".join([imports[root], *path[1:]]))
+        match child:
+            case ast.Name(id=identifier):
+                if identifier in imports:
+                    mentioned.add(imports[identifier])
+            case ast.Attribute():
+                path = _attribute_path(child)
+                if path:
+                    root = path[0]
+                    if root in imports:
+                        mentioned.add(".".join([imports[root], *path[1:]]))
+            case _:
+                pass
     return sort_once(mentioned, source="impact_index.inferred_targets")
 
 
 def _attribute_path(node: ast.Attribute) -> list[str]:
     check_deadline()
-    value = node.value
-    if isinstance(value, ast.Name):
-        return [value.id, node.attr]
-    if isinstance(value, ast.Attribute):
-        prefix = _attribute_path(value)
-        if not prefix:
-            return []
-        return [*prefix, node.attr]
-    return []
+    match node.value:
+        case ast.Name(id=identifier):
+            return [identifier, node.attr]
+        case ast.Attribute() as attribute_value:
+            prefix = _attribute_path(attribute_value)
+            if prefix:
+                return [*prefix, node.attr]
+            return list()
+        case _:
+            return list()
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
@@ -895,7 +921,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
     raw = lines[1:end]
     body = "\n".join(lines[end + 1 :])
     payload: dict[str, object] = {}
-    current: str | None = None
+    current = None
     items: list[str] = []
     for line in raw:
         check_deadline()
@@ -925,17 +951,19 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
 
 
 def _coerce_target_list(value: object) -> list[str]:
-    if isinstance(value, str):
-        raw = value.strip()
-        if raw.startswith("[") and raw.endswith("]"):
-            raw = raw[1:-1]
-        return _split_targets(raw)
-    if isinstance(value, list):
-        return sort_once(
-            {str(item).strip() for item in value if str(item).strip()},
-            source="impact_index.coerce_target_list",
-        )
-    return []
+    match value:
+        case str() as string_value:
+            raw = string_value.strip()
+            if raw.startswith("[") and raw.endswith("]"):
+                raw = raw[1:-1]
+            return _split_targets(raw)
+        case list() as list_value:
+            return sort_once(
+                {str(item).strip() for item in list_value if str(item).strip()},
+                source="impact_index.coerce_target_list",
+            )
+        case _:
+            return list()
 
 
 def _collect_symbol_universe(root: Path) -> set[str]:
@@ -950,12 +978,14 @@ def _collect_symbol_universe(root: Path) -> set[str]:
         if module.endswith(".__init__"):
             module = module.rsplit(".", 1)[0]
         tree = _parse_ast(_read_text(path) or "")
-        if tree is None:
-            continue
-        for node in tree.body:
-            check_deadline()
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                symbols.add(f"{module}.{node.name}")
+        if tree is not None:
+            for node in tree.body:
+                check_deadline()
+                match node:
+                    case ast.FunctionDef(name=node_name) | ast.AsyncFunctionDef(name=node_name) | ast.ClassDef(name=node_name):
+                        symbols.add(f"{module}.{node_name}")
+                    case _:
+                        pass
     return symbols
 
 

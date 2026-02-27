@@ -19,6 +19,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines_from_payload,
 )
 from gabion.analysis.report_doc import ReportDoc
+from gabion.analysis.resume_codec import mapping_or_empty
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -61,16 +62,13 @@ def parse_baseline_payload(
     parse_version(
         payload, expected=BASELINE_VERSION, error_context="ambiguity baseline"
     )
-    summary = payload.get("summary", {})
-    total = 0
+    summary = mapping_or_empty(payload.get("summary", {}))
+    total = coerce_int(summary.get("total"), 0)
     by_kind: dict[str, int] = {}
-    if isinstance(summary, Mapping):
-        total = coerce_int(summary.get("total"), 0)
-        by_kind_payload = summary.get("by_kind", {})
-        if isinstance(by_kind_payload, Mapping):
-            for key, raw in by_kind_payload.items():
-                check_deadline()
-                by_kind[str(key)] = coerce_int(raw, 0)
+    by_kind_payload = mapping_or_empty(summary.get("by_kind", {}))
+    for key, raw in by_kind_payload.items():
+        check_deadline()
+        by_kind[str(key)] = coerce_int(raw, 0)
     spec_id, spec = parse_spec_metadata(payload)
     return AmbiguityBaseline(
         total=total,
@@ -92,7 +90,7 @@ def build_delta_payload(
     baseline: AmbiguityBaseline,
     current: AmbiguityBaseline,
     *,
-    baseline_path: str | None = None,
+    baseline_path: str = "",
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: baseline, current
     by_kind = count_delta(baseline.by_kind, current.by_kind)
@@ -116,39 +114,34 @@ def render_markdown(
     payload: Mapping[str, JSONValue],
 ) -> str:
     check_deadline(allow_frame_fallback=True)
-    summary = payload.get("summary", {})
-    total = summary.get("total", {}) if isinstance(summary, Mapping) else {}
-    by_kind = summary.get("by_kind", {}) if isinstance(summary, Mapping) else {}
+    summary = mapping_or_empty(payload.get("summary", {}))
+    total = mapping_or_empty(summary.get("total", {}))
+    by_kind = mapping_or_empty(summary.get("by_kind", {}))
     doc = ReportDoc("out_ambiguity_delta")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
-    baseline_total = coerce_int(
-        total.get("baseline") if isinstance(total, Mapping) else None
-    )
-    current_total = coerce_int(
-        total.get("current") if isinstance(total, Mapping) else None
-    )
+    baseline_total = coerce_int(total.get("baseline"))
+    current_total = coerce_int(total.get("current"))
     delta_total = coerce_int(
-        total.get("delta") if isinstance(total, Mapping) else None,
+        total.get("delta"),
         current_total - baseline_total,
     )
     rows = [
         f"- total: {baseline_total} -> {current_total} ({format_delta(delta_total)})"
     ]
-    if isinstance(by_kind, Mapping):
-        baseline = by_kind.get("baseline", {})
-        current = by_kind.get("current", {})
-        delta = by_kind.get("delta", {})
-        kinds = sort_once(
-            {*baseline.keys(), *current.keys(), *delta.keys()},
-            source="render_markdown.by_kind.kinds",
-        )
-        for kind in kinds:
-            check_deadline()
-            before = baseline.get(kind, 0)
-            after = current.get(kind, 0)
-            change = delta.get(kind, after - before)
-            rows.append(f"- {kind}: {before} -> {after} ({format_delta(change)})")
+    baseline = mapping_or_empty(by_kind.get("baseline", {}))
+    current = mapping_or_empty(by_kind.get("current", {}))
+    delta = mapping_or_empty(by_kind.get("delta", {}))
+    kinds = sort_once(
+        {*baseline.keys(), *current.keys(), *delta.keys()},
+        source="render_markdown.by_kind.kinds",
+    )
+    for kind in kinds:
+        check_deadline()
+        before = baseline.get(kind, 0)
+        after = current.get(kind, 0)
+        change = delta.get(kind, after - before)
+        rows.append(f"- {kind}: {before} -> {after} ({format_delta(change)})")
     doc.codeblock("\n".join(rows))
     return doc.emit()
 

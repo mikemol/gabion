@@ -467,6 +467,9 @@ def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
     assert call_transformer._is_target_call(call.func) is False
     miss_call = cst.parse_expression("self.n(a)")
     assert call_transformer._is_target_call(miss_call.func) is False
+    other_call = cst.parse_expression("(factory[0])(a)")
+    assert isinstance(other_call, cst.Call)
+    assert call_transformer._is_target_call(other_call.func) is False
     call_transformer._class_stack.pop()
     # leave_ClassDef guard with empty stack.
     class_node = cst.ClassDef(name=cst.Name("C"), body=cst.IndentedBlock(body=[]))

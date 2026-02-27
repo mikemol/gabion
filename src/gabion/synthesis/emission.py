@@ -2,9 +2,11 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 import re
-from typing import Any
 
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -18,31 +20,109 @@ def _sanitize_contextvar_identifier(value: str) -> str:
     return cleaned
 
 
-def _sorted_protocols(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    protocols = plan.get("protocols", [])
-    if not isinstance(protocols, list):
-        return []
+@dataclass(frozen=True)
+class _ProtocolFieldSpec:
+    name: str
+    type_hint: str
 
-    def _key(spec: dict[str, Any]) -> tuple[int, str, tuple[str, ...]]:
-        bundle = tuple(
-            sort_once(
-                (str(name) for name in (spec.get("bundle") or [])),
-                source="_sorted_protocols.bundle",
-            )
-        )
-        tier = spec.get("tier")
-        tier_key = int(tier) if isinstance(tier, int) else 99
-        suggested = str(spec.get("name") or "")
-        return (tier_key, suggested, bundle)
 
-    return sort_once(
-        [spec for spec in protocols if isinstance(spec, dict)],
-        source="render_protocol_stubs.protocols",
-        key=_key,
+@dataclass(frozen=True)
+class _ProtocolSpec:
+    suggested_name: str
+    tier_sort_key: int
+    tier_label: str
+    bundle: tuple[str, ...]
+    rationale: str
+    evidence: tuple[str, ...]
+    fields: tuple[_ProtocolFieldSpec, ...]
+
+
+def _tier_parts(value: object) -> tuple[int, str]:
+    match value:
+        case int() as tier_value:
+            return tier_value, str(tier_value)
+        case _:
+            return 99, str(value or "?")
+
+
+def _string_tuple_from_payload(
+    payload: Mapping[str, object],
+    *,
+    key: str,
+    source: str,
+) -> tuple[str, ...]:
+    values = sequence_or_none(payload.get(key))
+    if values is None:
+        return tuple()
+    normalized = []
+    for value in values:
+        check_deadline()
+        normalized.append(str(value))
+    return tuple(sort_once(normalized, source=source))
+
+
+def _field_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolFieldSpec:
+    return _ProtocolFieldSpec(
+        name=str(payload.get("name") or "field"),
+        type_hint=str(payload.get("type_hint") or "Any"),
     )
 
 
-def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
+def _protocol_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolSpec:
+    tier_sort_key, tier_label = _tier_parts(payload.get("tier"))
+    raw_fields = sequence_or_none(payload.get("fields")) or ()
+    field_specs = []
+    for raw_field in raw_fields:
+        check_deadline()
+        parsed_field = mapping_or_none(raw_field) or {}
+        field_specs.append(_field_spec_from_payload(parsed_field))
+    fields = tuple(
+        sort_once(
+            field_specs,
+            source="render_protocol_stubs.fields",
+            key=lambda field: field.name,
+        )
+    )
+    return _ProtocolSpec(
+        suggested_name=str(payload.get("name") or "Bundle"),
+        tier_sort_key=tier_sort_key,
+        tier_label=tier_label,
+        bundle=_string_tuple_from_payload(
+            payload,
+            key="bundle",
+            source="_sorted_protocols.bundle",
+        ),
+        rationale=str(payload.get("rationale") or ""),
+        evidence=_string_tuple_from_payload(
+            payload,
+            key="evidence",
+            source="render_protocol_stubs.evidence",
+        ),
+        fields=fields,
+    )
+
+
+def _protocol_sort_key(spec: _ProtocolSpec) -> tuple[int, str, tuple[str, ...]]:
+    return (spec.tier_sort_key, spec.suggested_name, spec.bundle)
+
+
+def _sorted_protocols(plan: Mapping[str, object]) -> list[_ProtocolSpec]:
+    protocols = sequence_or_none(plan.get("protocols"))
+    if protocols is None:
+        return list()
+    normalized: list[_ProtocolSpec] = []
+    for raw_protocol in protocols:
+        check_deadline()
+        parsed_protocol = mapping_or_none(raw_protocol) or {}
+        normalized.append(_protocol_spec_from_payload(parsed_protocol))
+    return sort_once(
+        normalized,
+        source="render_protocol_stubs.protocols",
+        key=_protocol_sort_key,
+    )
+
+
+def render_protocol_stubs(plan: Mapping[str, object], kind: str = "dataclass") -> str:
     check_deadline()
     protocols = _sorted_protocols(plan)
     if kind not in {"dataclass", "protocol", "contextvar"}:
@@ -54,9 +134,9 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
         typing_names.update({"ContextVar", "TypeVar"})
     for spec in protocols:
         check_deadline()
-        for field in spec.get("fields", []) or []:
+        for field in spec.fields:
             check_deadline()
-            hint = field.get("type_hint") or "Any"
+            hint = field.type_hint
             if "Optional[" in hint:
                 typing_names.add("Optional")
             if "Union[" in hint:
@@ -96,23 +176,12 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
     for idx, spec in enumerate(protocols, start=1):
         check_deadline()
         name = placeholder_base if idx == 1 else f"{placeholder_base}{idx}"
-        suggested = spec.get("name", "Bundle")
-        tier = spec.get("tier", "?")
-        bundle = sort_once(
-            spec.get("bundle", []),
-            source="render_protocol_stubs.bundle",
-        )
-        rationale = spec.get("rationale", "")
-        evidence = sort_once(
-            spec.get("evidence", []),
-            source="render_protocol_stubs.evidence",
-        )
-        raw_fields = spec.get("fields", [])
-        fields = sort_once(
-            [field for field in raw_fields if isinstance(field, dict)],
-            source="render_protocol_stubs.fields",
-            key=lambda field: str(field.get("name") or "field"),
-        )
+        suggested = spec.suggested_name
+        tier = spec.tier_label
+        bundle = spec.bundle
+        rationale = spec.rationale
+        evidence = spec.evidence
+        fields = spec.fields
         if kind == "dataclass":
             lines.append("@dataclass")
             lines.append(f"class {name}:")
@@ -131,8 +200,8 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
             field_summary = []
             for field in fields:
                 check_deadline()
-                fname = field.get("name") or "field"
-                type_hint = field.get("type_hint") or "Any"
+                fname = field.name
+                type_hint = field.type_hint
                 field_summary.append(f"{fname}: {type_hint}")
             doc_lines.append("Fields: " + ", ".join(field_summary))
         if kind in {"dataclass", "protocol"}:
@@ -146,8 +215,8 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
             else:
                 for field in fields:
                     check_deadline()
-                    fname = field.get("name") or "field"
-                    type_hint = field.get("type_hint") or "Any"
+                    fname = field.name
+                    type_hint = field.type_hint
                     lines.append(f"    {fname}: {type_hint}")
             lines.append("")
             continue
@@ -166,8 +235,8 @@ def render_protocol_stubs(plan: dict[str, Any], kind: str = "dataclass") -> str:
             )
         for field in fields:
             check_deadline()
-            fname = str(field.get("name") or "field")
-            type_hint = str(field.get("type_hint") or "Any")
+            fname = field.name
+            type_hint = field.type_hint
             identifier = _sanitize_contextvar_identifier(fname)
             contextvar_name = f"_{identifier}_context"
             lines.append(

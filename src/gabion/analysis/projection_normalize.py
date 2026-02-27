@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 from gabion.analysis.projection_spec import (
     ProjectionOp,
@@ -10,9 +10,12 @@ from gabion.analysis.projection_spec import (
     spec_from_dict,
 )
 from gabion.analysis.artifact_ordering import canonical_mapping_keys
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, sort_once
+
+_NO_LIMIT = None
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -30,12 +33,14 @@ def spec_canonical_json(spec: ProjectionSpec) -> str:
     return json.dumps(payload, sort_keys=False, separators=(",", ":"))
 
 
-def spec_hash(spec: ProjectionSpec | Mapping[str, JSONValue] | str) -> str:
-    if isinstance(spec, str):
-        return spec
-    if not isinstance(spec, ProjectionSpec):
-        spec = spec_from_dict(spec)
-    return spec_canonical_json(spec)
+def spec_hash(spec) -> str:
+    match spec:
+        case str() as spec_text:
+            return spec_text
+        case ProjectionSpec() as projection_spec:
+            return spec_canonical_json(projection_spec)
+    spec_mapping = mapping_or_none(spec) or {}
+    return spec_canonical_json(spec_from_dict(spec_mapping))
 
 
 def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSONValue]]:
@@ -57,7 +62,7 @@ def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSON
     for op in pipeline:
         check_deadline()
         op_name = str(op.op).strip()
-        params = op.params if isinstance(op.params, Mapping) else {}
+        params = op.params
         if op_name == "select":
             pending_selects.extend(_extract_predicates(params))
             continue
@@ -89,9 +94,8 @@ def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSON
 
         if op_name == "limit":
             count = _normalize_limit(params.get("count"))
-            if count is None:
-                continue
-            normalized.append({"op": "limit", "params": {"count": count}})
+            if count is not None:
+                normalized.append({"op": "limit", "params": {"count": count}})
             continue
 
         if op_name:
@@ -107,17 +111,25 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
     check_deadline()
     predicates: list[str] = []
     legacy = params.get("predicate")
-    if isinstance(legacy, str) and legacy.strip():
-        predicates.append(legacy.strip())
+    match legacy:
+        case str() as legacy_text if legacy_text.strip():
+            predicates.append(legacy_text.strip())
+        case _:
+            pass
     explicit = params.get("predicates")
-    if isinstance(explicit, str) and explicit.strip():
-        predicates.append(explicit.strip())
-    elif isinstance(explicit, list):
-        for entry in explicit:
-            check_deadline()
-            if isinstance(entry, str):
-                cleaned = entry.strip()
-                predicates.append(cleaned)
+    match explicit:
+        case str() as explicit_text if explicit_text.strip():
+            predicates.append(explicit_text.strip())
+        case list() as explicit_list:
+            for entry in explicit_list:
+                check_deadline()
+                match entry:
+                    case str() as entry_text:
+                        predicates.append(entry_text.strip())
+                    case _:
+                        pass
+        case _:
+            pass
     return predicates
 
 
@@ -145,14 +157,20 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
 def _normalize_fields(value: JSONValue) -> list[str]:
     check_deadline()
     fields: list[str] = []
-    if isinstance(value, str):
-        if value.strip():
-            fields.append(value.strip())
-    elif isinstance(value, list):
-        for entry in value:
-            check_deadline()
-            if isinstance(entry, str) and entry.strip():
-                fields.append(entry.strip())
+    match value:
+        case str() as value_text:
+            if value_text.strip():
+                fields.append(value_text.strip())
+        case list() as value_list:
+            for entry in value_list:
+                check_deadline()
+                match entry:
+                    case str() as entry_text if entry_text.strip():
+                        fields.append(entry_text.strip())
+                    case _:
+                        pass
+        case _:
+            pass
     seen: set[str] = set()
     ordered: list[str] = []
     for field in fields:
@@ -176,54 +194,60 @@ def _normalize_group_fields(value: JSONValue) -> list[str]:
 def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
     check_deadline()
     if value is None:
-        return []
+        return list()
     items: list[dict[str, JSONValue]] = []
-    if isinstance(value, str):
-        if value.strip():
-            items.append({"field": value.strip(), "order": "asc"})
-        return items
-    if isinstance(value, list):
-        for entry in value:
-            check_deadline()
-            if isinstance(entry, str):
-                if entry.strip():
-                    items.append({"field": entry.strip(), "order": "asc"})
-                continue
-            if isinstance(entry, Mapping):
-                field = entry.get("field")
-                if not field:
-                    field = entry.get("key")
-                if not field:
-                    field = entry.get("name")
-                if not isinstance(field, str) or not field.strip():
-                    continue
-                order = entry.get("order", "asc")
-                if not isinstance(order, str):
-                    order = "asc"
-                order_norm = order.strip().lower() or "asc"
-                if order_norm not in {"asc", "desc"}:
-                    order_norm = "asc"
-                items.append({"field": field.strip(), "order": order_norm})
+    match value:
+        case str() as value_text:
+            if value_text.strip():
+                items.append({"field": value_text.strip(), "order": "asc"})
+        case list() as value_list:
+            for entry in value_list:
+                check_deadline()
+                match entry:
+                    case str() as entry_text:
+                        if entry_text.strip():
+                            items.append({"field": entry_text.strip(), "order": "asc"})
+                    case Mapping() as entry_map:
+                        field = entry_map.get("field") or entry_map.get("key") or entry_map.get("name")
+                        match field:
+                            case str() as field_text if field_text.strip():
+                                order = entry_map.get("order", "asc")
+                                match order:
+                                    case str() as order_text:
+                                        order_norm = order_text.strip().lower() or "asc"
+                                    case _:
+                                        order_norm = "asc"
+                                if order_norm not in {"asc", "desc"}:
+                                    order_norm = "asc"
+                                items.append({"field": field_text.strip(), "order": order_norm})
+                            case _:
+                                pass
+                    case _:
+                        pass
+        case _:
+            pass
     return items
 
 
-def _normalize_limit(value: JSONValue) -> int | None:
+def _normalize_limit(value: JSONValue):
     if value is None:
-        return None
+        return _NO_LIMIT
     try:
         count = int(value)
     except (TypeError, ValueError):
-        return None
+        return _NO_LIMIT
     if count < 0:
-        return None
+        return _NO_LIMIT
     return count
 
 
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
-    if isinstance(value, dict):
-        ordered_keys = canonical_mapping_keys(value)
-        return {str(k): _normalize_value(value[k]) for k in ordered_keys}
-    if isinstance(value, list):
-        return [_normalize_value(entry) for entry in value]
-    return value
+    match value:
+        case dict() as value_map:
+            ordered_keys = canonical_mapping_keys(value_map)
+            return {str(key): _normalize_value(value_map[key]) for key in ordered_keys}
+        case list() as value_list:
+            return [_normalize_value(entry) for entry in value_list]
+        case _:
+            return value

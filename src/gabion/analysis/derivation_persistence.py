@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Mapping
+from collections.abc import Mapping
 
 from gabion.analysis.derivation_cache import DerivationCacheRuntime
 from gabion.analysis.derivation_contract import DerivationOp
@@ -35,21 +35,28 @@ def write_derivation_checkpoint(
 def read_derivation_checkpoint(
     *,
     path: Path,
-) -> Mapping[str, JSONValue] | None:
+) -> object:
     if not path.exists():
         return None
     try:
         raw_payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
-    if not isinstance(raw_payload, dict):
-        return None
-    if raw_payload.get("format_version") != DERIVATION_CACHE_FORMAT_VERSION:
-        return None
-    runtime_payload = raw_payload.get("runtime")
-    if not isinstance(runtime_payload, dict):
-        return None
-    return runtime_payload
+    match raw_payload:
+        case dict() as checkpoint_payload:
+            if (
+                checkpoint_payload.get("format_version")
+                != DERIVATION_CACHE_FORMAT_VERSION
+            ):
+                return None
+            runtime_payload = checkpoint_payload.get("runtime")
+            match runtime_payload:
+                case dict() as runtime_map:
+                    return runtime_map
+                case _:
+                    return None
+        case _:
+            return None
 
 
 def hydrate_graph_from_checkpoint(
@@ -58,35 +65,42 @@ def hydrate_graph_from_checkpoint(
     runtime_payload: Mapping[str, JSONValue],
 ) -> int:
     graph_payload = runtime_payload.get("graph")
-    if not isinstance(graph_payload, Mapping):
-        return 0
-    nodes = graph_payload.get("nodes")
-    if not isinstance(nodes, list):
-        return 0
+    match graph_payload:
+        case Mapping() as graph_payload_map:
+            nodes = graph_payload_map.get("nodes")
+        case _:
+            return 0
+    match nodes:
+        case list() as node_payloads:
+            nodes = node_payloads
+        case _:
+            return 0
     restored = 0
     for raw_node in nodes:
-        if not isinstance(raw_node, Mapping):
-            continue
-        op_payload = raw_node.get("op")
-        input_nodes_payload = raw_node.get("input_nodes")
-        params_payload = raw_node.get("params")
-        dependencies_payload = raw_node.get("dependencies")
-        if (
-            not isinstance(op_payload, Mapping)
-            or not isinstance(input_nodes_payload, list)
-        ):
-            continue
-        op_name = str(op_payload.get("name", "") or "")
+        match raw_node:
+            case Mapping() as node_payload:
+                op_payload = node_payload.get("op")
+                input_nodes_payload = node_payload.get("input_nodes")
+                params_payload = node_payload.get("params")
+                dependencies_payload = node_payload.get("dependencies")
+                match (op_payload, input_nodes_payload):
+                    case (Mapping() as op_payload_map, list() as input_nodes_list):
+                        pass
+                    case _:
+                        continue
+            case _:
+                continue
+        op_name = str(op_payload_map.get("name", "") or "")
         if not op_name:
             continue
         op = DerivationOp(
             name=op_name,
-            version=int(op_payload.get("version", 1) or 1),
-            scope=str(op_payload.get("scope", "analysis") or "analysis"),
+            version=int(op_payload_map.get("version", 1) or 1),
+            scope=str(op_payload_map.get("scope", "analysis") or "analysis"),
         )
         input_nodes = []
         invalid_input = False
-        for raw_input in input_nodes_payload:
+        for raw_input in input_nodes_list:
             parsed_input = _node_id_from_payload(raw_input)
             if parsed_input is None:
                 invalid_input = True
@@ -107,36 +121,46 @@ def hydrate_graph_from_checkpoint(
 
 def _node_id_from_payload(
     payload: object,
-) -> aspf.NodeId | None:
-    if not isinstance(payload, Mapping):
-        return None
-    kind = str(payload.get("kind", "") or "")
-    key_payload = payload.get("key")
-    if not kind:
-        return None
-    key_atom = _structural_json_to_atom(key_payload)
-    if not isinstance(key_atom, tuple):
-        key_atom = (key_atom,)
-    return aspf.NodeId(kind=kind, key=key_atom)
+) -> object:
+    match payload:
+        case Mapping() as payload_map:
+            kind = str(payload_map.get("kind", "") or "")
+            key_payload = payload_map.get("key")
+            if not kind:
+                return None
+            key_atom = _structural_json_to_atom(key_payload)
+            match key_atom:
+                case tuple() as key_tuple:
+                    normalized_key = key_tuple
+                case _:
+                    normalized_key = (key_atom,)
+            return aspf.NodeId(kind=kind, key=normalized_key)
+        case _:
+            return None
 
 
 def _structural_json_to_atom(value: object) -> object:
-    if isinstance(value, list):
-        return tuple(_structural_json_to_atom(entry) for entry in value)
-    if isinstance(value, Mapping):
-        kind = value.get("_py")
-        if kind == "bytes":
-            raw_hex = value.get("hex")
-            if isinstance(raw_hex, str):
-                try:
-                    return bytes.fromhex(raw_hex)
-                except ValueError:
-                    return b""
-        return tuple(
-            (
-                str(key),
-                _structural_json_to_atom(raw_value),
+    match value:
+        case list() as sequence_value:
+            return tuple(_structural_json_to_atom(entry) for entry in sequence_value)
+        case Mapping() as mapping_value:
+            kind = mapping_value.get("_py")
+            if kind == "bytes":
+                raw_hex = mapping_value.get("hex")
+                match raw_hex:
+                    case str() as hex_text:
+                        try:
+                            return bytes.fromhex(hex_text)
+                        except ValueError:
+                            return b""
+                    case _:
+                        pass
+            return tuple(
+                (
+                    str(key),
+                    _structural_json_to_atom(raw_value),
+                )
+                for key, raw_value in mapping_value.items()
             )
-            for key, raw_value in value.items()
-        )
-    return value
+        case _:
+            return value

@@ -36,7 +36,7 @@ class _DeadlineObligationContext:
     collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]]
     collect_call_resolution_obligations_from_forest_fn: Callable[
         ...,
-        list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]],
+        list[tuple[NodeId, NodeId, object, str]],
     ]
     reachable_from_roots_fn: Callable[
         [Mapping[NodeId, set[NodeId]], set[NodeId]],
@@ -53,7 +53,7 @@ class _DeadlineObligationBuilder:
     by_qual: Mapping[str, FunctionInfo]
     facts_by_qual: Mapping[str, _DeadlineFunctionFacts]
     forest: Forest
-    project_root: Path | None
+    project_root: object
     obligations: list[JSONObject] = field(default_factory=list)
     normalized_snapshot_path_cache: dict[Path, str] = field(default_factory=dict)
     suite_path_name_cache: dict[str, str] = field(default_factory=dict)
@@ -75,9 +75,9 @@ class _DeadlineObligationBuilder:
     def _fallback_span(
         self,
         function: str,
-        param: str | None,
-        span: tuple[int, int, int, int] | None,
-    ) -> tuple[int, int, int, int] | None:
+        param: object,
+        span: object,
+    ) -> object:
         if span is not None:
             return span
         info = self.by_qual.get(function)
@@ -95,13 +95,13 @@ class _DeadlineObligationBuilder:
         *,
         path: str,
         function: str,
-        param: str | None,
+        param: object,
         status: str,
         kind: str,
         detail: str,
-        span: tuple[int, int, int, int] | None = None,
-        caller: str | None = None,
-        callee: str | None = None,
+        span: object = None,
+        caller: object = None,
+        callee: object = None,
         suite_kind: str = "function",
     ) -> None:
         function_name = str(function)
@@ -155,8 +155,11 @@ class _DeadlineObligationBuilder:
         suite_meta = suite_node.meta if suite_node is not None else {}
         site_payload = cast(dict[str, object], entry["site"])
         suite_identity = suite_meta.get("suite_id")
-        if isinstance(suite_identity, str) and suite_identity:
-            site_payload["suite_id"] = suite_identity
+        match suite_identity:
+            case str() as suite_identity_text if suite_identity_text:
+                site_payload["suite_id"] = suite_identity_text
+            case _:
+                pass
         site_payload["suite_kind"] = suite_kind
         paramset_id = self.forest.add_paramset(bundle)
         evidence: dict[str, object] = {
@@ -181,28 +184,25 @@ def _append_origin_obligations(
     for qual, facts in context.facts_by_qual.items():
         check_deadline()
         emit_progress_fn("origin_obligations")
-        if facts is None:
-            continue
-        if qual not in context.by_qual:
-            continue
-        if _is_test_path(facts.path):
-            continue
-        if qual in context.roots:
-            continue
-        for name, span in facts.local_info.origin_spans.items():
-            check_deadline()
-            if name not in facts.local_info.origin_vars:
-                continue
-            builder.add_obligation(
-                path=builder.normalized_snapshot_path(facts.path),
-                function=qual,
-                param=name,
-                status="VIOLATION",
-                kind="origin_not_allowlisted",
-                detail=f"local Deadline origin '{name}' outside allowlist",
-                span=span,
-                suite_kind="function",
-            )
+        if (
+            facts is not None
+            and qual in context.by_qual
+            and not _is_test_path(facts.path)
+            and qual not in context.roots
+        ):
+            for name, span in facts.local_info.origin_spans.items():
+                check_deadline()
+                if name in facts.local_info.origin_vars:
+                    builder.add_obligation(
+                        path=builder.normalized_snapshot_path(facts.path),
+                        function=qual,
+                        param=name,
+                        status="VIOLATION",
+                        kind="origin_not_allowlisted",
+                        detail=f"local Deadline origin '{name}' outside allowlist",
+                        span=span,
+                        suite_kind="function",
+                    )
     emit_progress_fn("origin_obligations_done", force=True)
 
 
@@ -216,25 +216,24 @@ def _append_default_param_obligations(
         check_deadline()
         emit_progress_fn("default_param_obligations")
         info = context.by_qual.get(qual)
-        if info is None or _is_test_path(info.path):
-            continue
-        for param in sort_once(
-            params,
-            source="src/gabion/analysis/dataflow_obligations.py:default_param_obligations",
-        ):
-            check_deadline()
-            if param in info.defaults:
-                span = info.param_spans.get(param)
-                builder.add_obligation(
-                    path=builder.normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=param,
-                    status="VIOLATION",
-                    kind="default_param",
-                    detail=f"deadline param '{param}' has default",
-                    span=span,
-                    suite_kind="function",
-                )
+        if info is not None and not _is_test_path(info.path):
+            for param in sort_once(
+                params,
+                source="src/gabion/analysis/dataflow_obligations.py:default_param_obligations",
+            ):
+                check_deadline()
+                if param in info.defaults:
+                    span = info.param_spans.get(param)
+                    builder.add_obligation(
+                        path=builder.normalized_snapshot_path(info.path),
+                        function=qual,
+                        param=param,
+                        status="VIOLATION",
+                        kind="default_param",
+                        detail=f"deadline param '{param}' has default",
+                        span=span,
+                        suite_kind="function",
+                    )
     emit_progress_fn("default_param_obligations_done", force=True)
 
 
@@ -249,10 +248,7 @@ def _append_resolution_obligations(
     raw_resolution_obligations = context.collect_call_resolution_obligations_from_forest_fn(
         context.forest
     )
-    resolution_obligation_kind_by_site: dict[
-        tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str],
-        str,
-    ] = {}
+    resolution_obligation_kind_by_site: dict[tuple[NodeId, NodeId, object, str], str] = {}
     for (
         caller_id,
         suite_id,
@@ -288,9 +284,8 @@ def _append_resolution_obligations(
         check_deadline()
         emit_progress_fn("root_site_resolution")
         info = context.by_qual.get(qual)
-        if info is None:
-            continue
-        root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
+        if info is not None:
+            root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
 
     reachable_from_roots = context.reachable_from_roots_fn(edges, root_site_ids)
     emit_progress_fn("reachability_ready", force=True)
@@ -299,15 +294,15 @@ def _append_resolution_obligations(
     for alt in context.forest.alts:
         check_deadline()
         emit_progress_fn("resolved_call_sites")
-        if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
-            continue
-        suite_id = alt.inputs[0]
-        suite_node = context.forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
-            continue
-        if str(suite_node.meta.get("suite_kind", "") or "") != "call":
-            continue
-        resolved_call_suites.add(suite_id)
+        if alt.kind == "CallCandidate" and len(alt.inputs) >= 2:
+            suite_id = alt.inputs[0]
+            suite_node = context.forest.nodes.get(suite_id)
+            if (
+                suite_node is not None
+                and suite_node.kind == "SuiteSite"
+                and str(suite_node.meta.get("suite_kind", "") or "") == "call"
+            ):
+                resolved_call_suites.add(suite_id)
     emit_progress_fn("resolved_call_sites_done", force=True)
 
     resolution_obligation_kind_map = {
@@ -340,31 +335,30 @@ def _append_resolution_obligations(
         if _deadline_exempt(caller_qual):
             continue
         caller_info = context.by_qual.get(caller_qual)
-        if caller_info is None or _is_test_path(caller_info.path):
-            continue
-        output_kind = resolution_obligation_kind_map.get(
-            obligation_kind,
-            "call_resolution_required",
-        )
-        if obligation_kind == "unresolved_dynamic_callee":
-            detail = (
-                f"call '{callee_key}' appears to use dynamic dispatch; "
-                "add explicit routing evidence"
+        if caller_info is not None and not _is_test_path(caller_info.path):
+            output_kind = resolution_obligation_kind_map.get(
+                obligation_kind,
+                "call_resolution_required",
             )
-        else:
-            detail = f"call '{callee_key}' requires resolution"
-        builder.add_obligation(
-            path=builder.normalized_snapshot_path(caller_info.path),
-            function=caller_qual,
-            param=None,
-            status="OBLIGATION",
-            kind=output_kind,
-            detail=detail,
-            span=span,
-            caller=caller_qual,
-            callee=callee_key,
-            suite_kind="call",
-        )
+            if obligation_kind == "unresolved_dynamic_callee":
+                detail = (
+                    f"call '{callee_key}' appears to use dynamic dispatch; "
+                    "add explicit routing evidence"
+                )
+            else:
+                detail = f"call '{callee_key}' requires resolution"
+            builder.add_obligation(
+                path=builder.normalized_snapshot_path(caller_info.path),
+                function=caller_qual,
+                param=None,
+                status="OBLIGATION",
+                kind=output_kind,
+                detail=detail,
+                span=span,
+                caller=caller_qual,
+                callee=callee_key,
+                suite_kind="call",
+            )
     emit_progress_fn("resolution_obligations_done", force=True)
 
     recursive_required: set[str] = set()
@@ -408,86 +402,85 @@ def _append_recursive_obligations(
         emit_progress_fn("recursive_obligations")
         facts = context.facts_by_qual.get(qual)
         info = context.by_qual.get(qual)
-        if facts is None or info is None or _is_test_path(info.path):
-            continue
-        carriers = context.deadline_params.get(qual, set())
-        carrier_status = _deadline_carrier_status(
-            qual=qual,
-            info=info,
-            has_carrier_signal=bool(carriers),
-        )
-        if facts.loop_sites:
-            for loop_fact in facts.loop_sites:
-                check_deadline()
-                if not carriers:
+        if facts is not None and info is not None and not _is_test_path(info.path):
+            carriers = context.deadline_params.get(qual, set())
+            carrier_status = _deadline_carrier_status(
+                qual=qual,
+                info=info,
+                has_carrier_signal=bool(carriers),
+            )
+            if facts.loop_sites:
+                for loop_fact in facts.loop_sites:
+                    check_deadline()
+                    if not carriers:
+                        if loop_fact.ambient_check:
+                            continue
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(info.path),
+                            function=qual,
+                            param=None,
+                            status=carrier_status,
+                            kind="missing_carrier",
+                            detail="recursion loop requires Deadline carrier",
+                            span=loop_fact.span,
+                            suite_kind="loop",
+                        )
+                        continue
+                    checked = loop_fact.check_params & carriers
                     if loop_fact.ambient_check:
+                        checked = set(carriers)
+                    forwarded = _deadline_loop_forwarded_params(
+                        qual=qual,
+                        loop_fact=loop_fact,
+                        deadline_params=context.deadline_params,
+                        call_infos=context.call_infos,
+                    ) & carriers
+                    if checked or forwarded:
                         continue
                     builder.add_obligation(
                         path=builder.normalized_snapshot_path(info.path),
                         function=qual,
                         param=None,
                         status=carrier_status,
-                        kind="missing_carrier",
-                        detail="recursion loop requires Deadline carrier",
+                        kind="unchecked_deadline",
+                        detail=(
+                            "deadline carrier not checked or forwarded "
+                            f"in recursion loop depth {loop_fact.depth}"
+                        ),
                         span=loop_fact.span,
                         suite_kind="loop",
                     )
-                    continue
-                checked = loop_fact.check_params & carriers
-                if loop_fact.ambient_check:
-                    checked = set(carriers)
-                forwarded = _deadline_loop_forwarded_params(
-                    qual=qual,
-                    loop_fact=loop_fact,
-                    deadline_params=context.deadline_params,
-                    call_infos=context.call_infos,
-                ) & carriers
-                if checked or forwarded:
+                continue
+            if not carriers:
+                if facts.ambient_check:
                     continue
                 builder.add_obligation(
                     path=builder.normalized_snapshot_path(info.path),
                     function=qual,
                     param=None,
                     status=carrier_status,
-                    kind="unchecked_deadline",
-                    detail=(
-                        "deadline carrier not checked or forwarded "
-                        f"in recursion loop depth {loop_fact.depth}"
-                    ),
-                    span=loop_fact.span,
-                    suite_kind="loop",
+                    kind="missing_carrier",
+                    detail="recursion requires Deadline carrier",
+                    span=facts.span,
+                    suite_kind="function",
                 )
-            continue
-        if not carriers:
+                continue
+            checked = facts.check_params & carriers
             if facts.ambient_check:
+                checked = set(carriers)
+            forwarded = context.forwarded_params.get(qual, set()) & carriers
+            if checked or forwarded:
                 continue
             builder.add_obligation(
                 path=builder.normalized_snapshot_path(info.path),
                 function=qual,
                 param=None,
                 status=carrier_status,
-                kind="missing_carrier",
-                detail="recursion requires Deadline carrier",
+                kind="unchecked_deadline",
+                detail="deadline carrier not checked or forwarded (recursion)",
                 span=facts.span,
                 suite_kind="function",
             )
-            continue
-        checked = facts.check_params & carriers
-        if facts.ambient_check:
-            checked = set(carriers)
-        forwarded = context.forwarded_params.get(qual, set()) & carriers
-        if checked or forwarded:
-            continue
-        builder.add_obligation(
-            path=builder.normalized_snapshot_path(info.path),
-            function=qual,
-            param=None,
-            status=carrier_status,
-            kind="unchecked_deadline",
-            detail="deadline carrier not checked or forwarded (recursion)",
-            span=facts.span,
-            suite_kind="function",
-        )
     emit_progress_fn("recursive_obligations_done", force=True)
 
 
@@ -520,55 +513,49 @@ def _append_loop_obligations(
             continue
         if qual in recursive_required:
             continue
-        if facts is None:
-            continue
         info = context.by_qual.get(qual)
-        if info is None or _is_test_path(info.path):
-            continue
-        if not facts.loop_sites:
-            continue
-        carriers = context.deadline_params.get(qual, set())
-        carrier_status = _deadline_carrier_status(
-            qual=qual,
-            info=info,
-            has_carrier_signal=bool(carriers),
-        )
-        for loop_fact in facts.loop_sites:
-            check_deadline()
-            if not carriers:
-                if loop_fact.ambient_check:
-                    continue
-                builder.add_obligation(
-                    path=builder.normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=None,
-                    status=carrier_status,
-                    kind="missing_carrier",
-                    detail="loop requires Deadline carrier",
-                    span=loop_fact.span,
-                    suite_kind="loop",
-                )
-                continue
-            checked = loop_fact.check_params & carriers
-            if loop_fact.ambient_check:
-                checked = set(carriers)
-            forwarded = _deadline_loop_forwarded_params(
+        if facts is not None and info is not None and not _is_test_path(info.path) and facts.loop_sites:
+            carriers = context.deadline_params.get(qual, set())
+            carrier_status = _deadline_carrier_status(
                 qual=qual,
-                loop_fact=loop_fact,
-                deadline_params=context.deadline_params,
-                call_infos=context.call_infos,
-            ) & carriers
-            if not checked and not forwarded:
-                builder.add_obligation(
-                    path=builder.normalized_snapshot_path(info.path),
-                    function=qual,
-                    param=None,
-                    status=carrier_status,
-                    kind="unchecked_deadline",
-                    detail="deadline carrier not checked or forwarded in loop",
-                    span=loop_fact.span,
-                    suite_kind="loop",
-                )
+                info=info,
+                has_carrier_signal=bool(carriers),
+            )
+            for loop_fact in facts.loop_sites:
+                check_deadline()
+                if not carriers:
+                    if not loop_fact.ambient_check:
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(info.path),
+                            function=qual,
+                            param=None,
+                            status=carrier_status,
+                            kind="missing_carrier",
+                            detail="loop requires Deadline carrier",
+                            span=loop_fact.span,
+                            suite_kind="loop",
+                        )
+                else:
+                    checked = loop_fact.check_params & carriers
+                    if loop_fact.ambient_check:
+                        checked = set(carriers)
+                    forwarded = _deadline_loop_forwarded_params(
+                        qual=qual,
+                        loop_fact=loop_fact,
+                        deadline_params=context.deadline_params,
+                        call_infos=context.call_infos,
+                    ) & carriers
+                    if not checked and not forwarded:
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(info.path),
+                            function=qual,
+                            param=None,
+                            status=carrier_status,
+                            kind="unchecked_deadline",
+                            detail="deadline carrier not checked or forwarded in loop",
+                            span=loop_fact.span,
+                            suite_kind="loop",
+                        )
     emit_progress_fn("loop_obligations_done", force=True)
 
 
@@ -582,114 +569,113 @@ def _append_call_arg_obligations(
         check_deadline()
         emit_progress_fn("call_arg_obligations")
         caller_info = context.by_qual.get(caller_qual)
-        if caller_info is None or _is_test_path(caller_info.path):
-            continue
-        for call, callee, arg_info in entries:
-            check_deadline()
-            callee_deadlines = context.deadline_params.get(callee.qual, set())
-            if not callee_deadlines:
-                continue
-            span = call.span
-            for callee_param in sort_once(
-                callee_deadlines,
-                source="src/gabion/analysis/dataflow_obligations.py:call_arg_obligations",
-            ):
+        if caller_info is not None and not _is_test_path(caller_info.path):
+            for call, callee, arg_info in entries:
                 check_deadline()
-                info = arg_info.get(callee_param)
-                if info is None:
-                    missing_unknown = bool(
-                        call.star_pos
-                        or call.star_kw
-                        or call.non_const_pos
-                        or call.non_const_kw
-                    )
-                    status = "OBLIGATION" if missing_unknown else "VIOLATION"
-                    kind = "missing_arg_unknown" if missing_unknown else "missing_arg"
-                    builder.add_obligation(
-                        path=builder.normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status=status,
-                        kind=kind,
-                        detail=f"missing deadline arg for {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
+                callee_deadlines = context.deadline_params.get(callee.qual, set())
+                if not callee_deadlines:
                     continue
-                if info.kind == "none":
-                    builder.add_obligation(
-                        path=builder.normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="VIOLATION",
-                        kind="none_arg",
-                        detail=f"None passed to {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "const":
-                    builder.add_obligation(
-                        path=builder.normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="VIOLATION",
-                        kind="const_arg",
-                        detail=f"constant {info.const} passed to {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "origin":
-                    if caller_qual not in context.roots:
+                span = call.span
+                for callee_param in sort_once(
+                    callee_deadlines,
+                    source="src/gabion/analysis/dataflow_obligations.py:call_arg_obligations",
+                ):
+                    check_deadline()
+                    info = arg_info.get(callee_param)
+                    if info is None:
+                        missing_unknown = bool(
+                            call.star_pos
+                            or call.star_kw
+                            or call.non_const_pos
+                            or call.non_const_kw
+                        )
+                        status = "OBLIGATION" if missing_unknown else "VIOLATION"
+                        kind = "missing_arg_unknown" if missing_unknown else "missing_arg"
                         builder.add_obligation(
                             path=builder.normalized_snapshot_path(caller_info.path),
                             function=caller_qual,
                             param=callee_param,
-                            status="VIOLATION",
-                            kind="origin_not_allowlisted",
-                            detail=f"origin deadline passed outside allowlist to {callee.qual}.{callee_param}",
+                            status=status,
+                            kind=kind,
+                            detail=f"missing deadline arg for {callee.qual}.{callee_param}",
                             span=span,
                             caller=caller_qual,
                             callee=callee.qual,
                             suite_kind="call",
                         )
-                    continue
-                if info.kind == "param":
-                    if info.param in context.trusted_params.get(caller_qual, set()):
                         continue
-                    builder.add_obligation(
-                        path=builder.normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="OBLIGATION",
-                        kind="untrusted_param",
-                        detail=f"deadline param '{info.param}' not proven from allowlist",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
-                    continue
-                if info.kind == "unknown":
-                    builder.add_obligation(
-                        path=builder.normalized_snapshot_path(caller_info.path),
-                        function=caller_qual,
-                        param=callee_param,
-                        status="OBLIGATION",
-                        kind="unknown_arg",
-                        detail=f"deadline arg not proven for {callee.qual}.{callee_param}",
-                        span=span,
-                        caller=caller_qual,
-                        callee=callee.qual,
-                        suite_kind="call",
-                    )
+                    if info.kind == "none":
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(caller_info.path),
+                            function=caller_qual,
+                            param=callee_param,
+                            status="VIOLATION",
+                            kind="none_arg",
+                            detail=f"None passed to {callee.qual}.{callee_param}",
+                            span=span,
+                            caller=caller_qual,
+                            callee=callee.qual,
+                            suite_kind="call",
+                        )
+                        continue
+                    if info.kind == "const":
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(caller_info.path),
+                            function=caller_qual,
+                            param=callee_param,
+                            status="VIOLATION",
+                            kind="const_arg",
+                            detail=f"constant {info.const} passed to {callee.qual}.{callee_param}",
+                            span=span,
+                            caller=caller_qual,
+                            callee=callee.qual,
+                            suite_kind="call",
+                        )
+                        continue
+                    if info.kind == "origin":
+                        if caller_qual not in context.roots:
+                            builder.add_obligation(
+                                path=builder.normalized_snapshot_path(caller_info.path),
+                                function=caller_qual,
+                                param=callee_param,
+                                status="VIOLATION",
+                                kind="origin_not_allowlisted",
+                                detail=f"origin deadline passed outside allowlist to {callee.qual}.{callee_param}",
+                                span=span,
+                                caller=caller_qual,
+                                callee=callee.qual,
+                                suite_kind="call",
+                            )
+                        continue
+                    if info.kind == "param":
+                        if info.param in context.trusted_params.get(caller_qual, set()):
+                            continue
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(caller_info.path),
+                            function=caller_qual,
+                            param=callee_param,
+                            status="OBLIGATION",
+                            kind="untrusted_param",
+                            detail=f"deadline param '{info.param}' not proven from allowlist",
+                            span=span,
+                            caller=caller_qual,
+                            callee=callee.qual,
+                            suite_kind="call",
+                        )
+                        continue
+                    if info.kind == "unknown":
+                        builder.add_obligation(
+                            path=builder.normalized_snapshot_path(caller_info.path),
+                            function=caller_qual,
+                            param=callee_param,
+                            status="OBLIGATION",
+                            kind="unknown_arg",
+                            detail=f"deadline arg not proven for {callee.qual}.{callee_param}",
+                            span=span,
+                            caller=caller_qual,
+                            callee=callee.qual,
+                            suite_kind="call",
+                        )
     emit_progress_fn("call_arg_obligations_done", force=True)
 
 
@@ -707,7 +693,7 @@ class _DeadlineCollectionFns:
     collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]]
     collect_call_resolution_obligations_from_forest_fn: Callable[
         ...,
-        list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]],
+        list[tuple[NodeId, NodeId, object, str]],
     ]
     reachable_from_roots_fn: Callable[
         [Mapping[NodeId, set[NodeId]], set[NodeId]],
@@ -722,34 +708,14 @@ class _DeadlineCollectionFns:
 
 def _resolve_deadline_collection_fns(
     *,
-    materialize_call_candidates_fn: Callable[..., None] | None,
-    collect_call_nodes_by_path_fn: Callable[
-        ...,
-        dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]],
-    ]
-    | None,
-    collect_deadline_function_facts_fn: Callable[
-        ...,
-        dict[str, "_DeadlineFunctionFacts"],
-    ]
-    | None,
-    collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]] | None,
-    collect_call_resolution_obligations_from_forest_fn: Callable[
-        ...,
-        list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]],
-    ]
-    | None,
-    reachable_from_roots_fn: Callable[
-        [Mapping[NodeId, set[NodeId]], set[NodeId]],
-        set[NodeId],
-    ]
-    | None,
-    collect_recursive_nodes_fn: Callable[
-        [Mapping[NodeId, set[NodeId]]],
-        set[NodeId],
-    ]
-    | None,
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None,
+    materialize_call_candidates_fn = None,
+    collect_call_nodes_by_path_fn = None,
+    collect_deadline_function_facts_fn = None,
+    collect_call_edges_from_forest_fn = None,
+    collect_call_resolution_obligations_from_forest_fn = None,
+    reachable_from_roots_fn = None,
+    collect_recursive_nodes_fn = None,
+    resolve_callee_outcome_fn = None,
 ) -> _DeadlineCollectionFns:
     if materialize_call_candidates_fn is None:
         materialize_call_candidates_fn = _materialize_call_candidates
@@ -787,7 +753,7 @@ class _DeadlineCollectionContext:
     by_qual: Mapping[str, FunctionInfo]
     symbol_table: object
     class_index: object
-    project_root: Path | None
+    project_root: object
     config: AuditConfig
     resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome]
 
@@ -795,7 +761,7 @@ class _DeadlineCollectionContext:
 def _collect_deadline_params(
     *,
     context: _DeadlineCollectionContext,
-    extra_deadline_params: dict[str, set[str]] | None,
+    extra_deadline_params,
     emit_progress_fn: Callable[..., None],
 ) -> defaultdict[str, set[str]]:
     deadline_params: defaultdict[str, set[str]] = defaultdict(set)
@@ -949,22 +915,21 @@ def _collect_trusted_params(
                 for callee_param in deadline_params.get(callee.qual, set()):
                     check_deadline()
                     info = arg_info.get(callee_param)
-                    if info is None:
-                        continue
-                    if (
-                        info.kind == "param"
-                        and info.param in trusted_params.get(caller_qual, set())
-                        and callee_param not in trusted_params[callee.qual]
-                    ):
-                        trusted_params[callee.qual].add(callee_param)
-                        changed = True
-                    if (
-                        info.kind == "origin"
-                        and caller_qual in roots
-                        and callee_param not in trusted_params[callee.qual]
-                    ):
-                        trusted_params[callee.qual].add(callee_param)
-                        changed = True
+                    if info is not None:
+                        if (
+                            info.kind == "param"
+                            and info.param in trusted_params.get(caller_qual, set())
+                            and callee_param not in trusted_params[callee.qual]
+                        ):
+                            trusted_params[callee.qual].add(callee_param)
+                            changed = True
+                        if (
+                            info.kind == "origin"
+                            and caller_qual in roots
+                            and callee_param not in trusted_params[callee.qual]
+                        ):
+                            trusted_params[callee.qual].add(callee_param)
+                            changed = True
     emit_progress_fn("trusted_propagation_done", force=True)
     return trusted_params
 
@@ -987,9 +952,7 @@ def _collect_forwarded_params(
             for callee_param in deadline_params.get(callee.qual, set()):
                 check_deadline()
                 info = arg_info.get(callee_param)
-                if info is None:
-                    continue
-                if info.kind == "param" and info.param in caller_params:
+                if info is not None and info.kind == "param" and info.param in caller_params:
                     forwarded_params[caller_qual].add(info.param)
     emit_progress_fn("forwarded_params_done", force=True)
     return forwarded_params
@@ -998,36 +961,27 @@ def _collect_forwarded_params(
 def collect_deadline_obligations(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     config: AuditConfig,
     forest: Forest,
-    extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
-    extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
-    extra_deadline_params: dict[str, set[str]] | None = None,
+    extra_facts_by_qual = None,
+    extra_call_infos = None,
+    extra_deadline_params = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    materialize_call_candidates_fn: Callable[..., None] | None = None,
-    collect_call_nodes_by_path_fn: Callable[
-        ..., dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]
-    ] | None = None,
-    collect_deadline_function_facts_fn: Callable[
-        ..., dict[str, "_DeadlineFunctionFacts"]
-    ] | None = None,
-    collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]] | None = None,
-    collect_call_resolution_obligations_from_forest_fn: Callable[
-        ..., list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
-    ] | None = None,
-    reachable_from_roots_fn: Callable[
-        [Mapping[NodeId, set[NodeId]], set[NodeId]], set[NodeId]
-    ] | None = None,
-    collect_recursive_nodes_fn: Callable[
-        [Mapping[NodeId, set[NodeId]]], set[NodeId]
-    ] | None = None,
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
-    on_progress: Callable[[str], None] | None = None,
+    analysis_index = None,
+    materialize_call_candidates_fn = None,
+    collect_call_nodes_by_path_fn = None,
+    collect_deadline_function_facts_fn = None,
+    collect_call_edges_from_forest_fn = None,
+    collect_call_resolution_obligations_from_forest_fn = None,
+    reachable_from_roots_fn = None,
+    collect_recursive_nodes_fn = None,
+    resolve_callee_outcome_fn = None,
+    on_progress = None,
 ) -> list[JSONObject]:
     _bind_audit_symbols()
     check_deadline()
+    parse_failure_witnesses_payload = parse_failure_witnesses
     collection_fns = _resolve_deadline_collection_fns(
         materialize_call_candidates_fn=materialize_call_candidates_fn,
         collect_call_nodes_by_path_fn=collect_call_nodes_by_path_fn,
@@ -1041,24 +995,25 @@ def collect_deadline_obligations(
     if not config.deadline_roots:
         return []
     roots = set(config.deadline_roots)
-    last_progress_emit_monotonic: float | None = None
+    last_progress_emit_monotonic = None
     progress_emit_counter = 0
 
     def _emit_progress(stage: str, *, force: bool = False) -> None:
         nonlocal progress_emit_counter
         nonlocal last_progress_emit_monotonic
-        if on_progress is None:
-            return
-        now = time.monotonic()
-        if (
-            not force
-            and last_progress_emit_monotonic is not None
-            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ):
-            return
-        progress_emit_counter += 1
-        last_progress_emit_monotonic = now
-        on_progress(f"{stage}:{progress_emit_counter}")
+        if on_progress is not None:
+            now = time.monotonic()
+            should_emit = True
+            if (
+                not force
+                and last_progress_emit_monotonic is not None
+                and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+            ):
+                should_emit = False
+            if should_emit:
+                progress_emit_counter += 1
+                last_progress_emit_monotonic = now
+                on_progress(f"{stage}:{progress_emit_counter}")
 
     index = analysis_index
     if index is None:
@@ -1069,7 +1024,7 @@ def collect_deadline_obligations(
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
+            parse_failure_witnesses=parse_failure_witnesses_payload,
         )
     _emit_progress("index_ready", force=True)
     by_name = index.by_name
@@ -1087,7 +1042,7 @@ def collect_deadline_obligations(
     _emit_progress("call_candidates_materialized")
     call_nodes_by_path = collection_fns.collect_call_nodes_by_path_fn(
         paths,
-        parse_failure_witnesses=parse_failure_witnesses,
+        parse_failure_witnesses=parse_failure_witnesses_payload,
         analysis_index=index,
     )
     _emit_progress("call_nodes_collected")
@@ -1095,7 +1050,7 @@ def collect_deadline_obligations(
         paths,
         project_root=project_root,
         ignore_params=config.ignore_params,
-        parse_failure_witnesses=parse_failure_witnesses,
+        parse_failure_witnesses=parse_failure_witnesses_payload,
         analysis_index=index,
     )
     _emit_progress("function_facts_collected")

@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Mapping, Sequence
 
 from gabion.analysis.json_types import JSONObject, JSONValue
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -23,21 +24,23 @@ PATTERN_SCHEMA_CONTRACT_VERSION = "pattern_schema.v2"
 
 def _normalize_signature_value(value: JSONValue) -> JSONValue:
     check_deadline()
-    if isinstance(value, dict):
+    mapping_value = mapping_or_none(value)
+    if mapping_value is not None:
         normalized: JSONObject = {}
         for key in sort_once(
-            value,
+            mapping_value,
             source="pattern_schema._normalize_signature_value.dict_keys",
         ):
             check_deadline()
-            normalized[str(key)] = _normalize_signature_value(value[key])
+            normalized[str(key)] = _normalize_signature_value(mapping_value[key])
         return normalized
-    if isinstance(value, list):
-        normalized_items = [_normalize_signature_value(item) for item in value]
+    sequence_value = sequence_or_none(value, allow_str=False)
+    if sequence_value is not None:
+        normalized_items = [_normalize_signature_value(item) for item in sequence_value]
         sortable = True
         for item in normalized_items:
             check_deadline()
-            if not (isinstance(item, (str, int, float, bool)) or item is None):
+            if not _is_sortable_signature_scalar(item):
                 sortable = False
                 break
         if sortable:
@@ -48,6 +51,10 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
             )
         return normalized_items
     return value
+
+
+def _is_sortable_signature_scalar(value: JSONValue) -> bool:
+    return value is None or type(value) in {str, int, float, bool}
 
 
 def normalize_signature(signature: Mapping[str, JSONValue]) -> JSONObject:

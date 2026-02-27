@@ -5,37 +5,40 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 
+from gabion.analysis.resume_codec import sequence_or_none
+from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
-from gabion.analysis.timeout_context import check_deadline
 
 
 def canon(value: object) -> JSONValue:
     check_deadline()
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, Mapping):
-        keys = sort_once(
-            (str(key) for key in value.keys()),
-            source="canonical.canon.dict_keys",
-        )
-        return {key: canon(value[key]) for key in keys}
-    if isinstance(value, tuple):
-        return [canon(item) for item in value]
-    if isinstance(value, list):
-        if _looks_multiset(value):
-            return _canon_multiset(value)
-        return [canon(item) for item in value]
-    if isinstance(value, set):
-        never(
-            "canon() does not accept unordered set inputs",
-            value_type=type(value).__name__,
-        )
-    never(
-        "canon() received non-JSON value",
-        value_type=type(value).__name__,
-    )
+    match value:
+        case None | str() | int() | float() | bool():
+            return value
+        case Mapping() as value_mapping:
+            keys = sort_once(
+                (str(key) for key in value_mapping.keys()),
+                source="canonical.canon.dict_keys",
+            )
+            return {key: canon(value_mapping[key]) for key in keys}
+        case tuple() as tuple_value:
+            return [canon(item) for item in tuple_value]
+        case list() as list_value:
+            if _looks_multiset(list_value):
+                return _canon_multiset(list_value)
+            return [canon(item) for item in list_value]
+        case set() as set_value:
+            never(
+                "canon() does not accept unordered set inputs",
+                value_type=type(set_value).__name__,
+            )
+        case _:
+            never(
+                "canon() received non-JSON value",
+                value_type=type(value).__name__,
+            )
 
 
 def encode_canon(value: object) -> str:
@@ -55,30 +58,36 @@ def digest_index(value: object) -> str:
 
 
 def _looks_multiset(value: list[object]) -> bool:
-    if len(value) != 2:
-        return False
-    marker = value[0]
-    pairs = value[1]
-    return marker == "ms" and isinstance(pairs, Sequence)
+    match value:
+        case [marker, pairs]:
+            return marker == "ms" and sequence_or_none(pairs) is not None
+        case _:
+            return False
 
 
 def _canon_multiset(value: list[object]) -> JSONValue:
-    marker = value[0]
+    marker = value[0] if value else None
     if marker != "ms":
         never("multiset marker must be 'ms'", marker=marker)
-    raw_pairs = value[1]
-    if not isinstance(raw_pairs, Sequence):
-        never("multiset payload must be a sequence", payload_type=type(raw_pairs).__name__)
+    raw_pairs = value[1] if len(value) > 1 else None
+    pair_sequence = sequence_or_none(raw_pairs)
+    if pair_sequence is None:
+        never(
+            "multiset payload must be a sequence",
+            payload_type=type(raw_pairs).__name__,
+        )
+
     counts: dict[str, tuple[JSONValue, int]] = {}
-    for raw in raw_pairs:
+    for raw in pair_sequence:
         check_deadline()
-        if not isinstance(raw, Sequence) or len(raw) != 2:
+        pair = sequence_or_none(raw)
+        if pair is None or len(pair) != 2:
             never("multiset pair must contain [value, count]", pair=raw)
-        pair_value = canon(raw[0])
+        pair_value = canon(pair[0])
         try:
-            pair_count = int(raw[1])
+            pair_count = int(pair[1])
         except (TypeError, ValueError):
-            never("multiset count must be an integer", count=raw[1])
+            never("multiset count must be an integer", count=pair[1])
         if pair_count <= 0:
             never("multiset count must be positive", count=pair_count)
         encoded = _encode_json(pair_value)

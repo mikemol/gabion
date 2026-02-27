@@ -78,6 +78,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis import aspf_execution_fibration, aspf_resume_state
 from gabion.analysis.aspf import Forest, NodeId, structural_key_atom
 from gabion.analysis import ambiguity_delta
 from gabion.analysis import ambiguity_state
@@ -179,18 +180,8 @@ _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 _ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR = 1
 _ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR = 5
-_ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
-_ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION = 1
-_ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES = 64_000
-_ANALYSIS_RESUME_CHUNK_DIR_SUFFIX = ".chunks"
 _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
-_DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
-    "artifacts/audit_reports/dataflow_resume_checkpoint.json"
-)
-_DEFAULT_CHECKPOINT_INTRO_TIMELINE = Path(
-    "artifacts/audit_reports/dataflow_checkpoint_intro_timeline.md"
-)
 _DEFAULT_PHASE_TIMELINE_MD = Path(
     "artifacts/audit_reports/dataflow_phase_timeline.md"
 )
@@ -200,10 +191,6 @@ _DEFAULT_PHASE_TIMELINE_JSONL = Path(
 _REPORT_SECTION_JOURNAL_FORMAT_VERSION = 1
 _DEFAULT_REPORT_SECTION_JOURNAL = Path(
     "artifacts/audit_reports/dataflow_report_sections.json"
-)
-_REPORT_PHASE_CHECKPOINT_FORMAT_VERSION = 1
-_DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
-    "artifacts/audit_reports/dataflow_report_phase_checkpoint.json"
 )
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = 1_000_000_000
@@ -242,8 +229,12 @@ def _analysis_resume_cache_verdict(
         "checkpoint_invalid_payload",
         "checkpoint_manifest_missing",
         "checkpoint_missing_collection_resume",
+        "aspf_state_manifest_mismatch",
+        "aspf_state_missing_manifest_digest",
+        "aspf_state_missing_current_manifest_digest",
+        "aspf_state_missing_collection_resume",
     }
-    if status == "checkpoint_loaded":
+    if status in {"checkpoint_loaded", "aspf_state_loaded"}:
         if reused_files > 0:
             return "hit"
         return "miss"
@@ -251,9 +242,7 @@ def _analysis_resume_cache_verdict(
         if compatibility_status in invalidation_statuses:
             return "invalidated"
         return "seeded"
-    if compatibility_status in invalidation_statuses:
-        return "invalidated"
-    return "miss"
+    return "invalidated" if compatibility_status in invalidation_statuses else "miss"
 
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
@@ -267,19 +256,22 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
 @dataclass(frozen=True)
 class ExecuteCommandDeps:
     analyze_paths_fn: Callable[..., AnalysisResult]
-    load_analysis_resume_checkpoint_manifest_fn: Callable[..., tuple[JSONObject | None, JSONObject] | None]
-    write_analysis_resume_checkpoint_fn: Callable[..., None]
-    load_analysis_resume_checkpoint_fn: Callable[..., JSONObject | None]
+    load_aspf_resume_state_fn: Callable[..., JSONObject | None]
     analysis_input_manifest_fn: Callable[..., JSONObject]
     analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
     build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
     collection_semantic_progress_fn: Callable[..., JSONObject]
-    load_report_phase_checkpoint_fn: Callable[..., JSONObject]
     project_report_sections_fn: Callable[..., dict[str, list[str]]]
     report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
     collection_checkpoint_flush_due_fn: Callable[..., bool]
     write_bootstrap_incremental_artifacts_fn: Callable[..., None]
     load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
+    start_trace_fn: Callable[..., object]
+    record_1cell_fn: Callable[..., object]
+    record_2cell_witness_fn: Callable[..., object]
+    record_cofibration_fn: Callable[..., object]
+    merge_imported_trace_fn: Callable[..., object]
+    finalize_trace_fn: Callable[..., object]
 
     def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
         return replace(self, **overrides)
@@ -367,26 +359,6 @@ def _write_text_profiled(
     )
 
 
-def _resolve_analysis_resume_checkpoint_path(
-    value: object,
-    *,
-    root: Path,
-) -> Path | None:
-    if value is False:
-        return None
-    if value is None or value is True:
-        return root / _DEFAULT_ANALYSIS_RESUME_CHECKPOINT
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        path = Path(text)
-        if path.is_absolute():
-            return path
-        return root / path
-    never("invalid analysis resume checkpoint payload", value_type=type(value).__name__)
-
-
 def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
     return {
         "exclude_dirs": sort_once(
@@ -404,261 +376,6 @@ def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
             source="_analysis_witness_config_payload.transparent_decorators",
         ),
     }
-
-
-def _analysis_resume_checkpoint_chunks_dir(path: Path) -> Path:
-    return path.with_name(f"{path.name}{_ANALYSIS_RESUME_CHUNK_DIR_SUFFIX}")
-
-
-def _analysis_resume_state_chunk_name(path_key: str) -> str:
-    return f"{hashlib.sha1(path_key.encode('utf-8')).hexdigest()}.json"
-
-
-def _analysis_resume_named_chunk_name(label: str) -> str:
-    return f"{hashlib.sha1(label.encode('utf-8')).hexdigest()}.json"
-
-
-def _externalize_collection_resume_states(
-    *,
-    path: Path,
-    collection_resume: JSONObject,
-) -> JSONObject:
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_in_progress, Mapping) and not isinstance(
-        raw_analysis_index_resume,
-        Mapping,
-    ):
-        return {str(key): collection_resume[key] for key in collection_resume}
-    if not isinstance(raw_in_progress, Mapping):
-        raw_in_progress = {}
-    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
-    chunks_dir.mkdir(parents=True, exist_ok=True)
-    used_chunk_names: set[str] = set()
-    in_progress_payload: JSONObject = {}
-    previous_path: str | None = None
-    for raw_path, raw_state in raw_in_progress.items():
-        check_deadline()
-        if not isinstance(raw_path, str):
-            continue
-        if previous_path is not None and previous_path > raw_path:
-            never(
-                "in_progress_scan_by_path path order regression",
-                previous_path=previous_path,
-                current_path=raw_path,
-            )
-        previous_path = raw_path
-        if not isinstance(raw_state, Mapping):
-            in_progress_payload[raw_path] = cast(JSONValue, raw_state)
-            continue
-        state_payload: JSONObject = {str(key): raw_state[key] for key in raw_state}
-        state_text = _canonical_json_text(state_payload)
-        if len(state_text.encode("utf-8")) <= _ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES:
-            in_progress_payload[raw_path] = state_payload
-            continue
-        chunk_name = _analysis_resume_state_chunk_name(raw_path)
-        chunk_path = chunks_dir / chunk_name
-        chunk_payload: JSONObject = {
-            "format_version": _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-            "path": raw_path,
-            "state": state_payload,
-        }
-        _write_text_profiled(
-            chunk_path,
-            _canonical_json_text(chunk_payload) + "\n",
-            io_name="analysis_resume.chunk_write",
-        )
-        used_chunk_names.add(chunk_name)
-        summary: JSONObject = {
-            "phase": (
-                state_payload.get("phase")
-                if isinstance(state_payload.get("phase"), str)
-                else "function_scan"
-            ),
-            "state_ref": chunk_name,
-        }
-        raw_processed = state_payload.get("processed_functions")
-        if isinstance(raw_processed, Sequence):
-            processed_functions = {
-                entry for entry in raw_processed if isinstance(entry, str)
-            }
-            summary["processed_functions_count"] = len(processed_functions)
-            summary["processed_functions_digest"] = hashlib.sha1(
-                _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:480')).encode("utf-8")
-            ).hexdigest()
-        else:
-            raw_processed_digest = state_payload.get("processed_functions_digest")
-            if isinstance(raw_processed_digest, str) and raw_processed_digest:
-                summary["processed_functions_digest"] = raw_processed_digest
-        raw_fn_names = state_payload.get("fn_names")
-        if isinstance(raw_fn_names, Mapping):
-            summary["function_count"] = sum(
-                1 for key in raw_fn_names if isinstance(key, str)
-            )
-        in_progress_payload[raw_path] = summary
-    analysis_index_resume_payload: JSONValue | None = None
-    if isinstance(raw_analysis_index_resume, Mapping):
-        state_payload: JSONObject = {
-            str(key): raw_analysis_index_resume[key] for key in raw_analysis_index_resume
-        }
-        state_text = _canonical_json_text(state_payload)
-        if len(state_text.encode("utf-8")) <= _ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES:
-            analysis_index_resume_payload = state_payload
-        else:
-            chunk_name = _analysis_resume_named_chunk_name("analysis_index_resume")
-            chunk_path = chunks_dir / chunk_name
-            chunk_payload: JSONObject = {
-                "format_version": _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-                "path": "analysis_index_resume",
-                "state": state_payload,
-            }
-            _write_text_profiled(
-                chunk_path,
-                _canonical_json_text(chunk_payload) + "\n",
-                io_name="analysis_resume.chunk_write",
-            )
-            used_chunk_names.add(chunk_name)
-            summary: JSONObject = {
-                "phase": (
-                    state_payload.get("phase")
-                    if isinstance(state_payload.get("phase"), str)
-                    else "analysis_index_hydration"
-                ),
-                "state_ref": chunk_name,
-            }
-            hydrated_paths = state_payload.get("hydrated_paths")
-            if isinstance(hydrated_paths, Sequence):
-                summary["hydrated_paths_count"] = sum(
-                    1 for entry in hydrated_paths if isinstance(entry, str)
-                )
-            function_count = state_payload.get("function_count")
-            if isinstance(function_count, int):
-                summary["function_count"] = function_count
-            class_count = state_payload.get("class_count")
-            if isinstance(class_count, int):
-                summary["class_count"] = class_count
-            analysis_index_resume_payload = summary
-    for stale in chunks_dir.glob("*.json"):
-        check_deadline()
-        if stale.name in used_chunk_names:
-            continue
-        try:
-            stale.unlink()
-        except OSError:
-            continue
-    if not used_chunk_names:
-        try:
-            chunks_dir.rmdir()
-        except OSError:
-            pass
-    payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
-    payload["in_progress_scan_by_path"] = in_progress_payload
-    if analysis_index_resume_payload is not None:
-        payload["analysis_index_resume"] = analysis_index_resume_payload
-    return payload
-
-
-def _inflate_collection_resume_states(
-    *,
-    path: Path,
-    collection_resume: JSONObject,
-) -> JSONObject:
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_in_progress, Mapping) and not isinstance(
-        raw_analysis_index_resume,
-        Mapping,
-    ):
-        return {str(key): collection_resume[key] for key in collection_resume}
-    if not isinstance(raw_in_progress, Mapping):
-        raw_in_progress = {}
-    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
-    in_progress_payload: JSONObject = {}
-    previous_path: str | None = None
-    for raw_path, raw_state in raw_in_progress.items():
-        check_deadline()
-        if not isinstance(raw_path, str):
-            continue
-        if previous_path is not None and previous_path > raw_path:
-            never(
-                "in_progress_scan_by_path path order regression",
-                previous_path=previous_path,
-                current_path=raw_path,
-            )
-        previous_path = raw_path
-        if not isinstance(raw_state, Mapping):
-            in_progress_payload[raw_path] = cast(JSONValue, raw_state)
-            continue
-        state_ref = raw_state.get("state_ref")
-        if isinstance(state_ref, str) and state_ref:
-            chunk_path = chunks_dir / state_ref
-            try:
-                chunk_data = json.loads(
-                    _read_text_profiled(
-                        chunk_path,
-                        io_name="analysis_resume.chunk_read",
-                    )
-                )
-            except (OSError, UnicodeError, json.JSONDecodeError):
-                in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
-                continue
-            if (
-                isinstance(chunk_data, Mapping)
-                and chunk_data.get("format_version")
-                == _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION
-                and chunk_data.get("path") == raw_path
-            ):
-                state_payload = chunk_data.get("state")
-                if isinstance(state_payload, Mapping):
-                    in_progress_payload[raw_path] = {
-                        str(key): state_payload[key] for key in state_payload
-                    }
-                    continue
-        in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
-    analysis_index_resume_payload: JSONValue | None = None
-    if isinstance(raw_analysis_index_resume, Mapping):
-        state_ref = raw_analysis_index_resume.get("state_ref")
-        if isinstance(state_ref, str) and state_ref:
-            chunk_path = chunks_dir / state_ref
-            try:
-                chunk_data = json.loads(
-                    _read_text_profiled(
-                        chunk_path,
-                        io_name="analysis_resume.chunk_read",
-                    )
-                )
-            except (OSError, UnicodeError, json.JSONDecodeError):
-                analysis_index_resume_payload = {
-                    str(key): raw_analysis_index_resume[key]
-                    for key in raw_analysis_index_resume
-                }
-            else:
-                if (
-                    isinstance(chunk_data, Mapping)
-                    and chunk_data.get("format_version")
-                    == _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION
-                    and chunk_data.get("path") == "analysis_index_resume"
-                ):
-                    state_payload = chunk_data.get("state")
-                    if isinstance(state_payload, Mapping):
-                        analysis_index_resume_payload = {
-                            str(key): state_payload[key] for key in state_payload
-                        }
-                if analysis_index_resume_payload is None:
-                    analysis_index_resume_payload = {
-                        str(key): raw_analysis_index_resume[key]
-                        for key in raw_analysis_index_resume
-                    }
-        else:
-            analysis_index_resume_payload = {
-                str(key): raw_analysis_index_resume[key]
-                for key in raw_analysis_index_resume
-            }
-    payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
-    payload["in_progress_scan_by_path"] = in_progress_payload
-    if analysis_index_resume_payload is not None:
-        payload["analysis_index_resume"] = analysis_index_resume_payload
-    return payload
 
 
 def _analysis_input_manifest(
@@ -949,168 +666,33 @@ def _canonical_json_text(payload: object) -> str:
     return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
 
-def _load_analysis_resume_checkpoint(
+
+
+def _load_aspf_resume_state(
     *,
-    path: Path,
-    input_witness: JSONObject,
+    import_state_paths: Sequence[Path],
 ) -> JSONObject | None:
-    if not path.exists():
-        return None
-    try:
-        raw_payload = json.loads(
-            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
+    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
+        state_paths=import_state_paths
+    )
+    latest_manifest_digest: str | None = None
+    latest_resume_source: str | None = None
+    for path in import_state_paths:
+        raw_payload = cast(
+            Mapping[str, object],
+            json.loads(path.read_text(encoding="utf-8")),
         )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(raw_payload, dict):
-        return None
-    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
-        return None
-    expected_digest = input_witness.get("witness_digest")
-    if isinstance(expected_digest, str):
-        observed_digest = raw_payload.get("input_witness_digest")
-        if isinstance(observed_digest, str) and observed_digest != expected_digest:
-            return None
-    witness = raw_payload.get("input_witness")
-    if not isinstance(witness, dict) or witness != input_witness:
-        return None
-    collection_resume = raw_payload.get("collection_resume")
-    if not isinstance(collection_resume, dict):
-        return None
-    return _inflate_collection_resume_states(
-        path=path,
-        collection_resume=cast(JSONObject, collection_resume),
-    )
-
-
-def _load_analysis_resume_checkpoint_manifest(
-    *,
-    path: Path,
-    manifest_digest: str,
-) -> tuple[JSONObject | None, JSONObject] | None:
-    if not path.exists():
-        return None
-    try:
-        raw_payload = json.loads(
-            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(raw_payload, dict):
-        return None
-    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
-        return None
-    observed_manifest_digest = raw_payload.get("input_manifest_digest")
-    if not isinstance(observed_manifest_digest, str):
-        witness = raw_payload.get("input_witness")
-        if isinstance(witness, dict):
-            observed_manifest_digest = _analysis_manifest_digest_from_witness(witness)
-    if not isinstance(observed_manifest_digest, str):
-        return None
-    if observed_manifest_digest != manifest_digest:
-        return None
-    collection_resume = raw_payload.get("collection_resume")
-    if not isinstance(collection_resume, dict):
-        return None
-    inflated_collection_resume = _inflate_collection_resume_states(
-        path=path,
-        collection_resume=cast(JSONObject, collection_resume),
-    )
-    witness = raw_payload.get("input_witness")
-    if isinstance(witness, dict):
-        return cast(JSONObject, witness), inflated_collection_resume
-    return None, inflated_collection_resume
-
-
-def _analysis_resume_checkpoint_compatibility(
-    *,
-    path: Path,
-    manifest_digest: str,
-) -> str:
-    """Return a stable reason code describing checkpoint compatibility."""
-    if not path.exists():
-        return "checkpoint_missing"
-    try:
-        raw_payload = json.loads(
-            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return "checkpoint_unreadable"
-    if not isinstance(raw_payload, dict):
-        return "checkpoint_invalid_payload"
-    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
-        return "checkpoint_format_mismatch"
-    observed_manifest_digest = raw_payload.get("input_manifest_digest")
-    if not isinstance(observed_manifest_digest, str):
-        witness = raw_payload.get("input_witness")
-        if isinstance(witness, dict):
-            observed_manifest_digest = _analysis_manifest_digest_from_witness(witness)
-    if not isinstance(observed_manifest_digest, str):
-        return "checkpoint_manifest_missing"
-    if observed_manifest_digest != manifest_digest:
-        return "checkpoint_manifest_mismatch"
-    collection_resume = raw_payload.get("collection_resume")
-    if not isinstance(collection_resume, dict):
-        return "checkpoint_missing_collection_resume"
-    return "checkpoint_compatible"
-
-
-def _write_analysis_resume_checkpoint(
-    *,
-    path: Path,
-    input_witness: JSONObject | None,
-    input_manifest_digest: str | None,
-    collection_resume: JSONObject,
-) -> None:
-    witness_digest = (
-        input_witness.get("witness_digest") if input_witness is not None else None
-    )
-    manifest_digest = input_manifest_digest
-    if manifest_digest is None and input_witness is not None:
-        manifest_digest = _analysis_manifest_digest_from_witness(input_witness)
-    if manifest_digest is None:
-        never("analysis resume checkpoint missing input manifest digest")
-    externalized_collection_resume = _externalize_collection_resume_states(
-        path=path,
-        collection_resume=collection_resume,
-    )
+        manifest_digest = str(raw_payload.get("analysis_manifest_digest", "") or "")
+        latest_manifest_digest = manifest_digest or latest_manifest_digest
+        resume_source = str(raw_payload.get("resume_source", "") or "")
+        latest_resume_source = resume_source or latest_resume_source
     payload: JSONObject = {
-        "format_version": _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-        "input_witness": input_witness,
-        "input_witness_digest": (
-            witness_digest if isinstance(witness_digest, str) else None
-        ),
-        "input_manifest_digest": manifest_digest,
-        "collection_resume": externalized_collection_resume,
+        "resume_projection": projection if projection is not None else {},
+        "delta_records": [dict(record) for record in records],
+        "analysis_manifest_digest": latest_manifest_digest,
+        "resume_source": latest_resume_source,
     }
-    analysis_index_summary = _analysis_index_resume_summary_payload(collection_resume)
-    if analysis_index_summary is not None:
-        payload["analysis_index_hydration"] = analysis_index_summary
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        path,
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        io_name="analysis_resume.checkpoint_write",
-    )
-
-
-def _clear_analysis_resume_checkpoint(path: Path) -> None:
-    try:
-        path.unlink()
-    except OSError:
-        pass
-    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
-    if chunks_dir.exists():
-        for chunk_path in chunks_dir.glob("*.json"):
-            check_deadline()
-            try:
-                chunk_path.unlink()
-            except OSError:
-                continue
-        try:
-            chunks_dir.rmdir()
-        except OSError:
-            pass
+    return payload
 
 
 def _analysis_resume_progress(
@@ -1498,9 +1080,6 @@ def _analysis_index_resume_summary(
 def _analysis_index_resume_summary_payload(
     collection_resume: JSONObject,
 ) -> JSONObject | None:
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return None
     (
         hydrated_count,
         hydrated_digest,
@@ -1749,32 +1328,19 @@ def _resolve_report_section_journal_path(
     return resolved_report.with_name(f"{resolved_report.stem}_sections.json")
 
 
-def _resolve_report_phase_checkpoint_path(
-    *,
-    root: Path,
-    report_path: str | None,
-) -> Path | None:
-    resolved_report = _resolve_report_output_path(root=root, report_path=report_path)
-    if resolved_report is None:
-        return None
-    default_checkpoint = root / _DEFAULT_REPORT_PHASE_CHECKPOINT
-    if resolved_report.name == "dataflow_report.md":
-        return default_checkpoint
-    return resolved_report.with_name(f"{resolved_report.stem}_phase_checkpoint.json")
-
-
 def _report_witness_digest(
     *,
     input_witness: Mapping[str, JSONValue] | None,
     manifest_digest: str | None,
 ) -> str | None:
-    if input_witness is not None:
-        digest = input_witness.get("witness_digest")
-        if isinstance(digest, str) and digest:
-            return digest
-    if isinstance(manifest_digest, str) and manifest_digest:
-        return manifest_digest
-    return None
+    digest = input_witness.get("witness_digest") if input_witness is not None else None
+    digest_text = digest if isinstance(digest, str) and digest else None
+    manifest_text = (
+        manifest_digest
+        if isinstance(manifest_digest, str) and manifest_digest
+        else None
+    )
+    return digest_text or manifest_text
 
 
 def _coerce_section_lines(value: object) -> list[str]:
@@ -1854,10 +1420,7 @@ def _write_report_section_journal(
             "status": status,
             "lines": sections.get(section_id, []),
         }
-        if status != "resolved":
-            reason = pending_reasons.get(section_id)
-            if reason:
-                section_entry["reason"] = reason
+        section_entry["reason"] = pending_reasons.get(section_id)
         sections_payload[section_id] = section_entry
         rows_payload.append(
             {
@@ -1881,73 +1444,6 @@ def _write_report_section_journal(
     )
 
 
-def _load_report_phase_checkpoint(
-    *,
-    path: Path | None,
-    witness_digest: str | None,
-) -> JSONObject:
-    check_deadline()
-    if path is None or not path.exists():
-        return {}
-    try:
-        payload = json.loads(
-            _read_text_profiled(path, io_name="report_phase_checkpoint.read")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    if payload.get("format_version") != _REPORT_PHASE_CHECKPOINT_FORMAT_VERSION:
-        return {}
-    expected_digest = payload.get("witness_digest")
-    if isinstance(expected_digest, str):
-        if not isinstance(witness_digest, str) or witness_digest != expected_digest:
-            return {}
-    raw_phases = payload.get("phases")
-    if not isinstance(raw_phases, Mapping):
-        return {}
-    phases: JSONObject = {}
-    for phase_name, raw_entry in raw_phases.items():
-        check_deadline()
-        if not isinstance(phase_name, str) or not isinstance(raw_entry, Mapping):
-            continue
-        phases[phase_name] = {str(key): raw_entry[key] for key in raw_entry}
-    return phases
-
-
-def _write_report_phase_checkpoint(
-    *,
-    path: Path | None,
-    witness_digest: str | None,
-    phases: Mapping[str, JSONValue],
-) -> None:
-    get_deadline()
-    if _deadline_tick_budget_allows_check(get_deadline_clock()):
-        check_deadline(allow_frame_fallback=False)
-    if path is None:
-        return
-    phases_payload: JSONObject = {}
-    for phase_name, raw_entry in phases.items():
-        if _deadline_tick_budget_allows_check(get_deadline_clock()):
-            check_deadline(allow_frame_fallback=False)
-        else:
-            get_deadline()
-        if not isinstance(phase_name, str) or not isinstance(raw_entry, Mapping):
-            continue
-        phases_payload[phase_name] = {str(key): raw_entry[key] for key in raw_entry}
-    payload: JSONObject = {
-        "format_version": _REPORT_PHASE_CHECKPOINT_FORMAT_VERSION,
-        "witness_digest": witness_digest,
-        "phases": phases_payload,
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        path,
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        io_name="report_phase_checkpoint.write",
-    )
-
-
 def _write_bootstrap_incremental_artifacts(
     *,
     report_output_path: Path | None,
@@ -1959,6 +1455,7 @@ def _write_bootstrap_incremental_artifacts(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     phase_checkpoint_state: JSONObject,
 ) -> None:
+    _ = report_phase_checkpoint_path
     get_deadline()
     if _deadline_tick_budget_allows_check(get_deadline_clock()):
         check_deadline(allow_frame_fallback=False)
@@ -2096,11 +1593,6 @@ def _write_bootstrap_incremental_artifacts(
         "remaining_files": 0,
         "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
     }
-    _write_report_phase_checkpoint(
-        path=report_phase_checkpoint_path,
-        witness_digest=witness_digest,
-        phases=phase_checkpoint_state,
-    )
 
 
 def _render_incremental_report(
@@ -2211,19 +1703,6 @@ def _render_incremental_report(
     return "\n".join(lines).rstrip() + "\n", pending_reasons
 
 
-def _checkpoint_intro_timeline_enabled(payload: Mapping[str, JSONValue]) -> bool:
-    raw_enabled = payload.get("emit_checkpoint_intro_timeline")
-    if raw_enabled is not None:
-        return _truthy_flag(raw_enabled)
-    github_actions = os.getenv("GITHUB_ACTIONS", "")
-    ci = os.getenv("CI", "")
-    return _truthy_flag(github_actions) or _truthy_flag(ci)
-
-
-def _checkpoint_intro_timeline_path(*, root: Path) -> Path:
-    return root / _DEFAULT_CHECKPOINT_INTRO_TIMELINE
-
-
 def _phase_timeline_md_path(*, root: Path) -> Path:
     return root / _DEFAULT_PHASE_TIMELINE_MD
 
@@ -2258,9 +1737,7 @@ def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
 
 
 def _markdown_table_cell(value: object) -> str:
-    if value is None:
-        return ""
-    return str(value).replace("\n", " ").replace("|", "\\|")
+    return ("" if value is None else str(value)).replace("\n", " ").replace("|", "\\|")
 
 
 def _phase_progress_dimensions_summary(
@@ -2324,37 +1801,6 @@ def _phase_progress_primary_summary(
     return primary_unit, primary_done, primary_total
 
 
-def _resume_checkpoint_descriptor_from_progress_value(
-    progress_value: Mapping[str, JSONValue],
-) -> str:
-    raw_resume = progress_value.get("resume_checkpoint")
-    if not isinstance(raw_resume, Mapping):
-        return ""
-    checkpoint_path = str(raw_resume.get("checkpoint_path", "") or "")
-    status = str(raw_resume.get("status", "") or "")
-    raw_reused = raw_resume.get("reused_files")
-    raw_total = raw_resume.get("total_files")
-    reused = (
-        max(int(raw_reused), 0)
-        if isinstance(raw_reused, int) and not isinstance(raw_reused, bool)
-        else None
-    )
-    total = (
-        max(int(raw_total), 0)
-        if isinstance(raw_total, int) and not isinstance(raw_total, bool)
-        else None
-    )
-    if reused is None or total is None:
-        return (
-            f"path={checkpoint_path or '<none>'} "
-            f"status={status or 'unknown'} reused_files=unknown"
-        )
-    return (
-        f"path={checkpoint_path or '<none>'} "
-        f"status={status or 'unknown'} reused_files={reused}/{total}"
-    )
-
-
 def _append_phase_timeline_event(
     *,
     markdown_path: Path,
@@ -2397,7 +1843,6 @@ def _append_phase_timeline_event(
         and not isinstance(total_files, bool)
     ):
         files = f"{completed_files}/{total_files} rem={remaining_files}"
-    resume_checkpoint = _resume_checkpoint_descriptor_from_progress_value(progress_value)
     raw_stale_for_s = progress_value.get("stale_for_s")
     stale_for_s = (
         f"{float(raw_stale_for_s):.1f}"
@@ -2419,7 +1864,6 @@ def _append_phase_timeline_event(
         progress_marker,
         primary,
         files,
-        resume_checkpoint,
         stale_for_s,
         dimensions_summary,
     ]
@@ -2451,7 +1895,6 @@ def _phase_timeline_header_columns() -> list[str]:
         "progress_marker",
         "primary",
         "files",
-        "resume_checkpoint",
         "stale_for_s",
         "dimensions",
     ]
@@ -2464,122 +1907,11 @@ def _phase_timeline_header_block() -> str:
     return header_line + "\n" + separator_line
 
 
-def _append_checkpoint_intro_timeline_row(
-    *,
-    path: Path,
-    collection_resume: Mapping[str, JSONValue],
-    total_files: int,
-    checkpoint_path: Path | None,
-    checkpoint_status: str | None,
-    checkpoint_reused_files: int,
-    checkpoint_total_files: int | None = None,
-    timestamp_utc: str | None = None,
-) -> tuple[str | None, str]:
-    progress = _analysis_resume_progress(
-        collection_resume=collection_resume,
-        total_files=total_files,
-    )
-    semantic_progress = collection_resume.get("semantic_progress")
-    semantic_witness_digest: str | None = None
-    new_processed_functions: int | None = None
-    regressed_processed_functions: int | None = None
-    completed_files_delta: int | None = None
-    substantive_progress: bool | None = None
-    if isinstance(semantic_progress, Mapping):
-        raw_witness_digest = semantic_progress.get("current_witness_digest")
-        if isinstance(raw_witness_digest, str) and raw_witness_digest:
-            semantic_witness_digest = raw_witness_digest
-        raw_new = semantic_progress.get("new_processed_functions_count")
-        if not isinstance(raw_new, bool) and isinstance(raw_new, int):
-            new_processed_functions = raw_new
-        raw_regressed = semantic_progress.get("regressed_processed_functions_count")
-        if not isinstance(raw_regressed, bool) and isinstance(raw_regressed, int):
-            regressed_processed_functions = raw_regressed
-        raw_delta = semantic_progress.get("completed_files_delta")
-        if not isinstance(raw_delta, bool) and isinstance(raw_delta, int):
-            completed_files_delta = raw_delta
-        raw_substantive = semantic_progress.get("substantive_progress")
-        if isinstance(raw_substantive, bool):
-            substantive_progress = raw_substantive
-    analysis_index_summary = _analysis_index_resume_summary(collection_resume)
-    hydrated_paths_count: int | None = None
-    hydrated_function_count: int | None = None
-    hydrated_class_count: int | None = None
-    if isinstance(analysis_index_summary, Mapping):
-        raw_hydrated = analysis_index_summary.get("hydrated_paths_count")
-        if not isinstance(raw_hydrated, bool) and isinstance(raw_hydrated, int):
-            hydrated_paths_count = raw_hydrated
-        raw_fn_count = analysis_index_summary.get("function_count")
-        if not isinstance(raw_fn_count, bool) and isinstance(raw_fn_count, int):
-            hydrated_function_count = raw_fn_count
-        raw_class_count = analysis_index_summary.get("class_count")
-        if not isinstance(raw_class_count, bool) and isinstance(raw_class_count, int):
-            hydrated_class_count = raw_class_count
-    checkpoint_total = checkpoint_total_files
-    if checkpoint_total is None:
-        checkpoint_total = progress["total_files"]
-    if timestamp_utc is None:
-        timestamp_utc = datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
-            "+00:00", "Z"
-        )
-    checkpoint_descriptor = (
-        f"path={checkpoint_path or '<none>'} "
-        f"status={checkpoint_status or 'unknown'} "
-        f"reused_files={checkpoint_reused_files}/{checkpoint_total}"
-    )
-    header = [
-        "ts_utc",
-        "completed_files",
-        "in_progress_files",
-        "remaining_files",
-        "total_files",
-        "resume_checkpoint",
-        "semantic_witness_digest",
-        "new_processed_functions",
-        "regressed_processed_functions",
-        "completed_files_delta",
-        "substantive_progress",
-        "hydrated_paths_count",
-        "hydrated_function_count",
-        "hydrated_class_count",
-    ]
-    row = [
-        timestamp_utc,
-        progress["completed_files"],
-        progress["in_progress_files"],
-        progress["remaining_files"],
-        progress["total_files"],
-        checkpoint_descriptor,
-        semantic_witness_digest,
-        new_processed_functions,
-        regressed_processed_functions,
-        completed_files_delta,
-        substantive_progress,
-        hydrated_paths_count,
-        hydrated_function_count,
-        hydrated_class_count,
-    ]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
-    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
-    row_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |"
-    header_block: str | None = None
-    if not path.exists():
-        with path.open("w", encoding="utf-8") as handle:
-            handle.write("# Checkpoint Intro Timeline\n\n")
-            handle.write(header_line + "\n")
-            handle.write(separator_line + "\n")
-        header_block = header_line + "\n" + separator_line
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(row_line + "\n")
-    return header_block, row_line
-
-
 def _collection_progress_intro_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
     total_files: int,
-    resume_checkpoint_intro: Mapping[str, JSONValue] | None = None,
+    resume_state_intro: Mapping[str, JSONValue] | None = None,
 ) -> list[str]:
     check_deadline()
     progress = _analysis_resume_progress(
@@ -2593,19 +1925,23 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    if isinstance(resume_checkpoint_intro, Mapping):
-        checkpoint_path = str(resume_checkpoint_intro.get("checkpoint_path", "") or "")
-        status = str(resume_checkpoint_intro.get("status", "") or "")
-        reused_files = int(resume_checkpoint_intro.get("reused_files", 0) or 0)
-        total_resume_files = int(
-            resume_checkpoint_intro.get("total_files", progress["total_files"]) or 0
-        )
-        lines.append(
-            "- `resume_checkpoint`: "
-            f"`path={checkpoint_path or '<none>'} "
-            f"status={status or 'unknown'} "
-            f"reused_files={reused_files}/{total_resume_files}`"
-        )
+    resume_state = (
+        cast(Mapping[str, JSONValue], resume_state_intro)
+        if isinstance(resume_state_intro, Mapping)
+        else {}
+    )
+    state_path = str(resume_state.get("state_path", "") or "")
+    status = str(resume_state.get("status", "") or "")
+    reused_files = int(resume_state.get("reused_files", 0) or 0)
+    total_resume_files = int(
+        resume_state.get("total_files", progress["total_files"]) or 0
+    )
+    lines.append(
+        "- `resume_state`: "
+        f"`path={state_path or '<none>'} "
+        f"status={status or 'unknown'} "
+        f"reused_files={reused_files}/{total_resume_files}`"
+    )
     semantic_progress = collection_resume.get("semantic_progress")
     if isinstance(semantic_progress, Mapping):
         semantic_witness_digest = semantic_progress.get("current_witness_digest")
@@ -2770,7 +2106,7 @@ def _incremental_progress_obligations(
     *,
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
-    resume_checkpoint_path: Path | None,
+    resume_payload_available: bool,
     partial_report_written: bool,
     report_requested: bool,
     projection_rows: Sequence[Mapping[str, JSONValue]],
@@ -2853,19 +2189,17 @@ def _incremental_progress_obligations(
             }
         )
 
-    checkpoint_ok = True
+    resume_payload_ok = True
     if resume_supported and is_timeout_state:
-        checkpoint_ok = bool(resume_checkpoint_path and resume_checkpoint_path.exists())
+        resume_payload_ok = resume_payload_available
     obligations.append(
         {
-            "status": "SATISFIED" if checkpoint_ok else "VIOLATION",
+            "status": "SATISFIED" if resume_payload_ok else "VIOLATION",
             "contract": "resume_contract",
-            "kind": "checkpoint_present_when_resumable",
-            "detail": (
-                str(resume_checkpoint_path)
-                if resume_checkpoint_path is not None
-                else "checkpoint path missing"
-            ),
+            "kind": "resume_payload_present_when_resumable",
+            "detail": "resume payload available"
+            if resume_payload_ok
+            else "resume payload missing",
         }
     )
     stale_input_detected = any(
@@ -3085,6 +2419,11 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     lint_lines = [str(line) for line in lint_lines_raw] if isinstance(lint_lines_raw, list) else []
     lint_entries_raw = response.get("lint_entries")
     lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else _lint_entries_from_lines(lint_lines)
+    aspf_trace_raw = response.get("aspf_trace")
+    aspf_equivalence_raw = response.get("aspf_equivalence")
+    aspf_opportunities_raw = response.get("aspf_opportunities")
+    aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
+    aspf_state_raw = response.get("aspf_state")
     base = DataflowAuditResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
@@ -3092,6 +2431,19 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
         lint_lines=lint_lines,
         lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
+        aspf_trace=aspf_trace_raw if isinstance(aspf_trace_raw, Mapping) else None,
+        aspf_equivalence=(
+            aspf_equivalence_raw if isinstance(aspf_equivalence_raw, Mapping) else None
+        ),
+        aspf_opportunities=(
+            aspf_opportunities_raw
+            if isinstance(aspf_opportunities_raw, Mapping)
+            else None
+        ),
+        aspf_delta_ledger=(
+            aspf_delta_ledger_raw if isinstance(aspf_delta_ledger_raw, Mapping) else None
+        ),
+        aspf_state=aspf_state_raw if isinstance(aspf_state_raw, Mapping) else None,
         payload={str(key): response[key] for key in response},
     )
     normalized = dict(base.payload)
@@ -3117,6 +2469,16 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     normalized["errors"] = base.errors
     normalized["lint_lines"] = base.lint_lines
     normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    if base.aspf_trace is not None:
+        normalized["aspf_trace"] = base.aspf_trace.model_dump()
+    if base.aspf_equivalence is not None:
+        normalized["aspf_equivalence"] = base.aspf_equivalence.model_dump()
+    if base.aspf_opportunities is not None:
+        normalized["aspf_opportunities"] = base.aspf_opportunities.model_dump()
+    if base.aspf_delta_ledger is not None:
+        normalized["aspf_delta_ledger"] = base.aspf_delta_ledger.model_dump()
+    if base.aspf_state is not None:
+        normalized["aspf_state"] = base.aspf_state.model_dump()
     return boundary_order.canonicalize_boundary_mapping(
         normalized,
         source="server._normalize_dataflow_response",
@@ -3374,27 +2736,25 @@ class DataflowNameFilterBundle:
         defaults: Mapping[str, object],
         decision_section: Mapping[str, object],
     ) -> "DataflowNameFilterBundle":
-        exclude_dirs = _normalize_name_set(payload.get("exclude"))
-        if exclude_dirs is None:
-            exclude_dirs = _normalize_name_set(defaults.get("exclude"))
-        if exclude_dirs is None:
-            exclude_dirs = set()
-
-        ignore_params = _normalize_name_set(payload.get("ignore_params"))
-        if ignore_params is None:
-            ignore_params = _normalize_name_set(defaults.get("ignore_params"))
-        if ignore_params is None:
-            ignore_params = set()
+        exclude_dirs = (
+            _normalize_name_set(payload.get("exclude"))
+            or _normalize_name_set(defaults.get("exclude"))
+            or set()
+        )
+        ignore_params = (
+            _normalize_name_set(payload.get("ignore_params"))
+            or _normalize_name_set(defaults.get("ignore_params"))
+            or set()
+        )
 
         decision_ignore_params = set(ignore_params)
         decision_ignore_params.update(decision_ignore_list(decision_section))
 
-        transparent_payload = payload.get("transparent_decorators")
+        transparent_payload = payload.get(
+            "transparent_decorators",
+            defaults.get("transparent_decorators"),
+        )
         transparent_decorators = _normalize_transparent_decorators(transparent_payload)
-        if transparent_decorators is None and transparent_payload is None:
-            transparent_decorators = _normalize_transparent_decorators(
-                defaults.get("transparent_decorators")
-            )
 
         return cls(
             exclude_dirs=exclude_dirs,
@@ -3574,19 +2934,22 @@ def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
 def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
         analyze_paths_fn=analyze_paths,
-        load_analysis_resume_checkpoint_manifest_fn=_load_analysis_resume_checkpoint_manifest,
-        write_analysis_resume_checkpoint_fn=_write_analysis_resume_checkpoint,
-        load_analysis_resume_checkpoint_fn=_load_analysis_resume_checkpoint,
+        load_aspf_resume_state_fn=_load_aspf_resume_state,
         analysis_input_manifest_fn=_analysis_input_manifest,
         analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
         build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
         collection_semantic_progress_fn=_collection_semantic_progress,
-        load_report_phase_checkpoint_fn=_load_report_phase_checkpoint,
         project_report_sections_fn=project_report_sections,
         report_projection_spec_rows_fn=report_projection_spec_rows,
         collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
         write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
         load_report_section_journal_fn=_load_report_section_journal,
+        start_trace_fn=aspf_execution_fibration.start_execution_trace,
+        record_1cell_fn=aspf_execution_fibration.record_1cell,
+        record_2cell_witness_fn=aspf_execution_fibration.record_2cell_witness,
+        record_cofibration_fn=aspf_execution_fibration.record_cofibration,
+        merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
+        finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
     )
 
 

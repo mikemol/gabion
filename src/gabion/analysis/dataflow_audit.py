@@ -224,6 +224,31 @@ _PARSE_MODULE_ERROR_TYPES = (
     RecursionError,
 )
 
+FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+OptionalIgnoredParams = set[str] | None
+ParamAnnotationMap = dict[str, str | None]
+ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
+OptionalReturnAliasMap = ReturnAliasMap | None
+OptionalClassName = str | None
+Span4 = tuple[int, int, int, int]
+OptionalSpan4 = Span4 | None
+OptionalString = str | None
+OptionalFloat = float | None
+OptionalPath = Path | None
+OptionalStringSet = set[str] | None
+OptionalPrimeRegistry = PrimeRegistry | None
+OptionalTypeConstructorRegistry = TypeConstructorRegistry | None
+OptionalSynthRegistry = SynthRegistry | None
+OptionalJsonObject = JSONObject | None
+OptionalForestSpec = ForestSpec | None
+OptionalDeprecatedExtractionArtifacts = DeprecatedExtractionArtifacts | None
+OptionalFunctionNode = FunctionNode | None
+OptionalJsonObjectList = list[JSONObject] | None
+OptionalAstNode = ast.AST | None
+OptionalAstCall = ast.Call | None
+NodeIdOrNone = NodeId | None
+ParseCacheValue = ast.Module | BaseException
+
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/ambiguity_delta.py": 2,
@@ -339,7 +364,7 @@ class CallArgs:
     star_pos: list[tuple[int, str]]
     star_kw: list[str]
     is_test: bool
-    span: tuple[int, int, int, int] | None = None
+    span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
 
@@ -348,10 +373,10 @@ class CallArgs:
 class InvariantProposition:
     form: str
     terms: tuple[str, ...]
-    scope: str | None = None
-    source: str | None = None
-    invariant_id: str | None = None
-    confidence: float | None = None
+    scope: OptionalString = None
+    source: OptionalString = None
+    invariant_id: OptionalString = None
+    confidence: OptionalFloat = None
     evidence_keys: tuple[str, ...] = ()
 
     def as_dict(self) -> JSONObject:
@@ -378,7 +403,7 @@ def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
     return f"{prefix}:{digest}"
 
 
-def _invariant_confidence(value: float | None) -> float:
+def _invariant_confidence(value: OptionalFloat) -> float:
     if value is None:
         return 1.0
     return max(0.0, min(1.0, float(value)))
@@ -452,7 +477,7 @@ class SymbolTable:
     module_exports: dict[str, set[str]] = field(default_factory=dict)
     module_export_map: dict[str, dict[str, str]] = field(default_factory=dict)
 
-    def resolve(self, current_module: str, name: str) -> str | None:
+    def resolve(self, current_module: str, name: str) -> OptionalString:
         if (current_module, name) in self.imports:
             fqn = self.imports[(current_module, name)]
             if self.external_filter:
@@ -462,7 +487,7 @@ class SymbolTable:
             return fqn
         return f"{current_module}.{name}"
 
-    def resolve_star(self, current_module: str, name: str) -> str | None:
+    def resolve_star(self, current_module: str, name: str) -> OptionalString:
         check_deadline()
         candidates = self.star_imports.get(current_module, set())
         if not candidates:
@@ -473,46 +498,48 @@ class SymbolTable:
         ):
             check_deadline()
             exports = self.module_exports.get(module)
-            if exports is None or name not in exports:
-                continue
-            export_map = self.module_export_map.get(module, {})
-            mapped = export_map.get(name)
-            if mapped:
-                if self.external_filter and mapped:
-                    root = mapped.split(".")[0]
-                    if root not in self.internal_roots:
-                        continue
-                return mapped
-            if self.external_filter and module:
-                root = module.split(".")[0]
-                if root not in self.internal_roots:
+            if exports is not None and name in exports:
+                export_map = self.module_export_map.get(module, {})
+                mapped = export_map.get(name)
+                if mapped:
+                    if self.external_filter:
+                        root = mapped.split(".")[0]
+                        if root in self.internal_roots:
+                            return mapped
+                    else:
+                        return mapped
+                resolved = f"{module}.{name}".strip(".")
+                if not module:
+                    return resolved
+                if self.external_filter:
+                    root = module.split(".")[0]
+                    if root in self.internal_roots:
+                        return resolved
                     continue
-            if module:
-                return f"{module}.{name}"
-            return name
+                return resolved
         return None
 
 
 @dataclass
 class AuditConfig:
-    project_root: Path | None = None
+    project_root: OptionalPath = None
     exclude_dirs: set[str] = field(default_factory=set)
     ignore_params: set[str] = field(default_factory=set)
     decision_ignore_params: set[str] = field(default_factory=set)
     external_filter: bool = True
     strictness: str = "high"
-    transparent_decorators: set[str] | None = None
+    transparent_decorators: OptionalStringSet = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
     decision_require_tiers: bool = False
     never_exceptions: set[str] = field(default_factory=set)
     deadline_roots: set[str] = field(default_factory=set)
-    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_registry: OptionalPrimeRegistry = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
-    constructor_registry: TypeConstructorRegistry | None = None
-    fingerprint_seed_revision: str | None = None
+    constructor_registry: OptionalTypeConstructorRegistry = None
+    fingerprint_seed_revision: OptionalString = None
     fingerprint_synth_min_occurrences: int = 0
     fingerprint_synth_version: str = "synth@1"
-    fingerprint_synth_registry: SynthRegistry | None = None
+    fingerprint_synth_registry: OptionalSynthRegistry = None
     invariant_emitters: tuple[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
@@ -523,20 +550,21 @@ class AuditConfig:
         return bool(self.exclude_dirs & parts)
 
 
-def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.Call | None, bool]:
+def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
     check_deadline()
     child = node
     parent = parents.get(child)
     while parent is not None:
         check_deadline()
-        if isinstance(parent, ast.Call):
-            if child in parent.args:
-                return parent, True
-            for kw in parent.keywords:
+        if type(parent) is ast.Call:
+            call_parent = cast(ast.Call, parent)
+            if child in call_parent.args:
+                return call_parent, True
+            for kw in call_parent.keywords:
                 check_deadline()
                 if child is kw or child is kw.value:
-                    return parent, True
-            return parent, False
+                    return call_parent, True
+            return call_parent, False
         child = parent
         parent = parents.get(child)
     return None, False
@@ -566,7 +594,7 @@ class AnalysisResult:
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
     fingerprint_synth: list[str] = field(default_factory=list)
-    fingerprint_synth_registry: JSONObject | None = None
+    fingerprint_synth_registry: OptionalJsonObject = None
     fingerprint_provenance: list[JSONObject] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
@@ -574,9 +602,9 @@ class AnalysisResult:
     ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
-    forest_spec: ForestSpec | None = None
-    profiling_v1: JSONObject | None = None
-    deprecated_artifacts: DeprecatedExtractionArtifacts | None = None
+    forest_spec: OptionalForestSpec = None
+    profiling_v1: OptionalJsonObject = None
+    deprecated_artifacts: OptionalDeprecatedExtractionArtifacts = None
     deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
 
 
@@ -624,7 +652,7 @@ class ReportCarrier:
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
-    phase_progress_v2: JSONObject | None = None
+    phase_progress_v2: OptionalJsonObject = None
     deprecated_signals: tuple[str, ...] = ()
 
     @classmethod
@@ -685,10 +713,7 @@ class ReportProjectionSpec(Generic[_ReportSectionValue]):
     ]
     render: Callable[[_ReportSectionValue], list[str]]
     violation_extract: Callable[[_ReportSectionValue], list[str]]
-    preview_build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
-        _ReportSectionValue | None,
-    ] | None = None
+    preview_build: object = None
 
 
 def _report_section_identity_render(lines: list[str]) -> list[str]:
@@ -808,7 +833,7 @@ def _make_list_section_preview(
     title: str,
     count_label: str,
     values: Callable[[ReportCarrier], Sequence[str]],
-    sample_label: str | None = None,
+    sample_label = None,
     extra_count_labels: tuple[tuple[str, Callable[[ReportCarrier], int]], ...] = (),
 ) -> Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]]], list[str]]:
     def _preview(
@@ -912,7 +937,7 @@ def _preview_parse_failure_witnesses_section(
     for witness in report.parse_failure_witnesses:
         check_deadline()
         stage = witness.get("stage")
-        if isinstance(stage, str) and stage:
+        if type(stage) is str and stage:
             stage_counts[stage] += 1
             continue
         stage_counts["unknown"] += 1
@@ -1066,10 +1091,7 @@ def _report_section_spec(
     section_id: str,
     phase: ReportProjectionPhase,
     deps: tuple[str, ...] = (),
-    preview_build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
-        list[str] | None,
-    ] | None = None,
+    preview_build = None,
 ) -> ReportProjectionSpec[list[str]]:
     return ReportProjectionSpec[list[str]](
         section_id=section_id,
@@ -1275,9 +1297,10 @@ def _topologically_order_report_projection_specs(
         ordered_ids = tuple(TopologicalSorter(predecessor_graph).static_order())
     except CycleError as exc:
         cycle = exc.args[1] if len(exc.args) > 1 else ()
+        cycle_entries = tuple(sequence_or_none(cycle) or ())
         unresolved = [
             str(item)
-            for item in (cycle if isinstance(cycle, (tuple, list)) else ())
+            for item in cycle_entries
         ]
         never(
             "report projection dependency cycle",
@@ -1311,7 +1334,7 @@ def project_report_sections(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     report: ReportCarrier,
     *,
-    max_phase: ReportProjectionPhase | None = None,
+    max_phase = None,
     include_previews: bool = False,
     preview_only: bool = False,
 ) -> dict[str, list[str]]:
@@ -1323,7 +1346,7 @@ def project_report_sections(
             report=report,
         )
         extracted = extract_report_sections(rendered)
-    max_rank: int | None = None
+    max_rank = None
     if max_phase is not None:
         max_rank = report_projection_phase_rank(max_phase)
 
@@ -1352,7 +1375,7 @@ def project_report_sections(
 class CallAmbiguity:
     kind: str
     caller: FunctionInfo
-    call: CallArgs | None
+    call: "CallArgs | None"
     callee_key: str
     candidates: tuple[FunctionInfo, ...]
     phase: str
@@ -1365,7 +1388,7 @@ def _callee_name(call: ast.Call) -> str:
         return "<call>"
 
 
-def _normalize_callee(name: str, class_name: str | None) -> str:
+def _normalize_callee(name: str, class_name) -> str:
     if not class_name:
         return name
     if name.startswith("self.") or name.startswith("cls."):
@@ -1416,34 +1439,37 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
     )
 
 
-def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) -> list[Path]:
+def resolve_analysis_paths(paths: Iterable[object], *, config: AuditConfig) -> list[Path]:
     check_deadline()
     return _iter_paths([str(path) for path in paths], config)
 
 
-def _collect_functions(tree: ast.AST):
+def _collect_functions(tree: ast.AST) -> list[FunctionNode]:
     check_deadline()
-    funcs = []
+    funcs: list[FunctionNode] = []
     for idx, node in enumerate(ast.walk(tree), start=1):
         if (idx & 63) == 0:
             check_deadline()
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            funcs.append(node)
+        node_type = type(node)
+        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
+            funcs.append(cast(FunctionNode, node))
     return funcs
 
 
-def _invariant_term(expr: ast.AST, params: set[str]) -> str | None:
-    if isinstance(expr, ast.Name) and expr.id in params:
-        return expr.id
-    if (
-        isinstance(expr, ast.Call)
-        and isinstance(expr.func, ast.Name)
-        and expr.func.id == "len"
-        and len(expr.args) == 1
-    ):
-        arg = expr.args[0]
-        if isinstance(arg, ast.Name) and arg.id in params:
-            return f"{arg.id}.length"
+def _invariant_term(expr: ast.AST, params: set[str]):
+    expr_type = type(expr)
+    if expr_type is ast.Name:
+        name_expr = cast(ast.Name, expr)
+        return next(iter(params.intersection({name_expr.id})), None)
+    if expr_type is ast.Call:
+        call_expr = cast(ast.Call, expr)
+        if type(call_expr.func) is ast.Name:
+            func_name = cast(ast.Name, call_expr.func)
+            if func_name.id == "len" and len(call_expr.args) == 1:
+                arg = call_expr.args[0]
+                if type(arg) is ast.Name:
+                    arg_id = cast(ast.Name, arg).id
+                    return next((f"{entry}.length" for entry in params.intersection({arg_id})), None)
     return None
 
 
@@ -1453,23 +1479,24 @@ def _extract_invariant_from_expr(
     *,
     scope: str,
     source: str = "assert",
-) -> InvariantProposition | None:
-    if not isinstance(expr, ast.Compare):
+) -> object:
+    if type(expr) is not ast.Compare:
         return None
-    if len(expr.ops) != 1 or len(expr.comparators) != 1:
+    compare_expr = cast(ast.Compare, expr)
+    if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
         return None
-    if not isinstance(expr.ops[0], ast.Eq):
+    if type(compare_expr.ops[0]) is not ast.Eq:
         return None
-    left = _invariant_term(expr.left, params)
-    right = _invariant_term(expr.comparators[0], params)
-    if left is None or right is None:
-        return None
-    return InvariantProposition(
-        form="Equal",
-        terms=(left, right),
-        scope=scope,
-        source=source,
-    )
+    left = _invariant_term(compare_expr.left, params)
+    right = _invariant_term(compare_expr.comparators[0], params)
+    if left is not None and right is not None:
+        return InvariantProposition(
+            form="Equal",
+            terms=(left, right),
+            scope=scope,
+            source=source,
+        )
+    return None
 
 
 class _InvariantCollector(ast.NodeVisitor):
@@ -1508,7 +1535,7 @@ class _InvariantCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _scope_path(path: Path, root: Path | None) -> str:
+def _scope_path(path: Path, root) -> str:
     if root is not None:
         try:
             return str(path.relative_to(root))
@@ -1521,7 +1548,7 @@ def _collect_invariant_propositions(
     path: Path,
     *,
     ignore_params: set[str],
-    project_root: Path | None,
+    project_root,
     emitters: Iterable[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]]
     ] = (),
@@ -1545,7 +1572,7 @@ def _collect_invariant_propositions(
             emitted = emitter(fn)
             for prop in emitted:
                 check_deadline()
-                if not isinstance(prop, InvariantProposition):
+                if type(prop) is not InvariantProposition:
                     raise TypeError(
                         "Invariant emitters must yield InvariantProposition instances."
                     )
@@ -1670,16 +1697,18 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     callables: dict[str, list[str]] = defaultdict(list)
     for hook in hooks:
         check_deadline()
-        if not isinstance(hook, Mapping):
+        if type(hook) is not dict:
             continue
-        callable_payload = hook.get("callable")
-        if not isinstance(callable_payload, Mapping):
+        hook_payload = cast(Mapping[str, JSONValue], hook)
+        callable_payload = hook_payload.get("callable")
+        if type(callable_payload) is not dict:
             continue
-        path = str(callable_payload.get("path", "") or "")
-        qual = str(callable_payload.get("qual", "") or "")
+        callable_mapping = cast(Mapping[str, JSONValue], callable_payload)
+        path = str(callable_mapping.get("path", "") or "")
+        qual = str(callable_mapping.get("qual", "") or "")
         if not path or not qual:
             continue
-        callables[f"{path}:{qual}"].append(str(hook.get("hook_id", "") or ""))
+        callables[f"{path}:{qual}"].append(str(hook_payload.get("hook_id", "") or ""))
     return [
         {
             "scope": scope,
@@ -1689,23 +1718,25 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     ]
 
 
-def _decorator_name(node: ast.AST) -> str | None:
+def _decorator_name(node: ast.AST):
     check_deadline()
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
+    node_type = type(node)
+    if node_type is ast.Name:
+        return cast(ast.Name, node).id
+    if node_type is ast.Attribute:
         parts: list[str] = []
         current: ast.AST = node
-        while isinstance(current, ast.Attribute):
+        while type(current) is ast.Attribute:
             check_deadline()
-            parts.append(current.attr)
-            current = current.value
-        if isinstance(current, ast.Name):
-            parts.append(current.id)
+            attribute_node = cast(ast.Attribute, current)
+            parts.append(attribute_node.attr)
+            current = attribute_node.value
+        if type(current) is ast.Name:
+            parts.append(cast(ast.Name, current).id)
             return ".".join(reversed(parts))
         return None
-    if isinstance(node, ast.Call):
-        return _decorator_name(node.func)
+    if node_type is ast.Call:
+        return _decorator_name(cast(ast.Call, node).func)
     return None
 
 
@@ -1730,7 +1761,7 @@ def _is_never_call(call: ast.Call) -> bool:
 
 def _is_never_marker_raise(
     function: str,
-    exception_name: str | None,
+    exception_name,
     never_exceptions: set[str],
 ) -> bool:
     if not exception_name or not never_exceptions:
@@ -1743,16 +1774,18 @@ def _is_never_marker_raise(
 def _never_sort_key(entry: JSONObject) -> tuple:
     status = str(entry.get("status", "UNKNOWN"))
     order = _NEVER_STATUS_ORDER.get(status, 3)
-    site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+    raw_site = entry.get("site")
+    site = mapping_or_empty(raw_site)
     path = str(site.get("path", ""))
     function = str(site.get("function", ""))
     span = entry.get("span")
     line = -1
     col = -1
-    if isinstance(span, list) and len(span) == 4:
+    span_entries = sequence_or_none(span)
+    if span_entries is not None and len(span_entries) == 4:
         try:
-            line = int(span[0])
-            col = int(span[1])
+            line = int(span_entries[0])
+            col = int(span_entries[1])
         except (TypeError, ValueError):
             line = -1
             col = -1
@@ -1760,8 +1793,8 @@ def _never_sort_key(entry: JSONObject) -> tuple:
 
 
 def _decorators_transparent(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    transparent_decorators: set[str] | None,
+    fn: FunctionNode,
+    transparent_decorators,
 ) -> bool:
     check_deadline()
     if not fn.decorator_list:
@@ -1785,23 +1818,23 @@ def _collect_local_class_bases(
     class_bases: dict[str, list[str]] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
-            continue
-        scopes = _enclosing_class_scopes(node, parents)
-        qual_parts = list(scopes)
-        qual_parts.append(node.name)
-        qual = ".".join(qual_parts)
-        bases: list[str] = []
-        for base in node.bases:
-            check_deadline()
-            base_name = _base_identifier(base)
-            if base_name:
-                bases.append(base_name)
-        class_bases[qual] = bases
+        if type(node) is ast.ClassDef:
+            class_node = cast(ast.ClassDef, node)
+            scopes = _enclosing_class_scopes(class_node, parents)
+            qual_parts = list(scopes)
+            qual_parts.append(class_node.name)
+            qual = ".".join(qual_parts)
+            bases: list[str] = []
+            for base in class_node.bases:
+                check_deadline()
+                base_name = _base_identifier(base)
+                if base_name:
+                    bases.append(base_name)
+            class_bases[qual] = bases
     return class_bases
 
 
-def _local_class_name(base: str, class_bases: dict[str, list[str]]) -> str | None:
+def _local_class_name(base: str, class_bases: dict[str, list[str]]):
     if base in class_bases:
         return base
     if "." in base:
@@ -1818,7 +1851,7 @@ def _resolve_local_method_in_hierarchy(
     class_bases: dict[str, list[str]],
     local_functions: set[str],
     seen: set[str],
-) -> str | None:
+):
     check_deadline()
     if class_name in seen:
         return None
@@ -1829,23 +1862,22 @@ def _resolve_local_method_in_hierarchy(
     for base in class_bases.get(class_name, []):
         check_deadline()
         base_name = _local_class_name(base, class_bases)
-        if base_name is None:
-            continue
-        resolved = _resolve_local_method_in_hierarchy(
-            base_name,
-            method,
-            class_bases=class_bases,
-            local_functions=local_functions,
-            seen=seen,
-        )
-        if resolved is not None:
-            return resolved
+        if base_name is not None:
+            resolved = _resolve_local_method_in_hierarchy(
+                base_name,
+                method,
+                class_bases=class_bases,
+                local_functions=local_functions,
+                seen=seen,
+            )
+            if resolved is not None:
+                return resolved
     return None
 
 
 def _param_names(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> list[str]:
     args = (
         fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
@@ -1862,33 +1894,37 @@ def _param_names(
     return names
 
 
-def _decision_root_name(node: ast.AST) -> str | None:
+def _decision_root_name(node: ast.AST):
     check_deadline()
     current = node
-    while isinstance(current, (ast.Attribute, ast.Subscript)):
+    while True:
         check_deadline()
-        current = current.value
-    if isinstance(current, ast.Name):
-        return current.id
+        current_type = type(current)
+        if current_type is ast.Attribute:
+            current = cast(ast.Attribute, current).value
+        elif current_type is ast.Subscript:
+            current = cast(ast.Subscript, current).value
+        else:
+            break
+    if type(current) is ast.Name:
+        return cast(ast.Name, current).id
     return None
 
 
 def is_decision_surface(node: ast.AST) -> bool:
-    return isinstance(
-        node,
-        (
-            ast.If,
-            ast.While,
-            ast.Assert,
-            ast.IfExp,
-            ast.Match,
-            ast.comprehension,
-        ),
+    node_type = type(node)
+    return (
+        node_type is ast.If
+        or node_type is ast.While
+        or node_type is ast.Assert
+        or node_type is ast.IfExp
+        or node_type is ast.Match
+        or node_type is ast.comprehension
     )
 
 
 def _decision_surface_form_entries(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    fn: ast.AST,
 ) -> list[tuple[str, ast.AST]]:
     check_deadline()
     entries: list[tuple[str, ast.AST]] = []
@@ -1896,21 +1932,23 @@ def _decision_surface_form_entries(
         check_deadline()
         if not is_decision_surface(node):
             continue
-        if isinstance(node, ast.If):
-            entries.append(("if", node.test))
+        node_type = type(node)
+        if node_type is ast.If:
+            entries.append(("if", cast(ast.If, node).test))
             continue
-        if isinstance(node, ast.While):
-            entries.append(("while", node.test))
+        if node_type is ast.While:
+            entries.append(("while", cast(ast.While, node).test))
             continue
-        if isinstance(node, ast.Assert):
-            entries.append(("assert", node.test))
+        if node_type is ast.Assert:
+            entries.append(("assert", cast(ast.Assert, node).test))
             continue
-        if isinstance(node, ast.IfExp):
-            entries.append(("ifexp", node.test))
+        if node_type is ast.IfExp:
+            entries.append(("ifexp", cast(ast.IfExp, node).test))
             continue
-        if isinstance(node, ast.Match):
-            entries.append(("match_subject", node.subject))
-            for case in node.cases:
+        if node_type is ast.Match:
+            match_node = cast(ast.Match, node)
+            entries.append(("match_subject", match_node.subject))
+            for case in match_node.cases:
                 check_deadline()
                 if case.guard is not None:
                     entries.append(("match_guard", case.guard))
@@ -1922,8 +1960,8 @@ def _decision_surface_form_entries(
 
 
 def _decision_surface_reason_map(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> dict[str, set[str]]:
     check_deadline()
     params = set(_param_names(fn, ignore_params))
@@ -1940,8 +1978,8 @@ def _decision_surface_reason_map(
 
 
 def _decision_surface_params(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> set[str]:
     check_deadline()
     reason_map = _decision_surface_reason_map(fn, ignore_params)
@@ -1952,10 +1990,11 @@ def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
     check_deadline()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name) and node.id in params:
-            out.add(node.id)
+        node_type = type(node)
+        if node_type is ast.Name and cast(ast.Name, node).id in params:
+            out.add(cast(ast.Name, node).id)
             continue
-        if isinstance(node, (ast.Attribute, ast.Subscript)):
+        if node_type is ast.Attribute or node_type is ast.Subscript:
             root = _decision_root_name(node)
             if root in params:
                 out.add(root)
@@ -1971,16 +2010,17 @@ def _contains_boolish(expr: ast.AST) -> bool:
     check_deadline()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, (ast.Compare, ast.BoolOp)):
+        node_type = type(node)
+        if node_type is ast.Compare or node_type is ast.BoolOp:
             return True
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) is ast.Not:
             return True
     return False
 
 
 def _value_encoded_decision_params(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: ast.AST,
+    ignore_params = None,
 ) -> tuple[set[str], set[str]]:
     check_deadline()
     params = set(_param_names(fn, ignore_params))
@@ -1990,44 +2030,49 @@ def _value_encoded_decision_params(
     reasons: set[str] = set()
     for node in ast.walk(fn):
         check_deadline()
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id in {"min", "max"}:
+        node_type = type(node)
+        if node_type is ast.Call:
+            call_node = cast(ast.Call, node)
+            func = call_node.func
+            func_type = type(func)
+            if func_type is ast.Name and cast(ast.Name, func).id in {"min", "max"}:
                 reasons.add("min/max")
-                _mark_param_roots(node, params, flagged)
-            elif isinstance(func, ast.Attribute) and func.attr in {"min", "max"}:
+                _mark_param_roots(call_node, params, flagged)
+            elif func_type is ast.Attribute and cast(ast.Attribute, func).attr in {"min", "max"}:
                 reasons.add("min/max")
-                _mark_param_roots(node, params, flagged)
-        elif isinstance(node, ast.BinOp):
-            op = node.op
-            left_bool = _contains_boolish(node.left)
-            right_bool = _contains_boolish(node.right)
-            if isinstance(
-                op,
-                (
-                    ast.Mult,
-                    ast.Add,
-                    ast.Sub,
-                    ast.FloorDiv,
-                    ast.Mod,
+                _mark_param_roots(call_node, params, flagged)
+        elif node_type is ast.BinOp:
+            binop_node = cast(ast.BinOp, node)
+            op_type = type(binop_node.op)
+            left_bool = _contains_boolish(binop_node.left)
+            right_bool = _contains_boolish(binop_node.right)
+            if op_type in {
+                ast.Mult,
+                ast.Add,
+                ast.Sub,
+                ast.FloorDiv,
+                ast.Mod,
+                ast.BitAnd,
+                ast.BitOr,
+                ast.BitXor,
+                ast.LShift,
+                ast.RShift,
+            }:
+                if left_bool or right_bool:
+                    reasons.add("boolean arithmetic")
+                    if left_bool:
+                        flagged |= _collect_param_roots(binop_node.left, params)
+                    if right_bool:
+                        flagged |= _collect_param_roots(binop_node.right, params)
+                if op_type in {
                     ast.BitAnd,
                     ast.BitOr,
                     ast.BitXor,
                     ast.LShift,
                     ast.RShift,
-                ),
-            ):
-                if left_bool or right_bool:
-                    reasons.add("boolean arithmetic")
-                    if left_bool:
-                        flagged |= _collect_param_roots(node.left, params)
-                    if right_bool:
-                        flagged |= _collect_param_roots(node.right, params)
-                if isinstance(
-                    op, (ast.BitAnd, ast.BitOr, ast.BitXor, ast.LShift, ast.RShift)
-                ) and not (left_bool or right_bool):
-                    left_roots = _collect_param_roots(node.left, params)
-                    right_roots = _collect_param_roots(node.right, params)
+                } and not (left_bool or right_bool):
+                    left_roots = _collect_param_roots(binop_node.left, params)
+                    right_roots = _collect_param_roots(binop_node.right, params)
                     if left_roots or right_roots:
                         reasons.add("bitmask")
                         flagged |= left_roots | right_roots
@@ -2044,11 +2089,11 @@ class _DecisionSurfaceSpec:
     alt_evidence: Callable[[str, str], JSONObject]
     surface_lint_code: str
     surface_lint_message: Callable[[str, str, str], str]
-    emit_surface_lint: Callable[[int, int | None], bool]
+    emit_surface_lint: Callable[[int, object], bool]
     tier_lint_code: str
     tier_missing_message: Callable[[str, str], str]
     tier_internal_message: Callable[[str, int, str, str], str]
-    rewrite_line: Callable[[FunctionInfo, list[str], str], str] | None = None
+    rewrite_line: object = None
 
 
 def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
@@ -2167,7 +2212,7 @@ def _analyze_decision_surface_indexed(
     context: _IndexedPassContext,
     *,
     spec: _DecisionSurfaceSpec,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
@@ -2298,7 +2343,7 @@ def _analyze_decision_surface_indexed(
 def _analyze_decision_surfaces_indexed(
     context: _IndexedPassContext,
     *,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
     run_fn: Callable[..., tuple[list[str], list[str], list[str], list[str]]] = _analyze_decision_surface_indexed,
@@ -2321,16 +2366,16 @@ def _analyze_decision_surfaces_indexed(
 def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    decision_tiers: dict[str, int] | None = None,
+    transparent_decorators = None,
+    decision_tiers = None,
     require_tiers: bool = False,
     forest: Forest,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -2357,7 +2402,7 @@ def analyze_decision_surfaces_repo(
 def _analyze_value_encoded_decisions_indexed(
     context: _IndexedPassContext,
     *,
-    decision_tiers: dict[str, int] | None,
+    decision_tiers,
     require_tiers: bool,
     forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
@@ -2373,16 +2418,16 @@ def _analyze_value_encoded_decisions_indexed(
 def analyze_value_encoded_decisions_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    decision_tiers: dict[str, int] | None = None,
+    transparent_decorators = None,
+    decision_tiers = None,
     require_tiers: bool = False,
     forest: Forest,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -2453,13 +2498,13 @@ def _internal_broad_type_lint_lines_indexed(
 def _internal_broad_type_lint_lines(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> list[str]:
     check_deadline()
     return _run_indexed_pass(
@@ -2478,7 +2523,7 @@ def _internal_broad_type_lint_lines(
     )
 
 
-def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+def _node_span(node: ast.AST):
     if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
         return None
     start_line = max(getattr(node, "lineno", 1) - 1, 0)
@@ -2491,8 +2536,8 @@ def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
 
 
 def _param_spans(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> dict[str, tuple[int, int, int, int]]:
     check_deadline()
     spans: dict[str, tuple[int, int, int, int]] = {}
@@ -2531,13 +2576,13 @@ def _function_key(scope: Iterable[str], name: str) -> str:
 
 def _enclosing_class(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> str | None:
+):
     check_deadline()
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            return current.name
+        if type(current) is ast.ClassDef:
+            return cast(ast.ClassDef, current).name
         current = parents.get(current)
     return None
 
@@ -2550,10 +2595,11 @@ def _enclosing_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            scopes.append(current.name)
-        elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            scopes.append(current.name)
+        current_type = type(current)
+        if current_type is ast.ClassDef:
+            scopes.append(cast(ast.ClassDef, current).name)
+        elif current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            scopes.append(cast(FunctionNode, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -2566,8 +2612,8 @@ def _enclosing_class_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.ClassDef):
-            scopes.append(current.name)
+        if type(current) is ast.ClassDef:
+            scopes.append(cast(ast.ClassDef, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -2580,20 +2626,21 @@ def _enclosing_function_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            scopes.append(current.name)
+        current_type = type(current)
+        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            scopes.append(cast(FunctionNode, current).name)
         current = parents.get(current)
     return list(reversed(scopes))
 
 
 def _param_annotations(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> dict[str, str | None]:
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
+) -> ParamAnnotationMap:
     check_deadline()
     args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
     names = [a.arg for a in args]
-    annots: dict[str, str | None] = {}
+    annots: ParamAnnotationMap = {}
     for name, arg in zip(names, args):
         check_deadline()
         if arg.annotation is None:
@@ -2632,8 +2679,8 @@ def _param_annotations(
 
 
 def _param_defaults(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
+    fn: FunctionNode,
+    ignore_params: OptionalIgnoredParams = None,
 ) -> set[str]:
     check_deadline()
     defaults: set[str] = set()
@@ -2656,10 +2703,10 @@ def _param_defaults(
 def _parse_failure_witness(
     *,
     path: Path,
-    stage: str | _ParseModuleStage,
+    stage,
     error: Exception,
 ) -> JSONObject:
-    stage_value = stage.value if isinstance(stage, _ParseModuleStage) else stage
+    stage_value = stage.value if type(stage) is _ParseModuleStage else stage
     return {
         "path": str(path),
         "stage": stage_value,
@@ -2672,18 +2719,19 @@ def _record_parse_failure_witness(
     *,
     sink: list[JSONObject],
     path: Path,
-    stage: str | _ParseModuleStage,
+    stage,
     error: Exception,
 ) -> None:
     sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
 
 
 def _parse_failure_sink(
-    parse_failure_witnesses: list[JSONObject] | None,
+    parse_failure_witnesses,
 ) -> list[JSONObject]:
-    if parse_failure_witnesses is None:
-        return []
-    return parse_failure_witnesses
+    sink = parse_failure_witnesses
+    if sink is None:
+        sink = []
+    return sink
 
 
 _NON_NULL_PARSE_WITNESS_HELPERS = frozenset(
@@ -2717,7 +2765,7 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
 
 
 def _annotation_allows_none(
-    annotation: ast.AST | None,
+    annotation,
     *,
     unparse_fn: Callable[[ast.AST], str] = ast.unparse,
 ) -> bool:
@@ -2733,9 +2781,9 @@ def _annotation_allows_none(
 
 def _parameter_default_map(
     node: ast.FunctionDef,
-) -> dict[str, ast.expr | None]:
+):
     check_deadline()
-    mapping: dict[str, ast.expr | None] = {}
+    mapping = {}
     positional = list(node.args.posonlyargs) + list(node.args.args)
     defaults = list(node.args.defaults)
     if defaults:
@@ -2761,19 +2809,19 @@ def _imported_helper_targets(
     for index, node in enumerate(tree.body):
         if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
             check_deadline()
-        if not isinstance(node, ast.ImportFrom):
-            continue
-        if not node.module:
-            continue
-        for alias in node.names:
-            local_name = alias.asname or alias.name
-            targets[local_name] = (node.module, alias.name)
+        if type(node) is ast.ImportFrom:
+            import_from = cast(ast.ImportFrom, node)
+            if not import_from.module:
+                continue
+            for alias in import_from.names:
+                local_name = alias.asname or alias.name
+                targets[local_name] = (import_from.module, alias.name)
     return targets
 
 
 def _resolve_repo_module_path(
     module_name: str,
-) -> Path | None:
+):
     if not module_name.startswith("gabion."):
         return None
     src_root = Path(__file__).resolve().parents[2]
@@ -2819,8 +2867,9 @@ def _parse_contract_maps_from_source(
     for index, node in enumerate(tree.body):
         if index % _PARSE_CONTRACT_PROGRESS_INTERVAL == 0:
             check_deadline()
-        if isinstance(node, ast.FunctionDef):
-            functions[node.name] = node
+        if type(node) is ast.FunctionDef:
+            function_node = cast(ast.FunctionDef, node)
+            functions[function_node.name] = function_node
     imported_helpers = _imported_helper_targets(tree)
     return functions, imported_helpers
 
@@ -2849,9 +2898,9 @@ def _module_function_map(
 
 def _parse_witness_contract_violations(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
-    target_helpers: frozenset[str] | None = None,
+    source = None,
+    source_path = None,
+    target_helpers = None,
     module_function_map_fn: Callable[[Path], dict[str, ast.FunctionDef]] = _module_function_map,
 ) -> list[str]:
     helpers = (
@@ -2948,7 +2997,10 @@ def _parse_witness_contract_violations(
             )
         default_map = _parameter_default_map(node)
         default_node = default_map.get("parse_failure_witnesses")
-        if isinstance(default_node, ast.Constant) and default_node.value is None:
+        if (
+            type(default_node) is ast.Constant
+            and cast(ast.Constant, default_node).value is None
+        ):
             violations.append(
                 f"{helper_module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
             )
@@ -2981,20 +3033,22 @@ def _raw_sorted_callsite_counts(
             stage=_ParseModuleStage.RAW_SORTED_AUDIT,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        locations: list[tuple[int, int]] = []
-        for node in ast.walk(tree):
-            check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "sorted":
-                continue
-            line = int(getattr(node, "lineno", 1))
-            col = int(getattr(node, "col_offset", 0)) + 1
-            locations.append((line, col))
-        if locations:
-            counts[_raw_sorted_baseline_key(path)] = locations
+        if tree is not None:
+            locations: list[tuple[int, int]] = []
+            for node in ast.walk(tree):
+                check_deadline()
+                if type(node) is not ast.Call:
+                    continue
+                call_node = cast(ast.Call, node)
+                if type(call_node.func) is not ast.Name:
+                    continue
+                if cast(ast.Name, call_node.func).id != "sorted":
+                    continue
+                line = int(getattr(call_node, "lineno", 1))
+                col = int(getattr(call_node, "col_offset", 0)) + 1
+                locations.append((line, col))
+            if locations:
+                counts[_raw_sorted_baseline_key(path)] = locations
     return counts
 
 
@@ -3002,8 +3056,8 @@ def _raw_sorted_contract_violations(
     paths: Iterable[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
-    strict_forbid: bool | None = None,
-    baseline_counts: Mapping[str, int] | None = None,
+    strict_forbid = None,
+    baseline_counts = None,
 ) -> list[str]:
     counts = _raw_sorted_callsite_counts(
         paths,
@@ -3079,8 +3133,8 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
 
 def _indexed_pass_ingress_members(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> tuple[str, ...]:
     module_path = source_path or Path(__file__)
     if source is None:
@@ -3095,25 +3149,28 @@ def _indexed_pass_ingress_members(
     indexed_members: list[str] = []
     for node in tree.body:
         check_deadline()
-        if not isinstance(node, ast.FunctionDef):
+        if type(node) is not ast.FunctionDef:
             continue
-        param_names = _function_param_names(node)
+        function_node = cast(ast.FunctionDef, node)
+        param_names = _function_param_names(function_node)
         if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
             continue
         calls_index_ingress = False
-        for index, child in enumerate(ast.walk(node), start=1):
+        for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if not isinstance(child, ast.Call):
+            if type(child) is not ast.Call:
                 continue
-            if not isinstance(child.func, ast.Name):
+            call_node = cast(ast.Call, child)
+            if type(call_node.func) is not ast.Name:
                 continue
-            if child.func.id in {"_build_analysis_index", "_build_call_graph"}:
+            call_name = cast(ast.Name, call_node.func)
+            if call_name.id in {"_build_analysis_index", "_build_call_graph"}:
                 calls_index_ingress = True
                 break
         if not calls_index_ingress:
             continue
-        indexed_members.append(node.name)
+        indexed_members.append(function_node.name)
     return tuple(
         sort_once(
             indexed_members,
@@ -3124,8 +3181,8 @@ def _indexed_pass_ingress_members(
 
 def _detect_execution_pattern_matches(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[_ExecutionPatternMatch]:
     matches: list[_ExecutionPatternMatch] = []
     members = _indexed_pass_ingress_members(source=source, source_path=source_path)
@@ -3148,8 +3205,8 @@ def _detect_execution_pattern_matches(
 
 def _execution_pattern_instances(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
     for match in _detect_execution_pattern_matches(
@@ -3345,8 +3402,8 @@ def _pattern_schema_matches(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     include_execution: bool = True,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
     if include_execution:
@@ -3377,8 +3434,8 @@ def _pattern_schema_suggestions(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     include_execution: bool = True,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[str]:
     instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
@@ -3486,8 +3543,8 @@ def _pattern_schema_snapshot_entries(
 
 def _execution_pattern_suggestions(
     *,
-    source: str | None = None,
-    source_path: Path | None = None,
+    source = None,
+    source_path = None,
 ) -> list[str]:
     suggestions: list[str] = []
     for instance in _execution_pattern_instances(
@@ -3507,7 +3564,7 @@ def _parse_module_tree(
     *,
     stage: _ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
-) -> ast.Module | None:
+):
     try:
         return ast.parse(path.read_text())
     except _PARSE_MODULE_ERROR_TYPES as exc:
@@ -3525,9 +3582,9 @@ def _param_annotations_by_path(
     *,
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
-) -> dict[Path, dict[str, dict[str, str | None]]]:
+) -> dict[Path, dict[str, ParamAnnotationMap]]:
     check_deadline()
-    annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
+    annotations: dict[Path, dict[str, ParamAnnotationMap]] = {}
     for path in paths:
         check_deadline()
         tree = _parse_module_tree(
@@ -3535,28 +3592,27 @@ def _param_annotations_by_path(
             stage=_ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        parent = ParentAnnotator()
-        parent.visit(tree)
-        parents = parent.parents
-        by_fn: dict[str, dict[str, str | None]] = {}
-        for fn in _collect_functions(tree):
-            check_deadline()
-            scopes = _enclosing_scopes(fn, parents)
-            fn_key = _function_key(scopes, fn.name)
-            by_fn[fn_key] = _param_annotations(fn, ignore_params)
-        annotations[path] = by_fn
+        if tree is not None:
+            parent = ParentAnnotator()
+            parent.visit(tree)
+            parents = parent.parents
+            by_fn: dict[str, ParamAnnotationMap] = {}
+            for fn in _collect_functions(tree):
+                check_deadline()
+                scopes = _enclosing_scopes(fn, parents)
+                fn_key = _function_key(scopes, fn.name)
+                by_fn[fn_key] = _param_annotations(fn, ignore_params)
+            annotations[path] = by_fn
     return annotations
 
 
 def _compute_fingerprint_warnings(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
     *,
     registry: PrimeRegistry,
     index: dict[Fingerprint, set[str]],
-    ctor_registry: TypeConstructorRegistry | None = None,
+    ctor_registry = None,
 ) -> list[str]:
     check_deadline()
     warnings: list[str] = []
@@ -3585,49 +3641,51 @@ def _compute_fingerprint_warnings(
                             )
                         )
                     )
-                    continue
-                types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
-                    continue
-                hint_list = [t for t in types if t is not None]
-                fingerprint = bundle_fingerprint_dimensional(
-                    hint_list,
-                    registry,
-                    ctor_registry,
-                )
-                soundness_issues = _fingerprint_soundness_issues(fingerprint)
-                names = index.get(fingerprint)
+                else:
+                    types = [fn_annots[param] for param in bundle_params]
+                    if not any(t is None for t in types):
+                        hint_list = [t for t in types if t is not None]
+                        fingerprint = bundle_fingerprint_dimensional(
+                            hint_list,
+                            registry,
+                            ctor_registry,
+                        )
+                        soundness_issues = _fingerprint_soundness_issues(fingerprint)
+                        names = index.get(fingerprint)
 
-                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
-                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
-                ctor_keys = [
-                    key[len("ctor:") :] if key.startswith("ctor:") else key
-                    for key in ctor_keys
-                ]
-                base_keys_sorted = sort_once(
-                    base_keys,
-                    source="_compute_fingerprint_warnings.base_keys",
-                )
-                ctor_keys_sorted = sort_once(
-                    ctor_keys,
-                    source="_compute_fingerprint_warnings.ctor_keys",
-                )
-                details = f" base={base_keys_sorted}"
-                if ctor_keys:
-                    details += f" ctor={ctor_keys_sorted}"
-                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-                    details += f" remainder=({base_remaining},{ctor_remaining})"
-                if soundness_issues:
-                    warnings.append(
-                        f"{path.name}:{fn_name} bundle {bundle_params} fingerprint carrier soundness failed for "
-                        + ", ".join(soundness_issues)
-                        + details
-                    )
-                if names:
-                    continue
-                warnings.append(
-                    f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
-                )
+                        base_keys, base_remaining = fingerprint.base.keys_with_remainder(
+                            registry
+                        )
+                        ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(
+                            registry
+                        )
+                        ctor_keys = [
+                            key[len("ctor:") :] if key.startswith("ctor:") else key
+                            for key in ctor_keys
+                        ]
+                        base_keys_sorted = sort_once(
+                            base_keys,
+                            source="_compute_fingerprint_warnings.base_keys",
+                        )
+                        ctor_keys_sorted = sort_once(
+                            ctor_keys,
+                            source="_compute_fingerprint_warnings.ctor_keys",
+                        )
+                        details = f" base={base_keys_sorted}"
+                        if ctor_keys:
+                            details += f" ctor={ctor_keys_sorted}"
+                        if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+                            details += f" remainder=({base_remaining},{ctor_remaining})"
+                        if soundness_issues:
+                            warnings.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint carrier soundness failed for "
+                                + ", ".join(soundness_issues)
+                                + details
+                            )
+                        if not names:
+                            warnings.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
+                            )
     return sort_once(
         set(warnings),
         source="_compute_fingerprint_warnings.warnings",
@@ -3636,11 +3694,11 @@ def _compute_fingerprint_warnings(
 
 def _compute_fingerprint_matches(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
     *,
     registry: PrimeRegistry,
     index: dict[Fingerprint, set[str]],
-    ctor_registry: TypeConstructorRegistry | None = None,
+    ctor_registry = None,
 ) -> list[str]:
     check_deadline()
     matches: list[str] = []
@@ -3655,53 +3713,57 @@ def _compute_fingerprint_matches(
             for bundle in bundles:
                 check_deadline()
                 missing = [param for param in bundle if param not in fn_annots]
-                if missing:
-                    continue
-                bundle_params = sort_once(
-                    bundle,
-                    source="_compute_fingerprint_matches.bundle",
-                )
-                types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
-                    continue
-                hint_list = [t for t in types if t is not None]
-                fingerprint = bundle_fingerprint_dimensional(
-                    hint_list,
-                    registry,
-                    ctor_registry,
-                )
-                names = index.get(fingerprint)
-                if not names:
-                    continue
-                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
-                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
-                ctor_keys = [
-                    key[len("ctor:") :] if key.startswith("ctor:") else key
-                    for key in ctor_keys
-                ]
-                base_keys_sorted = sort_once(
-                    base_keys,
-                    source="_compute_fingerprint_matches.base_keys",
-                )
-                ctor_keys_sorted = sort_once(
-                    ctor_keys,
-                    source="_compute_fingerprint_matches.ctor_keys",
-                )
-                details = f" base={base_keys_sorted}"
-                if ctor_keys:
-                    details += f" ctor={ctor_keys_sorted}"
-                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-                    details += f" remainder=({base_remaining},{ctor_remaining})"
-                matches.append(
-                    f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
-                    + ", ".join(
-                        sort_once(
-                            names,
-                            source="_compute_fingerprint_matches.names",
-                        )
+                if not missing:
+                    bundle_params = sort_once(
+                        bundle,
+                        source="_compute_fingerprint_matches.bundle",
                     )
-                    + details
-                )
+                    types = [fn_annots[param] for param in bundle_params]
+                    if not any(t is None for t in types):
+                        hint_list = [t for t in types if t is not None]
+                        fingerprint = bundle_fingerprint_dimensional(
+                            hint_list,
+                            registry,
+                            ctor_registry,
+                        )
+                        names = index.get(fingerprint)
+                        if names:
+                            base_keys, base_remaining = fingerprint.base.keys_with_remainder(
+                                registry
+                            )
+                            ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(
+                                registry
+                            )
+                            ctor_keys = [
+                                key[len("ctor:") :] if key.startswith("ctor:") else key
+                                for key in ctor_keys
+                            ]
+                            base_keys_sorted = sort_once(
+                                base_keys,
+                                source="_compute_fingerprint_matches.base_keys",
+                            )
+                            ctor_keys_sorted = sort_once(
+                                ctor_keys,
+                                source="_compute_fingerprint_matches.ctor_keys",
+                            )
+                            details = f" base={base_keys_sorted}"
+                            if ctor_keys:
+                                details += f" ctor={ctor_keys_sorted}"
+                            if (
+                                base_remaining not in (0, 1)
+                                or ctor_remaining not in (0, 1)
+                            ):
+                                details += f" remainder=({base_remaining},{ctor_remaining})"
+                            matches.append(
+                                f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
+                                + ", ".join(
+                                    sort_once(
+                                        names,
+                                        source="_compute_fingerprint_matches.names",
+                                    )
+                                )
+                                + details
+                            )
     return sort_once(
         set(matches),
         source="_compute_fingerprint_matches.matches",
@@ -3735,12 +3797,12 @@ def _fingerprint_soundness_issues(
 
 def _compute_fingerprint_provenance(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, object]]],
     *,
     registry: PrimeRegistry,
-    project_root: Path | None = None,
-    index: dict[Fingerprint, set[str]] | None = None,
-    ctor_registry: TypeConstructorRegistry | None = None,
+    project_root = None,
+    index = None,
+    ctor_registry = None,
 ) -> list[JSONObject]:
     check_deadline()
     entries: list[JSONObject] = []
@@ -3761,9 +3823,9 @@ def _compute_fingerprint_provenance(
                     source="_compute_fingerprint_provenance.bundle",
                 )
                 types = [fn_annots[param] for param in bundle_params]
-                if any(t is None for t in types):
+                hint_list = [str(value) for value in types if value is not None]
+                if len(hint_list) != len(types):
                     continue
-                hint_list = [t for t in types if t is not None]
                 fingerprint = bundle_fingerprint_dimensional(
                     hint_list,
                     registry,
@@ -3797,7 +3859,7 @@ def _compute_fingerprint_provenance(
                 )
                 higher_path_witness = (
                     parse_2cell_witness(higher_path_payload)
-                    if isinstance(higher_path_payload, dict)
+                    if type(higher_path_payload) is dict
                     else None
                 )
                 drift_classification = classify_drift_by_homotopy(
@@ -3874,12 +3936,12 @@ def _summarize_fingerprint_provenance(
     grouped: dict[tuple[object, ...], list[JSONObject]] = {}
     for entry in entries:
         check_deadline()
-        matches = entry.get("glossary_matches") or []
-        if isinstance(matches, list) and matches:
-            key = ("glossary", tuple(matches))
+        matches = str_tuple_from_sequence(entry.get("glossary_matches")) or tuple()
+        if matches:
+            key = ("glossary", matches)
         else:
-            base_keys = tuple(entry.get("base_keys") or [])
-            ctor_keys = tuple(entry.get("ctor_keys") or [])
+            base_keys = str_tuple_from_sequence(entry.get("base_keys")) or tuple()
+            ctor_keys = str_tuple_from_sequence(entry.get("ctor_keys")) or tuple()
             key = ("types", base_keys, ctor_keys)
         grouped.setdefault(key, []).append(entry)
     lines: list[str] = []
@@ -3953,7 +4015,7 @@ def _compute_fingerprint_rewrite_plans(
     coherence: list[JSONObject],
     *,
     synth_version: str,
-    exception_obligations: list[JSONObject] | None = None,
+    exception_obligations = None,
 ) -> list[JSONObject]:
     return _ds_compute_fingerprint_rewrite_plans(
         provenance,
@@ -3965,8 +4027,8 @@ def _compute_fingerprint_rewrite_plans(
         site_from_payload=Site.from_payload,
     )
 
-def _glossary_match_strata(matches: object) -> str:
-    if not isinstance(matches, list) or not matches:
+def _glossary_match_strata(matches: Sequence[object]) -> str:
+    if not matches:
         return "none"
     if len(matches) == 1:
         return "exact"
@@ -3977,15 +4039,13 @@ def _find_provenance_entry_for_site(
     provenance: list[JSONObject],
     *,
     site: Site,
-) -> JSONObject | None:
+):
     check_deadline()
     target_key = site.key()
     for entry in provenance:
         check_deadline()
         entry_site = Site.from_payload(entry)
-        if entry_site is None:
-            continue
-        if entry_site.key() == target_key:
+        if entry_site is not None and entry_site.key() == target_key:
             return entry
     return None
 
@@ -4008,9 +4068,9 @@ class _RewritePredicateContext:
     post_base: list[object]
     post_ctor: list[object]
     post_remainder: Mapping[str, object]
-    post_matches: object
+    post_matches: tuple[str, ...]
     post_strata: str
-    post_exception_obligations: list[JSONObject] | None
+    post_exception_obligations: OptionalJsonObjectList
     pre: Mapping[str, object]
     plan_evidence: Mapping[str, object]
     post_entry: Mapping[str, object]
@@ -4061,7 +4121,6 @@ def _evaluate_match_strata_predicate(
         strata_ok = context.post_strata == strata_expect
     if (
         strata_expect == "exact"
-        and isinstance(context.post_matches, list)
         and len(context.post_matches) == 1
     ):
         strata_ok = strata_ok and (str(context.post_matches[0]) in set(candidates))
@@ -4071,7 +4130,7 @@ def _evaluate_match_strata_predicate(
         "expected": strata_expect,
         "observed": context.post_strata,
         "candidates": candidates,
-        "observed_matches": context.post_matches,
+        "observed_matches": list(context.post_matches),
     }
 
 
@@ -4109,13 +4168,15 @@ def _evaluate_witness_obligation_non_regression_predicate(
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
     evidence = context.plan_evidence
-    obligations = evidence.get("witness_obligations")
-    if not isinstance(obligations, list):
-        obligations = []
+    obligations: list[Mapping[str, JSONValue]] = []
+    raw_obligations = sequence_or_none(evidence.get("witness_obligations"))
+    if raw_obligations is not None:
+        for item in raw_obligations:
+            mapped_item = mapping_or_none(item)
+            if mapped_item is not None:
+                obligations.append(mapped_item)
     missing_required: list[str] = []
     for item in obligations:
-        if not isinstance(item, Mapping):
-            continue
         required = bool(item.get("required"))
         witness_ref = str(item.get("witness_ref", "") or "")
         witness_kind = str(item.get("kind", "witness") or "witness")
@@ -4134,7 +4195,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
         "passed": passed,
         "expected": {
             "required_witnesses": [
-                item for item in obligations if isinstance(item, Mapping) and bool(item.get("required"))
+                item for item in obligations if bool(item.get("required"))
             ],
             "identity_contract": pre_identity,
         },
@@ -4159,9 +4220,8 @@ def _evaluate_exception_obligation_non_regression_predicate(
     context: _RewritePredicateContext,
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
-    pre_summary = context.pre.get("exception_obligations_summary")
-    if not isinstance(pre_summary, dict):
-        pre_summary = None
+    raw_pre_summary = context.pre.get("exception_obligations_summary")
+    pre_summary = cast(Mapping[str, object] | None, mapping_or_none(raw_pre_summary))
     if context.post_exception_obligations is None:
         return {
             "kind": kind,
@@ -4230,7 +4290,7 @@ def verify_rewrite_plan(
     plan: JSONObject,
     *,
     post_provenance: list[JSONObject],
-    post_exception_obligations: list[JSONObject] | None = None,
+    post_exception_obligations = None,
 ) -> JSONObject:
     """Verify a single rewrite plan using a post-state provenance artifact.
 
@@ -4292,7 +4352,7 @@ def verify_rewrite_plan(
     pre = mapping_or_empty(plan.get("pre"))
     evidence = mapping_or_empty(plan.get("evidence"))
     raw_pre_remainder = pre.get("remainder")
-    if raw_pre_remainder not in (None, {}) and not isinstance(raw_pre_remainder, Mapping):
+    if raw_pre_remainder not in (None, {}) and mapping_or_none(raw_pre_remainder) is None:
         issues.append("invalid pre remainder payload")
     expected_base = list(pre.get("base_keys") or [])
     expected_ctor = list(pre.get("ctor_keys") or [])
@@ -4303,7 +4363,7 @@ def verify_rewrite_plan(
     post_base = list(post_entry.get("base_keys") or [])
     post_ctor = list(post_entry.get("ctor_keys") or [])
     post_remainder = mapping_or_empty(post_entry.get("remainder"))
-    post_matches = post_entry.get("glossary_matches") or []
+    post_matches = str_tuple_from_sequence(post_entry.get("glossary_matches")) or tuple()
     post_strata = _glossary_match_strata(post_matches)
 
     predicate_results: list[JSONObject] = []
@@ -4312,26 +4372,32 @@ def verify_rewrite_plan(
     rewrite = mapping_or_empty(plan.get("rewrite"))
     rewrite_kind = str(rewrite.get("kind", "") or "")
     raw_params_payload = rewrite.get("parameters")
-    if raw_params_payload not in (None, {}) and not isinstance(raw_params_payload, Mapping):
+    if raw_params_payload not in (None, {}) and mapping_or_none(raw_params_payload) is None:
         issues.append("invalid rewrite parameters payload")
     params = mapping_or_empty(rewrite.get("parameters"))
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
 
     requested_predicates: list[JSONObject] = []
     verification = mapping_or_empty(plan.get("verification"))
-    predicates = sequence_or_none(verification.get("predicates"))
-    if predicates is not None:
-        requested_predicates = [
-            p for p in predicates if isinstance(p, dict) and p.get("kind")
-        ]
+    predicates = sequence_or_none(verification.get("predicates")) or ()
+    requested_predicates = [
+        {str(key): mapped_predicate[key] for key in mapped_predicate}
+        for predicate in predicates
+        for mapped_predicate in (mapping_or_none(predicate),)
+        if mapped_predicate is not None and mapped_predicate.get("kind")
+    ]
     if not requested_predicates:
-        schema = rewrite_plan_schema(rewrite_kind)
-        defaults = list(schema.required_predicates) if schema is not None else [
+        schema_lookup = rewrite_plan_schema(rewrite_kind)
+        defaults = (
+            list(schema_lookup.schema.required_predicates)
+            if schema_lookup.is_known
+            else [
             "base_conservation",
             "ctor_coherence",
             "match_strata",
             "remainder_non_regression",
-        ]
+            ]
+        )
         requested_predicates = []
         for kind in defaults:
             if kind == "match_strata":
@@ -4391,7 +4457,7 @@ def verify_rewrite_plans(
     plans: list[JSONObject],
     *,
     post_provenance: list[JSONObject],
-    post_exception_obligations: list[JSONObject] | None = None,
+    post_exception_obligations = None,
 ) -> list[JSONObject]:
     return [
         verify_rewrite_plan(
@@ -4416,25 +4482,26 @@ def _summarize_rewrite_plans(
 
 def _enclosing_function_node(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+):
     check_deadline()
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            return current
+        current_type = type(current)
+        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            return cast(ast.FunctionDef | ast.AsyncFunctionDef, current)
         current = parents.get(current)
     return None
 
 
-def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
+def _exception_param_names(expr, params: set[str]) -> list[str]:
     return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
 
-def _exception_type_name(expr: ast.AST | None) -> str | None:
+def _exception_type_name(expr):
     return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 
-def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
+def _annotation_exception_candidates(annotation) -> tuple[str, ...]:
     check_deadline()
     if not annotation:
         return ()
@@ -4445,14 +4512,17 @@ def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
     candidates: set[str] = set()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name):
-            cls = _exc_builtin_exception_class(node.id)
+        node_type = type(node)
+        if node_type is ast.Name:
+            node_name = cast(ast.Name, node)
+            cls = _exc_builtin_exception_class(node_name.id)
             if cls is not None:
-                candidates.add(node.id)
-        elif isinstance(node, ast.Attribute):
-            cls = _exc_builtin_exception_class(node.attr)
+                candidates.add(node_name.id)
+        elif node_type is ast.Attribute:
+            node_attr = cast(ast.Attribute, node)
+            cls = _exc_builtin_exception_class(node_attr.attr)
             if cls is not None:
-                candidates.add(node.attr)
+                candidates.add(node_attr.attr)
     return tuple(
         sort_once(
             candidates,
@@ -4463,15 +4533,15 @@ def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
 
 
 def _refine_exception_name_from_annotations(
-    expr: ast.AST | None,
+    expr,
     *,
-    param_annotations: dict[str, str | None],
-) -> tuple[str | None, str | None, tuple[str, ...]]:
+    param_annotations: ParamAnnotationMap,
+):
     check_deadline()
     direct_name = _exception_type_name(expr)
-    if not isinstance(expr, ast.Name):
+    if type(expr) is not ast.Name:
         return direct_name, None, ()
-    annotation = param_annotations.get(expr.id)
+    annotation = param_annotations.get(cast(ast.Name, expr).id)
     candidates = _annotation_exception_candidates(annotation)
     if not candidates:
         return direct_name, None, ()
@@ -4480,7 +4550,7 @@ def _refine_exception_name_from_annotations(
     return direct_name, "PARAM_ANNOTATION_AMBIGUOUS", candidates
 
 
-def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
+def _handler_type_names(handler_type) -> tuple[str, ...]:
     return _exc_handler_type_names(
         handler_type,
         decorator_name=_decorator_name,
@@ -4489,8 +4559,8 @@ def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
 
 
 def _exception_handler_compatibility(
-    exception_name: str | None,
-    handler_type: ast.AST | None,
+    exception_name,
+    handler_type,
 ) -> str:
     return _exc_exception_handler_compatibility(
         exception_name,
@@ -4522,15 +4592,19 @@ def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
 
 def _find_handling_try(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> ast.Try | None:
+):
     check_deadline()
     current = parents.get(node)
+    try_ancestors: list[ast.Try] = []
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.Try) and _node_in_try_body(node, current):
-            return current
+        if type(current) is ast.Try:
+            try_ancestors.append(cast(ast.Try, current))
         current = parents.get(current)
-    return None
+    return next(
+        (try_node for try_node in try_ancestors if _node_in_try_body(node, try_node)),
+        None,
+    )
 
 
 def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
@@ -4551,88 +4625,209 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(expr):
         check_deadline()
-        if isinstance(node, ast.Name):
-            names.add(node.id)
+        if type(node) is ast.Name:
+            names.add(cast(ast.Name, node).id)
     return names
 
 
-def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> JSONValue | None:
-    check_deadline()
-    if isinstance(expr, ast.Constant):
-        value = expr.value
-        if value is None or isinstance(value, (str, int, float, bool)):
-            return value
-        return None
-    if isinstance(expr, ast.Name):
-        if expr.id in env:
-            return env[expr.id]
-        return None
-    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)):
-        operand = _eval_value_expr(expr.operand, env)
-        if isinstance(operand, (int, float)):
-            return -operand if isinstance(expr.op, ast.USub) else operand
-    return None
+class _EvalDecision(StrEnum):
+    TRUE = "true"
+    FALSE = "false"
+    UNKNOWN = "unknown"
 
 
-def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> bool | None:
+@dataclass(frozen=True)
+class _BoolEvalOutcome:
+    decision: _EvalDecision
+
+    def is_unknown(self) -> bool:
+        return self.decision is _EvalDecision.UNKNOWN
+
+    def as_bool(self) -> bool:
+        return self.decision is _EvalDecision.TRUE
+
+
+@dataclass(frozen=True)
+class _ValueEvalOutcome:
+    decision: _EvalDecision
+    value: JSONValue
+
+    def is_unknown(self) -> bool:
+        return self.decision is _EvalDecision.UNKNOWN
+
+
+def _bool_outcome(value: bool) -> _BoolEvalOutcome:
+    return _BoolEvalOutcome(
+        _EvalDecision.TRUE if value else _EvalDecision.FALSE
+    )
+
+
+def _unknown_bool_outcome() -> _BoolEvalOutcome:
+    return _BoolEvalOutcome(_EvalDecision.UNKNOWN)
+
+
+def _known_value_outcome(value: JSONValue) -> _ValueEvalOutcome:
+    return _ValueEvalOutcome(_EvalDecision.TRUE, value)
+
+
+def _unknown_value_outcome() -> _ValueEvalOutcome:
+    return _ValueEvalOutcome(_EvalDecision.UNKNOWN, False)
+
+
+def _constant_scalar_outcome(expr: ast.Constant) -> _ValueEvalOutcome:
+    value = expr.value
+    value_type = type(value)
+    if value is None or value_type in {str, int, float, bool}:
+        return _known_value_outcome(cast(JSONValue, value))
+    return _unknown_value_outcome()
+
+
+def _is_numeric_value(value: JSONValue) -> bool:
+    return issubclass(type(value), (int, float))
+
+
+def _unary_numeric_outcome(
+    expr: ast.UnaryOp,
+    env: dict[str, JSONValue],
+) -> _ValueEvalOutcome:
+    op_type = type(expr.op)
+    operand = _eval_value_expr(expr.operand, env)
+    if operand.is_unknown():
+        return _unknown_value_outcome()
+    value = operand.value
+    if not _is_numeric_value(value):
+        return _unknown_value_outcome()
+    if op_type is ast.USub:
+        return _known_value_outcome(-value)
+    return _known_value_outcome(value)
+
+
+def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
     check_deadline()
-    if isinstance(expr, ast.Constant):
-        return bool(expr.value)
-    if isinstance(expr, ast.Name):
-        if expr.id not in env:
-            return None
-        return bool(env[expr.id])
-    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
-        inner = _eval_bool_expr(expr.operand, env)
-        if inner is None:
-            return None
-        return not inner
-    if isinstance(expr, ast.BoolOp):
-        if isinstance(expr.op, ast.And):
-            any_unknown = False
-            for value in expr.values:
-                check_deadline()
-                result = _eval_bool_expr(value, env)
-                if result is False:
-                    return False
-                if result is None:
-                    any_unknown = True
-            return None if any_unknown else True
-        any_unknown = False
-        for value in expr.values:
-            check_deadline()
-            result = _eval_bool_expr(value, env)
-            if result is True:
-                return True
-            if result is None:
-                any_unknown = True
-        return None if any_unknown else False
-    if isinstance(expr, ast.Compare) and len(expr.ops) == 1 and len(expr.comparators) == 1:
-        left = _eval_value_expr(expr.left, env)
-        right = _eval_value_expr(expr.comparators[0], env)
-        if left is None or right is None:
-            return None
-        op = expr.ops[0]
-        if isinstance(op, ast.Eq):
-            return left == right
-        if isinstance(op, ast.NotEq):
-            return left != right
-        if isinstance(op, ast.Lt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left < right
-        if isinstance(op, ast.LtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left <= right
-        if isinstance(op, ast.Gt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left > right
-        if isinstance(op, ast.GtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-            return left >= right
-    return None
+    expr_type = type(expr)
+    if expr_type is ast.Constant:
+        return _constant_scalar_outcome(cast(ast.Constant, expr))
+    if expr_type is ast.Name:
+        name_expr = cast(ast.Name, expr)
+        if name_expr.id in env:
+            return _known_value_outcome(env[name_expr.id])
+        return _unknown_value_outcome()
+    if expr_type is ast.UnaryOp:
+        unary_expr = cast(ast.UnaryOp, expr)
+        if type(unary_expr.op) is ast.USub or type(unary_expr.op) is ast.UAdd:
+            return _unary_numeric_outcome(unary_expr, env)
+        return _unknown_value_outcome()
+    return _unknown_value_outcome()
+
+
+def _eval_bool_not_expr(expr: ast.UnaryOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    inner = _eval_bool_expr(expr.operand, env)
+    if inner.is_unknown():
+        return _unknown_bool_outcome()
+    return _bool_outcome(not inner.as_bool())
+
+
+def _eval_bool_and_values(
+    values: Sequence[ast.expr],
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    any_unknown = False
+    for value in values:
+        check_deadline()
+        result = _eval_bool_expr(value, env)
+        if result.decision is _EvalDecision.FALSE:
+            return _bool_outcome(False)
+        if result.is_unknown():
+            any_unknown = True
+    return _unknown_bool_outcome() if any_unknown else _bool_outcome(True)
+
+
+def _eval_bool_or_values(
+    values: Sequence[ast.expr],
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    any_unknown = False
+    for value in values:
+        check_deadline()
+        result = _eval_bool_expr(value, env)
+        if result.decision is _EvalDecision.TRUE:
+            return _bool_outcome(True)
+        if result.is_unknown():
+            any_unknown = True
+    return _unknown_bool_outcome() if any_unknown else _bool_outcome(False)
+
+
+def _eval_bool_compare_expr(
+    expr: ast.Compare,
+    env: dict[str, JSONValue],
+) -> _BoolEvalOutcome:
+    left_outcome = _eval_value_expr(expr.left, env)
+    right_outcome = _eval_value_expr(expr.comparators[0], env)
+    if left_outcome.is_unknown() or right_outcome.is_unknown():
+        return _unknown_bool_outcome()
+    left = left_outcome.value
+    right = right_outcome.value
+    op_type = type(expr.ops[0])
+    if op_type is ast.Eq:
+        return _bool_outcome(left == right)
+    if op_type is ast.NotEq:
+        return _bool_outcome(left != right)
+    if _is_numeric_value(left) and _is_numeric_value(right):
+        if op_type is ast.Lt:
+            return _bool_outcome(left < right)
+        if op_type is ast.LtE:
+            return _bool_outcome(left <= right)
+        if op_type is ast.Gt:
+            return _bool_outcome(left > right)
+        if op_type is ast.GtE:
+            return _bool_outcome(left >= right)
+    return _unknown_bool_outcome()
+
+
+def _eval_bool_boolop_expr(expr: ast.BoolOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    op_type = type(expr.op)
+    if op_type is ast.And:
+        return _eval_bool_and_values(expr.values, env)
+    return _eval_bool_or_values(expr.values, env)
+
+
+def _eval_bool_name_expr(expr: ast.Name, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    if expr.id not in env:
+        return _unknown_bool_outcome()
+    return _bool_outcome(bool(env[expr.id]))
+
+
+def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
+    check_deadline()
+    expr_type = type(expr)
+    if expr_type is ast.Constant:
+        constant_expr = cast(ast.Constant, expr)
+        return _bool_outcome(bool(constant_expr.value))
+    if expr_type is ast.Name:
+        return _eval_bool_name_expr(cast(ast.Name, expr), env)
+    if expr_type is ast.UnaryOp:
+        unary_expr = cast(ast.UnaryOp, expr)
+        if type(unary_expr.op) is ast.Not:
+            return _eval_bool_not_expr(unary_expr, env)
+        return _unknown_bool_outcome()
+    if expr_type is ast.BoolOp:
+        boolop_expr = cast(ast.BoolOp, expr)
+        if type(boolop_expr.op) is ast.And or type(boolop_expr.op) is ast.Or:
+            return _eval_bool_boolop_expr(boolop_expr, env)
+        return _unknown_bool_outcome()
+    if expr_type is ast.Compare:
+        compare_expr = cast(ast.Compare, expr)
+        if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
+            return _unknown_bool_outcome()
+        return _eval_bool_compare_expr(compare_expr, env)
+    return _unknown_bool_outcome()
 
 
 def _branch_reachability_under_env(
     node: ast.AST,
     parents: dict[ast.AST, ast.AST],
     env: dict[str, JSONValue],
-) -> bool | None:
+) -> _EvalDecision:
     """Conservatively evaluate nested-if constraints for `node` under `env`."""
     check_deadline()
     constraints: list[tuple[ast.AST, bool]] = []
@@ -4640,35 +4835,45 @@ def _branch_reachability_under_env(
     current = parents.get(current_node)
     while current is not None:
         check_deadline()
-        if isinstance(current, ast.If):
-            if _node_in_block(current_node, current.body):
-                constraints.append((current.test, True))
-            elif _node_in_block(current_node, current.orelse):
-                constraints.append((current.test, False))
+        if type(current) is ast.If:
+            if_node = cast(ast.If, current)
+            if _node_in_block(current_node, if_node.body):
+                constraints.append((if_node.test, True))
+            elif _node_in_block(current_node, if_node.orelse):
+                constraints.append((if_node.test, False))
         current_node = current
         current = parents.get(current_node)
     if not constraints:
-        return None
+        return _EvalDecision.UNKNOWN
     any_unknown = False
     for test, want_true in constraints:
         check_deadline()
         result = _eval_bool_expr(test, env)
-        if result is None:
+        if result.is_unknown():
             any_unknown = True
             continue
-        if result != want_true:
-            return False
-    return None if any_unknown else True
+        if result.as_bool() != want_true:
+            return _EvalDecision.FALSE
+    return _EvalDecision.UNKNOWN if any_unknown else _EvalDecision.TRUE
+
+
+def _is_reachability_false(reachability: _EvalDecision) -> bool:
+    return reachability is _EvalDecision.FALSE
+
+
+def _is_reachability_true(reachability: _EvalDecision) -> bool:
+    return reachability is _EvalDecision.TRUE
 
 
 def _collect_handledness_witnesses(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
 ) -> list[JSONObject]:
     check_deadline()
     witnesses: list[JSONObject] = []
+    raise_or_assert_types = {ast.Raise, ast.Assert}
     for path in paths:
         check_deadline()
         try:
@@ -4679,7 +4884,7 @@ def _collect_handledness_witnesses(
         parent.visit(tree)
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
-        param_annotations_by_fn: dict[ast.AST, dict[str, str | None]] = {}
+        param_annotations_by_fn = {}
         for fn in _collect_functions(tree):
             check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
@@ -4687,150 +4892,153 @@ def _collect_handledness_witnesses(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, (ast.Raise, ast.Assert)):
-                continue
-            try_node = _find_handling_try(node, parents)
-            source_kind = "E0"
-            kind = "raise" if isinstance(node, ast.Raise) else "assert"
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-                param_annotations: dict[str, str | None] = {}
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-                param_annotations = param_annotations_by_fn.get(fn_node, {})
-            expr = node.exc if isinstance(node, ast.Raise) else node.test
-            (
-                exception_name,
-                exception_type_source,
-                exception_type_candidates,
-            ) = _refine_exception_name_from_annotations(
-                expr,
-                param_annotations=param_annotations,
-            )
-            bundle = _exception_param_names(expr, params)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            exception_id = _exception_path_id(
-                path=path_value,
-                function=function,
-                source_kind=source_kind,
-                lineno=lineno,
-                col=col,
-                kind=kind,
-            )
-            handledness_id = f"handled:{exception_id}"
-            handler_kind = None
-            handler_boundary = None
-            compatibility = "incompatible"
-            handledness_reason_code = "NO_HANDLER"
-            handledness_reason = "no enclosing handler discharges this exception path"
-            type_refinement_opportunity = ""
-            if try_node is not None:
-                unknown_handler: ast.ExceptHandler | None = None
-                first_incompatible_handler: ast.ExceptHandler | None = None
-                for handler in try_node.handlers:
-                    check_deadline()
-                    compatibility = _exception_handler_compatibility(
-                        exception_name,
-                        handler.type,
-                    )
-                    if compatibility == "compatible":
-                        handler_kind = "catch"
-                        handler_boundary = _handler_label(handler)
-                        if handler.type is None:
-                            handledness_reason_code = "BROAD_EXCEPT"
-                            handledness_reason = (
-                                "handled by broad except: without a typed match proof"
-                            )
-                        else:
-                            handledness_reason_code = "TYPED_MATCH"
-                            handledness_reason = (
-                                "raised exception type matches an explicit except clause"
-                            )
-                        break
-                    if compatibility == "unknown" and unknown_handler is None:
-                        unknown_handler = handler
-                    if (
-                        compatibility == "incompatible"
-                        and first_incompatible_handler is None
-                    ):
-                        first_incompatible_handler = handler
-                if handler_kind is None and unknown_handler is not None:
-                    handler_kind = "catch"
-                    handler_boundary = _handler_label(unknown_handler)
-                    compatibility = "unknown"
-                    handledness_reason_code = "TYPE_UNRESOLVED"
-                    handledness_reason = (
-                        "exception or handler types are dynamic/unresolved; handledness is unknown"
-                    )
-                    if exception_type_candidates:
-                        type_refinement_opportunity = (
-                            "narrow raised exception type to a single concrete exception"
-                        )
-                elif handler_kind is None and first_incompatible_handler is not None:
-                    handler_kind = "catch"
-                    handler_boundary = _handler_label(first_incompatible_handler)
-                    compatibility = "incompatible"
-                    handledness_reason_code = "TYPED_MISMATCH"
-                    handledness_reason = (
-                        "explicit except clauses do not match the raised exception type"
-                    )
-                    type_refinement_opportunity = (
-                        f"consider except {exception_name} (or a supertype) to dominate this raise path"
-                        if exception_name
-                        else "consider a typed except clause to dominate this raise path"
-                    )
-            if handler_kind is None and exception_name == "SystemExit":
-                handler_kind = "convert"
-                handler_boundary = "process exit"
-                compatibility = "compatible"
-                handledness_reason_code = "SYSTEM_EXIT_CONVERT"
-                handledness_reason = "SystemExit is converted to process exit"
-            if handler_kind is None:
-                continue
-            witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
-            handler_type_names: tuple[str, ...] = ()
-            if try_node is not None and handler_kind == "catch":
-                handler_types_by_label: dict[str, tuple[str, ...]] = {}
-                for handler in try_node.handlers:
-                    check_deadline()
-                    handler_types_by_label[_handler_label(handler)] = _handler_type_names(
-                        handler.type
-                    )
-                handler_type_names = handler_types_by_label.get(
-                    str(handler_boundary), ()
+            if type(node) in raise_or_assert_types:
+                raise_node = cast(ast.Raise | ast.Assert, node)
+                try_node = _find_handling_try(raise_node, parents)
+                source_kind = "E0"
+                kind = "raise" if type(raise_node) is ast.Raise else "assert"
+                fn_node = _enclosing_function_node(raise_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
+                    param_annotations: dict[str, JSONValue] = {}
+                else:
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                    param_annotations = param_annotations_by_fn.get(fn_node, {})
+                expr = (
+                    cast(ast.Raise, raise_node).exc
+                    if type(raise_node) is ast.Raise
+                    else cast(ast.Assert, raise_node).test
                 )
-            witnesses.append(
-                {
-                    "handledness_id": handledness_id,
-                    "exception_path_id": exception_id,
-                    "site": {
-                        "path": path_value,
-                        "function": function,
-                        "bundle": bundle,
-                    },
-                    "handler_kind": handler_kind,
-                    "handler_boundary": handler_boundary,
-                    "handler_types": list(handler_type_names),
-                    "type_compatibility": compatibility,
-                    "exception_type_source": exception_type_source,
-                    "exception_type_candidates": list(exception_type_candidates),
-                    "type_refinement_opportunity": type_refinement_opportunity,
-                    "handledness_reason_code": handledness_reason_code,
-                    "handledness_reason": handledness_reason,
-                    "environment": {},
-                    "core": (
-                        [f"enclosed by {handler_boundary}"]
-                        if handler_kind == "catch"
-                        else ["converted to process exit"]
-                    ),
-                    "result": witness_result,
-                }
-            )
+                (
+                    exception_name,
+                    exception_type_source,
+                    exception_type_candidates,
+                ) = _refine_exception_name_from_annotations(
+                    expr,
+                    param_annotations=param_annotations,
+                )
+                bundle = _exception_param_names(expr, params)
+                lineno = getattr(raise_node, "lineno", 0)
+                col = getattr(raise_node, "col_offset", 0)
+                exception_id = _exception_path_id(
+                    path=path_value,
+                    function=function,
+                    source_kind=source_kind,
+                    lineno=lineno,
+                    col=col,
+                    kind=kind,
+                )
+                handledness_id = f"handled:{exception_id}"
+                handler_kind = None
+                handler_boundary = None
+                compatibility = "incompatible"
+                handledness_reason_code = "NO_HANDLER"
+                handledness_reason = "no enclosing handler discharges this exception path"
+                type_refinement_opportunity = ""
+                if try_node is not None:
+                    unknown_handler = None
+                    first_incompatible_handler = None
+                    for handler in try_node.handlers:
+                        check_deadline()
+                        compatibility = _exception_handler_compatibility(
+                            exception_name,
+                            handler.type,
+                        )
+                        if compatibility == "compatible":
+                            handler_kind = "catch"
+                            handler_boundary = _handler_label(handler)
+                            if handler.type is None:
+                                handledness_reason_code = "BROAD_EXCEPT"
+                                handledness_reason = (
+                                    "handled by broad except: without a typed match proof"
+                                )
+                            else:
+                                handledness_reason_code = "TYPED_MATCH"
+                                handledness_reason = (
+                                    "raised exception type matches an explicit except clause"
+                                )
+                            break
+                        if compatibility == "unknown" and unknown_handler is None:
+                            unknown_handler = handler
+                        if (
+                            compatibility == "incompatible"
+                            and first_incompatible_handler is None
+                        ):
+                            first_incompatible_handler = handler
+                    if handler_kind is None and unknown_handler is not None:
+                        handler_kind = "catch"
+                        handler_boundary = _handler_label(unknown_handler)
+                        compatibility = "unknown"
+                        handledness_reason_code = "TYPE_UNRESOLVED"
+                        handledness_reason = (
+                            "exception or handler types are dynamic/unresolved; handledness is unknown"
+                        )
+                        if exception_type_candidates:
+                            type_refinement_opportunity = (
+                                "narrow raised exception type to a single concrete exception"
+                            )
+                    elif handler_kind is None and first_incompatible_handler is not None:
+                        handler_kind = "catch"
+                        handler_boundary = _handler_label(first_incompatible_handler)
+                        compatibility = "incompatible"
+                        handledness_reason_code = "TYPED_MISMATCH"
+                        handledness_reason = (
+                            "explicit except clauses do not match the raised exception type"
+                        )
+                        type_refinement_opportunity = (
+                            f"consider except {exception_name} (or a supertype) to dominate this raise path"
+                            if exception_name
+                            else "consider a typed except clause to dominate this raise path"
+                        )
+                if handler_kind is None and exception_name == "SystemExit":
+                    handler_kind = "convert"
+                    handler_boundary = "process exit"
+                    compatibility = "compatible"
+                    handledness_reason_code = "SYSTEM_EXIT_CONVERT"
+                    handledness_reason = "SystemExit is converted to process exit"
+                if handler_kind is not None:
+                    witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
+                    handler_type_names: tuple[str, ...] = ()
+                    if try_node is not None and handler_kind == "catch":
+                        handler_types_by_label: dict[str, tuple[str, ...]] = {}
+                        for handler in try_node.handlers:
+                            check_deadline()
+                            handler_types_by_label[_handler_label(handler)] = _handler_type_names(
+                                handler.type
+                            )
+                        handler_type_names = handler_types_by_label.get(
+                            str(handler_boundary), ()
+                        )
+                    witnesses.append(
+                        {
+                            "handledness_id": handledness_id,
+                            "exception_path_id": exception_id,
+                            "site": {
+                                "path": path_value,
+                                "function": function,
+                                "bundle": bundle,
+                            },
+                            "handler_kind": handler_kind,
+                            "handler_boundary": handler_boundary,
+                            "handler_types": list(handler_type_names),
+                            "type_compatibility": compatibility,
+                            "exception_type_source": exception_type_source,
+                            "exception_type_candidates": list(exception_type_candidates),
+                            "type_refinement_opportunity": type_refinement_opportunity,
+                            "handledness_reason_code": handledness_reason_code,
+                            "handledness_reason": handledness_reason,
+                            "environment": {},
+                            "core": (
+                                [f"enclosed by {handler_boundary}"]
+                                if handler_kind == "catch"
+                                else ["converted to process exit"]
+                            ),
+                            "result": witness_result,
+                        }
+                    )
     return sort_once(
         witnesses,
         key=lambda entry: (
@@ -4843,7 +5051,7 @@ def _collect_handledness_witnesses(
 
 
 def _dead_env_map(
-    deadness_witnesses: list[JSONObject] | None,
+    deadness_witnesses,
 ) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
     check_deadline()
     dead_env_map: dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]] = {}
@@ -4854,39 +5062,39 @@ def _dead_env_map(
         path_value = str(entry.get("path", ""))
         function_value = str(entry.get("function", ""))
         bundle = entry.get("bundle", []) or []
-        if not isinstance(bundle, list) or not bundle:
-            continue
-        param = str(bundle[0])
-        environment = entry.get("environment", {})
-        if not isinstance(environment, dict):
-            continue
-        value_str = environment.get(param)
-        if not isinstance(value_str, str):
-            continue
-        try:
-            literal_value = ast.literal_eval(value_str)
-        except _LITERAL_EVAL_ERROR_TYPES:
-            continue
-        dead_env_map.setdefault((path_value, function_value), {})[param] = (
-            literal_value,
-            entry,
-        )
+        bundle_values = sequence_or_none(cast(JSONValue, bundle))
+        if bundle_values is not None and bundle_values:
+            param = str(bundle_values[0])
+            environment = mapping_or_none(entry.get("environment", {}))
+            if environment is not None:
+                value_str = environment.get(param)
+                if type(value_str) is str:
+                    try:
+                        literal_value = ast.literal_eval(value_str)
+                    except _LITERAL_EVAL_ERROR_TYPES:
+                        literal_value = None
+                    if literal_value is not None:
+                        dead_env_map.setdefault((path_value, function_value), {})[param] = (
+                            literal_value,
+                            entry,
+                        )
     return dead_env_map
 
 
 def _collect_exception_obligations(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
-    handledness_witnesses: list[JSONObject] | None = None,
-    deadness_witnesses: list[JSONObject] | None = None,
-    never_exceptions: set[str] | None = None,
+    handledness_witnesses=None,
+    deadness_witnesses=None,
+    never_exceptions=None,
 ) -> list[JSONObject]:
     check_deadline()
     obligations: list[JSONObject] = []
     never_exceptions_set = set(never_exceptions or [])
     handled_map: dict[str, JSONObject] = {}
+    raise_or_assert_types = {ast.Raise, ast.Assert}
     if handledness_witnesses:
         for entry in handledness_witnesses:
             check_deadline()
@@ -4910,137 +5118,140 @@ def _collect_exception_obligations(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, (ast.Raise, ast.Assert)):
-                continue
-            source_kind = "E0"
-            kind = "raise" if isinstance(node, ast.Raise) else "assert"
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-            expr = node.exc if isinstance(node, ast.Raise) else node.test
-            exception_name = _exception_type_name(expr)
-            protocol: str | None = None
-            if (
-                exception_name
-                and never_exceptions_set
-                and _decorator_matches(exception_name, never_exceptions_set)
-            ):
-                protocol = "never"
-            if _is_never_marker_raise(function, exception_name, never_exceptions_set):
-                continue
-            bundle = _exception_param_names(expr, params)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            exception_id = _exception_path_id(
-                path=path_value,
-                function=function,
-                source_kind=source_kind,
-                lineno=lineno,
-                col=col,
-                kind=kind,
-            )
-            handled = handled_map.get(exception_id)
-            status = "UNKNOWN"
-            witness_ref = None
-            remainder: JSONObject | None = {"exception_kind": kind}
-            environment_ref: JSONObject | None = None
-            handledness_reason_code = "NO_HANDLER"
-            handledness_reason = "no handledness witness"
-            exception_type_source = None
-            exception_type_candidates: list[str] = []
-            type_refinement_opportunity = ""
-            if handled:
-                witness_result = str(handled.get("result", ""))
-                handledness_reason_code = str(
-                    handled.get("handledness_reason_code", "UNKNOWN_REASON")
-                )
-                handledness_reason = str(handled.get("handledness_reason", ""))
-                exception_type_source = handled.get("exception_type_source")
-                raw_candidates = handled.get("exception_type_candidates") or []
-                if isinstance(raw_candidates, list):
-                    exception_type_candidates = [str(v) for v in raw_candidates]
-                type_refinement_opportunity = str(
-                    handled.get("type_refinement_opportunity", "")
-                )
-                if witness_result == "HANDLED":
-                    status = "HANDLED"
-                    remainder = {}
+            if type(node) in raise_or_assert_types:
+                raise_node = cast(ast.Raise | ast.Assert, node)
+                source_kind = "E0"
+                kind = "raise" if type(raise_node) is ast.Raise else "assert"
+                fn_node = _enclosing_function_node(raise_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
                 else:
-                    remainder["handledness_result"] = witness_result or "UNKNOWN"
-                    remainder["type_compatibility"] = str(
-                        handled.get("type_compatibility", "unknown")
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                expr = (
+                    cast(ast.Raise, raise_node).exc
+                    if type(raise_node) is ast.Raise
+                    else cast(ast.Assert, raise_node).test
+                )
+                exception_name = _exception_type_name(expr)
+                protocol = None
+                if (
+                    exception_name
+                    and never_exceptions_set
+                    and _decorator_matches(exception_name, never_exceptions_set)
+                ):
+                    protocol = "never"
+                if not _is_never_marker_raise(function, exception_name, never_exceptions_set):
+                    bundle = _exception_param_names(expr, params)
+                    lineno = getattr(raise_node, "lineno", 0)
+                    col = getattr(raise_node, "col_offset", 0)
+                    exception_id = _exception_path_id(
+                        path=path_value,
+                        function=function,
+                        source_kind=source_kind,
+                        lineno=lineno,
+                        col=col,
+                        kind=kind,
                     )
-                    remainder["handledness_reason_code"] = handledness_reason_code
-                    remainder["handledness_reason"] = handledness_reason
-                    if exception_type_source:
-                        remainder["exception_type_source"] = exception_type_source
-                    if exception_type_candidates:
-                        remainder["exception_type_candidates"] = exception_type_candidates
-                    if type_refinement_opportunity:
-                        remainder["type_refinement_opportunity"] = type_refinement_opportunity
-                witness_ref = handled.get("handledness_id")
-                environment_ref = handled.get("environment") or {}
-            if status != "HANDLED":
-                env_entries = dead_env_map.get((path_value, function), {})
-                if env_entries:
-                    env = {name: value for name, (value, _) in env_entries.items()}
-                    reachability = _branch_reachability_under_env(node, parents, env)
-                    if reachability is False:
-                        names: set[str] = set()
-                        current = parents.get(node)
-                        while current is not None:
-                            check_deadline()
-                            if isinstance(current, ast.If):
-                                names.update(_names_in_expr(current.test))
-                            current = parents.get(current)
-                        ordered_names = sort_once(
-                            names,
-                            source="_collect_exception_obligations.names.dead",
-                            policy=OrderPolicy.SORT,
+                    handled = handled_map.get(exception_id)
+                    status = "UNKNOWN"
+                    witness_ref = None
+                    remainder = {"exception_kind": kind}
+                    environment_ref: JSONValue = None
+                    handledness_reason_code = "NO_HANDLER"
+                    handledness_reason = "no handledness witness"
+                    exception_type_source: JSONValue = None
+                    exception_type_candidates: list[str] = []
+                    type_refinement_opportunity = ""
+                    if handled:
+                        witness_result = str(handled.get("result", ""))
+                        handledness_reason_code = str(
+                            handled.get("handledness_reason_code", "UNKNOWN_REASON")
                         )
-                        for name in sort_once(
-                            ordered_names,
-                            source="_collect_exception_obligations.names.dead.enforce",
-                            policy=OrderPolicy.ENFORCE,
-                        ):
-                            check_deadline()
-                            if name not in env_entries:
-                                continue
-                            _, witness = env_entries[name]
-                            status = "DEAD"
-                            witness_ref = witness.get("deadness_id")
+                        handledness_reason = str(handled.get("handledness_reason", ""))
+                        exception_type_source = handled.get("exception_type_source")
+                        raw_candidates = sequence_or_none(handled.get("exception_type_candidates") or [])
+                        if raw_candidates is not None:
+                            exception_type_candidates = [str(v) for v in raw_candidates]
+                        type_refinement_opportunity = str(
+                            handled.get("type_refinement_opportunity", "")
+                        )
+                        if witness_result == "HANDLED":
+                            status = "HANDLED"
                             remainder = {}
-                            environment_ref = witness.get("environment") or {}
-                            break
-            if protocol == "never" and status != "DEAD":
-                status = "FORBIDDEN"
-            obligations.append(
-                {
-                    "exception_path_id": exception_id,
-                    "site": {
-                        "path": path_value,
-                        "function": function,
-                        "bundle": bundle,
-                    },
-                    "source_kind": source_kind,
-                    "status": status,
-                    "handledness_reason_code": handledness_reason_code,
-                    "handledness_reason": handledness_reason,
-                    "exception_type_source": exception_type_source,
-                    "exception_type_candidates": exception_type_candidates,
-                    "type_refinement_opportunity": type_refinement_opportunity,
-                    "witness_ref": witness_ref,
-                    "remainder": remainder,
-                    "environment_ref": environment_ref,
-                    "exception_name": exception_name,
-                    "protocol": protocol,
-                }
-            )
+                        else:
+                            remainder["handledness_result"] = witness_result or "UNKNOWN"
+                            remainder["type_compatibility"] = str(
+                                handled.get("type_compatibility", "unknown")
+                            )
+                            remainder["handledness_reason_code"] = handledness_reason_code
+                            remainder["handledness_reason"] = handledness_reason
+                            if exception_type_source:
+                                remainder["exception_type_source"] = exception_type_source
+                            if exception_type_candidates:
+                                remainder["exception_type_candidates"] = exception_type_candidates
+                            if type_refinement_opportunity:
+                                remainder["type_refinement_opportunity"] = type_refinement_opportunity
+                        witness_ref = handled.get("handledness_id")
+                        environment_ref = handled.get("environment") or {}
+                    if status != "HANDLED":
+                        env_entries = dead_env_map.get((path_value, function), {})
+                        if env_entries:
+                            env = {name: value for name, (value, _) in env_entries.items()}
+                            reachability = _branch_reachability_under_env(raise_node, parents, env)
+                            if _is_reachability_false(reachability):
+                                names: set[str] = set()
+                                current = parents.get(raise_node)
+                                while current is not None:
+                                    check_deadline()
+                                    if type(current) is ast.If:
+                                        names.update(_names_in_expr(cast(ast.If, current).test))
+                                    current = parents.get(current)
+                                ordered_names = sort_once(
+                                    names,
+                                    source="_collect_exception_obligations.names.dead",
+                                    policy=OrderPolicy.SORT,
+                                )
+                                for name in sort_once(
+                                    ordered_names,
+                                    source="_collect_exception_obligations.names.dead.enforce",
+                                    policy=OrderPolicy.ENFORCE,
+                                ):
+                                    check_deadline()
+                                    if name not in env_entries:
+                                        continue
+                                    _, witness = env_entries[name]
+                                    status = "DEAD"
+                                    witness_ref = witness.get("deadness_id")
+                                    remainder = {}
+                                    environment_ref = witness.get("environment") or {}
+                                    break
+                    if protocol == "never" and status != "DEAD":
+                        status = "FORBIDDEN"
+                    obligations.append(
+                        {
+                            "exception_path_id": exception_id,
+                            "site": {
+                                "path": path_value,
+                                "function": function,
+                                "bundle": bundle,
+                            },
+                            "source_kind": source_kind,
+                            "status": status,
+                            "handledness_reason_code": handledness_reason_code,
+                            "handledness_reason": handledness_reason,
+                            "exception_type_source": exception_type_source,
+                            "exception_type_candidates": exception_type_candidates,
+                            "type_refinement_opportunity": type_refinement_opportunity,
+                            "witness_ref": witness_ref,
+                            "remainder": remainder,
+                            "environment_ref": environment_ref,
+                            "exception_name": exception_name,
+                            "protocol": protocol,
+                        }
+                    )
     return sort_once(
         obligations,
         key=lambda entry: (
@@ -5053,27 +5264,32 @@ def _collect_exception_obligations(
     source = 'src/gabion/analysis/dataflow_audit.py:4672')
 
 
-def _never_reason(call: ast.Call) -> str | None:
+def _never_reason(call: ast.Call):
     check_deadline()
     if call.args:
         first = call.args[0]
-        if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            return first.value
+        if type(first) is ast.Constant:
+            first_value = cast(ast.Constant, first).value
+            if type(first_value) is str:
+                return first_value
     for kw in call.keywords:
         check_deadline()
         if kw.arg == "reason":
-            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
-                return kw.value.value
+            kw_value = kw.value
+            if type(kw_value) is ast.Constant:
+                constant_value = cast(ast.Constant, kw_value).value
+                if type(constant_value) is str:
+                    return constant_value
     return None
 
 
 def _collect_never_invariants(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     forest: Forest,
-    deadness_witnesses: list[JSONObject] | None = None,
+    deadness_witnesses=None,
 ) -> list[JSONObject]:
     check_deadline()
     invariants: list[JSONObject] = []
@@ -5094,104 +5310,102 @@ def _collect_never_invariants(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            if not _is_never_call(node):
-                continue
-            fn_node = _enclosing_function_node(node, parents)
-            if fn_node is None:
-                function = "<module>"
-                params = set()
-            else:
-                scopes = _enclosing_scopes(fn_node, parents)
-                function = _function_key(scopes, fn_node.name)
-                params = params_by_fn.get(fn_node, set())
-            bundle = _exception_param_names(node, params)
-            span = _node_span(node)
-            lineno = getattr(node, "lineno", 0)
-            col = getattr(node, "col_offset", 0)
-            never_id = f"never:{path_value}:{function}:{lineno}:{col}"
-            reason = _never_reason(node) or ""
-            status = "OBLIGATION"
-            witness_ref = None
-            environment_ref: JSONObject | None = None
-            undecidable_reason = None
-            env_entries = dead_env_map.get((path_value, function), {})
-            if env_entries:
-                env = {name: value for name, (value, _) in env_entries.items()}
-                reachability = _branch_reachability_under_env(node, parents, env)
-                if reachability is False:
-                    names: set[str] = set()
-                    current = parents.get(node)
-                    while current is not None:
-                        check_deadline()
-                        if isinstance(current, ast.If):
-                            names.update(_names_in_expr(current.test))
-                        current = parents.get(current)
-                    ordered_names = sort_once(
-                        names,
-                        source="_collect_never_invariants.names.proven_unreachable",
-                        policy=OrderPolicy.SORT,
-                    )
-                    for name in sort_once(
-                        ordered_names,
-                        source="_collect_never_invariants.names.proven_unreachable.enforce",
-                        policy=OrderPolicy.ENFORCE,
-                    ):
-                        check_deadline()
-                        if name not in env_entries:
-                            continue
-                        _, witness = env_entries[name]
-                        status = "PROVEN_UNREACHABLE"
-                        witness_ref = witness.get("deadness_id")
-                        environment_ref = witness.get("environment") or {}
-                        break
-                    if status == "PROVEN_UNREACHABLE" and not environment_ref:
-                        environment_ref = env
-                elif reachability is True:
-                    status = "VIOLATION"
-                    environment_ref = env
+            if type(node) is ast.Call and _is_never_call(cast(ast.Call, node)):
+                call_node = cast(ast.Call, node)
+                fn_node = _enclosing_function_node(call_node, parents)
+                if fn_node is None:
+                    function = "<module>"
+                    params = set()
                 else:
-                    names: set[str] = set()
-                    current = parents.get(node)
-                    while current is not None:
-                        check_deadline()
-                        if isinstance(current, ast.If):
-                            names.update(_names_in_expr(current.test))
-                        current = parents.get(current)
-                    undecidable_params = sort_once(
-                        (n for n in names if n not in env_entries),
-                        source="_collect_never_invariants.undecidable_params",
-                        policy=OrderPolicy.SORT,
-                    )
-                    if undecidable_params:
-                        undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
-            entry: JSONObject = {
-                "never_id": never_id,
-                "site": {
-                    "path": path_value,
-                    "function": function,
-                    "bundle": bundle,
-                },
-                "status": status,
-                "reason": reason,
-            }
-            normalized_span = span or (lineno, col, lineno, col)
-            if undecidable_reason:
-                entry["undecidable_reason"] = undecidable_reason
-            if witness_ref is not None:
-                entry["witness_ref"] = witness_ref
-            if environment_ref is not None:
-                entry["environment_ref"] = environment_ref
-            entry["span"] = list(normalized_span)
-            invariants.append(entry)
-            site_id = forest.add_site(path.name, function)
-            paramset_id = forest.add_paramset(bundle)
-            evidence: dict[str, object] = {"path": path.name, "qual": function}
-            if reason:
-                evidence["reason"] = reason
-            evidence["span"] = list(normalized_span)
-            forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
+                    scopes = _enclosing_scopes(fn_node, parents)
+                    function = _function_key(scopes, fn_node.name)
+                    params = params_by_fn.get(fn_node, set())
+                bundle = _exception_param_names(call_node, params)
+                span = _node_span(call_node)
+                lineno = getattr(call_node, "lineno", 0)
+                col = getattr(call_node, "col_offset", 0)
+                never_id = f"never:{path_value}:{function}:{lineno}:{col}"
+                reason = _never_reason(call_node) or ""
+                status = "OBLIGATION"
+                witness_ref = None
+                environment_ref: JSONValue = None
+                undecidable_reason = None
+                env_entries = dead_env_map.get((path_value, function), {})
+                if env_entries:
+                    env = {name: value for name, (value, _) in env_entries.items()}
+                    reachability = _branch_reachability_under_env(call_node, parents, env)
+                    if _is_reachability_false(reachability):
+                        names: set[str] = set()
+                        current = parents.get(call_node)
+                        while current is not None:
+                            check_deadline()
+                            if type(current) is ast.If:
+                                names.update(_names_in_expr(cast(ast.If, current).test))
+                            current = parents.get(current)
+                        ordered_names = sort_once(
+                            names,
+                            source="_collect_never_invariants.names.proven_unreachable",
+                            policy=OrderPolicy.SORT,
+                        )
+                        for name in sort_once(
+                            ordered_names,
+                            source="_collect_never_invariants.names.proven_unreachable.enforce",
+                            policy=OrderPolicy.ENFORCE,
+                        ):
+                            check_deadline()
+                            if name not in env_entries:
+                                continue
+                            _, witness = env_entries[name]
+                            status = "PROVEN_UNREACHABLE"
+                            witness_ref = witness.get("deadness_id")
+                            environment_ref = witness.get("environment") or {}
+                            break
+                        if status == "PROVEN_UNREACHABLE" and not environment_ref:
+                            environment_ref = env
+                    elif _is_reachability_true(reachability):
+                        status = "VIOLATION"
+                        environment_ref = env
+                    else:
+                        names: set[str] = set()
+                        current = parents.get(call_node)
+                        while current is not None:
+                            check_deadline()
+                            if type(current) is ast.If:
+                                names.update(_names_in_expr(cast(ast.If, current).test))
+                            current = parents.get(current)
+                        undecidable_params = sort_once(
+                            (n for n in names if n not in env_entries),
+                            source="_collect_never_invariants.undecidable_params",
+                            policy=OrderPolicy.SORT,
+                        )
+                        if undecidable_params:
+                            undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
+                entry: JSONObject = {
+                    "never_id": never_id,
+                    "site": {
+                        "path": path_value,
+                        "function": function,
+                        "bundle": bundle,
+                    },
+                    "status": status,
+                    "reason": reason,
+                }
+                normalized_span = span or (lineno, col, lineno, col)
+                if undecidable_reason:
+                    entry["undecidable_reason"] = undecidable_reason
+                if witness_ref is not None:
+                    entry["witness_ref"] = witness_ref
+                if environment_ref is not None:
+                    entry["environment_ref"] = environment_ref
+                entry["span"] = list(normalized_span)
+                invariants.append(entry)
+                site_id = forest.add_site(path.name, function)
+                paramset_id = forest.add_paramset(bundle)
+                evidence: dict[str, object] = {"path": path.name, "qual": function}
+                if reason:
+                    evidence["reason"] = reason
+                evidence["span"] = list(normalized_span)
+                forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
     return sort_once(
         invariants,
         key=lambda entry: (
@@ -5215,13 +5429,13 @@ _DEADLINE_HELPER_QUALS = {
 _DEADLINE_EXEMPT_PREFIXES = ("gabion.analysis.timeout_context.",)
 
 
-def _is_deadline_annot(annot: str | None) -> bool:
+def _is_deadline_annot(annot) -> bool:
     if not annot:
         return False
     return bool(re.search(r"\bDeadline\b", annot))
 
 
-def _is_deadline_param(name: str, annot: str | None) -> bool:
+def _is_deadline_param(name: str, annot) -> bool:
     if _is_deadline_annot(annot):
         return True
     if annot is None and name.lower() == "deadline":
@@ -5230,10 +5444,11 @@ def _is_deadline_param(name: str, annot: str | None) -> bool:
 
 
 def _is_deadline_origin_call(expr: ast.AST) -> bool:
-    if not isinstance(expr, ast.Call):
+    if type(expr) is not ast.Call:
         return False
+    call_expr = cast(ast.Call, expr)
     try:
-        name = ast.unparse(expr.func)
+        name = ast.unparse(call_expr.func)
     except _AST_UNPARSE_ERROR_TYPES:
         return False
     if name == "Deadline" or name.endswith(".Deadline"):
@@ -5258,9 +5473,17 @@ def _target_names(target: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(target):
         check_deadline()
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            names.add(node.id)
+        if type(node) is ast.Name:
+            name_node = cast(ast.Name, node)
+            if type(name_node.ctx) is ast.Store:
+                names.add(name_node.id)
     return names
+
+
+def _simple_store_name(target: ast.AST) -> OptionalString:
+    if type(target) is ast.Name:
+        return cast(ast.Name, target).id
+    return None
 
 
 class _DeadlineFunctionCollector(ast.NodeVisitor):
@@ -5272,7 +5495,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
         self.ambient_check = False
         self.loop_sites: list[_DeadlineLoopFacts] = []
         self._loop_stack: list[_DeadlineLoopFacts] = []
-        self.assignments: list[tuple[list[ast.AST], ast.AST | None, tuple[int, int, int, int] | None]] = []
+        self.assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]] = []
 
     def _mark_param_check(self, name: str) -> None:
         if self._loop_stack:
@@ -5287,20 +5510,19 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
             self.ambient_check = True
 
     def _record_call_span(self, node: ast.AST) -> None:
-        if not self._loop_stack:
-            return
-        span = _node_span(node)
-        if span is None:
-            return
-        self._loop_stack[-1].call_spans.add(span)
+        if self._loop_stack:
+            span = _node_span(node)
+            if span is not None:
+                self._loop_stack[-1].call_spans.add(span)
 
     def _iter_marks_ambient(self, expr: ast.AST) -> bool:
-        if not isinstance(expr, ast.Call):
-            return False
-        if isinstance(expr.func, ast.Name):
-            return expr.func.id == "deadline_loop_iter"
-        if isinstance(expr.func, ast.Attribute):
-            return expr.func.attr == "deadline_loop_iter"
+        if type(expr) is ast.Call:
+            func = cast(ast.Call, expr).func
+            func_type = type(func)
+            if func_type is ast.Name:
+                return cast(ast.Name, func).id == "deadline_loop_iter"
+            if func_type is ast.Attribute:
+                return cast(ast.Attribute, func).attr == "deadline_loop_iter"
         return False
 
     def _visit_loop_body(
@@ -5361,29 +5583,33 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         self._record_call_span(node)
-        if isinstance(node.func, ast.Attribute):
-            if node.func.attr == "deadline_loop_iter":
+        func = node.func
+        func_type = type(func)
+        if func_type is ast.Attribute:
+            attribute_func = cast(ast.Attribute, func)
+            if attribute_func.attr == "deadline_loop_iter":
                 self._mark_ambient_check()
             if (
-                node.func.attr in _DEADLINE_CHECK_METHODS
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in self._params
+                attribute_func.attr in _DEADLINE_CHECK_METHODS
+                and type(attribute_func.value) is ast.Name
+                and cast(ast.Name, attribute_func.value).id in self._params
             ):
-                self._mark_param_check(node.func.value.id)
-            if node.func.attr == "check_deadline" and node.args:
+                self._mark_param_check(cast(ast.Name, attribute_func.value).id)
+            if attribute_func.attr == "check_deadline" and node.args:
                 first = node.args[0]
-                if isinstance(first, ast.Name) and first.id in self._params:
-                    self._mark_param_check(first.id)
-            if node.func.attr in {"check_deadline", "require_deadline"} and not node.args:
+                if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
+                    self._mark_param_check(cast(ast.Name, first).id)
+            if attribute_func.attr in {"check_deadline", "require_deadline"} and not node.args:
                 self._mark_ambient_check()
-        elif isinstance(node.func, ast.Name):
-            if node.func.id == "deadline_loop_iter":
+        elif func_type is ast.Name:
+            name_func = cast(ast.Name, func)
+            if name_func.id == "deadline_loop_iter":
                 self._mark_ambient_check()
-            if node.func.id == "check_deadline" and node.args:
+            if name_func.id == "check_deadline" and node.args:
                 first = node.args[0]
-                if isinstance(first, ast.Name) and first.id in self._params:
-                    self._mark_param_check(first.id)
-            if node.func.id in {"check_deadline", "require_deadline"} and not node.args:
+                if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
+                    self._mark_param_check(cast(ast.Name, first).id)
+            if name_func.id in {"check_deadline", "require_deadline"} and not node.args:
                 self._mark_ambient_check()
         self.generic_visit(node)
 
@@ -5402,7 +5628,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
 @dataclass
 class _DeadlineLoopFacts:
-    span: tuple[int, int, int, int] | None
+    span: OptionalSpan4
     kind: str
     depth: int = 1
     check_params: set[str] = field(default_factory=set)
@@ -5421,7 +5647,7 @@ class _DeadlineLocalInfo:
 class _DeadlineFunctionFacts:
     path: Path
     qual: str
-    span: tuple[int, int, int, int] | None
+    span: OptionalSpan4
     loop: bool
     check_params: set[str]
     ambient_check: bool
@@ -5430,7 +5656,7 @@ class _DeadlineFunctionFacts:
 
 
 def _collect_deadline_local_info(
-    assignments: list[tuple[list[ast.AST], ast.AST | None, tuple[int, int, int, int] | None]],
+    assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]],
     params: set[str],
 ) -> _DeadlineLocalInfo:
     check_deadline()
@@ -5438,15 +5664,14 @@ def _collect_deadline_local_info(
     origin_spans: dict[str, tuple[int, int, int, int]] = {}
     for targets, value, span in assignments:
         check_deadline()
-        if value is None or not _is_deadline_origin_call(value):
-            continue
-        for target in targets:
-            check_deadline()
-            for name in _target_names(target):
+        if value is not None and _is_deadline_origin_call(value):
+            for target in targets:
                 check_deadline()
-                origin_assign.add(name)
-                if span is not None and name not in origin_spans:
-                    origin_spans[name] = span
+                for name in _target_names(target):
+                    check_deadline()
+                    origin_assign.add(name)
+                    if span is not None and name not in origin_spans:
+                        origin_spans[name] = span
 
     alias_assign: dict[str, set[str]] = defaultdict(set)
     origin_alias: set[str] = set()
@@ -5457,29 +5682,25 @@ def _collect_deadline_local_info(
             for target in targets:
                 check_deadline()
                 unknown_assign.update(_target_names(target))
-            continue
-        if _is_deadline_origin_call(value):
-            continue
-        alias_source = None
-        if isinstance(value, ast.Name):
-            if value.id in params:
-                alias_source = value.id
-            elif value.id in origin_assign:
-                alias_source = None
-                for target in targets:
-                    check_deadline()
-                    for name in _target_names(target):
-                        check_deadline()
-                        origin_alias.add(name)
-                continue
-        for target in targets:
-            check_deadline()
-            for name in _target_names(target):
+        elif not _is_deadline_origin_call(value):
+            alias_source = None
+            propagate_origin_alias = False
+            if type(value) is ast.Name:
+                value_name = cast(ast.Name, value)
+                if value_name.id in params:
+                    alias_source = value_name.id
+                elif value_name.id in origin_assign:
+                    propagate_origin_alias = True
+            for target in targets:
                 check_deadline()
-                if alias_source is not None:
-                    alias_assign[name].add(alias_source)
-                else:
-                    unknown_assign.add(name)
+                for name in _target_names(target):
+                    check_deadline()
+                    if propagate_origin_alias:
+                        origin_alias.add(name)
+                    elif alias_source is not None:
+                        alias_assign[name].add(alias_source)
+                    else:
+                        unknown_assign.add(name)
 
     origin_candidates = origin_assign | origin_alias
     origin_vars = {
@@ -5507,12 +5728,12 @@ def _collect_deadline_local_info(
 def _collect_deadline_function_facts(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root = None,
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
-    trees: Mapping[Path, ast.AST | None] | None = None,
-    analysis_index: AnalysisIndex | None = None,
-    stage_cache_fn: Callable[..., dict[Path, dict[str, "_DeadlineFunctionFacts"] | None]] | None = None,
+    trees = None,
+    analysis_index = None,
+    stage_cache_fn = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
     ignore_param_names = set(ignore_params or ())
@@ -5545,9 +5766,8 @@ def _collect_deadline_function_facts(
         facts: dict[str, _DeadlineFunctionFacts] = {}
         for entry in facts_by_path.values():
             check_deadline()
-            if entry is None:
-                continue
-            facts.update(entry)
+            if entry is not None:
+                facts.update(entry)
         return facts
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
@@ -5560,16 +5780,15 @@ def _collect_deadline_function_facts(
                 stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
-        if tree is None:
-            continue
-        facts.update(
-            _deadline_function_facts_for_tree(
-                path,
-                tree,
-                project_root=project_root,
-                ignore_params=ignore_param_names,
+        if tree is not None:
+            facts.update(
+                _deadline_function_facts_for_tree(
+                    path,
+                    tree,
+                    project_root=project_root,
+                    ignore_params=ignore_param_names,
+                )
             )
-        )
     return facts
 
 
@@ -5577,7 +5796,7 @@ def _deadline_function_facts_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
@@ -5613,9 +5832,9 @@ def _deadline_function_facts_for_tree(
 def _collect_call_nodes_by_path(
     paths: list[Path],
     *,
-    trees: Mapping[Path, ast.AST | None] | None = None,
+    trees = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
     if analysis_index is not None and trees is None:
@@ -5650,9 +5869,8 @@ def _collect_call_nodes_by_path(
                 stage=_ParseModuleStage.CALL_NODES,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
-        if tree is None:
-            continue
-        call_nodes[path] = _call_nodes_for_tree(tree)
+        if tree is not None:
+            call_nodes[path] = _call_nodes_for_tree(tree)
     return call_nodes
 
 
@@ -5663,12 +5881,11 @@ def _call_nodes_for_tree(
     span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Call):
-            continue
-        span = _node_span(node)
-        if span is None:
-            continue
-        span_map[span].append(node)
+        if type(node) is ast.Call:
+            call_node = cast(ast.Call, node)
+            span = _node_span(call_node)
+            if span is not None:
+                span_map[span].append(call_node)
     return span_map
 
 
@@ -5677,9 +5894,9 @@ def _collect_call_edges(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
+    resolve_callee_outcome_fn = None,
 ) -> dict[str, set[str]]:
     check_deadline()
     if resolve_callee_outcome_fn is None:
@@ -5721,6 +5938,55 @@ def _function_suite_id(key: _FunctionSuiteKey) -> NodeId:
     return NodeId("SuiteSite", (key.path, key.qual, "function"))
 
 
+class _FunctionSuiteLookupStatus(StrEnum):
+    RESOLVED = "resolved"
+    NODE_MISSING = "node_missing"
+    SUITE_KIND_UNSUPPORTED = "suite_kind_unsupported"
+
+
+@dataclass(frozen=True)
+class _FunctionSuiteLookupOutcome:
+    status: _FunctionSuiteLookupStatus
+    suite_id: NodeId
+
+
+def _node_to_function_suite_lookup_outcome(
+    forest: Forest,
+    node_id: NodeId,
+) -> _FunctionSuiteLookupOutcome:
+    missing_suite_id = NodeId("MissingSuiteSite", ("", "", ""))
+    node = forest.nodes.get(node_id)
+    if node is None:
+        return _FunctionSuiteLookupOutcome(
+            _FunctionSuiteLookupStatus.NODE_MISSING,
+            missing_suite_id,
+        )
+    if node.kind == "FunctionSite":
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            never("function site missing identity", path=path, qual=qual)
+        return _FunctionSuiteLookupOutcome(
+            _FunctionSuiteLookupStatus.RESOLVED,
+            _function_suite_id(_function_suite_key(path, qual)),
+        )
+    if node.kind == "SuiteSite":
+        suite_kind = str(node.meta.get("suite_kind", "") or "")
+        if suite_kind in {"function", "function_body"}:
+            path = str(node.meta.get("path", "") or "")
+            qual = str(node.meta.get("qual", "") or "")
+            if not path or not qual:
+                never("function suite missing identity", path=path, qual=qual)
+            return _FunctionSuiteLookupOutcome(
+                _FunctionSuiteLookupStatus.RESOLVED,
+                _function_suite_id(_function_suite_key(path, qual)),
+            )
+    return _FunctionSuiteLookupOutcome(
+        _FunctionSuiteLookupStatus.SUITE_KIND_UNSUPPORTED,
+        missing_suite_id,
+    )
+
+
 def _suite_caller_function_id(
     suite_node: Node,
 ) -> NodeId:
@@ -5739,26 +6005,12 @@ def _suite_caller_function_id(
 def _node_to_function_suite_id(
     forest: Forest,
     node_id: NodeId,
-) -> NodeId | None:
-    node = forest.nodes.get(node_id)
-    if node is None:
-        return None
-    if node.kind == "FunctionSite":
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never("function site missing identity", path=path, qual=qual)
-        return _function_suite_id(_function_suite_key(path, qual))
-    if node.kind == "SuiteSite":
-        suite_kind = str(node.meta.get("suite_kind", "") or "")
-        if suite_kind not in {"function", "function_body"}:
-            return None
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never("function suite missing identity", path=path, qual=qual)
-        return _function_suite_id(_function_suite_key(path, qual))
-    return None
+):
+    outcome = _node_to_function_suite_lookup_outcome(forest, node_id)
+    if outcome.status is _FunctionSuiteLookupStatus.RESOLVED:
+        return outcome.suite_id
+    unresolved: dict[str, NodeId] = {}
+    return unresolved.get("suite_id")
 
 
 def _obligation_candidate_suite_ids(
@@ -5789,42 +6041,33 @@ def _collect_call_edges_from_forest(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None:
-            continue
-        if suite_node.kind != "SuiteSite":
-            continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
-            continue
-        caller_id = _suite_caller_function_id(suite_node)
-        if alt.kind == "CallCandidate":
-            if len(alt.inputs) < 2:
-                continue
-            candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
-            if candidate_id is None:
-                continue
-            edges[caller_id].add(candidate_id)
-            continue
-        if alt.kind != "CallResolutionObligation":
-            continue
-        callee_key = str(alt.evidence.get("callee", "") or "")
-        if not callee_key:
-            continue
-        for candidate_id in _obligation_candidate_suite_ids(
-            by_name=by_name,
-            callee_key=callee_key,
-        ):
-            check_deadline()
-            edges[caller_id].add(candidate_id)
+        if suite_node is not None and suite_node.kind == "SuiteSite":
+            suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+            if suite_kind == "call":
+                caller_id = _suite_caller_function_id(suite_node)
+                if alt.kind == "CallCandidate":
+                    if len(alt.inputs) >= 2:
+                        candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
+                        if candidate_id is not None:
+                            edges[caller_id].add(candidate_id)
+                elif alt.kind == "CallResolutionObligation":
+                    callee_key = str(alt.evidence.get("callee", "") or "")
+                    if callee_key:
+                        for candidate_id in _obligation_candidate_suite_ids(
+                            by_name=by_name,
+                            callee_key=callee_key,
+                        ):
+                            check_deadline()
+                            edges[caller_id].add(candidate_id)
     return edges
 
 
 def _collect_call_resolution_obligations_from_forest(
     forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]:
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]:
     check_deadline()
-    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = []
-    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = set()
+    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = []
+    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = set()
     for alt in forest.alts:
         check_deadline()
         if alt.kind != "CallResolutionObligation":
@@ -5833,26 +6076,29 @@ def _collect_call_resolution_obligations_from_forest(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
+        suite_kind = suite_node.kind if suite_node is not None else ""
+        if suite_kind != "SuiteSite":
             continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
+        node_suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+        if node_suite_kind != "call":
             continue
         caller_id = _suite_caller_function_id(suite_node)
         raw_span = suite_node.meta.get("span")
-        span: tuple[int, int, int, int] | None = None
-        if isinstance(raw_span, list) and len(raw_span) == 4:
+        span = (0, 0, 0, 0)
+        span_valid = False
+        if type(raw_span) is list and len(raw_span) == 4:
             coerced: list[int] = []
             valid = True
             for value in raw_span:
                 check_deadline()
-                if not isinstance(value, int):
+                if type(value) is not int:
                     valid = False
                     break
-                coerced.append(value)
+                coerced.append(cast(int, value))
             if valid:
                 span = (coerced[0], coerced[1], coerced[2], coerced[3])
-        if span is None:
+                span_valid = True
+        if not span_valid:
             caller_path = str(suite_node.meta.get("path", "") or "")
             caller_qual = str(suite_node.meta.get("qual", "") or "")
             never(
@@ -5873,7 +6119,7 @@ def _collect_call_resolution_obligations_from_forest(
 
 def _collect_call_resolution_obligation_details_from_forest(
     forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]]:
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]]:
     evidence_by_key: dict[tuple[NodeId, str], JSONObject] = {}
     for alt in forest.alts:
         check_deadline()
@@ -5888,7 +6134,7 @@ def _collect_call_resolution_obligation_details_from_forest(
         if key not in evidence_by_key:
             evidence_by_key[key] = alt.evidence
 
-    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]] = []
+    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]] = []
     for caller_id, suite_id, span, callee_key in _collect_call_resolution_obligations_from_forest(
         forest
     ):
@@ -5923,11 +6169,11 @@ def _call_resolution_obligation_evidence(
 def _collect_unresolved_call_sites_from_forest(
     forest: Forest,
     collect_call_resolution_obligations_from_forest_fn: Callable[
-        [Forest], list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
+        [Forest], list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]
     ] = _collect_call_resolution_obligations_from_forest,
-) -> list[tuple[str, str, tuple[int, int, int, int] | None, str]]:
+) -> list[tuple[str, str, tuple[int, int, int, int], str]]:
     """Backward-compatible alias for call resolution obligations."""
-    out: list[tuple[str, str, tuple[int, int, int, int] | None, str]] = []
+    out: list[tuple[str, str, tuple[int, int, int, int], str]] = []
     for caller_id, _, span, callee_key in collect_call_resolution_obligations_from_forest_fn(
         forest
     ):
@@ -5968,9 +6214,9 @@ def _materialize_call_candidates(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
+    resolve_callee_outcome_fn = None,
 ) -> None:
     check_deadline()
     if resolve_callee_outcome_fn is None:
@@ -6048,20 +6294,17 @@ def _materialize_call_candidates(
                     "unresolved_dynamic": "unresolved_dynamic_callee",
                 }
                 obligation_kind = obligation_kind_by_status.get(resolution.status)
-                if obligation_kind is None:
-                    continue
-                if suite_id in obligation_seen:
-                    continue
-                obligation_seen.add(suite_id)
-                forest.add_alt(
-                    "CallResolutionObligation",
-                    (suite_id,),
-                    evidence={
-                        "phase": resolution.phase,
-                        "callee": call.callee,
-                        "kind": obligation_kind,
-                    },
-                )
+                if obligation_kind is not None and suite_id not in obligation_seen:
+                    obligation_seen.add(suite_id)
+                    forest.add_alt(
+                        "CallResolutionObligation",
+                        (suite_id,),
+                        evidence={
+                            "phase": resolution.phase,
+                            "callee": call.callee,
+                            "kind": obligation_kind,
+                        },
+                    )
 
 
 _GraphNode = TypeVar("_GraphNode", bound=Hashable)
@@ -6151,8 +6394,8 @@ def _reachable_from_roots(
 @dataclass(frozen=True)
 class _DeadlineArgInfo:
     kind: str
-    param: str | None = None
-    const: str | None = None
+    param: OptionalString = None
+    const: OptionalString = None
 
 
 def _bind_call_args(
@@ -6174,8 +6417,8 @@ def _bind_call_args(
     star_kwargs: list[ast.AST] = []
     for idx, arg in enumerate(call_node.args):
         check_deadline()
-        if isinstance(arg, ast.Starred):
-            star_args.append(arg.value)
+        if type(arg) is ast.Starred:
+            star_args.append(cast(ast.Starred, arg).value)
             continue
         if idx < len(pos_params):
             mapping[pos_params[idx]] = arg
@@ -6192,11 +6435,11 @@ def _bind_call_args(
             mapping.setdefault(callee.kwarg, kw.value)
     if strictness == "low":
         remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5822') if p not in mapping]
-        if len(star_args) == 1 and isinstance(star_args[0], ast.Name):
+        if len(star_args) == 1 and type(star_args[0]) is ast.Name:
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_args[0])
-        if len(star_kwargs) == 1 and isinstance(star_kwargs[0], ast.Name):
+        if len(star_kwargs) == 1 and type(star_kwargs[0]) is ast.Name:
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_kwargs[0])
@@ -6263,18 +6506,20 @@ def _classify_deadline_expr(
     alias_to_param: Mapping[str, str],
     origin_vars: set[str],
 ) -> _DeadlineArgInfo:
-    if isinstance(expr, ast.Name):
-        name = expr.id
+    expr_type = type(expr)
+    if expr_type is ast.Name:
+        name = cast(ast.Name, expr).id
         if name in alias_to_param:
             return _DeadlineArgInfo(kind="param", param=alias_to_param[name])
         if name in origin_vars:
             return _DeadlineArgInfo(kind="origin", param=name)
     if _is_deadline_origin_call(expr):
         return _DeadlineArgInfo(kind="origin")
-    if isinstance(expr, ast.Constant):
-        if expr.value is None:
+    if expr_type is ast.Constant:
+        constant_value = cast(ast.Constant, expr).value
+        if constant_value is None:
             return _DeadlineArgInfo(kind="none")
-        return _DeadlineArgInfo(kind="const", const=repr(expr.value))
+        return _DeadlineArgInfo(kind="const", const=repr(constant_value))
     return _DeadlineArgInfo(kind="unknown")
 
 
@@ -6355,7 +6600,7 @@ def _deadline_arg_info_map(
     call: CallArgs,
     callee: FunctionInfo,
     *,
-    call_node: ast.Call | None,
+    call_node: OptionalAstCall,
     alias_to_param: Mapping[str, str],
     origin_vars: set[str],
     strictness: str,
@@ -6388,15 +6633,12 @@ def _deadline_loop_forwarded_params(
         return forwarded
     for call, callee, arg_info in call_infos.get(qual, []):
         check_deadline()
-        if call.span is None or call.span not in loop_fact.call_spans:
-            continue
-        for callee_param in deadline_params.get(callee.qual, set()):
-            check_deadline()
-            info = arg_info.get(callee_param)
-            if info is None:
-                continue
-            if info.kind == "param" and info.param in caller_params:
-                forwarded.add(info.param)
+        if call.span is not None and call.span in loop_fact.call_spans:
+            for callee_param in deadline_params.get(callee.qual, set()):
+                check_deadline()
+                info = arg_info.get(callee_param)
+                if info is not None and info.kind == "param" and info.param in caller_params:
+                    forwarded.add(info.param)
     return forwarded
 
 
@@ -6405,7 +6647,7 @@ from gabion.analysis.dataflow_obligations import (
 )
 
 
-def _spec_row_span(row: Mapping[str, JSONValue]) -> tuple[int, int, int, int] | None:
+def _spec_row_span(row: Mapping[str, JSONValue]):
     def _coerce(name: str, value: JSONValue) -> int:
         if value is None:
             never(
@@ -6441,7 +6683,7 @@ def _materialize_projection_spec_rows(
     spec: ProjectionSpec,
     projected: Iterable[Mapping[str, JSONValue]],
     forest: Forest,
-    row_to_site: Callable[[Mapping[str, JSONValue]], NodeId | None],
+    row_to_site: Callable[[Mapping[str, JSONValue]], NodeIdOrNone],
 ) -> None:
     spec_identity = projection_spec_hash(spec)
     spec_site = forest.add_spec_site(
@@ -6453,16 +6695,15 @@ def _materialize_projection_spec_rows(
     for row in projected:
         check_deadline()
         site_id = row_to_site(row)
-        if site_id is None:
-            continue
-        evidence: dict[str, object] = {
-            "spec_name": str(spec.name),
-            "spec_hash": spec_identity,
-        }
-        for key, value in row.items():
-            check_deadline()
-            evidence[str(key)] = value
-        forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
+        if site_id is not None:
+            evidence: dict[str, object] = {
+                "spec_name": str(spec.name),
+                "spec_hash": spec_identity,
+            }
+            for key, value in row.items():
+                check_deadline()
+                evidence[str(key)] = value
+            forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
 
 
 def _suite_order_depth(suite_kind: str) -> int:
@@ -6499,26 +6740,16 @@ def _suite_order_relation(
                 suite_kind=suite_kind,
             )
         span = node.meta.get("span")
-        if not isinstance(span, list) or len(span) != 4:
+        parsed_span = int_tuple4_or_none(span)
+        if parsed_span is None:
             never(
                 "suite order requires span",
                 path=path,
                 qual=qual,
                 suite_kind=suite_kind,
-            )
-        try:
-            span_line = int(span[0])
-            span_col = int(span[1])
-            span_end_line = int(span[2])
-            span_end_col = int(span[3])
-        except (TypeError, ValueError):
-            never(
-                "suite order span fields must be integers",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
                 span=span,
             )
+        span_line, span_col, span_end_line, span_end_col = parsed_span
         depth = _suite_order_depth(suite_kind)
         complexity = int(alt_degree.get(node_id, 0))
         order_key: list[JSONValue] = [
@@ -6554,7 +6785,7 @@ def _suite_order_relation(
 def _suite_order_row_to_site(
     row: Mapping[str, JSONValue],
     suite_index: Mapping[tuple[object, ...], NodeId],
-) -> NodeId | None:
+):
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     suite_kind = str(row.get("suite_kind", "") or "")
@@ -6618,61 +6849,49 @@ def _ambiguity_suite_relation(
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
-            continue
-        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if suite_kind != "call":
-            continue
-        path = str(suite_node.meta.get("path", "") or "")
-        qual = str(suite_node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never(
-                "ambiguity suite requires path/qual",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-            )
-        span = suite_node.meta.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            never(
-                "ambiguity suite requires span",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-            )
-        try:
-            span_line = int(span[0])
-            span_col = int(span[1])
-            span_end_line = int(span[2])
-            span_end_col = int(span[3])
-        except (TypeError, ValueError):
-            never(
-                "ambiguity suite span fields must be integers",
-                path=path,
-                qual=qual,
-                suite_kind=suite_kind,
-                span=span,
-            )
-        relation.append(
-            {
-                "suite_path": path,
-                "suite_qual": qual,
-                "suite_kind": suite_kind,
-                "span_line": span_line,
-                "span_col": span_col,
-                "span_end_line": span_end_line,
-                "span_end_col": span_end_col,
-                "kind": str(alt.evidence.get("kind", "") or ""),
-                "phase": str(alt.evidence.get("phase", "") or ""),
-            }
-        )
+        if suite_node is not None and suite_node.kind == "SuiteSite":
+            suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+            if suite_kind == "call":
+                path = str(suite_node.meta.get("path", "") or "")
+                qual = str(suite_node.meta.get("qual", "") or "")
+                if not path or not qual:
+                    never(
+                        "ambiguity suite requires path/qual",
+                        path=path,
+                        qual=qual,
+                        suite_kind=suite_kind,
+                    )
+                span = suite_node.meta.get("span")
+                parsed_span = int_tuple4_or_none(span)
+                if parsed_span is None:
+                    never(
+                        "ambiguity suite requires span",
+                        path=path,
+                        qual=qual,
+                        suite_kind=suite_kind,
+                        span=span,
+                    )
+                span_line, span_col, span_end_line, span_end_col = parsed_span
+                relation.append(
+                    {
+                        "suite_path": path,
+                        "suite_qual": qual,
+                        "suite_kind": suite_kind,
+                        "span_line": span_line,
+                        "span_col": span_col,
+                        "span_end_line": span_end_line,
+                        "span_end_col": span_end_col,
+                        "kind": str(alt.evidence.get("kind", "") or ""),
+                        "phase": str(alt.evidence.get("phase", "") or ""),
+                    }
+                )
     return relation, function_index
 
 
 def _ambiguity_suite_row_to_site(
     row: Mapping[str, JSONValue],
     function_index: Mapping[tuple[str, str], NodeId],
-) -> NodeId | None:
+):
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     if not path or not qual:
@@ -6767,17 +6986,18 @@ def _summarize_deadline_obligations(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        site = mapping_or_empty(entry.get("site"))
         path = str(site.get("path", "") or "")
         function = str(site.get("function", "") or "")
         span = entry.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        span_entries = sequence_or_none(span)
+        if span_entries is not None and len(span_entries) == 4:
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_entries[0])
+                col = int(span_entries[1])
+                end_line = int(span_entries[2])
+                end_col = int(span_entries[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
         relation.append(
@@ -6796,7 +7016,7 @@ def _summarize_deadline_obligations(
         )
 
     projected = apply_spec(DEADLINE_OBLIGATIONS_SUMMARY_SPEC, relation)
-    def _row_to_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+    def _row_to_site(row: Mapping[str, JSONValue]):
         path = str(row.get("site_path", "") or "")
         function = str(row.get("site_function", "") or "")
         if not path or not function:
@@ -6846,7 +7066,7 @@ def _summarize_deadline_obligations(
     return lines
 
 
-def _span_line_col(span: JSONValue | object) -> tuple[int | None, int | None]:
+def _span_line_col(span):
     parsed = int_tuple4_or_none(span)
     if parsed is None:
         return None, None
@@ -6858,7 +7078,7 @@ def _deadline_lint_lines(entries: list[JSONObject]) -> list[str]:
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        site = mapping_or_none(entry.get("site")) or {}
         path = str(site.get("path", "") or "")
         line, col = _span_line_col(entry.get("span"))
         if not path:
@@ -6918,25 +7138,27 @@ def _summarize_call_ambiguities(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        kind = str(entry.get("kind", "") or "unknown")
-        site = entry.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
-        path = str(site.get("path", "") or "")
-        function = str(site.get("function", "") or "")
-        span = site.get("span")
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        kind = str(entry_payload.get("kind", "") or "unknown")
+        site_payload = entry_payload.get("site", {})
+        site = site_payload if type(site_payload) is dict else {}
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
+        function = str(site_mapping.get("function", "") or "")
+        span = site_mapping.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        if type(span) is list and len(cast(list[JSONValue], span)) == 4:
+            span_values = cast(list[JSONValue], span)
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_values[0])
+                col = int(span_values[1])
+                end_line = int(span_values[2])
+                end_col = int(span_values[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
-        candidate_count = entry.get("candidate_count")
+        candidate_count = entry_payload.get("candidate_count")
         try:
             candidate_count = int(candidate_count) if candidate_count is not None else 0
         except (TypeError, ValueError):
@@ -7072,20 +7294,24 @@ def _summarize_never_invariants(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = str(site.get("path", "") or "")
-        function = str(site.get("function", "") or "")
-        span = entry.get("span")
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        status = str(entry_payload.get("status", "UNKNOWN") or "UNKNOWN")
+        raw_site = entry_payload.get("site")
+        site = raw_site if type(raw_site) is dict else {}
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
+        function = str(site_mapping.get("function", "") or "")
+        span = entry_payload.get("span")
         line = col = end_line = end_col = -1
-        if isinstance(span, list) and len(span) == 4:
+        if type(span) is list and len(cast(list[JSONValue], span)) == 4:
+            span_values = cast(list[JSONValue], span)
             try:
-                line = int(span[0])
-                col = int(span[1])
-                end_line = int(span[2])
-                end_col = int(span[3])
+                line = int(span_values[0])
+                col = int(span_values[1])
+                end_line = int(span_values[2])
+                end_col = int(span_values[3])
             except (TypeError, ValueError):
                 line = col = end_line = end_col = -1
         relation.append(
@@ -7193,7 +7419,7 @@ def _exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
     return lines
 
 
-def _parse_lint_location(line: str) -> tuple[str, int, int, str] | None:
+def _parse_lint_location(line: str):
     return _ds_parse_lint_location(line)
 
 def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
@@ -7220,20 +7446,19 @@ def _lint_rows_from_lines(
     for line in lines:
         check_deadline()
         parsed = _parse_lint_location(line)
-        if parsed is None:
-            continue
-        path, lineno, col, remainder = parsed
-        code, message = _parse_lint_remainder(remainder)
-        rows.append(
-            {
-                "path": path,
-                "line": int(lineno),
-                "col": int(col),
-                "code": code,
-                "message": message,
-                "source": source,
-            }
-        )
+        if parsed is not None:
+            path, lineno, col, remainder = parsed
+            code, message = _parse_lint_remainder(remainder)
+            rows.append(
+                {
+                    "path": path,
+                    "line": int(lineno),
+                    "col": int(col),
+                    "code": code,
+                    "message": message,
+                    "source": source,
+                }
+            )
     return rows
 
 
@@ -7242,7 +7467,7 @@ def _add_interned_alt(
     forest: Forest,
     kind: str,
     inputs: Iterable[NodeId],
-    evidence: dict[str, object] | None = None,
+    evidence = None,
 ) -> Alt:
     return forest.add_alt(kind, inputs, evidence=evidence)
 
@@ -7305,23 +7530,22 @@ def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
         if lint_node_id.kind != "LintFinding":
             continue
         lint_node = forest.nodes.get(lint_node_id)
-        if lint_node is None:
-            continue
-        path = str(lint_node.meta.get("path", "") or "")
-        code = str(lint_node.meta.get("code", "") or "")
-        message = str(lint_node.meta.get("message", "") or "")
-        if not path or not code:
-            continue
-        try:
-            line = int(lint_node.meta.get("line", 1) or 1)
-            col = int(lint_node.meta.get("col", 1) or 1)
-        except (TypeError, ValueError):
-            continue
-        key = (path, line, col, code, message)
-        source = str(alt.evidence.get("source", "") or "")
-        bucket = by_identity.setdefault(key, set())
-        if source:
-            bucket.add(source)
+        if lint_node is not None:
+            path = str(lint_node.meta.get("path", "") or "")
+            code = str(lint_node.meta.get("code", "") or "")
+            message = str(lint_node.meta.get("message", "") or "")
+            if not path or not code:
+                continue
+            try:
+                line = int(lint_node.meta.get("line", 1) or 1)
+                col = int(lint_node.meta.get("col", 1) or 1)
+            except (TypeError, ValueError):
+                continue
+            key = (path, line, col, code, message)
+            source = str(alt.evidence.get("source", "") or "")
+            bucket = by_identity.setdefault(key, set())
+            if source:
+                bucket.add(source)
     relation: list[dict[str, JSONValue]] = []
     for key in sort_once(by_identity, source = 'src/gabion/analysis/dataflow_audit.py:7783'):
         check_deadline()
@@ -7350,7 +7574,7 @@ def _project_lint_rows_from_forest(
         return []
     projected = apply_spec_fn(LINT_FINDINGS_SPEC, relation)
 
-    def _row_to_file_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+    def _row_to_file_site(row: Mapping[str, JSONValue]):
         path = str(row.get("path", "") or "")
         if not path:
             return None
@@ -7416,26 +7640,25 @@ def _report_section_line_relation(
         if node_id.kind != "ReportSectionLine":
             continue
         node = forest.nodes.get(node_id)
-        if node is None:
-            continue
-        node_run_id = str(node.meta.get("run_id", "") or "")
-        node_section = str(node.meta.get("section", "") or "")
-        if (
-            node_run_id != section_key.run_id
-            or node_section != section_key.section
-        ):
-            continue
-        try:
-            line_index = int(node.meta.get("line_index", 0) or 0)
-        except (TypeError, ValueError):
-            continue
-        relation.append(
-            {
-                "section": section_key.section,
-                "line_index": line_index,
-                "text": str(node.meta.get("text", "") or ""),
-            }
-        )
+        if node is not None:
+            node_run_id = str(node.meta.get("run_id", "") or "")
+            node_section = str(node.meta.get("section", "") or "")
+            if (
+                node_run_id != section_key.run_id
+                or node_section != section_key.section
+            ):
+                continue
+            try:
+                line_index = int(node.meta.get("line_index", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            relation.append(
+                {
+                    "section": section_key.section,
+                    "line_index": line_index,
+                    "text": str(node.meta.get("text", "") or ""),
+                }
+            )
     return relation
 
 
@@ -7475,16 +7698,17 @@ def _decision_param_lint_line(
     info: "FunctionInfo",
     param: str,
     *,
-    project_root: Path | None,
+    project_root,
     code: str,
     message: str,
-) -> str | None:
+):
     span = info.param_spans.get(param)
-    if span is None:
-        return None
-    path = _normalize_snapshot_path(info.path, project_root)
-    line, col, _, _ = span
-    return _lint_line(path, line + 1, col + 1, code, message)
+    if span is not None:
+        path = _normalize_snapshot_path(info.path, project_root)
+        line, col, _, _ = span
+        return _lint_line(path, line + 1, col + 1, code, message)
+    missing_lines: dict[str, str] = {}
+    return missing_lines.get("lint_line")
 
 
 def _decision_tier_for(
@@ -7492,8 +7716,8 @@ def _decision_tier_for(
     param: str,
     *,
     tier_map: dict[str, int],
-    project_root: Path | None,
-) -> int | None:
+    project_root,
+):
     check_deadline()
     if not tier_map:
         return None
@@ -7545,10 +7769,10 @@ class AnalysisIndex:
     stage_cache_by_key: dict[Hashable, dict[Path, object]] = field(default_factory=dict)
     index_cache_identity: str = ""
     projection_cache_identity: str = ""
-    transitive_callers: dict[str, set[str]] | None = None
-    resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
-    resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
-    resolved_transparent_edges_by_caller: dict[str, tuple["_ResolvedCallEdge", ...]] | None = None
+    transitive_callers: "dict[str, set[str]] | None" = None
+    resolved_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
+    resolved_transparent_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
+    resolved_transparent_edges_by_caller: 'dict[str, tuple["_ResolvedCallEdge", ...]] | None' = None
 
 
 @dataclass(frozen=True)
@@ -7564,16 +7788,20 @@ _ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
 _ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
 _ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
 _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
+OptionalProjectRoot = Path | None
+OptionalDecorators = set[str] | None
+OptionalParseFailures = list[JSONObject] | None
+OptionalAnalysisIndex = AnalysisIndex | None
 
 
 @dataclass(frozen=True)
 class _IndexedPassContext:
     paths: list[Path]
-    project_root: Path | None
+    project_root: OptionalProjectRoot
     ignore_params: set[str]
     strictness: str
     external_filter: bool
-    transparent_decorators: set[str] | None
+    transparent_decorators: OptionalDecorators
     parse_failure_witnesses: list[JSONObject]
     analysis_index: AnalysisIndex
 
@@ -7605,7 +7833,7 @@ class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
 class _ResolvedEdgeParamEvent:
     kind: str
     param: str
-    value: str | None
+    value: OptionalString
     countable: bool
 
 
@@ -7618,8 +7846,8 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
 
 @dataclass(frozen=True)
 class _CacheSemanticContext:
-    forest_spec_id: str | None = None
-    fingerprint_seed_revision: str | None = None
+    forest_spec_id: OptionalString = None
+    fingerprint_seed_revision: OptionalString = None
 
 
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
@@ -7627,7 +7855,7 @@ _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
 
 
-def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
+def _sorted_text(values = None) -> tuple[str, ...]:
     if values is None:
         return ()
     cleaned = {str(value).strip() for value in values if str(value).strip()}
@@ -7675,7 +7903,7 @@ def _cache_identity_matches(actual: str, expected: str) -> bool:
 def _resume_variant_for_identity(
     variants: Mapping[str, JSONObject],
     expected_identity: str,
-) -> JSONObject | None:
+):
     direct = variants.get(expected_identity)
     if direct is not None:
         return direct
@@ -7744,7 +7972,7 @@ def _build_module_artifacts(
     check_deadline()
     if not specs:
         return ()
-    parse_cache: dict[Path, ast.Module | Exception] = {}
+    parse_cache: dict[Path, ParseCacheValue] = {}
     accumulators = [spec.init() for spec in specs]
     for path in paths:
         check_deadline()
@@ -7755,19 +7983,21 @@ def _build_module_artifacts(
             except _PARSE_MODULE_ERROR_TYPES as exc:
                 parsed = exc
             parse_cache[path] = parsed
-        if isinstance(parsed, Exception):
+        if type(parsed) is not ast.Module:
+            parsed_error = cast(BaseException, parsed)
             for spec in specs:
                 check_deadline()
                 _record_parse_failure_witness(
                     sink=parse_failure_witnesses,
                     path=path,
                     stage=spec.stage,
-                    error=parsed,
+                    error=cast(Exception, parsed_error),
                 )
             continue
+        parsed_module = cast(ast.Module, parsed)
         for idx, spec in enumerate(specs):
             check_deadline()
-            spec.fold(accumulators[idx], path, parsed)
+            spec.fold(accumulators[idx], path, parsed_module)
     return tuple(
         spec.finish(accumulator) for spec, accumulator in zip(specs, accumulators)
     )
@@ -7776,18 +8006,18 @@ def _build_module_artifacts(
 def _build_analysis_index(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators=None,
     parse_failure_witnesses: list[JSONObject],
-    resume_payload: Mapping[str, JSONValue] | None = None,
-    on_progress: Callable[[JSONObject], None] | None = None,
-    accumulate_function_index_for_tree_fn: Callable[..., None] | None = None,
-    forest_spec_id: str | None = None,
-    fingerprint_seed_revision: str | None = None,
-    decision_ignore_params: set[str] | None = None,
+    resume_payload=None,
+    on_progress=None,
+    accumulate_function_index_for_tree_fn=None,
+    forest_spec_id=None,
+    fingerprint_seed_revision=None,
+    decision_ignore_params=None,
     decision_require_tiers: bool = False,
 ) -> AnalysisIndex:
     check_deadline()
@@ -7850,7 +8080,7 @@ def _build_analysis_index(
         function_index_acc.by_qual[qual] = info
         function_index_acc.by_name[info.name].append(info)
     progress_since_emit = 0
-    last_progress_emit_monotonic: float | None = None
+    last_progress_emit_monotonic = None
     profile_stage_ns: dict[str, int] = {
         "analysis_index.parse_module": 0,
         "analysis_index.function_index": 0,
@@ -7872,29 +8102,33 @@ def _build_analysis_index(
     def _emit_index_progress(*, force: bool = False) -> None:
         nonlocal progress_since_emit
         nonlocal last_progress_emit_monotonic
-        if on_progress is None:
-            return
-        progress_since_emit += 1
-        now = time.monotonic()
-        if (
-            not force
-            and last_progress_emit_monotonic is not None
-            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ): return
-        progress_since_emit = 0
-        last_progress_emit_monotonic = now
-        on_progress(
-            _serialize_analysis_index_resume_payload(
-                hydrated_paths=hydrated_paths,
-                by_qual=function_index_acc.by_qual,
-                symbol_table=symbol_table,
-                class_index=class_index,
-                index_cache_identity=index_cache_identity,
-                projection_cache_identity=projection_cache_identity,
-                profiling_v1=_index_profile_payload(),
-                previous_payload=resume_payload,
+        progress_callback = on_progress
+        if progress_callback is not None:
+            progress_since_emit += 1
+            now = time.monotonic()
+            emit_allowed = (
+                force
+                or last_progress_emit_monotonic is None
+                or (
+                    now - last_progress_emit_monotonic
+                    >= _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+                )
             )
-        )
+            if emit_allowed:
+                progress_since_emit = 0
+                last_progress_emit_monotonic = now
+                progress_callback(
+                    _serialize_analysis_index_resume_payload(
+                        hydrated_paths=hydrated_paths,
+                        by_qual=function_index_acc.by_qual,
+                        symbol_table=symbol_table,
+                        class_index=class_index,
+                        index_cache_identity=index_cache_identity,
+                        projection_cache_identity=projection_cache_identity,
+                        profiling_v1=_index_profile_payload(),
+                        previous_payload=resume_payload,
+                    )
+                )
 
     try:
         for path in ordered_paths:
@@ -7985,13 +8219,13 @@ def _build_analysis_index(
 def _run_indexed_pass(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
     spec: _IndexedPassSpec[_IndexedPassResult],
     build_index: Callable[..., AnalysisIndex] = _build_analysis_index,
 ) -> _IndexedPassResult:
@@ -8027,9 +8261,9 @@ def _analysis_index_module_trees(
     *,
     stage: _ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
-) -> dict[Path, ast.Module | None]:
+):
     check_deadline()
-    trees: dict[Path, ast.Module | None] = {}
+    trees = {}
     for path in paths:
         check_deadline()
         cached_tree = analysis_index.parsed_modules_by_path.get(path)
@@ -8069,8 +8303,8 @@ def _analysis_index_stage_cache(
     *,
     spec: _StageCacheSpec[_StageCacheValue],
     parse_failure_witnesses: list[JSONObject],
-    module_trees_fn: Callable[..., dict[Path, ast.Module | None]] | None = None,
-) -> dict[Path, _StageCacheValue | None]:
+    module_trees_fn = None,
+):
     check_deadline()
     if module_trees_fn is None:
         module_trees_fn = _analysis_index_module_trees
@@ -8083,7 +8317,7 @@ def _analysis_index_stage_cache(
     )
     scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
     cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
-    results: dict[Path, _StageCacheValue | None] = {}
+    results = {}
     for path in paths:
         check_deadline()
         tree = trees.get(path)
@@ -8127,7 +8361,7 @@ def _analysis_index_stage_cache(
 def _analysis_index_transitive_callers(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> dict[str, set[str]]:
     check_deadline()
     if analysis_index.transitive_callers is not None:
@@ -8150,7 +8384,7 @@ def _analysis_index_transitive_callers(
 def _analysis_index_resolved_call_edges(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
 ) -> tuple[_ResolvedCallEdge, ...]:
     check_deadline()
@@ -8167,22 +8401,18 @@ def _analysis_index_resolved_call_edges(
             check_deadline()
             for call in info.calls:
                 check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    analysis_index.by_name,
-                    analysis_index.by_qual,
-                    analysis_index.symbol_table,
-                    project_root,
-                    analysis_index.class_index,
-                )
-                if callee is None:
-                    continue
-                if require_transparent and not callee.transparent:
-                    continue
-                edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
+                if not call.is_test:
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        analysis_index.by_name,
+                        analysis_index.by_qual,
+                        analysis_index.symbol_table,
+                        project_root,
+                        analysis_index.class_index,
+                    )
+                    if callee is not None and (not require_transparent or callee.transparent):
+                        edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
     frozen_edges = tuple(edges)
     if require_transparent:
         analysis_index.resolved_transparent_call_edges = frozen_edges
@@ -8194,7 +8424,7 @@ def _analysis_index_resolved_call_edges(
 def _analysis_index_resolved_call_edges_by_caller(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
 ) -> dict[str, tuple[_ResolvedCallEdge, ...]]:
     check_deadline()
@@ -8217,7 +8447,7 @@ def _analysis_index_resolved_call_edges_by_caller(
 def _reduce_resolved_call_edges(
     analysis_index: AnalysisIndex,
     *,
-    project_root: Path | None,
+    project_root,
     require_transparent: bool,
     spec: _ResolvedEdgeReducerSpec[_ResolvedEdgeAcc, _ResolvedEdgeOut],
 ) -> _ResolvedEdgeOut:
@@ -8405,13 +8635,13 @@ def _iter_resolved_edge_param_events(
 def _build_call_graph(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
     check_deadline()
     index = require_not_none(
@@ -8429,14 +8659,14 @@ def _build_call_graph(
 def _collect_call_ambiguities_indexed(
     context: _IndexedPassContext,
     *,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
+    resolve_callee_fn = None,
 ) -> list[CallAmbiguity]:
     ambiguities: list[CallAmbiguity] = []
     resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
 
     def _sink(
         caller: FunctionInfo,
-        call: CallArgs | None,
+        call,
         candidates: list[FunctionInfo],
         phase: str,
         callee_key: str,
@@ -8478,13 +8708,13 @@ def _collect_call_ambiguities_indexed(
 def _collect_call_ambiguities(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> list[CallAmbiguity]:
     check_deadline()
     return _run_indexed_pass(
@@ -8533,7 +8763,7 @@ def _dedupe_call_ambiguities(
 def _emit_call_ambiguities(
     ambiguities: Iterable[CallAmbiguity],
     *,
-    project_root: Path | None,
+    project_root,
     forest: Forest,
 ) -> list[JSONObject]:
     check_deadline()
@@ -8653,21 +8883,23 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             continue
-        site = entry.get("site", {})
-        if not isinstance(site, Mapping):
+        entry_payload = cast(Mapping[str, JSONValue], entry)
+        site = entry_payload.get("site", {})
+        if type(site) is not dict:
             continue
-        path = str(site.get("path", "") or "")
+        site_mapping = cast(Mapping[str, JSONValue], site)
+        path = str(site_mapping.get("path", "") or "")
         if not path:
             continue
-        lineno, col = _span_line_col(site.get("span"))
-        candidate_count = entry.get("candidate_count")
+        lineno, col = _span_line_col(site_mapping.get("span"))
+        candidate_count = entry_payload.get("candidate_count")
         try:
             count_value = int(candidate_count) if candidate_count is not None else 0
         except (TypeError, ValueError):
             count_value = 0
-        kind = str(entry.get("kind", "") or "ambiguity")
+        kind = str(entry_payload.get("kind", "") or "ambiguity")
         message = f"{kind} candidates={count_value}"
         lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
     return lines
@@ -8680,7 +8912,7 @@ def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
         lint_line=_lint_line,
     )
 
-def _extract_smell_sample(entry: str) -> str | None:
+def _extract_smell_sample(entry: str):
     return _ds_extract_smell_sample(entry)
 
 def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
@@ -8690,7 +8922,7 @@ def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
         lint_line=_lint_line,
     )
 
-def _parse_exception_path_id(value: str) -> tuple[str, int, int] | None:
+def _parse_exception_path_id(value: str):
     parts = value.split(":", 5)
     if len(parts) != 6:
         return None
@@ -8730,32 +8962,39 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     for entry in sort_once(entries, key=_never_sort_key, source = 'src/gabion/analysis/dataflow_audit.py:9123'):
         check_deadline()
         status = entry.get("status", "UNKNOWN")
-        if status == "PROVEN_UNREACHABLE":
-            continue
-        span = entry.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            continue
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = str(site.get("path", "?"))
-        reason = entry.get("reason") or ""
-        witness_ref = entry.get("witness_ref")
-        env = entry.get("environment_ref")
-        undecidable = entry.get("undecidable_reason") or ""
-        line, col, _, _ = span
-        bits: list[str] = [f"status={status}"]
-        if reason:
-            bits.append(f"reason={reason}")
-        if witness_ref:
-            bits.append(f"witness={witness_ref}")
-        if env:
-            bits.append(f"env={json.dumps(env, sort_keys=False)}")
-        if status == "OBLIGATION":
-            if undecidable:
-                bits.append(f"why={undecidable}")
-            else:
-                bits.append("why=no witness env available")
-        message = f"never() invariant ({'; '.join(bits)})"
-        lines.append(_lint_line(path, int(line) + 1, int(col) + 1, "GABION_NEVER_INVARIANT", message))
+        if status != "PROVEN_UNREACHABLE":
+            span = entry.get("span")
+            span_entries = sequence_or_none(span)
+            if span_entries is not None and len(span_entries) == 4:
+                site = mapping_or_empty(entry.get("site"))
+                path = str(site.get("path", "?"))
+                reason = entry.get("reason") or ""
+                witness_ref = entry.get("witness_ref")
+                env = entry.get("environment_ref")
+                undecidable = entry.get("undecidable_reason") or ""
+                line, col, _, _ = span_entries
+                bits: list[str] = [f"status={status}"]
+                if reason:
+                    bits.append(f"reason={reason}")
+                if witness_ref:
+                    bits.append(f"witness={witness_ref}")
+                if env:
+                    bits.append(f"env={json.dumps(env, sort_keys=False)}")
+                if status == "OBLIGATION":
+                    if undecidable:
+                        bits.append(f"why={undecidable}")
+                    else:
+                        bits.append("why=no witness env available")
+                message = f"never() invariant ({'; '.join(bits)})"
+                lines.append(
+                    _lint_line(
+                        path,
+                        int(line) + 1,
+                        int(col) + 1,
+                        "GABION_NEVER_INVARIANT",
+                        message,
+                    )
+                )
     return lines
 
 
@@ -8812,22 +9051,47 @@ def _collect_bundle_evidence_lines(
     return evidence_lines
 
 
+class _SuiteSpanStatus(StrEnum):
+    PRESENT = "present"
+    MISSING = "missing"
+
+
+@dataclass(frozen=True)
+class _SuiteSpanOutcome:
+    status: _SuiteSpanStatus
+    span: tuple[int, int, int, int]
+
+
+def _suite_span_from_statements_outcome(
+    statements: Sequence[ast.stmt],
+) -> _SuiteSpanOutcome:
+    check_deadline()
+    missing_span = (0, 0, 0, 0)
+    if not statements:
+        return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
+    first_span = _node_span(statements[0])
+    if first_span is not None:
+        last_span = first_span
+        for stmt in statements[1:]:
+            check_deadline()
+            candidate = _node_span(stmt)
+            if candidate is not None:
+                last_span = candidate
+        return _SuiteSpanOutcome(
+            _SuiteSpanStatus.PRESENT,
+            (first_span[0], first_span[1], last_span[2], last_span[3]),
+        )
+    return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
+
+
 def _suite_span_from_statements(
     statements: Sequence[ast.stmt],
-) -> tuple[int, int, int, int] | None:
-    check_deadline()
-    if not statements:
-        return None
-    first_span = _node_span(statements[0])
-    if first_span is None:
-        return None
-    last_span = first_span
-    for stmt in statements[1:]:
-        check_deadline()
-        candidate = _node_span(stmt)
-        if candidate is not None:
-            last_span = candidate
-    return (first_span[0], first_span[1], last_span[2], last_span[3])
+):
+    outcome = _suite_span_from_statements_outcome(statements)
+    if outcome.status is _SuiteSpanStatus.PRESENT:
+        return outcome.span
+    missing_spans: dict[str, tuple[int, int, int, int]] = {}
+    return missing_spans.get("span")
 
 
 def _materialize_statement_suite_contains(
@@ -8843,116 +9107,123 @@ def _materialize_statement_suite_contains(
     def _emit_body_suite(
         suite_kind: str,
         body: Sequence[ast.stmt],
-    ) -> NodeId | None:
+    ):
         check_deadline()
-        span = _suite_span_from_statements(body)
-        if span is None:
-            return None
-        return forest.add_suite_site(
-            path_name,
-            qual,
-            suite_kind,
-            span=span,
-            parent=parent_suite,
-        )
+        span_outcome = _suite_span_from_statements_outcome(body)
+        if span_outcome.status is _SuiteSpanStatus.PRESENT:
+            return forest.add_suite_site(
+                path_name,
+                qual,
+                suite_kind,
+                span=span_outcome.span,
+                parent=parent_suite,
+            )
+        missing_suite_ids: dict[str, NodeId] = {}
+        return missing_suite_ids.get("suite_id")
 
     for stmt in statements:
         check_deadline()
-        if isinstance(stmt, ast.If):
-            if_suite = _emit_body_suite("if_body", stmt.body)
+        stmt_type = type(stmt)
+        if stmt_type is ast.If:
+            if_stmt = cast(ast.If, stmt)
+            if_suite = _emit_body_suite("if_body", if_stmt.body)
             if if_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=if_stmt.body,
                     parent_suite=if_suite,
                 )
-            if stmt.orelse:
-                else_suite = _emit_body_suite("if_else", stmt.orelse)
+            if if_stmt.orelse:
+                else_suite = _emit_body_suite("if_else", if_stmt.orelse)
                 if else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=if_stmt.orelse,
                         parent_suite=else_suite,
                     )
             continue
-        if isinstance(stmt, ast.For):
-            for_suite = _emit_body_suite("for_body", stmt.body)
+        if stmt_type is ast.For:
+            for_stmt = cast(ast.For, stmt)
+            for_suite = _emit_body_suite("for_body", for_stmt.body)
             if for_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=for_stmt.body,
                     parent_suite=for_suite,
                 )
-            if stmt.orelse:
-                for_else_suite = _emit_body_suite("for_else", stmt.orelse)
+            if for_stmt.orelse:
+                for_else_suite = _emit_body_suite("for_else", for_stmt.orelse)
                 if for_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=for_stmt.orelse,
                         parent_suite=for_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.AsyncFor):
-            async_for_suite = _emit_body_suite("async_for_body", stmt.body)
+        if stmt_type is ast.AsyncFor:
+            async_for_stmt = cast(ast.AsyncFor, stmt)
+            async_for_suite = _emit_body_suite("async_for_body", async_for_stmt.body)
             if async_for_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=async_for_stmt.body,
                     parent_suite=async_for_suite,
                 )
-            if stmt.orelse:
-                async_for_else_suite = _emit_body_suite("async_for_else", stmt.orelse)
+            if async_for_stmt.orelse:
+                async_for_else_suite = _emit_body_suite("async_for_else", async_for_stmt.orelse)
                 if async_for_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=async_for_stmt.orelse,
                         parent_suite=async_for_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.While):
-            while_suite = _emit_body_suite("while_body", stmt.body)
+        if stmt_type is ast.While:
+            while_stmt = cast(ast.While, stmt)
+            while_suite = _emit_body_suite("while_body", while_stmt.body)
             if while_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=while_stmt.body,
                     parent_suite=while_suite,
                 )
-            if stmt.orelse:
-                while_else_suite = _emit_body_suite("while_else", stmt.orelse)
+            if while_stmt.orelse:
+                while_else_suite = _emit_body_suite("while_else", while_stmt.orelse)
                 if while_else_suite is not None:
                     _materialize_statement_suite_contains(
                         forest=forest,
                         path_name=path_name,
                         qual=qual,
-                        statements=stmt.orelse,
+                        statements=while_stmt.orelse,
                         parent_suite=while_else_suite,
                     )
             continue
-        if isinstance(stmt, ast.Try):
-            try_body_suite = _emit_body_suite("try_body", stmt.body)
+        if stmt_type is ast.Try:
+            try_stmt = cast(ast.Try, stmt)
+            try_body_suite = _emit_body_suite("try_body", try_stmt.body)
             if try_body_suite is not None:
                 _materialize_statement_suite_contains(
                     forest=forest,
                     path_name=path_name,
                     qual=qual,
-                    statements=stmt.body,
+                    statements=try_stmt.body,
                     parent_suite=try_body_suite,
                 )
-            for handler in stmt.handlers:
+            for handler in try_stmt.handlers:
                 check_deadline()
                 except_suite = _emit_body_suite("except_body", handler.body)
                 if except_suite is not None:
@@ -8990,7 +9261,7 @@ def _materialize_structured_suite_sites_for_tree(
     forest: Forest,
     path: Path,
     tree: ast.Module,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     parent_annotator = ParentAnnotator()
@@ -9035,9 +9306,9 @@ def _materialize_structured_suite_sites(
     *,
     forest: Forest,
     file_paths: list[Path],
-    project_root: Path | None,
+    project_root,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> None:
     check_deadline()
     ordered_file_paths = _iter_monotonic_paths(
@@ -9067,14 +9338,13 @@ def _materialize_structured_suite_sites(
     ):
         check_deadline()
         tree = trees[path]
-        if tree is None:
-            continue
-        _materialize_structured_suite_sites_for_tree(
-            forest=forest,
-            path=path,
-            tree=tree,
-            project_root=project_root,
-        )
+        if tree is not None:
+            _materialize_structured_suite_sites_for_tree(
+                forest=forest,
+                path=path,
+                tree=tree,
+                project_root=project_root,
+            )
 
 
 def _populate_bundle_forest(
@@ -9082,14 +9352,14 @@ def _populate_bundle_forest(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
-    project_root: Path | None,
+    project_root = None,
     include_all_sites: bool = True,
-    ignore_params: set[str] | None = None,
+    ignore_params = None,
     strictness: str = "high",
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    on_progress: Callable[..., None] | None = None,
+    analysis_index = None,
+    on_progress = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
@@ -9125,8 +9395,8 @@ def _populate_bundle_forest(
     marker_paths_total = len(ordered_file_paths)
     marker_paths_done = 0
     progress_since_emit = 0
-    progress_accepts_payload: bool | None = None
-    last_progress_emit_monotonic: float | None = None
+    progress_accepts_payload = None
+    last_progress_emit_monotonic = None
 
     def _forest_progress_snapshot(*, marker: str) -> JSONObject:
         mutable_done = (
@@ -9186,42 +9456,39 @@ def _populate_bundle_forest(
 
     def _notify_progress(progress_delta: int, *, marker: str) -> None:
         nonlocal progress_accepts_payload
-        if on_progress is None:
-            return
-        snapshot = _forest_progress_snapshot(marker=marker)
-        normalized_delta = max(int(progress_delta), 0)
-        if progress_accepts_payload is True:
-            on_progress(snapshot)
-            return
-        if progress_accepts_payload is False:
-            try:
-                on_progress(normalized_delta)
-            except TypeError:
-                on_progress()
-            return
-        try:
-            on_progress(snapshot)
-            progress_accepts_payload = True
-        except TypeError:
-            progress_accepts_payload = False
-            try:
-                on_progress(normalized_delta)
-            except TypeError:
-                on_progress()
+        if on_progress is not None:
+            snapshot = _forest_progress_snapshot(marker=marker)
+            normalized_delta = max(int(progress_delta), 0)
+            if progress_accepts_payload is True:
+                on_progress(snapshot)
+            elif progress_accepts_payload is False:
+                try:
+                    on_progress(normalized_delta)
+                except TypeError:
+                    on_progress()
+            else:
+                try:
+                    on_progress(snapshot)
+                    progress_accepts_payload = True
+                except TypeError:
+                    progress_accepts_payload = False
+                    try:
+                        on_progress(normalized_delta)
+                    except TypeError:
+                        on_progress()
 
     def _emit_progress(*, force: bool = False, marker: str) -> None:
         nonlocal last_progress_emit_monotonic
-        if on_progress is None:
-            return
-        now = time.monotonic()
-        if (
-            not force
-            and last_progress_emit_monotonic is not None
-            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ):
-            return
-        last_progress_emit_monotonic = now
-        _notify_progress(1, marker=marker)
+        if on_progress is not None:
+            now = time.monotonic()
+            min_interval_elapsed = (
+                last_progress_emit_monotonic is None
+                or now - last_progress_emit_monotonic
+                >= _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+            )
+            if force or min_interval_elapsed:
+                last_progress_emit_monotonic = now
+                _notify_progress(1, marker=marker)
 
     _notify_progress(0, marker="start")
     if include_all_sites:
@@ -9257,7 +9524,7 @@ def _populate_bundle_forest(
     def _add_alt(
         kind: str,
         inputs: Iterable[NodeId],
-        evidence: dict[str, object] | None = None,
+        evidence = None,
     ) -> None:
         _add_interned_alt(forest=forest, kind=kind, inputs=inputs, evidence=evidence)
 
@@ -9376,9 +9643,7 @@ def _compute_lint_lines(
     broad_type_lint_lines: list[str],
     constant_smells: list[str],
     unused_arg_smells: list[str],
-    project_lint_rows_from_forest_fn: Callable[
-        ..., list[dict[str, JSONValue]]
-    ] | None = None,
+    project_lint_rows_from_forest_fn = None,
 ) -> list[str]:
     if project_lint_rows_from_forest_fn is None:
         project_lint_rows_from_forest_fn = _project_lint_rows_from_forest
@@ -9567,10 +9832,10 @@ def _summarize_runtime_obligations(
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
         section_part = ""
-        if isinstance(section_id, str) and section_id:
+        if type(section_id) is str and section_id:
             section_part = f" section={section_id}"
         phase_part = ""
-        if isinstance(phase, str) and phase:
+        if type(phase) is str and phase:
             phase_part = f" phase={phase}"
         line = f"{status} {contract} {kind}{section_part}{phase_part}".strip()
         if detail:
@@ -9604,10 +9869,10 @@ def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
         detail = str(entry.get("detail", "")).strip()
         section_part = (
             f" section={section_id}"
-            if isinstance(section_id, str) and section_id
+            if type(section_id) is str and section_id
             else ""
         )
-        phase_part = f" phase={phase}" if isinstance(phase, str) and phase else ""
+        phase_part = f" phase={phase}" if type(phase) is str and phase else ""
         text = f"{contract} {kind}{section_part}{phase_part}".strip()
         if detail:
             text = f"{text} detail={detail}"
@@ -9617,14 +9882,14 @@ def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
 
 def _compute_fingerprint_synth(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, object]]],
     *,
     registry: PrimeRegistry,
-    ctor_registry: TypeConstructorRegistry | None,
+    ctor_registry,
     min_occurrences: int,
     version: str,
-    existing: SynthRegistry | None = None,
-) -> tuple[list[str], JSONObject | None]:
+    existing = None,
+):
     check_deadline()
     if min_occurrences < 2 and existing is None:
         return [], None
@@ -9640,9 +9905,9 @@ def _compute_fingerprint_synth(
                 if any(param not in fn_annots for param in bundle):
                     continue
                 types = [fn_annots[param] for param in sort_once(bundle, source = 'src/gabion/analysis/dataflow_audit.py:10035')]
-                if any(t is None for t in types):
+                hint_list = [str(value) for value in types if value is not None]
+                if len(hint_list) != len(types):
                     continue
-                hint_list = [t for t in types if t is not None]
                 fingerprint = bundle_fingerprint_dimensional(
                     hint_list,
                     registry,
@@ -9747,7 +10012,7 @@ def _build_synth_registry_payload(
 
 class _ReturnAliasCollector(ast.NodeVisitor):
     def __init__(self) -> None:
-        self.returns: list[ast.AST | None] = []
+        self.returns: list[OptionalAstNode] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         return
@@ -9763,9 +10028,9 @@ class _ReturnAliasCollector(ast.NodeVisitor):
 
 
 def _return_aliases(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> list[str] | None:
+    fn: ast.AST,
+    ignore_params = None,
+):
     check_deadline()
     params = _param_names(fn, ignore_params)
     if not params:
@@ -9777,43 +10042,47 @@ def _return_aliases(
         collector.visit(stmt)
     if not collector.returns:
         return None
-    alias: list[str] | None = None
+    alias = None
 
-    def _alias_from_expr(expr: ast.AST | None) -> list[str] | None:
+    def _alias_from_expr(expr = None):
         check_deadline()
-        if expr is None:
-            return None
-        if isinstance(expr, ast.Name) and expr.id in param_set:
-            return [expr.id]
-        if isinstance(expr, (ast.Tuple, ast.List)):
-            names: list[str] = []
-            for elt in expr.elts:
-                check_deadline()
-                if isinstance(elt, ast.Name) and elt.id in param_set:
-                    names.append(elt.id)
-                else:
-                    return None
-            return names
+        if expr is not None:
+            expr_type = type(expr)
+            if expr_type is ast.Name:
+                name_node = cast(ast.Name, expr)
+                if name_node.id in param_set:
+                    return [name_node.id]
+            if expr_type in {ast.Tuple, ast.List}:
+                sequence_node = cast(ast.Tuple | ast.List, expr)
+                names: list[str] = []
+                for elt in sequence_node.elts:
+                    check_deadline()
+                    if type(elt) is ast.Name and cast(ast.Name, elt).id in param_set:
+                        names.append(cast(ast.Name, elt).id)
+                    else:
+                        return None
+                return names
         return None
 
     for expr in collector.returns:
         check_deadline()
         candidate = _alias_from_expr(expr)
-        if candidate is None:
-            return None
-        if alias is None:
-            alias = candidate
+        if candidate is not None:
+            if alias is None:
+                alias = candidate
+                continue
+            if alias != candidate:
+                return None
             continue
-        if alias != candidate:
-            return None
+        return None
     return alias
 
 
 def _collect_return_aliases(
-    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    funcs: list[FunctionNode],
     parents: dict[ast.AST, ast.AST],
     *,
-    ignore_params: set[str] | None,
+    ignore_params,
 ) -> dict[str, tuple[list[str], list[str]]]:
     check_deadline()
     aliases: dict[str, tuple[list[str], list[str]]] = {}
@@ -9844,20 +10113,22 @@ def _collect_return_aliases(
     return aliases
 
 
-def _const_repr(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant):
-        return repr(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(
-        node.op, (ast.USub, ast.UAdd)
-    ) and isinstance(node.operand, ast.Constant):
-        try:
-            return ast.unparse(node)
-        except _AST_UNPARSE_ERROR_TYPES:
-            return None
-    if isinstance(node, ast.Attribute):
-        if node.attr.isupper():
+def _const_repr(node: ast.AST):
+    node_type = type(node)
+    if node_type is ast.Constant:
+        return repr(cast(ast.Constant, node).value)
+    if node_type is ast.UnaryOp:
+        unary_node = cast(ast.UnaryOp, node)
+        if type(unary_node.op) in {ast.USub, ast.UAdd} and type(unary_node.operand) is ast.Constant:
             try:
-                return ast.unparse(node)
+                return ast.unparse(unary_node)
+            except _AST_UNPARSE_ERROR_TYPES:
+                return None
+    if node_type is ast.Attribute:
+        attribute_node = cast(ast.Attribute, node)
+        if attribute_node.attr.isupper():
+            try:
+                return ast.unparse(attribute_node)
             except _AST_UNPARSE_ERROR_TYPES:
                 return None
         return None
@@ -9868,66 +10139,78 @@ def _normalize_key_expr(
     node: ast.AST,
     *,
     const_bindings: Mapping[str, ast.AST],
-) -> Hashable | None:
+):
     """Normalize deterministic subscript key forms.
 
     Recognizes literal string/int keys, constant-bound names resolving to
     literals, and literal tuples composed from those forms.
     """
     check_deadline()
-    if isinstance(node, ast.Constant) and isinstance(node.value, (str, int)):
-        return ("literal", type(node.value).__name__, node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+    node_type = type(node)
+    normalized_key = None
+    if node_type is ast.Constant:
+        value = cast(ast.Constant, node).value
+        value_type = type(value)
+        if value_type in {str, int}:
+            normalized_key = ("literal", value_type.__name__, value)
+    elif node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) in {
+        ast.USub,
+        ast.UAdd,
+    }:
+        evaluated_value = None
         try:
-            value = ast.literal_eval(node)
+            evaluated_value = ast.literal_eval(node)
         except _LITERAL_EVAL_ERROR_TYPES:
-            return None
-        if isinstance(value, int):
-            return ("literal", "int", value)
-        return None
-    if isinstance(node, ast.Name):
-        bound = const_bindings.get(node.id)
-        if bound is None:
-            return None
-        return _normalize_key_expr(bound, const_bindings=const_bindings)
-    if isinstance(node, ast.Tuple):
+            pass
+        if type(evaluated_value) is int:
+            normalized_key = ("literal", "int", evaluated_value)
+    elif node_type is ast.Name:
+        bound = const_bindings.get(cast(ast.Name, node).id)
+        if bound is not None:
+            normalized_key = _normalize_key_expr(bound, const_bindings=const_bindings)
+    elif node_type is ast.Tuple:
+        tuple_node = cast(ast.Tuple, node)
         items: list[Hashable] = []
-        for elt in node.elts:
+        complete = True
+        for elt in tuple_node.elts:
             check_deadline()
-            normalized = _normalize_key_expr(elt, const_bindings=const_bindings)
-            if normalized is None:
-                return None
-            items.append(normalized)
-        return ("tuple", tuple(items))
-    return None
+            normalized_item = _normalize_key_expr(elt, const_bindings=const_bindings)
+            if normalized_item is None:
+                complete = False
+            else:
+                items.append(normalized_item)
+        if complete:
+            normalized_key = ("tuple", tuple(items))
+    return normalized_key
 
 
-def _type_from_const_repr(value: str) -> str | None:
+def _type_from_const_repr(value: str):
     try:
         literal = ast.literal_eval(value)
     except _LITERAL_EVAL_ERROR_TYPES:
         return None
     if literal is None:
         return "None"
-    if isinstance(literal, bool):
+    literal_type = type(literal)
+    if literal_type is bool:
         return "bool"
-    if isinstance(literal, int):
+    if literal_type is int:
         return "int"
-    if isinstance(literal, float):
+    if literal_type is float:
         return "float"
-    if isinstance(literal, complex):
+    if literal_type is complex:
         return "complex"
-    if isinstance(literal, str):
+    if literal_type is str:
         return "str"
-    if isinstance(literal, bytes):
+    if literal_type is bytes:
         return "bytes"
-    if isinstance(literal, list):
+    if literal_type is list:
         return "list"
-    if isinstance(literal, tuple):
+    if literal_type is tuple:
         return "tuple"
-    if isinstance(literal, set):
+    if literal_type is set:
         return "set"
-    if isinstance(literal, dict):
+    if literal_type is dict:
         return "dict"
     return None
 
@@ -9939,14 +10222,14 @@ def _is_test_path(path: Path) -> bool:
 
 
 def _analyze_function(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    fn: FunctionNode,
     parents: dict[ast.AST, ast.AST],
     *,
     is_test: bool,
-    ignore_params: set[str] | None = None,
+    ignore_params: OptionalIgnoredParams = None,
     strictness: str = "high",
-    class_name: str | None = None,
-    return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
+    class_name: OptionalClassName = None,
+    return_aliases: OptionalReturnAliasMap = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
@@ -10037,7 +10320,7 @@ def _propagate_groups(
     callee_groups: dict[str, list[set[str]]],
     callee_param_orders: dict[str, list[str]],
     strictness: str,
-    opaque_callees: set[str] | None = None,
+    opaque_callees = None,
 ) -> list[set[str]]:
     check_deadline()
     groups: list[set[str]] = []
@@ -10096,48 +10379,55 @@ def _callsite_evidence_for_bundle(
     seen: set[tuple[tuple[int, int, int, int], str, tuple[str, ...], tuple[str, ...]]] = set()
     for call in calls:
         check_deadline()
-        if call.span is None:
-            continue
-        params_in_call: list[str] = []
-        slots: list[str] = []
-        for idx_str, param in call.pos_map.items():
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"arg[{idx_str}]")
-        for name, param in call.kw_map.items():
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"kw[{name}]")
-        for idx, param in call.star_pos:
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append(f"arg[{idx}]*")
-        for param in call.star_kw:
-            check_deadline()
-            if param in bundle:
-                params_in_call.append(param)
-                slots.append("kw[**]")
-        distinct = tuple(sort_once(set(params_in_call), source = 'src/gabion/analysis/dataflow_audit.py:10516'))
-        if not distinct:
-            continue
-        slot_list = tuple(sort_once(set(slots), source = 'src/gabion/analysis/dataflow_audit.py:10519'))
-        key = (call.span, call.callee, distinct, slot_list)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(
-            {
-                "callee": call.callee,
-                "span": list(call.span),
-                "params": list(distinct),
-                "slots": list(slot_list),
-                "callable_kind": call.callable_kind,
-                "callable_source": call.callable_source,
-            }
-        )
+        if call.span is not None:
+            params_in_call: list[str] = []
+            slots: list[str] = []
+            for idx_str, param in call.pos_map.items():
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"arg[{idx_str}]")
+            for name, param in call.kw_map.items():
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"kw[{name}]")
+            for idx, param in call.star_pos:
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append(f"arg[{idx}]*")
+            for param in call.star_kw:
+                check_deadline()
+                if param in bundle:
+                    params_in_call.append(param)
+                    slots.append("kw[**]")
+            distinct = tuple(
+                sort_once(
+                    set(params_in_call),
+                    source="src/gabion/analysis/dataflow_audit.py:10516",
+                )
+            )
+            if distinct:
+                slot_list = tuple(
+                    sort_once(
+                        set(slots),
+                        source="src/gabion/analysis/dataflow_audit.py:10519",
+                    )
+                )
+                key = (call.span, call.callee, distinct, slot_list)
+                if key not in seen:
+                    seen.add(key)
+                    out.append(
+                        {
+                            "callee": call.callee,
+                            "span": list(call.span),
+                            "params": list(distinct),
+                            "slots": list(slot_list),
+                            "callable_kind": call.callable_kind,
+                            "callable_source": call.callable_source,
+                        }
+                    )
     out = sort_once(
         out,
         source="_ranked_callargs_evidence.out",
@@ -10156,11 +10446,11 @@ def _analyze_file_internal(
     path: Path,
     recursive: bool = True,
     *,
-    config: AuditConfig | None = None,
-    resume_state: Mapping[str, JSONValue] | None = None,
-    on_progress: Callable[[JSONObject], None] | None = None,
-    on_profile: Callable[[JSONObject], None] | None = None,
-    analyze_function_fn: Callable[..., tuple[dict[str, set[str]], list[CallArgs]]] | None = None,
+    config = None,
+    resume_state = None,
+    on_progress = None,
+    on_profile = None,
+    analyze_function_fn = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
@@ -10223,7 +10513,7 @@ def _analyze_file_internal(
         valid_fn_keys=fn_keys_in_file,
     )
     scanned_since_emit = 0
-    last_scan_progress_emit_monotonic: float | None = None
+    last_scan_progress_emit_monotonic = None
 
     def _emit_scan_progress(*, force: bool = False) -> bool:
         nonlocal last_scan_progress_emit_monotonic
@@ -10255,11 +10545,13 @@ def _analyze_file_internal(
         return True
 
     def _emit_file_profile() -> None:
-        if on_profile is None:
-            return
-        on_profile(
-            _profiling_v1_payload(stage_ns=profile_stage_ns, counters=profile_counters)
-        )
+        if on_profile is not None:
+            on_profile(
+                _profiling_v1_payload(
+                    stage_ns=profile_stage_ns,
+                    counters=profile_counters,
+                )
+            )
 
     try:
         scan_started_ns = time.monotonic_ns()
@@ -10316,7 +10608,7 @@ def _analyze_file_internal(
         check_deadline()
         local_by_name[name].append(key)
 
-    def _resolve_local_callee(callee: str, caller_key: str) -> str | None:
+    def _resolve_local_callee(callee: str, caller_key: str):
         check_deadline()
         if "." in callee:
             return None
@@ -10363,7 +10655,7 @@ def _analyze_file_internal(
         method_resolve_started_ns = time.monotonic_ns()
         local_functions = set(fn_use.keys())
 
-        def _resolve_local_method(callee: str) -> str | None:
+        def _resolve_local_method(callee: str):
             class_part, method = callee.rsplit(".", 1)
             return _resolve_local_method_in_hierarchy(
                 class_part,
@@ -10447,7 +10739,7 @@ def analyze_file(
     path: Path,
     recursive: bool = True,
     *,
-    config: AuditConfig | None = None,
+    config = None,
 ) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
     groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
     return groups, spans
@@ -10459,7 +10751,7 @@ def _callee_key(name: str) -> str:
     return name.split(".")[-1]
 
 
-def _is_broad_type(annot: str | None) -> bool:
+def _is_broad_type(annot) -> bool:
     if annot is None:
         return True
     base = annot.replace("typing.", "")
@@ -10494,7 +10786,7 @@ def _is_literal_type(value: str) -> bool:
     return value.startswith("Literal[")
 
 
-def _is_broad_internal_type(annot: str | None) -> bool:
+def _is_broad_internal_type(annot) -> bool:
     if annot is None:
         return False
     normalized = annot.replace("typing.", "")
@@ -10601,13 +10893,13 @@ class FunctionInfo:
     qual: str
     path: Path
     params: list[str]
-    annots: dict[str, str | None]
+    annots: ParamAnnotationMap
     calls: list[CallArgs]
     unused_params: set[str]
     unknown_key_carriers: set[str] = field(default_factory=set)
     defaults: set[str] = field(default_factory=set)
     transparent: bool = True
-    class_name: str | None = None
+    class_name: OptionalString = None
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
     decision_params: set[str] = field(default_factory=set)
@@ -10616,10 +10908,10 @@ class FunctionInfo:
     value_decision_reasons: set[str] = field(default_factory=set)
     positional_params: tuple[str, ...] = ()
     kwonly_params: tuple[str, ...] = ()
-    vararg: str | None = None
-    kwarg: str | None = None
+    vararg: OptionalString = None
+    kwarg: OptionalString = None
     param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
-    function_span: tuple[int, int, int, int] | None = None
+    function_span: OptionalSpan4 = None
     local_lambda_bindings: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
@@ -10631,7 +10923,7 @@ class ClassInfo:
     methods: set[str]
 
 
-def _module_name(path: Path, project_root: Path | None = None) -> str:
+def _module_name(path: Path, project_root = None) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
         try:
@@ -10644,33 +10936,36 @@ def _module_name(path: Path, project_root: Path | None = None) -> str:
     return ".".join(parts)
 
 
-def _string_list(node: ast.AST) -> list[str] | None:
+def _string_list(node: ast.AST):
     check_deadline()
-    if isinstance(node, (ast.List, ast.Tuple)):
+    node_type = type(node)
+    if node_type is ast.List or node_type is ast.Tuple:
+        container = cast(ast.List | ast.Tuple, node)
         values: list[str] = []
-        for elt in node.elts:
+        for elt in container.elts:
             check_deadline()
-            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                values.append(elt.value)
+            if type(elt) is ast.Constant and type(cast(ast.Constant, elt).value) is str:
+                values.append(cast(str, cast(ast.Constant, elt).value))
             else:
                 return None
         return values
     return None
 
 
-def _base_identifier(node: ast.AST) -> str | None:
+def _base_identifier(node: ast.AST):
     check_deadline()
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
+    node_type = type(node)
+    if node_type is ast.Name:
+        return cast(ast.Name, node).id
+    if node_type is ast.Attribute:
         try:
             return ast.unparse(node)
         except _AST_UNPARSE_ERROR_TYPES:
             return None
-    if isinstance(node, ast.Subscript):
-        return _base_identifier(node.value)
-    if isinstance(node, ast.Call):
-        return _base_identifier(node.func)
+    if node_type is ast.Subscript:
+        return _base_identifier(cast(ast.Subscript, node).value)
+    if node_type is ast.Call:
+        return _base_identifier(cast(ast.Call, node).func)
     return None
 
 
@@ -10681,48 +10976,68 @@ def _collect_module_exports(
     import_map: dict[str, str],
 ) -> tuple[set[str], dict[str, str]]:
     check_deadline()
-    explicit_all: list[str] | None = None
+    explicit_all: list[str] = []
+    has_explicit_all = False
     for stmt in getattr(tree, "body", []):
         check_deadline()
-        if isinstance(stmt, ast.Assign):
-            targets = stmt.targets
-            if any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets):
-                values = _string_list(stmt.value)
+        stmt_type = type(stmt)
+        if stmt_type is ast.Assign:
+            assign_stmt = cast(ast.Assign, stmt)
+            targets = assign_stmt.targets
+            if any(type(target) is ast.Name and cast(ast.Name, target).id == "__all__" for target in targets):
+                values = _string_list(assign_stmt.value)
                 if values is not None:
                     explicit_all = list(values)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name) and stmt.target.id == "__all__":
-                values = _string_list(stmt.value) if stmt.value is not None else None
+                    has_explicit_all = True
+        elif stmt_type is ast.AnnAssign:
+            ann_assign = cast(ast.AnnAssign, stmt)
+            target = ann_assign.target
+            if type(target) is ast.Name and cast(ast.Name, target).id == "__all__":
+                values = _string_list(ann_assign.value) if ann_assign.value is not None else None
                 if values is not None:
                     explicit_all = list(values)
-        elif isinstance(stmt, ast.AugAssign):
+                    has_explicit_all = True
+        elif stmt_type is ast.AugAssign:
+            aug_assign = cast(ast.AugAssign, stmt)
+            target = aug_assign.target
             if (
-                isinstance(stmt.target, ast.Name)
-                and stmt.target.id == "__all__"
-                and isinstance(stmt.op, ast.Add)
+                type(target) is ast.Name
+                and cast(ast.Name, target).id == "__all__"
+                and type(aug_assign.op) is ast.Add
             ):
-                values = _string_list(stmt.value)
+                values = _string_list(aug_assign.value)
                 if values is not None:
-                    if explicit_all is None:
+                    if not has_explicit_all:
+                        has_explicit_all = True
                         explicit_all = []
                     explicit_all.extend(values)
 
     local_defs: set[str] = set()
     for stmt in getattr(tree, "body", []):
         check_deadline()
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            if not stmt.name.startswith("_"):
-                local_defs.add(stmt.name)
-        elif isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
+        stmt_type = type(stmt)
+        if stmt_type in {ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef}:
+            stmt_name = str(getattr(stmt, "name", ""))
+            if stmt_name and not stmt_name.startswith("_"):
+                local_defs.add(stmt_name)
+        elif stmt_type is ast.Assign:
+            assign_stmt = cast(ast.Assign, stmt)
+            for target in assign_stmt.targets:
                 check_deadline()
-                if isinstance(target, ast.Name) and not target.id.startswith("_"):
-                    local_defs.add(target.id)
-        elif isinstance(stmt, ast.AnnAssign):
-            if isinstance(stmt.target, ast.Name) and not stmt.target.id.startswith("_"):
-                local_defs.add(stmt.target.id)
+                local_defs.update(
+                    name
+                    for name in _target_names(target)
+                    if not name.startswith("_")
+                )
+        elif stmt_type is ast.AnnAssign:
+            ann_assign = cast(ast.AnnAssign, stmt)
+            local_defs.update(
+                name
+                for name in _target_names(ann_assign.target)
+                if not name.startswith("_")
+            )
 
-    if explicit_all is not None:
+    if has_explicit_all:
         export_names = set(explicit_all)
     else:
         export_names = set(local_defs) | {
@@ -10745,7 +11060,7 @@ def _accumulate_symbol_table_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     module = _module_name(path, project_root)
@@ -10766,7 +11081,7 @@ def _accumulate_symbol_table_for_tree(
 
 def _symbol_table_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
     external_filter: bool,
 ) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
     return _ModuleArtifactSpec[SymbolTable, SymbolTable](
@@ -10785,7 +11100,7 @@ def _symbol_table_module_artifact_spec(
 
 def _build_symbol_table(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     *,
     external_filter: bool,
     parse_failure_witnesses: list[JSONObject],
@@ -10812,7 +11127,7 @@ def _accumulate_class_index_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
 ) -> None:
     check_deadline()
     parents = ParentAnnotator()
@@ -10820,24 +11135,26 @@ def _accumulate_class_index_for_tree(
     module = _module_name(path, project_root)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
-        scopes = _enclosing_class_scopes(node, parents.parents)
+        class_node = cast(ast.ClassDef, node)
+        scopes = _enclosing_class_scopes(class_node, parents.parents)
         qual_parts = [module] if module else []
         qual_parts.extend(scopes)
-        qual_parts.append(node.name)
+        qual_parts.append(class_node.name)
         qual = ".".join(qual_parts)
         bases: list[str] = []
-        for base in node.bases:
+        for base in class_node.bases:
             check_deadline()
             base_name = _base_identifier(base)
             if base_name:
                 bases.append(base_name)
         methods: set[str] = set()
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                methods.add(stmt.name)
+            stmt_type = type(stmt)
+            if stmt_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
+                methods.add(cast(ast.FunctionDef | ast.AsyncFunctionDef, stmt).name)
         class_index[qual] = ClassInfo(
             qual=qual,
             module=module,
@@ -10848,7 +11165,7 @@ def _accumulate_class_index_for_tree(
 
 def _class_index_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
 ) -> _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]]:
     return _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]](
         artifact_id="class_index",
@@ -10866,7 +11183,7 @@ def _class_index_module_artifact_spec(
 
 def _collect_class_index(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, ClassInfo]:
@@ -10888,7 +11205,7 @@ def _resolve_class_candidates(
     base: str,
     *,
     module: str,
-    symbol_table: SymbolTable | None,
+    symbol_table,
     class_index: dict[str, ClassInfo],
 ) -> list[str]:
     check_deadline()
@@ -10929,45 +11246,84 @@ def _resolve_class_candidates(
     return resolved
 
 
+class _MethodHierarchyResolutionStatus(StrEnum):
+    FOUND = "found"
+    NOT_FOUND = "not_found"
+
+
+@dataclass(frozen=True)
+class _MethodHierarchyResolutionOutcome:
+    status: _MethodHierarchyResolutionStatus
+    method_qual: str
+
+
+def _resolve_method_in_hierarchy_outcome(
+    class_qual: str,
+    method: str,
+    *,
+    class_index: dict[str, ClassInfo],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table,
+    seen: set[str],
+) -> _MethodHierarchyResolutionOutcome:
+    check_deadline()
+    if class_qual in seen:
+        return _MethodHierarchyResolutionOutcome(
+            _MethodHierarchyResolutionStatus.NOT_FOUND,
+            "",
+        )
+    seen.add(class_qual)
+    candidate = f"{class_qual}.{method}"
+    if candidate in by_qual:
+        return _MethodHierarchyResolutionOutcome(
+            _MethodHierarchyResolutionStatus.FOUND,
+            candidate,
+        )
+    info = class_index.get(class_qual)
+    if info is not None:
+        for base in info.bases:
+            check_deadline()
+            for base_qual in _resolve_class_candidates(
+                base,
+                module=info.module,
+                symbol_table=symbol_table,
+                class_index=class_index,
+            ):
+                check_deadline()
+                resolved = _resolve_method_in_hierarchy_outcome(
+                    base_qual,
+                    method,
+                    class_index=class_index,
+                    by_qual=by_qual,
+                    symbol_table=symbol_table,
+                    seen=seen,
+                )
+                if resolved.status is _MethodHierarchyResolutionStatus.FOUND:
+                    return resolved
+    return _MethodHierarchyResolutionOutcome(
+        _MethodHierarchyResolutionStatus.NOT_FOUND,
+        "",
+    )
+
+
 def _resolve_method_in_hierarchy(
     class_qual: str,
     method: str,
     *,
     class_index: dict[str, ClassInfo],
     by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable | None,
+    symbol_table,
     seen: set[str],
-) -> FunctionInfo | None:
-    check_deadline()
-    if class_qual in seen:
-        return None
-    seen.add(class_qual)
-    candidate = f"{class_qual}.{method}"
-    if candidate in by_qual:
-        return by_qual[candidate]
-    info = class_index.get(class_qual)
-    if info is None:
-        return None
-    for base in info.bases:
-        check_deadline()
-        for base_qual in _resolve_class_candidates(
-            base,
-            module=info.module,
-            symbol_table=symbol_table,
-            class_index=class_index,
-        ):
-            check_deadline()
-            resolved = _resolve_method_in_hierarchy(
-                base_qual,
-                method,
-                class_index=class_index,
-                by_qual=by_qual,
-                symbol_table=symbol_table,
-                seen=seen,
-            )
-            if resolved is not None:
-                return resolved
-    return None
+):
+    outcome = _resolve_method_in_hierarchy_outcome(
+        class_qual,
+        method,
+        class_index=class_index,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        seen=seen,
+    )
+    return by_qual.get(outcome.method_qual)
 
 
 @dataclass
@@ -10983,10 +11339,10 @@ def _accumulate_function_index_for_tree(
     path: Path,
     tree: ast.Module,
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None,
+    transparent_decorators,
 ) -> None:
     check_deadline()
     funcs = _collect_functions(tree)
@@ -11110,49 +11466,55 @@ def _collect_lambda_function_infos(
     path: Path,
     module: str,
     parent_map: Mapping[ast.AST, ast.AST],
-    ignore_params: set[str] | None,
+    ignore_params,
 ) -> list[FunctionInfo]:
     check_deadline()
     lambda_infos: list[FunctionInfo] = []
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Lambda):
-            continue
-        span = _node_span(node)
-        if span is None:
-            continue
-        lexical_scopes = _enclosing_function_scopes(node, parent_map)
-        scopes = _enclosing_scopes(node, parent_map)
-        class_name = _enclosing_class(node, parent_map)
-        synthetic_name = _synthetic_lambda_name(
-            module=module,
-            lexical_scope=lexical_scopes,
-            span=span,
-        )
-        qual_parts = [module] if module else []
-        if scopes:
-            qual_parts.extend(scopes)
-        qual_parts.append(synthetic_name)
-        qual = ".".join(qual_parts)
-        params = [arg.arg for arg in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs)]
-        if ignore_params:
-            params = [name for name in params if name not in ignore_params]
-        lambda_infos.append(
-            FunctionInfo(
-                name=synthetic_name,
-                qual=qual,
-                path=path,
-                params=params,
-                annots={name: None for name in params},
-                calls=[],
-                unused_params=set(),
-                class_name=class_name,
-                scope=tuple(scopes),
-                lexical_scope=tuple(lexical_scopes),
-                positional_params=tuple(params),
-                function_span=span,
-            )
-        )
+        if type(node) is ast.Lambda:
+            lambda_node = cast(ast.Lambda, node)
+            span = _node_span(lambda_node)
+            if span is not None:
+                lexical_scopes = _enclosing_function_scopes(lambda_node, parent_map)
+                scopes = _enclosing_scopes(lambda_node, parent_map)
+                class_name = _enclosing_class(lambda_node, parent_map)
+                synthetic_name = _synthetic_lambda_name(
+                    module=module,
+                    lexical_scope=lexical_scopes,
+                    span=span,
+                )
+                qual_parts = [module] if module else []
+                if scopes:
+                    qual_parts.extend(scopes)
+                qual_parts.append(synthetic_name)
+                qual = ".".join(qual_parts)
+                params = [
+                    arg.arg
+                    for arg in (
+                        lambda_node.args.posonlyargs
+                        + lambda_node.args.args
+                        + lambda_node.args.kwonlyargs
+                    )
+                ]
+                if ignore_params:
+                    params = [name for name in params if name not in ignore_params]
+                lambda_infos.append(
+                    FunctionInfo(
+                        name=synthetic_name,
+                        qual=qual,
+                        path=path,
+                        params=params,
+                        annots={name: None for name in params},
+                        calls=[],
+                        unused_params=set(),
+                        class_name=class_name,
+                        scope=tuple(scopes),
+                        lexical_scope=tuple(lexical_scopes),
+                        positional_params=tuple(params),
+                        function_span=span,
+                    )
+                )
     return lambda_infos
 
 
@@ -11178,41 +11540,57 @@ def _collect_lambda_bindings_by_caller(
 
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-            continue
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        value = node.value
-        if value is None:
-            continue
-        fn_scope = _enclosing_scopes(node, parent_map)
-        if not fn_scope:
-            continue
-        qual_parts = [module] if module else []
-        qual_parts.extend(fn_scope)
-        caller_key = ".".join(qual_parts)
+        assignment_node = None
+        node_type = type(node)
+        if node_type is ast.Assign or node_type is ast.AnnAssign:
+            assignment_node = cast(ast.Assign | ast.AnnAssign, node)
+        if assignment_node is not None and assignment_node.value is not None:
+            fn_scope = _enclosing_scopes(assignment_node, parent_map)
+            if fn_scope:
+                targets = (
+                    assignment_node.targets
+                    if type(assignment_node) is ast.Assign
+                    else [assignment_node.target]
+                )
+                qual_parts = [module] if module else []
+                qual_parts.extend(fn_scope)
+                caller_key = ".".join(qual_parts)
+                value = assignment_node.value
 
-        assigned_quals: set[str] = set()
-        value_span = _node_span(value)
-        if isinstance(value, ast.Lambda) and value_span is not None:
-            qual = lambda_qual_by_span.get(value_span)
-            if qual is not None:
-                assigned_quals.add(qual)
-        elif isinstance(value, ast.Name):
-            assigned_quals.update(binding_sets.get(caller_key, {}).get(value.id, set()))
-        elif isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-            assigned_quals.update(closure_factories.get(value.func.id, set()))
+                assigned_quals: set[str] = set()
+                value_span = _node_span(value)
+                value_type = type(value)
+                if value_type is ast.Lambda and value_span is not None:
+                    qual = lambda_qual_by_span.get(value_span)
+                    if qual is not None:
+                        assigned_quals.add(qual)
+                elif value_type is ast.Name:
+                    assigned_quals.update(
+                        binding_sets.get(caller_key, {}).get(cast(ast.Name, value).id, set())
+                    )
+                elif value_type is ast.Call:
+                    call_value = cast(ast.Call, value)
+                    if type(call_value.func) is ast.Name:
+                        assigned_quals.update(
+                            closure_factories.get(cast(ast.Name, call_value.func).id, set())
+                        )
 
-        for target in targets:
-            check_deadline()
-            target_names = list(_target_names(target))
-            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-                target_names.append(f"{target.value.id}.{target.attr}")
-            for name in target_names:
-                check_deadline()
-                if assigned_quals:
-                    binding_sets[caller_key][name].update(assigned_quals)
-                else:
-                    binding_sets[caller_key].pop(name, None)
+                for target in targets:
+                    check_deadline()
+                    target_names = list(_target_names(target))
+                    if type(target) is ast.Attribute:
+                        attribute_target = cast(ast.Attribute, target)
+                        target_value = attribute_target.value
+                        if type(target_value) is ast.Name:
+                            target_names.append(
+                                f"{cast(ast.Name, target_value).id}.{attribute_target.attr}"
+                            )
+                    for name in target_names:
+                        check_deadline()
+                        if assigned_quals:
+                            binding_sets[caller_key][name].update(assigned_quals)
+                        else:
+                            binding_sets[caller_key].pop(name, None)
 
     out: dict[str, dict[str, tuple[str, ...]]] = {}
     for caller_key, mapping in binding_sets.items():
@@ -11238,48 +11616,61 @@ def _collect_closure_lambda_factories(
     factories: dict[str, set[str]] = defaultdict(set)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        local_bindings: dict[str, set[str]] = {}
-        for statement in node.body:
-            check_deadline()
-            if isinstance(statement, (ast.Assign, ast.AnnAssign)):
-                value = statement.value
-                if value is None:
-                    continue
-                assigned_quals: set[str] = set()
-                value_span = _node_span(value)
-                if isinstance(value, ast.Lambda) and value_span is not None:
-                    qual = lambda_qual_by_span.get(value_span)
-                    if qual is not None:
-                        assigned_quals.add(qual)
-                elif isinstance(value, ast.Name):
-                    assigned_quals.update(local_bindings.get(value.id, set()))
-                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
-                for target in targets:
-                    check_deadline()
-                    for name in _target_names(target):
-                        check_deadline()
-                        if assigned_quals:
-                            local_bindings[name] = set(assigned_quals)
-                        else:
-                            local_bindings.pop(name, None)
-            elif isinstance(statement, ast.Return) and isinstance(statement.value, ast.Name):
-                returned = local_bindings.get(statement.value.id, set())
-                if not returned:
-                    continue
-                scopes = _enclosing_scopes(node, parent_map)
-                keys = {node.name}
-                if scopes:
-                    keys.add(_function_key(scopes, node.name))
-                qual_parts = [module] if module else []
-                if scopes:
-                    qual_parts.extend(scopes)
-                qual_parts.append(node.name)
-                keys.add(".".join(qual_parts))
-                for key in keys:
-                    check_deadline()
-                    factories[key].update(returned)
+        function_node = None
+        node_type = type(node)
+        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
+            function_node = cast(ast.FunctionDef | ast.AsyncFunctionDef, node)
+        if function_node is not None:
+            local_bindings: dict[str, set[str]] = {}
+            for statement in function_node.body:
+                check_deadline()
+                statement_type = type(statement)
+                if statement_type is ast.Assign or statement_type is ast.AnnAssign:
+                    assignment = cast(ast.Assign | ast.AnnAssign, statement)
+                    value = assignment.value
+                    if value is not None:
+                        assigned_quals: set[str] = set()
+                        value_span = _node_span(value)
+                        value_type = type(value)
+                        if value_type is ast.Lambda and value_span is not None:
+                            qual = lambda_qual_by_span.get(value_span)
+                            if qual is not None:
+                                assigned_quals.add(qual)
+                        elif value_type is ast.Name:
+                            assigned_quals.update(
+                                local_bindings.get(cast(ast.Name, value).id, set())
+                            )
+                        targets = (
+                            assignment.targets
+                            if type(assignment) is ast.Assign
+                            else [assignment.target]
+                        )
+                        for target in targets:
+                            check_deadline()
+                            for name in _target_names(target):
+                                check_deadline()
+                                if assigned_quals:
+                                    local_bindings[name] = set(assigned_quals)
+                                else:
+                                    local_bindings.pop(name, None)
+                elif statement_type is ast.Return:
+                    return_statement = cast(ast.Return, statement)
+                    return_value = return_statement.value
+                    if type(return_value) is ast.Name:
+                        returned = local_bindings.get(cast(ast.Name, return_value).id, set())
+                        if returned:
+                            scopes = _enclosing_scopes(function_node, parent_map)
+                            keys = {function_node.name}
+                            if scopes:
+                                keys.add(_function_key(scopes, function_node.name))
+                            qual_parts = [module] if module else []
+                            if scopes:
+                                qual_parts.extend(scopes)
+                            qual_parts.append(function_node.name)
+                            keys.add(".".join(qual_parts))
+                            for key in keys:
+                                check_deadline()
+                                factories[key].update(returned)
     return factories
 
 
@@ -11297,15 +11688,15 @@ def _direct_lambda_callee_by_call_span(
     mapping: dict[tuple[int, int, int, int], str] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Lambda):
-            continue
-        call_span = _node_span(node)
-        lambda_span = _node_span(node.func)
-        if call_span is None or lambda_span is None:
-            continue
-        callee = lambda_qual_by_span.get(lambda_span)
-        if callee is not None:
-            mapping[call_span] = callee
+        if type(node) is ast.Call:
+            call_node = cast(ast.Call, node)
+            if type(call_node.func) is ast.Lambda:
+                call_span = _node_span(call_node)
+                lambda_span = _node_span(call_node.func)
+                if call_span is not None and lambda_span is not None:
+                    callee = lambda_qual_by_span.get(lambda_span)
+                    if callee is not None:
+                        mapping[call_span] = callee
     return mapping
 
 
@@ -11326,10 +11717,10 @@ def _materialize_direct_lambda_callees(
 
 def _function_index_module_artifact_spec(
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None,
+    transparent_decorators,
 ) -> _ModuleArtifactSpec[
     _FunctionIndexAccumulator,
     tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
@@ -11356,10 +11747,10 @@ def _function_index_module_artifact_spec(
 
 def _build_function_index(
     paths: list[Path],
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
@@ -11390,14 +11781,13 @@ def _resolve_callee(
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable | None = None,
-    project_root: Path | None = None,
-    class_index: dict[str, ClassInfo] | None = None,
-    call: CallArgs | None = None,
-    ambiguity_sink: Callable[[FunctionInfo, CallArgs | None, list[FunctionInfo], str, str], None]
-    | None = None,
-    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
-) -> FunctionInfo | None:
+    symbol_table = None,
+    project_root = None,
+    class_index = None,
+    call = None,
+    ambiguity_sink = None,
+    local_lambda_bindings = None,
+):
     check_deadline()
     lambda_bindings = local_lambda_bindings
     if lambda_bindings is None:
@@ -11475,12 +11865,12 @@ def _resolve_callee_outcome(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     *,
-    symbol_table: SymbolTable | None = None,
-    project_root: Path | None = None,
-    class_index: dict[str, ClassInfo] | None = None,
-    call: CallArgs | None = None,
-    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] = _resolve_callee,
+    symbol_table = None,
+    project_root = None,
+    class_index = None,
+    call = None,
+    local_lambda_bindings = None,
+    resolve_callee_fn = _resolve_callee,
 ) -> _CalleeResolutionOutcome:
     check_deadline()
     ambiguous_candidates: list[FunctionInfo] = []
@@ -11489,7 +11879,7 @@ def _resolve_callee_outcome(
 
     def _sink(
         sink_caller: FunctionInfo,
-        sink_call: CallArgs | None,
+        sink_call,
         candidates: list[FunctionInfo],
         phase: str,
         sink_callee_key: str,
@@ -11501,7 +11891,6 @@ def _resolve_callee_outcome(
         ambiguity_phase = phase
         ambiguity_callee_key = sink_callee_key
 
-    resolved: FunctionInfo | None
     if resolve_callee_fn is _resolve_callee:
         lambda_bindings = local_lambda_bindings
         if lambda_bindings is None:
@@ -11592,7 +11981,7 @@ def _format_type_flow_site(
     caller_param: str,
     callee_param: str,
     annot: str,
-    project_root: Path | None,
+    project_root,
 ) -> str:
     """Format a stable, machine-actionable callsite for type-flow evidence."""
     caller_name = _function_key(caller.scope, caller.name)
@@ -11610,15 +11999,15 @@ def _format_type_flow_site(
 def _infer_type_flow(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
+    analysis_index = None,
+):
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
     index = require_not_none(
@@ -11633,15 +12022,18 @@ def _infer_type_flow(
         project_root=project_root,
         require_transparent=True,
     )
-    inferred: dict[str, dict[str, str | None]] = {}
+    inferred: dict[str, dict[str, object]] = {}
     for infos in by_name.values():
         check_deadline()
         for info in infos:
             check_deadline()
             inferred[info.qual] = dict(info.annots)
 
-    def _get_annot(info: FunctionInfo, param: str) -> str | None:
-        return inferred.get(info.qual, {}).get(param)
+    def _get_annot(info: FunctionInfo, param: str):
+        value = inferred.get(info.qual, {}).get(param)
+        if type(value) is str:
+            return value
+        return None
 
     def _downstream_for(info: FunctionInfo) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
         check_deadline()
@@ -11744,14 +12136,14 @@ def _infer_type_flow(
 def analyze_type_flow_repo_with_map(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
-) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
+    transparent_decorators = None,
+    parse_failure_witnesses = None,
+    analysis_index = None,
+):
     """Repo-wide fixed-point pass for downstream type tightening."""
     check_deadline()
     return _run_indexed_pass(
@@ -11782,14 +12174,14 @@ def analyze_type_flow_repo_with_map(
 def analyze_type_flow_repo_with_evidence(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators: OptionalDecorators = None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
     return _run_indexed_pass(
@@ -11821,13 +12213,13 @@ def analyze_type_flow_repo_with_evidence(
 def analyze_type_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> tuple[list[str], list[str]]:
     inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
         paths,
@@ -11845,13 +12237,13 @@ def analyze_type_flow_repo(
 def analyze_constant_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     return _run_indexed_pass(
@@ -11899,7 +12291,7 @@ def _constant_smells_from_details(
     smells: list[str] = []
     for detail in details:
         check_deadline()
-        path_name = detail.path.name if isinstance(detail.path, Path) else str(detail.path)
+        path_name = detail.path.name
         site_suffix = ""
         if detail.sites:
             sample = ", ".join(detail.sites[:3])
@@ -11913,7 +12305,7 @@ def _constant_smells_from_details(
 def _deadness_witnesses_from_constant_details(
     details: Iterable[ConstantFlowDetail],
     *,
-    project_root: Path | None,
+    project_root,
 ) -> list[JSONObject]:
     check_deadline()
     witnesses: list[JSONObject] = []
@@ -11999,13 +12391,13 @@ class _KnobFlowFoldAccumulator:
 def _collect_constant_flow_details(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
+    transparent_decorators = None,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
     iter_resolved_edge_param_events_fn: Callable[..., Iterable[_ResolvedEdgeParamEvent]] = _iter_resolved_edge_param_events,
     reduce_resolved_call_edges_fn: Callable[..., _ConstantFlowFoldAccumulator] = _reduce_resolved_call_edges,
 ) -> list[ConstantFlowDetail]:
@@ -12025,16 +12417,17 @@ def _collect_constant_flow_details(
             check_deadline()
             key = (edge.callee.qual, event.param)
             if event.kind == "const":
-                if event.value is None:
-                    continue
-                acc.const_values[key].add(event.value)
+                if event.value is not None:
+                    acc.const_values[key].add(event.value)
+                    if event.countable:
+                        acc.call_counts[key] += 1
+                        acc.call_sites[key].add(
+                            _format_call_site(edge.caller, edge.call)
+                        )
+            else:
+                acc.non_const[key] = True
                 if event.countable:
                     acc.call_counts[key] += 1
-                    acc.call_sites[key].add(_format_call_site(edge.caller, edge.call))
-                continue
-            acc.non_const[key] = True
-            if event.countable:
-                acc.call_counts[key] += 1
 
     folded = reduce_resolved_call_edges_fn(
         index,
@@ -12085,13 +12478,13 @@ def _collect_constant_flow_details(
 def analyze_deadness_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
     return _run_indexed_pass(
@@ -12127,10 +12520,10 @@ def _compute_knob_param_names(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root: Path | None,
+    project_root,
     class_index: dict[str, ClassInfo],
     strictness: str,
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> set[str]:
     check_deadline()
     index = analysis_index
@@ -12205,7 +12598,7 @@ def _analyze_unused_arg_flow_indexed(
         arg_desc: str,
         *,
         category: Literal["unused", "unknown_key_carrier"] = "unused",
-        call: CallArgs | None = None,
+        call = None,
     ) -> str:
         # dataflow-bundle: callee_info, caller
         prefix = f"{caller.path.name}:{caller.name}"
@@ -12371,13 +12764,13 @@ def _analyze_unused_arg_flow_indexed(
 def analyze_unused_arg_flow_repo(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root: OptionalProjectRoot,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+    transparent_decorators: OptionalDecorators = None,
+    parse_failure_witnesses: OptionalParseFailures = None,
+    analysis_index: OptionalAnalysisIndex = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
     check_deadline()
@@ -12400,44 +12793,49 @@ def analyze_unused_arg_flow_repo(
 def _iter_config_fields(
     path: Path,
     *,
-    tree: ast.AST | None = None,
+    tree = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, set[str]]:
     """Best-effort extraction of config bundles from dataclasses."""
     check_deadline()
-    if tree is None:
-        tree = _parse_module_tree(
+    module_tree = tree
+    if module_tree is None:
+        module_tree = _parse_module_tree(
             path,
             stage=_ParseModuleStage.CONFIG_FIELDS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-    if tree is None:
+    if module_tree is None:
         return {}
     bundles: dict[str, set[str]] = {}
-    for node in ast.walk(tree):
+    for node in ast.walk(module_tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
-        decorators = {getattr(d, "id", None) for d in node.decorator_list}
+        class_node = cast(ast.ClassDef, node)
+        decorators = {getattr(d, "id", None) for d in class_node.decorator_list}
         is_dataclass = "dataclass" in decorators
-        is_config = node.name.endswith("Config")
+        is_config = class_node.name.endswith("Config")
         if not is_dataclass and not is_config:
             continue
         fields: set[str] = set()
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                name = stmt.target.id
-                if is_config or name.endswith("_fn"):
+            stmt_type = type(stmt)
+            if stmt_type is ast.AnnAssign:
+                ann_stmt = cast(ast.AnnAssign, stmt)
+                name = _simple_store_name(ann_stmt.target)
+                if name is not None and (is_config or name.endswith("_fn")):
                     fields.add(name)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
+            elif stmt_type is ast.Assign:
+                assign_stmt = cast(ast.Assign, stmt)
+                for target in assign_stmt.targets:
                     check_deadline()
-                    if isinstance(target, ast.Name):
-                        if is_config or target.id.endswith("_fn"):
-                            fields.add(target.id)
+                    name = _simple_store_name(target)
+                    if name is not None and (is_config or name.endswith("_fn")):
+                        fields.add(name)
         if fields:
-            bundles[node.name] = fields
+            bundles[class_node.name] = fields
     return bundles
 
 
@@ -12445,7 +12843,7 @@ def _collect_config_bundles(
     paths: list[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+    analysis_index = None,
 ) -> dict[Path, dict[str, set[str]]]:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_collect_config_bundles")
@@ -12516,10 +12914,10 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
 def _collect_dataclass_registry(
     paths: list[Path],
     *,
-    project_root: Path | None,
+    project_root,
     parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
-    stage_cache_fn: Callable[..., dict[Path, dict[str, list[str]] | None]] | None = None,
+    analysis_index = None,
+    stage_cache_fn = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     if stage_cache_fn is None:
@@ -12549,9 +12947,8 @@ def _collect_dataclass_registry(
         )
         for entries in registry_by_path.values():
             check_deadline()
-            if entries is None:
-                continue
-            registry.update(entries)
+            if entries is not None:
+                registry.update(entries)
         return registry
     for path in paths:
         check_deadline()
@@ -12560,9 +12957,8 @@ def _collect_dataclass_registry(
             stage=_ParseModuleStage.DATACLASS_REGISTRY,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is None:
-            continue
-        registry.update(_dataclass_registry_for_tree(path, tree, project_root=project_root))
+        if tree is not None:
+            registry.update(_dataclass_registry_for_tree(path, tree, project_root=project_root))
     return registry
 
 
@@ -12570,37 +12966,44 @@ def _dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root: Path | None,
+    project_root = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     registry: dict[str, list[str]] = {}
     module = _module_name(path, project_root)
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
+        if type(node) is not ast.ClassDef:
             continue
+        class_node = cast(ast.ClassDef, node)
         decorators = {
             ast.unparse(dec) if hasattr(ast, "unparse") else ""
-            for dec in node.decorator_list
+            for dec in class_node.decorator_list
         }
         if not any("dataclass" in dec for dec in decorators):
             continue
         fields: list[str] = []
-        for stmt in node.body:
+        for stmt in class_node.body:
             check_deadline()
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                fields.append(stmt.target.id)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
+            stmt_type = type(stmt)
+            if stmt_type is ast.AnnAssign:
+                ann_stmt = cast(ast.AnnAssign, stmt)
+                name = _simple_store_name(ann_stmt.target)
+                if name is not None:
+                    fields.append(name)
+            elif stmt_type is ast.Assign:
+                assign_stmt = cast(ast.Assign, stmt)
+                for target in assign_stmt.targets:
                     check_deadline()
-                    if isinstance(target, ast.Name):
-                        fields.append(target.id)
+                    name = _simple_store_name(target)
+                    if name is not None:
+                        fields.append(name)
         if not fields:
             continue
         if module:
-            registry[f"{module}.{node.name}"] = fields
+            registry[f"{module}.{class_node.name}"] = fields
         else:  # pragma: no cover - module name is always non-empty for file paths
-            registry[node.name] = fields
+            registry[class_node.name] = fields
     return registry
 
 
@@ -12638,9 +13041,9 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
 def _iter_dataclass_call_bundles(
     path: Path,
     *,
-    project_root: Path | None = None,
-    symbol_table: SymbolTable | None = None,
-    dataclass_registry: dict[str, list[str]] | None = None,
+    project_root = None,
+    symbol_table = None,
+    dataclass_registry = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> set[tuple[str, ...]]:
     """Return bundles promoted via @dataclass constructor calls."""
@@ -12669,7 +13072,7 @@ class BundleProjection:
     path_lookup: dict[str, Path]
 
 
-def _alt_input(alt: Alt, kind: str) -> NodeId | None:
+def _alt_input(alt: Alt, kind: str):
     for node_id in deadline_loop_iter(alt.inputs):
         if node_id.kind == kind:
             return node_id
@@ -12680,8 +13083,8 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
     node = forest.nodes.get(paramset_id)
     if node is not None:
         params = node.meta.get("params")
-        if isinstance(params, list):
-            return tuple(str(p) for p in params)
+        if type(params) is list:
+            return tuple(str(p) for p in cast(list[JSONValue], params))
     return tuple(str(p) for p in paramset_id.key)
 
 
@@ -12697,27 +13100,29 @@ def _bundle_projection_from_forest(
     bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
     for alt in forest.alts:
         check_deadline()
-        if alt.kind != "SignatureBundle":
-            continue
-        site_id = _alt_input(alt, "FunctionSite")
-        paramset_id = _alt_input(alt, "ParamSet")
-        if site_id is None or paramset_id is None:
-            continue
-        site_node = forest.nodes.get(site_id)
-        if site_node is None:
-            continue
-        path = str(site_node.meta.get("path", "?"))
-        qual = str(site_node.meta.get("qual", "?"))
-        nodes[site_id] = {"kind": "fn", "label": f"{path}:{qual}", "path": path, "qual": qual}
-        bundle_key = _paramset_key(forest, paramset_id)
-        nodes[paramset_id] = {
-            "kind": "bundle",
-            "label": ", ".join(bundle_key),
-        }
-        bundle_map[paramset_id] = bundle_key
-        adj[site_id].add(paramset_id)
-        adj[paramset_id].add(site_id)
-        bundle_counts[bundle_key] += 1
+        if alt.kind == "SignatureBundle":
+            site_id = _alt_input(alt, "FunctionSite")
+            paramset_id = _alt_input(alt, "ParamSet")
+            if site_id is not None and paramset_id is not None:
+                site_node = forest.nodes.get(site_id)
+                if site_node is not None:
+                    path = str(site_node.meta.get("path", "?"))
+                    qual = str(site_node.meta.get("qual", "?"))
+                    nodes[site_id] = {
+                        "kind": "fn",
+                        "label": f"{path}:{qual}",
+                        "path": path,
+                        "qual": qual,
+                    }
+                    bundle_key = _paramset_key(forest, paramset_id)
+                    nodes[paramset_id] = {
+                        "kind": "bundle",
+                        "label": ", ".join(bundle_key),
+                    }
+                    bundle_map[paramset_id] = bundle_key
+                    adj[site_id].add(paramset_id)
+                    adj[paramset_id].add(site_id)
+                    bundle_counts[bundle_key] += 1
 
     declared_global: set[tuple[str, ...]] = set()
     declared_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
@@ -12725,18 +13130,17 @@ def _bundle_projection_from_forest(
     for alt in forest.alts:
         check_deadline()
         paramset_id = _alt_input(alt, "ParamSet")
-        if paramset_id is None:
-            continue
-        bundle_key = _paramset_key(forest, paramset_id)
-        if alt.kind == "ConfigBundle":
-            declared_global.add(bundle_key)
-            path = str(alt.evidence.get("path") or "")
-            if path:
-                declared_by_path[path].add(bundle_key)
-        elif alt.kind in ("MarkerBundle", "DataclassCallBundle"):
-            path = str(alt.evidence.get("path") or "")
-            if path:
-                documented_by_path[path].add(bundle_key)
+        if paramset_id is not None:
+            bundle_key = _paramset_key(forest, paramset_id)
+            if alt.kind == "ConfigBundle":
+                declared_global.add(bundle_key)
+                path = str(alt.evidence.get("path") or "")
+                if path:
+                    declared_by_path[path].add(bundle_key)
+            elif alt.kind in ("MarkerBundle", "DataclassCallBundle"):
+                path = str(alt.evidence.get("path") or "")
+                if path:
+                    documented_by_path[path].add(bundle_key)
 
     if file_paths:
         root = Path(os.path.commonpath([str(p) for p in file_paths]))
@@ -12782,7 +13186,7 @@ def _bundle_site_index(
 
 def _emit_dot(forest: Forest) -> str:
     check_deadline()
-    if not isinstance(forest, Forest):
+    if type(forest) is not Forest:
         raise RuntimeError("forest required for dataflow dot output")
     projection = _bundle_projection_from_forest(forest, file_paths=[])
     lines = [
@@ -13028,7 +13432,7 @@ def _report_section_marker(section_id: str) -> str:
     return f"{_REPORT_SECTION_MARKER_PREFIX}{section_id}{_REPORT_SECTION_MARKER_SUFFIX}"
 
 
-def _parse_report_section_marker(line: str) -> str | None:
+def _parse_report_section_marker(line: str):
     text = line.strip()
     if not text.startswith(_REPORT_SECTION_MARKER_PREFIX):
         return None
@@ -13044,17 +13448,15 @@ def _parse_report_section_marker(line: str) -> str | None:
 
 def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
-    active_section_id: str | None = None
+    active_section_id: OptionalString = None
     for raw_line in markdown.splitlines():
         check_deadline()
         section_id = _parse_report_section_marker(raw_line)
         if section_id is not None:
             active_section_id = section_id
             sections.setdefault(section_id, [])
-            continue
-        if active_section_id is None:
-            continue
-        sections[active_section_id].append(raw_line)
+        elif active_section_id is not None:
+            sections[active_section_id].append(raw_line)
     return sections
 
 
@@ -13082,7 +13484,7 @@ def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
     return Path(".")
 
 
-def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
+def _normalize_snapshot_path(path: Path, root) -> str:
     if root is not None:
         try:
             return str(path.relative_to(root))
@@ -13175,10 +13577,10 @@ def _copy_forest_signature_metadata(
 def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None = None,
+    project_root = None,
     forest: Forest,
-    forest_spec: ForestSpec | None = None,
-    invariant_propositions: list[InvariantProposition] | None = None,
+    forest_spec = None,
+    invariant_propositions = None,
 ) -> JSONObject:
     check_deadline()
     root = project_root or _infer_root(groups_by_path)
@@ -13251,13 +13653,13 @@ class StructureSnapshotDiffRequest:
 def render_decision_snapshot(
     *,
     surfaces: DecisionSnapshotSurfaces,
-    project_root: Path | None = None,
+    project_root = None,
     forest: Forest,
-    forest_spec: ForestSpec | None = None,
+    forest_spec = None,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    pattern_schema_instances: list[PatternInstance] | None = None,
+    pattern_schema_instances = None,
 ) -> JSONObject:
-    if not isinstance(forest, Forest):
+    if type(forest) is not Forest:
         never("decision snapshot requires forest carrier")
     instances = pattern_schema_instances
     if instances is None:
@@ -13349,19 +13751,21 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
     files = snapshot.get("files") or []
     for file_entry in files:
         check_deadline()
-        if not isinstance(file_entry, dict):
+        if type(file_entry) is not dict:
             continue
-        functions = file_entry.get("functions") or []
+        file_entry_obj = cast(JSONObject, file_entry)
+        functions = file_entry_obj.get("functions") or []
         for fn_entry in functions:
             check_deadline()
-            if not isinstance(fn_entry, dict):
+            if type(fn_entry) is not dict:
                 continue
-            bundles = fn_entry.get("bundles") or []
+            fn_entry_obj = cast(JSONObject, fn_entry)
+            bundles = fn_entry_obj.get("bundles") or []
             for bundle in bundles:
                 check_deadline()
-                if not isinstance(bundle, list):
+                if type(bundle) is not list:
                     continue
-                counts[tuple(bundle)] += 1
+                counts[tuple(cast(list[object], bundle))] += 1
     return counts
 
 
@@ -13429,21 +13833,21 @@ def compute_structure_reuse(
     snapshot: JSONObject,
     *,
     min_count: int = 2,
-    hash_fn: Callable[[str, object | None, list[str]], str] | None = None,
+    hash_fn = None,
 ) -> JSONObject:
     check_deadline()
     if min_count < 2:
         min_count = 2
     files = snapshot.get("files") or []
     root_value = snapshot.get("root")
-    root_path = Path(root_value) if isinstance(root_value, str) else None
+    root_path = Path(root_value) if type(root_value) is str else None
     bundle_name_map: dict[tuple[str, ...], set[str]] = {}
     if root_path is not None and root_path.exists():
         bundle_name_map = _bundle_name_registry(root_path)
     reuse_map: dict[str, JSONObject] = {}
     warnings: list[str] = []
 
-    def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
+    def _hash_node(kind: str, value, child_hashes: list[str]) -> str:
         structure_class = build_structure_class(
             kind=kind,
             value=value,
@@ -13454,15 +13858,15 @@ def compute_structure_reuse(
         )
         return structure_class.digest()
 
-    hasher = hash_fn or _hash_node
+    hasher = cast(Callable[[str, object, list[str]], str], hash_fn) if callable(hash_fn) else _hash_node
 
     def _record(
         *,
         node_hash: str,
         kind: str,
         location: str,
-        value: object | None = None,
-        child_count: int | None = None,
+        value = None,
+        child_count = -1,
     ) -> None:
         entry = reuse_map.get(node_hash)
         if entry is None:
@@ -13480,7 +13884,7 @@ def compute_structure_reuse(
             }
             if value is not None:
                 entry["value"] = value
-            if child_count is not None:
+            if child_count >= 0:
                 entry["child_count"] = child_count
             reuse_map[node_hash] = entry
         entry["count"] += 1
@@ -13489,51 +13893,49 @@ def compute_structure_reuse(
     file_hashes: list[str] = []
     for file_entry in files:
         check_deadline()
-        if not isinstance(file_entry, dict):
-            continue
-        file_path = file_entry.get("path")
-        if not isinstance(file_path, str):
-            continue
-        function_hashes: list[str] = []
-        functions = file_entry.get("functions") or []
-        for fn_entry in functions:
-            check_deadline()
-            if not isinstance(fn_entry, dict):
-                continue
-            fn_name = fn_entry.get("name")
-            if not isinstance(fn_name, str):
-                continue
-            bundle_hashes: list[str] = []
-            bundles = fn_entry.get("bundles") or []
-            for bundle in bundles:
-                check_deadline()
-                if not isinstance(bundle, list):
-                    continue
-                normalized = tuple(
-                    sort_once(
-                        (str(item) for item in bundle),
-                        source="src/gabion/analysis/dataflow_audit.py:14567",
-                    )
-                )
-                bundle_hash = hasher("bundle", normalized, [])
-                bundle_hashes.append(bundle_hash)
-                _record(
-                    node_hash=bundle_hash,
-                    kind="bundle",
-                    location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
-                    value=list(normalized),
-                )
-            fn_hash = hasher("function", None, bundle_hashes)
-            function_hashes.append(fn_hash)
-            _record(
-                node_hash=fn_hash,
-                kind="function",
-                location=f"{file_path}::{fn_name}",
-                child_count=len(bundle_hashes),
-            )
-        file_hash = hasher("file", None, function_hashes)
-        file_hashes.append(file_hash)
-        _record(node_hash=file_hash, kind="file", location=f"{file_path}")
+        if type(file_entry) is dict:
+            file_entry_obj = cast(JSONObject, file_entry)
+            file_path = file_entry_obj.get("path")
+            if type(file_path) is str:
+                function_hashes: list[str] = []
+                functions = file_entry_obj.get("functions") or []
+                for fn_entry in functions:
+                    check_deadline()
+                    if type(fn_entry) is dict:
+                        fn_entry_obj = cast(JSONObject, fn_entry)
+                        fn_name = fn_entry_obj.get("name")
+                        if type(fn_name) is str:
+                            bundle_hashes: list[str] = []
+                            bundles = fn_entry_obj.get("bundles") or []
+                            for bundle in bundles:
+                                check_deadline()
+                                if type(bundle) is list:
+                                    bundle_items = cast(list[object], bundle)
+                                    normalized = tuple(
+                                        sort_once(
+                                            (str(item) for item in bundle_items),
+                                            source="src/gabion/analysis/dataflow_audit.py:14567",
+                                        )
+                                    )
+                                    bundle_hash = hasher("bundle", normalized, [])
+                                    bundle_hashes.append(bundle_hash)
+                                    _record(
+                                        node_hash=bundle_hash,
+                                        kind="bundle",
+                                        location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
+                                        value=list(normalized),
+                                    )
+                            fn_hash = hasher("function", None, bundle_hashes)
+                            function_hashes.append(fn_hash)
+                            _record(
+                                node_hash=fn_hash,
+                                kind="function",
+                                location=f"{file_path}::{fn_name}",
+                                child_count=len(bundle_hashes),
+                            )
+                file_hash = hasher("file", None, function_hashes)
+                file_hashes.append(file_hash)
+                _record(node_hash=file_hash, kind="file", location=f"{file_path}")
 
     root_hash = hasher("root", None, file_hashes)
     _record(
@@ -13546,7 +13948,7 @@ def compute_structure_reuse(
     reused = [
         entry
         for entry in reuse_map.values()
-        if isinstance(entry.get("count"), int) and entry["count"] >= min_count
+        if type(entry.get("count")) is int and entry["count"] >= min_count
     ]
     reused = sort_once(
         reused,
@@ -13563,44 +13965,42 @@ def compute_structure_reuse(
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
-        if kind not in {"bundle", "function"}:
-            continue
-        count = int(entry.get("count", 0))
-        hash_value = entry.get("hash")
-        if not isinstance(hash_value, str) or not hash_value:
-            continue
-        suggestion = {
-            "hash": hash_value,
-            "kind": kind,
-            "count": count,
-            "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
-            "locations": entry.get("locations", []),
-        }
-        if "value" in entry:
-            suggestion["value"] = entry.get("value")
-        if "child_count" in entry:
-            suggestion["child_count"] = entry.get("child_count")
-        if kind == "bundle" and "value" in entry:
-            value = entry.get("value")
-            key = tuple(
-                sort_once(
-                    (str(item) for item in cast(list[object], value)),
-                    source="src/gabion/analysis/dataflow_audit.py:14635",
-                )
-            )
-            name_candidates = bundle_name_map.get(key)
-            if name_candidates:
-                sorted_names = sort_once(name_candidates, source = 'src/gabion/analysis/dataflow_audit.py:14638')
-                if len(sorted_names) == 1:
-                    suggestion["suggested_name"] = sorted_names[0]
-                    suggestion["name_source"] = "declared_bundle"
-                else:
-                    suggestion["name_candidates"] = sorted_names
-            else:
-                warnings.append(
-                    f"Missing declared bundle name for {list(key)}"
-                )
-        suggested.append(suggestion)
+        if kind in {"bundle", "function"}:
+            count = int(entry.get("count", 0))
+            hash_value = entry.get("hash")
+            if type(hash_value) is str and hash_value:
+                suggestion = {
+                    "hash": hash_value,
+                    "kind": kind,
+                    "count": count,
+                    "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
+                    "locations": entry.get("locations", []),
+                }
+                if "value" in entry:
+                    suggestion["value"] = entry.get("value")
+                if "child_count" in entry:
+                    suggestion["child_count"] = entry.get("child_count")
+                if kind == "bundle" and "value" in entry:
+                    value = entry.get("value")
+                    key = tuple(
+                        sort_once(
+                            (str(item) for item in cast(list[object], value)),
+                            source="src/gabion/analysis/dataflow_audit.py:14635",
+                        )
+                    )
+                    name_candidates = bundle_name_map.get(key)
+                    if name_candidates:
+                        sorted_names = sort_once(name_candidates, source = 'src/gabion/analysis/dataflow_audit.py:14638')
+                        if len(sorted_names) == 1:
+                            suggestion["suggested_name"] = sorted_names[0]
+                            suggestion["name_source"] = "declared_bundle"
+                        else:
+                            suggestion["name_candidates"] = sorted_names
+                    else:
+                        warnings.append(
+                            f"Missing declared bundle name for {list(key)}"
+                        )
+                suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
         "format_version": 1,
@@ -13622,19 +14022,18 @@ def _build_reuse_replacement_map(
     for suggestion in suggested:
         check_deadline()
         locations = suggestion.get("locations") or []
-        if not isinstance(locations, list):
-            continue
-        for location in locations:
-            check_deadline()
-            if not isinstance(location, str):
-                continue
-            replacement_map.setdefault(location, []).append(
-                {
-                    "kind": suggestion.get("kind"),
-                    "hash": suggestion.get("hash"),
-                    "suggested_name": suggestion.get("suggested_name"),
-                }
-            )
+        location_entries = sequence_or_none(locations)
+        if location_entries is not None:
+            for location in location_entries:
+                check_deadline()
+                if type(location) is str:
+                    replacement_map.setdefault(location, []).append(
+                        {
+                            "kind": suggestion.get("kind"),
+                            "hash": suggestion.get("hash"),
+                            "suggested_name": suggestion.get("suggested_name"),
+                        }
+                    )
     return replacement_map
 
 
@@ -13650,28 +14049,31 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("# No lemma suggestions available.")
         lines.append("")
         return "\n".join(lines)
+    suggested_entries = [
+        mapping_or_empty(raw_entry)
+        for raw_entry in suggested
+    ]
     for entry in sort_once(
-        (e for e in suggested if isinstance(e, dict)),
+        suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
     source = 'src/gabion/analysis/dataflow_audit.py:14698'):
         check_deadline()
         name = entry.get("suggested_name")
-        if not isinstance(name, str) or not name:
-            continue
-        kind = entry.get("kind", "lemma")
-        count = entry.get("count", 0)
-        value = entry.get("value")
-        child_count = entry.get("child_count")
-        lines.append(f"def {name}() -> None:")
-        lines.append('    """Auto-generated lemma stub."""')
-        lines.append(f"    # kind: {kind}")
-        lines.append(f"    # count: {count}")
-        if value is not None:
-            lines.append(f"    # value: {value}")
-        if child_count is not None:
-            lines.append(f"    # child_count: {child_count}")
-        lines.append("    ...")
-        lines.append("")
+        if type(name) is str and name:
+            kind = entry.get("kind", "lemma")
+            count = entry.get("count", 0)
+            value = entry.get("value")
+            child_count = entry.get("child_count")
+            lines.append(f"def {name}() -> None:")
+            lines.append('    """Auto-generated lemma stub."""')
+            lines.append(f"    # kind: {kind}")
+            lines.append(f"    # count: {count}")
+            if value is not None:
+                lines.append(f"    # value: {value}")
+            if child_count is not None:
+                lines.append(f"    # child_count: {child_count}")
+            lines.append("    ...")
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -13696,19 +14098,19 @@ def _canonical_json_bytes(value: JSONValue) -> str:
     return json.dumps(value, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
 
 
-def _path_key_from_violation(violation: str) -> str | None:
+def _path_key_from_violation(violation: str):
     path_prefix, separator, _ = violation.partition(":")
     if separator and path_prefix.endswith(".py"):
         return path_prefix
     return None
 
 
-def _path_key_from_payload(payload: Mapping[str, JSONValue]) -> str | None:
+def _path_key_from_payload(payload: Mapping[str, JSONValue]):
     for key in deadline_loop_iter(
         ("path", "module_path", "file", "baseline_path", "current_path")
     ):
         raw_value = payload.get(key)
-        if isinstance(raw_value, str) and raw_value:
+        if type(raw_value) is str and raw_value:
             return raw_value
     return None
 
@@ -13850,7 +14252,7 @@ def _iter_monotonic_paths(
     source: str,
 ) -> list[Path]:
     ordered: list[Path] = []
-    previous_path_key: str | None = None
+    previous_path_key: OptionalString = None
     for path in paths:
         check_deadline()
         path_key = _analysis_collection_resume_path_key(path)
@@ -13893,29 +14295,25 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
     for raw_entry in sequence_or_none(payload.get("forward_sites")) or ():
         check_deadline()
         entry = mapping_or_none(raw_entry)
-        if entry is None:
-            continue
-        callee = entry.get("callee")
-        slot = entry.get("slot")
-        if not isinstance(callee, str) or not isinstance(slot, str):
-            continue
-        span_set: set[tuple[int, int, int, int]] = set()
-        for raw_span in sequence_or_none(entry.get("spans")) or ():
-            check_deadline()
-            span = int_tuple4_or_none(raw_span)
-            if span is None:
-                continue
-            span_set.add(span)
-        forward_sites[(callee, slot)] = span_set
+        if entry is not None:
+            callee = entry.get("callee")
+            slot = entry.get("slot")
+            if type(callee) is str and type(slot) is str:
+                span_set: set[tuple[int, int, int, int]] = set()
+                for raw_span in sequence_or_none(entry.get("spans")) or ():
+                    check_deadline()
+                    span = int_tuple4_or_none(raw_span)
+                    if span is not None:
+                        span_set.add(span)
+                forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
     unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
     unknown_key_sites: set[tuple[int, int, int, int]] = set()
     for raw_span in sequence_or_none(payload.get("unknown_key_sites")) or ():
         check_deadline()
         span = int_tuple4_or_none(raw_span)
-        if span is None:
-            continue
-        unknown_key_sites.add(span)
+        if span is not None:
+            unknown_key_sites.add(span)
     return ParamUse(
         direct_forward=direct_forward,
         non_forward=non_forward,
@@ -13942,9 +14340,9 @@ def _deserialize_param_use_map(
     use_map: dict[str, ParamUse] = {}
     for param_name, raw_value in payload.items():
         check_deadline()
-        if not isinstance(param_name, str) or not isinstance(raw_value, Mapping):
-            continue
-        use_map[param_name] = _deserialize_param_use(raw_value)
+        raw_mapping = mapping_or_none(raw_value)
+        if type(param_name) is str and raw_mapping is not None:
+            use_map[param_name] = _deserialize_param_use(raw_mapping)
     return use_map
 
 
@@ -13968,9 +14366,9 @@ def _serialize_call_args(call: CallArgs) -> JSONObject:
     return payload
 
 
-def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
+def _deserialize_call_args(payload: Mapping[str, JSONValue]):
     callee = payload.get("callee")
-    if not isinstance(callee, str):
+    if type(callee) is not str:
         return None
     star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
     span = int_tuple4_or_none(payload.get("span"))
@@ -14000,11 +14398,11 @@ def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
     call_args: list[CallArgs] = []
     for raw_entry in payload:
         check_deadline()
-        if not isinstance(raw_entry, Mapping):
-            continue
-        call = _deserialize_call_args(raw_entry)
-        if call is not None:
-            call_args.append(call)
+        entry_mapping = mapping_or_none(raw_entry)
+        if entry_mapping is not None:
+            call = _deserialize_call_args(entry_mapping)
+            if call is not None:
+                call_args.append(call)
     return call_args
 
 
@@ -14054,93 +14452,88 @@ def _deserialize_function_info_for_resume(
     payload: Mapping[str, JSONValue],
     *,
     allowed_paths: Mapping[str, Path],
-) -> FunctionInfo | None:
+):
     name = payload.get("name")
     qual = payload.get("qual")
     path_key = payload.get("path")
-    if (
-        not isinstance(name, str)
-        or not isinstance(qual, str)
-        or not isinstance(path_key, str)
-    ):
-        return None
-    path = allowed_paths.get(path_key)
-    if path is None:
-        return None
     raw_params = payload.get("params")
-    if sequence_or_none(raw_params) is None:
-        return None
-    params = str_list_from_sequence(raw_params)
-    raw_annots = payload.get("annots")
-    annots: dict[str, str | None] = {}
-    for param, annot in mapping_or_empty(raw_annots).items():
-        check_deadline()
-        if not isinstance(param, str):
-            continue
-        if annot is None or isinstance(annot, str):
-            annots[param] = annot
-    raw_calls = payload.get("calls")
-    calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
-    unused_params = str_set_from_sequence(payload.get("unused_params"))
-    unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
-    defaults = str_set_from_sequence(payload.get("defaults"))
-    class_name = payload.get("class_name")
-    if class_name is not None and not isinstance(class_name, str):
-        class_name = None
-    scope = str_tuple_from_sequence(payload.get("scope"))
-    lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
-    decision_params = str_set_from_sequence(payload.get("decision_params"))
-    decision_surface_reasons: dict[str, set[str]] = {}
-    for param, raw_reasons in mapping_or_empty(payload.get("decision_surface_reasons")).items():
-        check_deadline()
-        if not isinstance(param, str):
-            continue
-        reasons = str_set_from_sequence(raw_reasons)
-        if reasons:
-            decision_surface_reasons[param] = reasons
-    value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
-    value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
-    positional_params = str_tuple_from_sequence(payload.get("positional_params"))
-    kwonly_params = str_tuple_from_sequence(payload.get("kwonly_params"))
-    raw_vararg = payload.get("vararg")
-    vararg = raw_vararg if isinstance(raw_vararg, str) else None
-    raw_kwarg = payload.get("kwarg")
-    kwarg = raw_kwarg if isinstance(raw_kwarg, str) else None
-    param_spans: dict[str, tuple[int, int, int, int]] = {}
-    for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
-        check_deadline()
-        if not isinstance(param, str):
-            continue
-        span = int_tuple4_or_none(raw_span)
-        if span is None:
-            continue
-        param_spans[param] = span
-    function_span = int_tuple4_or_none(payload.get("function_span"))
-    return FunctionInfo(
-        name=name,
-        qual=qual,
-        path=path,
-        params=params,
-        annots=annots,
-        calls=calls,
-        unused_params=unused_params,
-        unknown_key_carriers=unknown_key_carriers,
-        defaults=defaults,
-        transparent=bool(payload.get("transparent", True)),
-        class_name=cast(str | None, class_name),
-        scope=scope,
-        lexical_scope=lexical_scope,
-        decision_params=decision_params,
-        decision_surface_reasons=decision_surface_reasons,
-        value_decision_params=value_decision_params,
-        value_decision_reasons=value_decision_reasons,
-        positional_params=positional_params,
-        kwonly_params=kwonly_params,
-        vararg=vararg,
-        kwarg=kwarg,
-        param_spans=param_spans,
-        function_span=function_span,
-    )
+    params_payload = sequence_or_none(raw_params)
+    path = allowed_paths.get(path_key) if type(path_key) is str else None
+    if (
+        type(name) is str
+        and type(qual) is str
+        and path is not None
+        and params_payload is not None
+    ):
+        params = str_list_from_sequence(params_payload)
+        raw_annots = payload.get("annots")
+        annots: dict[str, JSONValue] = {}
+        for param, annot in mapping_or_empty(raw_annots).items():
+            check_deadline()
+            if type(param) is str and (annot is None or type(annot) is str):
+                annots[param] = annot
+        raw_calls = payload.get("calls")
+        calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
+        unused_params = str_set_from_sequence(payload.get("unused_params"))
+        unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
+        defaults = str_set_from_sequence(payload.get("defaults"))
+        class_name = payload.get("class_name")
+        if class_name is not None and type(class_name) is not str:
+            class_name = None
+        scope = str_tuple_from_sequence(payload.get("scope"))
+        lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
+        decision_params = str_set_from_sequence(payload.get("decision_params"))
+        decision_surface_reasons: dict[str, set[str]] = {}
+        for param, raw_reasons in mapping_or_empty(
+            payload.get("decision_surface_reasons")
+        ).items():
+            check_deadline()
+            if type(param) is str:
+                reasons = str_set_from_sequence(raw_reasons)
+                if reasons:
+                    decision_surface_reasons[param] = reasons
+        value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
+        value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
+        positional_params = str_tuple_from_sequence(payload.get("positional_params"))
+        kwonly_params = str_tuple_from_sequence(payload.get("kwonly_params"))
+        raw_vararg = payload.get("vararg")
+        vararg = raw_vararg if type(raw_vararg) is str else None
+        raw_kwarg = payload.get("kwarg")
+        kwarg = raw_kwarg if type(raw_kwarg) is str else None
+        param_spans: dict[str, tuple[int, int, int, int]] = {}
+        for param, raw_span in mapping_or_empty(payload.get("param_spans")).items():
+            check_deadline()
+            if type(param) is str:
+                span = int_tuple4_or_none(raw_span)
+                if span is not None:
+                    param_spans[param] = span
+        function_span = int_tuple4_or_none(payload.get("function_span"))
+        return FunctionInfo(
+            name=cast(str, name),
+            qual=cast(str, qual),
+            path=path,
+            params=params,
+            annots=annots,
+            calls=calls,
+            unused_params=unused_params,
+            unknown_key_carriers=unknown_key_carriers,
+            defaults=defaults,
+            transparent=bool(payload.get("transparent", True)),
+            class_name=cast(str | None, class_name),
+            scope=scope,
+            lexical_scope=lexical_scope,
+            decision_params=decision_params,
+            decision_surface_reasons=decision_surface_reasons,
+            value_decision_params=value_decision_params,
+            value_decision_reasons=value_decision_reasons,
+            positional_params=positional_params,
+            kwonly_params=kwonly_params,
+            vararg=vararg,
+            kwarg=kwarg,
+            param_spans=param_spans,
+            function_span=function_span,
+        )
+    return None
 
 
 def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
@@ -14154,10 +14547,10 @@ def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
 
 def _deserialize_class_info_for_resume(
     payload: Mapping[str, JSONValue],
-) -> ClassInfo | None:
+):
     qual = payload.get("qual")
     module = payload.get("module")
-    if not isinstance(qual, str) or not isinstance(module, str):
+    if type(qual) is not str or type(module) is not str:
         return None
     bases = str_list_from_sequence(payload.get("bases"))
     methods = str_set_from_sequence(payload.get("methods"))
@@ -14224,53 +14617,47 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
 
 def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> SymbolTable:
     table = SymbolTable(external_filter=bool(payload.get("external_filter", True)))
-    raw_imports = payload.get("imports")
-    if isinstance(raw_imports, Sequence):
+    raw_imports = sequence_or_none(payload.get("imports"))
+    if raw_imports is not None:
         for entry in raw_imports:
             check_deadline()
-            if not isinstance(entry, Sequence) or len(entry) != 3:
-                continue
-            module, name, fqn = entry
-            if (
-                isinstance(module, str)
-                and isinstance(name, str)
-                and isinstance(fqn, str)
-            ):
-                table.imports[(module, name)] = fqn
-    raw_internal_roots = payload.get("internal_roots")
-    if isinstance(raw_internal_roots, Sequence):
+            entry_sequence = sequence_or_none(entry)
+            if entry_sequence is not None and len(entry_sequence) == 3:
+                module, name, fqn = entry_sequence
+                if type(module) is str and type(name) is str and type(fqn) is str:
+                    table.imports[(module, name)] = fqn
+    raw_internal_roots = sequence_or_none(payload.get("internal_roots"))
+    if raw_internal_roots is not None:
         for entry in raw_internal_roots:
             check_deadline()
-            if isinstance(entry, str):
+            if type(entry) is str:
                 table.internal_roots.add(entry)
-    raw_star_imports = payload.get("star_imports")
-    if isinstance(raw_star_imports, Mapping):
+    raw_star_imports = mapping_or_none(payload.get("star_imports"))
+    if raw_star_imports is not None:
         for module, raw_names in raw_star_imports.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
-                continue
-            names = {name for name in raw_names if isinstance(name, str)}
-            table.star_imports[module] = names
-    raw_module_exports = payload.get("module_exports")
-    if isinstance(raw_module_exports, Mapping):
+            if type(module) is str:
+                names = str_set_from_sequence(raw_names)
+                table.star_imports[module] = names
+    raw_module_exports = mapping_or_none(payload.get("module_exports"))
+    if raw_module_exports is not None:
         for module, raw_names in raw_module_exports.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
-                continue
-            names = {name for name in raw_names if isinstance(name, str)}
-            table.module_exports[module] = names
-    raw_module_export_map = payload.get("module_export_map")
-    if isinstance(raw_module_export_map, Mapping):
+            if type(module) is str:
+                names = str_set_from_sequence(raw_names)
+                table.module_exports[module] = names
+    raw_module_export_map = mapping_or_none(payload.get("module_export_map"))
+    if raw_module_export_map is not None:
         for module, raw_mapping in raw_module_export_map.items():
             check_deadline()
-            if not isinstance(module, str) or not isinstance(raw_mapping, Mapping):
-                continue
-            mapping: dict[str, str] = {}
-            for name, mapped in raw_mapping.items():
-                check_deadline()
-                if isinstance(name, str) and isinstance(mapped, str):
-                    mapping[name] = mapped
-            table.module_export_map[module] = mapping
+            if type(module) is str:
+                mapping: dict[str, str] = {}
+                mapping_payload = mapping_or_empty(raw_mapping)
+                for name, mapped in mapping_payload.items():
+                    check_deadline()
+                    if type(name) is str and type(mapped) is str:
+                        mapping[name] = mapped
+                table.module_export_map[module] = mapping
     return table
 
 
@@ -14283,28 +14670,30 @@ def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> 
 
 
 def _analysis_index_resume_variants(
-    payload: Mapping[str, JSONValue] | None,
+    payload = None,
 ) -> dict[str, JSONObject]:
     variants: dict[str, JSONObject] = {}
-    if not isinstance(payload, Mapping):
+    if payload is None:
         return variants
     raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
-    if isinstance(raw_variants, Mapping):
-        for identity, raw_variant in raw_variants.items():
+    raw_variants_mapping = mapping_or_none(raw_variants)
+    if raw_variants_mapping is not None:
+        for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
-            if not isinstance(identity, str) or not isinstance(raw_variant, Mapping):
-                continue
-            variant_payload = payload_with_format(raw_variant, format_version=1)
-            if variant_payload is None:
-                continue
-            variants[identity] = _analysis_index_resume_variant_payload(variant_payload)
+            raw_variant_mapping = mapping_or_none(raw_variant)
+            if type(identity) is str and raw_variant_mapping is not None:
+                variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
+                if variant_payload is not None:
+                    variants[identity] = _analysis_index_resume_variant_payload(
+                        variant_payload
+                    )
     return variants
 
 
 def _with_analysis_index_resume_variants(
     *,
     payload: JSONObject,
-    previous_payload: Mapping[str, JSONValue] | None,
+    previous_payload,
 ) -> JSONObject:
     current_identity = str(payload.get("index_cache_identity", "") or "")
     variants = _analysis_index_resume_variants(previous_payload)
@@ -14332,8 +14721,8 @@ def _serialize_analysis_index_resume_payload(
     class_index: Mapping[str, ClassInfo],
     index_cache_identity: str,
     projection_cache_identity: str,
-    profiling_v1: Mapping[str, JSONValue] | None = None,
-    previous_payload: Mapping[str, JSONValue] | None = None,
+    profiling_v1 = None,
+    previous_payload = None,
 ) -> JSONObject:
     hydrated_path_keys = sort_once(
         (
@@ -14385,8 +14774,9 @@ def _serialize_analysis_index_resume_payload(
             for qual, class_info in ordered_class_items
         },
     }
-    if isinstance(profiling_v1, Mapping):
-        payload["profiling_v1"] = {str(key): profiling_v1[key] for key in profiling_v1}
+    profiling_payload = mapping_or_none(cast(JSONValue, profiling_v1))
+    if profiling_payload is not None:
+        payload["profiling_v1"] = {str(key): profiling_payload[key] for key in profiling_payload}
     return _with_analysis_index_resume_variants(
         payload=payload,
         previous_payload=previous_payload,
@@ -14395,10 +14785,10 @@ def _serialize_analysis_index_resume_payload(
 
 def _load_analysis_index_resume_payload(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     file_paths: Sequence[Path],
-    expected_index_cache_identity: str | None = None,
-    expected_projection_cache_identity: str | None = None,
+    expected_index_cache_identity: str = "",
+    expected_projection_cache_identity: str = "",
 ) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
     hydrated_paths: set[Path] = set()
     by_qual: dict[str, FunctionInfo] = {}
@@ -14408,7 +14798,7 @@ def _load_analysis_index_resume_payload(
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
     selected_payload: Mapping[str, JSONValue] = payload
-    if expected_index_cache_identity is not None:
+    if expected_index_cache_identity:
         resume_identity = str(payload.get("index_cache_identity", "") or "")
         if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
             variants = _analysis_index_resume_variants(payload)
@@ -14416,7 +14806,7 @@ def _load_analysis_index_resume_payload(
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
-    if expected_projection_cache_identity is not None:
+    if expected_projection_cache_identity:
         projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
         if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
             return hydrated_paths, by_qual, symbol_table, class_index
@@ -14431,31 +14821,32 @@ def _load_analysis_index_resume_payload(
         )
     )
     raw_functions = selected_payload.get("functions_by_qual")
-    if isinstance(raw_functions, Mapping):
-        for qual, raw_info in raw_functions.items():
+    raw_functions_mapping = mapping_or_none(raw_functions)
+    if raw_functions_mapping is not None:
+        for qual, raw_info in raw_functions_mapping.items():
             check_deadline()
-            if not isinstance(qual, str) or not isinstance(raw_info, Mapping):
-                continue
-            info = _deserialize_function_info_for_resume(
-                raw_info,
-                allowed_paths=allowed_paths,
-            )
-            if info is None:
-                continue
-            by_qual[qual] = info
+            raw_info_mapping = mapping_or_none(raw_info)
+            if type(qual) is str and raw_info_mapping is not None:
+                info = _deserialize_function_info_for_resume(
+                    raw_info_mapping,
+                    allowed_paths=allowed_paths,
+                )
+                if info is not None:
+                    by_qual[qual] = info
     raw_symbol_table = selected_payload.get("symbol_table")
-    if isinstance(raw_symbol_table, Mapping):
-        symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table)
+    raw_symbol_table_mapping = mapping_or_none(raw_symbol_table)
+    if raw_symbol_table_mapping is not None:
+        symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table_mapping)
     raw_class_index = selected_payload.get("class_index")
-    if isinstance(raw_class_index, Mapping):
-        for qual, raw_class in raw_class_index.items():
+    raw_class_index_mapping = mapping_or_none(raw_class_index)
+    if raw_class_index_mapping is not None:
+        for qual, raw_class in raw_class_index_mapping.items():
             check_deadline()
-            if not isinstance(qual, str) or not isinstance(raw_class, Mapping):
-                continue
-            class_info = _deserialize_class_info_for_resume(raw_class)
-            if class_info is None:
-                continue
-            class_index[qual] = class_info
+            raw_class_mapping = mapping_or_none(raw_class)
+            if type(qual) is str and raw_class_mapping is not None:
+                class_info = _deserialize_class_info_for_resume(raw_class_mapping)
+                if class_info is not None:
+                    class_index[qual] = class_info
     return hydrated_paths, by_qual, symbol_table, class_index
 
 
@@ -14489,15 +14880,15 @@ def _deserialize_groups_for_resume(
     groups: dict[str, list[set[str]]] = {}
     for fn_name, bundles in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(bundles, list):
-            continue
-        normalized: list[set[str]] = []
-        for bundle in bundles:
-            check_deadline()
-            if not isinstance(bundle, list):
-                continue
-            normalized.append({str(param) for param in bundle})
-        groups[fn_name] = normalized
+        bundle_entries = sequence_or_none(bundles)
+        if type(fn_name) is str and bundle_entries is not None:
+            normalized: list[set[str]] = []
+            for bundle in bundle_entries:
+                check_deadline()
+                bundle_params = sequence_or_none(bundle)
+                if bundle_params is not None:
+                    normalized.append({str(param) for param in bundle_params})
+            groups[fn_name] = normalized
     return groups
 
 
@@ -14522,21 +14913,20 @@ def _deserialize_param_spans_for_resume(
     spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     for fn_name, raw_map in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(raw_map, Mapping):
-            continue
-        fn_spans: dict[str, tuple[int, int, int, int]] = {}
-        for param_name, raw_span in raw_map.items():
-            check_deadline()
-            if not isinstance(param_name, str) or not isinstance(raw_span, (list, tuple)):
-                continue
-            if len(raw_span) != 4:
-                continue
-            try:
-                span = tuple(int(part) for part in raw_span)
-            except (TypeError, ValueError):
-                continue
-            fn_spans[param_name] = cast(tuple[int, int, int, int], span)
-        spans[fn_name] = fn_spans
+        param_map = mapping_or_none(raw_map)
+        if type(fn_name) is str and param_map is not None:
+            fn_spans: dict[str, tuple[int, int, int, int]] = {}
+            for param_name, raw_span in param_map.items():
+                check_deadline()
+                span_parts = sequence_or_none(raw_span)
+                if type(param_name) is str and span_parts is not None and len(span_parts) == 4:
+                    try:
+                        span = tuple(int(part) for part in span_parts)
+                    except (TypeError, ValueError):
+                        span = None
+                    if span is not None:
+                        fn_spans[param_name] = cast(tuple[int, int, int, int], span)
+            spans[fn_name] = fn_spans
     return spans
 
 
@@ -14551,13 +14941,16 @@ def _serialize_bundle_sites_for_resume(
         for bundle in fn_sites:
             check_deadline()
             encoded_bundle: list[JSONObject] = []
-            if not isinstance(bundle, list):
-                continue
-            for site in bundle:
-                check_deadline()
-                if isinstance(site, dict):
-                    encoded_bundle.append({str(key): site[key] for key in site})
-            encoded_fn_sites.append(encoded_bundle)
+            bundle_entries = sequence_or_none(cast(JSONValue, bundle))
+            if bundle_entries is not None:
+                for site in bundle_entries:
+                    check_deadline()
+                    site_mapping = mapping_or_none(site)
+                    if site_mapping is not None:
+                        encoded_bundle.append(
+                            {str(key): site_mapping[key] for key in site_mapping}
+                        )
+                encoded_fn_sites.append(encoded_bundle)
         payload[fn_name] = encoded_fn_sites
     return payload
 
@@ -14568,20 +14961,21 @@ def _deserialize_bundle_sites_for_resume(
     bundle_sites: dict[str, list[list[JSONObject]]] = {}
     for fn_name, raw_sites in payload.items():
         check_deadline()
-        if not isinstance(fn_name, str) or not isinstance(raw_sites, list):
-            continue
-        fn_sites: list[list[JSONObject]] = []
-        for raw_bundle in raw_sites:
-            check_deadline()
-            if not isinstance(raw_bundle, list):
-                continue
-            bundle: list[JSONObject] = []
-            for site in raw_bundle:
+        site_groups = sequence_or_none(raw_sites)
+        if type(fn_name) is str and site_groups is not None:
+            fn_sites: list[list[JSONObject]] = []
+            for raw_bundle in site_groups:
                 check_deadline()
-                if isinstance(site, Mapping):
-                    bundle.append({str(key): site[key] for key in site})
-            fn_sites.append(bundle)
-        bundle_sites[fn_name] = fn_sites
+                bundle_entries = sequence_or_none(raw_bundle)
+                if bundle_entries is not None:
+                    bundle: list[JSONObject] = []
+                    for site in bundle_entries:
+                        check_deadline()
+                        site_mapping = mapping_or_none(site)
+                        if site_mapping is not None:
+                            bundle.append({str(key): site_mapping[key] for key in site_mapping})
+                    fn_sites.append(bundle)
+            bundle_sites[fn_name] = fn_sites
     return bundle_sites
 
 
@@ -14609,40 +15003,46 @@ def _deserialize_invariants_for_resume(
     invariants: list[InvariantProposition] = []
     for entry in payload:
         check_deadline()
-        if not isinstance(entry, Mapping):
-            continue
-        form = entry.get("form")
-        terms = entry.get("terms")
-        if not isinstance(form, str) or not isinstance(terms, (list, tuple)):
-            continue
-        normalized_terms: list[str] = []
-        for term in terms:
-            check_deadline()
-            if isinstance(term, str):
-                normalized_terms.append(term)
-        scope = entry.get("scope")
-        source = entry.get("source")
-        invariant_id = entry.get("invariant_id")
-        confidence_raw = entry.get("confidence")
-        confidence = float(confidence_raw) if isinstance(confidence_raw, (int, float)) else None
-        raw_evidence = entry.get("evidence_keys")
-        evidence_keys: tuple[str, ...] = ()
-        if isinstance(raw_evidence, Sequence) and not isinstance(raw_evidence, (str, bytes)):
-            evidence_keys = tuple(str(item) for item in raw_evidence if str(item).strip())
-        normalized = _normalize_invariant_proposition(
-            InvariantProposition(
-                form=form,
-                terms=tuple(normalized_terms),
-                scope=scope if isinstance(scope, str) else None,
-                source=source if isinstance(source, str) else None,
-                invariant_id=invariant_id if isinstance(invariant_id, str) else None,
-                confidence=confidence,
-                evidence_keys=evidence_keys,
-            ),
-            default_scope=scope if isinstance(scope, str) else "",
-            default_source=source if isinstance(source, str) else "resume",
-        )
-        invariants.append(normalized)
+        entry_mapping = mapping_or_none(entry)
+        if entry_mapping is not None:
+            form = entry_mapping.get("form")
+            terms = sequence_or_none(entry_mapping.get("terms"))
+            if type(form) is str and terms is not None:
+                normalized_terms: list[str] = []
+                for term in terms:
+                    check_deadline()
+                    if type(term) is str:
+                        normalized_terms.append(term)
+                scope = entry_mapping.get("scope")
+                source = entry_mapping.get("source")
+                invariant_id = entry_mapping.get("invariant_id")
+                confidence_raw = entry_mapping.get("confidence")
+                confidence = (
+                    float(confidence_raw)
+                    if type(confidence_raw) in {int, float}
+                    else None
+                )
+                raw_evidence = entry_mapping.get("evidence_keys")
+                evidence_keys: tuple[str, ...] = ()
+                evidence_sequence = sequence_or_none(raw_evidence)
+                if evidence_sequence is not None:
+                    evidence_keys = tuple(
+                        str(item) for item in evidence_sequence if str(item).strip()
+                    )
+                normalized = _normalize_invariant_proposition(
+                    InvariantProposition(
+                        form=form,
+                        terms=tuple(normalized_terms),
+                        scope=scope if type(scope) is str else None,
+                        source=source if type(source) is str else None,
+                        invariant_id=invariant_id if type(invariant_id) is str else None,
+                        confidence=confidence,
+                        evidence_keys=evidence_keys,
+                    ),
+                    default_scope=scope if type(scope) is str else "",
+                    default_source=source if type(source) is str else "resume",
+                )
+                invariants.append(normalized)
     return invariants
 
 
@@ -14654,7 +15054,7 @@ def _serialize_file_scan_resume_state(
     fn_param_spans: Mapping[str, Mapping[str, tuple[int, int, int, int]]],
     fn_names: Mapping[str, str],
     fn_lexical_scopes: Mapping[str, Sequence[str]],
-    fn_class_names: Mapping[str, str | None],
+    fn_class_names: Mapping[str, object],
     opaque_callees: set[str],
 ) -> JSONObject:
     fn_use_payload: JSONObject = {}
@@ -14701,33 +15101,15 @@ def _serialize_file_scan_resume_state(
     }
 
 
-def _empty_file_scan_resume_state() -> tuple[
-    dict[str, dict[str, ParamUse]],
-    dict[str, list[CallArgs]],
-    dict[str, list[str]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, str],
-    dict[str, tuple[str, ...]],
-    dict[str, str | None],
-    set[str],
-]:
+def _empty_file_scan_resume_state():
     return ({}, {}, {}, {}, {}, {}, {}, set())
 
 
 def _load_file_scan_resume_state(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     valid_fn_keys: set[str],
-) -> tuple[
-    dict[str, dict[str, ParamUse]],
-    dict[str, list[CallArgs]],
-    dict[str, list[str]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, str],
-    dict[str, tuple[str, ...]],
-    dict[str, str | None],
-    set[str],
-]:
+):
     (
         fn_use,
         fn_calls,
@@ -14768,8 +15150,8 @@ def _load_file_scan_resume_state(
         payload=raw_use,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_param_use_map(raw_value)
-            if isinstance(raw_value, Mapping)
+            _deserialize_param_use_map(raw_mapping)
+            if (raw_mapping := mapping_or_none(raw_value)) is not None
             else None
         ),
     )
@@ -14777,8 +15159,8 @@ def _load_file_scan_resume_state(
         payload=raw_calls,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_call_args_list(raw_value)
-            if isinstance(raw_value, Sequence)
+            _deserialize_call_args_list(raw_sequence)
+            if (raw_sequence := sequence_or_none(raw_value)) is not None
             else None
         ),
     )
@@ -14795,15 +15177,15 @@ def _load_file_scan_resume_state(
         payload=raw_param_spans,
         valid_keys=valid_fn_keys,
         parser=lambda raw_value: (
-            _deserialize_param_spans_for_resume({"_": raw_value}).get("_", {})
-            if isinstance(raw_value, Mapping)
+            _deserialize_param_spans_for_resume({"_": raw_mapping}).get("_", {})
+            if (raw_mapping := mapping_or_none(raw_value)) is not None
             else None
         ),
     )
     fn_names = load_resume_map(
         payload=raw_names,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: raw_value if isinstance(raw_value, str) else None,
+        parser=lambda raw_value: raw_value if type(raw_value) is str else None,
     )
     fn_lexical_scopes = load_resume_map(
         payload=raw_scopes,
@@ -14821,12 +15203,13 @@ def _load_file_scan_resume_state(
             valid_keys=valid_fn_keys,
         )
     ):
-        if raw_value is None or isinstance(raw_value, str):
+        if raw_value is None or type(raw_value) is str:
             fn_class_names[fn_key] = cast(str | None, raw_value)
     raw_opaque = payload.get("opaque_callees")
-    if isinstance(raw_opaque, Sequence):
-        for entry in deadline_loop_iter(raw_opaque):
-            if isinstance(entry, str) and entry in valid_fn_keys:
+    raw_opaque_entries = sequence_or_none(raw_opaque)
+    if raw_opaque_entries is not None:
+        for entry in deadline_loop_iter(raw_opaque_entries):
+            if type(entry) is str and entry in valid_fn_keys:
                 opaque_callees.add(entry)
     return (
         fn_use,
@@ -14848,8 +15231,8 @@ def _build_analysis_collection_resume_payload(
     invariant_propositions: Sequence[InvariantProposition],
     completed_paths: set[Path],
     in_progress_scan_by_path: Mapping[Path, JSONObject],
-    analysis_index_resume: Mapping[str, JSONValue] | None = None,
-    file_stage_timings_v1_by_path: Mapping[Path, Mapping[str, JSONValue]] | None = None,
+    analysis_index_resume = None,
+    file_stage_timings_v1_by_path = None,
 ) -> JSONObject:
     check_deadline()
     groups_payload: JSONObject = {}
@@ -14872,7 +15255,7 @@ def _build_analysis_collection_resume_payload(
         sites_payload[path_key] = _serialize_bundle_sites_for_resume(
             bundle_sites_by_path.get(path, {})
         )
-    previous_path_key: str | None = None
+    previous_path_key = None
     for path in in_progress_scan_by_path:
         check_deadline()
         path_key = _analysis_collection_resume_path_key(path)
@@ -14909,9 +15292,11 @@ def _build_analysis_collection_resume_payload(
                 key=_analysis_collection_resume_path_key,
             source = 'src/gabion/analysis/dataflow_audit.py:15945')
         }
-    if isinstance(analysis_index_resume, Mapping):
+    analysis_index_resume_mapping = mapping_or_none(analysis_index_resume)
+    if analysis_index_resume_mapping is not None:
         payload["analysis_index_resume"] = {
-            str(key): analysis_index_resume[key] for key in analysis_index_resume
+            str(key): analysis_index_resume_mapping[key]
+            for key in analysis_index_resume_mapping
         }
     return payload
 
@@ -14936,32 +15321,16 @@ def build_analysis_collection_resume_seed(
     )
 
 
-def _empty_analysis_collection_resume_payload() -> tuple[
-    dict[Path, dict[str, list[set[str]]]],
-    dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
-    dict[Path, dict[str, list[list[JSONObject]]]],
-    list[InvariantProposition],
-    set[Path],
-    dict[Path, JSONObject],
-    JSONObject | None,
-]:
+def _empty_analysis_collection_resume_payload():
     return ({}, {}, {}, [], set(), {}, None)
 
 
 def _load_analysis_collection_resume_payload(
     *,
-    payload: Mapping[str, JSONValue] | None,
+    payload,
     file_paths: Sequence[Path],
     include_invariant_propositions: bool,
-) -> tuple[
-    dict[Path, dict[str, list[set[str]]]],
-    dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
-    dict[Path, dict[str, list[list[JSONObject]]]],
-    list[InvariantProposition],
-    set[Path],
-    dict[Path, JSONObject],
-    JSONObject | None,
-]:
+):
     (
         groups_by_path,
         param_spans_by_path,
@@ -15005,29 +15374,29 @@ def _load_analysis_collection_resume_payload(
         raw_groups = mapping_or_none(groups_payload.get(path_key))
         raw_spans = mapping_or_none(spans_payload.get(path_key))
         raw_sites = mapping_or_none(sites_payload.get(path_key))
-        if raw_groups is None or raw_spans is None or raw_sites is None:
-            continue
-        groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
-        param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
-        bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
-        completed_paths.add(path)
+        if raw_groups is not None and raw_spans is not None and raw_sites is not None:
+            groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
+            param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
+            bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
+            completed_paths.add(path)
     if include_invariant_propositions:
-        raw_invariants = payload.get("invariant_propositions")
-        if isinstance(raw_invariants, Sequence):
+        raw_invariants = sequence_or_none(payload.get("invariant_propositions"))
+        if raw_invariants is not None:
             invariant_propositions = _deserialize_invariants_for_resume(raw_invariants)
     for raw_path, raw_state in in_progress_scan_payload.items():
         check_deadline()
-        if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
-            continue
+        raw_state_mapping = mapping_or_none(raw_state)
         path = allowed_paths.get(raw_path)
-        if path is None or path in completed_paths:
-            continue
-        in_progress_scan_by_path[path] = {str(key): raw_state[key] for key in raw_state}
+        if raw_state_mapping is not None and path is not None and path not in completed_paths:
+            in_progress_scan_by_path[path] = {
+                str(key): raw_state_mapping[key] for key in raw_state_mapping
+            }
     raw_analysis_index_resume = payload.get("analysis_index_resume")
-    if isinstance(raw_analysis_index_resume, Mapping):
+    raw_analysis_index_mapping = mapping_or_none(raw_analysis_index_resume)
+    if raw_analysis_index_mapping is not None:
         analysis_index_resume = {
-            str(key): raw_analysis_index_resume[key]
-            for key in raw_analysis_index_resume
+            str(key): raw_analysis_index_mapping[key]
+            for key in raw_analysis_index_mapping
         }
     return (
         groups_by_path,
@@ -15120,8 +15489,8 @@ class _SynthesisPlanContext:
 def _build_synthesis_plan_context(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None,
-    config: AuditConfig | None,
+    project_root,
+    config,
 ) -> _SynthesisPlanContext:
     check_deadline()
     parse_failure_witnesses: list[JSONObject] = []
@@ -15270,7 +15639,7 @@ def _compute_synthesis_tiers_and_merge(
     max_tier: int,
     min_bundle_size: int,
     allow_singletons: bool,
-    merge_overlap_threshold: float | None,
+    merge_overlap_threshold,
 ) -> tuple[
     dict[frozenset[str], int],
     dict[frozenset[str], set[str]],
@@ -15385,38 +15754,33 @@ def _infer_synthesis_field_types(
             check_deadline()
             for call in info.calls:
                 check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    context.by_name,
-                    context.by_qual,
-                    context.symbol_table,
-                    context.root,
-                    context.class_index,
-                )
-                if callee is None or not callee.transparent:
-                    continue
-                callee_params = callee.params
-                for idx_str, value in call.const_pos.items():
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    param = callee_params[idx]
-                    if param not in bundle_fields:
-                        continue
-                    hint = _type_from_const_repr(value)
-                    if hint:
-                        type_sets[param].add(hint)
-                for kw, value in call.const_kw.items():
-                    check_deadline()
-                    if kw not in callee_params or kw not in bundle_fields:
-                        continue
-                    hint = _type_from_const_repr(value)
-                    if hint:
-                        type_sets[kw].add(hint)
+                if not call.is_test:
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        context.by_name,
+                        context.by_qual,
+                        context.symbol_table,
+                        context.root,
+                        context.class_index,
+                    )
+                    if callee is not None and callee.transparent:
+                        callee_params = callee.params
+                        for idx_str, value in call.const_pos.items():
+                            check_deadline()
+                            idx = int(idx_str)
+                            if idx < len(callee_params):
+                                param = callee_params[idx]
+                                if param in bundle_fields:
+                                    hint = _type_from_const_repr(value)
+                                    if hint:
+                                        type_sets[param].add(hint)
+                        for kw, value in call.const_kw.items():
+                            check_deadline()
+                            if kw in callee_params and kw in bundle_fields:
+                                hint = _type_from_const_repr(value)
+                                if hint:
+                                    type_sets[kw].add(hint)
     for name, types in type_sets.items():
         check_deadline()
         combined, conflicted = _combine_type_hints(types)
@@ -15473,12 +15837,12 @@ def _synthesis_payload_from_plan(
 def build_synthesis_plan(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root: Path | None = None,
+    project_root = None,
     max_tier: int = 2,
     min_bundle_size: int = 2,
     allow_singletons: bool = False,
-    merge_overlap_threshold: float | None = None,
-    config: AuditConfig | None = None,
+    merge_overlap_threshold = None,
+    config = None,
     invariant_propositions: Sequence[InvariantProposition] = (),
     property_hook_min_confidence: float = 0.7,
     emit_hypothesis_templates: bool = False,
@@ -15608,11 +15972,11 @@ def build_refactor_plan(
                     config.project_root,
                     class_index,
                 )
-                if callee is None:
-                    continue
-                if not callee.transparent:
-                    continue
-                if callee.qual in comp:
+                if (
+                    callee is not None
+                    and callee.transparent
+                    and callee.qual in comp
+                ):
                     deps[info.qual].add(callee.qual)
         schedule = topological_schedule(deps)
         plans.append(
@@ -15737,7 +16101,7 @@ def _compute_violations(
     )
 
 
-def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+def _resolve_baseline_path(path, root: Path):
     if not path:
         return None
     baseline = Path(path)
@@ -15746,7 +16110,7 @@ def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
     return baseline
 
 
-def _resolve_synth_registry_path(path: str | None, root: Path) -> Path | None:
+def _resolve_synth_registry_path(path, root: Path):
     if not path:
         return None
     value = str(path).strip()
@@ -15774,7 +16138,7 @@ def _write_text_or_stdout(path: str, text: str) -> None:
     Path(path).write_text(text)
 
 
-def _write_json_or_stdout(path: str, payload: JSONValue | object) -> None:
+def _write_json_or_stdout(path: str, payload: object) -> None:
     _write_text_or_stdout(path, json.dumps(payload, indent=2, sort_keys=False))
 
 
@@ -15804,11 +16168,11 @@ def _emit_sidecar_outputs(
     *,
     args: argparse.Namespace,
     analysis: AnalysisResult,
-    fingerprint_deadness_json: str | None,
-    fingerprint_coherence_json: str | None,
-    fingerprint_rewrite_plans_json: str | None,
-    fingerprint_exception_obligations_json: str | None,
-    fingerprint_handledness_json: str | None,
+    fingerprint_deadness_json,
+    fingerprint_coherence_json,
+    fingerprint_rewrite_plans_json,
+    fingerprint_exception_obligations_json,
+    fingerprint_handledness_json,
 ) -> None:
     # dataflow-bundle: fingerprint_coherence_json, fingerprint_deadness_json, fingerprint_exception_obligations_json, fingerprint_handledness_json, fingerprint_rewrite_plans_json
     for path, payload, require_content in deadline_loop_iter(
@@ -15879,7 +16243,7 @@ def _apply_baseline(
     return new, suppressed
 
 
-def resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+def resolve_baseline_path(path, root: Path):
     return _resolve_baseline_path(path, root)
 
 
@@ -16152,21 +16516,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _normalize_transparent_decorators(
     value: object,
-) -> set[str] | None:
+) -> object:
     check_deadline()
-    if value is None:
-        return None
-    items: list[str] = []
-    if isinstance(value, str):
-        items = [part.strip() for part in value.split(",") if part.strip()]
-    elif isinstance(value, (list, tuple, set)):
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
-    if not items:
-        return None
-    return set(items)
+    if value is not None:
+        items: list[str] = []
+        value_type = type(value)
+        if value_type is str:
+            items = [part.strip() for part in cast(str, value).split(",") if part.strip()]
+        elif value_type in {list, tuple, set}:
+            for item in cast(Iterable[object], value):
+                check_deadline()
+                if type(item) is str:
+                    parts = [part.strip() for part in cast(str, item).split(",") if part.strip()]
+                    items.extend(parts)
+        if items:
+            return set(items)
+    return None
 
 
 @contextmanager
@@ -16208,7 +16573,7 @@ def _run_impl(
     fingerprint_rewrite_plans_json = args.fingerprint_rewrite_plans_json
     fingerprint_exception_obligations_json = args.fingerprint_exception_obligations_json
     fingerprint_handledness_json = args.fingerprint_handledness_json
-    exclude_dirs: list[str] | None = None
+    exclude_dirs = None
     if args.exclude is not None:
         exclude_dirs = []
         for entry in args.exclude:
@@ -16218,10 +16583,10 @@ def _run_impl(
                 part = part.strip()
                 if part:
                     exclude_dirs.append(part)
-    ignore_params: list[str] | None = None
+    ignore_params = None
     if args.ignore_params is not None:
         ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
-    transparent_decorators: list[str] | None = None
+    transparent_decorators = None
     if args.transparent_decorators is not None:
         transparent_decorators = [
             p.strip() for p in args.transparent_decorators.split(",") if p.strip()
@@ -16237,8 +16602,8 @@ def _run_impl(
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"
-    synth_registry_path: str | None = None
-    fingerprint_seed_path: str | None = None
+    synth_registry_path = None
+    fingerprint_seed_path = None
     try:
         synth_min_occurrences = int(
             fingerprint_section.get("synth_min_occurrences", 0) or 0
@@ -16252,11 +16617,11 @@ def _run_impl(
     fingerprint_seed_path = fingerprint_section.get("seed_registry_path")
     if fingerprint_seed_path is None:
         fingerprint_seed_path = fingerprint_section.get("fingerprint_seed_path")
-    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_registry = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
-    fingerprint_seed_revision: str | None = None
-    constructor_registry: TypeConstructorRegistry | None = None
-    synth_registry: SynthRegistry | None = None
+    fingerprint_seed_revision = None
+    constructor_registry = None
+    synth_registry = None
     # The [fingerprints] section mixes bundle specs with synth settings.
     # Filter out the settings so they do not pollute the registry/index.
     fingerprint_spec: dict[str, JSONValue] = {
@@ -16303,9 +16668,10 @@ def _run_impl(
                         payload = None
                 else:
                     payload = None
-                if isinstance(payload, dict):
+                payload_mapping = mapping_or_none(cast(JSONValue, payload))
+                if payload_mapping is not None:
                     synth_registry = build_synth_registry_from_payload(
-                        payload, registry
+                        payload_mapping, registry
                     )
     merged = merge_payload(
         {
@@ -16437,7 +16803,7 @@ def _run_impl(
     ).exit_code
 
 
-def run(argv: list[str] | None = None) -> int:
+def run(argv = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     with _analysis_deadline_scope(args):

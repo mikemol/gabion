@@ -19,42 +19,51 @@ _AST_UNPARSE_ERROR_TYPES = (
 
 
 def exception_param_names(
-    expr: ast.AST | None,
+    expr: object,
     params: set[str],
     *,
     check_deadline: Callable[[], None],
 ) -> list[str]:
     check_deadline()
-    if expr is None:
-        return []
     names: set[str] = set()
-    for node in ast.walk(expr):
-        check_deadline()
-        if isinstance(node, ast.Name) and node.id in params:
-            names.add(node.id)
+    match expr:
+        case ast.AST() as expression:
+            for node in ast.walk(expression):
+                check_deadline()
+                match node:
+                    case ast.Name(id=name_text) if name_text in params:
+                        names.add(name_text)
+                    case _:
+                        pass
+        case _:
+            pass
     return sort_once(names, source="_exception_param_names.names")
 
 
 def exception_type_name(
-    expr: ast.AST | None,
+    expr: object,
     *,
-    decorator_name: Callable[[ast.AST], str | None],
-) -> str | None:
-    if expr is None:
-        return None
-    if isinstance(expr, ast.Call):
-        return decorator_name(expr.func)
-    return decorator_name(expr)
+    decorator_name: Callable[[ast.AST], object],
+) -> object:
+    match expr:
+        case ast.Call(func=call_target):
+            return decorator_name(call_target)
+        case ast.AST() as expression:
+            return decorator_name(expression)
+        case _:
+            return None
 
 
 def handler_is_broad(handler: ast.ExceptHandler) -> bool:
     if handler.type is None:
         return True
-    if isinstance(handler.type, ast.Name):
-        return handler.type.id in {"Exception", "BaseException"}
-    if isinstance(handler.type, ast.Attribute):
-        return handler.type.attr in {"Exception", "BaseException"}
-    return False
+    match handler.type:
+        case ast.Name(id=name_text):
+            return name_text in {"Exception", "BaseException"}
+        case ast.Attribute(attr=attr_text):
+            return attr_text in {"Exception", "BaseException"}
+        case _:
+            return False
 
 
 def handler_label(handler: ast.ExceptHandler) -> str:
@@ -85,31 +94,33 @@ def node_in_try_body(
 
 
 def handler_type_names(
-    handler_type: ast.AST | None,
+    handler_type: object,
     *,
-    decorator_name: Callable[[ast.AST], str | None],
+    decorator_name: Callable[[ast.AST], object],
     check_deadline: Callable[[], None],
 ) -> tuple[str, ...]:
     check_deadline()
-    if handler_type is None:
-        return ()
-    if isinstance(handler_type, ast.Tuple):
-        names: list[str] = []
-        for elt in handler_type.elts:
-            check_deadline()
-            name = decorator_name(elt)
-            if name:
-                names.append(name)
-        return tuple(names)
-    name = decorator_name(handler_type)
-    return (name,) if name else ()
+    match handler_type:
+        case ast.Tuple(elts=elements):
+            names: list[str] = []
+            for elt in elements:
+                check_deadline()
+                name = decorator_name(elt)
+                if name:
+                    names.append(str(name))
+            return tuple(names)
+        case ast.AST() as handler_expr:
+            name = decorator_name(handler_expr)
+            return (str(name),) if name else ()
+        case _:
+            return ()
 
 
 def exception_handler_compatibility(
-    exception_name: str | None,
-    handler_type: ast.AST | None,
+    exception_name: object,
+    handler_type: object,
     *,
-    decorator_name: Callable[[ast.AST], str | None],
+    decorator_name: Callable[[ast.AST], object],
     check_deadline: Callable[[], None],
 ) -> str:
     check_deadline()
@@ -122,9 +133,11 @@ def exception_handler_compatibility(
     )
     if not handler_names:
         return "unknown"
-    if exception_name is None:
-        return "unknown"
-    exception_cls = _builtin_exception_class(exception_name)
+    match exception_name:
+        case str() as exception_name_text:
+            exception_cls = _builtin_exception_class(exception_name_text)
+        case _:
+            exception_cls = None
     if exception_cls is None:
         return "unknown"
     any_unknown = False
@@ -139,10 +152,12 @@ def exception_handler_compatibility(
     return "unknown" if any_unknown else "incompatible"
 
 
-def _builtin_exception_class(name: str) -> type[BaseException] | None:
+def _builtin_exception_class(name: str) -> object:
     value = getattr(builtins, name, None)
-    if not isinstance(value, type):
-        return None
-    if not issubclass(value, BaseException):
-        return None
-    return value
+    match value:
+        case type() as value_type:
+            if issubclass(value_type, BaseException):
+                return value_type
+            return None
+        case _:
+            return None

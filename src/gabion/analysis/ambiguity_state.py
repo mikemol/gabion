@@ -1,8 +1,8 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Iterable, Mapping
 
 from gabion.analysis import ambiguity_delta
 from gabion.analysis.baseline_io import (
@@ -14,6 +14,7 @@ from gabion.analysis.baseline_io import (
 from gabion.analysis.projection_registry import (
     AMBIGUITY_STATE_SPEC,
 )
+from gabion.analysis.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -65,17 +66,18 @@ def load_state(path: str) -> AmbiguityState:
 
 
 def _normalize_witnesses(
-    payload: Iterable[Mapping[str, object]] | object,
+    payload: object,
 ) -> list[dict[str, JSONValue]]:
-    if not isinstance(payload, Iterable) or isinstance(payload, (str, bytes, dict)):
-        return []
+    entries = sequence_or_none(payload)
+    if entries is None:
+        return list()
     check_deadline(allow_frame_fallback=True)
     witnesses: list[dict[str, JSONValue]] = []
-    for entry in payload:
+    for entry in entries:
         check_deadline()
-        if not isinstance(entry, Mapping):
-            continue
-        witnesses.append({str(k): entry[k] for k in entry})
+        parsed_entry = mapping_or_none(entry)
+        if parsed_entry is not None:
+            witnesses.append({str(key): parsed_entry[key] for key in parsed_entry})
     return sort_once(
         witnesses,
         source="_normalize_witnesses.witnesses",
@@ -85,19 +87,12 @@ def _normalize_witnesses(
 
 def _witness_sort_key(entry: Mapping[str, object]) -> tuple[object, ...]:
     kind = str(entry.get("kind", "") or "")
-    site = entry.get("site", {})
-    if isinstance(site, Mapping):
-        path = str(site.get("path", "") or "")
-        func = str(site.get("function", "") or "")
-        span = site.get("span")
-    else:
-        path = ""
-        func = ""
-        span = None
-    span_values: tuple[object, ...]
-    if isinstance(span, list) and len(span) == 4:
+    site = mapping_or_empty(entry.get("site", {}))
+    path = str(site.get("path", "") or "")
+    func = str(site.get("function", "") or "")
+    span = sequence_or_none(site.get("span"))
+    span_values: tuple[object, ...] = tuple()
+    if span is not None and len(span) == 4:
         span_values = tuple(span)
-    else:
-        span_values = ()
     candidate_count = entry.get("candidate_count", 0)
     return (kind, path, func, span_values, candidate_count)

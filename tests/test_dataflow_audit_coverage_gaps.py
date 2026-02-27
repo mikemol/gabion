@@ -683,9 +683,13 @@ def test_verify_rewrite_plan_verification_and_remainder_edges() -> None:
 def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
     da = _load()
     or_expr = ast.parse("a or b").body[0].value
-    assert da._eval_bool_expr(or_expr, {"a": False, "b": True}) is True
+    or_outcome = da._eval_bool_expr(or_expr, {"a": False, "b": True})
+    assert or_outcome.is_unknown() is False
+    assert or_outcome.as_bool() is True
     gte_expr = ast.parse("x >= 1").body[0].value
-    assert da._eval_bool_expr(gte_expr, {"x": 2}) is True
+    gte_outcome = da._eval_bool_expr(gte_expr, {"x": 2})
+    assert gte_outcome.is_unknown() is False
+    assert gte_outcome.as_bool() is True
 
     tree = ast.parse(
         "if flag:\n"
@@ -701,7 +705,7 @@ def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
         parent.parents,
         {"flag": True},
     )
-    assert reach is False
+    assert reach is da._EvalDecision.FALSE
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_all_assignment_none_values_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
@@ -1164,7 +1168,8 @@ def test_fingerprint_provenance_index_lookup_and_types_summary_branch() -> None:
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_value_expr_unary_non_numeric_and_parse_range_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_value_expr_unary_non_numeric_and_parse_range_branch() -> None:
     da = _load()
-    assert da._eval_value_expr(ast.parse("-'x'").body[0].value, {}) is None
+    unary_outcome = da._eval_value_expr(ast.parse("-'x'").body[0].value, {})
+    assert unary_outcome.is_unknown() is True
     assert da._parse_lint_location("a.py:1:2:-3:4: GABION_X message") is not None
 
 
@@ -1338,9 +1343,17 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_expr_and_branch_reachability_else_constraint_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._branch_reachability_under_env::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_bool_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
     da = _load()
-    assert da._eval_value_expr(ast.parse("+2").body[0].value, {}) == 2
-    assert da._eval_bool_expr(ast.parse("a or b").body[0].value, {"a": False, "b": False}) is False
-    assert da._eval_bool_expr(ast.parse("'x' >= 'a'").body[0].value, {}) is None
+    unary_plus_outcome = da._eval_value_expr(ast.parse("+2").body[0].value, {})
+    assert unary_plus_outcome.is_unknown() is False
+    assert unary_plus_outcome.value == 2
+    or_outcome = da._eval_bool_expr(
+        ast.parse("a or b").body[0].value,
+        {"a": False, "b": False},
+    )
+    assert or_outcome.is_unknown() is False
+    assert or_outcome.as_bool() is False
+    gte_outcome = da._eval_bool_expr(ast.parse("'x' >= 'a'").body[0].value, {})
+    assert gte_outcome.is_unknown() is True
 
     tree = ast.parse(
         "if flag:\n"
@@ -1357,7 +1370,7 @@ def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
             parent.parents,
             {"flag": False},
         )
-        is True
+        is da._EvalDecision.TRUE
     )
 
 
@@ -1857,7 +1870,10 @@ def test_additional_branch_edges_fingerprint_and_rewrite() -> None:
     parent = da.ParentAnnotator()
     parent.visit(tree)
     if_node = tree.body[0]
-    assert da._branch_reachability_under_env(if_node.test, parent.parents, {"cond": True}) is None
+    assert (
+        da._branch_reachability_under_env(if_node.test, parent.parents, {"cond": True})
+        is da._EvalDecision.UNKNOWN
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_render::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_deadline_scope::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resolved_call_edges_by_caller::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
@@ -4395,3 +4411,198 @@ def test_additional_exception_and_never_branch_edges(tmp_path: Path) -> None:
         ignore_params=set(),
     )
     assert dynamic_handledness
+
+
+# gabion:evidence E:function_site::tests/test_dataflow_audit_coverage_gaps.py::test_tail_branch_and_line_edges_for_eval_and_registry
+def test_tail_branch_and_line_edges_for_eval_and_registry(tmp_path: Path) -> None:
+    da = _load()
+
+    table = da.SymbolTable(external_filter=False)
+    table.star_imports["pkg.mod"] = {"pkg.star"}
+    table.module_exports["pkg.star"] = {"Foo"}
+    table.module_export_map["pkg.star"] = {}
+    assert table.resolve_star("pkg.mod", "Foo") == "pkg.star.Foo"
+
+    assert da._invariant_term(ast.Name(id="x", ctx=ast.Load()), {"y"}) is None
+    assert (
+        da._invariant_term(
+            ast.Call(
+                func=ast.Name(id="len", ctx=ast.Load()),
+                args=[ast.Name(id="x", ctx=ast.Load())],
+                keywords=[],
+            ),
+            {"y"},
+        )
+        is None
+    )
+    assert (
+        da._invariant_term(
+            ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="obj", ctx=ast.Load()),
+                    attr="len",
+                    ctx=ast.Load(),
+                ),
+                args=[ast.Name(id="x", ctx=ast.Load())],
+                keywords=[],
+            ),
+            {"x"},
+        )
+        is None
+    )
+    assert (
+        da._invariant_term(
+            ast.Call(
+                func=ast.Name(id="len", ctx=ast.Load()),
+                args=[ast.Name(id="x", ctx=ast.Load()), ast.Name(id="y", ctx=ast.Load())],
+                keywords=[],
+            ),
+            {"x"},
+        )
+        is None
+    )
+
+    verification = da.verify_rewrite_plan(
+        {
+            "plan_id": "tail-predicate-paths",
+            "site": {"path": "m.py", "function": "f", "bundle": []},
+            "status": "READY",
+            "rewrite": {"kind": "annotate_return", "parameters": {}},
+            "verification": {"predicates": [{"kind": "base_conservation"}, {}]},
+        },
+        post_provenance=[],
+    )
+    assert verification["accepted"] is False
+
+    foreign_stmt = ast.parse("x = 1").body[0]
+    unrelated_block = ast.parse("y = 2").body
+    assert da._node_in_block(foreign_stmt, unrelated_block) is False
+    try_tree = ast.parse(
+        "try:\n"
+        "    x = 1\n"
+        "except Exception:\n"
+        "    pass\n"
+        "y = 2\n"
+    )
+    try_parents: dict[ast.AST, ast.AST] = {}
+    for parent in ast.walk(try_tree):
+        for child in ast.iter_child_nodes(parent):
+            try_parents[child] = parent
+    trailing_assign = try_tree.body[-1]
+    assert da._find_handling_try(trailing_assign, try_parents) is None
+
+    assert da._unary_numeric_outcome(
+        ast.UnaryOp(op=ast.USub(), operand=ast.Name(id="missing", ctx=ast.Load())),
+        {},
+    ).is_unknown()
+    assert da._eval_value_expr(
+        ast.UnaryOp(op=ast.Not(), operand=ast.Constant(value=True)),
+        {},
+    ).is_unknown()
+    assert da._eval_bool_expr(
+        ast.UnaryOp(op=ast.UAdd(), operand=ast.Constant(value=1)),
+        {},
+    ).is_unknown()
+    assert da._eval_bool_expr(
+        ast.BoolOp(
+            op=ast.Add(),  # type: ignore[arg-type]
+            values=[ast.Constant(value=True), ast.Constant(value=False)],
+        ),
+        {},
+    ).is_unknown()
+    assert da._eval_bool_expr(
+        ast.Compare(
+            left=ast.Constant(value=1),
+            ops=[ast.Eq(), ast.Eq()],
+            comparators=[ast.Constant(value=1), ast.Constant(value=2)],
+        ),
+        {},
+    ).is_unknown()
+    assert da._eval_bool_expr(
+        ast.Compare(
+            left=ast.Constant(value=1),
+            ops=[ast.Is()],
+            comparators=[ast.Constant(value=1)],
+        ),
+        {},
+    ).is_unknown()
+
+    never_call = ast.Call(
+        func=ast.Name(id="never", ctx=ast.Load()),
+        args=[ast.Name(id="reason_var", ctx=ast.Load())],
+        keywords=[ast.keyword(arg="reason", value=ast.Name(id="fallback", ctx=ast.Load()))],
+    )
+    assert da._never_reason(never_call) is None
+
+    unknown_path = tmp_path / "unknown_never.py"
+    unknown_path.write_text(
+        "def f(flag):\n"
+        "    if flag:\n"
+        "        never('reason')\n",
+        encoding="utf-8",
+    )
+    never_entries = da._collect_never_invariants(
+        [unknown_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        forest=da.Forest(),
+        deadness_witnesses=[
+            {
+                "path": "unknown_never.py",
+                "function": "f",
+                "bundle": ["other"],
+                "environment": {"other": "0"},
+                "deadness_id": "dead:unknown_never.py:f:1",
+            }
+        ],
+    )
+    assert any(
+        "depends on params" in str(entry.get("undecidable_reason", ""))
+        for entry in never_entries
+    )
+
+    assert (
+        da._const_repr(
+            ast.UnaryOp(op=ast.USub(), operand=ast.Name(id="x", ctx=ast.Load()))
+        )
+        is None
+    )
+
+    lambda_tree = ast.parse(
+        "class Holder:\n"
+        "    def f(self):\n"
+        "        self.inner.cb = lambda: 1\n"
+    )
+    parent_map: dict[ast.AST, ast.AST] = {}
+    for parent in ast.walk(lambda_tree):
+        for child in ast.iter_child_nodes(parent):
+            parent_map[child] = parent
+    lambda_infos = da._collect_lambda_function_infos(
+        lambda_tree,
+        path=Path("m.py"),
+        module="m",
+        parent_map=parent_map,
+        ignore_params=set(),
+    )
+    lambda_bindings = da._collect_lambda_bindings_by_caller(
+        lambda_tree,
+        module="m",
+        parent_map=parent_map,
+        lambda_infos=lambda_infos,
+    )
+    assert lambda_bindings == {}
+
+    registry_tree = ast.parse(
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class D:\n"
+        "    x[0]: int = 1\n"
+    )
+    assert (
+        da._dataclass_registry_for_tree(
+            Path("m.py"),
+            registry_tree,
+            project_root=Path("."),
+        )
+        == {}
+    )

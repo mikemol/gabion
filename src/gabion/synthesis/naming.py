@@ -8,6 +8,8 @@ from gabion.synthesis.model import NamingContext
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
+_DEFAULT_NAMING_CONTEXT = NamingContext()
+
 
 def _camelize(value: str) -> str:
     parts = [p for p in re.split(r"[^a-zA-Z0-9]+", value) if p]
@@ -23,9 +25,8 @@ def _normalize_identifier(value: str, fallback: str) -> str:
     return cleaned
 
 
-def suggest_name(fields: Iterable[str], context: NamingContext | None = None) -> str:
+def suggest_name(fields: Iterable[str], context: NamingContext = _DEFAULT_NAMING_CONTEXT) -> str:
     check_deadline()
-    context = context or NamingContext()
     field_list = [f for f in fields if f]
     if not field_list:
         base = context.fallback_prefix

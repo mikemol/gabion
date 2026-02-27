@@ -46,6 +46,7 @@ _ALT_EVIDENCE_PREFIX = {
     "NeverInvariantSink": "never/sink",
     "SignatureBundle": "paramset",
 }
+_NO_RESULT = None
 
 
 @dataclass(frozen=True)
@@ -107,49 +108,52 @@ def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
         field="schema_version",
         error_context="test evidence",
     )
-    tests = payload.get("tests", [])
-    if not isinstance(tests, list):
+    tests_payload = payload.get("tests", [])
+    match tests_payload:
+        case list() as tests:
+            pass
+        case _:
+            tests = []
+    if tests_payload is not tests:
         raise ValueError("test evidence payload is missing tests list")
     entries: list[TestEvidenceEntry] = []
     for entry in tests:
-        if not isinstance(entry, Mapping):
-            continue
-        test_id = str(entry.get("test_id", "") or "").strip()
-        if not test_id:
-            continue
-        file_path = str(entry.get("file", "") or "").strip()
-        line = int(entry.get("line", 0) or 0)
-        evidence = _normalize_evidence_list(entry.get("evidence", []))
-        raw_status = entry.get("status")
-        status = str(raw_status).strip() if raw_status is not None else ""
-        if not status:
-            status = "mapped" if evidence else "unmapped"
-        entries.append(
-            TestEvidenceEntry(
-                test_id=test_id,
-                file=file_path,
-                line=line,
-                evidence=tuple(evidence),
-                status=status,
-            )
-        )
-    return sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:134')
+        match entry:
+            case dict() as entry_data:
+                test_id = str(entry_data.get("test_id", "") or "").strip()
+                if test_id:
+                    file_path = str(entry_data.get("file", "") or "").strip()
+                    line = int(entry_data.get("line", 0) or 0)
+                    evidence = _normalize_evidence_list(entry_data.get("evidence", []))
+                    raw_status = entry_data.get("status")
+                    status = str(raw_status).strip() if raw_status is not None else ""
+                    if not status:
+                        status = "mapped" if evidence else "unmapped"
+                    entries.append(
+                        TestEvidenceEntry(
+                            test_id=test_id,
+                            file=file_path,
+                            line=line,
+                            evidence=tuple(evidence),
+                            status=status,
+                        )
+                    )
+            case _:
+                pass
+    return sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:145')
 
 
 def suggest_evidence(
     entries: Iterable[TestEvidenceEntry],
     *,
-    root: Path | str = ".",
-    paths: Iterable[Path] | None = None,
+    root=".",
+    paths=None,
     forest: Forest,
-    config: AuditConfig | None = None,
+    config=None,
     max_depth: int = DEFAULT_MAX_DEPTH,
     include_heuristics: bool = True,
-    graph_suggestions_fn: Callable[..., tuple[dict[str, _GraphSuggestion], set[str]]] | None = None,
-    suggest_for_entry_fn: Callable[
-        [TestEvidenceEntry], tuple[list[EvidenceSuggestion], list[str]]
-    ]
-    | None = None,
+    graph_suggestions_fn=None,
+    suggest_for_entry_fn=None,
 ) -> tuple[list[Suggestion], SuggestionSummary]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
@@ -159,7 +163,7 @@ def suggest_evidence(
     suggested_graph = 0
     suggested_heuristic = 0
     graph_unresolved = 0
-    entry_list = sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:160')
+    entry_list = sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:337')
     total = len(entry_list)
     unmapped_entries = [entry for entry in entry_list if not entry.evidence]
     skipped_mapped = total - len(unmapped_entries)
@@ -321,18 +325,16 @@ def render_json_payload(
 def collect_call_footprints(
     entries: Iterable[TestEvidenceEntry],
     *,
-    root: Path | str = ".",
-    paths: Iterable[Path] | None = None,
-    config: AuditConfig | None = None,
-    iter_paths_fn: Callable[[list[str], AuditConfig], list[Path]] | None = None,
-    build_function_index_fn: Callable[..., tuple[dict[str, Sequence[FunctionInfo]], dict[str, FunctionInfo]]]
-    | None = None,
-    build_symbol_table_fn: Callable[..., SymbolTable] | None = None,
-    collect_class_index_fn: Callable[..., Mapping[str, ClassInfo]] | None = None,
-    build_test_index_fn: Callable[[Mapping[str, FunctionInfo], Path | None], dict[str, FunctionInfo]]
-    | None = None,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
-    collect_call_footprint_targets_fn: Callable[..., tuple[dict[str, str], ...]] | None = None,
+    root=".",
+    paths=None,
+    config=None,
+    iter_paths_fn=None,
+    build_function_index_fn=None,
+    build_symbol_table_fn=None,
+    collect_class_index_fn=None,
+    build_test_index_fn=None,
+    resolve_callee_fn=None,
+    collect_call_footprint_targets_fn=None,
 ) -> dict[str, tuple[dict[str, str], ...]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, config
@@ -377,7 +379,7 @@ def collect_call_footprints(
     test_index = build_test_index(by_qual, project_root)
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
-    module_cache: dict[str, Path | None] = {}
+    module_cache = {}
 
     def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
         check_deadline()
@@ -394,9 +396,8 @@ def collect_call_footprints(
                 project_root,
                 class_index,
             )
-            if callee is None:
-                continue
-            resolved_callees[callee.qual] = callee
+            if callee is not None:
+                resolved_callees[callee.qual] = callee
         ordered = tuple(resolved_callees[key] for key in sort_once(resolved_callees, source = 'src/gabion/analysis/test_evidence_suggestions.py:398'))
         cache[info.qual] = ordered
         return ordered
@@ -404,23 +405,22 @@ def collect_call_footprints(
     footprints: dict[str, tuple[dict[str, str], ...]] = {}
     for entry in entry_list:
         info = test_index.get(entry.test_id)
-        if info is None:
-            continue
-        direct_callees = _resolved_callees(info)
-        targets = collect_call_footprint_targets(
-            info,
-            entry=entry,
-            direct_callees=direct_callees,
-            node_cache=node_cache,
-            module_cache=module_cache,
-            symbol_table=symbol_table,
-            by_name=by_name,
-            by_qual=by_qual,
-            class_index=class_index,
-            project_root=project_root,
-        )
-        if targets:
-            footprints[entry.test_id] = tuple(targets)
+        if info is not None:
+            direct_callees = _resolved_callees(info)
+            targets = collect_call_footprint_targets(
+                info,
+                entry=entry,
+                direct_callees=direct_callees,
+                node_cache=node_cache,
+                module_cache=module_cache,
+                symbol_table=symbol_table,
+                by_name=by_name,
+                by_qual=by_qual,
+                class_index=class_index,
+                project_root=project_root,
+            )
+            if targets:
+                footprints[entry.test_id] = tuple(targets)
     return footprints
 
 
@@ -428,24 +428,19 @@ def _graph_suggestions(
     entries: Sequence[TestEvidenceEntry],
     *,
     root: Path,
-    paths: Iterable[Path] | None,
+    paths,
     forest: Forest,
-    config: AuditConfig | None,
+    config,
     max_depth: int,
-    iter_paths_fn: Callable[[list[str], AuditConfig], list[Path]] | None = None,
-    build_function_index_fn: Callable[..., tuple[dict[str, Sequence[FunctionInfo]], dict[str, FunctionInfo]]]
-    | None = None,
-    build_symbol_table_fn: Callable[..., SymbolTable] | None = None,
-    collect_class_index_fn: Callable[..., Mapping[str, ClassInfo]] | None = None,
-    build_test_index_fn: Callable[[Mapping[str, FunctionInfo], Path | None], dict[str, FunctionInfo]]
-    | None = None,
-    build_forest_evidence_index_fn: Callable[
-        [Forest], tuple[dict[tuple[str, str], NodeId], dict[NodeId, tuple[EvidenceSuggestion, ...]]]
-    ]
-    | None = None,
-    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
-    collect_reachable_fn: Callable[..., list[FunctionInfo]] | None = None,
-    collect_call_footprint_targets_fn: Callable[..., tuple[dict[str, str], ...]] | None = None,
+    iter_paths_fn=None,
+    build_function_index_fn=None,
+    build_symbol_table_fn=None,
+    collect_class_index_fn=None,
+    build_test_index_fn=None,
+    build_forest_evidence_index_fn=None,
+    resolve_callee_fn=None,
+    collect_reachable_fn=None,
+    collect_call_footprint_targets_fn=None,
 ) -> tuple[dict[str, _GraphSuggestion], set[str]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
@@ -493,7 +488,7 @@ def _graph_suggestions(
     suggestions: dict[str, _GraphSuggestion] = {}
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
-    module_cache: dict[str, Path | None] = {}
+    module_cache = {}
 
     def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
         check_deadline()
@@ -510,70 +505,65 @@ def _graph_suggestions(
                 project_root,
                 class_index,
             )
-            if callee is None:
-                continue
-            resolved_callees[callee.qual] = callee
+            if callee is not None:
+                resolved_callees[callee.qual] = callee
         ordered = tuple(resolved_callees[key] for key in sort_once(resolved_callees, source = 'src/gabion/analysis/test_evidence_suggestions.py:514'))
         cache[info.qual] = ordered
         return ordered
 
     for entry in entries:
         info = test_index.get(entry.test_id)
-        if info is None:
-            continue
-        resolved.add(entry.test_id)
-        direct_callees = _resolved_callees(info)
-        reachable = collect_reachable(
-            info,
-            max_depth=max_depth,
-            resolve_callees=_resolved_callees,
-        )
-        evidence_items: dict[str, EvidenceSuggestion] = {}
-        for callee in reachable:
-            if _is_test_path(callee.path):
-                continue
-            site_id = site_index.get((callee.path.name, callee.qual))
-            if site_id is None:
-                continue
-            for item in evidence_by_site.get(site_id, ()):
-                evidence_items[item.identity] = item
-        if not evidence_items:
-            targets = collect_call_footprint_targets(
+        if info is not None:
+            resolved.add(entry.test_id)
+            direct_callees = _resolved_callees(info)
+            reachable = collect_reachable(
                 info,
-                entry=entry,
-                direct_callees=direct_callees,
-                node_cache=node_cache,
-                module_cache=module_cache,
-                symbol_table=symbol_table,
-                by_name=by_name,
-                by_qual=by_qual,
-                class_index=class_index,
-                project_root=project_root,
+                max_depth=max_depth,
+                resolve_callees=_resolved_callees,
             )
-            if targets:
-                key = evidence_keys.make_call_footprint_key(
-                    path=entry.file,
-                    qual=_test_qual(entry.test_id),
-                    targets=targets,
+            evidence_items: dict[str, EvidenceSuggestion] = {}
+            for callee in reachable:
+                if not _is_test_path(callee.path):
+                    site_id = site_index.get((callee.path.name, callee.qual))
+                    if site_id is not None:
+                        for item in evidence_by_site.get(site_id, ()):
+                            evidence_items[item.identity] = item
+            if not evidence_items:
+                targets = collect_call_footprint_targets(
+                    info,
+                    entry=entry,
+                    direct_callees=direct_callees,
+                    node_cache=node_cache,
+                    module_cache=module_cache,
+                    symbol_table=symbol_table,
+                    by_name=by_name,
+                    by_qual=by_qual,
+                    class_index=class_index,
+                    project_root=project_root,
                 )
-                suggestion = EvidenceSuggestion(
-                    key=key,
-                    display=evidence_keys.render_display(key),
-                )
-                ordered = (suggestion,)
+                if targets:
+                    key = evidence_keys.make_call_footprint_key(
+                        path=entry.file,
+                        qual=_test_qual(entry.test_id),
+                        targets=targets,
+                    )
+                    suggestion = EvidenceSuggestion(
+                        key=key,
+                        display=evidence_keys.render_display(key),
+                    )
+                    ordered = (suggestion,)
+                    suggestions[entry.test_id] = _GraphSuggestion(
+                        suggested=ordered,
+                        source=CALL_FOOTPRINT_FALLBACK_SOURCE,
+                        derived_from=tuple(targets),
+                    )
+            if evidence_items:
+                ordered = tuple(evidence_items[key] for key in sort_once(evidence_items, source = 'src/gabion/analysis/test_evidence_suggestions.py:569'))
                 suggestions[entry.test_id] = _GraphSuggestion(
                     suggested=ordered,
-                    source=CALL_FOOTPRINT_FALLBACK_SOURCE,
-                    derived_from=tuple(targets),
+                    source=GRAPH_SOURCE,
+                    derived_from=(),
                 )
-                continue
-        if evidence_items:
-            ordered = tuple(evidence_items[key] for key in sort_once(evidence_items, source = 'src/gabion/analysis/test_evidence_suggestions.py:569'))
-            suggestions[entry.test_id] = _GraphSuggestion(
-                suggested=ordered,
-                source=GRAPH_SOURCE,
-                derived_from=(),
-            )
     return suggestions, resolved
 
 
@@ -608,11 +598,11 @@ def _collect_call_footprint_targets(
     entry: TestEvidenceEntry,
     direct_callees: Sequence[FunctionInfo],
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]],
-    module_cache: dict[str, Path | None],
+    module_cache,
     symbol_table: SymbolTable,
     by_name: Mapping[str, Sequence[FunctionInfo]],
     by_qual: Mapping[str, FunctionInfo],
-    class_index: Mapping[str, ClassInfo] | None,
+    class_index,
     project_root: Path,
 ) -> tuple[dict[str, str], ...]:
     targets = [
@@ -642,11 +632,11 @@ def _find_module_level_calls(
     *,
     entry: TestEvidenceEntry,
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]],
-    module_cache: dict[str, Path | None],
+    module_cache,
     symbol_table: SymbolTable,
     by_name: Mapping[str, Sequence[FunctionInfo]],
     by_qual: Mapping[str, FunctionInfo],
-    class_index: Mapping[str, ClassInfo] | None,
+    class_index,
     project_root: Path,
 ) -> tuple[tuple[str, str], ...]:
     check_deadline()
@@ -692,8 +682,8 @@ def _find_module_level_calls(
                 if resolved_module:
                     path, qual = resolved_module
                     resolved[f"{path}:{qual}"] = (path, qual)
-                continue
-            resolved[callee.qual] = (str(callee.path.name), str(callee.qual))
+            else:
+                resolved[callee.qual] = (str(callee.path.name), str(callee.qual))
         for module_literal in _call_module_literals(call):
             resolved_module = _resolve_module_literal(module_literal, project_root, module_cache)
             if resolved_module:
@@ -709,10 +699,12 @@ def _index_nodes_by_scope(
     check_deadline()
     index: dict[tuple[tuple[str, ...], str], ast.AST] = {}
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        scopes = tuple(_enclosing_scopes(node, parents))
-        index[(scopes, node.name)] = node
+        match node:
+            case ast.FunctionDef() | ast.AsyncFunctionDef():
+                scopes = tuple(_enclosing_scopes(node, parents))
+                index[(scopes, node.name)] = node
+            case _:
+                pass
     return index
 
 
@@ -722,11 +714,16 @@ def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
     stack = list(getattr(node, "body", ()))
     while stack:
         current = stack.pop()
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            continue
-        if isinstance(current, ast.Call):
-            calls.append(current)
-        stack.extend(ast.iter_child_nodes(current))
+        expand_children = True
+        match current:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef():
+                expand_children = False
+            case ast.Call():
+                calls.append(current)
+            case _:
+                pass
+        if expand_children:
+            stack.extend(ast.iter_child_nodes(current))
     return calls
 
 
@@ -734,22 +731,27 @@ def _call_symbol_refs(call: ast.Call) -> list[str]:
     check_deadline()
     refs: list[str] = []
     target = call.func
-    if isinstance(target, ast.Name):
-        refs.append(target.id)
-    elif isinstance(target, ast.Attribute):
-        name = _attribute_chain(target)
-        if name:
+    match target:
+        case ast.Name(id=name):
             refs.append(name)
+        case ast.Attribute() as attr:
+            name = _attribute_chain(attr)
+            if name:
+                refs.append(name)
+        case _:
+            pass
     for arg in call.args:
         name = _expr_symbol_ref(arg)
         if name:
             refs.append(name)
     for kw in call.keywords:
-        if kw.value is None:
-            continue
-        name = _expr_symbol_ref(kw.value)
-        if name:
-            refs.append(name)
+        match kw.value:
+            case None:
+                pass
+            case value:
+                name = _expr_symbol_ref(value)
+                if name:
+                    refs.append(name)
     return refs
 
 
@@ -761,91 +763,99 @@ def _call_module_literals(call: ast.Call) -> list[str]:
         if literal:
             values.append(literal)
     for kw in call.keywords:
-        if kw.value is None:
-            continue
-        literal = _module_literal(kw.value)
-        if literal:
-            values.append(literal)
+        match kw.value:
+            case None:
+                pass
+            case value:
+                literal = _module_literal(value)
+                if literal:
+                    values.append(literal)
     return values
 
 
-def _expr_symbol_ref(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return _attribute_chain(node)
-    return None
+def _expr_symbol_ref(node: ast.AST):
+    match node:
+        case ast.Name(id=name):
+            return name
+        case ast.Attribute() as attr:
+            return _attribute_chain(attr)
+        case _:
+            return _NO_RESULT
 
 
-def _module_literal(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value.strip()
-    return None
+def _module_literal(node: ast.AST):
+    match node:
+        case ast.Constant(value=str() as value):
+            return value.strip()
+        case _:
+            return _NO_RESULT
 
 
-def _attribute_chain(node: ast.Attribute) -> str | None:
+def _attribute_chain(node: ast.Attribute):
     check_deadline()
     parts: list[str] = []
-    current: ast.AST | None = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        parts.append(current.id)
-    else:
-        return None
-    return ".".join(reversed(parts))
+    current: ast.AST = node
+    while True:
+        match current:
+            case ast.Attribute(attr=attr, value=value):
+                parts.append(attr)
+                current = value
+            case ast.Name(id=name):
+                parts.append(name)
+                return ".".join(reversed(parts))
+            case _:
+                return _NO_RESULT
 
 
 def _resolve_symbol_target(
-    callee_name: str,
-    module_name: str,
-    symbol_table: SymbolTable,
-    module_cache: dict[str, Path | None],
-    project_root: Path,
-) -> tuple[str, str] | None:
+    callee_name,
+    module_name,
+    symbol_table,
+    module_cache,
+    project_root,
+):
     if not callee_name:
-        return None
+        return _NO_RESULT
     if "." in callee_name:
         base, *rest = callee_name.split(".")
     else:
         base, rest = callee_name, []
     if (module_name, base) not in symbol_table.imports:
-        return None
+        return _NO_RESULT
     base_fqn = symbol_table.resolve(module_name, base)
     if base_fqn is None:
-        return None
+        return _NO_RESULT
     module_fqn = base_fqn
     module_path = _resolve_module_file(module_fqn, project_root, module_cache)
     if module_path is None and "." in base_fqn:
         module_fqn = base_fqn.rsplit(".", 1)[0]
         module_path = _resolve_module_file(module_fqn, project_root, module_cache)
     if module_path is None:
-        return None
+        return _NO_RESULT
     qual = base_fqn if not rest else base_fqn + "." + ".".join(rest)
     return (module_path.name, qual)
 
 
 def _resolve_module_literal(
-    value: str,
-    project_root: Path,
-    module_cache: dict[str, Path | None],
-) -> tuple[str, str] | None:
+    value,
+    project_root,
+    module_cache,
+):
     if not value or value.startswith("."):
-        return None
+        return _NO_RESULT
     if any(part.strip() == "" for part in value.split(".")):
-        return None
+        return _NO_RESULT
     module_path = _resolve_module_file(value, project_root, module_cache)
     if module_path is None:
-        return None
+        return _NO_RESULT
     return (module_path.name, value)
 
 
 def _resolve_module_file(
-    module_name: str,
-    project_root: Path,
-    module_cache: dict[str, Path | None],
-) -> Path | None:
+    module_name,
+    project_root,
+    module_cache,
+):
     check_deadline()
     module_path = module_cache.get(module_name)
     if module_name in module_cache:
@@ -861,13 +871,13 @@ def _resolve_module_file(
             if init_candidate.exists():
                 module_cache[module_name] = init_candidate
                 return init_candidate
-    module_cache[module_name] = None
-    return None
+    module_cache[module_name] = _NO_RESULT
+    return _NO_RESULT
 
 
 def _build_test_index(
     by_qual: Mapping[str, FunctionInfo],
-    project_root: Path | None,
+    project_root,
 ) -> dict[str, FunctionInfo]:
     check_deadline()
     index: dict[str, FunctionInfo] = {}
@@ -880,7 +890,7 @@ def _build_test_index(
     return index
 
 
-def _rel_path(path: Path, project_root: Path | None) -> str:
+def _rel_path(path: Path, project_root) -> str:
     if project_root is None:
         return str(path)
     try:
@@ -904,15 +914,12 @@ def _build_forest_evidence_index(
 
     evidence_by_site: dict[NodeId, dict[str, EvidenceSuggestion]] = defaultdict(dict)
     for alt in forest.alts:
-        if alt.kind not in _ALT_EVIDENCE_PREFIX:
-            continue
-        site_id = _alt_input(alt, "FunctionSite")
-        if site_id is None:
-            continue
-        suggestion = _evidence_for_alt(alt, forest)
-        if suggestion is None:
-            continue
-        evidence_by_site[site_id][suggestion.identity] = suggestion
+        if alt.kind in _ALT_EVIDENCE_PREFIX:
+            site_id = _alt_input(alt, "FunctionSite")
+            if site_id is not None:
+                suggestion = _evidence_for_alt(alt, forest)
+                if suggestion is not None:
+                    evidence_by_site[site_id][suggestion.identity] = suggestion
     ordered: dict[NodeId, tuple[EvidenceSuggestion, ...]] = {}
     for site_id, items in evidence_by_site.items():
         ordered[site_id] = tuple(items[key] for key in sort_once(items, source = 'src/gabion/analysis/test_evidence_suggestions.py:916'))
@@ -920,31 +927,31 @@ def _build_forest_evidence_index(
 
 
 def _evidence_for_alt(
-    alt: Alt,
-    forest: Forest,
+    alt,
+    forest,
     *,
-    prefix_map: Mapping[str, str] | None = None,
-) -> EvidenceSuggestion | None:
+    prefix_map=None,
+):
     prefix_map = prefix_map or _ALT_EVIDENCE_PREFIX
     prefix = prefix_map.get(alt.kind)
     if prefix is None:
-        return None
+        return _NO_RESULT
     paramset_id = _alt_input(alt, "ParamSet")
     if paramset_id is None:
-        return None
+        return _NO_RESULT
     paramset_key = _format_paramset(_paramset_key(forest, paramset_id))
     if not paramset_key:
-        return None
+        return _NO_RESULT
     if alt.kind == "SignatureBundle":
         key = evidence_keys.make_paramset_key(paramset_key.split(","))
         display = evidence_keys.render_display(key)
         return EvidenceSuggestion(key=key, display=display)
     site_id = _alt_input(alt, "FunctionSite")
     if site_id is None:
-        return None
+        return _NO_RESULT
     path, qual = _site_parts(site_id, forest)
     if not path or not qual:
-        return None
+        return _NO_RESULT
     if prefix == "decision_surface/direct":
         key = evidence_keys.make_decision_surface_key(
             mode="direct",
@@ -966,7 +973,7 @@ def _evidence_for_alt(
             param=paramset_key,
         )
     else:
-        return None
+        return _NO_RESULT
     display = evidence_keys.render_display(key)
     return EvidenceSuggestion(key=key, display=display)
 
@@ -998,12 +1005,12 @@ def _format_paramset(items: Sequence[str]) -> str:
 def _suggest_for_entry(
     entry: TestEvidenceEntry,
     *,
-    rules_fn: Callable[[], list[_SuggestionRule]] | None = None,
-    parse_display_fn: Callable[[str], dict[str, object] | None] | None = None,
-    make_opaque_key_fn: Callable[[str], dict[str, object]] | None = None,
-    normalize_key_fn: Callable[[dict[str, object]], dict[str, object]] | None = None,
-    render_display_fn: Callable[[dict[str, object]], str] | None = None,
-    is_opaque_fn: Callable[[dict[str, object]], bool] | None = None,
+    rules_fn=None,
+    parse_display_fn=None,
+    make_opaque_key_fn=None,
+    normalize_key_fn=None,
+    render_display_fn=None,
+    is_opaque_fn=None,
 ) -> tuple[list[EvidenceSuggestion], list[str]]:
     check_deadline()
     file_haystack, name_haystack = _suggestion_haystack(entry)
@@ -1179,24 +1186,24 @@ def _suggestion_rules() -> list[_SuggestionRule]:
 def _normalize_evidence_list(value: object) -> list[str]:
     check_deadline()
     if value is None:
-        return []
+        return list()
     items: list[str] = []
-    if isinstance(value, str):
-        items = [value]
-    elif isinstance(value, (list, tuple, set)):
-        for item in value:
-            if isinstance(item, str):
-                items.append(item)
-            elif isinstance(item, Mapping):
-                display = item.get("display")
-                if isinstance(display, str):
-                    items.append(display)
-    else:
-        return []
+    match value:
+        case str() as item:
+            items = [item]
+        case list() | tuple() | set() as item_list:
+            for item in item_list:
+                match item:
+                    case str() as display:
+                        items.append(display)
+                    case {"display": str() as display}:
+                        items.append(display)
+                    case _:
+                        pass
+        case _:
+            return list()
     cleaned = [item.strip() for item in items if item.strip()]
     return sort_once(set(cleaned), source = 'src/gabion/analysis/test_evidence_suggestions.py:1195')
-
-
 def _summarize_unmapped(
     entries: Iterable[TestEvidenceEntry],
 ) -> tuple[tuple[tuple[str, int], ...], tuple[tuple[str, int], ...]]:

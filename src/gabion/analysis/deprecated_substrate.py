@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
+
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 
 
 class DeprecatedLifecycleState(StrEnum):
@@ -27,11 +29,10 @@ class DeprecatedBlocker:
         summary = str(payload.get("summary", "") or "").strip()
         lifecycle = DeprecatedLifecycleState(str(payload.get("lifecycle", "blocked") or "blocked"))
         depends_on_raw = payload.get("depends_on", ())
-        depends_on: tuple[str, ...]
-        if isinstance(depends_on_raw, Sequence) and not isinstance(depends_on_raw, (str, bytes)):
-            depends_on = tuple(str(item).strip() for item in depends_on_raw if str(item).strip())
-        else:
-            depends_on = ()
+        depends_on_sequence = sequence_or_none(depends_on_raw, allow_str=False) or ()
+        depends_on = tuple(
+            str(item).strip() for item in depends_on_sequence if str(item).strip()
+        )
         if not blocker_id or not kind or not summary:
             raise ValueError("deprecated blocker requires blocker_id, kind, and summary")
         return cls(
@@ -49,27 +50,35 @@ class DeprecatedFiber:
     canonical_aspf_path: tuple[str, ...]
     lifecycle: DeprecatedLifecycleState
     blocker_payload: tuple[DeprecatedBlocker, ...] = ()
-    resolution_metadata: Mapping[str, object] | None = None
+    resolution_metadata: object = None
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> "DeprecatedFiber":
         path_raw = payload.get("canonical_aspf_path", ())
-        if not isinstance(path_raw, Sequence) or isinstance(path_raw, (str, bytes)):
-            raise ValueError("canonical_aspf_path must be a sequence")
-        path = tuple(str(item).strip() for item in path_raw if str(item).strip())
+        match path_raw:
+            case str() | bytes():
+                raise ValueError("canonical_aspf_path must be a sequence")
+        path_sequence = sequence_or_none(path_raw, allow_str=False) or ()
+        path = tuple(str(item).strip() for item in path_sequence if str(item).strip())
         lifecycle = DeprecatedLifecycleState(str(payload.get("lifecycle", "active") or "active"))
         blockers_raw = payload.get("blocker_payload", ())
         blockers: list[DeprecatedBlocker] = []
-        if isinstance(blockers_raw, Sequence) and not isinstance(blockers_raw, (str, bytes)):
-            for item in blockers_raw:
-                if isinstance(item, Mapping):
-                    blockers.append(DeprecatedBlocker.from_payload(item))
+        blockers_sequence = sequence_or_none(blockers_raw, allow_str=False) or ()
+        for item in blockers_sequence:
+            blocker_payload = mapping_or_none(item)
+            if blocker_payload is not None:
+                blockers.append(DeprecatedBlocker.from_payload(blocker_payload))
+        metadata = None
+        resolution_metadata_payload = payload.get("resolution_metadata")
+        match resolution_metadata_payload:
+            case Mapping() as resolution_metadata:
+                metadata = resolution_metadata
         return deprecated(
             canonical_aspf_path=path,
             blockers=tuple(blockers),
             lifecycle=lifecycle,
             fiber_id=str(payload.get("fiber_id", "") or "").strip() or None,
-            resolution_metadata=payload.get("resolution_metadata") if isinstance(payload.get("resolution_metadata"), Mapping) else None,
+            resolution_metadata=metadata,
         )
 
 
@@ -78,8 +87,8 @@ def deprecated(
     canonical_aspf_path: Sequence[str],
     blockers: Sequence[DeprecatedBlocker],
     lifecycle: DeprecatedLifecycleState = DeprecatedLifecycleState.ACTIVE,
-    fiber_id: str | None = None,
-    resolution_metadata: Mapping[str, object] | None = None,
+    fiber_id: object = None,
+    resolution_metadata: object = None,
 ) -> DeprecatedFiber:
     path = tuple(str(item).strip() for item in canonical_aspf_path if str(item).strip())
     if not path:
@@ -91,12 +100,18 @@ def deprecated(
         raise ValueError("resolved deprecated fiber requires resolution metadata")
     if fiber_id is None:
         fiber_id = "aspf:" + "/".join(path)
+    resolved_metadata: object = None
+    match resolution_metadata:
+        case Mapping() as metadata_mapping:
+            resolved_metadata = metadata_mapping
+        case _:
+            resolved_metadata = None
     return DeprecatedFiber(
-        fiber_id=fiber_id,
+        fiber_id=str(fiber_id),
         canonical_aspf_path=path,
         lifecycle=lifecycle,
         blocker_payload=blocker_payload,
-        resolution_metadata=resolution_metadata,
+        resolution_metadata=resolved_metadata,
     )
 
 
@@ -128,12 +143,12 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
     parsed: list[PerfSample] = []
     for sample in samples:
         stack_raw = sample.get("stack", ())
-        if isinstance(stack_raw, Sequence) and not isinstance(stack_raw, (str, bytes)):
-            stack = tuple(str(item).strip() for item in stack_raw if str(item).strip())
-            if stack:
-                weight_raw = sample.get("weight", 1)
-                weight = int(weight_raw) if isinstance(weight_raw, int) and weight_raw > 0 else 1
-                parsed.append(PerfSample(stack=stack, weight=weight))
+        stack_sequence = sequence_or_none(stack_raw, allow_str=False) or ()
+        stack = tuple(str(item).strip() for item in stack_sequence if str(item).strip())
+        if stack:
+            weight_raw = sample.get("weight", 1)
+            weight = int(weight_raw) if type(weight_raw) is int and weight_raw > 0 else 1
+            parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 
 
@@ -199,15 +214,17 @@ def build_deprecated_extraction_artifacts(
     *,
     perf_samples: Sequence[PerfSample],
     deprecated_fibers: Sequence[DeprecatedFiber],
-    branch_coverage_previous: Mapping[str, float] | None = None,
-    branch_coverage_current: Mapping[str, float] | None = None,
+    branch_coverage_previous: object = None,
+    branch_coverage_current: object = None,
 ) -> DeprecatedExtractionArtifacts:
     perf_groups = project_stack_to_aspf_fiber_groups(perf_samples)
     rankings = rank_fiber_groups(perf_groups)
     blocker_dag = blocker_dag_for_fibers(deprecated_fibers)
+    previous_coverage = mapping_or_none(branch_coverage_previous) or {}
+    current_coverage = mapping_or_none(branch_coverage_current) or {}
     info = classify_branch_coverage_loss(
-        previous=branch_coverage_previous or {},
-        current=branch_coverage_current or {},
+        previous=previous_coverage,
+        current=current_coverage,
     )
     return DeprecatedExtractionArtifacts(
         perf_fiber_groups=perf_groups,

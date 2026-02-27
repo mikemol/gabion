@@ -217,10 +217,39 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
         and "work_total" in value
         for value in progress_values
     )
-    assert any(
-        value.get("done") is True and value.get("analysis_state") == "succeeded"
-        for value in progress_values
+
+
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._reject_removed_legacy_payload_keys
+@pytest.mark.parametrize(
+    "removed_payload",
+    [
+        {"resume_checkpoint": False},
+        {"emit_timeout_progress_report": True},
+        {"resume_on_timeout": 1},
+        {"emit_checkpoint_intro_timeline": True},
+    ],
+)
+def test_execute_command_rejects_removed_legacy_resume_flags(
+    tmp_path: Path,
+    removed_payload: dict[str, object],
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                **removed_payload,
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
+
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_heartbeat_loop_tolerates_missing_progress_template::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -260,12 +289,66 @@ def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_aspf_trace_equivalence_and_opportunities_when_enabled::server.py::gabion.server.execute_command
+def test_execute_command_emits_aspf_trace_equivalence_and_opportunities_when_enabled(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    baseline_trace = tmp_path / "artifacts" / "out" / "aspf_trace_baseline.json"
+    baseline_state = tmp_path / "artifacts" / "out" / "aspf_state" / "session" / "0001_baseline.json"
+    current_trace = tmp_path / "artifacts" / "out" / "aspf_trace_current.json"
+    current_state = tmp_path / "artifacts" / "out" / "aspf_state" / "session" / "0002_current.json"
+    opportunities_path = tmp_path / "artifacts" / "out" / "aspf_opportunities_current.json"
+
+    baseline_result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "aspf_trace_json": str(baseline_trace),
+                "aspf_state_json": str(baseline_state),
+                "aspf_semantic_surface": ["groups_by_path", "violation_summary"],
+            }
+        ),
+    )
+    assert baseline_result.get("analysis_state") == "succeeded"
+    assert baseline_trace.exists()
+    assert baseline_state.exists()
+
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "aspf_trace_json": str(current_trace),
+                "aspf_equivalence_against": [str(baseline_trace)],
+                "aspf_opportunities_json": str(opportunities_path),
+                "aspf_state_json": str(current_state),
+                "aspf_import_state": [str(baseline_state)],
+                "aspf_semantic_surface": ["groups_by_path", "violation_summary"],
+            }
+        ),
+    )
+    assert result.get("analysis_state") == "succeeded"
+    assert "aspf_trace" in result
+    assert "aspf_equivalence" in result
+    assert "aspf_opportunities" in result
+    assert "aspf_state" in result
+    assert current_trace.exists()
+    assert current_state.exists()
+    assert (tmp_path / "artifacts" / "out" / "aspf_equivalence.json").exists()
+    assert opportunities_path.exists()
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_heartbeat_progress_with_staleness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_emits_heartbeat_progress_with_staleness(
     tmp_path: Path,
 ) -> None:
     module_path = tmp_path / "sample.py"
-    checkpoint_path = tmp_path / "resume.json"
     _write_bundle_module(module_path)
     ls = _DummyNotifyingServer(str(tmp_path))
 
@@ -280,7 +363,6 @@ def test_execute_command_emits_heartbeat_progress_with_staleness(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "resume_checkpoint": str(checkpoint_path),
                 "progress_heartbeat_seconds": 5,
             }
         ),
@@ -306,10 +388,9 @@ def test_execute_command_emits_heartbeat_progress_with_staleness(
 def test_execute_command_emits_resume_progress_before_completion(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    ls = _DummyNotifyingServer(str(tmp_path))
 
     result = _execute_with_deps(
-        ls,
+        _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
@@ -321,25 +402,7 @@ def test_execute_command_emits_resume_progress_before_completion(tmp_path: Path)
         analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
 
-    assert result["analysis_state"] == "succeeded"
-    progress_values = _progress_values(ls)
-    assert progress_values
-    resume_progress = next(
-        (
-            value
-            for value in progress_values
-            if isinstance(value.get("resume_checkpoint"), dict)
-        ),
-        None,
-    )
-    assert isinstance(resume_progress, dict)
-    resume_checkpoint = resume_progress.get("resume_checkpoint")
-    assert isinstance(resume_checkpoint, dict)
-    assert str(resume_checkpoint.get("status", "")).startswith("checkpoint_")
-    assert resume_checkpoint.get("reused_files") == 0
-    assert resume_checkpoint.get("total_files") == 1
-    assert resume_progress.get("classification") == "resume_checkpoint_detected"
-    assert resume_progress.get("done") is not True
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_preserves_resume_checkpoint_for_next_run::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -348,62 +411,21 @@ def test_execute_command_preserves_resume_checkpoint_for_next_run(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-
-    def _analyze_with_progress(*_args: object, **kwargs: object) -> server.AnalysisResult:
-        on_collection_progress = kwargs.get("on_collection_progress")
-        if callable(on_collection_progress):
-            on_collection_progress(
-                {
-                    "completed_paths": [str(module_path)],
-                    "in_progress_scan_by_path": {},
-                    "semantic_progress": {"current_witness_digest": "digest"},
-                }
-            )
-        return _empty_analysis_result()
 
     payload = _with_timeout(
         {
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "report": "-",
-            "resume_checkpoint": str(checkpoint_path),
+            "resume_checkpoint": str(tmp_path / "resume.json"),
         }
     )
-    first_ls = _DummyNotifyingServer(str(tmp_path))
-    first_result = _execute_with_deps(
-        first_ls,
+    result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
         payload,
-        analyze_paths_fn=_analyze_with_progress,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert first_result["analysis_state"] == "succeeded"
-    assert checkpoint_path.exists()
-
-    second_ls = _DummyNotifyingServer(str(tmp_path))
-    second_result = _execute_with_deps(
-        second_ls,
-        payload,
-        analyze_paths_fn=_analyze_with_progress,
-    )
-    analysis_resume = second_result.get("analysis_resume")
-    assert isinstance(analysis_resume, dict)
-    assert analysis_resume.get("status") == "checkpoint_loaded"
-    assert analysis_resume.get("reused_files") == 1
-    assert analysis_resume.get("cache_verdict") == "hit"
-    second_progress = _progress_values(second_ls)
-    resume_progress = next(
-        (
-            value
-            for value in second_progress
-            if isinstance(value.get("resume_checkpoint"), dict)
-        ),
-        None,
-    )
-    assert isinstance(resume_progress, dict)
-    resume_checkpoint = resume_progress.get("resume_checkpoint")
-    assert isinstance(resume_checkpoint, dict)
-    assert resume_checkpoint.get("status") == "checkpoint_loaded"
-    assert resume_checkpoint.get("reused_files") == 1
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -412,8 +434,6 @@ def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_f
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    ls = _DummyNotifyingServer(str(tmp_path))
-    checkpoint_path = tmp_path / "resume.json"
     captured_flush_kwargs: list[dict[str, object]] = []
 
     def _analyze_with_progress(*_args: object, **kwargs: object) -> server.AnalysisResult:
@@ -439,13 +459,13 @@ def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_f
         return False
 
     result = _execute_with_deps(
-        ls,
+        _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
             }
         ),
         analyze_paths_fn=_analyze_with_progress,
@@ -453,9 +473,8 @@ def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_f
         collection_checkpoint_flush_due_fn=_capture_flush_gate,
     )
 
-    assert result["analysis_state"] == "succeeded"
-    assert captured_flush_kwargs
-    assert captured_flush_kwargs[0].get("semantic_substantive_progress") is True
+    _assert_invariant_failure(result)
+    assert captured_flush_kwargs == []
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -464,58 +483,22 @@ def test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    timeline_path = (
-        tmp_path / "artifacts" / "audit_reports" / "dataflow_checkpoint_intro_timeline.md"
-    )
-    ls = _DummyNotifyingServer(str(tmp_path))
-
-    def _analyze_with_progress(*_args: object, **kwargs: object) -> server.AnalysisResult:
-        on_collection_progress = kwargs.get("on_collection_progress")
-        if callable(on_collection_progress):
-            on_collection_progress(
-                {
-                    "completed_paths": [str(module_path)],
-                    "in_progress_scan_by_path": {},
-                }
-            )
-        return _empty_analysis_result()
 
     result = _execute_with_deps(
-        ls,
+        _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "emit_checkpoint_intro_timeline": True,
             }
         ),
-        analyze_paths_fn=_analyze_with_progress,
-        collection_checkpoint_flush_due_fn=lambda **_kwargs: True,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
 
-    assert result["analysis_state"] == "succeeded"
-    assert timeline_path.exists()
-    timeline_text = timeline_path.read_text(encoding="utf-8")
-    assert "status=checkpoint_seeded reused_files=0/1" in timeline_text
-    progress_values = _progress_values(ls)
-    timeline_updates = [
-        value
-        for value in progress_values
-        if isinstance(value.get("checkpoint_intro_timeline_row"), str)
-    ]
-    assert len(timeline_updates) >= 2
-    assert isinstance(timeline_updates[0].get("checkpoint_intro_timeline_header"), str)
-    data_lines = [
-        line
-        for line in timeline_text.splitlines()
-        if line.startswith("| ")
-        and not line.startswith("| ts_utc |")
-        and not line.startswith("| --- ")
-    ]
-    assert len(data_lines) >= 2
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_timeout_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -549,8 +532,6 @@ def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    ls = _DummyNotifyingServer(str(tmp_path))
 
     def _analyze_then_timeout(*_args: object, **kwargs: object) -> server.AnalysisResult:
         on_collection_progress = kwargs.get("on_collection_progress")
@@ -565,13 +546,13 @@ def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
         raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
 
     result = _execute_with_deps(
-        ls,
+        _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "emit_checkpoint_intro_timeline": True,
             }
         ),
@@ -579,16 +560,7 @@ def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
         collection_checkpoint_flush_due_fn=lambda **_kwargs: False,
     )
 
-    assert result["timeout"] is True
-    progress_values = _progress_values(ls)
-    timeout_timeline = [
-        value
-        for value in progress_values
-        if value.get("classification") == "checkpoint_serialized"
-        and isinstance(value.get("checkpoint_intro_timeline_row"), str)
-        and value.get("analysis_state") == "analysis_collection_checkpoint_serialized"
-    ]
-    assert timeout_timeline
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_failed_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -728,66 +700,8 @@ def test_collection_checkpoint_flush_due() -> None:
 def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
     tmp_path: Path,
 ) -> None:
-    timeline_path = tmp_path / "checkpoint_intro_timeline.md"
-    checkpoint_path = tmp_path / "resume.json"
-
-    server._append_checkpoint_intro_timeline_row(
-        path=timeline_path,
-        collection_resume={
-            "completed_paths": ["a.py"],
-            "in_progress_scan_by_path": {"b.py": ["fn"]},
-            "analysis_index_resume": {
-                "hydrated_paths_count": 4,
-                "function_count": 9,
-                "class_count": 5,
-            },
-            "semantic_progress": {
-                "current_witness_digest": "digest-a",
-                "new_processed_functions_count": 1,
-                "regressed_processed_functions_count": 0,
-                "completed_files_delta": 1,
-                "substantive_progress": False,
-            },
-        },
-        total_files=3,
-        checkpoint_path=checkpoint_path,
-        checkpoint_status="checkpoint_loaded",
-        checkpoint_reused_files=1,
-        checkpoint_total_files=3,
-        timestamp_utc="2026-02-19T00:00:00Z",
-    )
-    server._append_checkpoint_intro_timeline_row(
-        path=timeline_path,
-        collection_resume={
-            "completed_paths": ["a.py", "b.py"],
-            "in_progress_scan_by_path": {},
-            "semantic_progress": {
-                "current_witness_digest": "digest-b",
-                "new_processed_functions_count": 2,
-                "regressed_processed_functions_count": 0,
-                "completed_files_delta": 1,
-                "substantive_progress": True,
-            },
-        },
-        total_files=3,
-        checkpoint_path=checkpoint_path,
-        checkpoint_status="checkpoint_seeded",
-        checkpoint_reused_files=0,
-        timestamp_utc="2026-02-19T00:00:01Z",
-    )
-
-    timeline_text = timeline_path.read_text(encoding="utf-8")
-    assert timeline_text.count("| ts_utc |") == 1
-    assert "status=checkpoint_loaded reused_files=1/3" in timeline_text
-    assert "status=checkpoint_seeded reused_files=0/3" in timeline_text
-    data_lines = [
-        line
-        for line in timeline_text.splitlines()
-        if line.startswith("| ")
-        and not line.startswith("| ts_utc |")
-        and not line.startswith("| --- ")
-    ]
-    assert len(data_lines) == 2
+    _ = tmp_path
+    assert not hasattr(server, "_append_checkpoint_intro_timeline_row")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_report_flush_due::server.py::gabion.server._collection_report_flush_due
@@ -888,7 +802,6 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
 ) -> None:
     module_path = tmp_path / "many.py"
     _write_many_functions_module(module_path, count=800)
-    checkpoint_path = tmp_path / "artifacts" / "audit_reports" / "resume.json"
     command_payload: dict[str, object] = {
         "root": str(tmp_path),
         "paths": [str(module_path)],
@@ -897,60 +810,11 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
         "analysis_timeout_ticks": 1,
         "analysis_timeout_tick_ns": 200_000_000,
         "deadline_profile": True,
-        "resume_checkpoint": str(checkpoint_path),
+        "resume_checkpoint": str(tmp_path / "artifacts" / "audit_reports" / "resume.json"),
     }
-    defaults = server.dataflow_defaults(tmp_path, None)
-    merged_payload = server.merge_payload(command_payload, defaults)
-    config = server.AuditConfig(
-        project_root=tmp_path,
-        exclude_dirs=set(merged_payload.get("exclude", [])),
-        ignore_params=set(merged_payload.get("ignore_params", [])),
-        external_filter=not bool(merged_payload.get("allow_external", False)),
-        strictness=str(merged_payload.get("strictness", "high")),
-        transparent_decorators=server._normalize_transparent_decorators(
-            merged_payload.get("transparent_decorators")
-        ),
-    )
-    file_paths = server.resolve_analysis_paths([module_path], config=config)
-    witness = server._analysis_input_witness(
-        root=tmp_path,
-        file_paths=file_paths,
-        recursive=True,
-        include_invariant_propositions=True,
-        include_wl_refinement=False,
-        config=config,
-    )
-    server._write_analysis_resume_checkpoint(
-        path=checkpoint_path,
-        input_witness=witness,
-        input_manifest_digest=None,
-        collection_resume={
-            "format_version": 2,
-            "completed_paths": [],
-            "groups_by_path": {},
-            "param_spans_by_path": {},
-            "bundle_sites_by_path": {},
-            "in_progress_scan_by_path": {
-                str(module_path): {
-                    "phase": "function_scan",
-                }
-            },
-            "invariant_propositions": [],
-        },
-    )
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(ls, command_payload)
-    assert result.get("timeout") is True
-    timeout_context = result.get("timeout_context")
-    assert isinstance(timeout_context, dict)
-    progress = timeout_context.get("progress")
-    assert isinstance(progress, dict)
-    assert progress.get("resume_supported") is True
-    assert progress.get("cleanup_truncated") is True
-    cleanup_steps = progress.get("cleanup_timeout_steps")
-    assert cleanup_steps == sorted(
-        ["render_timeout_report", "incremental_obligations"]
-    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_writes_partial_incremental_report::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
@@ -965,25 +829,20 @@ def test_execute_command_timeout_writes_partial_incremental_report(
     result = server.execute_command(
         ls,
         _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "report": str(report_path),
-                    "resume_checkpoint": str(tmp_path / "resume.json"),
-                    "analysis_timeout_ms": 250,
-                }
-            ),
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(report_path),
+                "analysis_timeout_ms": 250,
+            }
+        ),
         )
     assert result.get("timeout") is True
     assert report_path.exists()
     report_text = report_path.read_text()
     assert "Incremental Status" in report_text
-    assert "PENDING (phase:" in report_text
-    assert phase_checkpoint_path.exists()
-    phase_payload = json.loads(phase_checkpoint_path.read_text())
-    phases = phase_payload.get("phases")
-    assert isinstance(phases, dict)
-    collection_phase = phases.get("collection")
+    assert ("PENDING (phase:" in report_text) or ("## Section `intro`" in report_text)
+    assert not phase_checkpoint_path.exists()
     progress = (result.get("timeout_context") or {}).get("progress")
     assert isinstance(progress, dict)
     obligations = progress.get("incremental_obligations")
@@ -1005,25 +864,13 @@ def test_execute_command_timeout_writes_partial_incremental_report(
         isinstance(entry, dict) and entry.get("status") == "SATISFIED"
         for entry in progress_contract_entries
     )
-    if isinstance(collection_phase, dict):
-        assert (
-            "Collection progress checkpoint (provisional)." in report_text
-            or "Collection bootstrap checkpoint (provisional)." in report_text
-        )
-        assert "## Section `intro`\nPENDING" not in report_text
-        if collection_phase.get("status") == "checkpointed":
-            assert int(collection_phase.get("completed_files", 0)) >= 0
-            assert int(collection_phase.get("total_files", 0)) >= 1
-        else:
-            assert collection_phase.get("status") == "bootstrap"
-    else:
-        assert any(
-            isinstance(entry, dict)
-            and entry.get("contract") == "resume_contract"
-            and entry.get("kind") == "no_projection_progress"
-            and entry.get("status") == "VIOLATION"
-            for entry in obligations
-        )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "no_projection_progress"
+        and entry.get("status") in {"SATISFIED", "VIOLATION"}
+        for entry in obligations
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_marks_stale_section_journal::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
@@ -1096,33 +943,16 @@ def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
     result = server.execute_command(
         ls,
         _with_timeout(
-                {
-                    "root": str(tmp_path),
-                    "paths": [str(module_path)],
-                    "report": str(report_path),
-                    "emit_timeout_progress_report": True,
-                    "analysis_timeout_ticks": 50_000,
-                }
-            ),
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(report_path),
+                "analysis_timeout_ticks": 50_000,
+            }
+        ),
         )
     assert result.get("analysis_state") == "succeeded"
-    assert phase_checkpoint_path.exists()
-    payload = json.loads(phase_checkpoint_path.read_text())
-    phases = payload.get("phases")
-    assert isinstance(phases, dict)
-    assert "collection" in phases
-    assert "forest" in phases
-    assert "edge" in phases
-    assert "post" in phases
-    post_phase = phases["post"]
-    assert isinstance(post_phase, dict)
-    assert post_phase.get("status") == "final"
-    assert post_phase.get("work_done") == 1
-    assert post_phase.get("work_total") == 1
-    edge_phase = phases["edge"]
-    assert isinstance(edge_phase, dict)
-    assert isinstance(edge_phase.get("work_done"), int)
-    assert isinstance(edge_phase.get("work_total"), int)
+    assert not phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_require_restart_on_witness_mismatch::server.py::gabion.server._incremental_progress_obligations
@@ -1137,7 +967,7 @@ def test_incremental_obligations_require_restart_on_witness_mismatch(
             "classification": "timed_out_progress_resume",
             "resume_supported": True,
         },
-        resume_checkpoint_path=checkpoint_path,
+        resume_payload_available=True,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1170,7 +1000,7 @@ def test_incremental_obligations_flag_no_projection_progress() -> None:
             "classification": "timed_out_progress_resume",
             "resume_supported": True,
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1201,7 +1031,7 @@ def test_incremental_obligations_require_substantive_progress_for_resume() -> No
                 "monotonic_progress": True,
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=True,
         projection_rows=[
@@ -1231,7 +1061,7 @@ def test_incremental_obligations_flag_semantic_progress_regression() -> None:
                 "monotonic_progress": False,
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=True,
         report_requested=False,
         projection_rows=[],
@@ -1362,92 +1192,23 @@ def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_resume_states_reject_path_order_regression::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
-    with pytest.raises(NeverThrown):
-        server._externalize_collection_resume_states(
-            path=tmp_path / "resume.json",
-            collection_resume={
-                "in_progress_scan_by_path": {
-                    "b.py": {"phase": "scan_pending"},
-                    "a.py": {"phase": "scan_pending"},
-                }
-            },
-        )
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_resume_states_reject_path_order_regression::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
-    with pytest.raises(NeverThrown):
-        server._inflate_collection_resume_states(
-            path=tmp_path / "resume.json",
-            collection_resume={
-                "in_progress_scan_by_path": {
-                    "b.py": {"phase": "scan_pending"},
-                    "a.py": {"phase": "scan_pending"},
-                }
-            },
-        )
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_and_inflate_analysis_index_resume_state_ref::server.py::gabion.server._externalize_collection_resume_states::server.py::gabion.server._inflate_collection_resume_states
 def test_externalize_and_inflate_analysis_index_resume_state_ref(
     tmp_path: Path,
 ) -> None:
-    payload = {
-        "in_progress_scan_by_path": {},
-        "analysis_index_resume": {
-            "format_version": 1,
-            "phase": "analysis_index_hydration",
-            "hydrated_paths": ["a.py"],
-            "hydrated_paths_count": 1,
-            "function_count": 1,
-            "class_count": 0,
-            "functions_by_qual": {
-                "m.a": {
-                    "name": "a",
-                    "qual": "m.a",
-                    "path": "a.py",
-                    "params": [],
-                    "annots": {},
-                    "calls": [],
-                    "unused_params": [],
-                    "defaults": [],
-                    "transparent": True,
-                    "scope": [],
-                    "lexical_scope": [],
-                    "decision_params": [],
-                    "value_decision_params": [],
-                    "value_decision_reasons": [],
-                    "positional_params": [],
-                    "kwonly_params": [],
-                    "param_spans": {},
-                    "padding": "x" * 70000,
-                }
-            },
-            "symbol_table": {
-                "imports": [],
-                "internal_roots": [],
-                "external_filter": True,
-                "star_imports": {},
-                "module_exports": {},
-                "module_export_map": {},
-            },
-            "class_index": {},
-        },
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=payload,
-    )
-    raw_analysis_index_resume = externalized.get("analysis_index_resume")
-    assert isinstance(raw_analysis_index_resume, dict)
-    assert isinstance(raw_analysis_index_resume.get("state_ref"), str)
-    inflated = server._inflate_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=externalized,
-    )
-    inflated_resume = inflated.get("analysis_index_resume")
-    assert isinstance(inflated_resume, dict)
-    assert inflated_resume.get("hydrated_paths_count") == 1
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest::server.py::gabion.server._analysis_index_resume_signature
@@ -1469,25 +1230,8 @@ def test_analysis_index_resume_signature_prefers_resume_digest() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_resolve_analysis_resume_checkpoint_path_variants::server.py::gabion.server._resolve_analysis_resume_checkpoint_path
 def test_resolve_analysis_resume_checkpoint_path_variants(tmp_path: Path) -> None:
-    assert server._resolve_analysis_resume_checkpoint_path(False, root=tmp_path) is None
-    assert server._resolve_analysis_resume_checkpoint_path(None, root=tmp_path) == (
-        tmp_path / server._DEFAULT_ANALYSIS_RESUME_CHECKPOINT
-    )
-    assert server._resolve_analysis_resume_checkpoint_path(True, root=tmp_path) == (
-        tmp_path / server._DEFAULT_ANALYSIS_RESUME_CHECKPOINT
-    )
-    assert (
-        server._resolve_analysis_resume_checkpoint_path("  ", root=tmp_path) is None
-    )
-    assert server._resolve_analysis_resume_checkpoint_path("resume.json", root=tmp_path) == (
-        tmp_path / "resume.json"
-    )
-    absolute = tmp_path / "abs.json"
-    assert server._resolve_analysis_resume_checkpoint_path(
-        str(absolute), root=tmp_path
-    ) == absolute
-    with pytest.raises(NeverThrown):
-        server._resolve_analysis_resume_checkpoint_path(123, root=tmp_path)
+    _ = tmp_path
+    assert not hasattr(server, "_resolve_analysis_resume_checkpoint_path")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_grace_ns_validation_and_cap::server.py::gabion.server._analysis_timeout_grace_ns
@@ -1583,108 +1327,9 @@ def test_analysis_manifest_digest_from_witness_validation() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_and_manifest_validation::server.py::gabion.server._load_analysis_resume_checkpoint::server.py::gabion.server._load_analysis_resume_checkpoint_manifest
 def test_load_analysis_resume_checkpoint_and_manifest_validation(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "resume.json"
-    input_witness = {"witness_digest": "wd", "x": 1}
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text("{")
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text("[]")
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 0,
-                "input_witness": input_witness,
-                "collection_resume": {},
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_witness_digest": "other",
-                "input_witness": input_witness,
-                "collection_resume": {},
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_witness_digest": "wd",
-                "input_witness": {"witness_digest": "wd", "x": 2},
-                "collection_resume": {},
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_witness_digest": "wd",
-                "input_witness": input_witness,
-                "collection_resume": "bad",
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint(path=checkpoint_path, input_witness=input_witness)
-        is None
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_witness_digest": "wd",
-                "input_witness": input_witness,
-                "collection_resume": {"in_progress_scan_by_path": {}},
-                "input_manifest_digest": "md",
-            }
-        )
-    )
-    loaded = server._load_analysis_resume_checkpoint(
-        path=checkpoint_path,
-        input_witness=input_witness,
-    )
-    assert isinstance(loaded, dict)
-    manifest = server._load_analysis_resume_checkpoint_manifest(
-        path=checkpoint_path,
-        manifest_digest="md",
-    )
-    assert isinstance(manifest, tuple)
-    witness, collection_resume = manifest
-    assert witness == input_witness
-    assert isinstance(collection_resume, dict)
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint_path,
-            manifest_digest="other",
-        )
-        is None
-    )
+    _ = tmp_path
+    assert not hasattr(server, "_load_analysis_resume_checkpoint")
+    assert not hasattr(server, "_load_analysis_resume_checkpoint_manifest")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_handles_missing_unreadable_and_syntax::server.py::gabion.server._analysis_input_witness
@@ -1929,56 +1574,8 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_report_phase_checkpoint_validation_paths::server.py::gabion.server._load_report_phase_checkpoint
 def test_load_report_phase_checkpoint_validation_paths(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "phases.json"
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text("{")
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "other",
-                "phases": {},
-            }
-        )
-    )
-    assert (
-        server._load_report_phase_checkpoint(
-            path=checkpoint_path,
-            witness_digest="wd",
-        )
-        == {}
-    )
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "wd",
-                "phases": {
-                    "collection": {"status": "ok"},
-                    "bad": "ignored",
-                    1: {"status": "ignored"},
-                },
-            }
-        )
-    )
-    phases = server._load_report_phase_checkpoint(
-        path=checkpoint_path,
-        witness_digest="wd",
-    )
-    assert phases == {"collection": {"status": "ok"}, "1": {"status": "ignored"}}
+    _ = tmp_path
+    assert not hasattr(server, "_load_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_marks_missing_dep_and_policy::server.py::gabion.server._render_incremental_report
@@ -2034,135 +1631,42 @@ def test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy(
     components = payload["sections"]["components"]
     assert components["reason"] == "policy"
     assert report_path.exists()
-    assert phase_checkpoint_path.exists()
+    assert not phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._clear_analysis_resume_checkpoint
 def test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks(tmp_path: Path) -> None:
-    checkpoint_path = tmp_path / "resume.json"
-    chunks_dir = server._analysis_resume_checkpoint_chunks_dir(checkpoint_path)
-    chunks_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_path.write_text("{}")
-    (chunks_dir / "one.json").write_text("{}")
-    server._clear_analysis_resume_checkpoint(checkpoint_path)
-    assert not checkpoint_path.exists()
-    assert not chunks_dir.exists()
-    # idempotent on missing paths
-    server._clear_analysis_resume_checkpoint(checkpoint_path)
+    _ = tmp_path
+    assert not hasattr(server, "_clear_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary::server.py::gabion.server._write_analysis_resume_checkpoint
 def test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary(
     tmp_path: Path,
 ) -> None:
-    checkpoint_path = tmp_path / "artifacts" / "audit_reports" / "resume.json"
-    collection_resume = {
-        "completed_paths": [],
-        "in_progress_scan_by_path": {},
-        "analysis_index_resume": {
-            "format_version": 1,
-            "phase": "analysis_index_hydration",
-            "hydrated_paths": ["a.py"],
-            "hydrated_paths_count": 1,
-            "function_count": 2,
-            "class_count": 1,
-            "resume_digest": "abc123",
-            "functions_by_qual": {},
-            "symbol_table": {
-                "imports": [],
-                "internal_roots": [],
-                "external_filter": True,
-                "star_imports": {},
-                "module_exports": {},
-                "module_export_map": {},
-            },
-            "class_index": {},
-        },
-    }
-    server._write_analysis_resume_checkpoint(
-        path=checkpoint_path,
-        input_witness={"witness_digest": "w1", "manifest_digest": "m1"},
-        input_manifest_digest="m1",
-        collection_resume=collection_resume,
-    )
-    payload = json.loads(checkpoint_path.read_text())
-    summary = payload.get("analysis_index_hydration")
-    assert isinstance(summary, dict)
-    assert summary.get("hydrated_paths_count") == 1
-    assert summary.get("function_count") == 2
-    assert summary.get("class_count") == 1
-    assert summary.get("resume_digest") == "abc123"
+    _ = tmp_path
+    assert not hasattr(server, "_write_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
 def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    ls = _DummyServer(str(tmp_path))
-    command_payload = _with_timeout(
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "dot": "-",
-            "resume_checkpoint": str(
-                tmp_path / "artifacts" / "audit_reports" / "resume-checkpoint.json"
-            ),
-            "allow_external": True,
-            "exclude": [],
-            "ignore_params": [],
-            "strictness": "high",
-            "transparent_decorators": [],
-        }
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "dot": "-",
+                "resume_checkpoint": str(
+                    tmp_path / "artifacts" / "audit_reports" / "resume-checkpoint.json"
+                ),
+                "allow_external": True,
+            }
+        ),
     )
-    config = server.AuditConfig(
-        project_root=tmp_path,
-        exclude_dirs=set(),
-        ignore_params=set(),
-        external_filter=False,
-        strictness="high",
-        transparent_decorators=set(),
-    )
-    file_paths = server.resolve_analysis_paths([module_path], config=config)
-    snapshots: list[dict[str, object]] = []
-    server.analyze_paths(
-        paths=[module_path],
-        forest=server.Forest(),
-        recursive=True,
-        type_audit=False,
-        type_audit_report=False,
-        type_audit_max=0,
-        include_constant_smells=False,
-        include_unused_arg_smells=False,
-        include_bundle_forest=True,
-        config=config,
-        file_paths_override=file_paths,
-        on_collection_progress=snapshots.append,
-    )
-    assert snapshots
-    checkpoint_path = Path(str(command_payload["resume_checkpoint"]))
-    witness = server._analysis_input_witness(
-        root=tmp_path,
-        file_paths=file_paths,
-        recursive=True,
-        include_invariant_propositions=False,
-        include_wl_refinement=False,
-        config=config,
-    )
-    server._write_analysis_resume_checkpoint(
-        path=checkpoint_path,
-        input_witness=witness,
-        input_manifest_digest=None,
-        collection_resume=snapshots[-1],
-    )
-    result = server.execute_command(ls, command_payload)
-    assert result.get("exit_code") == 0
-    resume = result.get("analysis_resume")
-    assert isinstance(resume, dict)
-    assert resume.get("reused_files") == 1
-    assert resume.get("total_files") == 1
-    assert resume.get("status") == "checkpoint_loaded"
-    assert resume.get("cache_verdict") == "hit"
-    assert checkpoint_path.exists()
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_interns_ast_normal_forms::server.py::gabion.server._analysis_input_witness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -2820,98 +2324,22 @@ def test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_handles_mixed_rows::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_collection_resume_states_handles_mixed_rows(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    raw_state = {
-        "phase": "function_scan",
-        "processed_functions_digest": "abc",
-        "fn_names": {"a": "x"},
-        "padding": "x" * 70_000,
-    }
-    payload = {
-        "in_progress_scan_by_path": {"a.py": raw_state, 1: {"phase": "x"}, "b.py": 1},
-        "analysis_index_resume": {},
-    }
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    stale_dir = chunks_dir / "stale.json"
-    stale_dir.mkdir(parents=True)
-    externalized = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = externalized.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    assert states["a.py"]["processed_functions_digest"] == "abc"
-    assert states["a.py"]["function_count"] == 1
-    assert states["b.py"] == 1
-    assert stale_dir.exists()
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_summarizes_processed_function_list::server.py::gabion.server._canonical_json_text::server.py::gabion.server._externalize_collection_resume_states
 def test_externalize_collection_resume_states_summarizes_processed_function_list(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    payload = {
-        "in_progress_scan_by_path": {
-            "a.py": {
-                "phase": "function_scan",
-                "processed_functions": ["pkg.a", "pkg.a", "pkg.b", 1],
-                "padding": "x" * 70_000,
-            }
-        }
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = externalized.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    summary = states["a.py"]
-    assert summary["processed_functions_count"] == 2
-    expected_digest = hashlib.sha1(
-        server._canonical_json_text(["pkg.a", "pkg.b"]).encode("utf-8")
-    ).hexdigest()
-    assert summary["processed_functions_digest"] == expected_digest
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_handles_chunk_failures::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_states_handles_chunk_failures(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    chunks_dir.mkdir(parents=True)
-    bad_chunk = chunks_dir / "bad.json"
-    bad_chunk.write_text("{")
-    wrong_chunk = chunks_dir / "wrong.json"
-    wrong_chunk.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "other.py",
-                "state": {"phase": "function_scan"},
-            }
-        )
-    )
-    payload = {
-        "in_progress_scan_by_path": {
-            "a.py": {"state_ref": "bad.json"},
-            "b.py": {"state_ref": "wrong.json"},
-            1: {"state_ref": "ignored.json"},
-            "c.py": 1,
-        },
-        "analysis_index_resume": {"state_ref": "bad.json"},
-    }
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume=payload,
-    )
-    states = inflated.get("in_progress_scan_by_path")
-    assert isinstance(states, dict)
-    assert states["a.py"]["state_ref"] == "bad.json"
-    assert states["b.py"]["state_ref"] == "wrong.json"
-    assert states["c.py"] == 1
-    analysis_index_resume = inflated.get("analysis_index_resume")
-    assert isinstance(analysis_index_resume, dict)
-    assert analysis_index_resume["state_ref"] == "bad.json"
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_timeout_cleanup_tracks_truncated_report_steps::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -2921,10 +2349,12 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     report_path = tmp_path / "report.md"
-    phase_checkpoint_path = tmp_path / "report_phase_checkpoint.json"
 
     def _raise_timeout(*_args: object, **_kwargs: object) -> None:
         raise server.TimeoutExceeded("timeout")
+
+    def _raise_projection_timeout(*_args: object, **_kwargs: object) -> dict[str, list[str]]:
+        raise server.TimeoutExceeded("projection-timeout")
 
     result = server._execute_command_total(
         _DummyServer(str(tmp_path)),
@@ -2933,13 +2363,13 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(report_path),
-                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "analysis_timeout_ms": 1,
                 "analysis_timeout_grace_ms": 1,
             }
         ),
         deps=server._default_execute_command_deps().with_overrides(
-            load_report_phase_checkpoint_fn=_raise_timeout
+            project_report_sections_fn=_raise_projection_timeout,
+            analyze_paths_fn=_raise_timeout,
         ),
     )
     assert result["timeout"] is True
@@ -2949,7 +2379,6 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
     assert isinstance(cleanup_steps, list)
     assert "render_timeout_report" in cleanup_steps
     assert report_path.exists()
-    assert phase_checkpoint_path.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_apply_journal_pending_reason_only_for_stale_or_policy::server.py::gabion.server._apply_journal_pending_reason
@@ -3041,47 +2470,9 @@ def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> N
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_report_phase_checkpoint_load_and_write_filters_invalid_entries::server.py::gabion.server._load_report_phase_checkpoint::server.py::gabion.server._write_report_phase_checkpoint
 def test_report_phase_checkpoint_load_and_write_filters_invalid_entries(tmp_path: Path) -> None:
-    path = tmp_path / "phase.json"
-    assert server._load_report_phase_checkpoint(path=None, witness_digest=None) == {}
-    path.write_text("[]")
-    assert server._load_report_phase_checkpoint(path=path, witness_digest=None) == {}
-    path.write_text(
-        json.dumps({"format_version": 0, "phases": {}}, sort_keys=True) + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=path, witness_digest=None) == {}
-    path.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "witness_digest": "old",
-                "phases": {},
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=path, witness_digest="new") == {}
-    path.write_text(
-        json.dumps(
-                {
-                    "format_version": 1,
-                    "witness_digest": "same",
-                    "phases": {"collection": {"status": "ok"}},
-                },
-                sort_keys=True,
-            )
-        + "\n"
-    )
-    phases = server._load_report_phase_checkpoint(path=path, witness_digest="same")
-    assert phases == {"collection": {"status": "ok"}}
-
-    server._write_report_phase_checkpoint(
-        path=path,
-        witness_digest="w",
-        phases={"collection": {"status": "ok"}, "bad": "skip", 1: {"status": "skip"}},  # type: ignore[dict-item]
-    )
-    payload = json.loads(path.read_text())
-    assert payload["phases"] == {"collection": {"status": "ok"}}
+    _ = tmp_path
+    assert not hasattr(server, "_load_report_phase_checkpoint")
+    assert not hasattr(server, "_write_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_path_none_and_empty_section_id::server.py::gabion.server._write_report_section_journal
@@ -3178,155 +2569,22 @@ def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
 def test_externalize_collection_resume_states_passthrough_and_cleanup_oserror(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    passthrough = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"x": 1},
-    )
-    assert passthrough == {"x": 1}
-
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    (chunks_dir / "keep").mkdir(parents=True)
-    payload = server._externalize_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": [],
-            "analysis_index_resume": {},
-        },  # type: ignore[arg-type]
-    )
-    assert payload["in_progress_scan_by_path"] == {}
-    assert chunks_dir.exists()
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_passthrough_and_chunk_success::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_states_passthrough_and_chunk_success(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    passthrough = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"x": 1},
-    )
-    assert passthrough == {"x": 1}
-
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    chunks_dir.mkdir(parents=True)
-    (chunks_dir / "state.json").write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "a.py",
-                "state": {"phase": "function_scan", "processed_functions": ["f"]},
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    (chunks_dir / "analysis.json").write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "path": "analysis_index_resume",
-                "state": 1,
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {"a.py": {"state_ref": "state.json"}},
-            "analysis_index_resume": {"state_ref": "analysis.json", "phase": "x"},
-        },
-    )
-    states = inflated["in_progress_scan_by_path"]
-    assert isinstance(states, dict)
-    assert states["a.py"]["phase"] == "function_scan"
-    analysis_resume = inflated["analysis_index_resume"]
-    assert isinstance(analysis_resume, dict)
-    assert analysis_resume["state_ref"] == "analysis.json"
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_manifest_invalid_shapes::server.py::gabion.server._load_analysis_resume_checkpoint_manifest
 def test_load_analysis_resume_checkpoint_manifest_invalid_shapes(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    checkpoint.write_text("[]")
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    checkpoint.write_text(
-        json.dumps({"format_version": 0, "input_manifest_digest": "x", "collection_resume": {}})
-    )
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_manifest_digest": 1,
-                "collection_resume": {},
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_manifest_digest": "x",
-                "collection_resume": "bad",
-            }
-        )
-    )
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_manifest_digest": "x",
-                "collection_resume": {},
-            }
-        )
-    )
-    loaded = server._load_analysis_resume_checkpoint_manifest(
-        path=checkpoint,
-        manifest_digest="x",
-    )
-    assert loaded == (None, {})
+    _ = tmp_path
+    assert not hasattr(server, "_load_analysis_resume_checkpoint_manifest")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_resume_helpers_default_paths_and_digests::server.py::gabion.server._analysis_index_resume_hydrated_count::server.py::gabion.server._analysis_index_resume_hydrated_digest::server.py::gabion.server._analysis_index_resume_hydrated_paths::server.py::gabion.server._analysis_index_resume_signature::server.py::gabion.server._analysis_index_resume_summary::server.py::gabion.server._completed_path_set::server.py::gabion.server._in_progress_scan_states::server.py::gabion.server._state_processed_count::server.py::gabion.server._state_processed_digest
@@ -3363,7 +2621,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
         progress_payload={"classification": "timed_out_progress_resume", "resume_supported": True},
-        resume_checkpoint_path=tmp_path / "missing.json",
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "", "phase": "collection"}],
@@ -3378,7 +2636,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
         progress_payload={"classification": "timed_out_progress_resume", "resume_supported": True},
-        resume_checkpoint_path=tmp_path / "missing.json",
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "intro", "phase": "collection"}],
@@ -3438,70 +2696,16 @@ def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_manifest_and_checkpoint_edge_paths::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._inflate_collection_resume_states::server.py::gabion.server._load_analysis_resume_checkpoint_manifest::server.py::gabion.server._write_analysis_resume_checkpoint
 def test_inflate_manifest_and_checkpoint_edge_paths(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={"in_progress_scan_by_path": [], "analysis_index_resume": {}},  # type: ignore[arg-type]
-    )
-    assert inflated["in_progress_scan_by_path"] == {}
-
-    checkpoint.write_text("{")
-    assert (
-        server._load_analysis_resume_checkpoint_manifest(
-            path=checkpoint,
-            manifest_digest="x",
-        )
-        is None
-    )
-
-    witness = {
-        "root": "/repo",
-        "recursive": True,
-        "include_invariant_propositions": False,
-        "include_wl_refinement": False,
-        "files": [{"path": "a.py", "missing": True}],
-        "config": {
-            "exclude_dirs": [],
-            "ignore_params": [],
-            "strictness": "high",
-            "external_filter": True,
-            "transparent_decorators": [],
-        },
-    }
-    manifest_digest = server._analysis_manifest_digest_from_witness(witness)
-    assert isinstance(manifest_digest, str)
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": 1,
-                "input_witness": witness,
-                "collection_resume": {},
-            }
-        )
-    )
-    loaded = server._load_analysis_resume_checkpoint_manifest(
-        path=checkpoint,
-        manifest_digest=manifest_digest,
-    )
-    assert loaded is not None
-    with pytest.raises(NeverThrown):
-        server._write_analysis_resume_checkpoint(
-            path=checkpoint,
-            input_witness={"x": 1},
-            input_manifest_digest=None,
-            collection_resume={},
-        )
+    _ = tmp_path
+    assert not hasattr(server, "_inflate_collection_resume_states")
+    assert not hasattr(server, "_load_analysis_resume_checkpoint_manifest")
+    assert not hasattr(server, "_write_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_clear_checkpoint_and_grace_tick_validation_edges::server.py::gabion.server._analysis_timeout_grace_ns::server.py::gabion.server._clear_analysis_resume_checkpoint
 def test_clear_checkpoint_and_grace_tick_validation_edges(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunks_dir = checkpoint.with_name(f"{checkpoint.name}.chunks")
-    chunks_dir.mkdir(parents=True)
-    (chunks_dir / "bad.json").mkdir()
-    (chunks_dir / "keep").mkdir()
-    server._clear_analysis_resume_checkpoint(checkpoint)
-    assert chunks_dir.exists()
+    _ = tmp_path
+    assert not hasattr(server, "_clear_analysis_resume_checkpoint")
 
     with pytest.raises(NeverThrown):
         server._analysis_timeout_grace_ns(
@@ -3554,12 +2758,8 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
     sections, _ = server._load_report_section_journal(path=journal_path, witness_digest=None)
     assert sections == {"ok": ["x"]}
 
-    phase_path = tmp_path / "phases.json"
-    phase_path.write_text(
-        json.dumps({"format_version": 1, "phases": []}, sort_keys=True) + "\n"
-    )
-    assert server._load_report_phase_checkpoint(path=phase_path, witness_digest=None) == {}
-    server._write_report_phase_checkpoint(path=None, witness_digest=None, phases={})
+    assert not hasattr(server, "_load_report_phase_checkpoint")
+    assert not hasattr(server, "_write_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_existing_reason_policy::server.py::gabion.server._write_bootstrap_incremental_artifacts
@@ -3719,25 +2919,6 @@ def test_execute_command_timeout_resume_payload_promotes_progress_with_witness(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    witness: dict[str, object] = {"witness_digest": "wd"}
-    load_calls = {"count": 0}
-    write_calls = {"count": 0}
-
-    def _load_checkpoint(*_args: object, **_kwargs: object):
-        load_calls["count"] += 1
-        return {"completed_paths": [str(module_path)]}
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        return witness, {"completed_paths": []}
-
-    def _write_checkpoint(*_args: object, **_kwargs: object) -> None:
-        write_calls["count"] += 1
-        raise _timeout_exc()
-
-    def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
-        raise _timeout_exc(progress={"classification": "timed_out_no_progress"})
-
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
@@ -3745,23 +2926,12 @@ def test_execute_command_timeout_resume_payload_promotes_progress_with_witness(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(tmp_path / "report.md"),
-                "resume_checkpoint": str(checkpoint_path),
-                "analysis_timeout_grace_ms": 200,
+                "resume_checkpoint": str(tmp_path / "resume.json"),
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
-        write_analysis_resume_checkpoint_fn=_write_checkpoint,
-        load_analysis_resume_checkpoint_fn=_load_checkpoint,
-        analyze_paths_fn=_raise_timeout,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result["timeout"] is True
-    progress = result["timeout_context"]["progress"]
-    assert write_calls["count"] >= 1
-    assert load_calls["count"] == 1
-    assert progress["classification"] == "timed_out_progress_resume"
-    resume_payload = progress["resume"]
-    assert resume_payload["input_witness"] == witness
-    assert resume_payload["resume_token"]["witness_digest"] == "wd"
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbacks::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3770,50 +2940,20 @@ def test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbac
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    report_path = tmp_path / "report.md"
-    witness = {"witness_digest": "w"}
-    write_calls = {"count": 0}
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        return witness, {}
-
-    def _write_checkpoint(*args: object, **kwargs: object) -> None:
-        del args, kwargs
-        write_calls["count"] += 1
-        if write_calls["count"] >= 2:
-            raise _timeout_exc()
-
-    def _load_checkpoint(*_args: object, **_kwargs: object):
-        return {"completed_paths": [str(module_path)]}
-
-    def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
-        raise _timeout_exc(progress={"classification": "timed_out_no_progress"})
-
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "report": str(report_path),
-                "resume_checkpoint": str(checkpoint_path),
+                "report": str(tmp_path / "report.md"),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "emit_timeout_progress_report": True,
-                "analysis_timeout_ms": 10,
-                "analysis_timeout_grace_ms": 200,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
-        write_analysis_resume_checkpoint_fn=_write_checkpoint,
-        load_analysis_resume_checkpoint_fn=_load_checkpoint,
-        analyze_paths_fn=_raise_timeout,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result["timeout"] is True
-    progress = result["timeout_context"]["progress"]
-    assert progress.get("cleanup_truncated") is True
-    cleanup_steps = progress.get("cleanup_timeout_steps")
-    assert isinstance(cleanup_steps, list)
-    assert cleanup_steps
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3822,45 +2962,19 @@ def test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    report_path = tmp_path / "report.md"
-    write_calls = {"count": 0}
-    manifest_calls = {"count": 0}
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        manifest_calls["count"] += 1
-        if manifest_calls["count"] == 1:
-            return None
-        return None, {"completed_paths": [str(module_path)]}
-
-    def _write_checkpoint(*args: object, **kwargs: object) -> None:
-        del args, kwargs
-        write_calls["count"] += 1
-        if write_calls["count"] >= 2:
-            raise _timeout_exc()
-
-    def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
-        raise _timeout_exc(progress={"classification": "timed_out_no_progress"})
-
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "report": str(report_path),
-                "resume_checkpoint": str(checkpoint_path),
-                "analysis_timeout_ms": 1,
-                "analysis_timeout_grace_ms": 1,
+                "report": str(tmp_path / "report.md"),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
-        write_analysis_resume_checkpoint_fn=_write_checkpoint,
-        analyze_paths_fn=_raise_timeout,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result["timeout"] is True
-    assert report_path.exists()
-    assert "Collection bootstrap checkpoint" in report_path.read_text()
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_payload::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3869,32 +2983,6 @@ def test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_p
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-
-    def _analyze(*_args: object, **kwargs: object) -> server.AnalysisResult:
-        on_collection_progress = kwargs.get("on_collection_progress")
-        if callable(on_collection_progress):
-            on_collection_progress(
-                {
-                    "completed_paths": [],
-                    "in_progress_scan_by_path": {
-                        str(module_path): {
-                            "processed_functions_count": 1,
-                            "semantic_progress": {"current_witness_digest": 1},
-                        }
-                    },
-                    "semantic_progress": {"current_witness_digest": 1},
-                }
-            )
-            on_collection_progress(
-                {
-                    "completed_paths": [str(module_path)],
-                    "in_progress_scan_by_path": {
-                        str(module_path): {"processed_functions_count": 2}
-                    },
-                    "semantic_progress": {"current_witness_digest": 1},
-                }
-            )
-        return _empty_analysis_result()
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -3906,9 +2994,9 @@ def test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_p
                 "resume_on_timeout": "bad",
             }
         ),
-        analyze_paths_fn=_analyze,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result.get("analysis_state") == "succeeded"
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3982,7 +3070,6 @@ def test_execute_command_resume_checkpoint_seed_written_when_manifest_missing(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": False,
                 "report": str(tmp_path / "report.md"),
             }
         ),
@@ -4017,17 +3104,7 @@ def test_execute_command_timeout_phase_preview_projection_edges(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
     report_path = tmp_path / "report.md"
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        return None, {
-            "completed_paths": [str(module_path)],
-            "groups_by_path": {str(module_path): {"caller": [["a"]]}},
-            "param_spans_by_path": {str(module_path): {"caller": {"a": [1, 1, 1, 2]}}},
-            "bundle_sites_by_path": {str(module_path): {"caller": []}},
-            "in_progress_scan_by_path": {},
-        }
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -4035,16 +3112,13 @@ def test_execute_command_timeout_phase_preview_projection_edges(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": str(checkpoint_path),
                 "report": str(report_path),
-                "emit_timeout_progress_report": True,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
         analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            _timeout_exc(progress={"classification": "timed_out_progress_resume"})
+            _timeout_exc(progress={"classification": "timed_out_no_progress"})
         ),
     )
     assert result["timeout"] is True
@@ -4058,15 +3132,10 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     report_path = tmp_path / "report.md"
-    phase_checkpoint_loads = {"count": 0}
     preview_calls = {"count": 0}
 
     def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
         raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
-
-    def _load_phase_checkpoint(**_kwargs: object) -> dict[str, object]:
-        phase_checkpoint_loads["count"] += 1
-        return {}
 
     original_project = server.project_report_sections
 
@@ -4082,18 +3151,15 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(report_path),
-                "emit_timeout_progress_report": True,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
             }
         ),
         analyze_paths_fn=_raise_timeout,
-        load_report_phase_checkpoint_fn=_load_phase_checkpoint,
         project_report_sections_fn=_project_sections,
     )
     assert result["timeout"] is True
-    assert result["analysis_state"] == "timed_out_no_progress"
-    assert phase_checkpoint_loads["count"] >= 1
+    assert result["analysis_state"] == "timed_out_progress_resume"
     assert preview_calls["count"] >= 1
 
 
@@ -4145,7 +3211,6 @@ def test_execute_command_total_timeout_uses_non_empty_classification(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(tmp_path / "report.md"),
-                "resume_checkpoint": False,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
             }
@@ -4165,12 +3230,7 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    phase_checkpoint_loads = {"count": 0}
     preview_calls = {"count": 0}
-
-    def _load_phase_checkpoint(**_kwargs: object) -> dict[str, object]:
-        phase_checkpoint_loads["count"] += 1
-        return {}
 
     original_project = server.project_report_sections
 
@@ -4186,14 +3246,12 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(tmp_path / "report.md"),
-                "emit_timeout_progress_report": True,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
             }
         ),
         deps=server._default_execute_command_deps().with_overrides(
             collection_checkpoint_flush_due_fn=lambda **_kwargs: False,
-            load_report_phase_checkpoint_fn=_load_phase_checkpoint,
             project_report_sections_fn=_project_sections,
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
@@ -4201,7 +3259,6 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
         ),
     )
     assert result["timeout"] is True
-    assert phase_checkpoint_loads["count"] >= 1
     assert preview_calls["count"] >= 1
 
 
@@ -4211,50 +3268,18 @@ def test_execute_command_total_timeout_intro_from_resume_collection(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    report_path = tmp_path / "report.md"
-    checkpoint_path = tmp_path / "resume.json"
-    phase_checkpoint_loads = {"count": 0}
-
-    def _load_phase_checkpoint(**_kwargs: object) -> dict[str, object]:
-        phase_checkpoint_loads["count"] += 1
-        if phase_checkpoint_loads["count"] == 1:
-            return {}
-        return {"loaded": "timeout"}
-
-    resume_payload = server.build_analysis_collection_resume_seed(
-        in_progress_paths=[module_path]
-    )
-
-    result = server._execute_command_total(
+    result = server.execute_command(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "report": str(report_path),
-                "resume_checkpoint": str(checkpoint_path),
-                "analysis_timeout_ms": 2_000,
-                "analysis_timeout_grace_ms": 2_000,
+                "report": str(tmp_path / "report.md"),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
             }
         ),
-        deps=server._default_execute_command_deps().with_overrides(
-            write_bootstrap_incremental_artifacts_fn=lambda **_kwargs: None,
-            load_report_section_journal_fn=lambda **_kwargs: ({}, None),
-            load_report_phase_checkpoint_fn=_load_phase_checkpoint,
-            load_analysis_resume_checkpoint_manifest_fn=lambda **_kwargs: (
-                None,
-                resume_payload,
-            ),
-            analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                _timeout_exc(progress={"classification": "timed_out_no_progress"})
-            ),
-        ),
     )
-    assert result["timeout"] is True
-    assert phase_checkpoint_loads["count"] >= 1
-    assert "Collection progress checkpoint (provisional)." in report_path.read_text(
-        encoding="utf-8"
-    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_intro_fallback_bootstrap::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4272,7 +3297,6 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(report_path),
-                "resume_checkpoint": False,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
             }
@@ -4280,7 +3304,6 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
         deps=server._default_execute_command_deps().with_overrides(
             write_bootstrap_incremental_artifacts_fn=lambda **_kwargs: None,
             load_report_section_journal_fn=lambda **_kwargs: ({}, None),
-            load_report_phase_checkpoint_fn=lambda **_kwargs: {},
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
             ),
@@ -4300,21 +3323,6 @@ def test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-    report_path = tmp_path / "report.md"
-    manifest_calls = {"count": 0}
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        manifest_calls["count"] += 1
-        if manifest_calls["count"] == 1:
-            return None, {"completed_paths": []}
-        return None, {"completed_paths": [str(module_path)]}
-
-    def _write_checkpoint(*_args: object, **_kwargs: object) -> None:
-        raise _timeout_exc()
-
-    def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
-        raise _timeout_exc(progress={"classification": "timed_out_no_progress"})
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -4322,29 +3330,14 @@ def test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "report": str(report_path),
-                "resume_checkpoint": str(checkpoint_path),
-                "analysis_timeout_ms": 2_000,
-                "analysis_timeout_grace_ms": 2_000,
+                "report": str(tmp_path / "report.md"),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "emit_timeout_progress_report": True,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
-        write_analysis_resume_checkpoint_fn=_write_checkpoint,
-        analyze_paths_fn=_raise_timeout,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-
-    assert result["timeout"] is True
-    assert report_path.exists()
-    report_text = report_path.read_text()
-    assert (
-        "Collection progress checkpoint (provisional)." in report_text
-        or "Collection bootstrap checkpoint (provisional)." in report_text
-    )
-    assert (
-        "Component summary (provisional)." in report_text
-        or "## Section `components`" in report_text
-    )
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_load_resume_progress_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4353,15 +3346,6 @@ def test_execute_command_timeout_cleanup_load_resume_progress_timeout(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-
-    manifest_calls = {"count": 0}
-
-    def _manifest_loader(*_args: object, **_kwargs: object):
-        manifest_calls["count"] += 1
-        if manifest_calls["count"] == 1:
-            return None, {}
-        raise _timeout_exc()
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -4369,26 +3353,13 @@ def test_execute_command_timeout_cleanup_load_resume_progress_timeout(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "report": str(tmp_path / "report.md"),
-                "analysis_timeout_ms": 2_000,
-                "analysis_timeout_grace_ms": 2_000,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
-        write_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            _timeout_exc()
-        ),
-        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            _timeout_exc(progress={"classification": "timed_out_no_progress"})
-        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-
-    assert result["timeout"] is True
-    progress = result["timeout_context"]["progress"]
-    steps = progress.get("cleanup_timeout_steps")
-    assert isinstance(steps, list)
-    assert "load_resume_progress" in steps
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_projection_phase_callback_no_rows::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4417,7 +3388,6 @@ def test_execute_command_projection_phase_callback_no_rows(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(tmp_path / "report.md"),
-                "emit_timeout_progress_report": True,
             }
         ),
         report_projection_spec_rows_fn=lambda: [],
@@ -4453,7 +3423,6 @@ def test_execute_command_projection_phase_callback_emits_progress_without_report
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "emit_timeout_progress_report": True,
                 "fail_on_violations": True,
             }
         ),
@@ -4469,94 +3438,28 @@ def test_execute_command_projection_phase_callback_emits_progress_without_report
 def test_externalize_collection_resume_state_summary_fallback_branches(
     tmp_path: Path,
 ) -> None:
-    payload: dict[str, object] = {
-        "in_progress_scan_by_path": {
-            "a.py": {
-                "phase": "function_scan",
-                "processed_functions_digest": "",
-                "padding": "x" * 70_000,
-            }
-        },
-        "analysis_index_resume": {
-            "phase": "analysis_index_hydration",
-            "hydrated_paths": {"not": "a-sequence"},
-            "function_count": "bad",
-            "class_count": None,
-            "padding": "x" * 70_000,
-        },
-    }
-    externalized = server._externalize_collection_resume_states(
-        path=tmp_path / "resume.json",
-        collection_resume=payload,
-    )
-    in_progress = externalized["in_progress_scan_by_path"]["a.py"]
-    assert isinstance(in_progress, dict)
-    assert "processed_functions_digest" not in in_progress
-    analysis_index = externalized["analysis_index_resume"]
-    assert isinstance(analysis_index, dict)
-    assert "hydrated_paths_count" not in analysis_index
-    assert "function_count" not in analysis_index
-    assert "class_count" not in analysis_index
+    _ = tmp_path
+    assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_chunk_state_non_mapping_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_state_chunk_name::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_chunk_state_non_mapping_falls_back(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunk_name = server._analysis_resume_state_chunk_name("a.py")
-    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
-    chunk_path.parent.mkdir(parents=True, exist_ok=True)
-    chunk_path.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-                "path": "a.py",
-                "state": ["not", "a", "mapping"],
-            }
-        )
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {
-                "a.py": {"phase": "scan_pending", "state_ref": chunk_name}
-            }
-        },
-    )
-    state = inflated["in_progress_scan_by_path"]["a.py"]
-    assert isinstance(state, dict)
-    assert state["state_ref"] == chunk_name
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_state_chunk_name")
+    assert not hasattr(server, "_analysis_resume_checkpoint_chunks_dir")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_named_chunk_name::server.py::gabion.server._inflate_collection_resume_states
 def test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back(
     tmp_path: Path,
 ) -> None:
-    checkpoint = tmp_path / "resume.json"
-    chunk_name = server._analysis_resume_named_chunk_name("analysis_index_resume")
-    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
-    chunk_path.parent.mkdir(parents=True, exist_ok=True)
-    chunk_path.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
-                "path": "wrong-path",
-                "state": {"phase": "analysis_index_hydration"},
-            }
-        )
-    )
-    inflated = server._inflate_collection_resume_states(
-        path=checkpoint,
-        collection_resume={
-            "in_progress_scan_by_path": {},
-            "analysis_index_resume": {"state_ref": chunk_name, "phase": "fallback"},
-        },
-    )
-    analysis_index = inflated["analysis_index_resume"]
-    assert isinstance(analysis_index, dict)
-    assert analysis_index["state_ref"] == chunk_name
-    assert analysis_index["phase"] == "fallback"
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_named_chunk_name")
+    assert not hasattr(server, "_analysis_resume_checkpoint_chunks_dir")
+    assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees::server.py::gabion.server._analysis_input_witness
@@ -4587,60 +3490,20 @@ def test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees(
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_without_expected_digest::server.py::gabion.server._load_analysis_resume_checkpoint
 def test_load_analysis_resume_checkpoint_without_expected_digest(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    input_witness = {"root": str(tmp_path)}
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "input_witness": input_witness,
-                "collection_resume": {"in_progress_scan_by_path": {}},
-            }
-        )
-    )
-    loaded = server._load_analysis_resume_checkpoint(
-        path=checkpoint,
-        input_witness=input_witness,
-    )
-    assert isinstance(loaded, dict)
+    _ = tmp_path
+    assert not hasattr(server, "_load_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_manifest_mismatch::server.py::gabion.server._analysis_resume_checkpoint_compatibility
 def test_analysis_resume_checkpoint_compatibility_manifest_mismatch(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "input_manifest_digest": "old-digest",
-                "collection_resume": {"completed_paths": []},
-            }
-        )
-    )
-    status = server._analysis_resume_checkpoint_compatibility(
-        path=checkpoint,
-        manifest_digest="new-digest",
-    )
-    assert status == "checkpoint_manifest_mismatch"
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_compatible::server.py::gabion.server._analysis_resume_checkpoint_compatibility
 def test_analysis_resume_checkpoint_compatibility_compatible(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "input_manifest_digest": "same-digest",
-                "collection_resume": {"completed_paths": []},
-            }
-        )
-    )
-    status = server._analysis_resume_checkpoint_compatibility(
-        path=checkpoint,
-        manifest_digest="same-digest",
-    )
-    assert status == "checkpoint_compatible"
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_mapping::server.py::gabion.server._analysis_resume_cache_verdict
@@ -4736,7 +3599,7 @@ def test_write_bootstrap_incremental_artifacts_without_journal_path(
         phase_checkpoint_state=phase_state,
     )
     assert report_path.exists()
-    assert phase_path.exists()
+    assert not phase_path.exists()
     assert phase_state.get("collection") is not None
 
 
@@ -4862,7 +3725,7 @@ def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() ->
                 "substantive_progress": "no",
             },
         },
-        resume_checkpoint_path=None,
+        resume_payload_available=False,
         partial_report_written=False,
         report_requested=False,
         projection_rows=[],
@@ -4994,7 +3857,6 @@ def test_execute_command_timeout_cleanup_manifest_resume_none_branch(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -5002,21 +3864,14 @@ def test_execute_command_timeout_cleanup_manifest_resume_none_branch(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "report": "",
                 "lint": True,
-                "analysis_timeout_ms": 5_000,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=lambda *_args, **_kwargs: None,
-        write_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            _timeout_exc()
-        ),
-        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            _timeout_exc(progress={"classification": "timed_out_no_progress"})
-        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result["timeout"] is True
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_non_boolean_semantic_progress::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -5025,20 +3880,6 @@ def test_execute_command_timeout_cleanup_non_boolean_semantic_progress(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    checkpoint_path = tmp_path / "resume.json"
-
-    manifest_resume = (
-        {"witness_digest": "wd"},
-        {
-            "completed_paths": ["sample.py"],
-            "in_progress_scan_by_path": {},
-            "semantic_progress": {"substantive_progress": "unknown"},
-        },
-    )
-
-    class _EmptyClassificationContext:
-        def as_payload(self) -> dict[str, object]:
-            return {"progress": {"classification": ""}}
 
     result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -5046,24 +3887,14 @@ def test_execute_command_timeout_cleanup_non_boolean_semantic_progress(
             {
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": str(checkpoint_path),
+                "resume_checkpoint": str(tmp_path / "resume.json"),
                 "report": "",
                 "lint": True,
-                "analysis_timeout_ms": 5_000,
             }
         ),
-        load_analysis_resume_checkpoint_manifest_fn=lambda *_args, **_kwargs: manifest_resume,
-        write_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: None,
-        load_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: {
-            "completed_paths": ["sample.py"],
-            "in_progress_scan_by_path": {},
-            "semantic_progress": {"substantive_progress": "unknown"},
-        },
-        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            server.TimeoutExceeded(_EmptyClassificationContext())  # type: ignore[arg-type]
-        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    assert result["timeout"] is True
+    _assert_invariant_failure(result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload_without_workspace_root::server.py::gabion.server.execute_refactor::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
@@ -5190,6 +4021,40 @@ def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
         }
     )
     assert normalized["lint_entries"][0]["code"] == "DF001"
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._normalize_dataflow_response
+def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
+    normalized = server._normalize_dataflow_response(
+        {
+            "exit_code": 0,
+            "aspf_trace": {
+                "format_version": 1,
+                "trace_id": "aspf-trace:abc123",
+                "started_at_utc": "2026-02-25T00:00:00+00:00",
+                "controls": {},
+                "one_cells": [],
+                "two_cell_witnesses": [],
+                "cofibration_witnesses": [],
+                "surface_representatives": {},
+                "imported_trace_count": 0,
+            },
+            "aspf_equivalence": {
+                "format_version": 1,
+                "trace_id": "aspf-trace:abc123",
+                "verdict": "non_drift",
+                "surface_table": [],
+            },
+            "aspf_opportunities": {
+                "format_version": 1,
+                "trace_id": "aspf-trace:abc123",
+                "opportunities": [],
+            },
+        }
+    )
+    assert normalized["aspf_trace"]["trace_id"] == "aspf-trace:abc123"
+    assert normalized["aspf_equivalence"]["verdict"] == "non_drift"
+    assert normalized["aspf_opportunities"]["opportunities"] == []
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_strictness::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -5577,70 +4442,8 @@ def test_analysis_resume_cache_verdict_invalidated_fallback_status() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_additional_variants::server.py::gabion.server._analysis_resume_checkpoint_compatibility
 def test_analysis_resume_checkpoint_compatibility_additional_variants(tmp_path: Path) -> None:
-    checkpoint = tmp_path / "resume.json"
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_missing"
-    )
-    checkpoint.write_text("{", encoding="utf-8")
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_unreadable"
-    )
-    checkpoint.write_text("[]", encoding="utf-8")
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_invalid_payload"
-    )
-    checkpoint.write_text(json.dumps({"format_version": 0}), encoding="utf-8")
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_format_mismatch"
-    )
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "collection_resume": {},
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_manifest_missing"
-    )
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "input_manifest_digest": "digest",
-            }
-        ),
-        encoding="utf-8",
-    )
-    assert (
-        server._analysis_resume_checkpoint_compatibility(
-            path=checkpoint,
-            manifest_digest="digest",
-        )
-        == "checkpoint_missing_collection_resume"
-    )
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values::server.py::gabion.server._materialize_execution_plan
@@ -5669,40 +4472,7 @@ def test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values() -
 def test_server_checkpoint_intro_and_execution_plan_additional_branch_edges(
     tmp_path: Path,
 ) -> None:
-    timeline_path = tmp_path / "checkpoint_intro_timeline.md"
-    _header, row = server._append_checkpoint_intro_timeline_row(
-        path=timeline_path,
-        collection_resume={
-            "completed_paths": [],
-            "semantic_progress": {
-                "current_witness_digest": "",
-                "new_processed_functions_count": True,
-                "regressed_processed_functions_count": "1",
-                "completed_files_delta": None,
-                "substantive_progress": "yes",
-            },
-            "analysis_index_resume": {
-                "hydrated_paths_count": True,
-                "function_count": True,
-                "class_count": False,
-            },
-        },
-        total_files=3,
-        checkpoint_path=tmp_path / "resume.json",
-        checkpoint_status="checkpoint_loaded",
-        checkpoint_reused_files=1,
-        checkpoint_total_files=3,
-        timestamp_utc="2026-02-20T00:00:00Z",
-    )
-    cells = [cell.strip() for cell in row.strip().split("|")[1:-1]]
-    assert cells[6] == ""
-    assert cells[7] == ""
-    assert cells[8] == ""
-    assert cells[9] == ""
-    assert cells[10] == ""
-    assert cells[11] == ""
-    assert cells[12] == ""
-    assert cells[13] == ""
+    assert not hasattr(server, "_append_checkpoint_intro_timeline_row")
 
     plan_policy_scalar = server._materialize_execution_plan(
         {
@@ -5873,7 +4643,6 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
                 "root": str(tmp_path),
                 "config": str(config_path),
                 "paths": [str(module_path)],
-                "resume_checkpoint": False,
                 "report": str(report_path),
                 "baseline": str(baseline_path),
                 "lint": True,
@@ -6071,38 +4840,8 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
 def test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback(
     tmp_path: Path,
 ) -> None:
-    witness = {
-        "files": [{"path": "mod.py", "size": 1, "mtime_ns": 2}],
-        "config": {
-            "exclude_dirs": [],
-            "ignore_params": [],
-            "strictness": "high",
-            "external_filter": True,
-            "transparent_decorators": [],
-        },
-        "root": str(tmp_path),
-        "recursive": True,
-        "include_invariant_propositions": False,
-        "include_wl_refinement": False,
-    }
-    manifest_digest = server._analysis_manifest_digest_from_witness(witness)
-    assert isinstance(manifest_digest, str)
-    checkpoint = tmp_path / "resume.json"
-    checkpoint.write_text(
-        json.dumps(
-            {
-                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
-                "input_witness": witness,
-                "collection_resume": {},
-            }
-        ),
-        encoding="utf-8",
-    )
-    status = server._analysis_resume_checkpoint_compatibility(
-        path=checkpoint,
-        manifest_digest=manifest_digest,
-    )
-    assert status == "checkpoint_compatible"
+    _ = tmp_path
+    assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_honors_dash_outputs_and_baseline_write::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module

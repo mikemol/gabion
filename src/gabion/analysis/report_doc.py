@@ -39,8 +39,8 @@ class ReportDoc:
             check_deadline()
             self._lines.append(f"- {item}")
 
-    def codeblock(self, content: str | object, *, language: str = "") -> None:
-        if isinstance(content, str):
+    def codeblock(self, content: object, *, language: str = "") -> None:
+        if type(content) is str:
             rendered = content
         else:
             rendered = json.dumps(content, indent=2, sort_keys=False)

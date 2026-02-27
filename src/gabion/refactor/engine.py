@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import libcst as cst
 
@@ -21,7 +22,7 @@ from gabion.order_contract import sort_once
 
 
 class RefactorEngine:
-    def __init__(self, project_root: Path | None = None) -> None:
+    def __init__(self, project_root = None) -> None:
         self.project_root = project_root
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
@@ -67,7 +68,7 @@ class RefactorEngine:
         insert_idx = _find_import_insert_index(body)
 
         protocol_base: cst.CSTNode
-        import_stmt: cst.SimpleStatementLine | None = None
+        import_stmt = None
         if _has_typing_import(body):
             protocol_base = cst.Attribute(cst.Name("typing"), cst.Name("Protocol"))
         elif _has_typing_protocol_import(body):
@@ -88,7 +89,7 @@ class RefactorEngine:
         warnings: list[str] = []
         rewrite_plans: list[RewritePlanEntry] = []
 
-        def _annotation_for(hint: str | None) -> cst.BaseExpression:
+        def _annotation_for(hint) -> cst.BaseExpression:
             if not hint:
                 return cst.Name("object")
             try:
@@ -208,7 +209,7 @@ class RefactorEngine:
         return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
 
 
-def _module_name(path: Path, project_root: Path | None) -> str:
+def _module_name(path: Path, project_root) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
         try:
@@ -222,16 +223,25 @@ def _module_name(path: Path, project_root: Path | None) -> str:
 
 
 def _is_docstring(stmt: cst.CSTNode) -> bool:
-    if not isinstance(stmt, cst.SimpleStatementLine) or not stmt.body:
+    if type(stmt) is not cst.SimpleStatementLine:
         return False
-    expr = stmt.body[0]
-    return isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString)
+    line = cast(cst.SimpleStatementLine, stmt)
+    expr = line.body[0]
+    if type(expr) is not cst.Expr:
+        return False
+    value = cast(cst.Expr, expr).value
+    return type(value) is cst.SimpleString
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:
-    if not isinstance(stmt, cst.SimpleStatementLine):
+    if type(stmt) is not cst.SimpleStatementLine:
         return False
-    return any(isinstance(item, (cst.Import, cst.ImportFrom)) for item in stmt.body)
+    line = cast(cst.SimpleStatementLine, stmt)
+    return any(
+        (check_deadline() or True)
+        and (type(item) is cst.Import or type(item) is cst.ImportFrom)
+        for item in line.body
+    )
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
@@ -245,21 +255,20 @@ def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
     return insert_idx
 
 
-def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
+def _module_expr_to_str(expr):
     check_deadline()
-    if expr is None:
-        return None
-    if isinstance(expr, cst.Name):
-        return expr.value
-    if isinstance(expr, cst.Attribute):
+    if type(expr) is cst.Name:
+        return cast(cst.Name, expr).value
+    if type(expr) is cst.Attribute:
         parts = []
-        current: cst.BaseExpression | None = expr
-        while isinstance(current, cst.Attribute):
+        current = expr
+        while type(current) is cst.Attribute:
             check_deadline()
-            parts.append(current.attr.value)
-            current = current.value
-        if isinstance(current, cst.Name):
-            parts.append(current.value)
+            current_attr = cast(cst.Attribute, current)
+            parts.append(current_attr.attr.value)
+            current = current_attr.value
+        if type(current) is cst.Name:
+            parts.append(cast(cst.Name, current).value)
         if parts:
             return ".".join(reversed(parts))
     return None  # pragma: no cover
@@ -269,21 +278,17 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                        if alias.name.value == "typing":
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        import_alias = cast(cst.ImportAlias, alias)
+                        if _module_expr_to_str(import_alias.name) == "typing":
                             return True
-                    if isinstance(alias, cst.ImportAlias) and isinstance(
-                        alias.name, cst.Attribute
-                    ):
-                        if _module_expr_to_str(alias.name) == "typing":
-                            return True  # pragma: no cover
     return False
 
 
@@ -291,22 +296,20 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            module = _module_expr_to_str(item.module)
-            if module != "typing":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
                 check_deadline()
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "Protocol":
-                        return True
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module == "typing" and (type(names) is list or type(names) is tuple):
+                        for alias in names:
+                            check_deadline()
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "Protocol":
+                                return True
     return False
 
 
@@ -314,22 +317,20 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            module = _module_expr_to_str(item.module)
-            if module != "typing":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
                 check_deadline()
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "overload":
-                        return True
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module == "typing" and (type(names) is list or type(names) is tuple):
+                        for alias in names:
+                            check_deadline()
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "overload":
+                                return True
     return False
 
 
@@ -337,15 +338,16 @@ def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                        if alias.name.value == "warnings":
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        alias_name = cast(cst.ImportAlias, alias).name
+                        if _module_expr_to_str(alias_name) == "warnings":
                             return True
     return False
 
@@ -384,45 +386,51 @@ def _collect_import_context(
     *,
     target_module: str,
     protocol_name: str,
-) -> tuple[dict[str, str], dict[str, str], str | None]:
+):
     check_deadline()
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
-    protocol_alias: str | None = None
+    protocol_alias = None
     for stmt in module.body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if isinstance(item, cst.Import):
-                for alias in item.names:
-                    check_deadline()
-                    if not isinstance(alias, cst.ImportAlias):  # pragma: no cover
-                        continue
-                    module_name = _module_expr_to_str(alias.name)
-                    if not module_name:  # pragma: no cover
-                        continue
-                    if module_name != target_module:
-                        continue
-                    local = alias.asname.name.value if alias.asname else module_name
-                    module_aliases[local] = module_name
-            elif isinstance(item, cst.ImportFrom):
-                module_name = _module_expr_to_str(item.module)
-                if module_name != target_module:
-                    continue
-                if not isinstance(item.names, Sequence):
-                    continue
-                for alias in item.names:
-                    check_deadline()
-                    if not isinstance(alias, cst.ImportAlias):
-                        continue
-                    if not isinstance(alias.name, cst.Name):
-                        continue
-                    local = alias.asname.name.value if alias.asname else alias.name.value
-                    imported_targets[local] = alias.name.value
-                    if alias.name.value == protocol_name:
-                        protocol_alias = local
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                item_type = type(item)
+                if item_type is cst.Import:
+                    import_item = cast(cst.Import, item)
+                    for alias in import_item.names:
+                        check_deadline()
+                        if type(alias) is cst.ImportAlias:  # pragma: no branch
+                            import_alias = cast(cst.ImportAlias, alias)
+                            module_name = _module_expr_to_str(import_alias.name)
+                            if module_name and module_name == target_module:
+                                local = (
+                                    import_alias.asname.name.value
+                                    if import_alias.asname
+                                    else module_name
+                                )
+                                module_aliases[local] = module_name
+                elif item_type is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    module_name = _module_expr_to_str(import_from.module)
+                    names = import_from.names
+                    if module_name == target_module and (type(names) is list or type(names) is tuple):
+                        for alias in names:
+                            check_deadline()
+                            if type(alias) is cst.ImportAlias:
+                                import_alias = cast(cst.ImportAlias, alias)
+                                alias_name = import_alias.name
+                                if type(alias_name) is cst.Name:
+                                    local = (
+                                        import_alias.asname.name.value
+                                        if import_alias.asname
+                                        else alias_name.value
+                                    )
+                                    imported_targets[local] = alias_name.value
+                                    if alias_name.value == protocol_name:
+                                        protocol_alias = local
     return module_aliases, imported_targets, protocol_alias
 
 
@@ -435,7 +443,7 @@ def _rewrite_call_sites(
     protocol_name: str,
     bundle_fields: list[str],
     targets: set[str],
-) -> tuple[list[str], cst.Module | None]:
+):
     check_deadline()
     warnings: list[str] = []
     file_is_target = file_path == target_path
@@ -453,7 +461,7 @@ def _rewrite_call_sites(
         target_methods.setdefault(class_name, set()).add(method)
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
-    protocol_alias: str | None = None
+    protocol_alias = None
     if not file_is_target and target_module:
         module_aliases, imported_targets, protocol_alias = _collect_import_context(
             module, target_module=target_module, protocol_name=protocol_name
@@ -499,7 +507,7 @@ def _rewrite_call_sites(
             module_expr = cst.parse_expression(target_module)
         except Exception:  # pragma: no cover
             module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
-        if not isinstance(module_expr, (cst.Name, cst.Attribute)):
+        if type(module_expr) is not cst.Name and type(module_expr) is not cst.Attribute:
             module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
         import_stmt = cst.SimpleStatementLine(
             [
@@ -557,20 +565,18 @@ def _rewrite_call_sites_in_project(
             targets=targets,
         )
         warnings.extend(call_warnings)
-        if updated_module is None:
-            continue
-        new_source = updated_module.code
-        if new_source == source:  # pragma: no cover
-            continue
-        end_line = len(source.splitlines())
-        edits.append(
-            TextEdit(
-                path=str(path),
-                start=(0, 0),
-                end=(end_line, 0),
-                replacement=new_source,
-            )
-        )
+        if updated_module is not None:
+            new_source = updated_module.code
+            if new_source != source:  # pragma: no cover
+                end_line = len(source.splitlines())
+                edits.append(
+                    TextEdit(
+                        path=str(path),
+                        start=(0, 0),
+                        end=(end_line, 0),
+                        replacement=new_source,
+                    )
+                )
     return edits, warnings
 
 
@@ -601,9 +607,9 @@ def _ensure_ambient_scaffolding(
         insert_idx += 1
 
     existing_top_level = {
-        node.name.value
+        cast(cst.FunctionDef, node).name.value
         for node in body
-        if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
+        if type(node) is cst.FunctionDef and type(cast(cst.FunctionDef, node).name) is cst.Name
     }
     for context_name in sort_once(
         context_names,
@@ -639,20 +645,20 @@ def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
         check_deadline()
-        if not isinstance(stmt, cst.SimpleStatementLine):
-            continue
-        for item in stmt.body:
-            check_deadline()
-            if not isinstance(item, cst.ImportFrom):
-                continue
-            if _module_expr_to_str(item.module) != "contextvars":
-                continue
-            if not isinstance(item.names, Sequence):
-                continue
-            for alias in item.names:
-                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == "ContextVar":
-                        return True
+        if type(stmt) is cst.SimpleStatementLine:
+            line = cast(cst.SimpleStatementLine, stmt)
+            for item in line.body:
+                check_deadline()
+                if type(item) is cst.ImportFrom:
+                    import_from = cast(cst.ImportFrom, item)
+                    names = import_from.names
+                    if _module_expr_to_str(import_from.module) == "contextvars" and (
+                        type(names) is list or type(names) is tuple
+                    ):
+                        for alias in names:
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "ContextVar":
+                                return True
     return False
 
 
@@ -678,11 +684,11 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
 
     def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.CSTNode:
         func = updated_node.func
-        target_name: str | None = None
-        if isinstance(func, cst.Name):
-            target_name = func.value
-        elif isinstance(func, cst.Attribute) and isinstance(func.attr, cst.Name):
-            target_name = func.attr.value
+        target_name = None
+        if type(func) is cst.Name:
+            target_name = cast(cst.Name, func).value
+        elif type(func) is cst.Attribute:
+            target_name = cast(cst.Attribute, func).attr.value
         if target_name not in self.targets:
             return updated_node
         if target_name == self.current:
@@ -696,9 +702,9 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
         removed = False
         for arg in updated_node.args:
             check_deadline()
-            is_name = isinstance(arg.value, cst.Name) and arg.value.value == self.context_name
-            if arg.keyword is not None and isinstance(arg.keyword, cst.Name):
-                if arg.keyword.value == self.context_name and is_name:
+            is_name = type(arg.value) is cst.Name and cast(cst.Name, arg.value).value == self.context_name
+            if arg.keyword is not None and type(arg.keyword) is cst.Name:
+                if cast(cst.Name, arg.keyword).value == self.context_name and is_name:
                     removed = True
                     continue
             if arg.keyword is None and is_name and len(updated_node.args) == 1:
@@ -721,7 +727,7 @@ class _AmbientSafetyVisitor(cst.CSTVisitor):
         self.reasons: list[str] = []
 
     def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
-        if isinstance(node.target, cst.Name) and node.target.value == self.context_name:
+        if type(node.target) is cst.Name and cast(cst.Name, node.target).value == self.context_name:
             self.reasons.append(
                 f"writes to parameter '{self.context_name}' prevent a safe ambient rewrite"
             )
@@ -745,7 +751,7 @@ class _AmbientRewriteTransformer(cst.CSTTransformer):
     ) -> cst.CSTNode:
         return self._rewrite_function(updated_node)
 
-    def _rewrite_function(self, node: cst.FunctionDef | cst.AsyncFunctionDef) -> cst.CSTNode:
+    def _rewrite_function(self, node) -> cst.CSTNode:
         check_deadline()
         name = node.name.value
         if name not in self.targets:
@@ -802,16 +808,18 @@ else:
 """
             ).body
         )
-        if isinstance(updated_body, cst.IndentedBlock):
-            existing = list(updated_body.body)
+        if type(updated_body) is cst.IndentedBlock:
+            updated_block = cast(cst.IndentedBlock, updated_body)
+            existing = list(updated_block.body)
             insert_at = 0
             if existing:
                 first = existing[0]
-                if isinstance(first, cst.SimpleStatementLine) and first.body:
-                    expr = first.body[0]
-                    if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+                if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                    first_line = cast(cst.SimpleStatementLine, first)
+                    expr = first_line.body[0]
+                    if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
                         insert_at = 1
-            updated_body = updated_body.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
+            updated_body = updated_block.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
 
         updated_params: list[cst.Param] = []
         for param in node.params.params:
@@ -900,7 +908,7 @@ class _RefactorTransformer(cst.CSTTransformer):
     def _maybe_rewrite_function(
         self,
         original_node: cst.FunctionDef,
-        updated_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        updated_node,
     ) -> cst.CSTNode:
         qualname = ".".join(self._stack)
         name = original_node.name.value
@@ -947,10 +955,10 @@ class _RefactorTransformer(cst.CSTTransformer):
     def _build_compat_shim(
         self,
         *,
-        original_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        original_node,
         impl_name: str,
         bundle_param: str,
-        self_param: cst.Param | None,
+        self_param,
     ) -> list[cst.CSTNode]:
         decorators = list(original_node.decorators)
         overload_decorators = [cst.Decorator(cst.Name("overload")), *decorators]
@@ -1016,7 +1024,7 @@ class _RefactorTransformer(cst.CSTTransformer):
             decorators=decorators,
         )
 
-    def _build_shim_parameters(self, self_param: cst.Param | None) -> cst.Parameters:
+    def _build_shim_parameters(self, self_param) -> cst.Parameters:
         params: list[cst.Param] = []
         if self_param is not None:
             params.append(self_param)
@@ -1034,7 +1042,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         *,
         impl_name: str,
         bundle_type: str,
-        self_param: cst.Param | None,
+        self_param,
         is_async: bool,
         public_name: str,
     ) -> cst.BaseSuite:
@@ -1075,7 +1083,7 @@ class _RefactorTransformer(cst.CSTTransformer):
 
     def _find_self_param(
         self, params: cst.Parameters, name: str
-    ) -> cst.Param | None:
+    ):
         check_deadline()
         for param in params.posonly_params:
             check_deadline()
@@ -1099,7 +1107,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         return f"bundle_{idx}"
 
     def _build_parameters(
-        self, self_param: cst.Param | None, bundle_name: str
+        self, self_param, bundle_name: str
     ) -> cst.Parameters:
         params: list[cst.Param] = []
         if self_param is not None:
@@ -1132,8 +1140,9 @@ class _RefactorTransformer(cst.CSTTransformer):
     ) -> cst.BaseSuite:
         if not fields:
             return body
-        if not isinstance(body, cst.IndentedBlock):
+        if type(body) is not cst.IndentedBlock:
             return body
+        body_block = cast(cst.IndentedBlock, body)
         assign_lines = [
             cst.SimpleStatementLine(
                 [
@@ -1148,16 +1157,17 @@ class _RefactorTransformer(cst.CSTTransformer):
             )
             for name in fields
         ]
-        existing = list(body.body)
+        existing = list(body_block.body)
         insert_at = 0
         if existing:
             first = existing[0]
-            if isinstance(first, cst.SimpleStatementLine) and first.body:
-                expr = first.body[0]
-                if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+            if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                first_line = cast(cst.SimpleStatementLine, first)
+                expr = first_line.body[0]
+                if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
                     insert_at = 1
         new_body = existing[:insert_at] + assign_lines + existing[insert_at:]
-        return body.with_changes(body=new_body)
+        return body_block.with_changes(body=new_body)
 
 
 class _CallSiteTransformer(cst.CSTTransformer):
@@ -1208,24 +1218,26 @@ class _CallSiteTransformer(cst.CSTTransformer):
         return updated_node.with_changes(args=[cst.Arg(value=bundle_call)])
 
     def _is_target_call(self, func: cst.BaseExpression) -> bool:
-        if isinstance(func, cst.Name):
-            if self.file_is_target and func.value in self.target_simple:
+        if type(func) is cst.Name:
+            func_name = cast(cst.Name, func)
+            if self.file_is_target and func_name.value in self.target_simple:
                 return True
-            if not self.file_is_target and func.value in self.imported_targets:
+            if not self.file_is_target and func_name.value in self.imported_targets:
                 return True
             return False
-        if isinstance(func, cst.Attribute):
-            if not isinstance(func.attr, cst.Name):  # pragma: no cover
-                return False
-            attr = func.attr.value
+        if type(func) is cst.Attribute:
+            func_attr = cast(cst.Attribute, func)
+            attr = func_attr.attr.value
             if self.file_is_target and self._class_stack:
                 class_name = ".".join(self._class_stack)
                 methods = self.target_methods.get(class_name, set())
-                if attr in methods and isinstance(func.value, cst.Name):
-                    if func.value.value in {"self", "cls", self._class_stack[-1]}:
+                if attr in methods and type(func_attr.value) is cst.Name:
+                    value_name = cast(cst.Name, func_attr.value).value
+                    if value_name in {"self", "cls", self._class_stack[-1]}:
                         return True
-            if not self.file_is_target and isinstance(func.value, cst.Name):
-                if func.value.value in self.module_aliases and attr in self.target_simple:
+            if not self.file_is_target and type(func_attr.value) is cst.Name:
+                value_name = cast(cst.Name, func_attr.value).value
+                if value_name in self.module_aliases and attr in self.target_simple:
                     return True
         return False
 
@@ -1236,25 +1248,28 @@ class _CallSiteTransformer(cst.CSTTransformer):
         if arg.star:
             return False
         value = arg.value
-        if not isinstance(value, cst.Call):
+        if type(value) is not cst.Call:
             return False
-        if isinstance(value.func, cst.Name) and isinstance(self.constructor_expr, cst.Name):
-            return value.func.value == self.constructor_expr.value
-        if isinstance(value.func, cst.Attribute) and isinstance(self.constructor_expr, cst.Attribute):
-            return value.func.attr.value == self.constructor_expr.attr.value
+        value_call = cast(cst.Call, value)
+        if type(value_call.func) is cst.Name and type(self.constructor_expr) is cst.Name:
+            return cast(cst.Name, value_call.func).value == cast(cst.Name, self.constructor_expr).value
+        if type(value_call.func) is cst.Attribute and type(self.constructor_expr) is cst.Attribute:
+            return cast(cst.Attribute, value_call.func).attr.value == cast(
+                cst.Attribute, self.constructor_expr
+            ).attr.value
         return False
 
-    def _build_bundle_args(self, call: cst.Call) -> list[cst.Arg] | None:
+    def _build_bundle_args(self, call: cst.Call):
         check_deadline()
         if any(arg.star in {"*", "**"} for arg in call.args):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")
             return None
         positional = [arg for arg in call.args if arg.keyword is None]
-        keyword_args = {
-            arg.keyword.value: arg.value
-            for arg in call.args
-            if arg.keyword is not None and isinstance(arg.keyword, cst.Name)
-        }
+        keyword_args: dict[str, cst.BaseExpression] = {}
+        for arg in call.args:
+            check_deadline()
+            if arg.keyword is not None and type(arg.keyword) is cst.Name:
+                keyword_args[cast(cst.Name, arg.keyword).value] = arg.value
         for key in keyword_args:
             check_deadline()
             if key not in self.bundle_fields:

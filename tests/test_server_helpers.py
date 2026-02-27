@@ -245,27 +245,7 @@ def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_resume_checkpoint_descriptor_formats_known_and_unknown_counts::server.py::gabion.server._resume_checkpoint_descriptor_from_progress_value
 def test_resume_checkpoint_descriptor_formats_known_and_unknown_counts() -> None:
     server = _load()
-    unknown = server._resume_checkpoint_descriptor_from_progress_value(
-        {
-            "resume_checkpoint": {
-                "checkpoint_path": "resume.json",
-                "status": "pending",
-            }
-        }
-    )
-    assert "reused_files=unknown" in unknown
-
-    known = server._resume_checkpoint_descriptor_from_progress_value(
-        {
-            "resume_checkpoint": {
-                "checkpoint_path": "resume.json",
-                "status": "checkpoint_loaded",
-                "reused_files": 2,
-                "total_files": 5,
-            }
-        }
-    )
-    assert "reused_files=2/5" in known
+    assert not hasattr(server, "_resume_checkpoint_descriptor_from_progress_value")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary::server.py::gabion.server._append_phase_timeline_event

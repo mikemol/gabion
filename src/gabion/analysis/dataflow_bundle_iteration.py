@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import cast
 
 from gabion.analysis.json_types import JSONObject
 from gabion.order_contract import sort_once
@@ -28,7 +29,7 @@ def _bind_audit_symbols() -> None:
 class BundleIterationContext:
     path: Path
     module: str
-    symbol_table: SymbolTable | None
+    symbol_table: object
     local_dataclasses: Mapping[str, tuple[str, ...]]
     dataclass_registry: Mapping[str, tuple[str, ...]]
 
@@ -43,7 +44,7 @@ class BundleIterationOutcome:
 class _ConstructorOperation:
     kind: str
     count: int = 0
-    name: str | None = None
+    name: str = ""
     source: str = ""
 
 
@@ -56,35 +57,42 @@ class _ConstructorPlan:
 
 @dataclass(frozen=True)
 class _ConstructorProjectionOutcome:
-    names: tuple[str, ...] | None
+    names: tuple[str, ...]
     witness_effects: tuple[JSONObject, ...]
+    projected: bool
 
 
 def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
     local_dataclasses: dict[str, tuple[str, ...]] = {}
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.ClassDef):
-            continue
-        decorators = {
-            ast.unparse(dec) if hasattr(ast, "unparse") else ""
-            for dec in node.decorator_list
-        }
-        if not any("dataclass" in dec for dec in decorators):
-            continue
-        fields: list[str] = []
-        for stmt in node.body:
-            check_deadline()
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                fields.append(stmt.target.id)
-                continue
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    check_deadline()
-                    if isinstance(target, ast.Name):
-                        fields.append(target.id)
-        if fields:
-            local_dataclasses[node.name] = tuple(fields)
+        match node:
+            case ast.ClassDef() as class_node:
+                decorators = {
+                    ast.unparse(dec) if hasattr(ast, "unparse") else ""
+                    for dec in class_node.decorator_list
+                }
+                if any("dataclass" in dec for dec in decorators):
+                    fields: list[str] = []
+                    for stmt in class_node.body:
+                        check_deadline()
+                        match stmt:
+                            case ast.AnnAssign(target=ast.Name() as target_name):
+                                fields.append(target_name.id)
+                            case ast.Assign(targets=assign_targets):
+                                for target in assign_targets:
+                                    check_deadline()
+                                    match target:
+                                        case ast.Name() as target_name:
+                                            fields.append(target_name.id)
+                                        case _:
+                                            pass
+                            case _:
+                                pass
+                    if fields:
+                        local_dataclasses[class_node.name] = tuple(fields)
+            case _:
+                pass
     return local_dataclasses
 
 
@@ -92,13 +100,16 @@ def _effective_dataclass_registry(
     *,
     module: str,
     local_dataclasses: Mapping[str, tuple[str, ...]],
-    dataclass_registry: dict[str, list[str]] | None,
+    dataclass_registry: object,
 ) -> dict[str, tuple[str, ...]]:
-    if dataclass_registry is not None:
-        return {
-            name: tuple(fields)
-            for name, fields in dataclass_registry.items()
-        }
+    match dataclass_registry:
+        case dict() as dataclass_registry_payload:
+            return {
+                name: tuple(fields)
+                for name, fields in dataclass_registry_payload.items()
+            }
+        case _:
+            pass
 
     effective_registry: dict[str, tuple[str, ...]] = {}
     for name, fields in local_dataclasses.items():
@@ -115,39 +126,39 @@ def _resolve_dataclass_fields(
     call: ast.Call,
     *,
     context: BundleIterationContext,
-) -> tuple[str, ...] | None:
-    if isinstance(call.func, ast.Name):
-        name = call.func.id
-        if name in context.local_dataclasses:
-            return context.local_dataclasses[name]
-        candidate = f"{context.module}.{name}"
-        if candidate in context.dataclass_registry:
-            return context.dataclass_registry[candidate]
-        if context.symbol_table is not None:
-            resolved = context.symbol_table.resolve(context.module, name)
-            if resolved in context.dataclass_registry:
-                return context.dataclass_registry[resolved]
-            resolved_star = context.symbol_table.resolve_star(context.module, name)
-            if resolved_star in context.dataclass_registry:
-                return context.dataclass_registry[resolved_star]
-        if name in context.dataclass_registry:
-            return context.dataclass_registry[name]
-    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
-        base = call.func.value.id
-        attr = call.func.attr
-        if context.symbol_table is None:
-            return None
-        base_fqn = context.symbol_table.resolve(context.module, base)
-        if base_fqn:
-            candidate = f"{base_fqn}.{attr}"
+) -> tuple[str, ...]:
+    symbol_table = cast(SymbolTable, context.symbol_table) if context.symbol_table is not None else None
+    match call.func:
+        case ast.Name(id=name):
+            if name in context.local_dataclasses:
+                return context.local_dataclasses[name]
+            candidate = f"{context.module}.{name}"
             if candidate in context.dataclass_registry:
                 return context.dataclass_registry[candidate]
-        base_star = context.symbol_table.resolve_star(context.module, base)
-        if base_star:
-            candidate = f"{base_star}.{attr}"
-            if candidate in context.dataclass_registry:
-                return context.dataclass_registry[candidate]
-    return None
+            if symbol_table is not None:
+                resolved = symbol_table.resolve(context.module, name)
+                if resolved in context.dataclass_registry:
+                    return context.dataclass_registry[resolved]
+                resolved_star = symbol_table.resolve_star(context.module, name)
+                if resolved_star in context.dataclass_registry:
+                    return context.dataclass_registry[resolved_star]
+            if name in context.dataclass_registry:
+                return context.dataclass_registry[name]
+        case ast.Attribute(value=ast.Name(id=base), attr=attr):
+            if symbol_table is not None:
+                base_fqn = symbol_table.resolve(context.module, base)
+                if base_fqn:
+                    candidate = f"{base_fqn}.{attr}"
+                    if candidate in context.dataclass_registry:
+                        return context.dataclass_registry[candidate]
+                base_star = symbol_table.resolve_star(context.module, base)
+                if base_star:
+                    candidate = f"{base_star}.{attr}"
+                    if candidate in context.dataclass_registry:
+                        return context.dataclass_registry[candidate]
+        case _:
+            pass
+    return ()
 
 
 def _unresolved_starred_witness(
@@ -183,32 +194,44 @@ def _plan_constructor_operations(
 
     for arg in call.args:
         check_deadline()
-        if not isinstance(arg, ast.Starred):
-            operations.append(_ConstructorOperation(kind="append_positional", count=1, source="arg"))
-            continue
-        value = arg.value
-        if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
-            operations.append(
-                _ConstructorOperation(
-                    kind="append_positional",
-                    count=len(value.elts),
-                    source=f"*{type(value).__name__}",
+        match arg:
+            case ast.Starred(value=starred_value):
+                match starred_value:
+                    case ast.List(elts=elements) | ast.Tuple(elts=elements) | ast.Set(
+                        elts=elements
+                    ):
+                        operations.append(
+                            _ConstructorOperation(
+                                kind="append_positional",
+                                count=len(elements),
+                                source=f"*{type(starred_value).__name__}",
+                            )
+                        )
+                    case _:
+                        witness_effects.append(
+                            _unresolved_starred_witness(
+                                path=path,
+                                call=call,
+                                category="dynamic_star_args",
+                                detail=(
+                                    "unsupported * payload="
+                                    f"{type(starred_value).__name__}"
+                                ),
+                            )
+                        )
+                        return _ConstructorPlan(
+                            operations=tuple(operations),
+                            witness_effects=tuple(witness_effects),
+                            terminal_status="stop",
+                        )
+            case _:
+                operations.append(
+                    _ConstructorOperation(
+                        kind="append_positional",
+                        count=1,
+                        source="arg",
+                    )
                 )
-            )
-            continue
-        witness_effects.append(
-            _unresolved_starred_witness(
-                path=path,
-                call=call,
-                category="dynamic_star_args",
-                detail=f"unsupported * payload={type(value).__name__}",
-            )
-        )
-        return _ConstructorPlan(
-            operations=tuple(operations),
-            witness_effects=tuple(witness_effects),
-            terminal_status="stop",
-        )
 
     for keyword in call.keywords:
         check_deadline()
@@ -222,29 +245,54 @@ def _plan_constructor_operations(
             )
             continue
         mapping_node = keyword.value
-        if not isinstance(mapping_node, ast.Dict):
-            witness_effects.append(
-                _unresolved_starred_witness(
-                    path=path,
-                    call=call,
-                    category="dynamic_star_kwargs",
-                    detail=f"unsupported ** payload={type(mapping_node).__name__}",
-                )
-            )
-            return _ConstructorPlan(
-                operations=tuple(operations),
-                witness_effects=tuple(witness_effects),
-                terminal_status="stop",
-            )
-        for key in mapping_node.keys:
-            check_deadline()
-            if key is None:
+        match mapping_node:
+            case ast.Dict(keys=mapping_keys):
+                for key in mapping_keys:
+                    check_deadline()
+                    match key:
+                        case None:
+                            witness_effects.append(
+                                _unresolved_starred_witness(
+                                    path=path,
+                                    call=call,
+                                    category="dynamic_star_kwargs",
+                                    detail="dict unpack inside ** literal is dynamic",
+                                )
+                            )
+                            return _ConstructorPlan(
+                                operations=tuple(operations),
+                                witness_effects=tuple(witness_effects),
+                                terminal_status="stop",
+                            )
+                        case ast.Constant(value=str() as key_name):
+                            operations.append(
+                                _ConstructorOperation(
+                                    kind="append_keyword",
+                                    name=key_name,
+                                    source="**dict",
+                                )
+                            )
+                        case _:
+                            witness_effects.append(
+                                _unresolved_starred_witness(
+                                    path=path,
+                                    call=call,
+                                    category="dynamic_star_kwargs",
+                                    detail="non-string literal key in ** dict",
+                                )
+                            )
+                            return _ConstructorPlan(
+                                operations=tuple(operations),
+                                witness_effects=tuple(witness_effects),
+                                terminal_status="stop",
+                            )
+            case _:
                 witness_effects.append(
                     _unresolved_starred_witness(
                         path=path,
                         call=call,
                         category="dynamic_star_kwargs",
-                        detail="dict unpack inside ** literal is dynamic",
+                        detail=f"unsupported ** payload={type(mapping_node).__name__}",
                     )
                 )
                 return _ConstructorPlan(
@@ -252,27 +300,6 @@ def _plan_constructor_operations(
                     witness_effects=tuple(witness_effects),
                     terminal_status="stop",
                 )
-            if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
-                witness_effects.append(
-                    _unresolved_starred_witness(
-                        path=path,
-                        call=call,
-                        category="dynamic_star_kwargs",
-                        detail="non-string literal key in ** dict",
-                    )
-                )
-                return _ConstructorPlan(
-                    operations=tuple(operations),
-                    witness_effects=tuple(witness_effects),
-                    terminal_status="stop",
-                )
-            operations.append(
-                _ConstructorOperation(
-                    kind="append_keyword",
-                    name=key.value,
-                    source="**dict",
-                )
-            )
 
     return _ConstructorPlan(
         operations=tuple(operations),
@@ -291,8 +318,9 @@ def _apply_constructor_plan(
     witness_effects = list(plan.witness_effects)
     if plan.terminal_status != "apply":
         return _ConstructorProjectionOutcome(  # pragma: no cover
-            names=None,
+            names=(),
             witness_effects=tuple(witness_effects),
+            projected=False,
         )
 
     field_set = set(fields)
@@ -313,31 +341,41 @@ def _apply_constructor_plan(
                         )
                     )
                     return _ConstructorProjectionOutcome(
-                        names=None,
+                        names=(),
                         witness_effects=tuple(witness_effects),
+                        projected=False,
                     )
                 names.append(fields[position])
                 position += 1
             continue
-        if operation.kind == "append_keyword" and operation.name is not None:
+        if operation.kind == "append_keyword" and operation.name:
             names.append(operation.name)
             continue
         return _ConstructorProjectionOutcome(  # pragma: no cover
-            names=None,
+            names=(),
             witness_effects=tuple(witness_effects),
+            projected=False,
         )
 
     if any(name not in field_set for name in names):
-        return _ConstructorProjectionOutcome(names=None, witness_effects=tuple(witness_effects))
-    return _ConstructorProjectionOutcome(names=tuple(names), witness_effects=tuple(witness_effects))
+        return _ConstructorProjectionOutcome(
+            names=(),
+            witness_effects=tuple(witness_effects),
+            projected=False,
+        )
+    return _ConstructorProjectionOutcome(
+        names=tuple(names),
+        witness_effects=tuple(witness_effects),
+        projected=True,
+    )
 
 
 def iter_dataclass_call_bundle_effects(
     path: Path,
     *,
-    project_root: Path | None = None,
-    symbol_table: SymbolTable | None = None,
-    dataclass_registry: dict[str, list[str]] | None = None,
+    project_root: object = None,
+    symbol_table: object = None,
+    dataclass_registry: object = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> BundleIterationOutcome:
     _bind_audit_symbols()
@@ -371,24 +409,32 @@ def iter_dataclass_call_bundle_effects(
     witness_effects: list[JSONObject] = []
     for node in ast.walk(tree):
         check_deadline()
-        if not isinstance(node, ast.Call):
-            continue
-        fields = _resolve_dataclass_fields(node, context=context)
-        if not fields:
-            continue
-        plan = _plan_constructor_operations(path=path, call=node)
-        projection = _apply_constructor_plan(path=path, call=node, fields=fields, plan=plan)
-        witness_effects.extend(projection.witness_effects)
-        if projection.names is None or len(projection.names) < 2:
-            continue
-        bundles.add(
-            tuple(
-                sort_once(
-                    projection.names,
-                    source="src/gabion/analysis/dataflow_bundle_iteration.py:iter_dataclass_call_bundle_effects",
-                )
-            )
-        )
+        match node:
+            case ast.Call() as call_node:
+                fields = _resolve_dataclass_fields(call_node, context=context)
+                if fields:
+                    plan = _plan_constructor_operations(path=path, call=call_node)
+                    projection = _apply_constructor_plan(
+                        path=path,
+                        call=call_node,
+                        fields=fields,
+                        plan=plan,
+                    )
+                    witness_effects.extend(projection.witness_effects)
+                    if projection.projected and len(projection.names) >= 2:
+                        bundles.add(
+                            tuple(
+                                sort_once(
+                                    projection.names,
+                                    source=(
+                                        "src/gabion/analysis/dataflow_bundle_iteration.py:"
+                                        "iter_dataclass_call_bundle_effects"
+                                    ),
+                                )
+                            )
+                        )
+            case _:
+                pass
 
     return BundleIterationOutcome(
         bundles=frozenset(bundles),

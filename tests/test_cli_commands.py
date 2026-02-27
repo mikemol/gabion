@@ -36,8 +36,6 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["--help"])
     assert result.exit_code == 0
-    assert "delta-state-emit" in result.output
-    assert "delta-triplets" in result.output
     assert "docflow-delta-emit" in result.output
     assert "ambiguity-contract-gate" in result.output
     assert "normative-symdiff" in result.output
@@ -49,8 +47,6 @@ def test_cli_help_lists_tooling_subcommands() -> None:
 def test_cli_tooling_subcommand_help_invocations() -> None:
     runner = CliRunner()
     for command_name in (
-        "delta-state-emit",
-        "delta-triplets",
         "docflow-delta-emit",
         "ambiguity-contract-gate",
         "normative-symdiff",
@@ -61,7 +57,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         assert result.exit_code == 0, command_name
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.delta_state_emit::cli.py::gabion.cli.delta_triplets::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.ambiguity_contract_gate::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.ambiguity_contract_gate::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage
 def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert cli._invoke_argparse_command(lambda _argv: 3, []) == 3
     assert (
@@ -88,8 +84,6 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     symdiff_args: list[list[str]] = []
     with cli._tooling_runner_override(
         no_arg={
-            "delta-state-emit": lambda: 11,
-            "delta-triplets": lambda: 12,
             "docflow-delta-emit": lambda: 13,
         },
         with_argv={
@@ -99,12 +93,6 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             "run-dataflow-stage": lambda argv: (_ for _ in ()).throw(SystemExit(15)),
         },
     ):
-        with pytest.raises(typer.Exit) as exc:
-            cli.delta_state_emit()
-        assert exc.value.exit_code == 11
-        with pytest.raises(typer.Exit) as exc:
-            cli.delta_triplets()
-        assert exc.value.exit_code == 12
         with pytest.raises(typer.Exit) as exc:
             cli.docflow_delta_emit()
         assert exc.value.exit_code == 13
@@ -124,6 +112,17 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert argv_seen == [["--root", "."]]
     assert ambiguity_args == [["--root", ".", "--baseline", "b.json"]]
     assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
+
+
+# gabion:evidence E:function_site::tests/test_cli_commands.py::test_removed_delta_wrapper_commands_emit_migration_errors
+def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
+    runner = CliRunner()
+    removed_emit = _invoke(runner, ["delta-state-emit"])
+    assert removed_emit.exit_code != 0
+    assert "delta-bundle" in removed_emit.output
+    removed_triplets = _invoke(runner, ["delta-triplets"])
+    assert removed_triplets.exit_code != 0
+    assert "delta-gates" in removed_triplets.output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_tooling_runner_override_ignores_non_mapping_overrides::cli.py::gabion.cli._tooling_runner_override

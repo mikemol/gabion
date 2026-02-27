@@ -17,9 +17,17 @@ def normalize_bundle_key(bundle: object) -> str:
     over symbol names.
     """
     check_deadline()
-    if not isinstance(bundle, (list, tuple, set)):
-        return ""
-    values = {item.strip() for item in bundle if isinstance(item, str) and item.strip()}
+    values: set[str] = set()
+    match bundle:
+        case list() | tuple() | set() as bundle_values:
+            for item in bundle_values:
+                match item:
+                    case str() as item_text if item_text.strip():
+                        values.add(item_text.strip())
+                    case _:
+                        pass
+        case _:
+            return ""
     return ",".join(
         sort_once(
             values,
@@ -36,14 +44,20 @@ def normalize_string_list(value: object) -> list[str]:
     """
     check_deadline()
     raw: list[str] = []
-    if value is None:
-        return raw
-    if isinstance(value, str):
-        raw = [value]
-    elif isinstance(value, (list, tuple, set)):
-        raw = [item for item in value if isinstance(item, str)]
-    else:
-        return raw
+    match value:
+        case None:
+            return raw
+        case str() as text_value:
+            raw = [text_value]
+        case list() | tuple() | set() as sequence_value:
+            for item in sequence_value:
+                match item:
+                    case str() as item_text:
+                        raw.append(item_text)
+                    case _:
+                        pass
+        case _:
+            return raw
 
     parts: list[str] = []
     for item in raw:
@@ -62,13 +76,15 @@ class Site:
     bundle: tuple[str, ...]
 
     @classmethod
-    def from_payload(cls, payload: object) -> Site | None:
-        if not isinstance(payload, Mapping):
-            return None
-        path = str(payload.get("path", "")).strip()
-        function = str(payload.get("function", "")).strip()
-        bundle = normalize_string_list(payload.get("bundle", []) or [])
-        return cls(path=path, function=function, bundle=tuple(bundle))
+    def from_payload(cls, payload: object) -> object:
+        match payload:
+            case Mapping() as payload_mapping:
+                path = str(payload_mapping.get("path", "")).strip()
+                function = str(payload_mapping.get("function", "")).strip()
+                bundle = normalize_string_list(payload_mapping.get("bundle", []) or [])
+                return cls(path=path, function=function, bundle=tuple(bundle))
+            case _:
+                return None
 
     def bundle_key(self) -> str:
         check_deadline()
@@ -90,18 +106,20 @@ def exception_obligation_summary_for_site(
     for entry in obligations:
         check_deadline()
         raw_site = entry.get("site", {}) or {}
-        if not isinstance(raw_site, Mapping):
-            continue
-        if str(raw_site.get("path", "")) != site.path:
-            continue
-        if str(raw_site.get("function", "")) != site.function:
-            continue
-        entry_bundle = raw_site.get("bundle", []) or []
-        if normalize_bundle_key(entry_bundle) != bundle_key:
-            continue
-        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-        if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
-            status = "UNKNOWN"
-        summary[status] += 1
-        summary["total"] += 1
+        match raw_site:
+            case Mapping() as site_payload:
+                if str(site_payload.get("path", "")) != site.path:
+                    continue
+                if str(site_payload.get("function", "")) != site.function:
+                    continue
+                entry_bundle = site_payload.get("bundle", []) or []
+                if normalize_bundle_key(entry_bundle) != bundle_key:
+                    continue
+                status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+                if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
+                    status = "UNKNOWN"
+                summary[status] += 1
+                summary["total"] += 1
+            case _:
+                continue
     return summary

@@ -37,7 +37,6 @@ def main() -> int:
     if terminal_status == "success":
         return 0
     _emit(Path("artifacts/audit_reports/dataflow_report.md"), "dataflow report")
-    _emit(Path("artifacts/audit_reports/timeout_progress.md"), "timeout progress")
     if terminal_status == "timeout_resume":
         print("Dataflow audit invocation timed out with resumable progress.")
         return 1

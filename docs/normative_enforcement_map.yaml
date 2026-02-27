@@ -73,17 +73,22 @@ clauses:
     enforcing_modules:
       - src/gabion/analysis/baseline_io.py
       - src/gabion/tooling/delta_gate.py
-      - src/gabion/tooling/delta_triplets.py
+      - src/gabion/cli.py
+      - src/gabion/tooling/run_dataflow_stage.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
-        step: Delta state emit
+        step: Delta bundle
       - workflow: .github/workflows/ci.yml
         job: checks
-        step: Delta triplets (default-on burn-down gates)
+        step: Delta gates (default-on burn-down gates)
     expected_artifacts:
-      - artifacts/out/delta_state.json
-      - artifacts/out/delta_triplets.json
+      - artifacts/out/test_obsolescence_state.json
+      - artifacts/out/test_obsolescence_delta.json
+      - artifacts/out/test_annotation_drift.json
+      - artifacts/out/test_annotation_drift_delta.json
+      - artifacts/out/ambiguity_state.json
+      - artifacts/out/ambiguity_delta.json
   NCI-DEADLINE-TIMEOUT-PROPAGATION:
     status: partial
     enforcing_modules:

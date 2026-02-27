@@ -53,7 +53,7 @@ jobs:
           repo = os.environ["REPO"]
           sha = os.environ["SHA"]
           # Stage CI can approach the workflow timeout budget under
-          # delta-triplets + resumable dataflow retries, so keep this gate
+          # delta-bundle + ASPF handoff-heavy runs, so keep this gate
           # comfortably above the observed ~45 minute path.
           deadline = time.time() + 70 * 60
           url = (
@@ -184,17 +184,23 @@ jobs:
       - name: Render dataflow grammar report
         run: |
           mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
-          .venv/bin/python -m gabion \
-            --timeout 65000000000000ns \
-            check raw -- . \
+          SESSION_ID="pr-dataflow-${{ github.run_id }}-${{ github.run_attempt }}"
+          .venv/bin/python scripts/aspf_handoff.py run \
             --root . \
-            --report artifacts/dataflow_grammar/report.md \
-            --dot artifacts/dataflow_grammar/dataflow_graph.dot \
-            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
-            --resume-on-timeout 1 \
-            --emit-timeout-progress-report \
-            --type-audit-report \
-            --baseline baselines/dataflow_baseline.txt
+            --session-id "${SESSION_ID}" \
+            --step-id "pr-dataflow.render-check.raw" \
+            --command-profile "pr-dataflow.check.raw" \
+            --manifest artifacts/out/aspf_handoff_manifest.json \
+            --state-root artifacts/out/aspf_state \
+            -- \
+            .venv/bin/python -m gabion \
+              --timeout 130000000000000ns \
+              check raw -- . \
+              --root . \
+              --report artifacts/dataflow_grammar/report.md \
+              --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+              --type-audit-report \
+              --baseline baselines/dataflow_baseline.txt
       - name: Upload dataflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

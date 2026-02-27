@@ -17,9 +17,6 @@ from gabion.runtime import env_policy
 
 DEFAULT_TIMEOUT_TICKS = "65000000"
 DEFAULT_TIMEOUT_TICK_NS = "1000000"
-DEFAULT_RESUME_CHECKPOINT_PATH = Path(
-    "artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"
-)
 
 
 @dataclass(frozen=True)
@@ -32,7 +29,6 @@ class StateInputSpec:
 class DeltaEmitPayloadSpec:
     emit_payload_keys: tuple[str, ...]
     state_inputs: tuple[StateInputSpec, ...] = ()
-    default_resume_checkpoint_path: Path = DEFAULT_RESUME_CHECKPOINT_PATH
 
 
 @dataclass(frozen=True)
@@ -126,41 +122,19 @@ def supports_notification_callback(
 
 def build_payload(
     payload_spec: DeltaEmitPayloadSpec,
-    *,
-    resume_checkpoint: Path | bool | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "analysis_timeout_ticks": timeout_ticks(),
         "analysis_timeout_tick_ns": timeout_tick_ns(),
         "fail_on_violations": False,
         "fail_on_type_ambiguities": False,
-        "resume_on_timeout": 1,
-        "emit_timeout_progress_report": True,
     }
     for key in payload_spec.emit_payload_keys:
         payload[key] = True
     for state_input in payload_spec.state_inputs:
         if state_input.path.exists():
             payload[state_input.payload_key] = str(state_input.path)
-    payload["resume_checkpoint"] = _resolve_resume_checkpoint(
-        resume_checkpoint=resume_checkpoint,
-        default_resume_checkpoint_path=payload_spec.default_resume_checkpoint_path,
-    )
     return payload
-
-
-def _resolve_resume_checkpoint(
-    *,
-    resume_checkpoint: Path | bool | None,
-    default_resume_checkpoint_path: Path,
-) -> str | bool:
-    if resume_checkpoint is False:
-        return False
-    if isinstance(resume_checkpoint, Path):
-        return str(resume_checkpoint)
-    if default_resume_checkpoint_path.exists():
-        return str(default_resume_checkpoint_path)
-    return False
 
 
 def maybe_emit_timeline_row(

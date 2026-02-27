@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 
 _BOUND = False
 
@@ -22,7 +23,7 @@ def _bind_audit_symbols() -> None:
 
 @dataclass(frozen=True)
 class _ForestPhaseResult:
-    forest_spec: ForestSpec | None
+    forest_spec: object
     ambiguity_witnesses: list[JSONObject]
 
 
@@ -46,7 +47,7 @@ class _PostPhaseResult:
     fingerprint_warnings: list[str]
     fingerprint_matches: list[str]
     fingerprint_synth: list[str]
-    fingerprint_synth_registry: JSONObject | None
+    fingerprint_synth_registry: object
     fingerprint_provenance: list[JSONObject]
     coherence_witnesses: list[JSONObject]
     rewrite_plans: list[JSONObject]
@@ -63,20 +64,27 @@ def _normalized_dimension_payload(
     normalized: dict[str, JSONObject] = {}
     for raw_name, raw_payload in raw_dimensions.items():
         check_deadline()
-        if isinstance(raw_name, str) and isinstance(raw_payload, Mapping):
-            raw_done = raw_payload.get("done")
-            raw_total = raw_payload.get("total")
-            if (
-                isinstance(raw_done, int)
-                and not isinstance(raw_done, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                done = max(int(raw_done), 0)
-                total = max(int(raw_total), 0)
-                if total:
-                    done = min(done, total)
-                normalized[raw_name] = {"done": done, "total": total}
+        match raw_name:
+            case str() as dim_name:
+                match raw_payload:
+                    case Mapping() as dimension_payload:
+                        raw_done = dimension_payload.get("done")
+                        raw_total = dimension_payload.get("total")
+                        match (raw_done, raw_total):
+                            case (done_value, total_value) if (
+                                type(done_value) is int and type(total_value) is int
+                            ):
+                                done = max(int(done_value), 0)
+                                total = max(int(total_value), 0)
+                                if total:
+                                    done = min(done, total)
+                                normalized[dim_name] = {"done": done, "total": total}
+                            case _:
+                                pass
+                    case _:
+                        pass
+            case _:
+                pass
     return normalized
 
 
@@ -88,37 +96,45 @@ def _apply_forest_progress_delta(
     forest_progress_marker: str,
     forest_dimensions: dict[str, JSONObject],
 ) -> tuple[int, int, str, dict[str, JSONObject], bool]:
-    if not isinstance(progress_delta, Mapping):
-        return (
-            forest_mutable_progress_done,
-            forest_mutable_progress_total,
-            forest_progress_marker,
-            forest_dimensions,
-            False,
-        )
-    raw_done = progress_delta.get("primary_done")
-    raw_total = progress_delta.get("primary_total")
-    if isinstance(raw_done, int) and not isinstance(raw_done, bool):
-        forest_mutable_progress_done = max(int(raw_done), 0)
-    if isinstance(raw_total, int) and not isinstance(raw_total, bool):
-        forest_mutable_progress_total = max(int(raw_total), 0)
-    forest_mutable_progress_total = max(
-        forest_mutable_progress_total,
-        forest_mutable_progress_done,
-    )
-    raw_marker = progress_delta.get("marker")
-    if isinstance(raw_marker, str) and raw_marker:
-        forest_progress_marker = raw_marker
-    raw_dimensions = progress_delta.get("dimensions")
-    if isinstance(raw_dimensions, Mapping):
-        forest_dimensions = _normalized_dimension_payload(raw_dimensions)
-    return (
-        forest_mutable_progress_done,
-        forest_mutable_progress_total,
-        forest_progress_marker,
-        forest_dimensions,
-        True,
-    )
+    match progress_delta:
+        case Mapping() as progress_delta_payload:
+            raw_done = progress_delta_payload.get("primary_done")
+            raw_total = progress_delta_payload.get("primary_total")
+            if type(raw_done) is int:
+                forest_mutable_progress_done = max(int(raw_done), 0)
+            if type(raw_total) is int:
+                forest_mutable_progress_total = max(int(raw_total), 0)
+            forest_mutable_progress_total = max(
+                forest_mutable_progress_total,
+                forest_mutable_progress_done,
+            )
+            raw_marker = progress_delta_payload.get("marker")
+            match raw_marker:
+                case str() as marker_text if marker_text:
+                    forest_progress_marker = marker_text
+                case _:
+                    pass
+            raw_dimensions = progress_delta_payload.get("dimensions")
+            match raw_dimensions:
+                case Mapping() as dimensions_payload:
+                    forest_dimensions = _normalized_dimension_payload(dimensions_payload)
+                case _:
+                    pass
+            return (
+                forest_mutable_progress_done,
+                forest_mutable_progress_total,
+                forest_progress_marker,
+                forest_dimensions,
+                True,
+            )
+        case _:
+            return (
+                forest_mutable_progress_done,
+                forest_mutable_progress_total,
+                forest_progress_marker,
+                forest_dimensions,
+                False,
+            )
 
 
 def _run_forest_phase(
@@ -129,7 +145,7 @@ def _run_forest_phase(
     bundle_sites_by_path: dict[Path, dict[str, list[set[str]]]],
     invariant_propositions: list[InvariantProposition],
     parse_failure_witnesses: list[JSONObject],
-    analysis_index_for_progress: AnalysisIndex | None,
+    analysis_index_for_progress: object,
     config: AuditConfig,
     include_bundle_forest: bool,
     include_decision_surfaces: bool,
@@ -168,7 +184,7 @@ def _run_forest_phase(
     forest_ambiguity_done = 0
     forest_progress_marker = "start"
     forest_dimensions: dict[str, JSONObject] = {}
-    forest_spec: ForestSpec | None = None
+    forest_spec: object = None
     ambiguity_witnesses: list[JSONObject] = []
 
     def _forest_phase_progress_v2() -> JSONObject:
@@ -211,16 +227,8 @@ def _run_forest_phase(
         forest_phase_progress_v2 = _forest_phase_progress_v2()
         raw_primary_done = forest_phase_progress_v2.get("primary_done")
         raw_primary_total = forest_phase_progress_v2.get("primary_total")
-        primary_done = (
-            int(raw_primary_done)
-            if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
-            else 0
-        )
-        primary_total = (
-            int(raw_primary_total)
-            if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
-            else 0
-        )
+        primary_done = int(raw_primary_done) if type(raw_primary_done) is int else 0
+        primary_total = int(raw_primary_total) if type(raw_primary_total) is int else 0
         emit_phase_progress_fn(
             "forest",
             report_carrier=ReportCarrier(
@@ -509,7 +517,7 @@ def _run_post_phase(
     fingerprint_warnings: list[str] = []
     fingerprint_matches: list[str] = []
     fingerprint_synth: list[str] = []
-    fingerprint_synth_registry: JSONObject | None = None
+    fingerprint_synth_registry: object = None
     fingerprint_provenance: list[JSONObject] = []
     coherence_witnesses: list[JSONObject] = []
     rewrite_plans: list[JSONObject] = []
@@ -532,9 +540,9 @@ def _run_post_phase(
     post_work_done = 0
     post_progress_marker = "enter"
 
-    def _emit_post_phase_progress(*, marker: str | None = None) -> None:
+    def _emit_post_phase_progress(*, marker: str = "") -> None:
         nonlocal post_progress_marker
-        if isinstance(marker, str) and marker:
+        if marker:
             post_progress_marker = marker
         emit_phase_progress_fn(
             "post",
@@ -677,7 +685,7 @@ def _run_post_phase(
         _emit_post_phase_progress(marker="never_invariants:done")
     if config.fingerprint_registry is not None and config.fingerprint_index:
         _emit_post_phase_progress(marker="fingerprint:start")
-        annotations_by_path: dict[Path, dict[str, dict[str, str | None]]] = {}
+        annotations_by_path: dict[Path, dict[str, dict[str, object]]] = {}
         annotation_total = len(file_paths)
         if annotation_total:
             for annotation_index, annotation_path in enumerate(file_paths, start=1):
@@ -831,21 +839,11 @@ def analyze_paths(
     include_ambiguities: bool = False,
     include_bundle_forest: bool = False,
     include_deadline_obligations: bool = False,
-    config: AuditConfig | None = None,
-    file_paths_override: list[Path] | None = None,
-    collection_resume: JSONObject | None = None,
-    on_collection_progress: Callable[[JSONObject], None] | None = None,
-    on_phase_progress: Callable[
-        [
-            ReportProjectionPhase,
-            dict[Path, dict[str, list[set[str]]]],
-            ReportCarrier,
-            int,
-            int,
-        ],
-        None,
-    ]
-    | None = None,
+    config: object = None,
+    file_paths_override: object = None,
+    collection_resume: object = None,
+    on_collection_progress: object = None,
+    on_phase_progress: object = None,
 ) -> AnalysisResult:
     _bind_audit_symbols()
     check_deadline()
@@ -898,8 +896,9 @@ def analyze_paths(
     try:
         if config is None:
             config = AuditConfig()
+        runtime_config = cast(AuditConfig, config)
         if file_paths_override is None:
-            file_paths = resolve_analysis_paths(paths, config=config)
+            file_paths = resolve_analysis_paths(paths, config=runtime_config)
         else:
             file_paths = _iter_monotonic_paths(
                 file_paths_override,
@@ -919,24 +918,35 @@ def analyze_paths(
             include_invariant_propositions=include_invariant_propositions,
         )
         file_stage_timings_v1_by_path: dict[Path, JSONObject] = {}
-        if isinstance(collection_resume, Mapping):
-            raw_stage_timings = collection_resume.get("file_stage_timings_v1_by_path")
-            if isinstance(raw_stage_timings, Mapping):
-                for path in file_paths:
-                    check_deadline()
-                    path_key = _analysis_collection_resume_path_key(path)
-                    raw_entry = raw_stage_timings.get(path_key)
-                    if isinstance(raw_entry, Mapping):
-                        normalized_entry: JSONObject = {}
-                        for key, value in raw_entry.items():
+        match collection_resume:
+            case Mapping() as collection_resume_payload:
+                raw_stage_timings = collection_resume_payload.get(
+                    "file_stage_timings_v1_by_path"
+                )
+                match raw_stage_timings:
+                    case Mapping() as stage_timings_payload:
+                        for path in file_paths:
                             check_deadline()
-                            normalized_entry[str(key)] = value
-                        file_stage_timings_v1_by_path[path] = normalized_entry
-        forest_spec: ForestSpec | None = None
-        planned_forest_spec_id: str | None = None
+                            path_key = _analysis_collection_resume_path_key(path)
+                            raw_entry = stage_timings_payload.get(path_key)
+                            match raw_entry:
+                                case Mapping() as stage_entry_payload:
+                                    normalized_entry: JSONObject = {}
+                                    for key, value in stage_entry_payload.items():
+                                        check_deadline()
+                                        normalized_entry[str(key)] = value
+                                    file_stage_timings_v1_by_path[path] = normalized_entry
+                                case _:
+                                    pass
+                    case _:
+                        pass
+            case _:
+                pass
+        forest_spec: object = None
+        planned_forest_spec_id: object = None
         ambiguity_witnesses: list[JSONObject] = []
         parse_failure_witnesses: list[JSONObject] = []
-        analysis_index: AnalysisIndex | None = None
+        analysis_index: object = None
         analysis_profile_stage_ns: dict[str, int] = {
             "analysis.collection": 0,
             "analysis.analysis_index": 0,
@@ -960,10 +970,10 @@ def analyze_paths(
                     "generated_by_forest_spec_id"
                 )
             check_deadline(
-                project_root=config.project_root,
-                forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
-                allow_frame_fallback=allow_frame_fallback,
-            )
+                    project_root=runtime_config.project_root,
+                    forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
+                    allow_frame_fallback=allow_frame_fallback,
+                )
 
         if (
             include_bundle_forest
@@ -985,14 +995,14 @@ def analyze_paths(
                 include_deadline_obligations=include_deadline_obligations,
                 include_lint_findings=include_lint_lines,
                 include_all_sites=True,
-                ignore_params=config.ignore_params,
-                decision_ignore_params=config.decision_ignore_params
-                or config.ignore_params,
-                transparent_decorators=config.transparent_decorators,
-                strictness=config.strictness,
-                decision_tiers=config.decision_tiers,
-                require_tiers=config.decision_require_tiers,
-                external_filter=config.external_filter,
+                ignore_params=runtime_config.ignore_params,
+                decision_ignore_params=runtime_config.decision_ignore_params
+                or runtime_config.ignore_params,
+                transparent_decorators=runtime_config.transparent_decorators,
+                strictness=runtime_config.strictness,
+                decision_tiers=runtime_config.decision_tiers,
+                require_tiers=runtime_config.decision_require_tiers,
+                external_filter=runtime_config.external_filter,
             )
             planned_forest_spec_id = str(
                 forest_spec_metadata(planned_spec).get("generated_by_forest_spec_id", "")
@@ -1004,6 +1014,7 @@ def analyze_paths(
             nonlocal analysis_index_resume_payload
             if analysis_index is None:
                 index_started_ns = time.monotonic_ns()
+
                 def _on_analysis_index_progress(progress_payload: JSONObject) -> None:
                     nonlocal analysis_index_resume_payload
                     analysis_index_resume_payload = {
@@ -1013,11 +1024,11 @@ def analyze_paths(
 
                 analysis_index = _build_analysis_index(
                     file_paths,
-                    project_root=config.project_root,
-                    ignore_params=config.ignore_params,
-                    strictness=config.strictness,
-                    external_filter=config.external_filter,
-                    transparent_decorators=config.transparent_decorators,
+                    project_root=runtime_config.project_root,
+                    ignore_params=runtime_config.ignore_params,
+                    strictness=runtime_config.strictness,
+                    external_filter=runtime_config.external_filter,
+                    transparent_decorators=runtime_config.transparent_decorators,
                     parse_failure_witnesses=parse_failure_witnesses,
                     resume_payload=analysis_index_resume_payload,
                     on_progress=(
@@ -1025,60 +1036,69 @@ def analyze_paths(
                         if emit_collection_progress_enabled
                         else None
                     ),
-                    forest_spec_id=planned_forest_spec_id,
-                    fingerprint_seed_revision=config.fingerprint_seed_revision,
-                    decision_ignore_params=config.decision_ignore_params,
-                    decision_require_tiers=config.decision_require_tiers,
+                    forest_spec_id=str(planned_forest_spec_id)
+                    if planned_forest_spec_id
+                    else None,
+                    fingerprint_seed_revision=runtime_config.fingerprint_seed_revision,
+                    decision_ignore_params=runtime_config.decision_ignore_params,
+                    decision_require_tiers=runtime_config.decision_require_tiers,
                 )
                 analysis_profile_stage_ns["analysis.analysis_index"] += (
                     time.monotonic_ns() - index_started_ns
                 )
-            return analysis_index
+            return cast(AnalysisIndex, analysis_index)
 
-        collection_progress_last_emit_monotonic: float | None = None
+        collection_progress_last_emit_monotonic = 0.0
+        collection_progress_has_emitted = False
 
         def _emit_collection_progress(*, force: bool = False) -> None:
             nonlocal collection_progress_last_emit_monotonic
+            nonlocal collection_progress_has_emitted
             if not emit_collection_progress_enabled:
                 return
             now = time.monotonic()
-            if (
+            should_skip_emit = (
                 not force
-                and collection_progress_last_emit_monotonic is not None
+                and collection_progress_has_emitted
                 and now - collection_progress_last_emit_monotonic
                 < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-            ):
-                return
-            collection_progress_last_emit_monotonic = now
-            analysis_profile_counters["analysis.collection_progress_emits"] += 1
-            _collection_progress_callback(
-                _build_analysis_collection_resume_payload(
-                    groups_by_path=groups_by_path,
-                    param_spans_by_path=param_spans_by_path,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    invariant_propositions=invariant_propositions,
-                    completed_paths=completed_paths,
-                    in_progress_scan_by_path=in_progress_scan_by_path,
-                    analysis_index_resume=analysis_index_resume_payload,
-                    file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
-                )
             )
+            if should_skip_emit:
+                collection_progress_last_emit_monotonic = collection_progress_last_emit_monotonic
+            else:
+                collection_progress_last_emit_monotonic = now
+                collection_progress_has_emitted = True
+                analysis_profile_counters["analysis.collection_progress_emits"] += 1
+                _collection_progress_callback(
+                    _build_analysis_collection_resume_payload(
+                        groups_by_path=groups_by_path,
+                        param_spans_by_path=param_spans_by_path,
+                        bundle_sites_by_path=bundle_sites_by_path,
+                        invariant_propositions=invariant_propositions,
+                        completed_paths=completed_paths,
+                        in_progress_scan_by_path=in_progress_scan_by_path,
+                        analysis_index_resume=analysis_index_resume_payload,
+                        file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
+                    )
+                )
 
         def _emit_phase_progress(
             phase: ReportProjectionPhase,
             *,
             report_carrier: ReportCarrier,
             work_progress: _PhaseWorkProgress,
-            phase_progress_v2: JSONObject | None = None,
+            phase_progress_v2: object = None,
             progress_marker: str = "",
         ) -> None:
             if not emit_phase_progress_enabled:
                 return
-            report_carrier.phase_progress_v2 = (
-                {str(key): phase_progress_v2[key] for key in phase_progress_v2}
-                if isinstance(phase_progress_v2, Mapping)
-                else None
-            )
+            match phase_progress_v2:
+                case Mapping() as phase_progress_map:
+                    report_carrier.phase_progress_v2 = {
+                        str(key): phase_progress_map[key] for key in phase_progress_map
+                    }
+                case _:
+                    report_carrier.phase_progress_v2 = None
             report_carrier.progress_marker = progress_marker
             analysis_profile_counters["analysis.phase_progress_emits"] += 1
             _phase_progress_callback(
@@ -1094,9 +1114,8 @@ def analyze_paths(
             check_deadline()
             if path in completed_paths:
                 continue
-            if path not in in_progress_scan_by_path:
-                in_progress_scan_by_path[path] = {"phase": "scan_pending"}
-                _emit_collection_progress(force=True)
+            in_progress_scan_by_path[path] = {"phase": "scan_pending"}
+            _emit_collection_progress(force=True)
             _deadline_check(allow_frame_fallback=True)
 
             def _on_file_scan_progress(progress_state: JSONObject) -> None:
@@ -1111,7 +1130,7 @@ def analyze_paths(
             groups, spans, sites = _analyze_file_internal(
                 path,
                 recursive=recursive,
-                config=config,
+                config=runtime_config,
                 resume_state=in_progress_scan_by_path.get(path),
                 on_progress=_on_file_scan_progress,
                 on_profile=_on_file_scan_profile,
@@ -1124,9 +1143,9 @@ def analyze_paths(
                 invariant_propositions.extend(
                     _collect_invariant_propositions(
                         path,
-                        ignore_params=config.ignore_params,
-                        project_root=config.project_root,
-                        emitters=config.invariant_emitters,
+                        ignore_params=runtime_config.ignore_params,
+                        project_root=runtime_config.project_root,
+                        emitters=runtime_config.invariant_emitters,
                     )
                 )
             completed_paths.add(path)

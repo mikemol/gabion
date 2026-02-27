@@ -120,28 +120,6 @@ def _parse_deadline_profile(path: Path) -> dict[str, Any] | None:
     }
 
 
-def _parse_timeout_progress(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    progress = payload.get("progress")
-    classification = None
-    phase = None
-    if isinstance(progress, dict):
-        classification = progress.get("classification")
-        phase = progress.get("phase")
-    return {
-        "analysis_state": payload.get("analysis_state"),
-        "classification": classification,
-        "phase": phase,
-    }
-
-
 def _last_timeline_row(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -197,7 +175,6 @@ def _collect_violation_sample(*, cwd: Path) -> dict[str, Any]:
     audit_root = cwd / "artifacts" / "audit_reports"
     return {
         "deadline_profile": _parse_deadline_profile(audit_root / "deadline_profile.json"),
-        "timeout_progress": _parse_timeout_progress(audit_root / "timeout_progress.json"),
         "phase_timeline_last_row": _last_timeline_row(audit_root / "dataflow_phase_timeline.md"),
         "signaled_run_dataflow_stage_pids": _signal_run_dataflow_stage(),
     }

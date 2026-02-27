@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable, Literal
 
 from gabion.order_contract import sort_once
@@ -30,30 +29,25 @@ class ToolSpec:
     include_dataflow_stage_gate: bool = False
 
 
-def triplet_resume_checkpoint_path(triplet_name: str) -> Path:
-    normalized = triplet_name.strip().lower().replace("-", "_")
-    return Path("artifacts/audit_reports") / f"dataflow_resume_checkpoint_ci_{normalized}.json"
-
-
 def run_obsolescence_emit(
     *,
     run_emit: Callable[..., int] = delta_state_emit.obsolescence_main,
 ) -> int:
-    return run_emit(resume_checkpoint=triplet_resume_checkpoint_path("obsolescence"))
+    return run_emit()
 
 
 def run_annotation_drift_emit(
     *,
     run_emit: Callable[..., int] = delta_state_emit.annotation_drift_main,
 ) -> int:
-    return run_emit(resume_checkpoint=triplet_resume_checkpoint_path("annotation_drift"))
+    return run_emit()
 
 
 def run_ambiguity_emit(
     *,
     run_emit: Callable[..., int] = delta_state_emit.ambiguity_main,
 ) -> int:
-    return run_emit(resume_checkpoint=triplet_resume_checkpoint_path("ambiguity"))
+    return run_emit()
 
 
 ALL_TOOL_SPECS: tuple[ToolSpec, ...] = (

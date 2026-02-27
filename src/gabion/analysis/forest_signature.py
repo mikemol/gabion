@@ -84,17 +84,19 @@ def build_forest_signature_from_groups(
 ) -> dict[str, JSONValue]:
     check_deadline()
     forest = Forest()
-    previous_path_key: str | None = None
+    previous_path_key = ""
+    has_previous_path_key = False
     for path in groups_by_path:
         check_deadline()
         path_key = str(path)
-        if previous_path_key is not None and previous_path_key > path_key:
+        if has_previous_path_key and previous_path_key > path_key:
             never(
                 "groups_by_path path order regression",
                 previous_path=previous_path_key,
                 current_path=path_key,
             )
         previous_path_key = path_key
+        has_previous_path_key = True
         groups = groups_by_path[path]
         path_name = _path_name(path)
         for fn_name in sort_once(groups, source = 'src/gabion/analysis/forest_signature.py:99'):
@@ -119,7 +121,7 @@ def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
     normalized: list[JSONValue] = []
     for part in parts:
         check_deadline()
-        if isinstance(part, (str, int, float, bool)) or part is None:
+        if _is_json_scalar(part):
             normalized.append(part)
         else:
             normalized.append(str(part))
@@ -128,6 +130,10 @@ def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
 
 def _path_name(path: object) -> str:
     name = getattr(path, "name", None)
-    if isinstance(name, str):
+    if type(name) is str:
         return name
     return str(path)
+
+
+def _is_json_scalar(value: object) -> bool:
+    return value is None or type(value) in {str, int, float, bool}

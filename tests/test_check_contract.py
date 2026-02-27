@@ -92,3 +92,46 @@ def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
         aux_operation=aux,
     )
     assert check_payload["aux_operation"] == payload
+
+
+# gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
+def test_build_check_payload_includes_aspf_controls() -> None:
+    payload = check_contract.build_check_payload(
+        paths=[Path("sample.py")],
+        report=None,
+        fail_on_violations=False,
+        root=Path("."),
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        artifact_flags=_artifact_flags(),
+        delta_options=_delta_options(),
+        exclude=None,
+        filter_bundle=check_contract.DataflowFilterBundle(
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+        ),
+        allow_external=None,
+        strictness="high",
+        fail_on_type_ambiguities=False,
+        lint=False,
+        aspf_trace_json=Path("artifacts/out/aspf_trace.json"),
+        aspf_import_trace=[Path("artifacts/out/prev_trace.json")],
+        aspf_equivalence_against=[Path("artifacts/out/baseline_trace.json")],
+        aspf_opportunities_json=Path("artifacts/out/aspf_opportunities.json"),
+        aspf_state_json=Path("artifacts/out/aspf_state/session/0001_step.json"),
+        aspf_import_state=[Path("artifacts/out/aspf_state/session/0000_prev.json")],
+        aspf_semantic_surface=["groups_by_path", "violation_summary"],
+    )
+    assert payload["aspf_trace_json"] == "artifacts/out/aspf_trace.json"
+    assert payload["aspf_import_trace"] == ["artifacts/out/prev_trace.json"]
+    assert payload["aspf_equivalence_against"] == [
+        "artifacts/out/baseline_trace.json"
+    ]
+    assert payload["aspf_opportunities_json"] == "artifacts/out/aspf_opportunities.json"
+    assert payload["aspf_state_json"] == "artifacts/out/aspf_state/session/0001_step.json"
+    assert payload["aspf_import_state"] == [
+        "artifacts/out/aspf_state/session/0000_prev.json"
+    ]
+    assert payload["aspf_semantic_surface"] == ["groups_by_path", "violation_summary"]

@@ -24,6 +24,11 @@ class _ReportEmitState:
     violations: list[str]
 
 
+def _default_parse_witness_contract_violations() -> list[str]:
+    _bind_audit_symbols()
+    return _parse_witness_contract_violations()
+
+
 def _append_report_tail_sections(
     *,
     state: _ReportEmitState,
@@ -31,7 +36,7 @@ def _append_report_tail_sections(
     root: Path,
     file_paths: list[Path],
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    execution_pattern_suggestions: list[str] | None,
+    execution_pattern_suggestions: list[str],
     parse_witness_contract_violations_fn: Callable[[], list[str]],
     projected: Callable[[str, Iterable[str]], list[str]],
     start_section: Callable[[str], None],
@@ -224,7 +229,7 @@ def _append_report_tail_sections(
         groups_by_path=groups_by_path,
         include_execution=True,
     )
-    if execution_pattern_suggestions is None:
+    if not execution_pattern_suggestions:
         execution_pattern_suggestions = _pattern_schema_suggestions_from_instances(
             pattern_instances
         )
@@ -332,13 +337,11 @@ def emit_report(
     max_components: int,
     *,
     report: ReportCarrier,
-    execution_pattern_suggestions: list[str] | None = None,
-    parse_witness_contract_violations_fn: Callable[[], list[str]] | None = None,
+    execution_pattern_suggestions: tuple[str, ...] = (),
+    parse_witness_contract_violations_fn: Callable[[], list[str]] = _default_parse_witness_contract_violations,
 ) -> tuple[str, list[str]]:
     _bind_audit_symbols()
     check_deadline()
-    if parse_witness_contract_violations_fn is None:
-        parse_witness_contract_violations_fn = _parse_witness_contract_violations
     forest = report.forest
     bundle_sites_by_path = report.bundle_sites_by_path
     type_suggestions = report.type_suggestions
@@ -497,7 +500,7 @@ def emit_report(
         root=root,
         file_paths=file_paths,
         groups_by_path=groups_by_path,
-        execution_pattern_suggestions=execution_pattern_suggestions,
+        execution_pattern_suggestions=list(execution_pattern_suggestions),
         parse_witness_contract_violations_fn=parse_witness_contract_violations_fn,
         projected=_projected,
         start_section=_start_section,

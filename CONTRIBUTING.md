@@ -1,5 +1,5 @@
 ---
-doc_revision: 107
+doc_revision: 108
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -553,7 +553,33 @@ mise exec -- python scripts/ci_cycle.py --push --watch
 CI watch helper:
 
 ```
-mise exec -- python scripts/ci_watch.py --branch stage
+mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
+```
+
+On a failed watched run, `ci_watch` collects a failure bundle under:
+
+`artifacts/out/ci_watch/run_<run_id>/`
+
+Default bundle files:
+- `run.json`
+- `failed.log`
+- `failed.stderr.log`
+- `download.stdout.log`
+- `download.stderr.log`
+- `failed_jobs.json`
+- `failed_steps.json`
+- `collection_status.json`
+- `artifacts_manifest.json`
+
+To restrict download to specific artifact names and override output root:
+
+```
+mise exec -- python scripts/ci_watch.py \
+  --branch stage \
+  --workflow ci \
+  --artifact-name test-runs \
+  --artifact-name dataflow-report \
+  --artifact-output-root artifacts/out/ci_watch
 ```
 
 By default this prefers active runs (in-progress/queued). If you want the most
@@ -562,6 +588,9 @@ recent run regardless of status, pass:
 ```
 mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
 ```
+
+When the watched run fails and collection encounters mandatory command failures,
+`ci_watch` exits with code `2`.
 
 ## Make targets (optional)
 If you prefer `make`, the following targets wrap the scripts:

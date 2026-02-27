@@ -331,15 +331,15 @@ def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) ->
         SimpleNamespace(key="k0", rule_id="ACP-003", path="a.py"),
         SimpleNamespace(key="k1", rule_id="ACP-004", path="a.py"),
     ]
-    with (
-        _swap_attr(normative_symdiff.ambiguity_contract_policy_check, "collect_violations", lambda _root: ambiguity_items),
-        _swap_attr(normative_symdiff.ambiguity_contract_policy_check, "_load_baseline", lambda _path: {"k0"}),
+    with _swap_attr(
+        normative_symdiff.ambiguity_contract_policy_check,
+        "collect_violations",
+        lambda _root: ambiguity_items,
     ):
         ambiguity = normative_symdiff._collect_ambiguity_probe(tmp_path)
-    assert ambiguity["new"] == 1
     assert ambiguity["total"] == 2
-    assert ambiguity["new_by_rule"] == {"ACP-004": 1}
-    assert ambiguity["new_by_path"] == {"a.py": 1}
+    assert ambiguity["by_rule"] == {"ACP-003": 1, "ACP-004": 1}
+    assert ambiguity["by_path"] == {"a.py": 2}
 
     with (
         _swap_attr(normative_symdiff.branchless_policy_check, "collect_violations", lambda **_kwargs: [SimpleNamespace(key="b0"), SimpleNamespace(key="b1")]),
@@ -444,7 +444,7 @@ def test_docflow_agent_and_default_probe_collectors_cover_filtering(tmp_path: Pa
         _swap_attr(normative_symdiff, "_capture_policy_check", lambda _name, _fn: {"ok": False, "stderr": "x", "exit_code": 1}),
         _swap_attr(normative_symdiff, "_collect_controller_drift", lambda _root: {"summary": {"high_severity_findings": 1}, "findings": []}),
         _swap_attr(normative_symdiff, "_collect_lsp_parity", lambda _root: {"error_count": 1, "errors": ["e"]}),
-        _swap_attr(normative_symdiff, "_collect_ambiguity_probe", lambda _root: {"new": 1, "total": 2, "baseline_keys": 1, "new_by_rule": {}}),
+        _swap_attr(normative_symdiff, "_collect_ambiguity_probe", lambda _root: {"total": 2, "by_rule": {}, "by_path": {}}),
         _swap_attr(normative_symdiff, "_collect_branchless_probe", lambda _root: {"new": 0, "total": 1, "baseline_keys": 2}),
         _swap_attr(normative_symdiff, "_collect_defensive_probe", lambda _root: {"new": 0, "total": 1, "baseline_keys": 3}),
         _swap_attr(normative_symdiff, "_collect_no_monkeypatch_probe", lambda _root: {"total": 1, "by_path": {"a.py": 1}}),
@@ -514,7 +514,7 @@ def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
                 {"sensor": "x", "detail": "other"},
             ],
         },
-        "ambiguity_contract": {"new": 3, "total": 9, "baseline_keys": 4, "new_by_rule": {"ACP-003": 3}},
+        "ambiguity_contract": {"total": 9, "by_rule": {"ACP-003": 3}, "by_path": {"a.py": 9}},
         "branchless_policy": {"new": 1, "total": 2, "baseline_keys": 5},
         "defensive_fallback_policy": {"new": 1, "total": 2, "baseline_keys": 6},
         "no_monkeypatch_policy": {"total": 1, "by_path": {"tests/a.py": 1}},
@@ -545,7 +545,7 @@ def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
         str(item["gap_id"])
         for item in gap_payload["doc_to_code_gaps"] + gap_payload["code_to_doc_gaps"]
     }
-    assert "DOC-CODE-AMBIGUITY-NEW" in gap_ids
+    assert "DOC-CODE-AMBIGUITY-TOTAL" in gap_ids
     assert "CODE-DOC-HIDDEN-TOGGLES" in gap_ids
     assert "CODE-DOC-OUTSIDE-DEFAULT-STRICT" in gap_ids
 

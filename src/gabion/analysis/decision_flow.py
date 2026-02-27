@@ -10,6 +10,7 @@ import re
 from . import evidence_keys
 from .json_types import JSONObject
 from .pattern_schema import pattern_schema_id
+from .resume_codec import sequence_or_none
 from gabion.order_contract import OrderPolicy, sort_once
 
 _DECISION_LINE_RE = re.compile(
@@ -37,20 +38,30 @@ class DecisionSurfaceRecord:
         )
 
 
+@dataclass(frozen=True)
+class DecisionSurfaceParseOutcome:
+    parsed: bool
+    record: DecisionSurfaceRecord
+
+
 # dataflow-bundle: entry
 
-def parse_decision_surface_line(entry: str) -> DecisionSurfaceRecord | None:
+def parse_decision_surface_line(entry: str) -> DecisionSurfaceParseOutcome:
+    empty_record = DecisionSurfaceRecord(path="", qual="", mode="direct", params=())
     match = _DECISION_LINE_RE.match(entry.strip())
     if not match:
-        return None
+        return DecisionSurfaceParseOutcome(parsed=False, record=empty_record)
     raw_mode = match.group("mode")
     mode = "value" if raw_mode.startswith("value-encoded") else "direct"
     params = evidence_keys.normalize_params(match.group("params").split(","))
-    return DecisionSurfaceRecord(
-        path=match.group("path").strip(),
-        qual=match.group("qual").strip(),
-        mode=mode,
-        params=tuple(params),
+    return DecisionSurfaceParseOutcome(
+        parsed=True,
+        record=DecisionSurfaceRecord(
+            path=match.group("path").strip(),
+            qual=match.group("qual").strip(),
+            mode=mode,
+            params=tuple(params),
+        ),
     )
 
 
@@ -64,31 +75,32 @@ def build_decision_tables(
     tables: list[JSONObject] = []
     for raw in [*decision_surfaces, *value_decision_surfaces]:
         parsed = parse_decision_surface_line(raw)
-        if parsed is None:
+        if not parsed.parsed:
             continue
+        record = parsed.record
         evidence_refs = sort_once(
             [
                 evidence_keys.render_display(
                     evidence_keys.make_decision_surface_key(
-                        mode=parsed.mode,
-                        path=parsed.path,
-                        qual=parsed.qual,
+                        mode=record.mode,
+                        path=record.path,
+                        qual=record.qual,
                         param=param,
                     )
                 )
-                for param in parsed.params
+                for param in record.params
             ],
             source="decision_flow.build_decision_tables.evidence_refs",
             policy=OrderPolicy.SORT,
         )
         tables.append(
             {
-                "decision_id": parsed.decision_id,
+                "decision_id": record.decision_id,
                 "tier": 3,
-                "mode": parsed.mode,
-                "path": parsed.path,
-                "qual": parsed.qual,
-                "params": list(parsed.params),
+                "mode": record.mode,
+                "path": record.path,
+                "qual": record.qual,
+                "params": list(record.params),
                 "analysis_evidence_keys": evidence_refs,
                 "checklist_nodes": [
                     "docs/sppf_checklist.md#decision-flow-tier3",
@@ -161,9 +173,7 @@ def enforce_decision_protocol_contracts(
 
     for bundle in decision_bundles:
         bundle_id = str(bundle.get("bundle_id", ""))
-        member_ids = bundle.get("member_decision_ids", [])
-        if not isinstance(member_ids, list):
-            member_ids = []
+        member_ids = sequence_or_none(bundle.get("member_decision_ids"), allow_str=False) or []
         if not member_ids:
             violations.append(
                 {

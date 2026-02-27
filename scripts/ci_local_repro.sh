@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only|--pr-dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--pr-base-sha <sha>] [--pr-head-sha <sha>] [--pr-body-file <path>] [--verify-pr-stage-ci] [--pr-stage-ci-timeout-minutes <minutes>] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
+Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only|--pr-dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--pr-base-sha <sha>] [--pr-head-sha <sha>] [--pr-body-file <path>] [--verify-pr-stage-ci] [--pr-stage-ci-timeout-minutes <minutes>] [--run-observability-guard] [--skip-step-timing|--run-step-timing] [--no-aspf-handoff] [--aspf-handoff-manifest <path>] [--aspf-handoff-session <id>] [--aspf-state-root <path>]
 
 Reproduces the .github/workflows/ci.yml command set locally.
 
@@ -31,6 +31,12 @@ Options:
                           Enable ci_observability_guard wrappers (off by default for parity).
   --skip-step-timing      Disable step timing capture (off by default for parity).
   --run-step-timing       Enable step timing capture.
+  --no-aspf-handoff       Disable ASPF cross-script handoff state emission/import.
+  --aspf-handoff-manifest PATH
+                          Handoff manifest path (default: artifacts/out/aspf_handoff_manifest.json).
+  --aspf-handoff-session ID
+                          Handoff session id (default: generated).
+  --aspf-state-root PATH  ASPF serialized state root (default: artifacts/out/aspf_state).
   -h, --help              Show this help text.
 USAGE
 }
@@ -53,6 +59,10 @@ step_timing_artifact="${GABION_CI_STEP_TIMING_ARTIFACT:-artifacts/audit_reports/
 step_timing_run_id="${GABION_CI_STEP_TIMING_RUN_ID:-local-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 step_timing_mode="all"
 ci_event_name="${GABION_LOCAL_EVENT_NAME:-push}"
+aspf_handoff_enabled="${GABION_ASPF_HANDOFF_ENABLED:-1}"
+aspf_handoff_manifest="${GABION_ASPF_HANDOFF_MANIFEST:-artifacts/out/aspf_handoff_manifest.json}"
+aspf_handoff_session="${GABION_ASPF_HANDOFF_SESSION:-}"
+aspf_state_root="${GABION_ASPF_STATE_ROOT:-artifacts/out/aspf_state}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -139,6 +149,33 @@ while [ $# -gt 0 ]; do
       ;;
     --run-step-timing)
       step_timing_enabled="1"
+      ;;
+    --no-aspf-handoff)
+      aspf_handoff_enabled="0"
+      ;;
+    --aspf-handoff-manifest)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --aspf-handoff-manifest" >&2
+        exit 2
+      fi
+      aspf_handoff_manifest="$2"
+      shift
+      ;;
+    --aspf-handoff-session)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --aspf-handoff-session" >&2
+        exit 2
+      fi
+      aspf_handoff_session="$2"
+      shift
+      ;;
+    --aspf-state-root)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --aspf-state-root" >&2
+        exit 2
+      fi
+      aspf_state_root="$2"
+      shift
       ;;
     -h|--help)
       usage
@@ -240,6 +277,25 @@ timed_observed() {
   else
     observed "$label" "$@"
   fi
+}
+
+aspf_handoff_enabled_now() {
+  [ "$aspf_handoff_enabled" != "0" ]
+}
+
+ensure_aspf_handoff_session() {
+  if ! aspf_handoff_enabled_now; then
+    return 0
+  fi
+  if [ -n "$aspf_handoff_session" ]; then
+    return 0
+  fi
+  aspf_handoff_session="$("$PYTHON_BIN" - <<'PY'
+from datetime import datetime, timezone
+import os
+print(f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}")
+PY
+)"
 }
 
 gh_auth_available() {
@@ -595,17 +651,34 @@ run_checks_job() {
     --log-file artifacts/test_runs/pytest.log \
     --log-file-level=INFO
 
-  step "checks: delta_state_emit"
-  timed_observed checks_delta_state_emit "$PYTHON_BIN" -m gabion \
-    --carrier direct \
-    --timeout 65000000000000ns \
-    delta-state-emit
+  step "checks: check delta-bundle"
+  local delta_timeout_ns="${GABION_DELTA_BUNDLE_TIMEOUT_NS:-130000000000000ns}"
+  if aspf_handoff_enabled_now; then
+    ensure_aspf_handoff_session
+    timed_observed checks_delta_bundle "$PYTHON_BIN" scripts/aspf_handoff.py run \
+      --root . \
+      --session-id "$aspf_handoff_session" \
+      --step-id "ci-local.checks.delta-bundle" \
+      --command-profile "ci-local.checks.delta-bundle" \
+      --manifest "$aspf_handoff_manifest" \
+      --state-root "$aspf_state_root" \
+      -- \
+      "$PYTHON_BIN" -m gabion \
+      --carrier direct \
+      --timeout "$delta_timeout_ns" \
+      check delta-bundle
+  else
+    timed_observed checks_delta_bundle "$PYTHON_BIN" -m gabion \
+      --carrier direct \
+      --timeout "$delta_timeout_ns" \
+      check delta-bundle
+  fi
 
-  step "checks: delta_triplets"
-  timed_observed checks_delta_triplets "$PYTHON_BIN" -m gabion \
+  step "checks: check delta-gates"
+  timed_observed checks_delta_gates "$PYTHON_BIN" -m gabion \
     --carrier direct \
-    --timeout 65000000000000ns \
-    delta-triplets
+    --timeout "$delta_timeout_ns" \
+    check delta-gates
 
   step "checks: governance telemetry emit"
   observed checks_governance_telemetry "$PYTHON_BIN" scripts/governance_telemetry_emit.py \
@@ -628,56 +701,18 @@ run_checks_job() {
 }
 
 seed_dataflow_checkpoint() {
-  local target_dir="artifacts/audit_reports"
-  local seed_checkpoint="baselines/dataflow_resume_checkpoint_ci.json"
-  local seed_chunks="baselines/dataflow_resume_checkpoint_ci.json.chunks"
-  mkdir -p "$target_dir"
-  local restored=0
-  if [ -f "$seed_checkpoint" ]; then
-    cp "$seed_checkpoint" "$target_dir/dataflow_resume_checkpoint_ci.json"
-    restored=1
-  fi
-  if [ -d "$seed_chunks" ]; then
-    rm -rf "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-    mkdir -p "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
-    cp -R "$seed_chunks"/. "$target_dir/dataflow_resume_checkpoint_ci.json.chunks/"
-    restored=1
-  fi
-  if [ "$restored" = "1" ]; then
-    echo "Seeded checkpoint from version-controlled baseline."
-  else
-    echo "No version-controlled checkpoint seed found; continuing."
-  fi
+  echo "Legacy checkpoint seeding disabled; ASPF state handoff is canonical."
 }
 
 restore_dataflow_checkpoint() {
-  local gh_token
-  if gh_token="$(resolve_env_gh_token)"; then
-    local repo_name
-    repo_name="$(resolve_repo_name || true)"
-    if [ -z "$repo_name" ]; then
-      step "dataflow: restore-resume-checkpoint skipped (unable to resolve repo name)"
-      return 0
-    fi
-    step "dataflow: restore-resume-checkpoint (best effort)"
-    observed dataflow_restore_resume_checkpoint env GH_TOKEN="$gh_token" GH_REPO="$repo_name" \
-      GH_REF_NAME="${GABION_LOCAL_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}" \
-      GH_RUN_ID="${GABION_LOCAL_RUN_ID:-0}" \
-      "$PYTHON_BIN" -m gabion restore-resume-checkpoint \
-      --output-dir artifacts/audit_reports \
-      --artifact-name dataflow-report \
-      --checkpoint-name dataflow_resume_checkpoint_ci.json || true
-  else
-    step "dataflow: restore-resume-checkpoint skipped (GH_TOKEN/GITHUB_TOKEN unavailable)"
-  fi
+  echo "Legacy checkpoint restore disabled; ASPF state handoff is canonical."
 }
 
 run_dataflow_job() {
   step_timing_mode="dataflow"
 
-  step "dataflow: seed version-controlled checkpoint (best effort)"
+  step "dataflow: ASPF state handoff bootstrap"
   seed_dataflow_checkpoint
-
   restore_dataflow_checkpoint
 
   if [ "$skip_gabion_check_step" = "1" ]; then
@@ -690,6 +725,17 @@ run_dataflow_job() {
   local summary_file="$log_dir/dataflow_stage_summary.md"
   local dataflow_stage_rc=0
   local dataflow_failed=0
+  local aspf_run_dataflow_flag=()
+  if aspf_handoff_enabled_now; then
+    ensure_aspf_handoff_session
+    aspf_run_dataflow_flag=(
+      --aspf-handoff-manifest "$aspf_handoff_manifest"
+      --aspf-handoff-session "$aspf_handoff_session"
+      --aspf-state-root "$aspf_state_root"
+    )
+  else
+    aspf_run_dataflow_flag=(--no-aspf-handoff)
+  fi
   rm -f "$outputs_file"
   touch "$outputs_file"
   : > "$summary_file"
@@ -697,12 +743,13 @@ run_dataflow_job() {
   set +e
   observed dataflow_run_dataflow_stage "$PYTHON_BIN" -m gabion \
     --carrier direct \
-    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
     run-dataflow-stage \
     --github-output "$outputs_file" \
     --step-summary "$summary_file" \
     --debug-dump-interval-seconds "${GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS:-60}" \
-    --stage-strictness-profile "run=high"
+    --stage-strictness-profile "run=high" \
+    "${aspf_run_dataflow_flag[@]}"
   dataflow_stage_rc=$?
   set -e
 
@@ -740,10 +787,6 @@ run_dataflow_job() {
     if [ -f artifacts/audit_reports/dataflow_report.md ]; then
       echo "===== dataflow report ====="
       cat artifacts/audit_reports/dataflow_report.md
-    fi
-    if [ -f artifacts/audit_reports/timeout_progress.md ]; then
-      echo "===== timeout progress ====="
-      cat artifacts/audit_reports/timeout_progress.md
     fi
     if [ "$terminal_status" = "timeout_resume" ]; then
       echo "Dataflow audit invocation timed out with resumable progress." >&2
@@ -878,21 +921,50 @@ PY
 
   step "pr-dataflow: render dataflow grammar report"
   mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
-  timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
-    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
-    check \
-    raw -- . \
-    --root . \
-    --report artifacts/dataflow_grammar/report.md \
-    --dot artifacts/dataflow_grammar/dataflow_graph.dot \
-    --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_pr.json \
-    --resume-on-timeout 1 \
-    --emit-timeout-progress-report \
-    --type-audit-report \
-    --baseline baselines/dataflow_baseline.txt
+  set +e
+  if aspf_handoff_enabled_now; then
+    ensure_aspf_handoff_session
+    timed_observed pr_dataflow_render_check "$PYTHON_BIN" scripts/aspf_handoff.py run \
+      --root . \
+      --session-id "$aspf_handoff_session" \
+      --step-id "ci-local.pr-dataflow.render-check.raw" \
+      --command-profile "ci-local.pr-dataflow.check.raw" \
+      --manifest "$aspf_handoff_manifest" \
+      --state-root "$aspf_state_root" \
+      -- \
+      "$PYTHON_BIN" -m gabion \
+      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      check \
+      raw -- . \
+      --root . \
+      --report artifacts/dataflow_grammar/report.md \
+      --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+      --type-audit-report \
+      --baseline baselines/dataflow_baseline.txt
+  else
+    timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
+      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      check \
+      raw -- . \
+      --root . \
+      --report artifacts/dataflow_grammar/report.md \
+      --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+      --type-audit-report \
+      --baseline baselines/dataflow_baseline.txt
+  fi
+  local pr_render_rc=$?
+  set -e
+  [ "$pr_render_rc" -eq 0 ] || return "$pr_render_rc"
 }
 
 bootstrap_ci_env
+
+if aspf_handoff_enabled_now; then
+  ensure_aspf_handoff_session
+  export GABION_ASPF_HANDOFF_SESSION="$aspf_handoff_session"
+  export GABION_ASPF_HANDOFF_MANIFEST="$aspf_handoff_manifest"
+  export GABION_ASPF_STATE_ROOT="$aspf_state_root"
+fi
 
 if $run_checks; then
   run_checks_job

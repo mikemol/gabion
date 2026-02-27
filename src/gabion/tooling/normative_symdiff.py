@@ -437,22 +437,16 @@ def _collect_lsp_parity(root: Path) -> dict[str, object]:
 
 
 def _collect_ambiguity_probe(root: Path) -> dict[str, object]:
-    baseline_path = root / "scripts" / "baselines" / "ambiguity_contract_policy_baseline.json"
     violations = ambiguity_contract_policy_check.collect_violations(root.resolve())
-    baseline_keys = ambiguity_contract_policy_check._load_baseline(baseline_path)
-    new_violations = [item for item in violations if item.key not in baseline_keys]
     by_rule: dict[str, int] = {}
     by_path: dict[str, int] = {}
-    for item in new_violations:
+    for item in violations:
         by_rule[item.rule_id] = by_rule.get(item.rule_id, 0) + 1
         by_path[item.path] = by_path.get(item.path, 0) + 1
     return {
-        "baseline_path": baseline_path.as_posix(),
         "total": len(violations),
-        "baseline_keys": len(baseline_keys),
-        "new": len(new_violations),
-        "new_by_rule": by_rule,
-        "new_by_path": by_path,
+        "by_rule": by_rule,
+        "by_path": by_path,
     }
 
 
@@ -772,25 +766,14 @@ def synthesize_gaps(
     if isinstance(ambiguity_probe, Mapping):
         _add_gap(
             doc_to_code,
-            gap_id="DOC-CODE-AMBIGUITY-NEW",
-            layer="core",
-            direction="doc_to_code",
-            model="ratchet",
-            severity="high",
-            count=_coerce_int(ambiguity_probe.get("new")),
-            message="Ambiguity-contract baseline ratchet regressed with net-new violations.",
-            evidence=[f"new_by_rule={ambiguity_probe.get('new_by_rule', {})}"],
-        )
-        _add_gap(
-            doc_to_code,
             gap_id="DOC-CODE-AMBIGUITY-TOTAL",
             layer="core",
             direction="doc_to_code",
             model="absolute",
             severity="medium",
             count=_coerce_int(ambiguity_probe.get("total")),
-            message="Ambiguity-contract absolute debt remains non-zero.",
-            evidence=[f"baseline_keys={ambiguity_probe.get('baseline_keys', 0)}"],
+            message="Ambiguity-contract unshielded debt remains non-zero.",
+            evidence=[f"by_rule={ambiguity_probe.get('by_rule', {})}"],
         )
 
     branchless_probe = probes.get("branchless_policy", {})
