@@ -3493,15 +3493,17 @@ def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
 
 
 def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunctionFact]:
-    for node in tree.body:
-        check_deadline()
+    for node_index, node in enumerate(tree.body, start=1):
+        if node_index % 32 == 0:
+            check_deadline()
         if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
             continue
         function_node = cast(FunctionNode, node)
         param_names = frozenset(_function_param_names(function_node))
         alias_map: dict[str, tuple[str, ...]] = {}
-        for statement in function_node.body:
-            check_deadline()
+        for statement_index, statement in enumerate(function_node.body, start=1):
+            if statement_index % 32 == 0:
+                check_deadline()
             if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
                 continue
             assign_node = cast(ast.Assign, statement)
@@ -3532,7 +3534,6 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunct
                 ),
             )
             for variant in variants:
-                check_deadline()
                 called_names.add(variant)
                 call_shapes[variant].add(shape)
                 for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
