@@ -800,8 +800,8 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
             and isinstance(scoped_key[1].key[2], str)
         ):
             cache_details.add(scoped_key[1].key[2])
-    assert "config_fields" in cache_details
-    assert "dataclass_registry" in cache_details
+    assert da._canonical_stage_cache_detail("config_fields") in cache_details
+    assert da._canonical_stage_cache_detail("dataclass_registry") in cache_details
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_hydrates_index_and_sink::dataflow_audit.py::gabion.analysis.dataflow_audit._run_indexed_pass::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:
@@ -4981,6 +4981,50 @@ def test_cache_identity_alias_and_resume_variant_edges() -> None:
     assert expected_identity is not None
     assert da._resume_variant_for_identity({prefixed: variant}, expected_identity) == variant
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_hits_for_equivalent_parse_key_config_serializations::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_stage_cache_key
+def test_analysis_index_stage_cache_hits_for_equivalent_parse_key_config_serializations(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "m.py"
+    _write(module, "x = 1\n")
+    identity = "aspf:sha1:" + "1" * 40
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity=identity,
+    )
+    first_parse_key = da._parse_stage_cache_key(
+        stage=da._ParseModuleStage.CONFIG_FIELDS,
+        cache_context=da._CacheSemanticContext(),
+        config_subset={"alpha": 1, "nested": {"z": 2, "a": [1, 2]}},
+        detail="config_fields",
+    )
+    second_parse_key = da._parse_stage_cache_key(
+        stage=da._ParseModuleStage.CONFIG_FIELDS,
+        cache_context=da._CacheSemanticContext(),
+        config_subset={"nested": {"a": [1, 2], "z": 2}, "alpha": 1},
+        detail="config_fields",
+    )
+    assert first_parse_key == second_parse_key
+    scoped_first = (identity, first_parse_key)
+    analysis_index.stage_cache_by_key[scoped_first] = {module: {"legacy": {"field"}}}
+    parse_failures: list[dict[str, object]] = []
+    result = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=da._StageCacheSpec(
+            stage=da._ParseModuleStage.CONFIG_FIELDS,
+            cache_key=second_parse_key,
+            build=lambda _tree, _path: (_ for _ in ()).throw(AssertionError("should reuse cache")),
+        ),
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert result[module] == {"legacy": {"field"}}
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._get_stage_cache_bucket
 def test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases(

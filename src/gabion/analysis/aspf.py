@@ -54,9 +54,11 @@ class _InternIdentity:
     fingerprint: NodeFingerprint
 
 
-def _canonicalize_intern_identity(kind: str, key: NodeKey) -> _InternIdentity:
-    node_id = NodeId(kind=kind, key=key)
-    return _InternIdentity(node_id=node_id, fingerprint=fingerprint_identity(kind, key))
+def _canonicalize_intern_identity(node_id: NodeId) -> _InternIdentity:
+    return _InternIdentity(
+        node_id=node_id,
+        fingerprint=fingerprint_identity(node_id.kind, node_id.key),
+    )
 
 
 @dataclass(frozen=True)
@@ -314,7 +316,7 @@ class Forest:
     ] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: object) -> NodeId:
-        identity = _canonicalize_intern_identity(node_id.kind, node_id.key)
+        identity = _canonicalize_intern_identity(node_id)
         existing = self._nodes_by_fingerprint.get(identity.fingerprint)
         if existing is not None:
             return existing
@@ -323,7 +325,7 @@ class Forest:
         return identity.node_id
 
     def has_node(self, kind: str, key: NodeKey) -> bool:
-        identity = _canonicalize_intern_identity(kind, key)
+        identity = _canonicalize_intern_identity(NodeId(kind=kind, key=key))
         return identity.fingerprint in self._nodes_by_fingerprint
 
     def add_file_site(self, path: str) -> NodeId:
@@ -482,20 +484,19 @@ class Forest:
         consume_deadline_ticks()
         normalized_kind = str(kind).strip()
         normalized_inputs = tuple(inputs)
-        normalized_evidence = _canonicalize_evidence(evidence)
+        alt = Alt(
+            kind=normalized_kind,
+            inputs=normalized_inputs,
+            evidence=cast(dict[str, object], evidence),
+        )
         evidence_identity = structural_key_atom(
-            normalized_evidence,
+            alt.evidence,
             source="Forest.add_alt.evidence",
         )
         structural_key = (normalized_kind, normalized_inputs, evidence_identity)
         interned = self._alt_index.get(structural_key)
         if interned is not None:
             return interned
-        alt = Alt(
-            kind=normalized_kind,
-            inputs=normalized_inputs,
-            evidence=normalized_evidence,
-        )
         self.alts.append(alt)
         self._alt_index[structural_key] = alt
         return alt
