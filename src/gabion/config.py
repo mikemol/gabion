@@ -148,6 +148,22 @@ def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:
     return _normalize_name_list(section.get("deadline_roots"))
 
 
+def dataflow_adapter_payload(section: TomlTable | None) -> TomlTable:
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        return {}
+    adapter = section.get("adapter")
+    if not isinstance(adapter, dict):
+        return {}
+    return adapter
+
+
+def dataflow_required_surfaces(section: TomlTable | None) -> list[str]:
+    adapter = dataflow_adapter_payload(section)
+    return _normalize_name_list(adapter.get("required_surfaces"))
+
+
 def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:
     check_deadline()
     merged = dict(defaults)

@@ -18,6 +18,7 @@ from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_c
 from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
+from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
 
 try:
     import yaml
@@ -1288,6 +1289,37 @@ def check_ambiguity_contract() -> None:
             details.append(stderr)
         _fail(["ambiguity contract policy check failed", *details])
 
+
+_KNOWN_ADAPTER_SURFACES = {
+    "bundle-inference": "bundle_inference",
+    "decision-surfaces": "decision_surfaces",
+    "type-flow": "type_flow",
+    "exception-obligations": "exception_obligations",
+    "rewrite-plan-support": "rewrite_plan_support",
+}
+
+
+def check_adapter_surface_policy() -> None:
+    errors: list[str] = []
+    dataflow = dataflow_defaults(root=REPO_ROOT)
+    required = set(dataflow_required_surfaces(dataflow))
+    unknown = required - set(_KNOWN_ADAPTER_SURFACES)
+    if unknown:
+        errors.append(f"unknown required adapter surfaces: {_sorted(unknown)}")
+    adapter_payload = dataflow_adapter_payload(dataflow)
+    capabilities = adapter_payload.get("capabilities", {}) if isinstance(adapter_payload, dict) else {}
+    if not isinstance(capabilities, dict):
+        capabilities = {}
+    for surface in required & set(_KNOWN_ADAPTER_SURFACES):
+        check_deadline()
+        capability_key = _KNOWN_ADAPTER_SURFACES[surface]
+        if capabilities.get(capability_key) is False:
+            errors.append(
+                f"required adapter surface {surface!r} is disabled via capability {capability_key!r}"
+            )
+    if errors:
+        _fail(errors)
+
 def main():
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
@@ -1295,9 +1327,10 @@ def main():
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
     parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
+    parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1311,6 +1344,8 @@ def main():
             check_normative_enforcement_map()
         if args.tier2_residue_contract:
             check_tier2_residue_contract()
+        if args.adapter_surfaces:
+            check_adapter_surface_policy()
     return 0
 
 

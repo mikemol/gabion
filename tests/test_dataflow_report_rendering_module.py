@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import random
 
-from gabion.analysis.dataflow_report_rendering import render_synthesis_section
+from gabion.analysis.dataflow_report_rendering import (
+    render_synthesis_section,
+    render_unsupported_by_adapter_section,
+)
 
 
 def _check_deadline() -> None:
@@ -94,3 +97,17 @@ def test_render_synthesis_section_renders_error_block() -> None:
     assert "Errors:" in text
     assert "first" in text
     assert "second" in text
+
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_unsupported_by_adapter_section_marks_required::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_unsupported_by_adapter_section
+def test_render_unsupported_by_adapter_section_marks_required() -> None:
+    lines = render_unsupported_by_adapter_section(
+        [
+            {"surface": "type-flow", "adapter": "limited", "required_by_policy": False},
+            {"surface": "decision-surfaces", "adapter": "limited", "required_by_policy": True},
+        ],
+        check_deadline=_check_deadline,
+    )
+    assert "type-flow: unsupported_by_adapter (limited)" in lines
+    assert "decision-surfaces: unsupported_by_adapter (limited) [required]" in lines
