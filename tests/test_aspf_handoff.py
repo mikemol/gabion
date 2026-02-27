@@ -199,3 +199,40 @@ def test_prepare_step_manifest_paths_are_relative_and_portable(tmp_path: Path) -
         state_root=state_root_rel,
     )
     assert step_b.import_state_paths == (portable_state_path.resolve(),)
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_load_manifest_folds_journal_when_index_missing
+def test_load_manifest_folds_journal_when_index_missing(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "manifest.json"
+    state_root = root / "state"
+    session_id = "session-fold"
+
+    step = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    step.state_path.parent.mkdir(parents=True, exist_ok=True)
+    step.state_path.write_text("{}", encoding="utf-8")
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    journal_path = manifest_path.with_name("manifest.journal.jsonl")
+    assert journal_path.exists()
+    manifest_path.unlink()
+
+    rebuilt = aspf_handoff.load_manifest(manifest_path)
+    entries = rebuilt.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+    assert entries[0].get("status") == "success"
