@@ -188,6 +188,62 @@ def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
 
     assert aspf._canonicalize_evidence(["not", "a", "mapping"]) == {}
 
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_alt_constructor_normalizes_evidence_payload::aspf.py::gabion.analysis.aspf.Alt
+def test_alt_constructor_normalizes_evidence_payload() -> None:
+    from gabion.analysis.aspf import Alt
+
+    alt = Alt(
+        kind="Edge",
+        inputs=(),
+        evidence={"z": {"b": 2, "a": 1}, "a": 0},
+    )
+
+    assert alt.evidence == {"a": 0, "z": {"a": 1, "b": 2}}
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_interns_equivalent_nested_evidence_payloads::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+def test_add_alt_interns_equivalent_nested_evidence_payloads() -> None:
+    forest = Forest()
+    left = forest.add_site("mod.py", "mod.left")
+    right = forest.add_site("mod.py", "mod.right")
+    with forest_scope(forest):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            with deadline_clock_scope(GasMeter(limit=32)):
+                first = forest.add_alt(
+                    "Edge",
+                    (left, right),
+                    evidence={"meta": {"b": 2, "a": 1}, "order": "first"},
+                )
+                second = forest.add_alt(
+                    "Edge",
+                    (left, right),
+                    evidence={"order": "first", "meta": {"a": 1, "b": 2}},
+                )
+
+    assert first is second
+    assert first.evidence == {"meta": {"a": 1, "b": 2}, "order": "first"}
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_forest_to_json_is_stable_under_evidence_order_permutations::aspf.py::gabion.analysis.aspf.Forest
+def test_forest_to_json_is_stable_under_evidence_order_permutations() -> None:
+    def _build(evidence: dict[str, object]) -> dict[str, object]:
+        forest = Forest()
+        left = forest.add_site("mod.py", "mod.left")
+        right = forest.add_site("mod.py", "mod.right")
+        with forest_scope(forest):
+            with deadline_scope(Deadline.from_timeout_ms(1_000)):
+                with deadline_clock_scope(GasMeter(limit=32)):
+                    forest.add_alt("Edge", (left, right), evidence=evidence)
+        return forest.to_json()
+
+    payload_a = _build({"meta": {"b": 2, "a": 1}, "order": "first"})
+    payload_b = _build({"order": "first", "meta": {"a": 1, "b": 2}})
+
+    assert payload_a == payload_b
+    edge = next(alt for alt in payload_a["alts"] if alt["kind"] == "Edge")
+    assert edge["evidence"] == {"meta": {"a": 1, "b": 2}, "order": "first"}
+
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_suite_site_signature_stable_under_suite_order_perturbation::aspf.py::gabion.analysis.aspf.Forest::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
 def test_suite_site_signature_stable_under_suite_order_perturbation() -> None:
     forest_a = Forest()

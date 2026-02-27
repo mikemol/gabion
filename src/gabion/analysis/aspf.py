@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import cast
 
+from gabion.analysis.aspf_evidence import normalize_alt_evidence_payload
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.runtime import stable_encode
@@ -99,6 +100,13 @@ class Alt:
     inputs: tuple[NodeId, ...]
     evidence: dict[str, object] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "evidence",
+            normalize_alt_evidence_payload(self.evidence),
+        )
+
     def as_dict(self) -> dict[str, object]:
         # Lazy import avoids module-cycle during timeout_context bootstrap.
         from gabion.analysis.timeout_context import check_deadline
@@ -141,16 +149,7 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
 
 
 def _canonicalize_evidence(evidence: object) -> dict[str, object]:
-    payload = evidence if evidence is not None else {}
-    canonical = stable_encode.stable_json_value(
-        payload,
-        source="aspf._canonicalize_evidence",
-    )
-    match canonical:
-        case dict() as canonical_map:
-            return cast(dict[str, object], canonical_map)
-        case _:
-            return {}
+    return normalize_alt_evidence_payload(evidence)
 
 
 def _float_structural_atom(value: float) -> StructuralKeyAtom:
