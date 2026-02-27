@@ -11,27 +11,7 @@ import tarfile
 from typing import Mapping
 
 from gabion.analysis.json_types import JSONObject, JSONValue
-from gabion.analysis.aspf_mutation_log_pb import (
-    PbArchiveManifest,
-    PbCommitMarker,
-    PbEventEnvelope,
-    PbMutationRecord,
-    PbMutationSnapshot,
-    PbSnapshotEnvelope,
-    parse_archive_manifest,
-    parse_commit_marker,
-    parse_event_envelope,
-    parse_snapshot_envelope,
-    serialize_archive_manifest,
-    serialize_commit_marker,
-    serialize_event_envelope,
-    serialize_snapshot_envelope,
-)
-from gabion.analysis.resume_codec import sequence_or_none
-
-
-CURRENT_ARCHIVE_SCHEMA_VERSION = 2
-LEGACY_ARCHIVE_SCHEMA_VERSION = 1
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 
 
 @dataclass(frozen=True)
@@ -60,7 +40,6 @@ class EventEnvelope:
     sequence: int
     run_id: str
     record: AspfMutationRecord
-    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -68,7 +47,6 @@ class SnapshotEnvelope:
     run_id: str
     replay_cursor: int
     snapshot: AspfMutationSnapshot
-    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -84,7 +62,6 @@ class ArchiveManifest:
 class CommitMarker:
     run_id: str
     last_durable_sequence: int
-    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -102,33 +79,234 @@ class ShadowWriteParityResult:
     json_replay: JSONObject
 
 
+class ProtobufDecodeError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class ProtobufWireFields:
+    varints: dict[int, int]
+    bytes_fields: dict[int, bytes]
+
+
 def _canonical_json_bytes(payload: Mapping[str, JSONValue]) -> bytes:
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def _event_envelope_payload(envelope: EventEnvelope) -> JSONObject:
-    return {
-        "schema_version": envelope.schema_version,
-        "sequence": envelope.sequence,
-        "run_id": envelope.run_id,
-        "record": {
+def _encode_varint(value: int) -> bytes:
+    if value < 0:
+        raise ValueError("varint cannot encode negative values")
+    pieces = bytearray()
+    pending = value
+    while True:
+        chunk = pending & 0x7F
+        pending >>= 7
+        if pending:
+            pieces.append(chunk | 0x80)
+        else:
+            pieces.append(chunk)
+            break
+    return bytes(pieces)
+
+
+def _decode_varint(buffer: bytes, offset: int) -> tuple[int, int]:
+    shift = 0
+    value = 0
+    cursor = offset
+    while cursor < len(buffer):
+        byte = buffer[cursor]
+        cursor += 1
+        value |= (byte & 0x7F) << shift
+        if not (byte & 0x80):
+            return value, cursor
+        shift += 7
+        if shift > 63:
+            break
+    raise ProtobufDecodeError("invalid varint payload")
+
+
+def _encode_length_delimited(field_number: int, payload: bytes) -> bytes:
+    tag = (field_number << 3) | 2
+    return _encode_varint(tag) + _encode_varint(len(payload)) + payload
+
+
+def _encode_uint64(field_number: int, value: int) -> bytes:
+    tag = field_number << 3
+    return _encode_varint(tag) + _encode_varint(value)
+
+
+def _parse_wire_fields(payload: bytes) -> ProtobufWireFields:
+    varints: dict[int, int] = {}
+    bytes_fields: dict[int, bytes] = {}
+    offset = 0
+    while offset < len(payload):
+        tag, offset = _decode_varint(payload, offset)
+        field_number = tag >> 3
+        wire_type = tag & 0x07
+        if wire_type == 0:
+            value, offset = _decode_varint(payload, offset)
+            varints[field_number] = value
+            continue
+        if wire_type == 2:
+            size, offset = _decode_varint(payload, offset)
+            end = offset + size
+            if end > len(payload):
+                raise ProtobufDecodeError("declared field length exceeds payload")
+            bytes_fields[field_number] = payload[offset:end]
+            offset = end
+            continue
+        raise ProtobufDecodeError(f"unsupported wire type: {wire_type}")
+    return ProtobufWireFields(varints=varints, bytes_fields=bytes_fields)
+
+
+def _json_bytes_to_object(payload: bytes) -> JSONObject:
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ProtobufDecodeError("invalid json payload") from exc
+    match value:
+        case dict() as value_map:
+            return value_map
+        case _:
+            raise ProtobufDecodeError("json payload must decode to an object")
+
+
+def encode_event_envelope_proto(envelope: EventEnvelope) -> bytes:
+    record_payload = _canonical_json_bytes(
+        {
             "op_id": envelope.record.op_id,
             "op_kind": envelope.record.op_kind,
             "payload": envelope.record.payload,
-        },
-    }
+        }
+    )
+    return b"".join(
+        (
+            _encode_uint64(1, envelope.sequence),
+            _encode_length_delimited(2, envelope.run_id.encode("utf-8")),
+            _encode_length_delimited(3, record_payload),
+        )
+    )
 
 
-def _snapshot_envelope_payload(envelope: SnapshotEnvelope) -> JSONObject:
-    return {
-        "schema_version": envelope.schema_version,
-        "run_id": envelope.run_id,
-        "replay_cursor": envelope.replay_cursor,
-        "snapshot": {
+def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
+    fields = _parse_wire_fields(payload)
+    sequence = int(fields.varints.get(1, 0) or 0)
+    run_id_field = fields.bytes_fields.get(2)
+    record_field = fields.bytes_fields.get(3)
+    match (run_id_field, record_field):
+        case (bytes(), bytes()):
+            pass
+        case _:
+            raise ProtobufDecodeError("event envelope missing required fields")
+    try:
+        run_id = run_id_field.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ProtobufDecodeError("invalid run_id encoding") from exc
+    record_payload = _json_bytes_to_object(record_field)
+    return EventEnvelope(
+        sequence=sequence,
+        run_id=run_id,
+        record=AspfMutationRecord(
+            op_id=str(record_payload.get("op_id", "") or ""),
+            op_kind=str(record_payload.get("op_kind", "") or ""),
+            payload=(
+                dict(payload_map)
+                if (payload_map := mapping_or_none(record_payload.get("payload"))) is not None
+                else {}
+            ),
+        ),
+    )
+
+
+def encode_snapshot_envelope_proto(envelope: SnapshotEnvelope) -> bytes:
+    snapshot_payload = _canonical_json_bytes(
+        {
             "seq": envelope.snapshot.seq,
             "state": envelope.snapshot.state,
-        },
-    }
+        }
+    )
+    return b"".join(
+        (
+            _encode_length_delimited(1, envelope.run_id.encode("utf-8")),
+            _encode_uint64(2, envelope.replay_cursor),
+            _encode_length_delimited(3, snapshot_payload),
+        )
+    )
+
+
+def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
+    fields = _parse_wire_fields(payload)
+    run_id_field = fields.bytes_fields.get(1)
+    replay_cursor = int(fields.varints.get(2, 0) or 0)
+    snapshot_field = fields.bytes_fields.get(3)
+    match (run_id_field, snapshot_field):
+        case (bytes(), bytes()):
+            pass
+        case _:
+            raise ProtobufDecodeError("snapshot envelope missing required fields")
+    try:
+        run_id = run_id_field.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ProtobufDecodeError("invalid run_id encoding") from exc
+    snapshot_payload = _json_bytes_to_object(snapshot_field)
+    return SnapshotEnvelope(
+        run_id=run_id,
+        replay_cursor=replay_cursor,
+        snapshot=AspfMutationSnapshot(
+            seq=int(snapshot_payload.get("seq", 0) or 0),
+            state=(
+                dict(state_map)
+                if (state_map := mapping_or_none(snapshot_payload.get("state"))) is not None
+                else {}
+            ),
+        ),
+    )
+
+
+def encode_archive_manifest_proto(manifest: ArchiveManifest) -> bytes:
+    return _encode_length_delimited(1, _canonical_json_bytes(_manifest_payload(manifest)))
+
+
+def decode_archive_manifest_proto(payload: bytes) -> ArchiveManifest:
+    fields = _parse_wire_fields(payload)
+    body = fields.bytes_fields.get(1)
+    match body:
+        case bytes():
+            pass
+        case _:
+            raise ProtobufDecodeError("manifest envelope missing payload")
+    data = _json_bytes_to_object(body)
+    return ArchiveManifest(
+        schema_version=int(data.get("schema_version", 0) or 0),
+        projection_version=int(data.get("projection_version", 0) or 0),
+        run_id=str(data.get("run_id", "") or ""),
+        event_sequences=tuple(int(value) for value in list(data.get("event_sequences", []))),
+        snapshot_sequences=tuple(int(value) for value in list(data.get("snapshot_sequences", []))),
+    )
+
+
+def encode_commit_marker_proto(commit: CommitMarker) -> bytes:
+    return b"".join(
+        (
+            _encode_length_delimited(1, commit.run_id.encode("utf-8")),
+            _encode_uint64(2, commit.last_durable_sequence),
+        )
+    )
+
+
+def decode_commit_marker_proto(payload: bytes) -> CommitMarker:
+    fields = _parse_wire_fields(payload)
+    run_id_field = fields.bytes_fields.get(1)
+    if run_id_field is None:
+        raise ProtobufDecodeError("commit marker missing run_id")
+    try:
+        run_id = run_id_field.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ProtobufDecodeError("invalid run_id encoding") from exc
+    return CommitMarker(
+        run_id=run_id,
+        last_durable_sequence=int(fields.varints.get(2, 0) or 0),
+    )
 
 
 def _manifest_payload(manifest: ArchiveManifest) -> JSONObject:
@@ -139,150 +317,6 @@ def _manifest_payload(manifest: ArchiveManifest) -> JSONObject:
         "event_sequences": list(manifest.event_sequences),
         "snapshot_sequences": list(manifest.snapshot_sequences),
     }
-
-
-def _commit_payload(commit: CommitMarker) -> JSONObject:
-    return {
-        "schema_version": commit.schema_version,
-        "run_id": commit.run_id,
-        "last_durable_sequence": commit.last_durable_sequence,
-    }
-
-
-def _protobuf_event_bytes(envelope: EventEnvelope) -> bytes:
-    return serialize_event_envelope(
-        PbEventEnvelope(
-            schema_version=envelope.schema_version,
-            sequence=envelope.sequence,
-            run_id=envelope.run_id,
-            record=PbMutationRecord(
-                op_id=envelope.record.op_id,
-                op_kind=envelope.record.op_kind,
-                payload_json=_canonical_json_bytes(envelope.record.payload).decode("utf-8"),
-            ),
-        )
-    )
-
-
-def _protobuf_snapshot_bytes(envelope: SnapshotEnvelope) -> bytes:
-    return serialize_snapshot_envelope(
-        PbSnapshotEnvelope(
-            schema_version=envelope.schema_version,
-            run_id=envelope.run_id,
-            replay_cursor=envelope.replay_cursor,
-            snapshot=PbMutationSnapshot(
-                seq=envelope.snapshot.seq,
-                state_json=_canonical_json_bytes(envelope.snapshot.state).decode("utf-8"),
-            ),
-        )
-    )
-
-
-def _protobuf_manifest_bytes(manifest: ArchiveManifest) -> bytes:
-    return serialize_archive_manifest(
-        PbArchiveManifest(
-            schema_version=manifest.schema_version,
-            projection_version=manifest.projection_version,
-            run_id=manifest.run_id,
-            event_sequences=manifest.event_sequences,
-            snapshot_sequences=manifest.snapshot_sequences,
-        )
-    )
-
-
-def _protobuf_commit_bytes(commit: CommitMarker) -> bytes:
-    return serialize_commit_marker(
-        PbCommitMarker(
-            schema_version=commit.schema_version,
-            run_id=commit.run_id,
-            last_durable_sequence=commit.last_durable_sequence,
-        )
-    )
-
-
-def decode_manifest_compat(raw: bytes) -> ArchiveManifest:
-    if raw.startswith(b"{"):
-        payload = json.loads(raw.decode("utf-8"))
-        return ArchiveManifest(
-            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
-            projection_version=int(payload.get("projection_version", 1)),
-            run_id=str(payload.get("run_id", "")),
-            event_sequences=tuple(int(item) for item in sequence_or_none(payload.get("event_sequences"), allow_str=False) or []),
-            snapshot_sequences=tuple(int(item) for item in sequence_or_none(payload.get("snapshot_sequences"), allow_str=False) or []),
-        )
-    parsed = parse_archive_manifest(raw)
-    return ArchiveManifest(
-        schema_version=parsed.schema_version,
-        projection_version=parsed.projection_version,
-        run_id=parsed.run_id,
-        event_sequences=parsed.event_sequences,
-        snapshot_sequences=parsed.snapshot_sequences,
-    )
-
-
-def decode_event_compat(raw: bytes) -> EventEnvelope:
-    if raw.startswith(b"{"):
-        payload = json.loads(raw.decode("utf-8"))
-        record = payload.get("record", {})
-        return EventEnvelope(
-            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
-            sequence=int(payload.get("sequence", 0)),
-            run_id=str(payload.get("run_id", "")),
-            record=AspfMutationRecord(
-                op_id=str(record.get("op_id", "")),
-                op_kind=str(record.get("op_kind", "")),
-                payload=dict(record.get("payload", {})),
-            ),
-        )
-    parsed = parse_event_envelope(raw)
-    return EventEnvelope(
-        schema_version=parsed.schema_version,
-        sequence=parsed.sequence,
-        run_id=parsed.run_id,
-        record=AspfMutationRecord(
-            op_id=parsed.record.op_id,
-            op_kind=parsed.record.op_kind,
-            payload=json.loads(parsed.record.payload_json),
-        ),
-    )
-
-
-def decode_commit_compat(raw: bytes) -> CommitMarker:
-    if raw.startswith(b"{"):
-        payload = json.loads(raw.decode("utf-8"))
-        return CommitMarker(
-            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
-            run_id=str(payload.get("run_id", "")),
-            last_durable_sequence=int(payload.get("last_durable_sequence", 0)),
-        )
-    parsed = parse_commit_marker(raw)
-    return CommitMarker(
-        schema_version=parsed.schema_version,
-        run_id=parsed.run_id,
-        last_durable_sequence=parsed.last_durable_sequence,
-    )
-
-
-def decode_snapshot_compat(raw: bytes) -> SnapshotEnvelope:
-    if raw.startswith(b"{"):
-        payload = json.loads(raw.decode("utf-8"))
-        snapshot = payload.get("snapshot", {})
-        return SnapshotEnvelope(
-            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
-            run_id=str(payload.get("run_id", "")),
-            replay_cursor=int(payload.get("replay_cursor", 0)),
-            snapshot=AspfMutationSnapshot(
-                seq=int(snapshot.get("seq", 0)),
-                state=dict(snapshot.get("state", {})),
-            ),
-        )
-    parsed = parse_snapshot_envelope(raw)
-    return SnapshotEnvelope(
-        schema_version=parsed.schema_version,
-        run_id=parsed.run_id,
-        replay_cursor=parsed.replay_cursor,
-        snapshot=AspfMutationSnapshot(seq=parsed.snapshot.seq, state=json.loads(parsed.snapshot.state_json)),
-    )
 
 
 def project_archive_filesystem(
@@ -302,20 +336,45 @@ def project_archive_filesystem(
     snapshots_dir.mkdir(parents=True, exist_ok=True)
     commit_dir.mkdir(parents=True, exist_ok=True)
 
-    (manifest_dir / "manifest.pb").write_bytes(_protobuf_manifest_bytes(manifest))
+    (manifest_dir / "manifest.pb").write_bytes(encode_archive_manifest_proto(manifest))
 
     for envelope in sorted(events, key=lambda item: item.sequence):
         stem = f"{envelope.sequence:012d}"
-        encoded = _protobuf_event_bytes(envelope)
+        encoded = encode_event_envelope_proto(envelope)
         (events_dir / f"{stem}.data.pb").write_bytes(encoded)
         (events_dir / f"{stem}.crc").write_text(sha256(encoded).hexdigest(), encoding="utf-8")
 
     for envelope in sorted(snapshots, key=lambda item: item.snapshot.seq):
         stem = f"{envelope.snapshot.seq:012d}"
-        encoded = _protobuf_snapshot_bytes(envelope)
+        encoded = encode_snapshot_envelope_proto(envelope)
         (snapshots_dir / f"{stem}.data.pb").write_bytes(encoded)
 
-    (commit_dir / "commit.pb").write_bytes(_protobuf_commit_bytes(commit))
+    (commit_dir / "commit.pb").write_bytes(encode_commit_marker_proto(commit))
+
+
+def load_projected_archive(
+    *, root_dir: Path
+) -> tuple[ArchiveManifest, list[EventEnvelope], list[SnapshotEnvelope], CommitMarker]:
+    manifest = decode_archive_manifest_proto((root_dir / "001_manifest" / "manifest.pb").read_bytes())
+    commit = decode_commit_marker_proto((root_dir / "099_commit" / "commit.pb").read_bytes())
+
+    events: list[EventEnvelope] = []
+    for entry in sorted(
+        (root_dir / "010_events").glob("*.data.pb"), key=lambda path: path.name
+    ):
+        encoded = entry.read_bytes()
+        crc = (entry.with_suffix("").with_suffix(".crc")).read_text(encoding="utf-8").strip()
+        if sha256(encoded).hexdigest() != crc:
+            raise ProtobufDecodeError(f"event checksum mismatch: {entry.name}")
+        events.append(decode_event_envelope_proto(encoded))
+
+    snapshots: list[SnapshotEnvelope] = []
+    for entry in sorted(
+        (root_dir / "020_snapshots").glob("*.data.pb"), key=lambda path: path.name
+    ):
+        snapshots.append(decode_snapshot_envelope_proto(entry.read_bytes()))
+
+    return manifest, events, snapshots, commit
 
 
 def package_archive_tar(*, root_dir: Path, tar_path: Path) -> None:
@@ -366,13 +425,29 @@ def replay_from_snapshot_and_committed_tail(
         [event for event in events if event.sequence > commit.last_durable_sequence]
     )
     replay_records = [_record_from_event_envelope(event) for event in committed_tail]
-    archive_replay = replay_tail(snapshot.snapshot, replay_records)
+    archive_records = [
+        decode_event_envelope_proto(encode_event_envelope_proto(event)).record
+        for event in committed_tail
+    ]
+    archive_replay = replay_tail(snapshot.snapshot, archive_records)
     json_replay = replay_tail(snapshot.snapshot, replay_records)
     equivalent = json.dumps(archive_replay, sort_keys=True) == json.dumps(json_replay, sort_keys=True)
     return SnapshotTailReplayResult(
         state=archive_replay,
         ignored_tail_count=ignored_tail_count,
         equivalent_to_json_replay=equivalent,
+    )
+
+
+def replay_from_projected_archive(*, root_dir: Path) -> SnapshotTailReplayResult:
+    _manifest, events, snapshots, commit = load_projected_archive(root_dir=root_dir)
+    if not snapshots:
+        raise ProtobufDecodeError("archive does not contain a snapshot")
+    latest_snapshot = max(snapshots, key=lambda envelope: envelope.snapshot.seq)
+    return replay_from_snapshot_and_committed_tail(
+        snapshot=latest_snapshot,
+        events=events,
+        commit=commit,
     )
 
 
