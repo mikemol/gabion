@@ -8098,17 +8098,19 @@ def _parse_stage_cache_key(
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
-) -> tuple[str, str, str, Hashable]:
+) -> NodeId:
     identity = _canonical_cache_identity(
         stage="parse",
         cache_context=cache_context,
         config_subset=config_subset,
     )
-    return (
-        "parse",
-        stage.value,
-        identity.value,
-        detail,
+    return NodeId(
+        kind="ParseStageCacheIdentity",
+        key=(
+            stage.value,
+            identity.value,
+            detail,
+        ),
     )
 
 
@@ -8161,6 +8163,16 @@ def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
                 aliases = (aliases[0], digest)
         if len(aliases) > 1:
             return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
+    if (
+        type(key) is NodeId
+        and key.kind == "ParseStageCacheIdentity"
+        and len(key.key) == 3
+    ):
+        stage_value, identity, detail = key.key
+        if type(stage_value) is str and type(identity) is str:
+            legacy_key = ("parse", stage_value, identity, detail)
+            aliases = _stage_cache_key_aliases(legacy_key)
+            return (key, *aliases)
     return (key,)
 
 

@@ -104,7 +104,7 @@ class Alt:
         object.__setattr__(
             self,
             "evidence",
-            normalize_alt_evidence_payload(self.evidence),
+            _canonicalize_evidence(self.evidence),
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -149,7 +149,36 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
 
 
 def _canonicalize_evidence(evidence: object) -> dict[str, object]:
-    return normalize_alt_evidence_payload(evidence)
+    normalized = normalize_alt_evidence_payload(evidence)
+    return cast(dict[str, object], _canonicalize_evidence_value(normalized))
+
+
+def _canonicalize_evidence_value(value: object) -> object:
+    match value:
+        case dict() as mapping:
+            ordered_keys = sort_once(
+                (str(key) for key in mapping),
+                source="aspf._canonicalize_evidence_value.mapping",
+            )
+            return {
+                key: _canonicalize_evidence_value(mapping[key])
+                for key in ordered_keys
+            }
+        case list() | tuple() | set() as seq:
+            canonical_items = [_canonicalize_evidence_value(item) for item in seq]
+            by_stable_text: dict[str, object] = {}
+            for item in canonical_items:
+                stable_text = stable_encode.stable_compact_text(item)
+                by_stable_text.setdefault(stable_text, item)
+            return [
+                by_stable_text[key]
+                for key in sort_once(
+                    by_stable_text,
+                    source="aspf._canonicalize_evidence_value.sequence",
+                )
+            ]
+        case _:
+            return value
 
 
 def _float_structural_atom(value: float) -> StructuralKeyAtom:
