@@ -1,0 +1,25 @@
+{
+  "exit_code": 0,
+  "timeout": false,
+  "analysis_state": "done",
+  "errors": [],
+  "lint_entries": [
+    {
+      "path": "web/app.ts",
+      "line": 9,
+      "col": 2,
+      "code": "DF001",
+      "message": "ambiguous bundle",
+      "severity": "warning"
+    }
+  ],
+  "decision_surfaces": [
+    {"surface": "bundle", "id": "B1"},
+    {"surface": "deadness", "id": "D1"}
+  ],
+  "bundle_sites_by_path": {
+    "web/app.ts": [
+      {"function": "f", "bundle": ["a", "b"]}
+    ]
+  }
+}
