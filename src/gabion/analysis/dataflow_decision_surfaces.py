@@ -211,6 +211,15 @@ def compute_fingerprint_rewrite_plans(
                     "remainder": entry.get("remainder") or {},
                     "synth_version": synth_version,
                     **(
+                        {
+                            "canonical_identity_contract": entry.get(
+                                "canonical_identity_contract"
+                            )
+                        }
+                        if entry.get("canonical_identity_contract") is not None
+                        else {}
+                    ),
+                    **(
                         {"exception_obligations_summary": pre_exception_summary}
                         if pre_exception_summary is not None
                         else {}
@@ -292,6 +301,17 @@ def compute_fingerprint_rewrite_plans(
                                     "witness_ref": coherence_id,
                                     "required": coherence_id is not None,
                                     "kind": "coherence",
+                                },
+                                {
+                                    "witness_ref": str(
+                                        entry.get("provenance_id")
+                                        or f"aspf-class:{site.path}:{site.function}:{bundle_key}"
+                                    ),
+                                    "required": entry.get("canonical_identity_contract") is not None,
+                                    "kind": "aspf_structure_class_equivalence",
+                                    "canonical_identity_contract": entry.get(
+                                        "canonical_identity_contract"
+                                    ),
                                 },
                             ],
                         },

@@ -1010,6 +1010,40 @@ def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     suggestions = da._execution_pattern_suggestions(source=source)
     assert any("indexed_pass_ingress" in line for line in suggestions)
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_matches_include_runner_motif_and_shared_schema_identity::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches
+def test_execution_pattern_matches_include_runner_motif_and_shared_schema_identity() -> None:
+    da = _load()
+    source = (
+        "def ingress_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "def ingress_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def ingress_c(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _run_indexed_pass(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index, spec='x', build_index=False)\n"
+        "def runner_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _run_indexed_pass(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index, spec='y', build_index=False)\n"
+    )
+    matches = da._detect_execution_pattern_matches(source=source)
+    pattern_ids = {match.pattern_id for match in matches}
+    assert "indexed_pass_ingress" in pattern_ids
+    assert "indexed_pass_runner" in pattern_ids
+
+    instances = da._pattern_schema_matches(groups_by_path={}, source=source)
+    execution_instances = [entry for entry in instances if entry.schema.axis.value == "execution"]
+    runner_instance = next(entry for entry in execution_instances if "indexed_pass_runner" in entry.suggestion)
+    ingress_instance = next(entry for entry in execution_instances if "indexed_pass_ingress" in entry.suggestion)
+    assert runner_instance.schema.kind == ingress_instance.schema.kind
+    assert runner_instance.schema.schema_contract == "pattern_schema.v2"
+
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_pattern_schema_suggestions_include_execution_and_dataflow_axes::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_suggestions::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> None:
     da = _load()
@@ -1087,6 +1121,31 @@ def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     residue_lines = da._pattern_schema_residue_lines(residue_entries)
     assert any("reason=unreified_metafactory" in line for line in residue_lines)
     assert any("reason=unreified_protocol" in line for line in residue_lines)
+
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_tier2_unreified_residue_entries_filters_expected_tier2_reification::dataflow_audit.py::gabion.analysis.dataflow_audit._tier2_unreified_residue_entries
+def test_tier2_unreified_residue_entries_filters_expected_tier2_reification() -> None:
+    da = _load()
+    entries = [
+        da.PatternResidue(
+            schema_id="schema:a",
+            reason="unreified_protocol",
+            payload={"expected": {"tier": 2}},
+        ),
+        da.PatternResidue(
+            schema_id="schema:b",
+            reason="unreified_metafactory",
+            payload={"expected": {"min_members": 3}},
+        ),
+        da.PatternResidue(
+            schema_id="schema:c",
+            reason="schema_contract_mismatch",
+            payload={"expected": {"tier": 2}},
+        ),
+    ]
+    filtered = da._tier2_unreified_residue_entries(entries)
+    assert [entry.schema_id for entry in filtered] == ["schema:a", "schema:b"]
 
 
 
@@ -3992,16 +4051,20 @@ def test_load_analysis_index_resume_payload_uses_variant_for_matching_identity(
 ) -> None:
     da = _load()
     file_path = tmp_path / "m.py"
+    active_index = "aspf:sha1:1111111111111111111111111111111111111111"
+    active_projection = "aspf:sha1:2222222222222222222222222222222222222222"
+    target_index = "aspf:sha1:3333333333333333333333333333333333333333"
+    target_projection = "aspf:sha1:4444444444444444444444444444444444444444"
     payload = {
         "format_version": 1,
-        "index_cache_identity": "index-active",
-        "projection_cache_identity": "projection-active",
+        "index_cache_identity": active_index,
+        "projection_cache_identity": active_projection,
         "hydrated_paths": [],
         "resume_variants": {
-            "index-target": {
+            target_index: {
                 "format_version": 1,
-                "index_cache_identity": "index-target",
-                "projection_cache_identity": "projection-target",
+                "index_cache_identity": target_index,
+                "projection_cache_identity": target_projection,
                 "hydrated_paths": [str(file_path)],
             }
         },
@@ -4009,8 +4072,8 @@ def test_load_analysis_index_resume_payload_uses_variant_for_matching_identity(
     hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
         payload=payload,
         file_paths=[file_path],
-        expected_index_cache_identity="index-target",
-        expected_projection_cache_identity="projection-target",
+        expected_index_cache_identity=target_index,
+        expected_projection_cache_identity=target_projection,
     )
     assert hydrated_paths == {file_path}
     assert by_qual == {}
@@ -4024,17 +4087,20 @@ def test_load_analysis_index_resume_payload_rejects_projection_identity_mismatch
 ) -> None:
     da = _load()
     file_path = tmp_path / "m.py"
+    index_identity = "aspf:sha1:5555555555555555555555555555555555555555"
+    old_projection_identity = "aspf:sha1:6666666666666666666666666666666666666666"
+    new_projection_identity = "aspf:sha1:7777777777777777777777777777777777777777"
     payload = {
         "format_version": 1,
-        "index_cache_identity": "index-ok",
-        "projection_cache_identity": "projection-old",
+        "index_cache_identity": index_identity,
+        "projection_cache_identity": old_projection_identity,
         "hydrated_paths": [str(file_path)],
     }
     hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
         payload=payload,
         file_paths=[file_path],
-        expected_index_cache_identity="index-ok",
-        expected_projection_cache_identity="projection-new",
+        expected_index_cache_identity=index_identity,
+        expected_projection_cache_identity=new_projection_identity,
     )
     assert hydrated_paths == set()
     assert by_qual == {}
@@ -4047,20 +4113,20 @@ def test_serialize_analysis_index_resume_payload_keeps_recent_variants() -> None
     da = _load()
     previous_payload = {
         "format_version": 1,
-        "index_cache_identity": "index-old",
-        "projection_cache_identity": "projection-old",
+        "index_cache_identity": "aspf:sha1:8888888888888888888888888888888888888888",
+        "projection_cache_identity": "aspf:sha1:9999999999999999999999999999999999999999",
         "hydrated_paths": [],
         "resume_variants": {
-            "index-older": {
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
                 "format_version": 1,
-                "index_cache_identity": "index-older",
-                "projection_cache_identity": "projection-older",
+                "index_cache_identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "projection_cache_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "hydrated_paths": [],
             },
-            "index-old": {
+            "aspf:sha1:8888888888888888888888888888888888888888": {
                 "format_version": 1,
-                "index_cache_identity": "index-old",
-                "projection_cache_identity": "projection-old",
+                "index_cache_identity": "aspf:sha1:8888888888888888888888888888888888888888",
+                "projection_cache_identity": "aspf:sha1:9999999999999999999999999999999999999999",
                 "hydrated_paths": [],
             },
         },
@@ -4070,15 +4136,24 @@ def test_serialize_analysis_index_resume_payload_keeps_recent_variants() -> None
         by_qual={},
         symbol_table=da.SymbolTable(),
         class_index={},
-        index_cache_identity="index-new",
-        projection_cache_identity="projection-new",
+        index_cache_identity="aspf:sha1:cccccccccccccccccccccccccccccccccccccccc",
+        projection_cache_identity="aspf:sha1:dddddddddddddddddddddddddddddddddddddddd",
         profiling_v1=None,
         previous_payload=previous_payload,
     )
     variants = payload.get("resume_variants")
     assert isinstance(variants, dict)
-    assert set(variants) == {"index-older", "index-old", "index-new"}
-    assert variants["index-new"]["projection_cache_identity"] == "projection-new"
+    assert set(variants) == {
+        "aspf:sha1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aspf:sha1:8888888888888888888888888888888888888888",
+        "aspf:sha1:cccccccccccccccccccccccccccccccccccccccc",
+    }
+    assert (
+        variants["aspf:sha1:cccccccccccccccccccccccccccccccccccccccc"][
+            "projection_cache_identity"
+        ]
+        == "aspf:sha1:dddddddddddddddddddddddddddddddddddddddd"
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_serialize_analysis_index_resume_payload_omits_non_mapping_profiling::dataflow_audit.py::gabion.analysis.dataflow_audit._serialize_analysis_index_resume_payload::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
@@ -4089,12 +4164,12 @@ def test_serialize_analysis_index_resume_payload_omits_non_mapping_profiling() -
         by_qual={},
         symbol_table=da.SymbolTable(),
         class_index={},
-        index_cache_identity="index-id",
-        projection_cache_identity="projection-id",
+        index_cache_identity="aspf:sha1:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        projection_cache_identity="aspf:sha1:ffffffffffffffffffffffffffffffffffffffff",
         profiling_v1=None,
     )
-    assert payload["index_cache_identity"] == "index-id"
-    assert payload["projection_cache_identity"] == "projection-id"
+    assert payload["index_cache_identity"] == "aspf:sha1:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    assert payload["projection_cache_identity"] == "aspf:sha1:ffffffffffffffffffffffffffffffffffffffff"
     assert "profiling_v1" not in payload
 
 
@@ -4761,8 +4836,46 @@ def test_canonical_cache_identity_uses_aspf_prefix() -> None:
         ),
         config_subset={"strictness": "high", "external_filter": True},
     )
-    assert identity.startswith("aspf:sha1:")
-    assert len(identity.split(":")[-1]) == 40
+    assert identity.value.startswith("aspf:sha1:")
+    assert len(identity.value.split(":")[-1]) == 40
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_canonical_cache_identity_normalizes_nested_config_order::dataflow_audit.py::gabion.analysis.dataflow_audit._canonical_cache_identity
+def test_canonical_cache_identity_normalizes_nested_config_order() -> None:
+    da = _load()
+    cache_context = da._CacheSemanticContext(
+        forest_spec_id="spec@1",
+        fingerprint_seed_revision="seed@2",
+    )
+    first = da._canonical_cache_identity(
+        stage="projection",
+        cache_context=cache_context,
+        config_subset={
+            "strictness": "high",
+            "projection": {
+                "beta": 2,
+                "alpha": [
+                    {"z": "last", "a": "first"},
+                    {"k2": False, "k1": True},
+                ],
+            },
+        },
+    )
+    second = da._canonical_cache_identity(
+        stage="projection",
+        cache_context=cache_context,
+        config_subset={
+            "projection": {
+                "alpha": [
+                    {"a": "first", "z": "last"},
+                    {"k1": True, "k2": False},
+                ],
+                "beta": 2,
+            },
+            "strictness": "high",
+        },
+    )
+    assert first == second
 
 
 # gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_cache_identity_alias_and_resume_variant_edges
@@ -4772,11 +4885,59 @@ def test_cache_identity_alias_and_resume_variant_edges() -> None:
     prefixed = f"aspf:sha1:{legacy}"
 
     assert da._cache_identity_aliases("") == ("",)
-    assert da._cache_identity_aliases("aspf:sha1:") == ("aspf:sha1:",)
-    assert da._cache_identity_aliases(prefixed) == (prefixed, legacy)
+    assert da._cache_identity_aliases("aspf:sha1:") == ("",)
+    assert da._cache_identity_aliases(prefixed) == (prefixed,)
 
     variant = {"path": "v"}
-    assert da._resume_variant_for_identity({legacy: variant}, prefixed) == variant
+    expected_identity = da._CacheIdentity.from_boundary(prefixed)
+    assert expected_identity is not None
+    assert da._resume_variant_for_identity({prefixed: variant}, expected_identity) == variant
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._get_stage_cache_bucket
+def test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "m.py"
+    _write(module, "x = 1\n")
+    legacy_digest = "0123456789abcdef0123456789abcdef01234567"
+    prefixed_identity = f"aspf:sha1:{legacy_digest}"
+    legacy_parse_key = (
+        "parse",
+        da._ParseModuleStage.CONFIG_FIELDS.value,
+        legacy_digest,
+        "config_fields",
+    )
+    current_parse_key = (
+        "parse",
+        da._ParseModuleStage.CONFIG_FIELDS.value,
+        prefixed_identity,
+        "config_fields",
+    )
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity=prefixed_identity,
+    )
+    scoped_legacy_key = (prefixed_identity, legacy_parse_key)
+    analysis_index.stage_cache_by_key[scoped_legacy_key] = {module: {"legacy": {"field"}}}
+    parse_failures: list[dict[str, object]] = []
+    result = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=da._StageCacheSpec(
+            stage=da._ParseModuleStage.CONFIG_FIELDS,
+            cache_key=current_parse_key,
+            build=lambda _tree, _path: (_ for _ in ()).throw(AssertionError("should reuse cache")),
+        ),
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert result[module] == {"legacy": {"field"}}
+    assert (prefixed_identity, current_parse_key) in analysis_index.stage_cache_by_key
 
 
 # gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_preview_deprecated_substrate_section_and_extinction_wrapper

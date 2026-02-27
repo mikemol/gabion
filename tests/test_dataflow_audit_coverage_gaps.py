@@ -1327,7 +1327,7 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
         ]
     }
     stubs = da.render_reuse_lemma_stubs(reuse)
-    assert "def lemma_name" in stubs
+    assert "reuse_rewrite_plan_bundle" in stubs
 
     text = da.render_refactor_plan(
         {
@@ -2261,7 +2261,7 @@ def test_additional_branch_edges_rendering_variants() -> None:
     stubs = da.render_reuse_lemma_stubs(
         {"suggested_lemmas": [{"kind": "bundle", "suggested_name": "lemma", "count": 1}]}
     )
-    assert "def lemma" in stubs
+    assert "\"plans\"" in stubs
 
     # render_refactor_plan empty order branch.
     plan_text = da.render_refactor_plan({"bundles": [{"bundle": ["x"], "order": [], "cycles": []}]})
@@ -3817,7 +3817,10 @@ def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
     max_variants = da._ANALYSIS_INDEX_RESUME_MAX_VARIANTS
     previous_payload = {
         da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
-            f"id_{idx}": {"format_version": 1, "index_cache_identity": f"id_{idx}"}
+            f"aspf:sha1:{idx:040x}": {
+                "format_version": 1,
+                "index_cache_identity": f"aspf:sha1:{idx:040x}",
+            }
             for idx in range(max_variants + 2)
         }
     }
@@ -4189,14 +4192,15 @@ def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
     assert function_info_empty_reasons is not None
     assert function_info_empty_reasons.decision_surface_reasons == {}
 
+    canonical_id = "aspf:sha1:1111111111111111111111111111111111111111"
     variants = da._analysis_index_resume_variants(
         {
             da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
-                "id-1": {"format_version": 1, "value": "ok"}
+                canonical_id: {"format_version": 1, "value": "ok"}
             }
         }
     )
-    assert variants["id-1"]["value"] == "ok"
+    assert variants[canonical_id]["value"] == "ok"
 
     assert (
         da._analysis_index_resume_variants(
@@ -4211,8 +4215,8 @@ def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
         by_qual={},
         symbol_table=da.SymbolTable(),
         class_index={},
-        index_cache_identity="index",
-        projection_cache_identity="projection",
+        index_cache_identity="aspf:sha1:2222222222222222222222222222222222222222",
+        projection_cache_identity="aspf:sha1:3333333333333333333333333333333333333333",
     )
     stage_result = da._analysis_index_stage_cache(
         analysis_index,

@@ -268,6 +268,9 @@ def test_ambiguity_suite_agg_materializes_spec_facets(tmp_path: Path) -> None:
     assert any(
         alt.kind == "SpecFacet"
         and alt.evidence.get("spec_name") == "ambiguity_suite_agg"
+        and forest.nodes.get(alt.inputs[1], None) is not None
+        and forest.nodes[alt.inputs[1]].kind == "SuiteSite"
+        and forest.nodes[alt.inputs[1]].meta.get("suite_kind") == "call"
         for alt in forest.alts
     )
 

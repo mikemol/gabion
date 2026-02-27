@@ -37,6 +37,7 @@ from gabion.analysis.pattern_schema import (
     PatternInstance,
     PatternResidue,
     PatternSchema,
+    execution_signature,
     mismatch_residue_payload,
 )
 
@@ -331,6 +332,7 @@ class _ReportSectionKey:
 class _ExecutionPatternMatch:
     pattern_id: str
     kind: str
+    schema_family: str
     members: tuple[str, ...]
     suggestion: str
 
@@ -339,6 +341,11 @@ class _ExecutionPatternMatch:
 class _ExecutionPatternRule:
     pattern_id: str
     kind: str
+    schema_family: str
+    required_params: frozenset[str]
+    callee_names: frozenset[str]
+    min_members: int
+    candidate: str
     description: str
 
 
@@ -3100,14 +3107,6 @@ def _raw_sorted_contract_violations(
     return violations
 
 
-_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
-    pattern_id="indexed_pass_ingress",
-    kind="execution_pattern",
-    description=(
-        "Functions sharing the indexed-pass ingress contract should be reified "
-        "behind a typed pass metafactory."
-    ),
-)
 _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
     {
         "paths",
@@ -3120,8 +3119,35 @@ _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
         "analysis_index",
     }
 )
+_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_ingress",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+    min_members=3,
+    candidate="IndexedPassSpec[T] metafactory",
+    description=(
+        "Functions sharing the indexed-pass ingress contract should be reified "
+        "behind a typed pass metafactory."
+    ),
+)
+_INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_runner",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_run_indexed_pass"}),
+    min_members=2,
+    candidate="IndexedPassSpec[T] runner Protocol",
+    description=(
+        "Functions repeatedly invoking _run_indexed_pass should consolidate "
+        "the execution carrier into a shared runner Protocol."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
+    _INDEXED_PASS_RUNNER_RULE,
 )
 
 
@@ -3133,52 +3159,37 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
-def _indexed_pass_ingress_members(
-    *,
-    source = None,
-    source_path = None,
-) -> tuple[str, ...]:
-    module_path = source_path or Path(__file__)
-    if source is None:
-        try:
-            source = module_path.read_text()
-        except OSError:
-            return ()
-    try:
-        tree = ast.parse(source)
-    except _PARSE_MODULE_ERROR_TYPES:
-        return ()
-    indexed_members: list[str] = []
+def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
     for node in tree.body:
         check_deadline()
         if type(node) is not ast.FunctionDef:
             continue
         function_node = cast(ast.FunctionDef, node)
-        param_names = _function_param_names(function_node)
-        if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
-            continue
-        calls_index_ingress = False
+        param_names = frozenset(_function_param_names(function_node))
+        called_names: set[str] = set()
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if type(child) is not ast.Call:
+            if type(child) is not ast.Call or type(cast(ast.Call, child).func) is not ast.Name:
                 continue
-            call_node = cast(ast.Call, child)
-            if type(call_node.func) is not ast.Name:
-                continue
-            call_name = cast(ast.Name, call_node.func)
-            if call_name.id in {"_build_analysis_index", "_build_call_graph"}:
-                calls_index_ingress = True
-                break
-        if not calls_index_ingress:
+            called_names.add(cast(ast.Name, cast(ast.Call, child).func).id)
+        yield function_node.name, param_names, frozenset(called_names)
+
+
+def _execution_pattern_members(
+    *,
+    tree: ast.Module,
+    rule: _ExecutionPatternRule,
+) -> tuple[str, ...]:
+    members: list[str] = []
+    for name, param_names, called_names in _iter_execution_function_facts(tree):
+        check_deadline()
+        if not rule.required_params.issubset(param_names):
             continue
-        indexed_members.append(function_node.name)
-    return tuple(
-        sort_once(
-            indexed_members,
-            source="_indexed_pass_ingress_members.indexed_members",
-        )
-    )
+        if not called_names.intersection(rule.callee_names):
+            continue
+        members.append(name)
+    return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
 
 
 def _detect_execution_pattern_matches(
@@ -3186,19 +3197,33 @@ def _detect_execution_pattern_matches(
     source = None,
     source_path = None,
 ) -> list[_ExecutionPatternMatch]:
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return []
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return []
     matches: list[_ExecutionPatternMatch] = []
-    members = _indexed_pass_ingress_members(source=source, source_path=source_path)
-    if len(members) >= 3:
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        members = _execution_pattern_members(tree=tree, rule=rule)
+        if len(members) < rule.min_members:
+            continue
         matches.append(
             _ExecutionPatternMatch(
-                pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                kind=_INDEXED_PASS_INGRESS_RULE.kind,
+                pattern_id=rule.pattern_id,
+                kind=rule.kind,
+                schema_family=rule.schema_family,
                 members=members,
                 suggestion=(
-                    f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(members)} "
+                    f"{rule.pattern_id} members={len(members)} "
                     + ", ".join(members[:8])
                     + (" ..." if len(members) > 8 else "")
-                    + "; candidate=IndexedPassSpec[T] metafactory"
+                    + f"; candidate={rule.candidate}"
                 ),
             )
         )
@@ -3211,20 +3236,25 @@ def _execution_pattern_instances(
     source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    for match in _detect_execution_pattern_matches(
+    matches = _detect_execution_pattern_matches(
         source=source,
         source_path=source_path,
-    ):
+    )
+    for match in matches:
         check_deadline()
-        signature: JSONObject = {
-            "pattern_id": match.pattern_id,
-            "members": list(match.members),
-        }
+        rule = next(rule for rule in _EXECUTION_PATTERN_RULES if rule.pattern_id == match.pattern_id)
+        signature = execution_signature(
+            family=match.schema_family,
+            members=match.members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=match.pattern_id,
+            kind=match.kind,
             signature=signature,
-            normalization={"members": list(match.members)},
+            normalization={
+                "members": list(match.members),
+                "pattern_id": match.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
@@ -3240,27 +3270,34 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=match.pattern_id,
-                            expected={"min_members": 3, "candidate": "IndexedPassSpec[T]"},
+                            expected={"min_members": rule.min_members, "candidate": rule.candidate},
                             observed={"members": list(match.members), "member_count": len(match.members)},
                         ),
                     ),
                 ),
             )
         )
-    near_miss_members = _indexed_pass_ingress_members(
-        source=source,
-        source_path=source_path,
-    )
-    if len(near_miss_members) == 2:
-        signature: JSONObject = {
-            "pattern_id": _INDEXED_PASS_INGRESS_RULE.pattern_id,
-            "members": list(near_miss_members),
-        }
+    try:
+        tree = ast.parse(source if source is not None else (source_path or Path(__file__)).read_text())
+    except (OSError, *_PARSE_MODULE_ERROR_TYPES):
+        return instances
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        near_miss_members = _execution_pattern_members(tree=tree, rule=rule)
+        if len(near_miss_members) != max(rule.min_members - 1, 1):
+            continue
+        signature = execution_signature(
+            family=rule.schema_family,
+            members=near_miss_members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+            kind=rule.kind,
             signature=signature,
-            normalization={"members": list(near_miss_members)},
+            normalization={
+                "members": list(near_miss_members),
+                "pattern_id": rule.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
@@ -3268,7 +3305,7 @@ def _execution_pattern_instances(
                 members=near_miss_members,
                 suggestion=(
                     "execution_pattern near_miss "
-                    + f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(near_miss_members)}"
+                    + f"{rule.pattern_id} members={len(near_miss_members)}"
                 ),
                 residue=(
                     PatternResidue(
@@ -3276,9 +3313,9 @@ def _execution_pattern_instances(
                         reason="schema_contract_mismatch",
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
-                            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                            expected={"min_members": 3},
-                            observed={"members": list(near_miss_members), "member_count": 2},
+                            kind=rule.pattern_id,
+                            expected={"min_members": rule.min_members},
+                            observed={"members": list(near_miss_members), "member_count": len(near_miss_members)},
                         ),
                     ),
                 ),
@@ -3473,6 +3510,35 @@ def _pattern_schema_residue_entries(
     return sort_once(
         entries,
         source="_pattern_schema_residue_entries.entries",
+        key=lambda entry: (
+            entry.schema_id,
+            entry.reason,
+            json.dumps(entry.payload, sort_keys=False, separators=(",", ":")),
+        ),
+    )
+
+
+def _tier2_unreified_residue_entries(
+    entries: Sequence[PatternResidue],
+) -> list[PatternResidue]:
+    candidates: list[PatternResidue] = []
+    for entry in entries:
+        check_deadline()
+        expected = mapping_or_none(entry.payload.get("expected")) or {}
+        tier_value = expected.get("tier")
+        min_members_raw = str(expected.get("min_members", "")).strip()
+        min_members = (
+            int(min_members_raw)
+            if min_members_raw.lstrip("-").isdigit()
+            else -1
+        )
+        tier2_reason = entry.reason in {"unreified_protocol", "unreified_metafactory"}
+        tier2_expected = tier_value == 2 or min_members >= 2
+        if tier2_reason and tier2_expected:
+            candidates.append(entry)
+    return sort_once(
+        candidates,
+        source="_tier2_unreified_residue_entries.candidates",
         key=lambda entry: (
             entry.schema_id,
             entry.reason,
@@ -4207,12 +4273,26 @@ def _evaluate_witness_obligation_non_regression_predicate(
             if mapped_item is not None:
                 obligations.append(mapped_item)
     missing_required: list[str] = []
+    aspf_identity_mismatches: list[str] = []
+    post_aspf_structure_class = mapping_or_empty(
+        context.post_entry.get("aspf_structure_class")
+    )
     for item in obligations:
         required = bool(item.get("required"))
         witness_ref = str(item.get("witness_ref", "") or "")
         witness_kind = str(item.get("kind", "witness") or "witness")
         if required and not witness_ref:
             missing_required.append(f"{witness_kind}:missing")
+        if witness_kind == "aspf_structure_class_equivalence":
+            expected_identity = mapping_or_none(item.get("canonical_identity_contract"))
+            post_identity_payload = mapping_or_none(
+                context.post_entry.get("canonical_identity_contract")
+            )
+            if expected_identity is not None and expected_identity != post_identity_payload:
+                aspf_identity_mismatches.append("canonical_identity_contract")
+            expected_structure_class = mapping_or_none(item.get("aspf_structure_class"))
+            if expected_structure_class is not None and expected_structure_class != post_aspf_structure_class:
+                aspf_identity_mismatches.append("aspf_structure_class")
     post_identity = context.post_entry.get("canonical_identity_contract")
     pre_identity = context.pre.get("canonical_identity_contract")
     identity_ok = True
@@ -4220,7 +4300,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
         identity_ok = pre_identity == post_identity
     elif post_identity is None:
         identity_ok = False
-    passed = (not missing_required) and identity_ok
+    passed = (not missing_required) and identity_ok and (not aspf_identity_mismatches)
     return {
         "kind": kind,
         "passed": passed,
@@ -4232,7 +4312,9 @@ def _evaluate_witness_obligation_non_regression_predicate(
         },
         "observed": {
             "missing_required": missing_required,
+            "aspf_identity_mismatches": aspf_identity_mismatches,
             "identity_contract": post_identity,
+            "aspf_structure_class": post_aspf_structure_class,
         },
     }
 
@@ -6749,6 +6831,8 @@ def _suite_order_relation(
     alt_degree: Counter[NodeId] = Counter()
     for alt in forest.alts:
         check_deadline()
+        if alt.kind == "SpecFacet":
+            continue
         for node_id in alt.inputs:
             check_deadline()
             alt_degree[node_id] += 1
@@ -6810,6 +6894,20 @@ def _suite_order_relation(
         suite_index[
             (path, qual, suite_kind, span_line, span_col, span_end_line, span_end_col)
         ] = node_id
+    relation = sort_once(
+        relation,
+        key=lambda row: (
+            int(row.get("depth", 0) or 0),
+            int(row.get("complexity", 0) or 0),
+            str(row.get("suite_path", "") or ""),
+            str(row.get("suite_qual", "") or ""),
+            int(row.get("span_line", -1) or -1),
+            int(row.get("span_col", -1) or -1),
+            int(row.get("span_end_line", -1) or -1),
+            int(row.get("span_end_col", -1) or -1),
+        ),
+        source="src/gabion/analysis/dataflow_audit.py:_suite_order_relation.relation",
+    )
     return relation, suite_index
 
 
@@ -6860,18 +6958,8 @@ def _materialize_suite_order_spec(
 
 def _ambiguity_suite_relation(
     forest: Forest,
-) -> tuple[list[dict[str, JSONValue]], dict[tuple[str, str], NodeId]]:
+) -> list[dict[str, JSONValue]]:
     relation: list[dict[str, JSONValue]] = []
-    function_index: dict[tuple[str, str], NodeId] = {}
-    for node_id, node in forest.nodes.items():
-        check_deadline()
-        if node_id.kind != "FunctionSite":
-            continue
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        function_index[(path, qual)] = node_id
     for alt in forest.alts:
         check_deadline()
         if alt.kind != "CallCandidate":
@@ -6916,18 +7004,7 @@ def _ambiguity_suite_relation(
                         "phase": str(alt.evidence.get("phase", "") or ""),
                     }
                 )
-    return relation, function_index
-
-
-def _ambiguity_suite_row_to_site(
-    row: Mapping[str, JSONValue],
-    function_index: Mapping[tuple[str, str], NodeId],
-):
-    path = str(row.get("suite_path", "") or "")
-    qual = str(row.get("suite_qual", "") or "")
-    if not path or not qual:
-        return None
-    return function_index.get((path, qual))
+    return relation
 
 
 def _ambiguity_suite_row_to_suite(
@@ -6972,7 +7049,7 @@ def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, function_index = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
     projected = apply_spec(AMBIGUITY_SUITE_AGG_SPEC, relation)
@@ -6980,7 +7057,7 @@ def _materialize_ambiguity_suite_agg_spec(
         spec=AMBIGUITY_SUITE_AGG_SPEC,
         projected=projected,
         forest=forest,
-        row_to_site=lambda row: _ambiguity_suite_row_to_site(row, function_index),
+        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
     )
 
 
@@ -6988,7 +7065,7 @@ def _materialize_ambiguity_virtual_set_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
 
@@ -7038,6 +7115,8 @@ def _summarize_deadline_obligations(
                 "detail": str(entry.get("detail", "") or ""),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site.get("suite_id", "") or ""),
+                "site_suite_kind": str(site.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7054,6 +7133,7 @@ def _summarize_deadline_obligations(
             return None
         span = _spec_row_span(row)
         path_name = Path(path).name
+        suite_kind = str(row.get("site_suite_kind", "") or "")
         require_not_none(
             span,
             reason="projection spec row missing span",
@@ -7061,6 +7141,8 @@ def _summarize_deadline_obligations(
             path=path,
             function=function,
         )
+        if suite_kind:
+            return forest.add_suite_site(path_name, function, suite_kind, span=span)
         return forest.add_site(path_name, function, span)
 
     _materialize_projection_spec_rows(
@@ -7881,9 +7963,41 @@ class _CacheSemanticContext:
     fingerprint_seed_revision: OptionalString = None
 
 
+@dataclass(frozen=True)
+class _StageCacheIdentitySpec:
+    stage: Literal["parse", "index", "projection"]
+    forest_spec_id: str
+    fingerprint_seed_revision: str
+    normalized_config: JSONValue
+
+
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
+_CACHE_IDENTITY_PREFIX = "aspf:sha1:"
+_CACHE_IDENTITY_DIGEST_HEX = re.compile(r"^[0-9a-f]{40}$")
+
+
+@dataclass(frozen=True)
+class _CacheIdentity:
+    value: str
+
+    @classmethod
+    def from_digest(cls, digest: str) -> "_CacheIdentity | None":
+        cleaned = str(digest or "").strip().lower()
+        if not _CACHE_IDENTITY_DIGEST_HEX.fullmatch(cleaned):
+            return None
+        return cls(f"{_CACHE_IDENTITY_PREFIX}{cleaned}")
+
+    @classmethod
+    def from_boundary(cls, raw_identity) -> "_CacheIdentity | None":
+        identity = str(raw_identity or "").strip()
+        if not identity:
+            return None
+        if identity.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity[len(_CACHE_IDENTITY_PREFIX) :]
+            return cls.from_digest(digest)
+        return cls.from_digest(identity)
 
 
 def _sorted_text(values = None) -> tuple[str, ...]:
@@ -7893,17 +8007,42 @@ def _sorted_text(values = None) -> tuple[str, ...]:
     return tuple(sort_once(cleaned, source = 'src/gabion/analysis/dataflow_audit.py:8091'))
 
 
-def _canonical_cache_identity(
+def _normalize_cache_config(value: JSONValue) -> JSONValue:
+    if type(value) is dict:
+        mapping = cast(dict[object, JSONValue], value)
+        normalized = {
+            str(key): _normalize_cache_config(mapping[key])
+            for key in sort_once(mapping, source="_normalize_cache_config.mapping")
+        }
+        return cast(JSONValue, normalized)
+    if type(value) is list:
+        return cast(JSONValue, [_normalize_cache_config(item) for item in value])
+    if type(value) is tuple:
+        return cast(JSONValue, [_normalize_cache_config(cast(JSONValue, item)) for item in value])
+    return value
+
+
+def _build_stage_cache_identity_spec(
     *,
     stage: Literal["parse", "index", "projection"],
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _StageCacheIdentitySpec:
+    normalized_config = _normalize_cache_config(cast(JSONValue, config_subset))
+    return _StageCacheIdentitySpec(
+        stage=stage,
+        forest_spec_id=str(cache_context.forest_spec_id or ""),
+        fingerprint_seed_revision=str(cache_context.fingerprint_seed_revision or ""),
+        normalized_config=normalized_config,
+    )
+
+
+def _canonical_stage_cache_identity(spec: _StageCacheIdentitySpec) -> str:
     payload: dict[str, JSONValue] = {
-        "stage": stage,
-        "forest_spec_id": str(cache_context.forest_spec_id or ""),
-        "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
-        "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
+        "stage": spec.stage,
+        "forest_spec_id": spec.forest_spec_id,
+        "fingerprint_seed_revision": spec.fingerprint_seed_revision,
+        "config_subset": spec.normalized_config,
     }
     digest = hashlib.sha1(
         json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
@@ -7911,38 +8050,45 @@ def _canonical_cache_identity(
     return f"aspf:sha1:{digest}"
 
 
+def _canonical_cache_identity(
+    *,
+    stage: Literal["parse", "index", "projection"],
+    cache_context: _CacheSemanticContext,
+    config_subset: Mapping[str, JSONValue],
+) -> _CacheIdentity:
+    spec = _build_stage_cache_identity_spec(
+        stage=stage,
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
+    canonical = _CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
+    if canonical is None:
+        never("failed to construct canonical cache identity", stage=stage)
+    return canonical
+
+
 def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
-    value = str(identity or "")
-    if not value:
+    canonical = _CacheIdentity.from_boundary(identity)
+    if canonical is None:
         return ("",)
-    if value.startswith("aspf:sha1:"):
-        legacy = value[len("aspf:sha1:") :]
-        if legacy:
-            return (value, legacy)
-        return (value,)
-    if len(value) == 40 and all(ch in "0123456789abcdef" for ch in value.lower()):
-        return (value, f"aspf:sha1:{value}")
-    return (value,)
+    return (canonical.value,)
 
 
 def _cache_identity_matches(actual: str, expected: str) -> bool:
-    actual_aliases = set(_cache_identity_aliases(actual))
-    expected_aliases = set(_cache_identity_aliases(expected))
-    return bool(actual_aliases & expected_aliases)
+    actual_identity = _CacheIdentity.from_boundary(actual)
+    expected_identity = _CacheIdentity.from_boundary(expected)
+    if actual_identity is None or expected_identity is None:
+        return False
+    return actual_identity == expected_identity
 
 
 def _resume_variant_for_identity(
     variants: Mapping[str, JSONObject],
-    expected_identity: str,
+    expected_identity: _CacheIdentity,
 ):
-    direct = variants.get(expected_identity)
+    direct = variants.get(expected_identity.value)
     if direct is not None:
         return direct
-    expected_aliases = set(_cache_identity_aliases(expected_identity))
-    for variant_identity, variant in variants.items():
-        check_deadline()
-        if expected_aliases & set(_cache_identity_aliases(variant_identity)):
-            return variant
     return None
 
 
@@ -7953,14 +8099,15 @@ def _parse_stage_cache_key(
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
 ) -> tuple[str, str, str, Hashable]:
+    identity = _canonical_cache_identity(
+        stage="parse",
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
     return (
         "parse",
         stage.value,
-        _canonical_cache_identity(
-            stage="parse",
-            cache_context=cache_context,
-            config_subset=config_subset,
-        ),
+        identity.value,
         detail,
     )
 
@@ -7969,7 +8116,7 @@ def _index_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="index",
         cache_context=cache_context,
@@ -7981,12 +8128,60 @@ def _projection_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="projection",
         cache_context=cache_context,
         config_subset=config_subset,
     )
+def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
+    if (
+        type(key) is tuple
+        and len(key) == 2
+        and type(key[1]) is tuple
+    ):
+        scoped_identity = key[0]
+        parse_key = cast(Hashable, key[1])
+        parse_aliases = _stage_cache_key_aliases(parse_key)
+        if len(parse_aliases) > 1:
+            return tuple((scoped_identity, alias) for alias in parse_aliases)
+        return (key,)
+    if (
+        type(key) is tuple
+        and len(key) == 4
+        and key[0] == "parse"
+        and type(key[2]) is str
+    ):
+        identity = key[2]
+        aliases = _cache_identity_aliases(identity)
+        identity_text = str(identity)
+        if len(aliases) == 1 and identity_text.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity_text[len(_CACHE_IDENTITY_PREFIX) :]
+            if _CACHE_IDENTITY_DIGEST_HEX.fullmatch(digest):
+                aliases = (aliases[0], digest)
+        if len(aliases) > 1:
+            return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
+    return (key,)
+
+
+def _get_stage_cache_bucket(
+    analysis_index: AnalysisIndex,
+    *,
+    scoped_cache_key: Hashable,
+) -> dict[Path, object]:
+    stage_cache_by_key = analysis_index.stage_cache_by_key
+    bucket = stage_cache_by_key.get(scoped_cache_key)
+    if bucket is not None:
+        return bucket
+    for candidate_key in _stage_cache_key_aliases(scoped_cache_key):
+        check_deadline()
+        if candidate_key == scoped_cache_key:
+            continue
+        legacy_bucket = stage_cache_by_key.get(candidate_key)
+        if legacy_bucket is not None:
+            stage_cache_by_key[scoped_cache_key] = legacy_bucket
+            return legacy_bucket
+    return stage_cache_by_key.setdefault(scoped_cache_key, {})
 
 
 def _parse_module_source(path: Path) -> ast.Module:
@@ -8094,8 +8289,8 @@ def _build_analysis_index(
     ) = _load_analysis_index_resume_payload(
         payload=resume_payload,
         file_paths=ordered_paths,
-        expected_index_cache_identity=index_cache_identity,
-        expected_projection_cache_identity=projection_cache_identity,
+        expected_index_cache_identity=index_cache_identity.value,
+        expected_projection_cache_identity=projection_cache_identity.value,
     )
     symbol_table.external_filter = external_filter
     function_index_acc = _FunctionIndexAccumulator(
@@ -8154,8 +8349,8 @@ def _build_analysis_index(
                         by_qual=function_index_acc.by_qual,
                         symbol_table=symbol_table,
                         class_index=class_index,
-                        index_cache_identity=index_cache_identity,
-                        projection_cache_identity=projection_cache_identity,
+                        index_cache_identity=index_cache_identity.value,
+                        projection_cache_identity=projection_cache_identity.value,
                         profiling_v1=_index_profile_payload(),
                         previous_payload=resume_payload,
                     )
@@ -8242,8 +8437,8 @@ def _build_analysis_index(
         by_qual=function_index_acc.by_qual,
         symbol_table=symbol_table,
         class_index=class_index,
-        index_cache_identity=index_cache_identity,
-        projection_cache_identity=projection_cache_identity,
+        index_cache_identity=index_cache_identity.value,
+        projection_cache_identity=projection_cache_identity.value,
     )
 
 
@@ -8347,7 +8542,10 @@ def _analysis_index_stage_cache(
         parse_failure_witnesses=parse_failure_witnesses,
     )
     scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
-    cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
+    cache = _get_stage_cache_bucket(
+        analysis_index,
+        scoped_cache_key=scoped_cache_key,
+    )
     results = {}
     for path in paths:
         check_deadline()
@@ -13993,6 +14191,96 @@ def compute_structure_reuse(
     )
     suggested: list[JSONObject] = []
     replacement_map: dict[str, list[JSONObject]] = {}
+
+    def _reuse_site_from_location(
+        *,
+        location: str,
+        fallback_value: object,
+    ) -> JSONObject:
+        location_parts = location.split("::")
+        path_value = location_parts[0] if location_parts else ""
+        function_value = location_parts[1] if len(location_parts) > 1 else ""
+        bundle_payload: list[str] = []
+        if len(location_parts) > 2 and location_parts[2].startswith("bundle:"):
+            raw_bundle = location_parts[2][len("bundle:") :]
+            bundle_payload = [part for part in raw_bundle.split(",") if part]
+        elif type(fallback_value) is list:
+            bundle_payload = [str(item) for item in cast(list[object], fallback_value)]
+        return {
+            "path": path_value,
+            "function": function_value,
+            "bundle": bundle_payload,
+        }
+
+    def _build_suggested_plan_artifact(
+        *,
+        suggestion: JSONObject,
+    ) -> JSONObject:
+        kind = str(suggestion.get("kind", ""))
+        suggestion_name = str(suggestion.get("suggested_name", ""))
+        hash_value = str(suggestion.get("hash", ""))
+        locations = sequence_or_none(suggestion.get("locations")) or ()
+        sorted_locations = sort_once(
+            [str(location) for location in locations if type(location) is str],
+            source="compute_structure_reuse.suggested_plan.locations",
+        )
+        primary_location = sorted_locations[0] if sorted_locations else ""
+        site = _reuse_site_from_location(
+            location=primary_location,
+            fallback_value=suggestion.get("value"),
+        )
+        witness_obligations = list(
+            sequence_or_none(suggestion.get("witness_obligations")) or []
+        )
+        return {
+            "plan_id": f"reuse:{kind}:{hash_value}:{suggestion_name}",
+            "status": "UNVERIFIED",
+            "site": site,
+            "pre": {
+                "canonical_identity_contract": suggestion.get("canonical_identity_contract"),
+                "aspf_structure_class": suggestion.get("aspf_structure_class"),
+            },
+            "rewrite": {
+                "kind": "BUNDLE_ALIGN" if kind == "bundle" else "AMBIENT_REWRITE",
+                "selector": {
+                    "hash": hash_value,
+                    "locations": sorted_locations,
+                },
+                "parameters": {
+                    "candidates": [suggestion_name] if suggestion_name else [],
+                    "strategy": "reuse-lemma" if kind != "bundle" else "reuse-align",
+                },
+            },
+            "evidence": {
+                "provenance_id": f"reuse:{hash_value}",
+                "coherence_id": f"aspf:{hash_value}",
+                "witness_obligations": witness_obligations,
+            },
+            "post_expectation": {
+                "match_strata": "exact",
+                "canonical_structure_class_equivalent": True,
+            },
+            "verification": {
+                "mode": "re-audit",
+                "status": "UNVERIFIED",
+                "predicates": [
+                    {"kind": "base_conservation", "expect": True},
+                    *(
+                        [{"kind": "ctor_coherence", "expect": True}]
+                        if kind == "bundle"
+                        else []
+                    ),
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": [suggestion_name] if suggestion_name else [],
+                    },
+                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                    {"kind": "witness_obligation_non_regression", "expect": "stable"},
+                ],
+            },
+        }
+
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
@@ -14006,6 +14294,11 @@ def compute_structure_reuse(
                     "count": count,
                     "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
                     "locations": entry.get("locations", []),
+                    "aspf_structure_class": entry.get("aspf_structure_class"),
+                    "canonical_identity_contract": {
+                        "identity_kind": "canonical_aspf_structure_class_equivalence",
+                        "representative": hash_value,
+                    },
                 }
                 if "value" in entry:
                     suggestion["value"] = entry.get("value")
@@ -14031,6 +14324,29 @@ def compute_structure_reuse(
                         warnings.append(
                             f"Missing declared bundle name for {list(key)}"
                         )
+                suggestion["witness_obligations"] = [
+                    {
+                        "kind": "reuse_suggestion_site",
+                        "required": True,
+                        "witness_ref": str(location),
+                    }
+                    for location in sequence_or_none(suggestion.get("locations")) or ()
+                    if type(location) is str
+                ]
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_equivalence",
+                        "required": True,
+                        "witness_ref": f"aspf:{hash_value}",
+                        "aspf_structure_class": suggestion.get("aspf_structure_class"),
+                        "canonical_identity_contract": suggestion.get(
+                            "canonical_identity_contract"
+                        ),
+                    }
+                )
+                suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
+                    suggestion=suggestion
+                )
                 suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
@@ -14073,7 +14389,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     suggested = reuse.get("suggested_lemmas") or []
     lines = [
         "# Generated by gabion structure-reuse",
-        "# TODO: replace stubs with actual lemma definitions.",
+        "# Structured rewrite-plan artifacts for suggested reuse lemmas.",
         "",
     ]
     if not suggested:
@@ -14084,6 +14400,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         mapping_or_empty(raw_entry)
         for raw_entry in suggested
     ]
+    plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
         suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
@@ -14091,20 +14408,20 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         check_deadline()
         name = entry.get("suggested_name")
         if type(name) is str and name:
-            kind = entry.get("kind", "lemma")
-            count = entry.get("count", 0)
-            value = entry.get("value")
-            child_count = entry.get("child_count")
-            lines.append(f"def {name}() -> None:")
-            lines.append('    """Auto-generated lemma stub."""')
-            lines.append(f"    # kind: {kind}")
-            lines.append(f"    # count: {count}")
-            if value is not None:
-                lines.append(f"    # value: {value}")
-            if child_count is not None:
-                lines.append(f"    # child_count: {child_count}")
-            lines.append("    ...")
-            lines.append("")
+            raw_plan = mapping_or_none(entry.get("rewrite_plan_artifact"))
+            if raw_plan is not None:
+                plan_artifacts.append({str(key): raw_plan[key] for key in raw_plan})
+    payload: JSONObject = {
+        "format_version": 1,
+        "artifact_kind": "reuse_rewrite_plan_bundle",
+        "plans": sort_once(
+            plan_artifacts,
+            source="render_reuse_lemma_stubs.plan_artifacts",
+            key=lambda plan: str(plan.get("plan_id", "")),
+        ),
+    }
+    lines.append(json.dumps(payload, indent=2, sort_keys=False))
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -14693,11 +15010,20 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
 
 
 def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    return {
+    variant_payload = {
         str(key): payload[key]
         for key in payload
         if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
     }
+    index_identity = _CacheIdentity.from_boundary(variant_payload.get("index_cache_identity"))
+    if index_identity is not None:
+        variant_payload["index_cache_identity"] = index_identity.value
+    projection_identity = _CacheIdentity.from_boundary(
+        variant_payload.get("projection_cache_identity")
+    )
+    if projection_identity is not None:
+        variant_payload["projection_cache_identity"] = projection_identity.value
+    return variant_payload
 
 
 def _analysis_index_resume_variants(
@@ -14712,10 +15038,11 @@ def _analysis_index_resume_variants(
         for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
             raw_variant_mapping = mapping_or_none(raw_variant)
-            if type(identity) is str and raw_variant_mapping is not None:
+            variant_identity = _CacheIdentity.from_boundary(identity)
+            if variant_identity is not None and raw_variant_mapping is not None:
                 variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
                 if variant_payload is not None:
-                    variants[identity] = _analysis_index_resume_variant_payload(
+                    variants[variant_identity.value] = _analysis_index_resume_variant_payload(
                         variant_payload
                     )
     return variants
@@ -14726,16 +15053,20 @@ def _with_analysis_index_resume_variants(
     payload: JSONObject,
     previous_payload,
 ) -> JSONObject:
-    current_identity = str(payload.get("index_cache_identity", "") or "")
+    current_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
     variants = _analysis_index_resume_variants(previous_payload)
-    if current_identity:
-        variants[current_identity] = _analysis_index_resume_variant_payload(payload)
+    if current_identity is not None:
+        payload["index_cache_identity"] = current_identity.value
+        variants[current_identity.value] = _analysis_index_resume_variant_payload(payload)
+    projection_identity = _CacheIdentity.from_boundary(payload.get("projection_cache_identity"))
+    if projection_identity is not None:
+        payload["projection_cache_identity"] = projection_identity.value
     if not variants:
         return payload
     ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
-    if current_identity and current_identity in ordered_variant_keys:
-        ordered_variant_keys.remove(current_identity)
-        ordered_variant_keys.append(current_identity)
+    if current_identity is not None and current_identity.value in ordered_variant_keys:
+        ordered_variant_keys.remove(current_identity.value)
+        ordered_variant_keys.append(current_identity.value)
     if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
         ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
     payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
@@ -14755,6 +15086,14 @@ def _serialize_analysis_index_resume_payload(
     profiling_v1 = None,
     previous_payload = None,
 ) -> JSONObject:
+    canonical_index_identity = _CacheIdentity.from_boundary(index_cache_identity)
+    canonical_projection_identity = _CacheIdentity.from_boundary(
+        projection_cache_identity
+    )
+    if canonical_index_identity is None:
+        never("resume serialization requires canonical index identity")
+    if canonical_projection_identity is None:
+        never("resume serialization requires canonical projection identity")
     hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
@@ -14789,8 +15128,8 @@ def _serialize_analysis_index_resume_payload(
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
-        "index_cache_identity": index_cache_identity,
-        "projection_cache_identity": projection_cache_identity,
+        "index_cache_identity": canonical_index_identity.value,
+        "projection_cache_identity": canonical_projection_identity.value,
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
@@ -14828,18 +15167,26 @@ def _load_analysis_index_resume_payload(
     payload = payload_with_format(payload, format_version=1)
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
+    expected_index_identity = _CacheIdentity.from_boundary(expected_index_cache_identity)
+    expected_projection_identity = _CacheIdentity.from_boundary(expected_projection_cache_identity)
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity:
-        resume_identity = str(payload.get("index_cache_identity", "") or "")
-        if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
+        if expected_index_identity is None:
+            return hydrated_paths, by_qual, symbol_table, class_index
+        resume_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
+        if resume_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
-            variant = _resume_variant_for_identity(variants, expected_index_cache_identity)
+            variant = _resume_variant_for_identity(variants, expected_index_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
     if expected_projection_cache_identity:
-        projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
-        if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
+        if expected_projection_identity is None:
+            return hydrated_paths, by_qual, symbol_table, class_index
+        projection_identity = _CacheIdentity.from_boundary(
+            selected_payload.get("projection_cache_identity")
+        )
+        if projection_identity != expected_projection_identity:
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,

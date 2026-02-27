@@ -14,8 +14,9 @@ try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
+from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 
 try:
@@ -48,6 +49,7 @@ _DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(
 
 
 NORMATIVE_ENFORCEMENT_MAP = REPO_ROOT / "docs" / "normative_enforcement_map.yaml"
+TIER2_RESIDUE_BASELINE = REPO_ROOT / "out" / "tier2_pattern_residue_baseline.json"
 _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-LSP-FIRST",
     "NCI-ACTIONS-PINNED",
@@ -1226,6 +1228,46 @@ def check_posture():
         _fail(errors)
 
 
+def _load_tier2_residue_baseline(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    residues = payload.get("residues", []) if isinstance(payload, dict) else []
+    if not isinstance(residues, list):
+        return set()
+    return {str(item) for item in residues if isinstance(item, str)}
+
+
+def check_tier2_residue_contract() -> None:
+    from gabion.analysis import dataflow_audit
+
+    source_path = REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py"
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _fail([f"tier2 residue policy check failed to read source: {exc}"])
+    with deadline_clock_scope(MonotonicClock()):
+        with deadline_scope(Deadline.from_timeout_ms(10_000)):
+            instances = dataflow_audit._pattern_schema_matches(
+                groups_by_path={},
+                source=source,
+                source_path=source_path,
+            )
+            residues = dataflow_audit._tier2_unreified_residue_entries(
+                dataflow_audit._pattern_schema_residue_entries(instances)
+            )
+    current = {
+        f"{entry.reason}:{entry.payload.get('kind', '')}:{entry.schema_id}"
+        for entry in residues
+    }
+    baseline = _load_tier2_residue_baseline(TIER2_RESIDUE_BASELINE)
+    new_keys = current - baseline
+    if new_keys:
+        _fail([
+            "tier2 residue policy check failed (new unreified Tier-2 residues)",
+            *[f"new residue: {item}" for item in _sorted(new_keys)],
+        ])
+
 def check_ambiguity_contract() -> None:
     cmd = [
         sys.executable,
@@ -1252,9 +1294,10 @@ def main():
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
+    parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1266,6 +1309,8 @@ def main():
             check_ambiguity_contract()
         if args.normative_map:
             check_normative_enforcement_map()
+        if args.tier2_residue_contract:
+            check_tier2_residue_contract()
     return 0
 
 
