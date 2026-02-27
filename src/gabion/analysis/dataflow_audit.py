@@ -3524,14 +3524,17 @@ def _tier2_unreified_residue_entries(
     candidates: list[PatternResidue] = []
     for entry in entries:
         check_deadline()
-        if entry.reason not in {"unreified_protocol", "unreified_metafactory"}:
-            continue
-        expected = mapping_or_none(entry.payload.get("expected"))
-        if expected is None:
-            continue
+        expected = mapping_or_none(entry.payload.get("expected")) or {}
         tier_value = expected.get("tier")
-        min_members = expected.get("min_members")
-        if tier_value == 2 or (isinstance(min_members, int) and min_members >= 2):
+        min_members_raw = str(expected.get("min_members", "")).strip()
+        min_members = (
+            int(min_members_raw)
+            if min_members_raw.lstrip("-").isdigit()
+            else -1
+        )
+        tier2_reason = entry.reason in {"unreified_protocol", "unreified_metafactory"}
+        tier2_expected = tier_value == 2 or min_members >= 2
+        if tier2_reason and tier2_expected:
             candidates.append(entry)
     return sort_once(
         candidates,
@@ -8151,6 +8154,11 @@ def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
     ):
         identity = key[2]
         aliases = _cache_identity_aliases(identity)
+        identity_text = str(identity)
+        if len(aliases) == 1 and identity_text.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity_text[len(_CACHE_IDENTITY_PREFIX) :]
+            if _CACHE_IDENTITY_DIGEST_HEX.fullmatch(digest):
+                aliases = (aliases[0], digest)
         if len(aliases) > 1:
             return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
     return (key,)
