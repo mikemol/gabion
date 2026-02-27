@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -27,7 +27,7 @@ doc_review_notes:
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/normative_clause_index.md#normative_clause_index: "Agent obligations now reference canonical clause IDs for repeated policy language."
 doc_sections:
-  agent_obligations: 1
+  agent_obligations: 2
 doc_section_requires:
   agent_obligations:
     - README.md#repo_contract
@@ -103,6 +103,9 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
+- Per-correction-unit validation stack must include `scripts/policy_check.py --workflows`, `scripts/policy_check.py --ambiguity-contract`, targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
+- Ambiguity-policy regressions encountered during simplification are forward-remediation signals; prefer boundary normalization/protocol reification over rollback-first.
+- When using `scripts/ci_watch.py`, treat collected failure bundles under `artifacts/out/ci_watch/run_<run_id>/` as the triage source of truth for remote-first actionable failures.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
   after workflow bootstrap has installed the pinned toolchain and locked
@@ -119,10 +122,11 @@ Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.
 
 1. Start local repro tooling and GitHub status-check monitoring concurrently whenever both are available.
 2. Act on the first actionable failure signal from either sensor; do not serialize waiting for the other sensor once one signal is actionable.
-3. Form one correction unit (one failing signal or tightly coupled set for one blocking surface).
-4. Validate the correction unit locally.
-5. Stage, commit, and push the correction unit immediately after local validation.
-6. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
+3. Stage A (pre-signal): bounded dependency-cluster publication is allowed before actionable failures exist.
+4. Stage B (post-signal): once an actionable signal exists, form one correction unit per push (one blocking surface, or tightly coupled set for one blocking surface).
+5. Validate the correction unit locally with the required policy/ambiguity/targeted-test/evidence-drift stack.
+6. Stage, commit, and push the correction unit immediately after local validation.
+7. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
 
 If only one sensor is available, proceed with that sensor and restore dual-sensor operation when available.
 

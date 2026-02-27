@@ -1,5 +1,5 @@
 ---
-doc_revision: 108
+doc_revision: 109
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -33,7 +33,7 @@ doc_review_notes:
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
-  contributing_contract: 1
+  contributing_contract: 2
 doc_section_requires:
   contributing_contract:
     - README.md#repo_contract
@@ -157,6 +157,9 @@ sequence in order:
 5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the
    change did not add new ambiguous unions, sentinel branches, or fallback-only
    control paths.
+6. **Step F — remediate forward by default.** Treat ACP/branchless/defensive-fallback
+   findings as transition signals for boundary reification; rollback is reserved
+   for cases where forward remediation cannot preserve behavior or cannot converge.
 
 ## Construction-first callback and decode seams (normative)
 - Test seams must be DI-based; avoid runtime patch mutation and callable-probe fallback logic.
@@ -217,12 +220,30 @@ Recommended loop:
 
 1. Run local repro tooling and status-check monitoring in parallel whenever both are available.
 2. Act on the first actionable failure signal from either lane; avoid serialized waiting once one lane is actionable.
-3. Package a bounded correction unit (one blocking signal or tightly coupled set), validate locally, then stage/commit/push.
-4. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
+3. Stage A (pre-signal): bounded dependency-cluster publication is allowed before actionable failures exist.
+4. Stage B (post-signal): once an actionable failure exists, package one blocking-surface correction unit per push.
+5. Validate locally with the correction-unit stack, then stage/commit/push immediately.
+6. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
 
 Interoperability/tolerance expectation:
 
 - Contributors should tolerate in-flight correction pushes from this loop and should not treat that cadence as process failure on its own.
+
+Correction-unit validation stack (recommended interoperability baseline):
+
+```bash
+mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python scripts/policy_check.py --ambiguity-contract
+mise exec -- python -m pytest -q <targeted-tests>
+mise exec -- python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
+git diff --exit-code out/test_evidence.json
+```
+
+When semantic-core modules or policy-check-critical files are touched, also run the strict coverage gate:
+
+```bash
+mise exec -- python -m pytest -q --cov=src/gabion --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=100
+```
 
 ## Workflow authoring (normative)
 Workflow logic lives in `scripts/`. YAML files should only orchestrate steps

@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -33,7 +33,7 @@ doc_review_notes:
   docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
-  policy_seed: 1
+  policy_seed: 2
   change_protocol: 2
 doc_section_requires:
   policy_seed:
@@ -536,6 +536,15 @@ Any of the above patterns discovered in semantic core changes MUST be treated as
 a policy violation unless accompanied by boundary-level reification that removes
 the ambiguity before core-flow execution.
 
+Forward-remediation order (normative):
+
+1. Treat ACP/branchless/defensive-fallback findings as transition signals for
+   boundary reification.
+2. Attempt forward remediation first via boundary normalization and explicit
+   Protocol/Decision-Protocol carriers.
+3. Rollback is allowed only when forward remediation cannot preserve behavior
+   or cannot converge.
+
 ### 4.9 Sort-Disclosure Ratchet
 
 When canonical ordering is enforced, this repository treats sorting as semantic
@@ -618,6 +627,9 @@ Failures must be **mapped, understood, and surfaced**, not suppressed.
   determine whether the fault is environment, dependency, or code.
 * **Durable logs.** Test failures MUST be recorded in `artifacts/` (e.g.
   `artifacts/test_runs/...`) so regressions can be reviewed without re‑running.
+* **Remote failure bundles.** When `scripts/ci_watch.py` detects a watched-run
+  failure, it SHOULD collect deterministic metadata/log/artifact bundles under
+  `artifacts/out/ci_watch/run_<run_id>/` for triage.
 
 ### 5.5 Coverage Semantics (Evidence)
 
@@ -629,7 +641,10 @@ not as a standalone numeric target.
 * Grammar/AST feature coverage is required when introducing new language
   feature handling.
 * Convergence/commutation coverage is required for semantic stability claims.
-* Execution coverage (line/branch %) is advisory and may be ratcheted.
+* Execution coverage (line/branch %) is enforced by CI at the active threshold
+  (currently `100%` line and branch for repo-local and CI gates).
+* Any execution-coverage threshold change MUST be explicit, ratchet-governed,
+  and applied in both policy text and enforcing workflows/scripts in one change-set.
 
 The coverage semantics policy is defined in `docs/coverage_semantics.md#coverage_semantics`.
 

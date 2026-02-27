@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -28,7 +28,7 @@ doc_review_notes:
   AGENTS.md#agent_obligations: "Agent obligations mapped to canonical clause anchors."
   glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
 doc_sections:
-  normative_clause_index: 1
+  normative_clause_index: 2
 doc_section_requires:
   normative_clause_index:
     - POLICY_SEED.md#policy_seed
@@ -109,6 +109,8 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Ambiguity must be classified at ingress and discharged before semantic-core execution.
 - Reify ambiguity as explicit Protocol/Decision Protocol surfaces at boundaries.
 - Semantic core modules must not add ad-hoc branch/sentinel/type-alternation shortcuts as first response.
+- ACP/branchless/defensive-fallback violations discovered during simplification are transition signals for forward boundary reification.
+- Rollback-first is disallowed by default; rollback is permitted only when forward remediation cannot preserve behavior or cannot converge.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.
 
 <a id="clause-baseline-ratchet"></a>
@@ -122,6 +124,7 @@ link to clause IDs instead of duplicating long-form normative prose.
 ### `NCI-DEADLINE-TIMEOUT-PROPAGATION` — Deadline carrier propagation
 - Timeout/deadline tokens must propagate across CLI dispatch, LSP transport, and CI wrappers.
 - Timeout recovery state must be emitted as deterministic machine-readable artifacts.
+- Helper-level script functions that perform iterative parsing or subprocess orchestration are deadline-carrier surfaces and must check/propagate deadlines.
 - Canonical sources: `POLICY_SEED.md#policy_seed`, `CONTRIBUTING.md#contributing_contract`.
 
 <a id="clause-controller-adaptation-law"></a>
@@ -154,8 +157,12 @@ link to clause IDs instead of duplicating long-form normative prose.
 ### `NCI-DUAL-SENSOR-CORRECTION-LOOP` — Temporal dual-sensor correction loop
 - Agents must run local repro tooling and GitHub status-check monitoring concurrently when both are available.
 - Agents must act on the first actionable failure signal and avoid serialized waiting when one sensor already produced actionable information.
+- First actionable remote failure may preempt an in-progress local lane; agents must not wait for local completion once the remote signal is actionable.
+- Bounded dependency-cluster publication is allowed before actionable signals exist; once actionable signals exist, agents must use one blocking-surface correction unit per push.
+- Correction-unit validation stack must include workflow policy check, ambiguity-contract check, targeted pytest, and evidence-carrier drift refresh/check when tests or semantic surfaces changed.
 - A correction unit is one failing signal (or a tightly coupled set) targeting one blocking surface; after local validation, stage/commit/push immediately.
 - Multiple CI runs in flight are expected; fallout is handled by subsequent detect/correct/push iterations.
+- Watcher-based failure forensics should collect deterministic bundles under `artifacts/out/ci_watch/run_<run_id>/`.
 - If one sensor is unavailable, proceed with the available sensor and restore dual-sensor operation when possible.
 - Applicability: mandatory for agents; recommended interoperability posture for contributors.
 - Canonical sources: `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`, `docs/user_workflows.md#user_workflows`.
