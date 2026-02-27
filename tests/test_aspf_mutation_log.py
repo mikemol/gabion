@@ -7,10 +7,13 @@ from gabion.analysis.aspf_mutation_log import (
     AspfMutationRecord,
     CommitMarker,
     EventEnvelope,
+    ProtobufDecodeError,
     SnapshotEnvelope,
     apply_mutation,
+    load_projected_archive,
     package_archive_tar,
     project_archive_filesystem,
+    replay_from_projected_archive,
     replay_from_snapshot_and_committed_tail,
     replay_state_hash,
     shadow_replay_equivalence,
@@ -143,3 +146,101 @@ def test_replay_state_hash_stable_across_repeated_archive_replays() -> None:
     first = replay_from_snapshot_and_committed_tail(snapshot=snapshot, events=events, commit=commit)
     second = replay_from_snapshot_and_committed_tail(snapshot=snapshot, events=events, commit=commit)
     assert replay_state_hash(replay_state=first.state) == replay_state_hash(replay_state=second.state)
+
+
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_snapshot_tail_replay_loader_matches_json_checkpoint_replay
+def test_snapshot_tail_replay_loader_matches_json_checkpoint_replay(tmp_path: Path) -> None:
+    snapshot, events, commit = _sample_snapshot_and_events()
+    manifest = ArchiveManifest(
+        schema_version=1,
+        projection_version=1,
+        run_id="run-1",
+        event_sequences=(2, 3),
+        snapshot_sequences=(1,),
+    )
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir()
+    project_archive_filesystem(
+        root_dir=archive_root,
+        manifest=manifest,
+        events=events,
+        snapshots=[snapshot],
+        commit=commit,
+    )
+
+    loaded_manifest, loaded_events, loaded_snapshots, loaded_commit = load_projected_archive(root_dir=archive_root)
+    loader_replay = replay_from_projected_archive(root_dir=archive_root)
+    json_replay = replay_from_snapshot_and_committed_tail(
+        snapshot=max(loaded_snapshots, key=lambda item: item.snapshot.seq),
+        events=loaded_events,
+        commit=loaded_commit,
+    )
+
+    assert loaded_manifest == manifest
+    assert loader_replay.state == json_replay.state
+    assert loader_replay.equivalent_to_json_replay is True
+
+
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_crash_recovery_detects_corrupted_tail_entry
+def test_crash_recovery_detects_corrupted_tail_entry(tmp_path: Path) -> None:
+    snapshot, events, commit = _sample_snapshot_and_events()
+    manifest = ArchiveManifest(
+        schema_version=1,
+        projection_version=1,
+        run_id="run-1",
+        event_sequences=(2, 3),
+        snapshot_sequences=(1,),
+    )
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir()
+    project_archive_filesystem(
+        root_dir=archive_root,
+        manifest=manifest,
+        events=events,
+        snapshots=[snapshot],
+        commit=commit,
+    )
+
+    event_file = archive_root / "010_events" / "000000000002.data.pb"
+    event_file.write_bytes(event_file.read_bytes() + b"\x00")
+
+    try:
+        load_projected_archive(root_dir=archive_root)
+    except ProtobufDecodeError as exc:
+        assert "checksum mismatch" in str(exc)
+    else:
+        raise AssertionError("expected checksum mismatch to fail archive load")
+
+
+# gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_replay_determinism_hash_stable_across_projection_and_tar_runs
+def test_replay_determinism_hash_stable_across_projection_and_tar_runs(tmp_path: Path) -> None:
+    snapshot, events, commit = _sample_snapshot_and_events()
+    manifest = ArchiveManifest(
+        schema_version=1,
+        projection_version=1,
+        run_id="run-1",
+        event_sequences=(2, 3),
+        snapshot_sequences=(1,),
+    )
+
+    hashes: list[str] = []
+    tar_payloads: list[bytes] = []
+    for index in (1, 2):
+        archive_root = tmp_path / f"run-{index}"
+        archive_root.mkdir()
+        project_archive_filesystem(
+            root_dir=archive_root,
+            manifest=manifest,
+            events=list(reversed(events)) if index == 2 else events,
+            snapshots=[snapshot],
+            commit=commit,
+        )
+        replay = replay_from_projected_archive(root_dir=archive_root)
+        hashes.append(replay_state_hash(replay_state=replay.state))
+
+        tar_path = archive_root / "archive.tar"
+        package_archive_tar(root_dir=archive_root, tar_path=tar_path)
+        tar_payloads.append(tar_path.read_bytes())
+
+    assert hashes[0] == hashes[1]
+    assert tar_payloads[0] == tar_payloads[1]
