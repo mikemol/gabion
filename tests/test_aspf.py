@@ -265,3 +265,23 @@ def test_suite_site_signature_stable_under_suite_order_perturbation() -> None:
     assert parent_meta_a["suite_id"] == parent_meta_b["suite_id"]
     assert child_meta_a["suite_id"] == child_meta_b["suite_id"]
     assert build_forest_signature_payload(forest_a) == build_forest_signature_payload(forest_b)
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_canonicalizes_sequence_evidence_for_rerun_identity::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+def test_add_alt_canonicalizes_sequence_evidence_for_rerun_identity() -> None:
+    def _build(evidence: dict[str, object]) -> dict[str, object]:
+        forest = Forest()
+        left = forest.add_site("mod.py", "mod.left")
+        right = forest.add_site("mod.py", "mod.right")
+        with forest_scope(forest):
+            with deadline_scope(Deadline.from_timeout_ms(1_000)):
+                with deadline_clock_scope(GasMeter(limit=32)):
+                    forest.add_alt("Edge", (left, right), evidence=evidence)
+        return forest.to_json()
+
+    payload_a = _build({"tokens": ["b", "a", "b"], "meta": {"z": [2, 1]}})
+    payload_b = _build({"meta": {"z": [1, 2, 1]}, "tokens": ["a", "b"]})
+
+    assert payload_a == payload_b
+    edge = next(alt for alt in payload_a["alts"] if alt["kind"] == "Edge")
+    assert edge["evidence"] == {"meta": {"z": [1, 2]}, "tokens": ["a", "b"]}

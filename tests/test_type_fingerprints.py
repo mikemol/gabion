@@ -152,8 +152,11 @@ def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
     registry = tf.PrimeRegistry()
     int_prime = registry.get_or_assign("int")
     fingerprint = int_prime * 97
+    reverse_index = tf.build_reverse_prime_index(registry)
     keys, remaining = tf.fingerprint_to_type_keys_with_remainder(
-        fingerprint, registry
+        fingerprint,
+        registry,
+        reverse_index,
     )
     assert keys == ["int"]
     assert remaining == 97
@@ -899,3 +902,27 @@ def test_registry_assignment_policy_roundtrips_and_stays_deterministic() -> None
     assert registry_b.assignment_origin["int"] == "seeded"
     assert registry_b.assignment_origin["str"] == "seeded"
     assert registry_b.assignment_origin["bool"] == "learned"
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_reverse_prime_index_preserves_decode_identity_across_reruns::test_type_fingerprints.py::tests.test_type_fingerprints._load
+def test_reverse_prime_index_preserves_decode_identity_across_reruns() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    fingerprint = tf.bundle_fingerprint(["int", "str", "int"], registry)
+
+    reverse_index = tf.build_reverse_prime_index(registry)
+    keys_a, remainder_a = tf.fingerprint_to_type_keys_with_remainder(
+        fingerprint,
+        registry,
+        reverse_index=reverse_index,
+    )
+    keys_b, remainder_b = tf.fingerprint_to_type_keys_with_remainder(
+        fingerprint,
+        registry,
+        reverse_index=tf.build_reverse_prime_index(registry),
+    )
+
+    assert remainder_a == 1
+    assert remainder_b == 1
+    assert keys_a == ["int", "int", "str"]
+    assert keys_a == keys_b

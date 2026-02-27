@@ -789,9 +789,19 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert "AppConfig" in bundles[module]
     assert "module.AppConfig" in registry
     assert "module.Payload" in registry
-    cache_keys = {key[1] for key in analysis_index.stage_cache_by_key}
-    assert any(isinstance(key, tuple) and key[-1] == "config_fields" for key in cache_keys)
-    assert any(isinstance(key, tuple) and key[-1] == "dataclass_registry" for key in cache_keys)
+    cache_details = set()
+    for scoped_key in analysis_index.stage_cache_by_key:
+        if (
+            isinstance(scoped_key, tuple)
+            and len(scoped_key) == 2
+            and isinstance(scoped_key[1], da.NodeId)
+            and scoped_key[1].kind == "ParseStageCacheIdentity"
+            and len(scoped_key[1].key) == 3
+            and isinstance(scoped_key[1].key[2], str)
+        ):
+            cache_details.add(scoped_key[1].key[2])
+    assert "config_fields" in cache_details
+    assert "dataclass_registry" in cache_details
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_hydrates_index_and_sink::dataflow_audit.py::gabion.analysis.dataflow_audit._run_indexed_pass::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:
@@ -1084,6 +1094,84 @@ def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> Non
         "pattern_schema axis=dataflow" in line and "bundle=a,b" in line
         for line in suggestions
     )
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_detection_supports_alias_attribute_and_async_callables::dataflow_audit.py::gabion.analysis.dataflow_audit._detect_execution_pattern_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_detection_supports_alias_attribute_and_async_callables() -> None:
+    da = _load()
+    source = (
+        "def runner_alias_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = ops._run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_alias_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = _run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "async def graph_async(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return planner._build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def graph_sync(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+
+    matches = da._detect_execution_pattern_matches(source=source)
+    ids = {entry.pattern_id for entry in matches}
+
+    assert "indexed_pass_runner" in ids
+    assert "indexed_pass_graph_builder" in ids
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_residue_is_stable_under_source_order_permutations::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_residue_lines::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_residue_is_stable_under_source_order_permutations() -> None:
+    da = _load()
+    source_a = (
+        "def runner_alias_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = ops._run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_alias_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = _run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "async def graph_async(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return planner._build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def graph_sync(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+    source_b = (
+        "def graph_sync(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "async def graph_async(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return planner._build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_alias_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = _run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_alias_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    runner = ops._run_indexed_pass\n"
+        "    return runner(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+
+    lines_a = da._pattern_schema_residue_lines(
+        da._pattern_schema_residue_entries(
+            da._pattern_schema_matches(groups_by_path={}, source=source_a)
+        )
+    )
+    lines_b = da._pattern_schema_residue_lines(
+        da._pattern_schema_residue_entries(
+            da._pattern_schema_matches(groups_by_path={}, source=source_b)
+        )
+    )
+
+    assert lines_a == lines_b
+    assert any("indexed_pass_graph_builder" in line for line in lines_a)
+
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_pattern_schema_residue_entries_cover_both_axes::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_residue_entries::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_residue_lines::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_pattern_schema_residue_entries_cover_both_axes() -> None:

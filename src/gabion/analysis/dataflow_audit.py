@@ -2257,7 +2257,12 @@ def _analyze_decision_surface_indexed(
             else f"internal callers (transitive): {caller_count}"
         )
         descriptor = spec.descriptor(info, boundary)
-        site_id = forest.add_site(info.path.name, info.qual)
+        suite_id = forest.add_suite_site(
+            info.path.name,
+            info.qual,
+            "function_body",
+            span=info.function_span,
+        )
         paramset_id = forest.add_paramset(params)
         reason_summary = (
             _decision_reason_summary(info, params)
@@ -2266,7 +2271,7 @@ def _analyze_decision_surface_indexed(
         )
         forest.add_alt(
             spec.alt_kind,
-            (site_id, paramset_id),
+            (suite_id, paramset_id),
             evidence=_decision_surface_alt_evidence(
                 spec=spec,
                 boundary=boundary,
@@ -3145,13 +3150,27 @@ _INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
         "the execution carrier into a shared runner Protocol."
     ),
 )
+_INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_graph_builder",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_build_call_graph"}),
+    min_members=2,
+    candidate="IndexedPassSpec[T] graph-builder Protocol",
+    description=(
+        "Functions repeatedly rebuilding call graph projections should "
+        "share one indexed-pass graph-builder execution contract."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
     _INDEXED_PASS_RUNNER_RULE,
+    _INDEXED_PASS_GRAPH_RULE,
 )
 
 
-def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
+def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
     params: list[str] = []
     params.extend(arg.arg for arg in node.args.posonlyargs)
     params.extend(arg.arg for arg in node.args.args)
@@ -3159,20 +3178,59 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
+def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
+    if type(node) is ast.Name:
+        return (cast(ast.Name, node).id,)
+    if type(node) is not ast.Attribute:
+        return ()
+    attribute = cast(ast.Attribute, node)
+    parts: list[str] = [attribute.attr]
+    cursor: ast.AST = attribute.value
+    while type(cursor) is ast.Attribute:
+        nested = cast(ast.Attribute, cursor)
+        parts.append(nested.attr)
+        cursor = nested.value
+    if type(cursor) is ast.Name:
+        parts.append(cast(ast.Name, cursor).id)
+    dotted = ".".join(reversed(parts))
+    return (attribute.attr, dotted)
+
+
 def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
     for node in tree.body:
         check_deadline()
-        if type(node) is not ast.FunctionDef:
+        if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
             continue
-        function_node = cast(ast.FunctionDef, node)
+        function_node = cast(FunctionNode, node)
         param_names = frozenset(_function_param_names(function_node))
+        alias_map: dict[str, tuple[str, ...]] = {}
+        for statement in function_node.body:
+            check_deadline()
+            if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
+                continue
+            assign_node = cast(ast.Assign, statement)
+            target = assign_node.targets[0]
+            if type(target) is not ast.Name:
+                continue
+            variants = _callable_name_variants(assign_node.value)
+            if not variants:
+                continue
+            alias_map[cast(ast.Name, target).id] = variants
         called_names: set[str] = set()
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if type(child) is not ast.Call or type(cast(ast.Call, child).func) is not ast.Name:
+            if type(child) is not ast.Call:
                 continue
-            called_names.add(cast(ast.Name, cast(ast.Call, child).func).id)
+            call_node = cast(ast.Call, child)
+            variants = _callable_name_variants(call_node.func)
+            if not variants:
+                continue
+            for variant in variants:
+                check_deadline()
+                called_names.add(variant)
+                for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
+                    called_names.add(alias_variant)
         yield function_node.name, param_names, frozenset(called_names)
 
 
@@ -5512,7 +5570,12 @@ def _collect_never_invariants(
                     entry["environment_ref"] = environment_ref
                 entry["span"] = list(normalized_span)
                 invariants.append(entry)
-                site_id = forest.add_site(path.name, function)
+                site_id = forest.add_suite_site(
+                    path.name,
+                    function,
+                    "call",
+                    span=normalized_span,
+                )
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -8098,17 +8161,19 @@ def _parse_stage_cache_key(
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
-) -> tuple[str, str, str, Hashable]:
+) -> NodeId:
     identity = _canonical_cache_identity(
         stage="parse",
         cache_context=cache_context,
         config_subset=config_subset,
     )
-    return (
-        "parse",
-        stage.value,
-        identity.value,
-        detail,
+    return NodeId(
+        kind="ParseStageCacheIdentity",
+        key=(
+            stage.value,
+            identity.value,
+            detail,
+        ),
     )
 
 
@@ -8161,6 +8226,16 @@ def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
                 aliases = (aliases[0], digest)
         if len(aliases) > 1:
             return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
+    if (
+        type(key) is NodeId
+        and key.kind == "ParseStageCacheIdentity"
+        and len(key.key) == 3
+    ):
+        stage_value, identity, detail = key.key
+        if type(stage_value) is str and type(identity) is str:
+            legacy_key = ("parse", stage_value, identity, detail)
+            aliases = _stage_cache_key_aliases(legacy_key)
+            return (key, *aliases)
     return (key,)
 
 
@@ -14232,6 +14307,9 @@ def compute_structure_reuse(
         witness_obligations = list(
             sequence_or_none(suggestion.get("witness_obligations")) or []
         )
+        aspf_witness_requirements = mapping_or_empty(
+            suggestion.get("aspf_witness_requirements")
+        )
         return {
             "plan_id": f"reuse:{kind}:{hash_value}:{suggestion_name}",
             "status": "UNVERIFIED",
@@ -14254,6 +14332,7 @@ def compute_structure_reuse(
             "evidence": {
                 "provenance_id": f"reuse:{hash_value}",
                 "coherence_id": f"aspf:{hash_value}",
+                "aspf_witness_requirements": aspf_witness_requirements,
                 "witness_obligations": witness_obligations,
             },
             "post_expectation": {
@@ -14344,6 +14423,25 @@ def compute_structure_reuse(
                         ),
                     }
                 )
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_coherence",
+                        "required": True,
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    }
+                )
+                suggestion["aspf_witness_requirements"] = {
+                    "equivalence": {
+                        "kind": "aspf_structure_class_equivalence",
+                        "witness_ref": f"aspf:{hash_value}",
+                    },
+                    "coherence": {
+                        "kind": "aspf_structure_class_coherence",
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    },
+                }
                 suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
                     suggestion=suggestion
                 )
@@ -14354,6 +14452,27 @@ def compute_structure_reuse(
         "min_count": min_count,
         "reused": reused,
         "suggested_lemmas": suggested,
+        "heuristic_structural_repetition_candidates": [
+            {
+                "hash": entry.get("hash"),
+                "kind": entry.get("kind"),
+                "count": entry.get("count"),
+                "source": "heuristic_structural_repetition",
+            }
+            for entry in reused
+            if entry.get("kind") in {"bundle", "function"}
+        ],
+        "witness_validated_isomorphy_candidates": [
+            {
+                "hash": suggestion.get("hash"),
+                "kind": suggestion.get("kind"),
+                "suggested_name": suggestion.get("suggested_name"),
+                "source": "aspf_witness_requirements",
+                "aspf_witness_requirements": suggestion.get("aspf_witness_requirements"),
+            }
+            for suggestion in suggested
+            if mapping_or_none(suggestion.get("aspf_witness_requirements")) is not None
+        ],
         "replacement_map": replacement_map,
         "warnings": warnings,
     }

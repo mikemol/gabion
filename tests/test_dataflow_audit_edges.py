@@ -1069,3 +1069,20 @@ def test_deadline_obligations_emit_suite_metadata_from_forest(tmp_path: Path) ->
         assert suite_id in by_identity
         suite_kind = str(site.get("suite_kind", ""))
         assert suite_kind == str(by_identity[suite_id].meta.get("suite_kind", ""))
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_parse_stage_cache_key_uses_canonical_nodeid_identity::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_parse_stage_cache_key_uses_canonical_nodeid_identity() -> None:
+    da = _load()
+    key = da._parse_stage_cache_key(
+        stage=da._ParseModuleStage.FUNCTION_INDEX,
+        cache_context=da._CacheSemanticContext(),
+        config_subset={"strictness": "high"},
+        detail="function_index",
+    )
+
+    assert isinstance(key, da.NodeId)
+    assert key.kind == "ParseStageCacheIdentity"
+    aliases = da._stage_cache_key_aliases(key)
+    assert key in aliases
+    assert any(type(alias) is tuple and alias[0] == "parse" for alias in aliases)
