@@ -6,6 +6,8 @@ from itertools import zip_longest
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
+from gabion.ingest.adapter_contract import NormalizedIngestBundle
+from gabion.ingest.registry import resolve_adapter
 from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
@@ -817,7 +819,7 @@ def _prepare_analysis_resume_state(
     execute_deps: CommandEffects,
     aspf_trace_state: object | None,
     needs_analysis: bool,
-    paths: list[Path],
+    normalized_ingest: NormalizedIngestBundle,
     root: str,
     payload: Mapping[str, object],
     aspf_import_state: list[str] | None = None,
@@ -833,7 +835,7 @@ def _prepare_analysis_resume_state(
     collection_resume_payload: JSONObject | None = None
     if needs_analysis:
         resolved_root = Path(root)
-        file_paths_for_run = resolve_analysis_paths(paths, config=config)
+        file_paths_for_run = list(normalized_ingest.file_paths)
         state.analysis_resume_total_files = len(file_paths_for_run)
         # Legacy checkpoint payload ingress is hard-rejected; ASPF import-state is the
         # only supported continuation path for active orchestration.
@@ -3350,6 +3352,12 @@ def execute_command_total(
 
         raw_paths = payload.get("paths")
         paths = normalize_paths(raw_paths, root=Path(str(root)))
+        requested_language_raw = payload.get("language_id", payload.get("language"))
+        requested_language = (
+            str(requested_language_raw).strip().lower()
+            if isinstance(requested_language_raw, str) and requested_language_raw.strip()
+            else None
+        )
         root = payload.get("root") or root
         report_path = payload.get("report")
         report_path_text = str(report_path) if isinstance(report_path, str) else None
@@ -3461,6 +3469,11 @@ def execute_command_total(
             fingerprint_synth_min_occurrences=synth_min_occurrences,
             fingerprint_synth_version=synth_version,
         )
+        ingest_adapter = resolve_adapter(
+            paths=paths,
+            language_id=requested_language,
+        )
+        normalized_ingest = ingest_adapter.normalize(paths, config=config)
         inclusion_flags = _compute_analysis_inclusion_flags(
             options=options,
             report_path=report_path,
@@ -3503,7 +3516,7 @@ def execute_command_total(
             execute_deps=execute_deps,
             aspf_trace_state=aspf_trace_state,
             needs_analysis=needs_analysis,
-            paths=paths,
+            normalized_ingest=normalized_ingest,
             root=str(root),
             payload=payload,
             aspf_import_state=options.aspf_import_state,

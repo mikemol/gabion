@@ -405,7 +405,11 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         execute_deps=deps,
         aspf_trace_state=None,
         needs_analysis=True,
-        paths=[source_path],
+        normalized_ingest=orchestrator.NormalizedIngestBundle(
+            language_id="python",
+            file_paths=(source_path,),
+            parsed_units=(),
+        ),
         root=str(tmp_path),
         payload={},
         no_recursive=False,
