@@ -146,9 +146,13 @@ def test_lint_entries_decision_protocol_trichotomy() -> None:
     assert len(provided.normalize_entries(parse_lint_entry_fn=lambda _line: None)) == 1
 
     derived = check_contract.LintEntriesDecision.from_response(
-        {"lint_lines": ["a.py:1:2: X detail"]}
+        {"lint_lines": ["a.py:1:2: X detail", "invalid"]}
     )
-    parsed = derived.normalize_entries(parse_lint_entry_fn=lambda line: {"line": line})
+    parsed = derived.normalize_entries(
+        parse_lint_entry_fn=(
+            lambda line: {"line": line} if line.startswith("a.py:") else None
+        )
+    )
     assert derived.kind == "derive_from_lines"
     assert parsed == [{"line": "a.py:1:2: X detail"}]
 
