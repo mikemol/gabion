@@ -179,6 +179,11 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "fields": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
                     "kind",
                     "phase",
                 ]
@@ -190,6 +195,11 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "fields": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
                     "kind",
                     "phase",
                 ]
@@ -201,6 +211,9 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "by": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
                     "kind",
                     "phase",
                 ]
