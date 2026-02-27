@@ -45,6 +45,13 @@ from .aspf_stream import (
     SemanticSurfaceUpdated,
     TwoCellWitnessRecorded,
 )
+from .aspf_visitors import (
+    OpportunityPayloadEmitter,
+    StatePayloadEmitter,
+    TracePayloadEmitter,
+    replay_equivalence_payload_to_visitor,
+    replay_trace_payload_to_visitor,
+)
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
     "groups_by_path",
@@ -336,7 +343,19 @@ def register_semantic_surface(
 
 
 def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
-    one_cells_payload: list[JSONValue] = []
+    replay_payload: JSONObject = {
+        "one_cells": [],
+        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
+        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
+        "surface_representatives": {
+            surface: state.surface_representatives[surface]
+            for surface in sort_once(
+                state.surface_representatives,
+                source="aspf_execution_fibration.build_trace_payload.surface_representatives",
+            )
+        },
+    }
+    one_cells_payload = cast(list[JSONObject], replay_payload["one_cells"])
     for index, cell in enumerate(state.one_cells):
         one_cell_payload = cell.as_dict()
         metadata = (
@@ -348,6 +367,9 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
         one_cell_payload["surface"] = str(metadata.get("surface", ""))
         one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
         one_cells_payload.append(one_cell_payload)
+
+    emitter = TracePayloadEmitter()
+    replay_trace_payload_to_visitor(trace_payload=replay_payload, visitor=emitter)
     return {
         "format_version": _TRACE_FORMAT_VERSION,
         "trace_id": state.trace_id,
@@ -380,16 +402,10 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
             ),
             "aspf_semantic_surface": list(state.controls.aspf_semantic_surface),
         },
-        "one_cells": one_cells_payload,
-        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
-        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
-        "surface_representatives": {
-            surface: state.surface_representatives[surface]
-            for surface in sort_once(
-                state.surface_representatives,
-                source="aspf_execution_fibration.build_trace_payload.surface_representatives",
-            )
-        },
+        "one_cells": emitter.one_cells,
+        "two_cell_witnesses": emitter.two_cell_witnesses,
+        "cofibration_witnesses": emitter.cofibration_witnesses,
+        "surface_representatives": emitter.surface_representatives,
         "imported_trace_count": len(state.imported_trace_payloads),
         "delta_record_count": len(state.delta_records),
     }
@@ -469,14 +485,16 @@ def build_opportunities_payload(
     state: AspfExecutionTraceState,
     equivalence_payload: Mapping[str, object],
 ) -> JSONObject:
-    opportunities: list[JSONObject] = []
-    opportunities.extend(_materialize_load_opportunities(state))
-    opportunities.extend(_reusable_artifact_opportunities(state))
-    opportunities.extend(_fungible_execution_opportunities(equivalence_payload))
-    opportunities = sorted(
-        opportunities,
-        key=lambda item: str(item.get("opportunity_id", "")),
+    emitter = OpportunityPayloadEmitter()
+    replay_trace_payload_to_visitor(
+        trace_payload=build_trace_payload(state),
+        visitor=emitter,
     )
+    replay_equivalence_payload_to_visitor(
+        equivalence_payload=equivalence_payload,
+        visitor=emitter,
+    )
+    opportunities = emitter.build_rows()
     return {
         "format_version": _OPPORTUNITY_FORMAT_VERSION,
         "trace_id": state.trace_id,
@@ -651,6 +669,10 @@ def _build_state_payload(
     resume_projection: Mapping[str, object],
     delta_ledger_payload: Mapping[str, object],
 ) -> JSONObject:
+    emitter = StatePayloadEmitter()
+    emitter.set_trace_payload(trace_payload)
+    emitter.set_equivalence_payload(equivalence_payload)
+    emitter.set_opportunities_payload(opportunities_payload)
     session_id, step_id = _session_and_step_from_path(state_path)
     state_material = stable_compact_text(
         {
@@ -684,15 +706,9 @@ def _build_state_payload(
             if resume_compatibility_status is not None
             else None
         ),
-        "trace": {str(key): _as_json_value(trace_payload[key]) for key in trace_payload},
-        "equivalence": {
-            str(key): _as_json_value(equivalence_payload[key])
-            for key in equivalence_payload
-        },
-        "opportunities": {
-            str(key): _as_json_value(opportunities_payload[key])
-            for key in opportunities_payload
-        },
+        "trace": emitter.trace,
+        "equivalence": emitter.equivalence,
+        "opportunities": emitter.opportunities,
         "semantic_surfaces": {
             str(key): _as_json_value(semantic_surface_payloads[key])
             for key in semantic_surface_payloads
