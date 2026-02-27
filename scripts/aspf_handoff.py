@@ -18,6 +18,7 @@ def _prepare(args: argparse.Namespace) -> int:
         command_profile=args.command_profile,
         manifest_path=Path(args.manifest) if args.manifest else None,
         state_root=Path(args.state_root) if args.state_root else None,
+        write_manifest_projection=not args.no_manifest_projection,
     )
     payload = {
         "sequence": prepared.sequence,
@@ -43,6 +44,7 @@ def _record(args: argparse.Namespace) -> int:
         status=args.status,
         exit_code=args.exit_code,
         analysis_state=args.analysis_state,
+        write_manifest_projection=not args.no_manifest_projection,
     )
     print(json.dumps({"ok": bool(ok)}, indent=2, sort_keys=False))
     return 0 if ok else 1
@@ -69,6 +71,7 @@ def _run(args: argparse.Namespace) -> int:
         command_profile=args.command_profile,
         manifest_path=Path(args.manifest) if args.manifest else None,
         state_root=Path(args.state_root) if args.state_root else None,
+        write_manifest_projection=not args.no_manifest_projection,
     )
     command_with_aspf = tuple([*raw_command, *aspf_handoff.aspf_cli_args(prepared)])
     completed = subprocess.run(list(command_with_aspf), check=False)
@@ -82,6 +85,7 @@ def _run(args: argparse.Namespace) -> int:
         status=status,
         exit_code=exit_code,
         analysis_state=analysis_state,
+        write_manifest_projection=not args.no_manifest_projection,
     )
     payload = {
         "ok": bool(ok),
@@ -125,6 +129,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--state-root",
         default="artifacts/out/aspf_state",
     )
+    prepare.add_argument(
+        "--no-manifest-projection",
+        action="store_true",
+        help="Skip writing manifest projection cache (journal remains canonical).",
+    )
 
     record = subparsers.add_parser(
         "record",
@@ -139,6 +148,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     record.add_argument("--status", required=True)
     record.add_argument("--exit-code", type=int, default=None)
     record.add_argument("--analysis-state", default=None)
+    record.add_argument(
+        "--no-manifest-projection",
+        action="store_true",
+        help="Skip writing manifest projection cache (journal remains canonical).",
+    )
 
     run = subparsers.add_parser(
         "run",
@@ -157,6 +171,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument(
         "--state-root",
         default="artifacts/out/aspf_state",
+    )
+    run.add_argument(
+        "--no-manifest-projection",
+        action="store_true",
+        help="Skip writing manifest projection cache (journal remains canonical).",
     )
     run.add_argument("command", nargs=argparse.REMAINDER)
 
