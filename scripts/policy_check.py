@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ast
 import json
 import os
 import re
@@ -1287,6 +1288,16 @@ def check_ambiguity_contract() -> None:
         _fail(["ambiguity contract policy check failed", *details])
 
 
+
+_SEMANTIC_CORE_PAYLOAD_BRANCH_MODULES = (
+    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py",
+    REPO_ROOT / "src" / "gabion" / "analysis" / "timeout_context.py",
+)
+
+_ALLOWED_PAYLOAD_BRANCH_FUNCTION_PREFIXES = (
+    "_decode_",
+)
+
 _KNOWN_ADAPTER_SURFACES = {
     "bundle-inference": "bundle_inference",
     "decision-surfaces": "decision_surfaces",
@@ -1295,6 +1306,98 @@ _KNOWN_ADAPTER_SURFACES = {
     "rewrite-plan-support": "rewrite_plan_support",
 }
 
+
+
+def _raw_payload_branching_violations(path: Path) -> list[str]:
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read source ({exc})"]
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        return [f"{path}: failed to parse source ({exc})"]
+
+    function_ranges: list[tuple[int, int, str]] = []
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef):
+            start = int(getattr(node, "lineno", 0) or 0)
+            end = int(getattr(node, "end_lineno", start) or start)
+            function_ranges.append((start, end, node.name))
+
+    def _function_name_for_line(line_no: int) -> str | None:
+        best: tuple[int, str] | None = None
+        for start, end, name in function_ranges:
+            if start <= line_no <= end:
+                width = end - start
+                if best is None or width < best[0]:
+                    best = (width, name)
+        return best[1] if best is not None else None
+
+    def _is_allowed(line_no: int) -> bool:
+        name = _function_name_for_line(line_no)
+        if name is None:
+            return False
+        return name.startswith(_ALLOWED_PAYLOAD_BRANCH_FUNCTION_PREFIXES)
+
+    def _pattern_mentions_raw_payload(pattern: ast.pattern) -> bool:
+        if isinstance(pattern, ast.MatchClass):
+            cls = pattern.cls
+            if isinstance(cls, ast.Name) and cls.id in {"Mapping", "list"}:
+                return True
+            if isinstance(cls, ast.Attribute) and cls.attr in {"Mapping", "list"}:
+                return True
+        for child in ast.iter_child_nodes(pattern):
+            if isinstance(child, ast.pattern) and _pattern_mentions_raw_payload(child):
+                return True
+        return False
+
+    def _isinstance_mentions_raw_payload(call: ast.Call) -> bool:
+        if not (isinstance(call.func, ast.Name) and call.func.id == "isinstance"):
+            return False
+        if len(call.args) < 2:
+            return False
+        type_arg = call.args[1]
+        targets: list[ast.expr] = []
+        if isinstance(type_arg, ast.Tuple):
+            targets.extend(type_arg.elts)
+        else:
+            targets.append(type_arg)
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id in {"Mapping", "list"}:
+                return True
+            if isinstance(target, ast.Attribute) and target.attr in {"Mapping", "list"}:
+                return True
+        return False
+
+    try:
+        display_path = str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        display_path = str(path)
+
+    violations: list[str] = []
+    for node in ast.walk(module):
+        if isinstance(node, ast.match_case):
+            lineno = int(getattr(node.pattern, "lineno", 0) or 0)
+            if lineno > 0 and _pattern_mentions_raw_payload(node.pattern) and not _is_allowed(lineno):
+                violations.append(f"{display_path}:{lineno}: raw Mapping/list match outside boundary decode")
+        if isinstance(node, ast.Call):
+            lineno = int(getattr(node, "lineno", 0) or 0)
+            if lineno > 0 and _isinstance_mentions_raw_payload(node) and not _is_allowed(lineno):
+                violations.append(f"{display_path}:{lineno}: isinstance Mapping/list branch outside boundary decode")
+    return violations
+
+
+def check_semantic_core_payload_branching() -> None:
+    errors: list[str] = []
+    for path in _SEMANTIC_CORE_PAYLOAD_BRANCH_MODULES:
+        check_deadline()
+        errors.extend(_raw_payload_branching_violations(path))
+    if errors:
+        _fail([
+            "semantic-core payload branching policy check failed",
+            *errors,
+        ])
 
 def check_adapter_surface_policy() -> None:
     errors: list[str] = []
@@ -1325,9 +1428,10 @@ def main():
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
     parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
+    parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1343,6 +1447,8 @@ def main():
             check_tier2_residue_contract()
         if args.adapter_surfaces:
             check_adapter_surface_policy()
+        if args.semantic_core_payload_branching:
+            check_semantic_core_payload_branching()
     return 0
 
 

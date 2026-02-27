@@ -7242,7 +7242,26 @@ from gabion.analysis.dataflow_obligations import (
 )
 
 
-def _spec_row_span(row: Mapping[str, JSONValue]):
+@dataclass(frozen=True)
+class _ProjectionSpan:
+    line: int
+    col: int
+    end_line: int
+    end_col: int
+
+    def as_tuple(self) -> tuple[int, int, int, int]:
+        return (self.line, self.col, self.end_line, self.end_col)
+
+
+@dataclass(frozen=True)
+class _AmbiguitySuiteRow:
+    path: str
+    qual: str
+    suite_kind: str
+    span: _ProjectionSpan
+
+
+def _decode_projection_span(row: Mapping[str, JSONValue]) -> _ProjectionSpan:
     def _coerce(name: str, value: JSONValue) -> int:
         if value is None:
             never(
@@ -7270,7 +7289,11 @@ def _spec_row_span(row: Mapping[str, JSONValue]):
             span_end_line=end_line,
             span_end_col=end_col,
         )
-    return (line, col, end_line, end_col)
+    return _ProjectionSpan(line=line, col=col, end_line=end_line, end_col=end_col)
+
+
+def _spec_row_span(row: Mapping[str, JSONValue]):
+    return _decode_projection_span(row).as_tuple()
 
 
 def _materialize_projection_spec_rows(
@@ -7489,10 +7512,7 @@ def _ambiguity_suite_relation(
     return relation
 
 
-def _ambiguity_suite_row_to_suite(
-    row: Mapping[str, JSONValue],
-    forest: Forest,
-) -> NodeId:
+def _decode_ambiguity_suite_row(row: Mapping[str, JSONValue]) -> _AmbiguitySuiteRow:
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     suite_kind = str(row.get("suite_kind", "") or "")
@@ -7503,17 +7523,24 @@ def _ambiguity_suite_row_to_suite(
             qual=qual,
             suite_kind=suite_kind,
         )
-    span = _spec_row_span(row)
-    require_not_none(
-        span,
-        reason="ambiguity suite row missing span",
-        strict=True,
+    return _AmbiguitySuiteRow(
+        path=path,
+        qual=qual,
+        suite_kind=suite_kind,
+        span=_decode_projection_span(row),
     )
+
+
+def _ambiguity_suite_row_to_suite(
+    row: Mapping[str, JSONValue],
+    forest: Forest,
+) -> NodeId:
+    decoded = _decode_ambiguity_suite_row(row)
     return forest.add_suite_site(
-        path,
-        qual,
-        suite_kind,
-        span=span,
+        decoded.path,
+        decoded.qual,
+        decoded.suite_kind,
+        span=decoded.span.as_tuple(),
     )
 
 
