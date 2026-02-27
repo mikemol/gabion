@@ -44,10 +44,8 @@ def resolve_adapter(
         adapter = adapter_for_extension(suffix)
         if adapter is not None:
             return adapter
-    fallback = adapter_for_language(default_language_id)
-    if fallback is None:
-        never("missing fallback language adapter", language_id=default_language_id)
-    return fallback
+    # Import-time registration guarantees a canonical fallback adapter.
+    return _ADAPTERS_BY_LANGUAGE[default_language_id.lower()]
 
 
 register_adapter(PythonAdapter())

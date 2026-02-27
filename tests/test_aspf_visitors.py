@@ -251,8 +251,8 @@ def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
         two_cell_witnesses=[
             {
                 "witness_id": "w:iso",
-                "left": {"representative": "rep:shared"},
-                "right": {"representative": "rep:baseline"},
+                "left_representative": "rep:shared",
+                "right_representative": "rep:baseline",
             }
         ],
         cofibration_witnesses=[{"cofibration": {"entries": [{"domain": {}, "aspf": {}}]}}],

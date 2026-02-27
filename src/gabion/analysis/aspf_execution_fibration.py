@@ -910,8 +910,6 @@ def derive_trace_payload_from_sinks(
     state: AspfExecutionTraceState,
     sink_indexes: Sequence[AspfTraceSinkIndex],
 ) -> JSONObject:
-    if sink_indexes:
-        return build_trace_payload(state)
     return build_trace_payload(state)
 
 
@@ -950,11 +948,7 @@ def _build_trace_replay_iterators(
     def _iter_one_cells() -> Iterator[JSONObject]:
         for index, cell in enumerate(state.one_cells):
             one_cell_payload = cell.as_dict()
-            metadata = (
-                state.one_cell_metadata[index]
-                if index < len(state.one_cell_metadata)
-                else {"kind": "", "surface": "", "metadata": {}}
-            )
+            metadata = state.one_cell_metadata[index]
             one_cell_payload["kind"] = str(metadata.get("kind", ""))
             one_cell_payload["surface"] = str(metadata.get("surface", ""))
             one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
@@ -979,12 +973,8 @@ def _iter_equivalence_surface_rows(
     *,
     equivalence_payload: Mapping[str, object],
 ) -> Iterator[Mapping[str, object]]:
-    rows = equivalence_payload.get("surface_table", [])
-    if not isinstance(rows, Iterable):
-        return
-    for row in rows:
-        if isinstance(row, Mapping):
-            yield cast(Mapping[str, object], row)
+    rows = cast(Iterable[Mapping[str, object]], equivalence_payload.get("surface_table", []))
+    yield from rows
 
 
 def _iter_trace_events(*, state: AspfExecutionTraceState) -> Iterator[AspfTraceReplayEvent]:

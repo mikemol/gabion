@@ -7,6 +7,7 @@ from .python_ingest import (
     iter_python_paths,
 )
 
+
 def resolve_adapter(*, paths, language_id=None, default_language_id="python"):
     from gabion.ingest.registry import resolve_adapter as _resolve_adapter
 

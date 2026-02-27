@@ -179,8 +179,7 @@ class NullAspfTraversalVisitor:
         )
 
     def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
-        if event.boundary == "equivalence_surface_row":
-            self.on_equivalence_surface_row(index=0, row=event.payload)
+        self.on_equivalence_surface_row(index=0, row=event.payload)
 
 
 def traverse_forest_to_visitor(*, forest: Forest, visitor: AspfTraversalVisitor) -> None:
@@ -295,8 +294,7 @@ class TracePayloadEmitter(NullAspfTraversalVisitor):
         )
 
     def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
-        if event.boundary == "equivalence_surface_row":
-            self.on_equivalence_surface_row(index=0, row=event.payload)
+        self.on_equivalence_surface_row(index=0, row=event.payload)
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
         self.one_cells.append({str(key): cast(JSONValue, one_cell[key]) for key in one_cell})
@@ -442,18 +440,7 @@ class OpportunityDecisionProtocol:
         if self.proof_obligations:
             satisfied = sum(1 for obligation in self.proof_obligations if obligation.satisfied)
             return round(satisfied / len(self.proof_obligations), 2)
-        score = 0.36
-        if self.confidence_provenance is OpportunityConfidenceProvenance.INGRESS_OBSERVATION:
-            score += 0.14
-        if self.confidence_provenance is OpportunityConfidenceProvenance.REPRESENTATIVE_CONFLUENCE:
-            score += 0.18
-        if self.confidence_provenance is OpportunityConfidenceProvenance.MORPHISM_WITNESS:
-            score += 0.26
-        if self.witness_requirement is OpportunityWitnessRequirement.TWO_CELL_WITNESS:
-            score += 0.14
-        if self.witness_ids:
-            score += min(0.18, 0.06 * len(self.witness_ids))
-        return round(min(score, 0.99), 2)
+        return 0.0
 
     def as_row(self) -> JSONObject:
         return {
@@ -811,8 +798,7 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         )
 
     def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
-        if event.boundary == "equivalence_surface_row":
-            self.on_equivalence_surface_row(index=0, row=event.payload)
+        self.on_equivalence_surface_row(index=0, row=event.payload)
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
         kind = str(one_cell.get("kind", ""))
@@ -849,10 +835,7 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         left = str(witness.get("left_representative", "")).strip()
         right = str(witness.get("right_representative", "")).strip()
         if not left or not right:
-            left_payload = cast(Mapping[str, object], witness.get("left", {}))
-            right_payload = cast(Mapping[str, object], witness.get("right", {}))
-            left = str(left_payload.get("representative", "")).strip()
-            right = str(right_payload.get("representative", "")).strip()
+            return
         for representative in (left, right):
             if representative:
                 self._representative_witness_ids.setdefault(representative, set()).add(witness_id)

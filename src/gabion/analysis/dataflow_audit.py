@@ -8529,8 +8529,6 @@ def _normalize_cache_config(value: JSONValue) -> JSONValue:
         return cast(JSONValue, normalized)
     if type(value) is list:
         return cast(JSONValue, [_normalize_cache_config(item) for item in value])
-    if type(value) is tuple:
-        return cast(JSONValue, [_normalize_cache_config(cast(JSONValue, item)) for item in value])
     return value
 
 
@@ -8599,7 +8597,7 @@ def _cache_identity_matches(actual: str, expected: str) -> bool:
     actual_identity = _CacheIdentity.from_boundary(actual)
     expected_identity = _CacheIdentity.from_boundary(expected)
     if actual_identity is None or expected_identity is None:
-        return False
+        never("cache identity comparison requires canonical identities")
     return actual_identity == expected_identity
 
 
@@ -15627,7 +15625,7 @@ def _load_analysis_index_resume_payload(
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity:
         if expected_index_identity is None:
-            return hydrated_paths, by_qual, symbol_table, class_index
+            never("invalid expected index cache identity")
         resume_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
         if resume_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
@@ -15637,7 +15635,7 @@ def _load_analysis_index_resume_payload(
             selected_payload = variant
     if expected_projection_cache_identity:
         if expected_projection_identity is None:
-            return hydrated_paths, by_qual, symbol_table, class_index
+            never("invalid expected projection cache identity")
         projection_identity = _CacheIdentity.from_boundary(
             selected_payload.get("projection_cache_identity")
         )

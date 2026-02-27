@@ -131,7 +131,7 @@ def _normalize_dataflow_format_controls(
         str(raw_language).strip().lower() if raw_language is not None else "python"
     )
     if not normalized_language:
-        normalized_language = "python"
+        never("empty dataflow language")
     if normalized_language != "python":
         never(
             "unsupported dataflow language",
@@ -145,7 +145,7 @@ def _normalize_dataflow_format_controls(
         else "default"
     )
     if not normalized_ingest_profile:
-        normalized_ingest_profile = "default"
+        never("empty dataflow ingest profile", language=normalized_language)
     if normalized_ingest_profile not in profile_matrix:
         never(
             "unsupported dataflow ingest profile",
