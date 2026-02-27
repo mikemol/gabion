@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Mapping, Sequence, cast
+from typing import Iterable, Iterator, Mapping, Sequence, cast
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -398,21 +398,25 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
 def build_equivalence_payload(
     *,
     state: AspfExecutionTraceState,
-    baseline_traces: Sequence[Mapping[str, object]],
+    baseline_traces: Iterable[Mapping[str, object]],
 ) -> JSONObject:
-    baseline_candidates: dict[str, list[str]] = {}
+    baseline_candidates: dict[str, set[str]] = {}
+    known_witnesses = _witnesses_by_representative_pair(state=state)
     for payload in baseline_traces:
-        _merge_candidates(
+        _merge_candidate_sets(
             destination=baseline_candidates,
             candidates=_surface_candidates_from_trace_payload(payload),
         )
+        _merge_known_witnesses(
+            destination=known_witnesses,
+            payload=payload,
+        )
     table: list[JSONObject] = []
-    known_witnesses = _all_known_witnesses(state=state, baseline_traces=baseline_traces)
     for surface in state.controls.aspf_semantic_surface:
         current_representative = state.surface_representatives.get(surface)
         candidates = tuple(
             sort_once(
-                set(baseline_candidates.get(surface, [])),
+                baseline_candidates.get(surface, set()),
                 source=f"aspf_execution_fibration.build_equivalence_payload.{surface}.candidates",
             )
         )
@@ -429,7 +433,7 @@ def build_equivalence_payload(
         else:
             baseline_representative = current_representative or ""
         witness = _find_witness(
-            witnesses=known_witnesses,
+            witness_index=known_witnesses,
             baseline_representative=baseline_representative,
             current_representative=current_representative or "",
         )
@@ -505,11 +509,10 @@ def finalize_execution_trace(
         if state.controls.aspf_equivalence_against
         else (state.controls.aspf_import_trace + state.controls.aspf_import_state)
     )
-    baseline_traces = [load_trace_payload(path) for path in baseline_paths]
     trace_payload = build_trace_payload(state)
     equivalence_payload = build_equivalence_payload(
         state=state,
-        baseline_traces=baseline_traces,
+        baseline_traces=_iter_baseline_trace_payloads(baseline_paths),
     )
     opportunities_payload = build_opportunities_payload(
         state=state,
@@ -919,46 +922,62 @@ def _surface_candidates_from_trace_payload(
     return candidates
 
 
-def _merge_candidates(
+def _merge_candidate_sets(
     *,
-    destination: dict[str, list[str]],
+    destination: dict[str, set[str]],
     candidates: Mapping[str, list[str]],
 ) -> None:
     for surface in candidates:
-        existing = destination.setdefault(surface, [])
-        existing.extend(candidates[surface])
+        existing = destination.setdefault(surface, set())
+        existing.update(candidates[surface])
 
 
-def _all_known_witnesses(
+def _witnesses_by_representative_pair(
     *,
     state: AspfExecutionTraceState,
-    baseline_traces: Sequence[Mapping[str, object]],
-) -> list[AspfTwoCellWitness]:
-    baseline_witnesses = [
-        cast(AspfTwoCellWitness, parse_2cell_witness(entry))
-        for payload in baseline_traces
-        for entry in payload.get("two_cell_witnesses", [])
-    ]
-    return [*state.two_cell_witnesses, *baseline_witnesses]
+ ) -> dict[tuple[str, str], AspfTwoCellWitness]:
+    witnesses: dict[tuple[str, str], AspfTwoCellWitness] = {}
+    for witness in state.two_cell_witnesses:
+        _store_witness_by_pair(destination=witnesses, witness=witness)
+    return witnesses
+
+
+def _merge_known_witnesses(
+    *,
+    destination: dict[tuple[str, str], AspfTwoCellWitness],
+    payload: Mapping[str, object],
+) -> None:
+    for entry in payload.get("two_cell_witnesses", []):
+        witness = cast(AspfTwoCellWitness, parse_2cell_witness(entry))
+        _store_witness_by_pair(destination=destination, witness=witness)
+
+
+def _store_witness_by_pair(
+    *,
+    destination: dict[tuple[str, str], AspfTwoCellWitness],
+    witness: AspfTwoCellWitness,
+) -> None:
+    baseline = witness.left.representative
+    current = witness.right.representative
+    destination.setdefault((baseline, current), witness)
+    destination.setdefault((current, baseline), witness)
 
 
 def _find_witness(
     *,
-    witnesses: Sequence[AspfTwoCellWitness],
+    witness_index: Mapping[tuple[str, str], AspfTwoCellWitness],
     baseline_representative: str,
     current_representative: str,
 ) -> AspfTwoCellWitness | None:
-    return next(
-        (
-            witness
-            for witness in witnesses
-            if witness.links(
-                baseline_representative=baseline_representative,
-                current_representative=current_representative,
-            )
-        ),
+    return witness_index.get(
+        (baseline_representative, current_representative),
         None,
     )
+
+
+def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[JSONObject]:
+    for path in paths:
+        yield load_trace_payload(path)
 
 
 def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
