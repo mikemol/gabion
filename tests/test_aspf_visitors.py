@@ -103,27 +103,25 @@ def test_null_visitor_noop_methods_are_callable() -> None:
 
 def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     emitter = OpportunityPayloadEmitter()
-    replay_trace_payload_to_visitor(
-        trace_payload={
-            "one_cells": [],
-            "surface_representatives": {
-                "groups_by_path": "rep:shared",
-                "rewrite_plans": "rep:shared",
-            },
-            "two_cell_witnesses": [
-                {
-                    "witness_id": "w:2",
-                    "left_representative": "rep:shared",
-                    "right_representative": "rep:baseline",
-                },
-                {
-                    "witness_id": "w:1",
-                    "left_representative": "rep:shared",
-                    "right_representative": "rep:legacy",
-                },
-            ],
-            "cofibration_witnesses": [],
+    adapt_live_event_stream_to_visitor(
+        one_cells=[],
+        surface_representatives={
+            "groups_by_path": "rep:shared",
+            "rewrite_plans": "rep:shared",
         },
+        two_cell_witnesses=[
+            {
+                "witness_id": "w:2",
+                "left_representative": "rep:shared",
+                "right_representative": "rep:baseline",
+            },
+            {
+                "witness_id": "w:1",
+                "left_representative": "rep:shared",
+                "right_representative": "rep:legacy",
+            },
+        ],
+        cofibration_witnesses=[],
         visitor=emitter,
     )
 
