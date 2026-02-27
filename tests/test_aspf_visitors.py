@@ -56,7 +56,19 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
             "groups_by_path": "rep:a",
         },
         two_cell_witnesses=[],
-        cofibration_witnesses=[],
+        cofibration_witnesses=[
+            {
+                "canonical_identity_kind": "suite_site",
+                "cofibration": {
+                    "entries": [
+                        {
+                            "domain": {"key": "domain:x", "prime": 2},
+                            "aspf": {"key": "aspf:x", "prime": 2},
+                        }
+                    ]
+                },
+            }
+        ],
         visitor=emitter,
     )
     adapt_event_log_reader_iterator_to_visitor(
@@ -75,11 +87,17 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     assert "materialize_load_fusion" in kinds
     assert "reusable_boundary_artifact" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    assert "cofibration_prime_embedding_reuse" in kinds
     fungible = next(
         row for row in rows if isinstance(row, dict) and row.get("kind") == "fungible_execution_path_substitution"
     )
     assert fungible["actionability"] == "actionable"
     assert fungible["confidence_provenance"] == "morphism_witness"
+
+    cofibration = next(
+        row for row in rows if isinstance(row, dict) and row.get("kind") == "cofibration_prime_embedding_reuse"
+    )
+    assert cofibration["witness_requirement"] == "cofibration_witness"
 
     plans = emitter.build_rewrite_plans()
     assert plans

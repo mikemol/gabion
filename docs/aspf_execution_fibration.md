@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: aspf_execution_fibration
 doc_role: contract
@@ -87,13 +87,29 @@ Aggregate verdict is `non_drift` only when all surfaced classifications are
 
 ## Opportunity Semantics
 
-Phase-1 opportunities are advisory and include:
-- `materialize_load_fusion`
-- `reusable_boundary_artifact`
-- `fungible_execution_path_substitution`
+Phase-1 opportunities are emitted via a registry keyed by explicit algebraic
+predicates over one-cell / two-cell / cofibration structure. The default class
+set is:
+- `materialize_load_observed` (one-cell predicate: at least one `resume_load`)
+- `materialize_load_fusion` (one-cell predicate: `resume_load` + `resume_write`
+  over the same resume reference)
+- `reusable_boundary_artifact` (two-cell predicate: representative fan-out over
+  projected semantic surfaces)
+- `fungible_execution_path_substitution` (two-cell predicate: `non_drift`
+  classification with witness-carrying equivalence rows)
+- `cofibration_prime_embedding_reuse` (cofibration predicate: at least one
+  validated domain→ASPF basis embedding)
 
-Opportunities are emitted only when supported by observed morphism patterns
-and/or witness evidence.
+Evidence requirements match the class semantics:
+- `none` for ingress-only observations (`materialize_load_observed`,
+  `materialize_load_fusion`)
+- `representative_pair` for representative-confluence reuse
+- `two_cell_witness` for fungible substitution opportunities
+- `cofibration_witness` for cofibration-prime embedding opportunities
+
+Adding a new opportunity kind now requires adding a normalized observation shape
+plus a taxonomy registration; no ad-hoc branch expansion is required inside
+`OpportunityPayloadEmitter`.
 
 ## Cross-Script Handoff
 
