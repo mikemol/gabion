@@ -204,6 +204,7 @@ def _evidence_payload(
     )
 
 
+# gabion:boundary_normalization
 def _write_aggregate_with_domain(payload: advisory_evidence.AdvisoryEvidencePayload) -> None:
     existing = json_io.load_json_object_path(advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH)
     advisories_raw = _mapping(existing.get("advisories"))

@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import ast
@@ -160,6 +161,7 @@ def ingest_python_file(
     scanned_since_emit = 0
     last_scan_progress_emit_monotonic: float | None = None
 
+    # gabion:boundary_normalization
     def _emit_scan_progress(*, force: bool = False) -> bool:
         nonlocal last_scan_progress_emit_monotonic
         if on_progress is None:

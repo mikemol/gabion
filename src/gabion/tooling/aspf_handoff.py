@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -281,6 +282,7 @@ def _append_event(path: Path, payload: Mapping[str, object]) -> None:
         handle.write(json.dumps(event_payload, sort_keys=False) + "\n")
 
 
+# gabion:boundary_normalization
 def _fold_journal(path: Path) -> JSONObject:
     state = HandoffProjectionState.empty()
     with path.open("r", encoding="utf-8") as handle:

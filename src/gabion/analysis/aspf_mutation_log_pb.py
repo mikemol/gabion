@@ -4,6 +4,7 @@ This file is generated from the in-38 archive projection contract schema.
 Do not hand-edit.
 """
 
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
