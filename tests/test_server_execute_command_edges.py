@@ -3993,16 +3993,21 @@ def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
     assert result.get("changes")
 
 
-# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows::server.py::gabion.server._lint_entries_from_lines::server.py::gabion.server._normalize_dataflow_response::server.py::gabion.server._parse_lint_line
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows::server.py::gabion.server._normalize_dataflow_response::server.py::gabion.server._parse_lint_line::server.py::gabion.server._parse_lint_line_as_payload
 def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
     assert server._parse_lint_line("not a lint row") is None
     assert server._parse_lint_line("pkg/mod.py:1:2:   ") is None
-    entries = server._lint_entries_from_lines(
-        [
-            "pkg/mod.py:1:2: DF001 bad",
-            "invalid row",
-        ]
-    )
+    entries = [
+        entry
+        for entry in (
+            server._parse_lint_line_as_payload(line)
+            for line in [
+                "pkg/mod.py:1:2: DF001 bad",
+                "invalid row",
+            ]
+        )
+        if entry is not None
+    ]
     assert entries == [
         {
             "path": "pkg/mod.py",
