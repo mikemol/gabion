@@ -11,7 +11,27 @@ import tarfile
 from typing import Mapping
 
 from gabion.analysis.json_types import JSONObject, JSONValue
+from gabion.analysis.aspf_mutation_log_pb import (
+    PbArchiveManifest,
+    PbCommitMarker,
+    PbEventEnvelope,
+    PbMutationRecord,
+    PbMutationSnapshot,
+    PbSnapshotEnvelope,
+    parse_archive_manifest,
+    parse_commit_marker,
+    parse_event_envelope,
+    parse_snapshot_envelope,
+    serialize_archive_manifest,
+    serialize_commit_marker,
+    serialize_event_envelope,
+    serialize_snapshot_envelope,
+)
 from gabion.analysis.resume_codec import sequence_or_none
+
+
+CURRENT_ARCHIVE_SCHEMA_VERSION = 2
+LEGACY_ARCHIVE_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -40,6 +60,7 @@ class EventEnvelope:
     sequence: int
     run_id: str
     record: AspfMutationRecord
+    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -47,6 +68,7 @@ class SnapshotEnvelope:
     run_id: str
     replay_cursor: int
     snapshot: AspfMutationSnapshot
+    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -62,6 +84,7 @@ class ArchiveManifest:
 class CommitMarker:
     run_id: str
     last_durable_sequence: int
+    schema_version: int = CURRENT_ARCHIVE_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -85,6 +108,7 @@ def _canonical_json_bytes(payload: Mapping[str, JSONValue]) -> bytes:
 
 def _event_envelope_payload(envelope: EventEnvelope) -> JSONObject:
     return {
+        "schema_version": envelope.schema_version,
         "sequence": envelope.sequence,
         "run_id": envelope.run_id,
         "record": {
@@ -97,6 +121,7 @@ def _event_envelope_payload(envelope: EventEnvelope) -> JSONObject:
 
 def _snapshot_envelope_payload(envelope: SnapshotEnvelope) -> JSONObject:
     return {
+        "schema_version": envelope.schema_version,
         "run_id": envelope.run_id,
         "replay_cursor": envelope.replay_cursor,
         "snapshot": {
@@ -118,9 +143,146 @@ def _manifest_payload(manifest: ArchiveManifest) -> JSONObject:
 
 def _commit_payload(commit: CommitMarker) -> JSONObject:
     return {
+        "schema_version": commit.schema_version,
         "run_id": commit.run_id,
         "last_durable_sequence": commit.last_durable_sequence,
     }
+
+
+def _protobuf_event_bytes(envelope: EventEnvelope) -> bytes:
+    return serialize_event_envelope(
+        PbEventEnvelope(
+            schema_version=envelope.schema_version,
+            sequence=envelope.sequence,
+            run_id=envelope.run_id,
+            record=PbMutationRecord(
+                op_id=envelope.record.op_id,
+                op_kind=envelope.record.op_kind,
+                payload_json=_canonical_json_bytes(envelope.record.payload).decode("utf-8"),
+            ),
+        )
+    )
+
+
+def _protobuf_snapshot_bytes(envelope: SnapshotEnvelope) -> bytes:
+    return serialize_snapshot_envelope(
+        PbSnapshotEnvelope(
+            schema_version=envelope.schema_version,
+            run_id=envelope.run_id,
+            replay_cursor=envelope.replay_cursor,
+            snapshot=PbMutationSnapshot(
+                seq=envelope.snapshot.seq,
+                state_json=_canonical_json_bytes(envelope.snapshot.state).decode("utf-8"),
+            ),
+        )
+    )
+
+
+def _protobuf_manifest_bytes(manifest: ArchiveManifest) -> bytes:
+    return serialize_archive_manifest(
+        PbArchiveManifest(
+            schema_version=manifest.schema_version,
+            projection_version=manifest.projection_version,
+            run_id=manifest.run_id,
+            event_sequences=manifest.event_sequences,
+            snapshot_sequences=manifest.snapshot_sequences,
+        )
+    )
+
+
+def _protobuf_commit_bytes(commit: CommitMarker) -> bytes:
+    return serialize_commit_marker(
+        PbCommitMarker(
+            schema_version=commit.schema_version,
+            run_id=commit.run_id,
+            last_durable_sequence=commit.last_durable_sequence,
+        )
+    )
+
+
+def decode_manifest_compat(raw: bytes) -> ArchiveManifest:
+    if raw.startswith(b"{"):
+        payload = json.loads(raw.decode("utf-8"))
+        return ArchiveManifest(
+            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
+            projection_version=int(payload.get("projection_version", 1)),
+            run_id=str(payload.get("run_id", "")),
+            event_sequences=tuple(int(item) for item in sequence_or_none(payload.get("event_sequences"), allow_str=False) or []),
+            snapshot_sequences=tuple(int(item) for item in sequence_or_none(payload.get("snapshot_sequences"), allow_str=False) or []),
+        )
+    parsed = parse_archive_manifest(raw)
+    return ArchiveManifest(
+        schema_version=parsed.schema_version,
+        projection_version=parsed.projection_version,
+        run_id=parsed.run_id,
+        event_sequences=parsed.event_sequences,
+        snapshot_sequences=parsed.snapshot_sequences,
+    )
+
+
+def decode_event_compat(raw: bytes) -> EventEnvelope:
+    if raw.startswith(b"{"):
+        payload = json.loads(raw.decode("utf-8"))
+        record = payload.get("record", {})
+        return EventEnvelope(
+            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
+            sequence=int(payload.get("sequence", 0)),
+            run_id=str(payload.get("run_id", "")),
+            record=AspfMutationRecord(
+                op_id=str(record.get("op_id", "")),
+                op_kind=str(record.get("op_kind", "")),
+                payload=dict(record.get("payload", {})),
+            ),
+        )
+    parsed = parse_event_envelope(raw)
+    return EventEnvelope(
+        schema_version=parsed.schema_version,
+        sequence=parsed.sequence,
+        run_id=parsed.run_id,
+        record=AspfMutationRecord(
+            op_id=parsed.record.op_id,
+            op_kind=parsed.record.op_kind,
+            payload=json.loads(parsed.record.payload_json),
+        ),
+    )
+
+
+def decode_commit_compat(raw: bytes) -> CommitMarker:
+    if raw.startswith(b"{"):
+        payload = json.loads(raw.decode("utf-8"))
+        return CommitMarker(
+            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
+            run_id=str(payload.get("run_id", "")),
+            last_durable_sequence=int(payload.get("last_durable_sequence", 0)),
+        )
+    parsed = parse_commit_marker(raw)
+    return CommitMarker(
+        schema_version=parsed.schema_version,
+        run_id=parsed.run_id,
+        last_durable_sequence=parsed.last_durable_sequence,
+    )
+
+
+def decode_snapshot_compat(raw: bytes) -> SnapshotEnvelope:
+    if raw.startswith(b"{"):
+        payload = json.loads(raw.decode("utf-8"))
+        snapshot = payload.get("snapshot", {})
+        return SnapshotEnvelope(
+            schema_version=int(payload.get("schema_version", LEGACY_ARCHIVE_SCHEMA_VERSION)),
+            run_id=str(payload.get("run_id", "")),
+            replay_cursor=int(payload.get("replay_cursor", 0)),
+            snapshot=AspfMutationSnapshot(
+                seq=int(snapshot.get("seq", 0)),
+                state=dict(snapshot.get("state", {})),
+            ),
+        )
+    parsed = parse_snapshot_envelope(raw)
+    return SnapshotEnvelope(
+        schema_version=parsed.schema_version,
+        run_id=parsed.run_id,
+        replay_cursor=parsed.replay_cursor,
+        snapshot=AspfMutationSnapshot(seq=parsed.snapshot.seq, state=json.loads(parsed.snapshot.state_json)),
+    )
 
 
 def project_archive_filesystem(
@@ -140,24 +302,20 @@ def project_archive_filesystem(
     snapshots_dir.mkdir(parents=True, exist_ok=True)
     commit_dir.mkdir(parents=True, exist_ok=True)
 
-    manifest_payload = _manifest_payload(manifest)
-    (manifest_dir / "manifest.pb").write_bytes(_canonical_json_bytes(manifest_payload))
+    (manifest_dir / "manifest.pb").write_bytes(_protobuf_manifest_bytes(manifest))
 
     for envelope in sorted(events, key=lambda item: item.sequence):
         stem = f"{envelope.sequence:012d}"
-        payload = _event_envelope_payload(envelope)
-        encoded = _canonical_json_bytes(payload)
+        encoded = _protobuf_event_bytes(envelope)
         (events_dir / f"{stem}.data.pb").write_bytes(encoded)
         (events_dir / f"{stem}.crc").write_text(sha256(encoded).hexdigest(), encoding="utf-8")
 
     for envelope in sorted(snapshots, key=lambda item: item.snapshot.seq):
         stem = f"{envelope.snapshot.seq:012d}"
-        payload = _snapshot_envelope_payload(envelope)
-        encoded = _canonical_json_bytes(payload)
+        encoded = _protobuf_snapshot_bytes(envelope)
         (snapshots_dir / f"{stem}.data.pb").write_bytes(encoded)
 
-    commit_payload = _commit_payload(commit)
-    (commit_dir / "commit.pb").write_bytes(_canonical_json_bytes(commit_payload))
+    (commit_dir / "commit.pb").write_bytes(_protobuf_commit_bytes(commit))
 
 
 def package_archive_tar(*, root_dir: Path, tar_path: Path) -> None:
