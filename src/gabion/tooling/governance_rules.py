@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Mapping
 
 
-def _load_yaml_module():
+def _load_yaml_module(*, importer=import_module):
     try:
-        module = import_module("yaml")
+        module = importer("yaml")
     except ImportError as exc:
         raise RuntimeError(
             "PyYAML is required by the pinned governance toolchain; run `mise install` to provision dependencies."

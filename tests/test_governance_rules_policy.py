@@ -115,14 +115,12 @@ controller_drift:
 # gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._load_yaml_module::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
 def test_governance_rules_loader_none_and_gate_filtering(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def _raise_missing_yaml(_: str):
         raise ImportError("missing yaml")
 
-    monkeypatch.setattr(governance_rules, "import_module", _raise_missing_yaml)
-    with pytest.raises(RuntimeError, match="PyYAML is required"):
-        governance_rules._load_yaml_module()
+    with pytest.raises(RuntimeError, match="PyYAML is required by the pinned governance toolchain"):
+        governance_rules._load_yaml_module(importer=_raise_missing_yaml)
 
     mixed = tmp_path / "mixed.yaml"
     mixed.write_text(
