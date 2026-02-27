@@ -234,6 +234,9 @@ class DataflowAuditResponseDTO(BaseModel):
     errors: List[str] = []
     lint_lines: List[str] = []
     lint_entries: List[LintEntryDTO] = []
+    selected_adapter: Optional[str] = None
+    supported_analysis_surfaces: List[str] = []
+    disabled_surface_reasons: Dict[str, str] = {}
     aspf_trace: Optional[AspfTraceDTO] = None
     aspf_equivalence: Optional[AspfEquivalenceDTO] = None
     aspf_opportunities: Optional[AspfOpportunitiesDTO] = None

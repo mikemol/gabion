@@ -4055,11 +4055,24 @@ def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
                 "trace_id": "aspf-trace:abc123",
                 "opportunities": [],
             },
+            "selected_adapter": "python:default",
+            "supported_analysis_surfaces": ["rewrite_plans", "decision_surfaces"],
+            "disabled_surface_reasons": {
+                "type_ambiguities": "disabled by ingest profile syntax-only"
+            },
         }
     )
     assert normalized["aspf_trace"]["trace_id"] == "aspf-trace:abc123"
     assert normalized["aspf_equivalence"]["verdict"] == "non_drift"
     assert normalized["aspf_opportunities"]["opportunities"] == []
+    assert normalized["selected_adapter"] == "python:default"
+    assert normalized["supported_analysis_surfaces"] == [
+        "decision_surfaces",
+        "rewrite_plans",
+    ]
+    assert normalized["disabled_surface_reasons"] == {
+        "type_ambiguities": "disabled by ingest profile syntax-only"
+    }
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_strictness::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4073,6 +4086,23 @@ def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
                 "root": str(tmp_path),
                 "paths": [str(module)],
                 "strictness": "invalid",
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
+
+
+def test_execute_command_rejects_unsupported_dataflow_ingest_profile(tmp_path: Path) -> None:
+    module = tmp_path / "sample.py"
+    _write_bundle_module(module)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module)],
+                "language": "python",
+                "ingest_profile": "not-supported",
             }
         ),
     )

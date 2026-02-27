@@ -1233,6 +1233,8 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
             allow_external=opts.allow_external,
             strictness=opts.strictness,
             lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
+            language=opts.language,
+            ingest_profile=opts.ingest_profile,
             aspf_trace_json=Path(aspf_trace_json_target)
             if aspf_trace_json_target
             else None,
@@ -3248,6 +3250,16 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
+    parser.add_argument(
+        "--language",
+        default=None,
+        help="Explicit analysis language adapter (for example: python).",
+    )
+    parser.add_argument(
+        "--ingest-profile",
+        default=None,
+        help="Optional ingest profile used by the selected language adapter.",
+    )
     parser.add_argument(
         "--aspf-trace-json",
         default=None,

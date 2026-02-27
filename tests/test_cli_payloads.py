@@ -16,6 +16,22 @@ _DEFAULT_CHECK_ARTIFACT_FLAGS = cli.CheckArtifactFlags(
 )
 
 
+def test_dataflow_payload_includes_language_and_ingest_profile() -> None:
+    opts = cli.parse_dataflow_args_or_exit(
+        [
+            ".",
+            "--language",
+            "Python",
+            "--ingest-profile",
+            "syntax-only",
+        ]
+    )
+    payload = cli.build_dataflow_payload(opts)
+    assert payload["language"] == "Python"
+    assert payload["ingest_profile"] == "syntax-only"
+
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_2a09d8d5ce19_af4348d7
 def test_check_builds_payload() -> None:
     payload = cli.build_check_payload(
@@ -377,6 +393,8 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
         "allow_external",
         "strictness",
         "lint",
+        "language",
+        "ingest_profile",
         "deadline_profile",
     ]
     assert {key: check_payload[key] for key in common_keys} == {
