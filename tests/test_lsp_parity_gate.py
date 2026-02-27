@@ -275,3 +275,21 @@ def test_cli_lsp_parity_gate_command_allows_zero_exit() -> None:
         },
     )
     assert result.exit_code == 0
+
+# gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_uses_typed_probe_error_channel::server.py::gabion.server._execute_lsp_parity_gate_total
+def test_execute_lsp_parity_gate_uses_typed_probe_error_channel() -> None:
+    rules = _rules_for_check_command(probe_payload={"k": "v"})
+    ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
+
+    def _raise_runtime(_ls, _payload):
+        raise RuntimeError("executor failed")
+
+    result = server._execute_lsp_parity_gate_total(
+        ls,
+        {"commands": ["gabion.check"]},
+        load_rules=lambda: rules,
+        lsp_executor_for_command=lambda _command: _raise_runtime,
+        direct_executor_for_command=lambda _command: (lambda _ls, _payload: {}),
+    )
+    assert result["exit_code"] == 1
+    assert result["errors"] == ["executor failed"]

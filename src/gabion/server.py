@@ -3430,6 +3430,146 @@ class ImpactEdge:
     inferred: bool
 
 
+@dataclass(frozen=True)
+class ImpactPayloadDTO:
+    root: Path
+    max_call_depth: int | None
+    confidence_threshold: float
+    changes: tuple[ImpactSpan, ...]
+
+
+@dataclass(frozen=True)
+class ImpactEdgeBuckets:
+    reverse_edges: dict[str, list[ImpactEdge]]
+    unresolved_edges: tuple[dict[str, object], ...]
+
+
+class ParityProbeError(RuntimeError):
+    pass
+
+
+class LspProbeExecutionError(ParityProbeError):
+    pass
+
+
+class DirectProbeExecutionError(ParityProbeError):
+    pass
+
+
+def _normalize_impact_payload(
+    payload: Mapping[str, object],
+    *,
+    workspace_root: str | None,
+) -> ImpactPayloadDTO:
+    root = Path(str(payload.get("root") or workspace_root or "."))
+
+    max_call_depth_raw = payload.get("max_call_depth")
+    try:
+        max_call_depth = int(max_call_depth_raw) if max_call_depth_raw is not None else None
+    except (TypeError, ValueError) as exc:
+        raise ValueError("max_call_depth must be an integer") from exc
+    if max_call_depth is not None and max_call_depth < 0:
+        raise ValueError("max_call_depth must be non-negative")
+
+    threshold_raw = payload.get("confidence_threshold", 0.5)
+    try:
+        confidence_threshold = float(threshold_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("confidence_threshold must be numeric") from exc
+    normalized_threshold = max(0.0, min(1.0, confidence_threshold))
+
+    changes: list[ImpactSpan] = []
+    raw_changes = payload.get("changes")
+    if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
+        for entry in deadline_loop_iter(raw_changes):
+            parsed = _normalize_impact_change_entry(entry)
+            if parsed is not None:
+                changes.append(
+                    ImpactSpan(
+                        path=parsed.path.replace("\\", "/"),
+                        start_line=parsed.start_line,
+                        end_line=parsed.end_line,
+                    )
+                )
+    raw_diff = payload.get("git_diff")
+    if isinstance(raw_diff, str) and raw_diff.strip():
+        for diff_span in deadline_loop_iter(_parse_impact_diff_ranges(raw_diff)):
+            changes.append(
+                ImpactSpan(
+                    path=diff_span.path.replace("\\", "/"),
+                    start_line=diff_span.start_line,
+                    end_line=diff_span.end_line,
+                )
+            )
+    if not changes:
+        raise ValueError("Provide at least one change span or git diff")
+
+    return ImpactPayloadDTO(
+        root=root,
+        max_call_depth=max_call_depth,
+        confidence_threshold=normalized_threshold,
+        changes=tuple(changes),
+    )
+
+
+def _normalize_impact_edge_buckets(
+    *,
+    edges: Sequence[ImpactEdge],
+    functions_by_qual: Mapping[str, ImpactFunction],
+) -> ImpactEdgeBuckets:
+    reverse_edges: dict[str, list[ImpactEdge]] = defaultdict(list)
+    unresolved: list[dict[str, object]] = []
+    for edge in deadline_loop_iter(edges):
+        check_deadline()
+        if edge.caller not in functions_by_qual or edge.callee not in functions_by_qual:
+            unresolved.append(
+                {
+                    "caller": edge.caller,
+                    "callee": edge.callee,
+                    "reason": "unresolvable_function_id",
+                }
+            )
+            continue
+        reverse_edges[edge.callee].append(edge)
+    return ImpactEdgeBuckets(reverse_edges=reverse_edges, unresolved_edges=tuple(unresolved))
+
+
+def _probe_lsp_executor(
+    executor: Callable[[LanguageServer, dict[str, object] | None], dict],
+    *,
+    ls: LanguageServer,
+    command: str,
+    probe_payload: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        return boundary_order.normalize_boundary_mapping_once(
+            executor(ls, dict(probe_payload)),
+            source=f"server.lsp_parity_gate.{command}.lsp_result",
+        )
+    except NeverThrown:
+        raise
+    except Exception as exc:
+        raise LspProbeExecutionError(str(exc)) from exc
+
+
+def _probe_direct_executor(
+    executor: Callable[[LanguageServer, dict[str, object] | None], dict],
+    *,
+    ls: LanguageServer,
+    command: str,
+    probe_payload: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        return boundary_order.normalize_boundary_mapping_once(
+            executor(ls, dict(probe_payload)),
+            source=f"server.lsp_parity_gate.{command}.direct_result",
+        )
+    except NeverThrown:
+        raise
+    except Exception as exc:
+        raise DirectProbeExecutionError(str(exc)) from exc
+
+
 def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     check_deadline()
     if isinstance(entry, Mapping):
@@ -3727,14 +3867,18 @@ def _execute_lsp_parity_gate_total(
                 error = f"no direct executor registered for {command}"
             else:
                 try:
-                    lsp_result = boundary_order.normalize_boundary_mapping_once(
-                        lsp_executor(ls, dict(normalized_probe)),
-                        source=f"server.lsp_parity_gate.{command}.lsp_result",
+                    lsp_result = _probe_lsp_executor(
+                        lsp_executor,
+                        ls=ls,
+                        command=command,
+                        probe_payload=normalized_probe,
                     )
                     lsp_validated = True
-                    direct_result = boundary_order.normalize_boundary_mapping_once(
-                        direct_executor(ls, dict(normalized_probe)),
-                        source=f"server.lsp_parity_gate.{command}.direct_result",
+                    direct_result = _probe_direct_executor(
+                        direct_executor,
+                        ls=ls,
+                        command=command,
+                        probe_payload=normalized_probe,
                     )
                     lsp_comparable = boundary_order.normalize_boundary_mapping_once(
                         _strip_parity_ignored_keys(lsp_result, ignored_keys=policy.parity_ignore_keys),
@@ -3749,7 +3893,7 @@ def _execute_lsp_parity_gate_total(
                         error = f"parity mismatch for {command}"
                 except NeverThrown as exc:
                     error = str(exc) or f"invariant violation while probing {command}"
-                except Exception as exc:
+                except ParityProbeError as exc:
                     error = str(exc)
         if policy.require_lsp_carrier and not lsp_validated and error is None:
             error = f"beta/production command requires LSP validation: {command}"
@@ -3798,37 +3942,11 @@ def execute_impact(
 
 def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
     with _deadline_scope_from_payload(payload):
-        root = Path(str(payload.get("root") or ls.workspace.root_path or "."))
-        max_call_depth_raw = payload.get("max_call_depth")
         try:
-            max_call_depth = int(max_call_depth_raw) if max_call_depth_raw is not None else None
-        except (TypeError, ValueError):
-            return {"exit_code": 2, "errors": ["max_call_depth must be an integer"]}
-        if isinstance(max_call_depth, int) and max_call_depth < 0:
-            return {"exit_code": 2, "errors": ["max_call_depth must be non-negative"]}
-
-        threshold_raw = payload.get("confidence_threshold", 0.5)
-        try:
-            confidence_threshold = float(threshold_raw)
-        except (TypeError, ValueError):
-            return {"exit_code": 2, "errors": ["confidence_threshold must be numeric"]}
-        confidence_threshold = max(0.0, min(1.0, confidence_threshold))
-
-        changes: list[ImpactSpan] = []
-        raw_changes = payload.get("changes")
-        if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
-            for entry in deadline_loop_iter(raw_changes):
-                parsed = _normalize_impact_change_entry(entry)
-                if parsed is not None:
-                    changes.append(parsed)
-        raw_diff = payload.get("git_diff")
-        if isinstance(raw_diff, str) and raw_diff.strip():
-            changes.extend(_parse_impact_diff_ranges(raw_diff))
-        if not changes:
-            return {
-                "exit_code": 2,
-                "errors": ["Provide at least one change span or git diff"],
-            }
+            options = _normalize_impact_payload(payload, workspace_root=ls.workspace.root_path)
+        except ValueError as exc:
+            return {"exit_code": 2, "errors": [str(exc)]}
+        root = options.root
 
         py_paths = sort_once(
             root.rglob("*.py"),
@@ -3849,28 +3967,26 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 check_deadline()
                 functions[fn.qual] = fn
 
-        reverse_edges: dict[str, list[ImpactEdge]] = defaultdict(list)
-        for edge in deadline_loop_iter(
-            _impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path)
-        ):
-            check_deadline()
-            reverse_edges[edge.callee].append(edge)
+        edge_buckets = _normalize_impact_edge_buckets(
+            edges=_impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path),
+            functions_by_qual=functions,
+        )
+        reverse_edges = edge_buckets.reverse_edges
 
         seed_functions: set[str] = set()
         normalized_changes: list[dict[str, object]] = []
-        for change in deadline_loop_iter(changes):
+        for change in deadline_loop_iter(options.changes):
             check_deadline()
-            normalized_path = change.path.replace("\\", "/")
             normalized_changes.append(
                 {
-                    "path": normalized_path,
+                    "path": change.path,
                     "start_line": change.start_line,
                     "end_line": change.end_line,
                 }
             )
             for fn in deadline_loop_iter(functions.values()):
                 check_deadline()
-                if fn.path != normalized_path:
+                if fn.path != change.path:
                     continue
                 if _impact_overlap(change.start_line, change.end_line, fn.start_line, fn.end_line):
                     seed_functions.add(fn.qual)
@@ -3895,13 +4011,13 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             if state_key in seen_state:
                 continue
             seen_state.add(state_key)
-            if isinstance(max_call_depth, int) and depth >= max_call_depth:
+            if options.max_call_depth is not None and depth >= options.max_call_depth:
                 continue
             for edge in deadline_loop_iter(reverse_edges.get(current, [])):
                 check_deadline()
                 caller_fn = functions.get(edge.caller)
                 if caller_fn is None:
-                    continue
+                    never("reverse edge caller missing after normalization", caller=edge.caller)
                 next_inferred = has_inferred or edge.inferred
                 next_confidence = min(path_confidence, edge.confidence)
                 if caller_fn.is_test:
@@ -3925,7 +4041,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 source="_execute_impact_total.likely_tests",
                 key=lambda item: str(item["id"]),
             )
-            if float(item.get("confidence", 0.0)) >= confidence_threshold
+            if float(item.get("confidence", 0.0)) >= options.confidence_threshold
         ]
         docs: list[dict[str, object]] = []
         impacted_names = {functions[qual].name for qual in seed_functions if qual in functions}
@@ -3966,8 +4082,9 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             "likely_run_tests": filtered_likely,
             "impacted_docs": docs,
             "meta": {
-                "max_call_depth": max_call_depth,
-                "confidence_threshold": confidence_threshold,
+                "max_call_depth": options.max_call_depth,
+                "confidence_threshold": options.confidence_threshold,
+                "unresolved_reverse_edges": list(edge_buckets.unresolved_edges),
             },
         }
 
