@@ -66,18 +66,16 @@ def _looks_multiset(value: list[object]) -> bool:
 
 
 def _canon_multiset(value: list[object]) -> JSONValue:
-    match value:
-        case ["ms", raw_pairs]:
-            pair_sequence = sequence_or_none(raw_pairs)
-            if pair_sequence is None:
-                never(
-                    "multiset payload must be a sequence",
-                    payload_type=type(raw_pairs).__name__,
-                )
-        case [marker, _]:
-            never("multiset marker must be 'ms'", marker=marker)
-        case _:
-            never("multiset payload must contain [marker, pairs]", payload=value)
+    marker = value[0] if value else None
+    if marker != "ms":
+        never("multiset marker must be 'ms'", marker=marker)
+    raw_pairs = value[1] if len(value) > 1 else None
+    pair_sequence = sequence_or_none(raw_pairs)
+    if pair_sequence is None:
+        never(
+            "multiset payload must be a sequence",
+            payload_type=type(raw_pairs).__name__,
+        )
 
     counts: dict[str, tuple[JSONValue, int]] = {}
     for raw in pair_sequence:

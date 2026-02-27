@@ -33,20 +33,16 @@ def parse_version(
     field: str = "version",
     error_context: str = "baseline",
 ) -> int:
-    match expected:
-        case int() as expected_value:
-            allowed = (expected_value,)
-        case _:
-            expected_values = sequence_or_none(expected)
-            if expected_values is None:
-                raise ValueError(
-                    "parse_version expected requires an int or iterable of ints"
-                )
-            allowed = tuple(int(value) for value in expected_values)
-            if not allowed:
-                raise ValueError(
-                    "parse_version expected requires at least one allowed value"
-                )
+    expected_values = sequence_or_none(expected)
+    allowed = (
+        (int(expected),)
+        if type(expected) is int
+        else tuple(int(value) for value in (expected_values or ()))
+    )
+    if not allowed:
+        raise ValueError(
+            "parse_version expected requires at least one allowed value"
+        )
     default_value = allowed[0]
     raw = payload.get(field, default_value)
     try:

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Protocol
 
+from gabion.analysis.resume_codec import mapping_or_none
+
 
 class AspfZeroCell(Protocol):
     """Typed 0-cell contract in the ASPF basis."""
@@ -130,34 +132,16 @@ def parse_2cell_witness(payload: Mapping[str, object]) -> object:
         match source:
             case str() as source_text:
                 source_label = source_text
-            case _:
-                pass
         match target:
             case str() as target_text:
                 target_label = target_text
-            case _:
-                pass
         match representative:
             case str() as representative_text:
                 representative_label = representative_text
-            case _:
-                pass
         match basis_path:
             case list() as basis_list:
-                basis_parts: list[str] = []
-                all_strings = True
-                for item in basis_list:
-                    match item:
-                        case str() as basis_part:
-                            basis_parts.append(basis_part)
-                        case _:
-                            all_strings = False
-                            break
-                if all_strings:
-                    basis_items = tuple(basis_parts)
-                    basis_valid = True
-            case _:
-                pass
+                basis_items = tuple(str(item) for item in basis_list)
+                basis_valid = True
         decoded_cell = AspfOneCell(
             source=BasisZeroCell(source_label),
             target=BasisZeroCell(target_label),
@@ -181,16 +165,8 @@ def parse_2cell_witness(payload: Mapping[str, object]) -> object:
         ),
     )
     right_outcome = left_outcome
-    match left_payload:
-        case Mapping() as left_payload_map:
-            left_outcome = _decode_1cell(left_payload_map)
-        case _:
-            pass
-    match right_payload:
-        case Mapping() as right_payload_map:
-            right_outcome = _decode_1cell(right_payload_map)
-        case _:
-            pass
+    left_outcome = _decode_1cell(mapping_or_none(left_payload) or {})
+    right_outcome = _decode_1cell(mapping_or_none(right_payload) or {})
 
     match (witness_id_raw, reason_raw):
         case (str() as witness_id, str() as reason):

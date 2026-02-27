@@ -35,10 +35,7 @@ def format_transition(
 ) -> str:
     base = coerce_int(pair.baseline, 0)
     curr = coerce_int(pair.current, 0)
-    if delta is _AUTO_TRANSITION_DELTA:
-        delta_value = curr - base
-    else:
-        delta_value = coerce_int(delta, curr - base)
+    delta_value = coerce_int(delta, curr - base)
     return f"{base} -> {curr} ({format_delta(delta_value)})"
 
 

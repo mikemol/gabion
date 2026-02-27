@@ -887,11 +887,7 @@ def build_site_index(
         if not path or not qual:
             continue
         span = node.meta.get("span")
-        match span:
-            case list() as span_values:
-                span_list = list(span_values)
-            case _:
-                span_list = None
+        span_list = list(span) if span else None
         index.setdefault(
             (path, qual),
             _function_site(path=path, qual=qual, span=span_list),
@@ -944,14 +940,13 @@ def _normalize_site_payload(
     match key_payload:
         case list() as key_entries if key_entries:
             key = [value for value in key_entries]
-            if len(key) >= 2:
-                first = key[0]
-                second = key[1]
-                match (first, second):
-                    case (str() as path_value, str() as qual_value):
-                        key = [_FileSite(path_value), qual_value, *key[2:]]
-                    case _:
-                        pass
+            first = key[0]
+            second = key[1] if key[1:] else None
+            match (first, second):
+                case (str() as path_value, str() as qual_value):
+                    key = [_FileSite(path_value), qual_value, *key[2:]]
+                case _:
+                    pass
             key_tuple = tuple(_site_part_from_payload(value) for value in key)
             return _CallSite(
                 kind=kind,

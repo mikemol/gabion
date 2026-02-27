@@ -102,17 +102,15 @@ def _str_int_pairs(value: object) -> list[tuple[str, int]]:
 
 
 def _coerce_int(value: object, *, default: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+    parsed = _maybe_int(value)
+    return parsed.value if parsed.is_present else default
 
 
 def _maybe_int(value: object) -> _MaybeInt:
-    try:
-        return _MaybeInt(is_present=True, value=int(value))
-    except (TypeError, ValueError):
-        return _MaybeInt(is_present=False, value=0)
+    text = str(value).strip()
+    normalized = text.removeprefix("-")
+    is_digit = normalized.isdigit()
+    return _MaybeInt(is_present=is_digit, value=int(text) if is_digit else 0)
 
 
 def _dimension_from_payload(value: object) -> FingerprintDimension:
@@ -1103,12 +1101,10 @@ def _apply_registry_payload(
     assignment_policy = _mapping_or_empty(payload_map.get("assignment_policy"))
     for key in str_list_from_sequence(assignment_policy.get("seeded")):
         check_deadline()
-        if key in registry.primes:
-            registry.assignment_origin[key] = "seeded"
+        registry.assignment_origin[key] = "seeded"
     for key in str_list_from_sequence(assignment_policy.get("learned")):
         check_deadline()
-        if key in registry.primes:
-            registry.assignment_origin[key] = "learned"
+        registry.assignment_origin[key] = "learned"
 
     if registry.primes and len(set(registry.primes.values())) != len(registry.primes):
         raise ValueError("Registry basis contains duplicate primes.")

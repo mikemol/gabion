@@ -241,12 +241,8 @@ def merge_overlap_threshold(
         threshold = None
         value = synth_defaults.get("merge_overlap_threshold")
         match value:
-            case bool():
-                threshold = threshold
             case int() | float():
                 threshold = float(value)
-            case _:
-                threshold = threshold
     if threshold is not None:
         return max(0.0, min(1.0, float(threshold)))
     return threshold

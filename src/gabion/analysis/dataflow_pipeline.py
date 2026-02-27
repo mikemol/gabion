@@ -1114,9 +1114,8 @@ def analyze_paths(
             check_deadline()
             if path in completed_paths:
                 continue
-            if path not in in_progress_scan_by_path:
-                in_progress_scan_by_path[path] = {"phase": "scan_pending"}
-                _emit_collection_progress(force=True)
+            in_progress_scan_by_path[path] = {"phase": "scan_pending"}
+            _emit_collection_progress(force=True)
             _deadline_check(allow_frame_fallback=True)
 
             def _on_file_scan_progress(progress_state: JSONObject) -> None:
