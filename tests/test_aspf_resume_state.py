@@ -86,3 +86,20 @@ def test_load_resume_projection_compatibility_wrapper_uses_streaming_internals(
 
     assert projection == {"projection_value": 2}
     assert [record["seq"] for record in records] == [1, 2]
+
+
+def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -> None:
+    jsonl_path = tmp_path / "delta.jsonl"
+    jsonl_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"seq": 1, "mutation_target": "a", "mutation_value": {"v": 1}}),
+                "",
+                json.dumps({"seq": 2, "mutation_target": "b", "mutation_value": {"v": 2}}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = list(aspf_resume_state.iter_delta_records_from_jsonl_paths(jsonl_paths=(jsonl_path,)))
+    assert [record["seq"] for record in records] == [1, 2]

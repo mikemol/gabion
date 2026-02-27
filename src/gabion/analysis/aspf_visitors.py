@@ -60,13 +60,13 @@ class AspfTraversalVisitor(Protocol):
 @dataclass
 class NullAspfTraversalVisitor:
     def on_forest_node(self, *, node: Node) -> None:
-        return None
+        pass
 
     def on_forest_alt(self, *, alt: Alt) -> None:
-        return None
+        pass
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
-        return None
+        pass
 
     def on_trace_two_cell_witness(
         self,
@@ -74,7 +74,7 @@ class NullAspfTraversalVisitor:
         index: int,
         witness: Mapping[str, object],
     ) -> None:
-        return None
+        pass
 
     def on_trace_cofibration(
         self,
@@ -82,7 +82,7 @@ class NullAspfTraversalVisitor:
         index: int,
         cofibration: Mapping[str, object],
     ) -> None:
-        return None
+        pass
 
     def on_trace_surface_representative(
         self,
@@ -90,7 +90,7 @@ class NullAspfTraversalVisitor:
         surface: str,
         representative: str,
     ) -> None:
-        return None
+        pass
 
     def on_equivalence_surface_row(
         self,
@@ -98,7 +98,7 @@ class NullAspfTraversalVisitor:
         index: int,
         row: Mapping[str, object],
     ) -> None:
-        return None
+        pass
 
 
 def traverse_forest_to_visitor(*, forest: Forest, visitor: AspfTraversalVisitor) -> None:
@@ -123,34 +123,37 @@ def replay_trace_payload_to_visitor(
     trace_payload: Mapping[str, object],
     visitor: AspfTraversalVisitor,
 ) -> None:
-    one_cells = cast(list[object], trace_payload.get("one_cells", []))
-    for index, raw_one_cell in enumerate(one_cells):
-        if isinstance(raw_one_cell, Mapping):
-            visitor.on_trace_one_cell(index=index, one_cell=raw_one_cell)
+    one_cells = cast(list[Mapping[str, object]], trace_payload.get("one_cells", []))
+    for index, one_cell in enumerate(one_cells):
+        visitor.on_trace_one_cell(index=index, one_cell=one_cell)
 
-    two_cell_witnesses = cast(list[object], trace_payload.get("two_cell_witnesses", []))
-    for index, raw_witness in enumerate(two_cell_witnesses):
-        if isinstance(raw_witness, Mapping):
-            visitor.on_trace_two_cell_witness(index=index, witness=raw_witness)
+    two_cell_witnesses = cast(
+        list[Mapping[str, object]],
+        trace_payload.get("two_cell_witnesses", []),
+    )
+    for index, witness in enumerate(two_cell_witnesses):
+        visitor.on_trace_two_cell_witness(index=index, witness=witness)
 
-    cofibrations = cast(list[object], trace_payload.get("cofibration_witnesses", []))
-    for index, raw_cofibration in enumerate(cofibrations):
-        if isinstance(raw_cofibration, Mapping):
-            visitor.on_trace_cofibration(index=index, cofibration=raw_cofibration)
+    cofibrations = cast(
+        list[Mapping[str, object]],
+        trace_payload.get("cofibration_witnesses", []),
+    )
+    for index, cofibration in enumerate(cofibrations):
+        visitor.on_trace_cofibration(index=index, cofibration=cofibration)
 
-    surface_payload = trace_payload.get("surface_representatives", {})
-    if isinstance(surface_payload, Mapping):
-        ordered_surfaces = sort_once(
-            [str(surface) for surface in surface_payload],
-            source="aspf_visitors.replay_trace_payload_to_visitor.surface_representatives",
+    surface_payload = cast(
+        Mapping[str, object],
+        trace_payload.get("surface_representatives", {}),
+    )
+    ordered_surfaces = sort_once(
+        [str(surface) for surface in surface_payload],
+        source="aspf_visitors.replay_trace_payload_to_visitor.surface_representatives",
+    )
+    for surface in ordered_surfaces:
+        visitor.on_trace_surface_representative(
+            surface=surface,
+            representative=str(surface_payload.get(surface, "")),
         )
-        for surface in ordered_surfaces:
-            representative = surface_payload.get(surface)
-            if isinstance(representative, str):
-                visitor.on_trace_surface_representative(
-                    surface=surface,
-                    representative=representative,
-                )
 
 
 def replay_equivalence_payload_to_visitor(
@@ -158,12 +161,9 @@ def replay_equivalence_payload_to_visitor(
     equivalence_payload: Mapping[str, object],
     visitor: AspfTraversalVisitor,
 ) -> None:
-    rows = equivalence_payload.get("surface_table", [])
-    if not isinstance(rows, list):
-        return
-    for index, raw_row in enumerate(rows):
-        if isinstance(raw_row, Mapping):
-            visitor.on_equivalence_surface_row(index=index, row=raw_row)
+    rows = cast(list[Mapping[str, object]], equivalence_payload.get("surface_table", []))
+    for index, row in enumerate(rows):
+        visitor.on_equivalence_surface_row(index=index, row=row)
 
 
 @dataclass
@@ -213,18 +213,15 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
         kind = str(one_cell.get("kind", ""))
-        metadata = one_cell.get("metadata", {})
-        if not isinstance(metadata, Mapping):
-            return
+        metadata = cast(Mapping[str, object], one_cell.get("metadata", {}))
         resume_ref = ""
         for candidate_key in ("state_path", "import_state_path"):
             candidate = str(metadata.get(candidate_key, "")).strip()
             if candidate:
                 resume_ref = candidate
                 break
-        if not resume_ref:
-            return
-        self._materialize_kinds_by_resume_ref.setdefault(resume_ref, set()).add(kind)
+        if resume_ref:
+            self._materialize_kinds_by_resume_ref.setdefault(resume_ref, set()).add(kind)
 
     def on_trace_surface_representative(
         self,
@@ -240,22 +237,23 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         index: int,
         row: Mapping[str, object],
     ) -> None:
-        if str(row.get("classification")) != "non_drift":
-            return
         surface = str(row.get("surface", "")).strip()
         witness_id = row.get("witness_id")
-        if not surface or witness_id in (None, ""):
-            return
-        self._fungible_rows.append(
-            {
-                "opportunity_id": f"opp:fungible-substitution:{surface}",
-                "kind": "fungible_execution_path_substitution",
-                "confidence": 0.82,
-                "affected_surfaces": [surface],
-                "witness_ids": [str(witness_id)],
-                "reason": "2-cell witness links baseline/current representatives",
-            }
-        )
+        if (
+            str(row.get("classification")) == "non_drift"
+            and bool(surface)
+            and witness_id not in (None, "")
+        ):
+            self._fungible_rows.append(
+                {
+                    "opportunity_id": f"opp:fungible-substitution:{surface}",
+                    "kind": "fungible_execution_path_substitution",
+                    "confidence": 0.82,
+                    "affected_surfaces": [surface],
+                    "witness_ids": [str(witness_id)],
+                    "reason": "2-cell witness links baseline/current representatives",
+                }
+            )
 
     def build_rows(self) -> list[JSONObject]:
         rows: list[JSONObject] = []

@@ -18,7 +18,7 @@ class OneCellRecorded:
     state: AspfExecutionTraceState
     cell: AspfOneCell
     kind: str
-    surface: str | None
+    surface: str
     metadata_payload: JSONObject
 
 
@@ -50,7 +50,7 @@ class RunFinalized:
     equivalence_payload: Mapping[str, object]
     opportunities_payload: Mapping[str, object]
     delta_ledger_payload: Mapping[str, object]
-    state_payload: Mapping[str, object] | None
+    state_payload: Mapping[str, object]
 
 
 class AspfEventVisitor(Protocol):
@@ -72,9 +72,13 @@ class AspfInMemoryCompatibilityVisitor:
 
     def visit_one_cell_recorded(self, event: OneCellRecorded) -> None:
         event.state.one_cells.append(event.cell)
+        analysis_state_value = event.metadata_payload.get("analysis_state")
+        analysis_state = (
+            str(analysis_state_value) if analysis_state_value is not None else None
+        )
         raw_metadata: JSONObject = {
             "kind": event.kind,
-            "surface": event.surface or "",
+            "surface": event.surface,
             "metadata": event.metadata_payload,
         }
         event.state.one_cell_metadata.append(raw_metadata)
@@ -84,11 +88,7 @@ class AspfInMemoryCompatibilityVisitor:
             records=event.state.delta_records,
             event_kind=event.kind,
             phase=str(phase),
-            analysis_state=(
-                str(event.metadata_payload.get("analysis_state"))
-                if isinstance(event.metadata_payload.get("analysis_state"), str)
-                else None
-            ),
+            analysis_state=analysis_state,
             mutation_target=mutation_target,
             mutation_value={
                 "source": str(event.cell.source),
@@ -119,7 +119,7 @@ class AspfInMemoryCompatibilityVisitor:
         )
 
     def visit_run_finalized(self, event: RunFinalized) -> None:
-        return None
+        pass
 
     def on_finalize(self, event: RunFinalized) -> None:
-        return None
+        pass

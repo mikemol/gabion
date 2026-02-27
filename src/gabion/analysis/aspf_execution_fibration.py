@@ -241,7 +241,7 @@ def record_1cell(
             state=state,
             cell=cell,
             kind=str(kind),
-            surface=str(surface) if surface is not None else None,
+            surface=str(surface) if surface is not None else "",
             metadata_payload=cast(JSONObject, metadata_payload),
         ),
     )
@@ -994,96 +994,3 @@ def _find_witness(
 def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[JSONObject]:
     for path in paths:
         yield load_trace_payload(path)
-
-
-def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
-    by_resume_ref: dict[str, set[str]] = {}
-    for metadata in state.one_cell_metadata:
-        kind = str(metadata.get("kind", ""))
-        raw_payload = metadata.get("metadata", {})
-        payload = raw_payload if isinstance(raw_payload, Mapping) else {}
-        resume_ref = ""
-        for candidate_key in ("state_path", "import_state_path"):
-            candidate = str(payload.get(candidate_key, "")).strip()
-            if candidate:
-                resume_ref = candidate
-                break
-        if not resume_ref:
-            continue
-        by_resume_ref.setdefault(resume_ref, set()).add(kind)
-    opportunities: list[JSONObject] = []
-    for resume_ref in sort_once(
-        by_resume_ref,
-        source="aspf_execution_fibration._materialize_load_opportunities.resume_ref",
-    ):
-        kinds = by_resume_ref[resume_ref]
-        fused = int("resume_load" in kinds and "resume_write" in kinds)
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
-                "kind": ("materialize_load_observed", "materialize_load_fusion")[fused],
-                "confidence": (0.51, 0.74)[fused],
-                "affected_surfaces": [],
-                "witness_ids": [],
-                "reason": (
-                    "resume boundary observed state reference",
-                    "resume load and write boundaries share state reference",
-                )[fused],
-            }
-        )
-    return opportunities
-
-
-def _reusable_artifact_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
-    representative_to_surfaces: dict[str, list[str]] = {}
-    for surface in state.surface_representatives:
-        representative = state.surface_representatives[surface]
-        representative_to_surfaces.setdefault(representative, []).append(surface)
-    opportunities: list[JSONObject] = []
-    for representative in sort_once(
-        representative_to_surfaces,
-        source="aspf_execution_fibration._reusable_artifact_opportunities.representative",
-    ):
-        surfaces = tuple(
-            sort_once(
-                representative_to_surfaces[representative],
-                source="aspf_execution_fibration._reusable_artifact_opportunities.surfaces",
-            )
-        )
-        digest = hashlib.sha256(representative.encode("utf-8")).hexdigest()[:12]
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:reusable-boundary:{digest}",
-                "kind": "reusable_boundary_artifact",
-                "confidence": 0.67,
-                "affected_surfaces": list(surfaces),
-                "witness_ids": [],
-                "reason": "multiple semantic surfaces share deterministic representative",
-            }
-        )
-    return opportunities
-
-
-def _fungible_execution_opportunities(
-    equivalence_payload: Mapping[str, object],
-) -> list[JSONObject]:
-    table = equivalence_payload.get("surface_table", [])
-    opportunities: list[JSONObject] = []
-    for row in table:
-        if str(row.get("classification", "")) != "non_drift":
-            continue
-        witness_id = row.get("witness_id")
-        if not isinstance(witness_id, str) or not witness_id:
-            continue
-        surface = str(row.get("surface", "")).strip() or "unknown_surface"
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:fungible-substitution:{surface}",
-                "kind": "fungible_execution_path_substitution",
-                "confidence": 0.82,
-                "affected_surfaces": [surface],
-                "witness_ids": [witness_id],
-                "reason": "2-cell witness links baseline/current representatives",
-            }
-        )
-    return opportunities

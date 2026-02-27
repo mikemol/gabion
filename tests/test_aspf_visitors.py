@@ -79,3 +79,18 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     assert "materialize_load_fusion" in kinds
     assert "reusable_boundary_artifact" in kinds
     assert "fungible_execution_path_substitution" in kinds
+
+
+def test_null_visitor_noop_methods_are_callable() -> None:
+    visitor = NullAspfTraversalVisitor()
+    forest = Forest()
+    node = forest.add_node("Kind", ("n",), {"name": "n"})
+    alt = forest.add_alt("Alt", (node,))
+
+    visitor.on_forest_node(node=node)
+    visitor.on_forest_alt(alt=alt)
+    visitor.on_trace_one_cell(index=0, one_cell={})
+    visitor.on_trace_two_cell_witness(index=0, witness={})
+    visitor.on_trace_cofibration(index=0, cofibration={})
+    visitor.on_trace_surface_representative(surface="groups_by_path", representative="rep")
+    visitor.on_equivalence_surface_row(index=0, row={})
