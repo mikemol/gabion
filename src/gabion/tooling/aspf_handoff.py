@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Mapping
+from typing import Literal, Mapping
 
 from gabion.json_types import JSONObject
 
@@ -29,6 +29,75 @@ class PreparedHandoffStep:
     started_at_utc: str
 
 
+@dataclass(frozen=True)
+class PrepareStepEvent:
+    event: Literal["prepare_step"]
+    session_id: str
+    root: str
+    entry: JSONObject
+
+
+@dataclass(frozen=True)
+class RecordStepEvent:
+    event: Literal["record_step"]
+    session_id: str
+    sequence: int
+    status: str
+    exit_code: int | None
+    analysis_state: str | None
+    completed_at_utc: str | None
+
+
+HandoffEvent = PrepareStepEvent | RecordStepEvent
+
+
+@dataclass
+class HandoffProjectionState:
+    manifest: JSONObject
+
+    @classmethod
+    def empty(cls) -> HandoffProjectionState:
+        return cls(manifest={})
+
+
+class HandoffEventReducer:
+    @staticmethod
+    def apply(state: HandoffProjectionState, event: HandoffEvent) -> HandoffProjectionState:
+        manifest = {str(key): state.manifest[key] for key in state.manifest}
+        if isinstance(event, PrepareStepEvent):
+            normalized = _normalize_manifest_for_session(
+                manifest,
+                session_id=event.session_id,
+                root=Path(event.root).resolve(),
+            )
+            entries = _manifest_entries(normalized)
+            entries.append({str(key): event.entry[key] for key in event.entry})
+            normalized["entries"] = entries
+            return HandoffProjectionState(manifest=normalized)
+
+        if str(manifest.get("session_id")) != event.session_id:
+            return HandoffProjectionState(manifest=manifest)
+
+        entries = _manifest_entries(manifest)
+        found = False
+        normalized_entries: list[JSONObject] = []
+        for raw_entry in entries:
+            seq_value = raw_entry.get("sequence")
+            assert isinstance(seq_value, int)
+            normalized_entry = {str(key): raw_entry[key] for key in raw_entry}
+            if seq_value == event.sequence:
+                normalized_entry["status"] = event.status
+                normalized_entry["exit_code"] = event.exit_code
+                normalized_entry["analysis_state"] = event.analysis_state
+                normalized_entry["completed_at_utc"] = event.completed_at_utc
+                found = True
+            normalized_entries.append(normalized_entry)
+        if not found:
+            return HandoffProjectionState(manifest=manifest)
+        manifest["entries"] = normalized_entries
+        return HandoffProjectionState(manifest=manifest)
+
+
 # gabion:decision_protocol
 def prepare_step(
     *,
@@ -38,6 +107,7 @@ def prepare_step(
     command_profile: str,
     manifest_path: Path | None = None,
     state_root: Path | None = None,
+    write_manifest_projection: bool = True,
 ) -> PreparedHandoffStep:
     resolved_root = root.resolve()
     resolved_manifest_path = _resolve_under_root(
@@ -54,7 +124,7 @@ def prepare_step(
     resolved_session_id = (session_id or "").strip() or generated_session_id
 
     manifest = _normalize_manifest_for_session(
-        load_manifest(resolved_manifest_path),
+        load_manifest(resolved_manifest_path, cache_projection=False),
         session_id=resolved_session_id,
         root=resolved_root,
     )
@@ -91,18 +161,16 @@ def prepare_step(
     }
 
     journal_path = _journal_path_for_manifest(resolved_manifest_path)
-    _append_event(
-        journal_path,
-        {
-            "event": "prepare_step",
-            "session_id": resolved_session_id,
-            "root": str(resolved_root),
-            "entry": entry,
-        },
+    event = PrepareStepEvent(
+        event="prepare_step",
+        session_id=resolved_session_id,
+        root=str(resolved_root),
+        entry=entry,
     )
-    entries.append(entry)
-    manifest["entries"] = entries
-    _write_manifest(resolved_manifest_path, manifest)
+    _append_event(journal_path, _event_to_payload(event))
+    projected = HandoffEventReducer.apply(HandoffProjectionState(manifest=manifest), event).manifest
+    if write_manifest_projection:
+        _write_manifest(resolved_manifest_path, projected)
 
     return PreparedHandoffStep(
         sequence=sequence,
@@ -126,46 +194,30 @@ def record_step(
     status: str,
     exit_code: int | None,
     analysis_state: str | None,
+    write_manifest_projection: bool = True,
 ) -> bool:
-    manifest = load_manifest(manifest_path)
+    manifest = load_manifest(manifest_path, cache_projection=False)
     if str(manifest.get("session_id")) != session_id:
         return False
 
     entries = _manifest_entries(manifest)
     completed_at_utc = _now_utc()
-    found = False
-    normalized_entries: list[JSONObject] = []
-    for raw_entry in entries:
-        seq_value = raw_entry.get("sequence")
-        assert isinstance(seq_value, int)
-        normalized_entry = {str(key): raw_entry[key] for key in raw_entry}
-        if seq_value == sequence:
-            normalized_entry["status"] = str(status)
-            normalized_entry["exit_code"] = int(exit_code) if exit_code is not None else None
-            normalized_entry["analysis_state"] = (
-                str(analysis_state) if analysis_state is not None else None
-            )
-            normalized_entry["completed_at_utc"] = completed_at_utc
-            found = True
-        normalized_entries.append(normalized_entry)
-    if not found:
+    if not any(raw_entry.get("sequence") == sequence for raw_entry in entries):
         return False
-
-    manifest["entries"] = normalized_entries
     journal_path = _journal_path_for_manifest(manifest_path)
-    _append_event(
-        journal_path,
-        {
-            "event": "record_step",
-            "session_id": session_id,
-            "sequence": sequence,
-            "status": str(status),
-            "exit_code": int(exit_code) if exit_code is not None else None,
-            "analysis_state": str(analysis_state) if analysis_state is not None else None,
-            "completed_at_utc": completed_at_utc,
-        },
+    event = RecordStepEvent(
+        event="record_step",
+        session_id=session_id,
+        sequence=sequence,
+        status=str(status),
+        exit_code=int(exit_code) if exit_code is not None else None,
+        analysis_state=str(analysis_state) if analysis_state is not None else None,
+        completed_at_utc=completed_at_utc,
     )
-    _write_manifest(manifest_path, manifest)
+    _append_event(journal_path, _event_to_payload(event))
+    projected = HandoffEventReducer.apply(HandoffProjectionState(manifest=manifest), event).manifest
+    if write_manifest_projection:
+        _write_manifest(manifest_path, projected)
     return True
 
 
@@ -180,18 +232,25 @@ def aspf_cli_args(
 
 
 # gabion:decision_protocol gabion:boundary_normalization
-def load_manifest(path: Path) -> JSONObject:
+def load_manifest(path: Path, *, cache_projection: bool = True) -> JSONObject:
     if path.exists():
         payload = json.loads(path.read_text(encoding="utf-8"))
         assert isinstance(payload, Mapping)
-        return {str(key): payload[key] for key in payload}
+        return _project_manifest_payload(payload)
     journal_path = _journal_path_for_manifest(path)
     if not journal_path.exists():
         return {}
     payload = _fold_journal(journal_path)
-    if payload:
+    if payload and cache_projection:
         _write_manifest(path, payload)
     return payload
+
+
+def _project_manifest_payload(payload: Mapping[str, object]) -> JSONObject:
+    state = HandoffProjectionState.empty()
+    for event in _events_from_manifest_payload(payload):
+        state = HandoffEventReducer.apply(state, event)
+    return state.manifest
 
 
 # gabion:decision_protocol gabion:boundary_normalization
@@ -223,7 +282,7 @@ def _append_event(path: Path, payload: Mapping[str, object]) -> None:
 
 
 def _fold_journal(path: Path) -> JSONObject:
-    manifest: JSONObject = {}
+    state = HandoffProjectionState.empty()
     with path.open("r", encoding="utf-8") as handle:
         for raw_line in handle:
             line = raw_line.strip()
@@ -231,39 +290,97 @@ def _fold_journal(path: Path) -> JSONObject:
                 continue
             payload = json.loads(line)
             assert isinstance(payload, Mapping)
-            event_name = str(payload.get("event", "")).strip()
-            if event_name == "prepare_step":
-                raw_entry = payload.get("entry")
-                assert isinstance(raw_entry, Mapping)
-                session_id = str(payload.get("session_id", "")).strip()
-                root = Path(str(payload.get("root", "")).strip() or ".").resolve()
-                manifest = _normalize_manifest_for_session(
-                    manifest,
-                    session_id=session_id,
-                    root=root,
-                )
-                entries = _manifest_entries(manifest)
-                entries.append({str(key): raw_entry[key] for key in raw_entry})
-                manifest["entries"] = entries
+            event = _event_from_payload(payload)
+            if event is None:
                 continue
-            if event_name == "record_step":
-                if str(manifest.get("session_id")) != str(payload.get("session_id", "")):
-                    continue
-                target_sequence = int(payload["sequence"])
-                entries = _manifest_entries(manifest)
-                normalized_entries: list[JSONObject] = []
-                for raw_entry in entries:
-                    seq_value = raw_entry.get("sequence")
-                    assert isinstance(seq_value, int)
-                    normalized_entry = {str(key): raw_entry[key] for key in raw_entry}
-                    if seq_value == target_sequence:
-                        normalized_entry["status"] = str(payload["status"])
-                        normalized_entry["exit_code"] = payload.get("exit_code")
-                        normalized_entry["analysis_state"] = payload.get("analysis_state")
-                        normalized_entry["completed_at_utc"] = payload.get("completed_at_utc")
-                    normalized_entries.append(normalized_entry)
-                manifest["entries"] = normalized_entries
-    return manifest
+            state = HandoffEventReducer.apply(state, event)
+    return state.manifest
+
+
+def _events_from_manifest_payload(payload: Mapping[str, object]) -> list[HandoffEvent]:
+    manifest = {str(key): payload[key] for key in payload}
+    root = Path(str(manifest.get("root", "."))).resolve()
+    session_id = str(manifest.get("session_id", "")).strip()
+    if not session_id:
+        return []
+    events: list[HandoffEvent] = []
+    for raw_entry in _manifest_entries(manifest):
+        events.append(
+            PrepareStepEvent(
+                event="prepare_step",
+                session_id=session_id,
+                root=str(root),
+                entry={str(key): raw_entry[key] for key in raw_entry},
+            )
+        )
+        status = str(raw_entry.get("status", "")).strip()
+        if status == "started":
+            continue
+        sequence = raw_entry.get("sequence")
+        assert isinstance(sequence, int)
+        events.append(
+            RecordStepEvent(
+                event="record_step",
+                session_id=session_id,
+                sequence=sequence,
+                status=status,
+                exit_code=_optional_int(raw_entry.get("exit_code")),
+                analysis_state=_optional_str(raw_entry.get("analysis_state")),
+                completed_at_utc=_optional_str(raw_entry.get("completed_at_utc")),
+            )
+        )
+    return events
+
+
+def _event_from_payload(payload: Mapping[str, object]) -> HandoffEvent | None:
+    event_name = str(payload.get("event", "")).strip()
+    if event_name == "prepare_step":
+        raw_entry = payload.get("entry")
+        assert isinstance(raw_entry, Mapping)
+        return PrepareStepEvent(
+            event="prepare_step",
+            session_id=str(payload.get("session_id", "")).strip(),
+            root=str(payload.get("root", "")).strip() or ".",
+            entry={str(key): raw_entry[key] for key in raw_entry},
+        )
+    if event_name == "record_step":
+        return RecordStepEvent(
+            event="record_step",
+            session_id=str(payload.get("session_id", "")).strip(),
+            sequence=int(payload["sequence"]),
+            status=str(payload["status"]),
+            exit_code=_optional_int(payload.get("exit_code")),
+            analysis_state=_optional_str(payload.get("analysis_state")),
+            completed_at_utc=_optional_str(payload.get("completed_at_utc")),
+        )
+    return None
+
+
+def _event_to_payload(event: HandoffEvent) -> JSONObject:
+    if isinstance(event, PrepareStepEvent):
+        return {
+            "event": event.event,
+            "session_id": event.session_id,
+            "root": event.root,
+            "entry": event.entry,
+        }
+    return {
+        "event": event.event,
+        "session_id": event.session_id,
+        "sequence": event.sequence,
+        "status": event.status,
+        "exit_code": event.exit_code,
+        "analysis_state": event.analysis_state,
+        "completed_at_utc": event.completed_at_utc,
+    }
+
+
+def _optional_int(value: object) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _optional_str(value: object) -> str | None:
+    return str(value) if value is not None else None
 
 
 def _normalize_manifest_for_session(
