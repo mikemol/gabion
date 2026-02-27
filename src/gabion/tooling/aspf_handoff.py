@@ -199,6 +199,7 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# gabion:decision_protocol gabion:boundary_normalization
 def _resolve_under_root(*, root: Path, value: Path) -> Path:
     if value.is_absolute():
         return value
