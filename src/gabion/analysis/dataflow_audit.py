@@ -508,17 +508,15 @@ class SymbolTable:
                             return mapped
                     else:
                         return mapped
+                resolved = f"{module}.{name}".strip(".")
+                if not module:
+                    return resolved
                 if self.external_filter:
-                    if module:
-                        root = module.split(".")[0]
-                        if root in self.internal_roots:
-                            return f"{module}.{name}"
-                    else:
-                        return name
-                else:
-                    if module:
-                        return f"{module}.{name}"
-                    return name
+                    root = module.split(".")[0]
+                    if root in self.internal_roots:
+                        return resolved
+                    continue
+                return resolved
         return None
 
 
@@ -1299,13 +1297,7 @@ def _topologically_order_report_projection_specs(
         ordered_ids = tuple(TopologicalSorter(predecessor_graph).static_order())
     except CycleError as exc:
         cycle = exc.args[1] if len(exc.args) > 1 else ()
-        cycle_entries: tuple[object, ...]
-        if type(cycle) is tuple:
-            cycle_entries = cast(tuple[object, ...], cycle)
-        elif type(cycle) is list:
-            cycle_entries = tuple(cast(list[object], cycle))
-        else:
-            cycle_entries = ()
+        cycle_entries = tuple(sequence_or_none(cycle) or ())
         unresolved = [
             str(item)
             for item in cycle_entries
@@ -1468,8 +1460,7 @@ def _invariant_term(expr: ast.AST, params: set[str]):
     expr_type = type(expr)
     if expr_type is ast.Name:
         name_expr = cast(ast.Name, expr)
-        if name_expr.id in params:
-            return name_expr.id
+        return next(iter(params.intersection({name_expr.id})), None)
     if expr_type is ast.Call:
         call_expr = cast(ast.Call, expr)
         if type(call_expr.func) is ast.Name:
@@ -1477,9 +1468,8 @@ def _invariant_term(expr: ast.AST, params: set[str]):
             if func_name.id == "len" and len(call_expr.args) == 1:
                 arg = call_expr.args[0]
                 if type(arg) is ast.Name:
-                    arg_name = cast(ast.Name, arg)
-                    if arg_name.id in params:
-                        return f"{arg_name.id}.length"
+                    arg_id = cast(ast.Name, arg).id
+                    return next((f"{entry}.length" for entry in params.intersection({arg_id})), None)
     return None
 
 
@@ -4389,14 +4379,13 @@ def verify_rewrite_plan(
 
     requested_predicates: list[JSONObject] = []
     verification = mapping_or_empty(plan.get("verification"))
-    predicates = sequence_or_none(verification.get("predicates"))
-    if predicates is not None:
-        for predicate in predicates:
-            mapped_predicate = mapping_or_none(predicate)
-            if mapped_predicate is not None and mapped_predicate.get("kind"):
-                requested_predicates.append(
-                    {str(key): mapped_predicate[key] for key in mapped_predicate}
-                )
+    predicates = sequence_or_none(verification.get("predicates")) or ()
+    requested_predicates = [
+        {str(key): mapped_predicate[key] for key in mapped_predicate}
+        for predicate in predicates
+        for mapped_predicate in (mapping_or_none(predicate),)
+        if mapped_predicate is not None and mapped_predicate.get("kind")
+    ]
     if not requested_predicates:
         schema_lookup = rewrite_plan_schema(rewrite_kind)
         defaults = (
@@ -4606,14 +4595,16 @@ def _find_handling_try(
 ):
     check_deadline()
     current = parents.get(node)
+    try_ancestors: list[ast.Try] = []
     while current is not None:
         check_deadline()
         if type(current) is ast.Try:
-            try_node = cast(ast.Try, current)
-            if _node_in_try_body(node, try_node):
-                return try_node
+            try_ancestors.append(cast(ast.Try, current))
         current = parents.get(current)
-    return None
+    return next(
+        (try_node for try_node in try_ancestors if _node_in_try_body(node, try_node)),
+        None,
+    )
 
 
 def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
@@ -4700,8 +4691,6 @@ def _unary_numeric_outcome(
     env: dict[str, JSONValue],
 ) -> _ValueEvalOutcome:
     op_type = type(expr.op)
-    if op_type not in {ast.USub, ast.UAdd}:
-        return _unknown_value_outcome()
     operand = _eval_value_expr(expr.operand, env)
     if operand.is_unknown():
         return _unknown_value_outcome()
@@ -4724,13 +4713,14 @@ def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutc
             return _known_value_outcome(env[name_expr.id])
         return _unknown_value_outcome()
     if expr_type is ast.UnaryOp:
-        return _unary_numeric_outcome(cast(ast.UnaryOp, expr), env)
+        unary_expr = cast(ast.UnaryOp, expr)
+        if type(unary_expr.op) is ast.USub or type(unary_expr.op) is ast.UAdd:
+            return _unary_numeric_outcome(unary_expr, env)
+        return _unknown_value_outcome()
     return _unknown_value_outcome()
 
 
 def _eval_bool_not_expr(expr: ast.UnaryOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    if type(expr.op) is not ast.Not:
-        return _unknown_bool_outcome()
     inner = _eval_bool_expr(expr.operand, env)
     if inner.is_unknown():
         return _unknown_bool_outcome()
@@ -4771,8 +4761,6 @@ def _eval_bool_compare_expr(
     expr: ast.Compare,
     env: dict[str, JSONValue],
 ) -> _BoolEvalOutcome:
-    if len(expr.ops) != 1 or len(expr.comparators) != 1:
-        return _unknown_bool_outcome()
     left_outcome = _eval_value_expr(expr.left, env)
     right_outcome = _eval_value_expr(expr.comparators[0], env)
     if left_outcome.is_unknown() or right_outcome.is_unknown():
@@ -4800,9 +4788,7 @@ def _eval_bool_boolop_expr(expr: ast.BoolOp, env: dict[str, JSONValue]) -> _Bool
     op_type = type(expr.op)
     if op_type is ast.And:
         return _eval_bool_and_values(expr.values, env)
-    if op_type is ast.Or:
-        return _eval_bool_or_values(expr.values, env)
-    return _unknown_bool_outcome()
+    return _eval_bool_or_values(expr.values, env)
 
 
 def _eval_bool_name_expr(expr: ast.Name, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
@@ -4820,11 +4806,20 @@ def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcom
     if expr_type is ast.Name:
         return _eval_bool_name_expr(cast(ast.Name, expr), env)
     if expr_type is ast.UnaryOp:
-        return _eval_bool_not_expr(cast(ast.UnaryOp, expr), env)
+        unary_expr = cast(ast.UnaryOp, expr)
+        if type(unary_expr.op) is ast.Not:
+            return _eval_bool_not_expr(unary_expr, env)
+        return _unknown_bool_outcome()
     if expr_type is ast.BoolOp:
-        return _eval_bool_boolop_expr(cast(ast.BoolOp, expr), env)
+        boolop_expr = cast(ast.BoolOp, expr)
+        if type(boolop_expr.op) is ast.And or type(boolop_expr.op) is ast.Or:
+            return _eval_bool_boolop_expr(boolop_expr, env)
+        return _unknown_bool_outcome()
     if expr_type is ast.Compare:
-        return _eval_bool_compare_expr(cast(ast.Compare, expr), env)
+        compare_expr = cast(ast.Compare, expr)
+        if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
+            return _unknown_bool_outcome()
+        return _eval_bool_compare_expr(compare_expr, env)
     return _unknown_bool_outcome()
 
 
@@ -4868,12 +4863,6 @@ def _is_reachability_false(reachability: _EvalDecision) -> bool:
 
 def _is_reachability_true(reachability: _EvalDecision) -> bool:
     return reachability is _EvalDecision.TRUE
-
-
-def _is_reachability_unknown(reachability: _EvalDecision) -> bool:
-    return reachability is _EvalDecision.UNKNOWN
-
-
 
 
 def _collect_handledness_witnesses(
@@ -5376,7 +5365,7 @@ def _collect_never_invariants(
                     elif _is_reachability_true(reachability):
                         status = "VIOLATION"
                         environment_ref = env
-                    elif _is_reachability_unknown(reachability):
+                    else:
                         names: set[str] = set()
                         current = parents.get(call_node)
                         while current is not None:
@@ -5489,6 +5478,12 @@ def _target_names(target: ast.AST) -> set[str]:
             if type(name_node.ctx) is ast.Store:
                 names.add(name_node.id)
     return names
+
+
+def _simple_store_name(target: ast.AST) -> OptionalString:
+    if type(target) is ast.Name:
+        return cast(ast.Name, target).id
+    return None
 
 
 class _DeadlineFunctionCollector(ast.NodeVisitor):
@@ -6084,8 +6079,6 @@ def _collect_call_resolution_obligations_from_forest(
         suite_kind = suite_node.kind if suite_node is not None else ""
         if suite_kind != "SuiteSite":
             continue
-        if suite_node is None:
-            never("call resolution obligation suite node missing", suite_id=str(suite_id))
         node_suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
         if node_suite_kind != "call":
             continue
@@ -11031,17 +11024,18 @@ def _collect_module_exports(
             assign_stmt = cast(ast.Assign, stmt)
             for target in assign_stmt.targets:
                 check_deadline()
-                if type(target) is ast.Name:
-                    target_name = cast(ast.Name, target).id
-                    if not target_name.startswith("_"):
-                        local_defs.add(target_name)
+                local_defs.update(
+                    name
+                    for name in _target_names(target)
+                    if not name.startswith("_")
+                )
         elif stmt_type is ast.AnnAssign:
             ann_assign = cast(ast.AnnAssign, stmt)
-            target = ann_assign.target
-            if type(target) is ast.Name:
-                target_name = cast(ast.Name, target).id
-                if not target_name.startswith("_"):
-                    local_defs.add(target_name)
+            local_defs.update(
+                name
+                for name in _target_names(ann_assign.target)
+                if not name.startswith("_")
+            )
 
     if has_explicit_all:
         export_names = set(explicit_all)
@@ -12830,19 +12824,16 @@ def _iter_config_fields(
             stmt_type = type(stmt)
             if stmt_type is ast.AnnAssign:
                 ann_stmt = cast(ast.AnnAssign, stmt)
-                if type(ann_stmt.target) is not ast.Name:
-                    continue
-                name = cast(ast.Name, ann_stmt.target).id
-                if is_config or name.endswith("_fn"):
+                name = _simple_store_name(ann_stmt.target)
+                if name is not None and (is_config or name.endswith("_fn")):
                     fields.add(name)
             elif stmt_type is ast.Assign:
                 assign_stmt = cast(ast.Assign, stmt)
                 for target in assign_stmt.targets:
                     check_deadline()
-                    if type(target) is ast.Name:
-                        target_name = cast(ast.Name, target).id
-                        if is_config or target_name.endswith("_fn"):
-                            fields.add(target_name)
+                    name = _simple_store_name(target)
+                    if name is not None and (is_config or name.endswith("_fn")):
+                        fields.add(name)
         if fields:
             bundles[class_node.name] = fields
     return bundles
@@ -12997,14 +12988,16 @@ def _dataclass_registry_for_tree(
             stmt_type = type(stmt)
             if stmt_type is ast.AnnAssign:
                 ann_stmt = cast(ast.AnnAssign, stmt)
-                if type(ann_stmt.target) is ast.Name:
-                    fields.append(cast(ast.Name, ann_stmt.target).id)
+                name = _simple_store_name(ann_stmt.target)
+                if name is not None:
+                    fields.append(name)
             elif stmt_type is ast.Assign:
                 assign_stmt = cast(ast.Assign, stmt)
                 for target in assign_stmt.targets:
                     check_deadline()
-                    if type(target) is ast.Name:
-                        fields.append(cast(ast.Name, target).id)
+                    name = _simple_store_name(target)
+                    if name is not None:
+                        fields.append(name)
         if not fields:
             continue
         if module:
@@ -14056,11 +14049,10 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("# No lemma suggestions available.")
         lines.append("")
         return "\n".join(lines)
-    suggested_entries: list[Mapping[str, JSONValue]] = []
-    for raw_entry in suggested:
-        mapped_entry = mapping_or_none(raw_entry)
-        if mapped_entry is not None:
-            suggested_entries.append(mapped_entry)
+    suggested_entries = [
+        mapping_or_empty(raw_entry)
+        for raw_entry in suggested
+    ]
     for entry in sort_once(
         suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
@@ -14660,12 +14652,11 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
             check_deadline()
             if type(module) is str:
                 mapping: dict[str, str] = {}
-                mapping_payload = mapping_or_none(raw_mapping)
-                if mapping_payload is not None:
-                    for name, mapped in mapping_payload.items():
-                        check_deadline()
-                        if type(name) is str and type(mapped) is str:
-                            mapping[name] = mapped
+                mapping_payload = mapping_or_empty(raw_mapping)
+                for name, mapped in mapping_payload.items():
+                    check_deadline()
+                    if type(name) is str and type(mapped) is str:
+                        mapping[name] = mapped
                 table.module_export_map[module] = mapping
     return table
 
