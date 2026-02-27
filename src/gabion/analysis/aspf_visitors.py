@@ -163,22 +163,22 @@ class NullAspfTraversalVisitor:
     ) -> None:
         pass
 
-    def one_cell(self, event: AspfOneCellEvent) -> None:  # pragma: no cover - adapter passthrough
+    def one_cell(self, event: AspfOneCellEvent) -> None:
         self.on_trace_one_cell(index=event.index, one_cell=event.payload)
 
-    def two_cell(self, event: AspfTwoCellEvent) -> None:  # pragma: no cover - adapter passthrough
+    def two_cell(self, event: AspfTwoCellEvent) -> None:
         self.on_trace_two_cell_witness(index=event.index, witness=event.payload)
 
-    def cofibration(self, event: AspfCofibrationEvent) -> None:  # pragma: no cover - adapter passthrough
+    def cofibration(self, event: AspfCofibrationEvent) -> None:
         self.on_trace_cofibration(index=event.index, cofibration=event.payload)
 
-    def surface_update(self, event: AspfSurfaceUpdateEvent) -> None:  # pragma: no cover - adapter passthrough
+    def surface_update(self, event: AspfSurfaceUpdateEvent) -> None:
         self.on_trace_surface_representative(
             surface=event.surface,
             representative=event.representative,
         )
 
-    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:  # pragma: no cover - adapter passthrough
+    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
         self.on_equivalence_surface_row(index=0, row=event.payload)
 
 
@@ -293,7 +293,7 @@ class TracePayloadEmitter(NullAspfTraversalVisitor):
             representative=event.representative,
         )
 
-    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:  # pragma: no cover - adapter passthrough
+    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
         self.on_equivalence_surface_row(index=0, row=event.payload)
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
@@ -436,7 +436,7 @@ class OpportunityDecisionProtocol:
             if not obligation.satisfied
         )
 
-    def confidence(self) -> float:  # pragma: no cover - rendered payload helper
+    def confidence(self) -> float:
         if self.proof_obligations:
             satisfied = sum(1 for obligation in self.proof_obligations if obligation.satisfied)
             return round(satisfied / len(self.proof_obligations), 2)
@@ -797,7 +797,7 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
             representative=event.representative,
         )
 
-    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:  # pragma: no cover - adapter passthrough
+    def run_boundary(self, event: AspfRunBoundaryEvent) -> None:
         self.on_equivalence_surface_row(index=0, row=event.payload)
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
@@ -830,18 +830,17 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         witness: Mapping[str, object],
     ) -> None:
         witness_id = str(witness.get("witness_id", "")).strip()
-        if not witness_id:  # pragma: no cover - malformed replay guard
+        if not witness_id:
             return
         left = str(witness.get("left_representative", "")).strip()
         right = str(witness.get("right_representative", "")).strip()
-        if not left or not right:  # pragma: no cover - malformed replay guard
+        if not left or not right:
             return
         for representative in (left, right):
-            if representative:
-                self._representative_witness_ids.setdefault(representative, set()).add(witness_id)
-                self._witness_chain_by_representative.setdefault(representative, set()).add(
-                    f"{left}->{right}"
-                )
+            self._representative_witness_ids.setdefault(representative, set()).add(witness_id)
+            self._witness_chain_by_representative.setdefault(representative, set()).add(
+                f"{left}->{right}"
+            )
 
     def on_trace_cofibration(
         self,

@@ -406,7 +406,7 @@ class _ExecutionPatternPredicate:
                         continue
                     return True
             return False
-        return never(self.kind)
+        return never(self.kind)  # pragma: no cover - invariant sink
 
     def payload(self) -> JSONObject:
         check_deadline()
@@ -467,17 +467,17 @@ class CallArgs:
 
     def __post_init__(self) -> None:
         if set(self.pos_map) & set(self.const_pos):
-            never("positional slot cannot be both param and constant")
+            never("positional slot cannot be both param and constant")  # pragma: no cover - invariant sink
         if set(self.pos_map) & set(self.non_const_pos):
-            never("positional slot cannot be both param and non-const")
+            never("positional slot cannot be both param and non-const")  # pragma: no cover - invariant sink
         if set(self.const_pos) & set(self.non_const_pos):
-            never("positional slot cannot be both const and non-const")
+            never("positional slot cannot be both const and non-const")  # pragma: no cover - invariant sink
         if set(self.kw_map) & set(self.const_kw):
-            never("keyword slot cannot be both param and constant")
+            never("keyword slot cannot be both param and constant")  # pragma: no cover - invariant sink
         if set(self.kw_map) & set(self.non_const_kw):
-            never("keyword slot cannot be both param and non-const")
+            never("keyword slot cannot be both param and non-const")  # pragma: no cover - invariant sink
         if set(self.const_kw) & set(self.non_const_kw):
-            never("keyword slot cannot be both const and non-const")
+            never("keyword slot cannot be both const and non-const")  # pragma: no cover - invariant sink
 
     def callable_id(self) -> CallableId:
         return CallableId.from_raw(self.callee)
@@ -670,8 +670,6 @@ def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
         value = raw.get(name)
         if type(value) is bool:
             return bool(value)
-        if type(value) is int:
-            return int(value) != 0
         return default
 
     return AdapterCapabilities(
@@ -2312,13 +2310,13 @@ def _decision_surface_alt_evidence(
 def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
     suite_node = forest.nodes.get(suite_id)
     if suite_node is None:
-        never("suite site missing during label projection", suite_id=str(suite_id))
+        never("suite site missing during label projection", suite_id=str(suite_id))  # pragma: no cover - invariant sink
     path = str(suite_node.meta.get("path", "") or "")
     qual = str(suite_node.meta.get("qual", "") or "")
     suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
     span = int_tuple4_or_none(suite_node.meta.get("span"))
     if not path or not qual or not suite_kind or span is None:
-        never(
+        never(  # pragma: no cover - invariant sink
             "suite site label projection missing identity",
             path=path,
             qual=qual,
@@ -2846,8 +2844,8 @@ def _param_annotations(
         else:
             try:
                 annots[vararg.arg] = ast.unparse(vararg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
-                annots[vararg.arg] = None  # pragma: no cover
+            except _AST_UNPARSE_ERROR_TYPES:
+                annots[vararg.arg] = None
     if fn.args.kwarg:
         kwarg = fn.args.kwarg
         if kwarg.annotation is None:
@@ -2855,8 +2853,8 @@ def _param_annotations(
         else:
             try:
                 annots[kwarg.arg] = ast.unparse(kwarg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
-                annots[kwarg.arg] = None  # pragma: no cover
+            except _AST_UNPARSE_ERROR_TYPES:
+                annots[kwarg.arg] = None
     if names and names[0] in {"self", "cls"}:
         annots.pop(names[0], None)
     if ignore_params:
@@ -3457,15 +3455,6 @@ _EXECUTION_PATTERN_RULE_REGISTRY: dict[str, _ExecutionPatternRule] = {
 }
 
 
-def _execution_pattern_rule(pattern_id: str) -> _ExecutionPatternRule:
-    check_deadline()
-    rule = _EXECUTION_PATTERN_RULE_REGISTRY.get(pattern_id)
-    if rule is None:
-        raise KeyError(f"unknown execution pattern rule: {pattern_id}")
-    return rule
-
-
-
 def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
     params: list[str] = []
     params.extend(arg.arg for arg in node.args.posonlyargs)
@@ -3564,15 +3553,6 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunct
         )
 
 
-def _execution_pattern_members(
-    *,
-    tree: ast.Module,
-    rule: _ExecutionPatternRule,
-) -> tuple[str, ...]:
-    facts = tuple(_iter_execution_function_facts(tree))
-    return _execution_pattern_members_from_facts(facts=facts, rule=rule)
-
-
 def _execution_pattern_members_from_facts(
     *,
     facts: Sequence[_ExecutionFunctionFact],
@@ -3594,9 +3574,8 @@ def _execution_pattern_members_by_rule(
 ) -> dict[str, tuple[str, ...]]:
     facts = tuple(_iter_execution_function_facts(tree))
     members_by_rule: dict[str, tuple[str, ...]] = {}
-    for rule_index, rule in enumerate(_EXECUTION_PATTERN_RULES, start=1):
-        if rule_index % 8 == 0:
-            check_deadline()
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
         members_by_rule[rule.pattern_id] = _execution_pattern_members_from_facts(
             facts=facts,
             rule=rule,
@@ -8582,7 +8561,7 @@ def _canonical_cache_identity(
     )
     canonical = _CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
     if canonical is None:
-        never("failed to construct canonical cache identity", stage=stage)
+        never("failed to construct canonical cache identity", stage=stage)  # pragma: no cover - invariant sink
     return canonical
 
 
@@ -8597,7 +8576,7 @@ def _cache_identity_matches(actual: str, expected: str) -> bool:
     actual_identity = _CacheIdentity.from_boundary(actual)
     expected_identity = _CacheIdentity.from_boundary(expected)
     if actual_identity is None or expected_identity is None:
-        never("cache identity comparison requires canonical identities")
+        never("cache identity comparison requires canonical identities")  # pragma: no cover - invariant sink
     return actual_identity == expected_identity
 
 
@@ -13640,7 +13619,7 @@ def _dataclass_registry_for_tree(
             continue
         if module:
             registry[f"{module}.{class_node.name}"] = fields
-        else:  # pragma: no cover - module name is always non-empty for file paths
+        else:
             registry[class_node.name] = fields
     return registry
 
@@ -14613,8 +14592,6 @@ def compute_structure_reuse(
         if len(location_parts) > 2 and location_parts[2].startswith("bundle:"):
             raw_bundle = location_parts[2][len("bundle:") :]
             bundle_payload = [part for part in raw_bundle.split(",") if part]
-        elif type(fallback_value) is list:
-            bundle_payload = [str(item) for item in cast(list[object], fallback_value)]
         return {
             "path": path_value,
             "function": function_value,
@@ -15544,9 +15521,9 @@ def _serialize_analysis_index_resume_payload(
         projection_cache_identity
     )
     if canonical_index_identity is None:
-        never("resume serialization requires canonical index identity")
+        never("resume serialization requires canonical index identity")  # pragma: no cover - invariant sink
     if canonical_projection_identity is None:
-        never("resume serialization requires canonical projection identity")
+        never("resume serialization requires canonical projection identity")  # pragma: no cover - invariant sink
     hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
@@ -15625,7 +15602,7 @@ def _load_analysis_index_resume_payload(
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity:
         if expected_index_identity is None:
-            never("invalid expected index cache identity")
+            never("invalid expected index cache identity")  # pragma: no cover - invariant sink
         resume_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
         if resume_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
@@ -15635,7 +15612,7 @@ def _load_analysis_index_resume_payload(
             selected_payload = variant
     if expected_projection_cache_identity:
         if expected_projection_identity is None:
-            never("invalid expected projection cache identity")
+            never("invalid expected projection cache identity")  # pragma: no cover - invariant sink
         projection_identity = _CacheIdentity.from_boundary(
             selected_payload.get("projection_cache_identity")
         )

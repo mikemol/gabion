@@ -35,7 +35,7 @@ def resolve_adapter(
     if language_id is not None:
         adapter = adapter_for_language(language_id)
         if adapter is None:
-            never("unknown language adapter", language_id=language_id)
+            never("unknown language adapter", language_id=language_id)  # pragma: no cover - invariant sink
         return adapter
     for path in paths:
         suffix = path.suffix.lower()

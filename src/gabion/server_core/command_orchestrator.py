@@ -131,9 +131,9 @@ def _normalize_dataflow_format_controls(
         str(raw_language).strip().lower() if raw_language is not None else "python"
     )
     if not normalized_language:
-        never("empty dataflow language")
+        never("empty dataflow language")  # pragma: no cover - invariant sink
     if normalized_language != "python":
-        never(
+        never(  # pragma: no cover - invariant sink
             "unsupported dataflow language",
             language=normalized_language,
             supported_languages=["python"],
@@ -145,7 +145,7 @@ def _normalize_dataflow_format_controls(
         else "default"
     )
     if not normalized_ingest_profile:
-        never("empty dataflow ingest profile", language=normalized_language)
+        never("empty dataflow ingest profile", language=normalized_language)  # pragma: no cover - invariant sink
     if normalized_ingest_profile not in profile_matrix:
         never(
             "unsupported dataflow ingest profile",
@@ -1582,7 +1582,7 @@ def _notification_runtime(send_notification: object) -> _NotificationRuntime:
         "invalid send_notification callback",
         callback_type=type(send_notification).__name__,
     )
-    return _NotificationRuntime(  # pragma: no cover - never() raises
+    return _NotificationRuntime(
         send_notification_fn=lambda _method, _params: None,
         emit_phase_progress_events=False,
     )

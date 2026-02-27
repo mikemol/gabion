@@ -15,7 +15,7 @@ class CallableId:
     def from_raw(cls, value: str) -> "CallableId":
         normalized = value.strip()
         if not normalized:
-            never("callable id must be non-empty")
+            never("callable id must be non-empty")  # pragma: no cover - invariant sink
         return cls(value=normalized)
 
 
@@ -27,7 +27,7 @@ class ParameterId:
     def from_raw(cls, value: str) -> "ParameterId":
         normalized = value.strip()
         if not normalized:
-            never("parameter id must be non-empty")
+            never("parameter id must be non-empty")  # pragma: no cover - invariant sink
         return cls(value=normalized)
 
 
@@ -42,11 +42,11 @@ class SpanIdentity:
     def from_tuple(cls, value: tuple[int, int, int, int]) -> "SpanIdentity":
         start_line, start_col, end_line, end_col = value
         if min(value) < 0:
-            never("span identity cannot contain negative offsets", span=value)
+            never("span identity cannot contain negative offsets", span=value)  # pragma: no cover - invariant sink
         if end_line < start_line:
-            never("span identity must be monotonic", span=value)
+            never("span identity must be monotonic", span=value)  # pragma: no cover - invariant sink
         if end_line == start_line and end_col < start_col:
-            never("span identity columns must be monotonic", span=value)
+            never("span identity columns must be monotonic", span=value)  # pragma: no cover - invariant sink
         return cls(start_line=start_line, start_col=start_col, end_line=end_line, end_col=end_col)
 
 
@@ -75,12 +75,12 @@ class AnalysisPassPrerequisites:
 
     def validate(self, *, pass_id: str) -> None:
         if not self.bundle_inference:
-            never("bundle inference prerequisite missing", pass_id=pass_id)
+            never("bundle inference prerequisite missing", pass_id=pass_id)  # pragma: no cover - invariant sink
         if not self.call_propagation:
-            never("call propagation prerequisite missing", pass_id=pass_id)
+            never("call propagation prerequisite missing", pass_id=pass_id)  # pragma: no cover - invariant sink
         if not self.decision_surfaces:
-            never("decision surfaces prerequisite missing", pass_id=pass_id)
+            never("decision surfaces prerequisite missing", pass_id=pass_id)  # pragma: no cover - invariant sink
         if not self.type_flow:
-            never("type-flow prerequisite missing", pass_id=pass_id)
+            never("type-flow prerequisite missing", pass_id=pass_id)  # pragma: no cover - invariant sink
         if not self.lint_evidence:
-            never("lint evidence prerequisite missing", pass_id=pass_id)
+            never("lint evidence prerequisite missing", pass_id=pass_id)  # pragma: no cover - invariant sink

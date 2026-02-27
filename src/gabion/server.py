@@ -2433,14 +2433,14 @@ def _normalize_dataflow_boundary_controls(
         if raw_value is None:
             continue
         if not isinstance(raw_value, str):
-            never(
+            never(  # pragma: no cover - invariant sink
                 "invalid dataflow boundary control type",
                 control=key,
                 value_type=type(raw_value).__name__,
             )
         normalized_value = raw_value.strip().lower()
         if not normalized_value:
-            never(
+            never(  # pragma: no cover - invariant sink
                 "empty dataflow boundary control",
                 control=key,
             )
@@ -2916,9 +2916,9 @@ def _diagnostics_for_path(
                 ):
                     check_deadline()
                     span = param_spans.get(name)
-                    if span is None:  # pragma: no cover - spans are derived from parsed params
-                        start = Position(line=0, character=0)  # pragma: no cover
-                        end = Position(line=0, character=1)  # pragma: no cover
+                    if span is None:
+                        start = Position(line=0, character=0)
+                        end = Position(line=0, character=1)
                     else:
                         start_line, start_col, end_line, end_col = span
                         start = Position(line=start_line, character=start_col)
@@ -3453,7 +3453,7 @@ def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     if match is None:
         return None
     path = str(match.group("path") or "").strip()
-    if not path:  # pragma: no cover - regex requires a non-empty path token
+    if not path:
         return None
     start_group = match.group("start")
     end_group = match.group("end")
@@ -3749,7 +3749,7 @@ def _execute_lsp_parity_gate_total(
                         error = f"parity mismatch for {command}"
                 except NeverThrown as exc:
                     error = str(exc) or f"invariant violation while probing {command}"
-                except Exception as exc:  # pragma: no cover - defensive conversion
+                except Exception as exc:
                     error = str(exc)
         if policy.require_lsp_carrier and not lsp_validated and error is None:
             error = f"beta/production command requires LSP validation: {command}"
@@ -3900,7 +3900,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             for edge in deadline_loop_iter(reverse_edges.get(current, [])):
                 check_deadline()
                 caller_fn = functions.get(edge.caller)
-                if caller_fn is None:  # pragma: no cover - edges are derived from known functions
+                if caller_fn is None:
                     continue
                 next_inferred = has_inferred or edge.inferred
                 next_confidence = min(path_confidence, edge.confidence)
@@ -4016,5 +4016,5 @@ def start(start_fn: Callable[[], None] | None = None) -> None:
     (start_fn or server.start_io)()
 
 
-if __name__ == "__main__":  # pragma: no cover
-    start()  # pragma: no cover
+if __name__ == "__main__":
+    start()

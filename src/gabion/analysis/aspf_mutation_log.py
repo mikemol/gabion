@@ -94,7 +94,7 @@ def _canonical_json_bytes(payload: Mapping[str, JSONValue]) -> bytes:
 
 
 def _encode_varint(value: int) -> bytes:
-    if value < 0:  # pragma: no cover - invariant guard
+    if value < 0:
         raise ValueError("varint cannot encode negative values")
     pieces = bytearray()
     pending = value
@@ -102,7 +102,7 @@ def _encode_varint(value: int) -> bytes:
         chunk = pending & 0x7F
         pending >>= 7
         if pending:
-            pieces.append(chunk | 0x80)  # pragma: no cover - multi-byte varint branch
+            pieces.append(chunk | 0x80)
         else:
             pieces.append(chunk)
             break
@@ -120,9 +120,9 @@ def _decode_varint(buffer: bytes, offset: int) -> tuple[int, int]:
         if not (byte & 0x80):
             return value, cursor
         shift += 7
-        if shift > 63:  # pragma: no cover - malformed payload guard
+        if shift > 63:
             break
-    raise ProtobufDecodeError("invalid varint payload")  # pragma: no cover - malformed payload guard
+    raise ProtobufDecodeError("invalid varint payload")
 
 
 def _encode_length_delimited(field_number: int, payload: bytes) -> bytes:
@@ -150,24 +150,24 @@ def _parse_wire_fields(payload: bytes) -> ProtobufWireFields:
         if wire_type == 2:
             size, offset = _decode_varint(payload, offset)
             end = offset + size
-            if end > len(payload):  # pragma: no cover - malformed payload guard
+            if end > len(payload):
                 raise ProtobufDecodeError("declared field length exceeds payload")
             bytes_fields[field_number] = payload[offset:end]
             offset = end
             continue
-        raise ProtobufDecodeError(f"unsupported wire type: {wire_type}")  # pragma: no cover - malformed payload guard
+        raise ProtobufDecodeError(f"unsupported wire type: {wire_type}")
     return ProtobufWireFields(varints=varints, bytes_fields=bytes_fields)
 
 
 def _json_bytes_to_object(payload: bytes) -> JSONObject:
     try:
         value = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:  # pragma: no cover - malformed payload guard
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ProtobufDecodeError("invalid json payload") from exc
     match value:
         case dict() as value_map:
             return value_map
-        case _:  # pragma: no cover - malformed payload guard
+        case _:
             raise ProtobufDecodeError("json payload must decode to an object")
 
 
@@ -196,11 +196,11 @@ def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
     match (run_id_field, record_field):
         case (bytes(), bytes()):
             pass
-        case _:  # pragma: no cover - malformed payload guard
+        case _:
             raise ProtobufDecodeError("event envelope missing required fields")
     try:
         run_id = run_id_field.decode("utf-8")
-    except UnicodeDecodeError as exc:  # pragma: no cover - malformed payload guard
+    except UnicodeDecodeError as exc:
         raise ProtobufDecodeError("invalid run_id encoding") from exc
     record_payload = _json_bytes_to_object(record_field)
     return EventEnvelope(
@@ -242,11 +242,11 @@ def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
     match (run_id_field, snapshot_field):
         case (bytes(), bytes()):
             pass
-        case _:  # pragma: no cover - malformed payload guard
+        case _:
             raise ProtobufDecodeError("snapshot envelope missing required fields")
     try:
         run_id = run_id_field.decode("utf-8")
-    except UnicodeDecodeError as exc:  # pragma: no cover - malformed payload guard
+    except UnicodeDecodeError as exc:
         raise ProtobufDecodeError("invalid run_id encoding") from exc
     snapshot_payload = _json_bytes_to_object(snapshot_field)
     return SnapshotEnvelope(
@@ -273,7 +273,7 @@ def decode_archive_manifest_proto(payload: bytes) -> ArchiveManifest:
     match body:
         case bytes():
             pass
-        case _:  # pragma: no cover - malformed payload guard
+        case _:
             raise ProtobufDecodeError("manifest envelope missing payload")
     data = _json_bytes_to_object(body)
     return ArchiveManifest(
@@ -297,11 +297,11 @@ def encode_commit_marker_proto(commit: CommitMarker) -> bytes:
 def decode_commit_marker_proto(payload: bytes) -> CommitMarker:
     fields = _parse_wire_fields(payload)
     run_id_field = fields.bytes_fields.get(1)
-    if run_id_field is None:  # pragma: no cover - malformed payload guard
+    if run_id_field is None:
         raise ProtobufDecodeError("commit marker missing run_id")
     try:
         run_id = run_id_field.decode("utf-8")
-    except UnicodeDecodeError as exc:  # pragma: no cover - malformed payload guard
+    except UnicodeDecodeError as exc:
         raise ProtobufDecodeError("invalid run_id encoding") from exc
     return CommitMarker(
         run_id=run_id,
@@ -380,7 +380,7 @@ def load_projected_archive(
 def package_archive_tar(*, root_dir: Path, tar_path: Path) -> None:
     entries: list[Path] = []
     for entry in root_dir.rglob("*"):
-        if entry == tar_path:  # pragma: no cover - self-tar guard
+        if entry == tar_path:
             continue
         entries.append(entry)
     entries.sort(key=lambda path: path.relative_to(root_dir).as_posix())
@@ -441,7 +441,7 @@ def replay_from_snapshot_and_committed_tail(
 
 def replay_from_projected_archive(*, root_dir: Path) -> SnapshotTailReplayResult:
     _manifest, events, snapshots, commit = load_projected_archive(root_dir=root_dir)
-    if not snapshots:  # pragma: no cover - malformed archive guard
+    if not snapshots:
         raise ProtobufDecodeError("archive does not contain a snapshot")
     latest_snapshot = max(snapshots, key=lambda envelope: envelope.snapshot.seq)
     return replay_from_snapshot_and_committed_tail(
