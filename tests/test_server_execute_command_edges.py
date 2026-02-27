@@ -4946,3 +4946,36 @@ def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
     rewrite_plans = result.get("rewrite_plans", [])
     assert rewrite_plans
     assert rewrite_plans[0].get("kind") == "AMBIENT_REWRITE"
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_normalize_impact_payload_and_edge_buckets::server.py::gabion.server._normalize_impact_payload::server.py::gabion.server._normalize_impact_edge_buckets
+def test_normalize_impact_payload_and_edge_buckets() -> None:
+    options = server._normalize_impact_payload(
+        {
+            "root": ".",
+            "changes": [{"path": "src\\mod.py", "start_line": "2", "end_line": "1"}],
+            "confidence_threshold": 4,
+        },
+        workspace_root=".",
+    )
+    assert options.changes == (server.ImpactSpan(path="src/mod.py", start_line=1, end_line=2),)
+    assert options.confidence_threshold == 1.0
+
+    fn = server.ImpactFunction(
+        path="src/mod.py",
+        qual="mod.fn",
+        name="fn",
+        start_line=1,
+        end_line=2,
+        is_test=False,
+    )
+    buckets = server._normalize_impact_edge_buckets(
+        edges=[
+            server.ImpactEdge(caller="mod.fn", callee="mod.fn", confidence=1.0, inferred=False),
+            server.ImpactEdge(caller="missing", callee="mod.fn", confidence=1.0, inferred=False),
+        ],
+        functions_by_qual={"mod.fn": fn},
+    )
+    assert "mod.fn" in buckets.reverse_edges
+    assert buckets.unresolved_edges == (
+        {"caller": "missing", "callee": "mod.fn", "reason": "unresolvable_function_id"},
+    )
