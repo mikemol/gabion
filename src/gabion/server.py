@@ -673,8 +673,8 @@ def _load_aspf_resume_state(
     *,
     import_state_paths: Sequence[Path],
 ) -> JSONObject | None:
-    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
-        state_paths=import_state_paths
+    projection = aspf_resume_state.load_latest_resume_projection_from_state_files(
+        state_paths=import_state_paths,
     )
     latest_manifest_digest: str | None = None
     latest_resume_source: str | None = None
@@ -689,7 +689,12 @@ def _load_aspf_resume_state(
         latest_resume_source = resume_source or latest_resume_source
     payload: JSONObject = {
         "resume_projection": projection if projection is not None else {},
-        "delta_records": [dict(record) for record in records],
+        "delta_records": [
+            dict(record)
+            for record in aspf_resume_state.iter_delta_records_from_state_files(
+                state_paths=import_state_paths,
+            )
+        ],
         "analysis_manifest_digest": latest_manifest_digest,
         "resume_source": latest_resume_source,
     }

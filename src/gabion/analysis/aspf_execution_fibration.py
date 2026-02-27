@@ -544,11 +544,11 @@ def finalize_execution_trace(
     }
     resume_projection = aspf_resume_state.replay_resume_projection(
         snapshot=resume_snapshot,
-        delta_records=state.delta_records,
+        delta_records=iter(state.delta_records),
     )
     delta_ledger_payload = aspf_resume_state.build_delta_ledger_payload(
         trace_id=state.trace_id,
-        records=state.delta_records,
+        records=iter(state.delta_records),
     )
     trace_path = state.controls.aspf_trace_json or (root / "artifacts/out/aspf_trace.json")
     equivalence_path = root / "artifacts/out/aspf_equivalence.json"
@@ -563,7 +563,7 @@ def finalize_execution_trace(
     _write_json(opportunities_path, opportunities_payload)
     aspf_resume_state.write_delta_jsonl(
         path=delta_jsonl_path,
-        records=state.delta_records,
+        records=iter(state.delta_records),
     )
     state_path = state.controls.aspf_state_json or (
         root / "artifacts/out/aspf_state/default/0001_aspf.snapshot.json"
