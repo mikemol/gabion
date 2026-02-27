@@ -4,7 +4,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Callable, Literal, Mapping, TypeAlias
 import warnings
@@ -72,13 +71,7 @@ def transport_override() -> TransportOverrideConfig | None:
 
 
 def transport_override_present() -> bool:
-    if transport_override() is not None:
-        return True
-    return (
-        DIRECT_RUN_ENV in os.environ
-        or DIRECT_RUN_OVERRIDE_EVIDENCE_ENV in os.environ
-        or OVERRIDE_RECORD_JSON_ENV in os.environ
-    )
+    return transport_override() is not None
 
 
 def set_transport_override(
@@ -172,15 +165,7 @@ def _resolve_transport_controls() -> tuple[bool, str | None]:
             direct_requested,
             record_json.strip() if isinstance(record_json, str) else None,
         )
-    direct_flag = os.getenv(DIRECT_RUN_ENV, "").strip().lower()
-    direct_requested = direct_flag in {"1", "true", "yes", "on"}
-    override_evidence = os.getenv(DIRECT_RUN_OVERRIDE_EVIDENCE_ENV, "").strip() or None
-    override_record_json = os.getenv(OVERRIDE_RECORD_JSON_ENV)
-    if direct_flag or override_evidence or (
-        isinstance(override_record_json, str) and override_record_json.strip()
-    ):
-        _warn_legacy_transport_env_usage()
-    return (direct_requested, override_record_json)
+    return (False, None)
 
 
 # gabion:decision_protocol

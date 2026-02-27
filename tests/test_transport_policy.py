@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -13,38 +11,21 @@ from gabion.exceptions import NeverThrown
 from gabion.lsp_client import run_command, run_command_direct
 
 
-@contextmanager
-def _env_scope(updates: dict[str, str | None]):
-    originals = {key: os.environ.get(key) for key in updates}
-    try:
-        for key, value in updates.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-        yield
-    finally:
-        for key, value in originals.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-
-
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_denies_direct_for_governed_without_override
 def test_transport_policy_denies_direct_for_governed_without_override() -> None:
-    with _env_scope({transport_policy.DIRECT_RUN_ENV: "1", transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None}):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(direct_requested=True)
+    ):
         with pytest.raises(NeverThrown):
             transport_policy.resolve_command_transport(command=command_ids.CHECK_COMMAND, runner=run_command)
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_allows_direct_for_governed_with_valid_override
 def test_transport_policy_allows_direct_for_governed_with_valid_override() -> None:
-    with _env_scope(
-        {
-            transport_policy.DIRECT_RUN_ENV: "1",
-            transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: "artifact://override/1",
-            transport_policy.OVERRIDE_RECORD_JSON_ENV: json.dumps(
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=True,
+            override_record_json=json.dumps(
                 {
                     "actor": "ci",
                     "rationale": "temporary",
@@ -55,7 +36,7 @@ def test_transport_policy_allows_direct_for_governed_with_valid_override() -> No
                     "evidence_links": ["artifact://override/1"],
                 }
             ),
-        }
+        )
     ):
         decision = transport_policy.resolve_command_transport(command=command_ids.CHECK_COMMAND, runner=run_command)
     assert decision.runner is run_command_direct
@@ -64,7 +45,9 @@ def test_transport_policy_allows_direct_for_governed_with_valid_override() -> No
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_keeps_direct_for_non_governed_command
 def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
-    with _env_scope({transport_policy.DIRECT_RUN_ENV: "1", transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None}):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(direct_requested=True)
+    ):
         decision = transport_policy.resolve_command_transport(
             command=command_ids.LSP_PARITY_GATE_COMMAND,
             runner=run_command,
@@ -74,13 +57,7 @@ def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_unknown_command_without_direct_sets_no_policy
 def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> None:
-    with _env_scope(
-        {
-            transport_policy.DIRECT_RUN_ENV: None,
-            transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: None,
-            transport_policy.OVERRIDE_RECORD_JSON_ENV: None,
-        }
-    ):
+    with transport_policy.transport_override_scope(None):
         decision = transport_policy.resolve_command_transport(
             command="gabion.unknown-command",
             runner=run_command,
@@ -90,26 +67,19 @@ def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> Non
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_override_scope_prefers_context_over_env
-def test_transport_override_scope_prefers_context_over_env() -> None:
-    with _env_scope(
-        {
-            transport_policy.DIRECT_RUN_ENV: "0",
-            transport_policy.DIRECT_RUN_OVERRIDE_EVIDENCE_ENV: "env://evidence",
-            transport_policy.OVERRIDE_RECORD_JSON_ENV: " {} ",
-        }
+def test_transport_override_scope_prefers_context_config() -> None:
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=True,
+            override_record_json="  {\"actor\":\"ci\"}  ",
+        )
     ):
-        with transport_policy.transport_override_scope(
-            transport_policy.TransportOverrideConfig(
-                direct_requested=True,
-                override_record_json="  {\"actor\":\"ci\"}  ",
-            )
-        ):
-            assert transport_policy.transport_override_present() is True
-            direct_requested, record_json = (
-                transport_policy._resolve_transport_controls()
-            )
-            assert direct_requested is True
-            assert record_json == "{\"actor\":\"ci\"}"
+        assert transport_policy.transport_override_present() is True
+        direct_requested, record_json = (
+            transport_policy._resolve_transport_controls()
+        )
+        assert direct_requested is True
+        assert record_json == "{\"actor\":\"ci\"}"
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_apply_cli_transport_flags_normalizes_strings_and_clears_override

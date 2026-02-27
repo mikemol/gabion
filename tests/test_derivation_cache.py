@@ -19,7 +19,7 @@ from gabion.analysis.derivation_persistence import (
     write_derivation_checkpoint,
 )
 from gabion.exceptions import NeverThrown
-from tests.env_helpers import env_scope
+from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
 
 
 # gabion:evidence E:call_footprint::tests/test_derivation_cache.py::test_structural_key_atom_canonicalizes_mapping_order_and_preserves_list_order::aspf.py::gabion.analysis.aspf.structural_key_atom
@@ -268,11 +268,11 @@ def test_global_derivation_cache_helpers_reset_and_env_parse() -> None:
 
 
 # gabion:evidence E:function_site::derivation_cache.py::gabion.analysis.derivation_cache.reset_global_derivation_cache
-def test_global_derivation_cache_helpers_invalid_env_uses_default() -> None:
-    with env_scope({"GABION_DERIVATION_CACHE_MAX_ENTRIES": "not-an-int"}):
+def test_global_derivation_cache_helpers_runtime_config() -> None:
+    with runtime_policy_scope(RuntimePolicyConfig(derivation_cache_max_entries=4096)):
         runtime = reset_global_derivation_cache()
     assert runtime.max_entries == 4096
-    with env_scope({"GABION_DERIVATION_CACHE_MAX_ENTRIES": "2"}):
+    with runtime_policy_scope(RuntimePolicyConfig(derivation_cache_max_entries=2)):
         runtime = reset_global_derivation_cache()
     assert runtime.max_entries == 2
 

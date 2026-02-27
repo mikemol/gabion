@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from itertools import zip_longest
 from dataclasses import dataclass, field
+import dataclasses
 from typing import TYPE_CHECKING, cast
+
+from gabion.order_contract import OrderPolicy
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
@@ -891,6 +894,7 @@ class _AnalysisExecutionContext:
     check_deadline_fn: object
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
+    payload: Mapping[str, object]
 
 
 @dataclass(frozen=True)
@@ -1460,6 +1464,37 @@ def _run_analysis_with_progress(
             )
         _persist_collection_resume(bootstrap_collection_resume)
 
+    from gabion.runtime import policy_runtime
+
+    runtime_policy = policy_runtime.runtime_policy_from_env()
+    payload_proof_mode = context.payload.get("proof_mode")
+    if payload_proof_mode in {"on", "off"}:
+        runtime_policy = dataclasses.replace(
+            runtime_policy,
+            proof_mode_enabled=(payload_proof_mode == "on"),
+        )
+    payload_order_policy = context.payload.get("order_policy")
+    if isinstance(payload_order_policy, str) and payload_order_policy.strip():
+        runtime_policy = dataclasses.replace(
+            runtime_policy,
+            order_policy=OrderPolicy(payload_order_policy.strip().lower()),
+        )
+    for key, attr in (
+        ("order_telemetry", "order_telemetry_enabled"),
+        ("order_enforce_canonical_allowlist", "order_enforce_canonical_allowlist"),
+        ("order_deadline_probe", "order_deadline_probe_enabled"),
+    ):
+        value = context.payload.get(key)
+        if isinstance(value, bool):
+            runtime_policy = dataclasses.replace(runtime_policy, **{attr: value})
+    for key, attr in (
+        ("derivation_cache_max_entries", "derivation_cache_max_entries"),
+        ("projection_registry_gas_limit", "projection_registry_gas_limit"),
+    ):
+        value = context.payload.get(key)
+        if value not in (None, ""):
+            runtime_policy = dataclasses.replace(runtime_policy, **{attr: max(1, int(value))})
+
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
         _record_trace_1cell(
@@ -1471,41 +1506,42 @@ def _run_analysis_with_progress(
             representative="analyze_paths.start",
             basis_path=("analysis", "call", "start"),
         )
-        analysis = context.execute_deps.analyze_paths_fn(
-            context.paths,
-            forest=context.forest,
-            recursive=not context.no_recursive,
-            type_audit=context.type_audit or context.type_audit_report,
-            type_audit_report=context.type_audit_report,
-            type_audit_max=context.type_audit_max,
-            include_constant_smells=bool(context.report_path),
-            include_unused_arg_smells=bool(context.report_path),
-            include_deadness_witnesses=bool(context.report_path)
-            or bool(context.fingerprint_deadness_json),
-            include_coherence_witnesses=context.include_coherence,
-            include_rewrite_plans=context.include_rewrite_plans,
-            include_exception_obligations=context.include_exception_obligations,
-            include_handledness_witnesses=context.include_handledness_witnesses,
-            include_never_invariants=context.include_never_invariants,
-            include_wl_refinement=context.include_wl_refinement,
-            include_deadline_obligations=bool(context.report_path) or context.lint,
-            include_decision_surfaces=context.include_decisions,
-            include_value_decision_surfaces=context.include_decisions,
-            include_invariant_propositions=bool(context.report_path),
-            include_lint_lines=context.lint,
-            include_ambiguities=context.include_ambiguities,
-            include_bundle_forest=True,
-            config=context.config,
-            file_paths_override=context.file_paths_for_run,
-            collection_resume=collection_resume_payload,
-            on_collection_progress=_persist_collection_resume,
-            on_phase_progress=(
-                _persist_projection_phase
-                if context.emit_phase_progress_events
-                or context.enable_phase_projection_checkpoints
-                else None
-            ),
-        )
+        with policy_runtime.runtime_policy_scope(runtime_policy):
+            analysis = context.execute_deps.analyze_paths_fn(
+                context.paths,
+                forest=context.forest,
+                recursive=not context.no_recursive,
+                type_audit=context.type_audit or context.type_audit_report,
+                type_audit_report=context.type_audit_report,
+                type_audit_max=context.type_audit_max,
+                include_constant_smells=bool(context.report_path),
+                include_unused_arg_smells=bool(context.report_path),
+                include_deadness_witnesses=bool(context.report_path)
+                or bool(context.fingerprint_deadness_json),
+                include_coherence_witnesses=context.include_coherence,
+                include_rewrite_plans=context.include_rewrite_plans,
+                include_exception_obligations=context.include_exception_obligations,
+                include_handledness_witnesses=context.include_handledness_witnesses,
+                include_never_invariants=context.include_never_invariants,
+                include_wl_refinement=context.include_wl_refinement,
+                include_deadline_obligations=bool(context.report_path) or context.lint,
+                include_decision_surfaces=context.include_decisions,
+                include_value_decision_surfaces=context.include_decisions,
+                include_invariant_propositions=bool(context.report_path),
+                include_lint_lines=context.lint,
+                include_ambiguities=context.include_ambiguities,
+                include_bundle_forest=True,
+                config=context.config,
+                file_paths_override=context.file_paths_for_run,
+                collection_resume=collection_resume_payload,
+                on_collection_progress=_persist_collection_resume,
+                on_phase_progress=(
+                    _persist_projection_phase
+                    if context.emit_phase_progress_events
+                    or context.enable_phase_projection_checkpoints
+                    else None
+                ),
+            )
         _record_trace_1cell(
             execute_deps=context.execute_deps,
             state=context.aspf_trace_state,
@@ -2955,6 +2991,7 @@ class _SuccessResponseContext:
     analysis_resume_total_files: int
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
+    payload: Mapping[str, object]
     phase_checkpoint_state: JSONObject
     execution_plan: ExecutionPlan
     last_collection_resume_payload: JSONObject | None
@@ -3796,6 +3833,7 @@ def execute_command_total(
                     check_deadline_fn=check_deadline,
                     profiling_stage_ns=profiling_stage_ns,
                     profiling_counters=profiling_counters,
+                    payload=payload,
                 ),
                 state=analysis_execution_state,
                 collection_resume_payload=collection_resume_payload,

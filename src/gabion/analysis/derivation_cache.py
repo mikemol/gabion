@@ -2,10 +2,11 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-import os
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import TypeVar, cast
 
@@ -23,8 +24,18 @@ from gabion.order_contract import sort_once
 
 ValueT = TypeVar("ValueT")
 
-_DERIVATION_CACHE_SIZE_ENV = "GABION_DERIVATION_CACHE_MAX_ENTRIES"
 _DEFAULT_DERIVATION_CACHE_SIZE = 4096
+
+
+@dataclass(frozen=True)
+class DerivationCacheConfig:
+    max_entries: int = _DEFAULT_DERIVATION_CACHE_SIZE
+
+
+_DERIVATION_CACHE_CONFIG: ContextVar[DerivationCacheConfig] = ContextVar(
+    "gabion_derivation_cache_config",
+    default=DerivationCacheConfig(),
+)
 
 
 @dataclass
@@ -209,21 +220,15 @@ class DerivationCacheRuntime:
 _GLOBAL_RUNTIME: object = None
 
 
-def _runtime_max_entries_from_env() -> int:
-    raw = os.environ.get(_DERIVATION_CACHE_SIZE_ENV)
-    if raw is None:
-        return _DEFAULT_DERIVATION_CACHE_SIZE
-    try:
-        parsed = int(raw)
-    except ValueError:
-        return _DEFAULT_DERIVATION_CACHE_SIZE
+def _runtime_max_entries_from_config() -> int:
+    parsed = int(_DERIVATION_CACHE_CONFIG.get().max_entries)
     return max(1, parsed)
 
 
 def get_global_derivation_cache() -> DerivationCacheRuntime:
     global _GLOBAL_RUNTIME
     if _GLOBAL_RUNTIME is None:
-        _GLOBAL_RUNTIME = DerivationCacheRuntime(max_entries=_runtime_max_entries_from_env())
+        _GLOBAL_RUNTIME = DerivationCacheRuntime(max_entries=_runtime_max_entries_from_config())
     return cast(DerivationCacheRuntime, _GLOBAL_RUNTIME)
 
 
@@ -231,7 +236,7 @@ def reset_global_derivation_cache(*, max_entries: object = None) -> DerivationCa
     global _GLOBAL_RUNTIME
     runtime = DerivationCacheRuntime(
         max_entries=(
-            _runtime_max_entries_from_env()
+            _runtime_max_entries_from_config()
             if max_entries is None
             else max(1, int(max_entries))
         )
@@ -251,3 +256,20 @@ def _node_id_payload(
             aspf.structural_key_atom(node_id.key, source=source)
         ),
     }
+
+def set_derivation_cache_config(config: DerivationCacheConfig) -> Token[DerivationCacheConfig]:
+    return _DERIVATION_CACHE_CONFIG.set(config)
+
+
+def reset_derivation_cache_config(token: Token[DerivationCacheConfig]) -> None:
+    _DERIVATION_CACHE_CONFIG.reset(token)
+
+
+@contextmanager
+def derivation_cache_config_scope(config: DerivationCacheConfig):
+    token = set_derivation_cache_config(config)
+    try:
+        yield
+    finally:
+        reset_derivation_cache_config(token)
+
