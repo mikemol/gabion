@@ -452,3 +452,50 @@ def test_verify_rewrite_plan_witness_obligation_shape_edges() -> None:
         post_provenance=[_post_entry(canonical_identity_contract={"representative": "rep:a"})],
     )
     assert mixed_obligation_items["accepted"] is True
+
+
+def test_verify_rewrite_plan_enforces_aspf_structure_class_equivalence() -> None:
+    da = _load()
+    plan = _plan(
+        pre={
+            "base_keys": ["int"],
+            "ctor_keys": [],
+            "remainder": {"base": 1, "ctor": 1},
+            "canonical_identity_contract": {"representative": "rep:a"},
+        },
+        evidence={
+            "provenance_id": "prov:a.py:f:a",
+            "coherence_id": "coh:a.py:f:a",
+            "witness_obligations": [
+                {
+                    "kind": "aspf_structure_class_equivalence",
+                    "required": True,
+                    "witness_ref": "aspf:prov:a.py:f:a",
+                    "canonical_identity_contract": {"representative": "rep:a"},
+                    "aspf_structure_class": {"digest": "h1", "kind": "bundle", "key": ["a"]},
+                }
+            ],
+        },
+        verification={"predicates": [{"kind": "witness_obligation_non_regression", "expect": "stable"}]},
+    )
+    accepted = da.verify_rewrite_plan(
+        plan,
+        post_provenance=[
+            _post_entry(
+                canonical_identity_contract={"representative": "rep:a"},
+                aspf_structure_class={"digest": "h1", "kind": "bundle", "key": ["a"]},
+            )
+        ],
+    )
+    assert accepted["accepted"] is True
+
+    rejected = da.verify_rewrite_plan(
+        plan,
+        post_provenance=[
+            _post_entry(
+                canonical_identity_contract={"representative": "rep:a"},
+                aspf_structure_class={"digest": "h2", "kind": "bundle", "key": ["a"]},
+            )
+        ],
+    )
+    assert rejected["accepted"] is False

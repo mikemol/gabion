@@ -4270,12 +4270,26 @@ def _evaluate_witness_obligation_non_regression_predicate(
             if mapped_item is not None:
                 obligations.append(mapped_item)
     missing_required: list[str] = []
+    aspf_identity_mismatches: list[str] = []
+    post_aspf_structure_class = mapping_or_empty(
+        context.post_entry.get("aspf_structure_class")
+    )
     for item in obligations:
         required = bool(item.get("required"))
         witness_ref = str(item.get("witness_ref", "") or "")
         witness_kind = str(item.get("kind", "witness") or "witness")
         if required and not witness_ref:
             missing_required.append(f"{witness_kind}:missing")
+        if witness_kind == "aspf_structure_class_equivalence":
+            expected_identity = mapping_or_none(item.get("canonical_identity_contract"))
+            post_identity_payload = mapping_or_none(
+                context.post_entry.get("canonical_identity_contract")
+            )
+            if expected_identity is not None and expected_identity != post_identity_payload:
+                aspf_identity_mismatches.append("canonical_identity_contract")
+            expected_structure_class = mapping_or_none(item.get("aspf_structure_class"))
+            if expected_structure_class is not None and expected_structure_class != post_aspf_structure_class:
+                aspf_identity_mismatches.append("aspf_structure_class")
     post_identity = context.post_entry.get("canonical_identity_contract")
     pre_identity = context.pre.get("canonical_identity_contract")
     identity_ok = True
@@ -4283,7 +4297,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
         identity_ok = pre_identity == post_identity
     elif post_identity is None:
         identity_ok = False
-    passed = (not missing_required) and identity_ok
+    passed = (not missing_required) and identity_ok and (not aspf_identity_mismatches)
     return {
         "kind": kind,
         "passed": passed,
@@ -4295,7 +4309,9 @@ def _evaluate_witness_obligation_non_regression_predicate(
         },
         "observed": {
             "missing_required": missing_required,
+            "aspf_identity_mismatches": aspf_identity_mismatches,
             "identity_contract": post_identity,
+            "aspf_structure_class": post_aspf_structure_class,
         },
     }
 
@@ -14167,6 +14183,96 @@ def compute_structure_reuse(
     )
     suggested: list[JSONObject] = []
     replacement_map: dict[str, list[JSONObject]] = {}
+
+    def _reuse_site_from_location(
+        *,
+        location: str,
+        fallback_value: object,
+    ) -> JSONObject:
+        location_parts = location.split("::")
+        path_value = location_parts[0] if location_parts else ""
+        function_value = location_parts[1] if len(location_parts) > 1 else ""
+        bundle_payload: list[str] = []
+        if len(location_parts) > 2 and location_parts[2].startswith("bundle:"):
+            raw_bundle = location_parts[2][len("bundle:") :]
+            bundle_payload = [part for part in raw_bundle.split(",") if part]
+        elif type(fallback_value) is list:
+            bundle_payload = [str(item) for item in cast(list[object], fallback_value)]
+        return {
+            "path": path_value,
+            "function": function_value,
+            "bundle": bundle_payload,
+        }
+
+    def _build_suggested_plan_artifact(
+        *,
+        suggestion: JSONObject,
+    ) -> JSONObject:
+        kind = str(suggestion.get("kind", ""))
+        suggestion_name = str(suggestion.get("suggested_name", ""))
+        hash_value = str(suggestion.get("hash", ""))
+        locations = sequence_or_none(suggestion.get("locations")) or ()
+        sorted_locations = sort_once(
+            [str(location) for location in locations if type(location) is str],
+            source="compute_structure_reuse.suggested_plan.locations",
+        )
+        primary_location = sorted_locations[0] if sorted_locations else ""
+        site = _reuse_site_from_location(
+            location=primary_location,
+            fallback_value=suggestion.get("value"),
+        )
+        witness_obligations = list(
+            sequence_or_none(suggestion.get("witness_obligations")) or []
+        )
+        return {
+            "plan_id": f"reuse:{kind}:{hash_value}:{suggestion_name}",
+            "status": "UNVERIFIED",
+            "site": site,
+            "pre": {
+                "canonical_identity_contract": suggestion.get("canonical_identity_contract"),
+                "aspf_structure_class": suggestion.get("aspf_structure_class"),
+            },
+            "rewrite": {
+                "kind": "BUNDLE_ALIGN" if kind == "bundle" else "AMBIENT_REWRITE",
+                "selector": {
+                    "hash": hash_value,
+                    "locations": sorted_locations,
+                },
+                "parameters": {
+                    "candidates": [suggestion_name] if suggestion_name else [],
+                    "strategy": "reuse-lemma" if kind != "bundle" else "reuse-align",
+                },
+            },
+            "evidence": {
+                "provenance_id": f"reuse:{hash_value}",
+                "coherence_id": f"aspf:{hash_value}",
+                "witness_obligations": witness_obligations,
+            },
+            "post_expectation": {
+                "match_strata": "exact",
+                "canonical_structure_class_equivalent": True,
+            },
+            "verification": {
+                "mode": "re-audit",
+                "status": "UNVERIFIED",
+                "predicates": [
+                    {"kind": "base_conservation", "expect": True},
+                    *(
+                        [{"kind": "ctor_coherence", "expect": True}]
+                        if kind == "bundle"
+                        else []
+                    ),
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": [suggestion_name] if suggestion_name else [],
+                    },
+                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                    {"kind": "witness_obligation_non_regression", "expect": "stable"},
+                ],
+            },
+        }
+
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
@@ -14180,6 +14286,11 @@ def compute_structure_reuse(
                     "count": count,
                     "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
                     "locations": entry.get("locations", []),
+                    "aspf_structure_class": entry.get("aspf_structure_class"),
+                    "canonical_identity_contract": {
+                        "identity_kind": "canonical_aspf_structure_class_equivalence",
+                        "representative": hash_value,
+                    },
                 }
                 if "value" in entry:
                     suggestion["value"] = entry.get("value")
@@ -14205,6 +14316,29 @@ def compute_structure_reuse(
                         warnings.append(
                             f"Missing declared bundle name for {list(key)}"
                         )
+                suggestion["witness_obligations"] = [
+                    {
+                        "kind": "reuse_suggestion_site",
+                        "required": True,
+                        "witness_ref": str(location),
+                    }
+                    for location in sequence_or_none(suggestion.get("locations")) or ()
+                    if type(location) is str
+                ]
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_equivalence",
+                        "required": True,
+                        "witness_ref": f"aspf:{hash_value}",
+                        "aspf_structure_class": suggestion.get("aspf_structure_class"),
+                        "canonical_identity_contract": suggestion.get(
+                            "canonical_identity_contract"
+                        ),
+                    }
+                )
+                suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
+                    suggestion=suggestion
+                )
                 suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
@@ -14247,7 +14381,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     suggested = reuse.get("suggested_lemmas") or []
     lines = [
         "# Generated by gabion structure-reuse",
-        "# TODO: replace stubs with actual lemma definitions.",
+        "# Structured rewrite-plan artifacts for suggested reuse lemmas.",
         "",
     ]
     if not suggested:
@@ -14258,6 +14392,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         mapping_or_empty(raw_entry)
         for raw_entry in suggested
     ]
+    plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
         suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
@@ -14265,20 +14400,20 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         check_deadline()
         name = entry.get("suggested_name")
         if type(name) is str and name:
-            kind = entry.get("kind", "lemma")
-            count = entry.get("count", 0)
-            value = entry.get("value")
-            child_count = entry.get("child_count")
-            lines.append(f"def {name}() -> None:")
-            lines.append('    """Auto-generated lemma stub."""')
-            lines.append(f"    # kind: {kind}")
-            lines.append(f"    # count: {count}")
-            if value is not None:
-                lines.append(f"    # value: {value}")
-            if child_count is not None:
-                lines.append(f"    # child_count: {child_count}")
-            lines.append("    ...")
-            lines.append("")
+            raw_plan = mapping_or_none(entry.get("rewrite_plan_artifact"))
+            if raw_plan is not None:
+                plan_artifacts.append({str(key): raw_plan[key] for key in raw_plan})
+    payload: JSONObject = {
+        "format_version": 1,
+        "artifact_kind": "reuse_rewrite_plan_bundle",
+        "plans": sort_once(
+            plan_artifacts,
+            source="render_reuse_lemma_stubs.plan_artifacts",
+            key=lambda plan: str(plan.get("plan_id", "")),
+        ),
+    }
+    lines.append(json.dumps(payload, indent=2, sort_keys=False))
+    lines.append("")
     return "\n".join(lines)
 
 

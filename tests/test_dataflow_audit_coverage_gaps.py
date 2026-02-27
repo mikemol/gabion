@@ -1327,7 +1327,7 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
         ]
     }
     stubs = da.render_reuse_lemma_stubs(reuse)
-    assert "def lemma_name" in stubs
+    assert "reuse_rewrite_plan_bundle" in stubs
 
     text = da.render_refactor_plan(
         {
@@ -2261,7 +2261,7 @@ def test_additional_branch_edges_rendering_variants() -> None:
     stubs = da.render_reuse_lemma_stubs(
         {"suggested_lemmas": [{"kind": "bundle", "suggested_name": "lemma", "count": 1}]}
     )
-    assert "def lemma" in stubs
+    assert "\"plans\"" in stubs
 
     # render_refactor_plan empty order branch.
     plan_text = da.render_refactor_plan({"bundles": [{"bundle": ["x"], "order": [], "cycles": []}]})

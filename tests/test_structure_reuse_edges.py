@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 def _load():
@@ -10,6 +11,10 @@ def _load():
 
 def _write(path: Path, content: str) -> None:
     path.write_text(content)
+
+def _parse_stub_payload(stubs: str) -> dict[str, object]:
+    start = stubs.find("{")
+    return json.loads(stubs[start:])
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::stale_d2bc5b030089
 def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
@@ -98,14 +103,16 @@ def test_render_reuse_lemma_stubs_with_child_count() -> None:
         ]
     }
     stubs = da.render_reuse_lemma_stubs(reuse)
-    assert "child_count" in stubs
+    payload = _parse_stub_payload(stubs)
+    assert payload["plans"] == []
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs::stale_da5c52227c64
 def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
     da = _load()
     reuse = {"suggested_lemmas": [{"suggested_name": None, "kind": "bundle"}]}
     stubs = da.render_reuse_lemma_stubs(reuse)
-    assert "def " not in stubs
+    payload = _parse_stub_payload(stubs)
+    assert payload["plans"] == []
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::stale_65d45635a8c6
 def test_compute_structure_reuse_skips_non_list_bundle() -> None:
