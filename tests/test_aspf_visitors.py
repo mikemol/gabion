@@ -199,9 +199,7 @@ def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     reusable = next(
         plan
         for plan in plans
-        if plan["opportunity_id"].startswith(
-            "opp:reusable-boundary:Opportunity:ReusableBoundaryRepresentative:"
-        )
+        if plan["opportunity_id"].startswith("opp:reusable-boundary:")
     )
     assert reusable["required_witnesses"] == ["w:1", "w:2"]
     assert reusable["priority"] == 0.74
