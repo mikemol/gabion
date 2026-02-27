@@ -181,6 +181,14 @@ from .dataflow_exception_obligations import (
     node_in_try_body as _exc_node_in_try_body,
     _builtin_exception_class as _exc_builtin_exception_class,
 )
+from .semantic_primitives import (
+    AnalysisPassPrerequisites,
+    CallArgumentMapping,
+    CallableId,
+    DecisionPredicateEvidence,
+    ParameterId,
+    SpanIdentity,
+)
 from .dataflow_report_rendering import (
     render_synthesis_section as _report_render_synthesis_section,
 )
@@ -376,6 +384,41 @@ class CallArgs:
     span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
+
+    def __post_init__(self) -> None:
+        if set(self.pos_map) & set(self.const_pos):
+            never("positional slot cannot be both param and constant")
+        if set(self.pos_map) & set(self.non_const_pos):
+            never("positional slot cannot be both param and non-const")
+        if set(self.const_pos) & set(self.non_const_pos):
+            never("positional slot cannot be both const and non-const")
+        if set(self.kw_map) & set(self.const_kw):
+            never("keyword slot cannot be both param and constant")
+        if set(self.kw_map) & set(self.non_const_kw):
+            never("keyword slot cannot be both param and non-const")
+        if set(self.const_kw) & set(self.non_const_kw):
+            never("keyword slot cannot be both const and non-const")
+
+    def callable_id(self) -> CallableId:
+        return CallableId.from_raw(self.callee)
+
+    def argument_mapping(self) -> CallArgumentMapping:
+        positional = {
+            int(idx): ParameterId.from_raw(param)
+            for idx, param in self.pos_map.items()
+        }
+        keywords = {
+            key: ParameterId.from_raw(param)
+            for key, param in self.kw_map.items()
+        }
+        return CallArgumentMapping(
+            positional=positional,
+            keywords=keywords,
+            star_positional=tuple(
+                (idx, ParameterId.from_raw(param)) for idx, param in self.star_pos
+            ),
+            star_keywords=tuple(ParameterId.from_raw(param) for param in self.star_kw),
+        )
 
 
 @dataclass(frozen=True)
@@ -2105,11 +2148,30 @@ class _DecisionSurfaceSpec:
     rewrite_line: object = None
 
 
+def _decision_predicate_evidence(
+    info: FunctionInfo,
+    param: str,
+) -> DecisionPredicateEvidence:
+    reasons = tuple(
+        sort_once(
+            info.decision_surface_reasons.get(param, set()),
+            source="_decision_predicate_evidence.reasons",
+        )
+    )
+    span = info.param_spans.get(param)
+    return DecisionPredicateEvidence(
+        parameter=ParameterId.from_raw(param),
+        reasons=reasons,
+        spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
+    )
+
+
 def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
     labels: set[str] = set()
     for param in params:
         check_deadline()
-        labels.update(info.decision_surface_reasons.get(param, set()))
+        evidence = _decision_predicate_evidence(info, param)
+        labels.update(evidence.reasons)
     if not labels:
         return "heuristic"
     return ", ".join(
@@ -6638,41 +6700,41 @@ def _caller_param_bindings_for_call(
     named_params = set(pos_params) | kwonly_params
     mapping: dict[str, set[str]] = defaultdict(set)
     mapped_params: set[str] = set()
-    for pos_idx, caller_param in call.pos_map.items():
+    call_mapping = call.argument_mapping()
+    for pos_idx, caller_param in call_mapping.positional.items():
         check_deadline()
-        idx = int(pos_idx)
-        if idx < len(pos_params):
-            callee_param = pos_params[idx]
+        if pos_idx < len(pos_params):
+            callee_param = pos_params[pos_idx]
         elif callee.vararg is not None:
             callee_param = callee.vararg
         else:
             continue
         mapped_params.add(callee_param)
-        mapping[callee_param].add(caller_param)
-    for kw_name, caller_param in call.kw_map.items():
+        mapping[callee_param].add(caller_param.value)
+    for kw_name, caller_param in call_mapping.keywords.items():
         check_deadline()
         if kw_name in named_params:
             mapped_params.add(kw_name)
-            mapping[kw_name].add(caller_param)
+            mapping[kw_name].add(caller_param.value)
         elif callee.kwarg is not None:
             mapped_params.add(callee.kwarg)
-            mapping[callee.kwarg].add(caller_param)
+            mapping[callee.kwarg].add(caller_param.value)
     if strictness == "low":
         remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5870') if p not in mapped_params]
         if callee.vararg is not None and callee.vararg not in mapped_params:
             remaining.append(callee.vararg)
         if callee.kwarg is not None and callee.kwarg not in mapped_params:
             remaining.append(callee.kwarg)
-        if len(call.star_pos) == 1:
-            _, star_param = call.star_pos[0]
+        if len(call_mapping.star_positional) == 1:
+            _, star_param = call_mapping.star_positional[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
-        if len(call.star_kw) == 1:
-            star_param = call.star_kw[0]
+                mapping[param].add(star_param.value)
+        if len(call_mapping.star_keywords) == 1:
+            star_param = call_mapping.star_keywords[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
+                mapping[param].add(star_param.value)
     return mapping
 
 
@@ -10635,29 +10697,29 @@ def _propagate_groups(
         if call.callee not in callee_groups:
             continue
         callee_params = callee_param_orders[call.callee]
+        mapping = call.argument_mapping()
         # Build mapping from callee param to caller param.
         callee_to_caller: dict[str, str] = {}
         for idx, pname in enumerate(callee_params):
             check_deadline()
-            key = str(idx)
-            if key in call.pos_map:
-                callee_to_caller[pname] = call.pos_map[key]
-        for kw, caller_name in call.kw_map.items():
+            if idx in mapping.positional:
+                callee_to_caller[pname] = mapping.positional[idx].value
+        for kw, caller_param in mapping.keywords.items():
             check_deadline()
-            callee_to_caller[kw] = caller_name
+            callee_to_caller[kw] = caller_param.value
         if strictness == "low":
             mapped = set(callee_to_caller.keys())
             remaining = [p for p in callee_params if p not in mapped]
-            if len(call.star_pos) == 1:
-                _, star_param = call.star_pos[0]
+            if len(mapping.star_positional) == 1:
+                _, star_param = mapping.star_positional[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
-            if len(call.star_kw) == 1:
-                star_param = call.star_kw[0]
+                    callee_to_caller.setdefault(param, star_param.value)
+            if len(mapping.star_keywords) == 1:
+                star_param = mapping.star_keywords[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
+                    callee_to_caller.setdefault(param, star_param.value)
         for group in callee_groups[call.callee]:
             check_deadline()
             mapped = {callee_to_caller.get(p) for p in group}
@@ -10686,25 +10748,27 @@ def _callsite_evidence_for_bundle(
         if call.span is not None:
             params_in_call: list[str] = []
             slots: list[str] = []
-            for idx_str, param in call.pos_map.items():
+            mapping = call.argument_mapping()
+            callable_id = call.callable_id()
+            for idx, param in mapping.positional.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
-                    slots.append(f"arg[{idx_str}]")
-            for name, param in call.kw_map.items():
+                if param.value in bundle:
+                    params_in_call.append(param.value)
+                    slots.append(f"arg[{idx}]")
+            for name, param in mapping.keywords.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"kw[{name}]")
-            for idx, param in call.star_pos:
+            for idx, param in mapping.star_positional:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"arg[{idx}]*")
-            for param in call.star_kw:
+            for param in mapping.star_keywords:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append("kw[**]")
             distinct = tuple(
                 sort_once(
@@ -10719,13 +10783,27 @@ def _callsite_evidence_for_bundle(
                         source="src/gabion/analysis/dataflow_audit.py:10519",
                     )
                 )
-                key = (call.span, call.callee, distinct, slot_list)
+                span_identity = SpanIdentity.from_tuple(
+                    require_not_none(
+                        call.span,
+                        reason="callsite evidence requires span",
+                        strict=True,
+                    )
+                )
+                span_tuple = (
+                    span_identity.start_line,
+                    span_identity.start_col,
+                    span_identity.end_line,
+                    span_identity.end_col,
+                )
+                callable_id = call.callable_id()
+                key = (span_tuple, callable_id.value, distinct, slot_list)
                 if key not in seen:
                     seen.add(key)
                     out.append(
                         {
-                            "callee": call.callee,
-                            "span": list(call.span),
+                            "callee": callable_id.value,
+                            "span": list(span_tuple),
                             "params": list(distinct),
                             "slots": list(slot_list),
                             "callable_kind": call.callable_kind,
@@ -12314,6 +12392,13 @@ def _infer_type_flow(
 ):
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
+    AnalysisPassPrerequisites(
+        bundle_inference=True,
+        call_propagation=True,
+        decision_surfaces=True,
+        type_flow=True,
+        lint_evidence=True,
+    ).validate(pass_id="type_flow")
     index = require_not_none(
         analysis_index,
         reason="_infer_type_flow requires prebuilt analysis_index",
