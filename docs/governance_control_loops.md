@@ -129,13 +129,13 @@ Each loop entry must define:
 
 ### 1) security/workflows
 
-- **sensor:** workflow YAML and posture probes from `scripts/policy_check.py --workflows` and `scripts/policy_check.py --posture`.
+- **sensor:** workflow YAML and posture probes from `python -m scripts.policy_check --workflows` and `python -m scripts.policy_check --posture`.
 - **state artifact:** `.github/workflows/*.yml` and policy posture snapshots under `artifacts/out/policy_posture*.json`.
 - **target predicate:** all workflow actions are pinned to allow-listed full SHAs and self-hosted trust boundaries satisfy the prime invariant.
 - **error signal:** policy-check non-zero exit or posture violations.
 - **actuator:** patch workflow files, refresh allow-list expectations, and rerun policy checks.
 - **max correction step:** one workflow guardrail patchset per iteration.
-- **verification command:** `mise exec -- python scripts/policy_check.py --workflows && mise exec -- python scripts/policy_check.py --posture`.
+- **verification command:** `mise exec -- python -m scripts.policy_check --workflows && mise exec -- python -m scripts.policy_check --posture`.
 - **escalation threshold:** any prime-invariant contradiction or unresolved posture failure after one correction step.
 
 ### 2) docs/docflow
@@ -179,9 +179,9 @@ Clause links: [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first)
 - **state artifact:** `baselines/docflow_compliance_baseline.json`, `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`.
 - **target predicate:** baseline refresh does not mask new contradictions and ratchet movement is monotone toward stricter compliance.
 - **error signal:** refresh refusal, positive contradiction delta, or drift inconsistent with current audit output.
-- **actuator:** run guarded refresh via `scripts/refresh_baselines.py`, inspect deltas, then update.
+- **actuator:** run guarded refresh via `python -m scripts.refresh_baselines`, inspect deltas, then update.
 - **max correction step:** one guarded baseline refresh transaction.
-- **verification command:** `mise exec -- python scripts/refresh_baselines.py --docflow --timeout 600`.
+- **verification command:** `mise exec -- python -m scripts.refresh_baselines --docflow --timeout 600`.
 - **escalation threshold:** guard rejects refresh twice for the same unresolved source.
 
 ## Second-order controller loop (cybernetic meta-loop)

@@ -37,7 +37,7 @@ This repository is governed by `POLICY_SEED.md#policy_seed`. Treat it as authori
 
 ## Required behavior
 - [delta] Read root `AGENTS.md#agent_obligations` and apply canonical directives before any in-scope changes.
-- [delta] Run `mise exec -- python scripts/policy_check.py --workflows` for workflow edits touching `in/` support tooling.
+- [delta] Run `mise exec -- python -m scripts.policy_check --workflows` for workflow edits touching `in/` support tooling.
 - [delta] When adding scoped obligations, mark them with `[delta]` and avoid repeating canonical directives verbatim.
 
 ## Local guardrails

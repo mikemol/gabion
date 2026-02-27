@@ -10,10 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock

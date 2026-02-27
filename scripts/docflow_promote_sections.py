@@ -18,10 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from gabion.tooling.governance_audit import _parse_frontmatter  # type: ignore
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
 

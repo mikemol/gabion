@@ -144,7 +144,7 @@ if $run_docflow; then
     echo "WARNING: running docflow in advisory GH-reference mode (local debugging only)." >&2
   fi
   mise exec -- python -m gabion docflow "${docflow_args[@]}"
-  mise exec -- python scripts/sppf_status_audit.py --root .
+  mise exec -- python -m scripts.sppf_status_audit --root .
 fi
 if $run_tests; then
   test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"

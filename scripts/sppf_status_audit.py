@@ -8,10 +8,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.order_contract import ordered_or_sorted
 

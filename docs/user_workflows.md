@@ -116,7 +116,7 @@ mise exec -- python -m gabion check run \
 
 ### Terminal B: remote status-check lane
 ```bash
-mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
+mise exec -- python -m scripts.ci_watch --branch stage --workflow ci
 ```
 
 On watched-run failure, collect run metadata/logs/artifacts into:
@@ -126,7 +126,7 @@ On watched-run failure, collect run metadata/logs/artifacts into:
 Use explicit artifact filters when only selected bundles are needed:
 
 ```bash
-mise exec -- python scripts/ci_watch.py \
+mise exec -- python -m scripts.ci_watch \
   --branch stage \
   --workflow ci \
   --artifact-name test-runs \

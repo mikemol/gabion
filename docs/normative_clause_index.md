@@ -179,7 +179,7 @@ Machine-readable clause-to-enforcement traceability is maintained in `docs/norma
 The map is exhaustive: every canonical clause listed above must appear as a top-level clause key,
 including entries that are currently `partial` or `document-only`.
 Policy checks validate canonical-clause completeness plus CI/workflow anchor integrity via
-`scripts/policy_check.py --normative-map`.
+`python -m scripts.policy_check --normative-map`.
 
 ## Usage rule
 
