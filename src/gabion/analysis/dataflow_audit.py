@@ -342,11 +342,86 @@ class _ExecutionPatternRule:
     pattern_id: str
     kind: str
     schema_family: str
-    required_params: frozenset[str]
-    callee_names: frozenset[str]
+    predicates: tuple["_ExecutionPatternPredicate", ...]
     min_members: int
     candidate: str
     description: str
+
+
+@dataclass(frozen=True)
+class _ExecutionCallShape:
+    positional_args: int
+    keyword_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _ExecutionFunctionFact:
+    function_name: str
+    param_names: frozenset[str]
+    called_names: frozenset[str]
+    call_shapes: Mapping[str, tuple[_ExecutionCallShape, ...]]
+
+
+class _ExecutionPatternPredicateKind(StrEnum):
+    PARAMS = "params"
+    CALLEE = "callee"
+    CALL_SHAPE = "call_shape"
+
+
+@dataclass(frozen=True)
+class _ExecutionPatternPredicate:
+    kind: _ExecutionPatternPredicateKind
+    required_params: frozenset[str] = frozenset()
+    callee_names: frozenset[str] = frozenset()
+    required_keywords: frozenset[str] = frozenset()
+    min_positional_args: int = 0
+
+    def matches(self, *, fact: _ExecutionFunctionFact) -> bool:
+        check_deadline()
+        if self.kind is _ExecutionPatternPredicateKind.PARAMS:
+            return self.required_params.issubset(fact.param_names)
+        if self.kind is _ExecutionPatternPredicateKind.CALLEE:
+            return bool(fact.called_names.intersection(self.callee_names))
+        if self.kind is _ExecutionPatternPredicateKind.CALL_SHAPE:
+            for callee_name in self.callee_names:
+                check_deadline()
+                for shape in fact.call_shapes.get(callee_name, ()):  # boundary alias normalization
+                    check_deadline()
+                    if shape.positional_args < self.min_positional_args:
+                        continue
+                    if not self.required_keywords.issubset(shape.keyword_names):
+                        continue
+                    return True
+            return False
+        return never(self.kind)
+
+    def payload(self) -> JSONObject:
+        check_deadline()
+        payload: JSONObject = {"kind": self.kind.value}
+        if self.required_params:
+            payload["required_params"] = list(
+                sort_once(
+                    self.required_params,
+                    source="_ExecutionPatternPredicate.payload.required_params",
+                )
+            )
+        if self.callee_names:
+            payload["callee_names"] = list(
+                sort_once(
+                    self.callee_names,
+                    source="_ExecutionPatternPredicate.payload.callee_names",
+                )
+            )
+        if self.required_keywords:
+            payload["required_keywords"] = list(
+                sort_once(
+                    self.required_keywords,
+                    source="_ExecutionPatternPredicate.payload.required_keywords",
+                )
+            )
+        if self.min_positional_args:
+            payload["min_positional_args"] = self.min_positional_args
+        return payload
 
 
 @dataclass
@@ -3124,12 +3199,36 @@ _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
         "analysis_index",
     }
 )
+_INDEXED_PASS_CALL_SHAPE_KEYWORDS = frozenset(
+    {
+        "project_root",
+        "ignore_params",
+        "strictness",
+        "external_filter",
+        "transparent_decorators",
+        "parse_failure_witnesses",
+    }
+)
 _INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_ingress",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+            required_keywords=_INDEXED_PASS_CALL_SHAPE_KEYWORDS,
+            min_positional_args=1,
+        ),
+    ),
     min_members=3,
     candidate="IndexedPassSpec[T] metafactory",
     description=(
@@ -3141,8 +3240,22 @@ _INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_runner",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_run_indexed_pass"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
     min_members=2,
     candidate="IndexedPassSpec[T] runner Protocol",
     description=(
@@ -3154,8 +3267,22 @@ _INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_graph_builder",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_build_call_graph"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_call_graph"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
     min_members=2,
     candidate="IndexedPassSpec[T] graph-builder Protocol",
     description=(
@@ -3163,11 +3290,80 @@ _INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
         "share one indexed-pass graph-builder execution contract."
     ),
 )
+_PARSE_FAILURE_SINK_RULE = _ExecutionPatternRule(
+    pattern_id="parse_failure_sink_plumbing",
+    kind="execution_pattern",
+    schema_family="parse_failure_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseFailureSinkCarrier Protocol",
+    description=(
+        "Functions normalizing parse-failure witnesses should share one "
+        "typed sink-carrier boundary contract."
+    ),
+)
+_PARSE_MODULE_TREE_RULE = _ExecutionPatternRule(
+    pattern_id="parse_module_tree_stage",
+    kind="execution_pattern",
+    schema_family="parse_module_tree_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_module_tree"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_module_tree"}),
+            required_keywords=frozenset({"parse_failure_witnesses", "stage"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseModuleStageSpec Protocol",
+    description=(
+        "Functions reusing parse-module stage dispatch should centralize "
+        "stage + witness carriage into a shared protocol."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
     _INDEXED_PASS_RUNNER_RULE,
     _INDEXED_PASS_GRAPH_RULE,
+    _PARSE_FAILURE_SINK_RULE,
+    _PARSE_MODULE_TREE_RULE,
 )
+
+_EXECUTION_PATTERN_RULE_REGISTRY: dict[str, _ExecutionPatternRule] = {
+    rule.pattern_id: rule
+    for rule in _EXECUTION_PATTERN_RULES
+}
+
+
+def _execution_pattern_rule(pattern_id: str) -> _ExecutionPatternRule:
+    check_deadline()
+    rule = _EXECUTION_PATTERN_RULE_REGISTRY.get(pattern_id)
+    if rule is None:
+        raise KeyError(f"unknown execution pattern rule: {pattern_id}")
+    return rule
+
 
 
 def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
@@ -3196,7 +3392,7 @@ def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
     return (attribute.attr, dotted)
 
 
-def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
+def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunctionFact]:
     for node in tree.body:
         check_deadline()
         if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
@@ -3217,6 +3413,7 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, froz
                 continue
             alias_map[cast(ast.Name, target).id] = variants
         called_names: set[str] = set()
+        call_shapes: dict[str, set[_ExecutionCallShape]] = defaultdict(set)
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
@@ -3226,12 +3423,44 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, froz
             variants = _callable_name_variants(call_node.func)
             if not variants:
                 continue
+            shape = _ExecutionCallShape(
+                positional_args=len(call_node.args),
+                keyword_names=frozenset(
+                    keyword.arg
+                    for keyword in call_node.keywords
+                    if keyword.arg is not None
+                ),
+            )
             for variant in variants:
                 check_deadline()
                 called_names.add(variant)
+                call_shapes[variant].add(shape)
                 for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
                     called_names.add(alias_variant)
-        yield function_node.name, param_names, frozenset(called_names)
+                    call_shapes[alias_variant].add(shape)
+        yield _ExecutionFunctionFact(
+            function_name=function_node.name,
+            param_names=param_names,
+            called_names=frozenset(called_names),
+            call_shapes={
+                name: tuple(
+                    sort_once(
+                        shapes,
+                        source="_iter_execution_function_facts.call_shapes",
+                        key=lambda entry: (
+                            entry.positional_args,
+                            tuple(
+                                sort_once(
+                                    entry.keyword_names,
+                                    source="_iter_execution_function_facts.call_shape_keywords",
+                                )
+                            ),
+                        ),
+                    )
+                )
+                for name, shapes in call_shapes.items()
+            },
+        )
 
 
 def _execution_pattern_members(
@@ -3240,14 +3469,33 @@ def _execution_pattern_members(
     rule: _ExecutionPatternRule,
 ) -> tuple[str, ...]:
     members: list[str] = []
-    for name, param_names, called_names in _iter_execution_function_facts(tree):
+    for fact in _iter_execution_function_facts(tree):
         check_deadline()
-        if not rule.required_params.issubset(param_names):
+        if any(not predicate.matches(fact=fact) for predicate in rule.predicates):
             continue
-        if not called_names.intersection(rule.callee_names):
-            continue
-        members.append(name)
+        members.append(fact.function_name)
     return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
+
+
+def _execution_rule_residue_payload(
+    *,
+    rule: _ExecutionPatternRule,
+    members: Sequence[str],
+    observed_member_count: int,
+) -> JSONObject:
+    check_deadline()
+    return {
+        "pattern_id": rule.pattern_id,
+        "schema_family": rule.schema_family,
+        "predicate_contract": [predicate.payload() for predicate in rule.predicates],
+        "members": list(
+            sort_once(
+                {str(member) for member in members},
+                source="_execution_rule_residue_payload.members",
+            )
+        ),
+        "member_count": observed_member_count,
+    }
 
 
 def _detect_execution_pattern_matches(
@@ -3300,7 +3548,7 @@ def _execution_pattern_instances(
     )
     for match in matches:
         check_deadline()
-        rule = next(rule for rule in _EXECUTION_PATTERN_RULES if rule.pattern_id == match.pattern_id)
+        rule = _execution_pattern_rule(match.pattern_id)
         signature = execution_signature(
             family=match.schema_family,
             members=match.members,
@@ -3328,8 +3576,24 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=match.pattern_id,
-                            expected={"min_members": rule.min_members, "candidate": rule.candidate},
-                            observed={"members": list(match.members), "member_count": len(match.members)},
+                            expected={
+                                "min_members": rule.min_members,
+                                "candidate": rule.candidate,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=match.members,
+                                    observed_member_count=len(match.members),
+                                ),
+                            },
+                            observed={
+                                "members": list(match.members),
+                                "member_count": len(match.members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=match.members,
+                                    observed_member_count=len(match.members),
+                                ),
+                            },
                         ),
                     ),
                 ),
@@ -3372,8 +3636,23 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=rule.pattern_id,
-                            expected={"min_members": rule.min_members},
-                            observed={"members": list(near_miss_members), "member_count": len(near_miss_members)},
+                            expected={
+                                "min_members": rule.min_members,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
+                            observed={
+                                "members": list(near_miss_members),
+                                "member_count": len(near_miss_members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
                         ),
                     ),
                 ),

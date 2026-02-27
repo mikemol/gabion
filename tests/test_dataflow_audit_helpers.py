@@ -1122,6 +1122,80 @@ def test_execution_pattern_detection_supports_alias_attribute_and_async_callable
     assert "indexed_pass_graph_builder" in ids
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_registry_detects_additional_orchestration_motifs::dataflow_audit.py::gabion.analysis.dataflow_audit._detect_execution_pattern_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_registry_detects_additional_orchestration_motifs() -> None:
+    da = _load()
+    source = """
+def sink_a(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def sink_b(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def parse_a(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def parse_b(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+"""
+
+    matches = da._detect_execution_pattern_matches(source=source)
+    pattern_ids = {match.pattern_id for match in matches}
+    assert "parse_failure_sink_plumbing" in pattern_ids
+    assert "parse_module_tree_stage" in pattern_ids
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_schema_id_matrix_is_stable_for_semantic_equivalents_across_modules::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_schema_id_matrix_is_stable_for_semantic_equivalents_across_modules() -> None:
+    da = _load()
+    module_a = """
+def parse_alpha(path, *, parse_failure_witnesses):
+    sink = _parse_failure_sink
+    sink(parse_failure_witnesses)
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def parse_beta(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+def sink_gamma(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def sink_delta(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+"""
+    module_b = """
+def parse_beta(path, *, parse_failure_witnesses):
+    parser = audit._parse_module_tree
+    return parser(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+def parse_alpha(path, *, parse_failure_witnesses):
+    sink = plumbing._parse_failure_sink
+    sink(parse_failure_witnesses)
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def sink_gamma(parse_failure_witnesses=None):
+    alias = plumbing._parse_failure_sink
+    return alias(parse_failure_witnesses)
+def sink_delta(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+"""
+
+    def _schema_and_residue(source: str, pattern_id: str) -> tuple[str, dict[str, object]]:
+        instances = da._pattern_schema_matches(groups_by_path={}, source=source)
+        execution_instances = [entry for entry in instances if entry.schema.axis.value == "execution"]
+        matched = next(entry for entry in execution_instances if pattern_id in entry.suggestion)
+        payload = matched.residue[0].payload
+        observed = payload["observed"]
+        assert isinstance(observed, dict)
+        rule_payload = observed["rule"]
+        assert isinstance(rule_payload, dict)
+        return matched.schema.schema_id, rule_payload
+
+    matrix = {
+        pattern_id: (
+            _schema_and_residue(module_a, pattern_id),
+            _schema_and_residue(module_b, pattern_id),
+        )
+        for pattern_id in ("parse_module_tree_stage", "parse_failure_sink_plumbing")
+    }
+
+    for (schema_a, residue_a), (schema_b, residue_b) in matrix.values():
+        assert schema_a == schema_b
+        assert residue_a["predicate_contract"] == residue_b["predicate_contract"]
+
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_residue_is_stable_under_source_order_permutations::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_residue_lines::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_execution_pattern_residue_is_stable_under_source_order_permutations() -> None:
     da = _load()
