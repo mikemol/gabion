@@ -126,3 +126,39 @@ def test_run_type_audit_early_return(tmp_path: Path, capsys) -> None:
     assert code == 0
     captured = capsys.readouterr()
     assert "Type tightening candidates" in captured.out
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline.analyze_paths::include_decision_surfaces,include_exception_obligations,include_rewrite_plans,type_audit,type_audit_report E:decision_surface/direct::dataflow_reporting.py::gabion.analysis.dataflow_reporting._append_report_tail_sections::unsupported_by_adapter
+def test_run_adapter_unsupported_surface_is_non_blocking_without_required_policy(tmp_path: Path, capsys) -> None:
+    da = _load()
+    target = tmp_path / "types.py"
+    _write_type_module(target)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[dataflow.adapter]\n"
+        "name = \"limited\"\n"
+        "[dataflow.adapter.capabilities]\n"
+        "type_flow = false\n"
+    )
+    code = da.run([str(target), "--config", str(config_path), "--type-audit-report", "--report", "-"])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "Skipped by adapter capabilities" in captured.out
+    assert "type-flow: unsupported_by_adapter (limited)" in captured.out
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_reporting.py::gabion.analysis.dataflow_reporting._append_report_tail_sections::unsupported_by_adapter
+def test_run_adapter_required_surface_becomes_violation(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "types.py"
+    _write_type_module(target)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[dataflow.adapter]\n"
+        "name = \"limited\"\n"
+        "required_surfaces = [\"type-flow\"]\n"
+        "[dataflow.adapter.capabilities]\n"
+        "type_flow = false\n"
+    )
+    code = da.run([str(target), "--config", str(config_path), "--type-audit-report", "--report", "-", "--fail-on-violations"])
+    assert code == 1

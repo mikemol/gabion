@@ -57,7 +57,9 @@ from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
     dataflow_defaults,
+    dataflow_adapter_payload,
     dataflow_deadline_roots,
+    dataflow_required_surfaces,
     decision_defaults,
     decision_ignore_list,
     decision_require_tiers,
@@ -182,6 +184,7 @@ from .dataflow_exception_obligations import (
     _builtin_exception_class as _exc_builtin_exception_class,
 )
 from .dataflow_report_rendering import (
+    render_unsupported_by_adapter_section as _report_render_unsupported_section,
     render_synthesis_section as _report_render_synthesis_section,
 )
 from .dataflow_bundle_iteration import (
@@ -529,6 +532,46 @@ class SymbolTable:
         return None
 
 
+@dataclass(frozen=True)
+class AdapterCapabilities:
+    bundle_inference: bool = True
+    decision_surfaces: bool = True
+    type_flow: bool = True
+    exception_obligations: bool = True
+    rewrite_plan_support: bool = True
+
+
+def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
+    if type(payload) is not dict:
+        return AdapterCapabilities()
+    raw = cast(dict[object, object], payload)
+
+    def _read(name: str, default: bool = True) -> bool:
+        value = raw.get(name)
+        if type(value) is bool:
+            return bool(value)
+        if type(value) is int:
+            return int(value) != 0
+        return default
+
+    return AdapterCapabilities(
+        bundle_inference=_read("bundle_inference"),
+        decision_surfaces=_read("decision_surfaces"),
+        type_flow=_read("type_flow"),
+        exception_obligations=_read("exception_obligations"),
+        rewrite_plan_support=_read("rewrite_plan_support"),
+    )
+
+
+def normalize_adapter_contract(payload: object) -> JSONObject:
+    if type(payload) is not dict:
+        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
+    raw = cast(dict[object, object], payload)
+    name = str(raw.get("name", "native") or "native")
+    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
+    return {"name": name, "capabilities": {str(key): bool(capabilities[key]) for key in capabilities}}
+
+
 @dataclass
 class AuditConfig:
     project_root: OptionalPath = None
@@ -553,6 +596,8 @@ class AuditConfig:
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
     ] = field(default_factory=tuple)
+    adapter_contract: OptionalJsonObject = None
+    required_analysis_surfaces: set[str] = field(default_factory=set)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -615,6 +660,7 @@ class AnalysisResult:
     profiling_v1: OptionalJsonObject = None
     deprecated_artifacts: OptionalDeprecatedExtractionArtifacts = None
     deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
 
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
@@ -660,6 +706,7 @@ class ReportCarrier:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
     phase_progress_v2: OptionalJsonObject = None
     deprecated_signals: tuple[str, ...] = ()
@@ -700,6 +747,7 @@ class ReportCarrier:
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
+            unsupported_by_adapter=analysis.unsupported_by_adapter,
             deprecated_signals=(
                 analysis.deprecated_artifacts.informational_signals
                 if analysis.deprecated_artifacts is not None
@@ -17074,6 +17122,12 @@ def _run_impl(
         merged.get("transparent_decorators")
     )
     deadline_roots = set(dataflow_deadline_roots(merged))
+    adapter_payload = dataflow_adapter_payload(merged)
+    required_analysis_surfaces = {
+        str(item)
+        for item in dataflow_required_surfaces(merged)
+        if type(item) is str and str(item)
+    }
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
@@ -17093,6 +17147,8 @@ def _run_impl(
         fingerprint_synth_min_occurrences=synth_min_occurrences,
         fingerprint_synth_version=synth_version,
         fingerprint_synth_registry=synth_registry,
+        adapter_contract=normalize_adapter_contract(adapter_payload),
+        required_analysis_surfaces=required_analysis_surfaces,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

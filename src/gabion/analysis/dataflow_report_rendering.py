@@ -64,3 +64,23 @@ def render_synthesis_section(
         lines.extend(str(e) for e in errors)
         lines.append("```")
     return "\n".join(lines)
+
+
+def render_unsupported_by_adapter_section(
+    diagnostics: list[JSONObject],
+    *,
+    check_deadline: Callable[[], None],
+) -> list[str]:
+    lines: list[str] = []
+    for diagnostic in diagnostics:
+        check_deadline()
+        if type(diagnostic) is not dict:
+            continue
+        surface = str(diagnostic.get("surface", ""))
+        adapter = str(diagnostic.get("adapter", "native"))
+        required = bool(diagnostic.get("required_by_policy", False))
+        line = f"{surface}: unsupported_by_adapter ({adapter})"
+        if required:
+            line = f"{line} [required]"
+        lines.append(line)
+    return lines
