@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TypeVar, cast
 
 from gabion.analysis import aspf
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.derivation_contract import (
     DerivationCacheStats,
     DerivationNodeId,
@@ -54,18 +55,8 @@ class DerivationCacheRuntime:
         cache_event_callback = (
             on_cache_event if callable(on_cache_event) else None
         )
-        dependency_payload: Mapping[str, object] = {}
-        params_payload: Mapping[str, object] = {}
-        match dependencies:
-            case Mapping() as dependency_mapping:
-                dependency_payload = dependency_mapping
-            case _:
-                pass
-        match params:
-            case Mapping() as params_mapping:
-                params_payload = params_mapping
-            case _:
-                pass
+        dependency_payload = mapping_or_none(dependencies) or {}
+        params_payload = mapping_or_none(params) or {}
         input_nodes = self._intern_inputs(
             structural_inputs,
             source=f"{source}.inputs",
@@ -184,34 +175,30 @@ class DerivationCacheRuntime:
         *,
         source: str,
     ) -> tuple[DerivationNodeId, ...]:
-        match values:
-            case Mapping() as mapping_values:
-                labels = sort_once(
-                    mapping_values,
-                    source=f"{source}.labels",
-                    key=lambda value: value,
+        mapping_values = mapping_or_none(values)
+        if mapping_values is not None:
+            labels = sort_once(
+                mapping_values,
+                source=f"{source}.labels",
+                key=lambda value: value,
+            )
+            return tuple(
+                self.graph.intern_input(
+                    input_label=str(label),
+                    value=mapping_values[label],
+                    source=f"{source}.{label}",
                 )
-                return tuple(
-                    self.graph.intern_input(
-                        input_label=str(label),
-                        value=mapping_values[label],
-                        source=f"{source}.{label}",
-                    )
-                    for label in labels
-                )
-            case str() | bytes():
-                return tuple()
-            case Iterable() as iterable_values:
-                return tuple(
-                    self.graph.intern_input(
-                        input_label=f"arg_{index}",
-                        value=value,
-                        source=f"{source}.arg_{index}",
-                    )
-                    for index, value in enumerate(iterable_values)
-                )
-            case _:
-                return tuple()
+                for label in labels
+            )
+        iterable_values = sequence_or_none(values, allow_str=False) or ()
+        return tuple(
+            self.graph.intern_input(
+                input_label=f"arg_{index}",
+                value=value,
+                source=f"{source}.arg_{index}",
+            )
+            for index, value in enumerate(iterable_values)
+        )
 
     def _evict_if_needed(self) -> None:
         while len(self._values) > self.max_entries:

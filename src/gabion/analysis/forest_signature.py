@@ -136,6 +136,4 @@ def _path_name(path: object) -> str:
 
 
 def _is_json_scalar(value: object) -> bool:
-    if value is None:
-        return True
-    return type(value) in {str, int, float, bool}
+    return value is None or type(value) in {str, int, float, bool}

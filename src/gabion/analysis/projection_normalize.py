@@ -10,6 +10,7 @@ from gabion.analysis.projection_spec import (
     spec_from_dict,
 )
 from gabion.analysis.artifact_ordering import canonical_mapping_keys
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, sort_once
@@ -38,10 +39,8 @@ def spec_hash(spec) -> str:
             return spec_text
         case ProjectionSpec() as projection_spec:
             return spec_canonical_json(projection_spec)
-        case Mapping() as spec_mapping:
-            return spec_canonical_json(spec_from_dict(spec_mapping))
-        case _:
-            return spec_canonical_json(spec_from_dict({}))
+    spec_mapping = mapping_or_none(spec) or {}
+    return spec_canonical_json(spec_from_dict(spec_mapping))
 
 
 def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSONValue]]:
@@ -63,11 +62,7 @@ def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSON
     for op in pipeline:
         check_deadline()
         op_name = str(op.op).strip()
-        match op.params:
-            case Mapping() as op_params:
-                params = op_params
-            case _:
-                params = {}
+        params = op.params
         if op_name == "select":
             pending_selects.extend(_extract_predicates(params))
             continue

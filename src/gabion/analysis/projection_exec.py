@@ -7,6 +7,7 @@ import json
 from collections.abc import Callable, Iterable, Mapping
 from typing import cast
 
+from gabion.analysis.resume_codec import str_list_from_sequence
 from gabion.analysis.projection_normalize import normalize_spec
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
@@ -79,13 +80,10 @@ def apply_spec(
         params.update(params_override)
     op_registry = op_registry or {}
 
-    current: Relation = []
-    for row in rows:
-        match row:
-            case Mapping() as row_map:
-                current.append(dict(row_map))
-            case _:
-                pass
+    current: Relation = [
+        dict(cast(Mapping[str, JSONValue], row))
+        for row in rows
+    ]
 
     for op in normalized.get("pipeline") or []:
         check_deadline()
@@ -194,18 +192,10 @@ def _project_params_from_map(params_map: Mapping[str, JSONValue]) -> ProjectPara
     fields = params_map.get("fields", [])
     match fields:
         case str() as field_name:
-            field_values: list[object] = [field_name]
-        case list() as field_list:
-            field_values = [value for value in field_list]
+            field_values = [field_name]
         case _:
-            field_values = []
-    normalized_fields_list: list[str] = []
-    for field in field_values:
-        match field:
-            case str() as field_text if field_text.strip():
-                normalized_fields_list.append(field_text.strip())
-            case _:
-                pass
+            field_values = str_list_from_sequence(fields)
+    normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
     normalized_fields = tuple(normalized_fields_list)
     return ProjectParams(fields=normalized_fields)
 
@@ -222,18 +212,10 @@ def _count_by_params_from_map(params_map: Mapping[str, JSONValue]) -> CountByPar
     fields = params_map.get("fields", params_map.get("field"))
     match fields:
         case str() as field_name:
-            field_values: list[object] = [field_name]
-        case list() as field_list:
-            field_values = [value for value in field_list]
+            field_values = [field_name]
         case _:
-            field_values = []
-    normalized_fields_list: list[str] = []
-    for field in field_values:
-        match field:
-            case str() as field_text if field_text.strip():
-                normalized_fields_list.append(field_text.strip())
-            case _:
-                pass
+            field_values = str_list_from_sequence(fields)
+    normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
     normalized_fields = tuple(normalized_fields_list)
     return CountByParams(fields=normalized_fields)
 

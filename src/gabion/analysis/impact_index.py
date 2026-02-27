@@ -285,11 +285,7 @@ def _links_from_test_function(
     comment_map: dict[int, list[str]],
 ) -> list[ImpactLink]:
     check_deadline()
-    match node:
-        case ast.FunctionDef(name=node_name) | ast.AsyncFunctionDef(name=node_name):
-            pass
-        case _:
-            return list()
+    node_name = str(getattr(node, "name", ""))
     if not node_name.startswith("test"):
         return []
     source = f"{rel}::{node_name}"

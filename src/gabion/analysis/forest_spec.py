@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from collections.abc import Iterable, Mapping
 
 from gabion.json_types import JSONValue
+from gabion.analysis.resume_codec import mapping_or_none
 from gabion.order_contract import sort_once
 from gabion.analysis.timeout_context import check_deadline
 
@@ -349,10 +350,8 @@ def forest_spec_hash(spec: object) -> str:
             return spec_hash
         case ForestSpec() as spec_model:
             return forest_spec_hash_spec(spec_model)
-        case Mapping() as spec_payload:
-            return forest_spec_hash_spec(forest_spec_from_dict(spec_payload))
-        case _:
-            return forest_spec_hash_spec(forest_spec_from_dict({}))
+    spec_payload = mapping_or_none(spec) or {}
+    return forest_spec_hash_spec(forest_spec_from_dict(spec_payload))
 
 
 def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
@@ -406,14 +405,7 @@ def _normalize_value(value: JSONValue) -> JSONValue:
                 for k in sort_once(mapping_value, source = 'src/gabion/analysis/forest_spec.py:366')
             }
         case list() as list_value:
-            all_strings = True
-            for entry in list_value:
-                match entry:
-                    case str():
-                        pass
-                    case _:
-                        all_strings = False
-                        break
+            all_strings = all(type(entry) is str for entry in list_value)
             if list_value and all_strings:
                 return _sorted_strings([str(entry) for entry in list_value])
             return [_normalize_value(entry) for entry in list_value]

@@ -54,9 +54,7 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
 
 
 def _is_sortable_signature_scalar(value: JSONValue) -> bool:
-    if value is None:
-        return True
-    return type(value) in {str, int, float, bool}
+    return value is None or type(value) in {str, int, float, bool}
 
 
 def normalize_signature(signature: Mapping[str, JSONValue]) -> JSONObject:

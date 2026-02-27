@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from collections.abc import Mapping, Sequence
 
+from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
+
 
 class DeprecatedLifecycleState(StrEnum):
     ACTIVE = "active"
@@ -27,16 +29,10 @@ class DeprecatedBlocker:
         summary = str(payload.get("summary", "") or "").strip()
         lifecycle = DeprecatedLifecycleState(str(payload.get("lifecycle", "blocked") or "blocked"))
         depends_on_raw = payload.get("depends_on", ())
-        depends_on: tuple[str, ...]
-        match depends_on_raw:
-            case str() | bytes():
-                depends_on = ()
-            case Sequence() as depends_on_sequence:
-                depends_on = tuple(
-                    str(item).strip() for item in depends_on_sequence if str(item).strip()
-                )
-            case _:
-                depends_on = ()
+        depends_on_sequence = sequence_or_none(depends_on_raw, allow_str=False) or ()
+        depends_on = tuple(
+            str(item).strip() for item in depends_on_sequence if str(item).strip()
+        )
         if not blocker_id or not kind or not summary:
             raise ValueError("deprecated blocker requires blocker_id, kind, and summary")
         return cls(
@@ -62,31 +58,21 @@ class DeprecatedFiber:
         match path_raw:
             case str() | bytes():
                 raise ValueError("canonical_aspf_path must be a sequence")
-            case Sequence() as path_sequence:
-                path = tuple(str(item).strip() for item in path_sequence if str(item).strip())
-            case _:
-                raise ValueError("canonical_aspf_path must be a sequence")
+        path_sequence = sequence_or_none(path_raw, allow_str=False) or ()
+        path = tuple(str(item).strip() for item in path_sequence if str(item).strip())
         lifecycle = DeprecatedLifecycleState(str(payload.get("lifecycle", "active") or "active"))
         blockers_raw = payload.get("blocker_payload", ())
         blockers: list[DeprecatedBlocker] = []
-        match blockers_raw:
-            case str() | bytes():
-                blockers = blockers
-            case Sequence() as blockers_sequence:
-                for item in blockers_sequence:
-                    match item:
-                        case Mapping() as blocker_payload:
-                            blockers.append(DeprecatedBlocker.from_payload(blocker_payload))
-                        case _:
-                            pass
-            case _:
-                blockers = blockers
+        blockers_sequence = sequence_or_none(blockers_raw, allow_str=False) or ()
+        for item in blockers_sequence:
+            blocker_payload = mapping_or_none(item)
+            if blocker_payload is not None:
+                blockers.append(DeprecatedBlocker.from_payload(blocker_payload))
+        metadata = None
         resolution_metadata_payload = payload.get("resolution_metadata")
         match resolution_metadata_payload:
             case Mapping() as resolution_metadata:
                 metadata = resolution_metadata
-            case _:
-                metadata = None
         return deprecated(
             canonical_aspf_path=path,
             blockers=tuple(blockers),
@@ -157,17 +143,12 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
     parsed: list[PerfSample] = []
     for sample in samples:
         stack_raw = sample.get("stack", ())
-        match stack_raw:
-            case str() | bytes():
-                pass
-            case Sequence() as stack_sequence:
-                stack = tuple(str(item).strip() for item in stack_sequence if str(item).strip())
-                if stack:
-                    weight_raw = sample.get("weight", 1)
-                    weight = int(weight_raw) if type(weight_raw) is int and weight_raw > 0 else 1
-                    parsed.append(PerfSample(stack=stack, weight=weight))
-            case _:
-                pass
+        stack_sequence = sequence_or_none(stack_raw, allow_str=False) or ()
+        stack = tuple(str(item).strip() for item in stack_sequence if str(item).strip())
+        if stack:
+            weight_raw = sample.get("weight", 1)
+            weight = int(weight_raw) if type(weight_raw) is int and weight_raw > 0 else 1
+            parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 
 
@@ -239,18 +220,8 @@ def build_deprecated_extraction_artifacts(
     perf_groups = project_stack_to_aspf_fiber_groups(perf_samples)
     rankings = rank_fiber_groups(perf_groups)
     blocker_dag = blocker_dag_for_fibers(deprecated_fibers)
-    previous_coverage: Mapping[str, float] = {}
-    current_coverage: Mapping[str, float] = {}
-    match branch_coverage_previous:
-        case Mapping() as previous_payload:
-            previous_coverage = previous_payload
-        case _:
-            pass
-    match branch_coverage_current:
-        case Mapping() as current_payload:
-            current_coverage = current_payload
-        case _:
-            pass
+    previous_coverage = mapping_or_none(branch_coverage_previous) or {}
+    current_coverage = mapping_or_none(branch_coverage_current) or {}
     info = classify_branch_coverage_loss(
         previous=previous_coverage,
         current=current_coverage,
