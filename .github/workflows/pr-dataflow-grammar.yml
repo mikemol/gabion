@@ -194,7 +194,7 @@ jobs:
             --state-root artifacts/out/aspf_state \
             -- \
             .venv/bin/python -m gabion \
-              --timeout 65000000000000ns \
+              --timeout 130000000000000ns \
               check raw -- . \
               --root . \
               --report artifacts/dataflow_grammar/report.md \

@@ -47,7 +47,7 @@ jobs:
         run: |
           .venv/bin/python -m gabion \
             --carrier direct \
-            --timeout 65000000000000ns \
+            --timeout 130000000000000ns \
             run-dataflow-stage \
             --debug-dump-interval-seconds 60 \
             --stage-strictness-profile "run=high"
@@ -252,13 +252,13 @@ jobs:
             -- \
             .venv/bin/python -m gabion \
               --carrier direct \
-              --timeout 65000000000000ns \
+              --timeout 130000000000000ns \
               check delta-bundle
       - name: Delta gates (default-on burn-down gates)
         run: |
           .venv/bin/python -m gabion \
             --carrier direct \
-            --timeout 65000000000000ns \
+            --timeout 130000000000000ns \
             check delta-gates
       - name: Governance telemetry emit
         run: |

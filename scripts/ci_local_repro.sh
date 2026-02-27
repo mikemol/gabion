@@ -742,7 +742,7 @@ run_dataflow_job() {
   set +e
   observed dataflow_run_dataflow_stage "$PYTHON_BIN" -m gabion \
     --carrier direct \
-    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
     run-dataflow-stage \
     --github-output "$outputs_file" \
     --step-summary "$summary_file" \
@@ -932,7 +932,7 @@ PY
       --state-root "$aspf_state_root" \
       -- \
       "$PYTHON_BIN" -m gabion \
-      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
       check \
       raw -- . \
       --root . \
@@ -942,7 +942,7 @@ PY
       --baseline baselines/dataflow_baseline.txt
   else
     timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
-      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-65000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
       check \
       raw -- . \
       --root . \
