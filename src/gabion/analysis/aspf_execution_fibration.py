@@ -50,11 +50,17 @@ from .aspf_stream import (
     TwoCellWitnessRecorded,
 )
 from .aspf_visitors import (
+    AspfCofibrationEvent,
+    AspfOneCellEvent,
+    AspfSurfaceUpdateEvent,
+    AspfTraceReplayEvent,
+    AspfTwoCellEvent,
     OpportunityPayloadEmitter,
     StatePayloadEmitter,
     TracePayloadEmitter,
     adapt_event_log_reader_iterator_to_visitor,
     adapt_live_event_stream_to_visitor,
+    adapt_trace_event_iterator_to_visitor,
 )
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
@@ -485,21 +491,8 @@ def build_opportunities_payload(
     equivalence_payload: Mapping[str, object],
 ) -> JSONObject:
     emitter = OpportunityPayloadEmitter()
-    trace_payload = build_trace_payload(state)
-    adapt_live_event_stream_to_visitor(
-        one_cells=cast(list[Mapping[str, object]], trace_payload["one_cells"]),
-        two_cell_witnesses=cast(
-            list[Mapping[str, object]],
-            trace_payload["two_cell_witnesses"],
-        ),
-        cofibration_witnesses=cast(
-            list[Mapping[str, object]],
-            trace_payload["cofibration_witnesses"],
-        ),
-        surface_representatives=cast(
-            Mapping[str, str],
-            trace_payload["surface_representatives"],
-        ),
+    adapt_trace_event_iterator_to_visitor(
+        events=_iter_trace_events(state=state),
         visitor=emitter,
     )
     adapt_event_log_reader_iterator_to_visitor(
@@ -838,6 +831,60 @@ def _build_trace_replay_payload(
         one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
         one_cells_payload.append(one_cell_payload)
     return replay_payload, len(state.delta_records)
+
+
+def _iter_trace_events(*, state: AspfExecutionTraceState) -> Iterator[AspfTraceReplayEvent]:
+    if state.sink_indexes:
+        index = state.sink_indexes[0]
+        for event_index, payload in enumerate(index.iter_one_cells()):
+            yield AspfOneCellEvent(index=event_index, payload=payload)
+        for event_index, payload in enumerate(index.iter_two_cell_witnesses()):
+            yield AspfTwoCellEvent(index=event_index, payload=payload)
+        for event_index, payload in enumerate(index.iter_cofibrations()):
+            yield AspfCofibrationEvent(index=event_index, payload=payload)
+        ordered_surfaces = sort_once(
+            index.surface_representatives,
+            source="aspf_execution_fibration._iter_trace_events.sink.surface_representatives",
+        )
+        for surface in ordered_surfaces:
+            yield AspfSurfaceUpdateEvent(
+                surface=surface,
+                representative=str(index.surface_representatives[surface]),
+            )
+        return
+
+    for event_index, payload in enumerate(_iter_memory_one_cell_payloads(state=state)):
+        yield AspfOneCellEvent(index=event_index, payload=payload)
+    for event_index, witness in enumerate(state.two_cell_witnesses):
+        yield AspfTwoCellEvent(index=event_index, payload=witness.as_dict())
+    for event_index, carrier in enumerate(state.cofibrations):
+        yield AspfCofibrationEvent(index=event_index, payload=carrier.as_dict())
+    ordered_surfaces = sort_once(
+        state.surface_representatives,
+        source="aspf_execution_fibration._iter_trace_events.memory.surface_representatives",
+    )
+    for surface in ordered_surfaces:
+        yield AspfSurfaceUpdateEvent(
+            surface=surface,
+            representative=state.surface_representatives[surface],
+        )
+
+
+def _iter_memory_one_cell_payloads(
+    *,
+    state: AspfExecutionTraceState,
+) -> Iterator[JSONObject]:
+    for index, cell in enumerate(state.one_cells):
+        one_cell_payload = cell.as_dict()
+        metadata = (
+            state.one_cell_metadata[index]
+            if index < len(state.one_cell_metadata)
+            else {"kind": "", "surface": "", "metadata": {}}
+        )
+        one_cell_payload["kind"] = str(metadata.get("kind", ""))
+        one_cell_payload["surface"] = str(metadata.get("surface", ""))
+        one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
+        yield one_cell_payload
 
 
 def _semantic_surface_sequence(value: object) -> tuple[str, ...]:

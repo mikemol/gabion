@@ -63,11 +63,17 @@ class AspfOneCellEvent:
     index: int
     payload: Mapping[str, object]
 
+    def dispatch_to(self, visitor: AspfEventReplayVisitor) -> None:
+        visitor.one_cell(self)
+
 
 @dataclass(frozen=True)
 class AspfTwoCellEvent:
     index: int
     payload: Mapping[str, object]
+
+    def dispatch_to(self, visitor: AspfEventReplayVisitor) -> None:
+        visitor.two_cell(self)
 
 
 @dataclass(frozen=True)
@@ -75,17 +81,27 @@ class AspfCofibrationEvent:
     index: int
     payload: Mapping[str, object]
 
+    def dispatch_to(self, visitor: AspfEventReplayVisitor) -> None:
+        visitor.cofibration(self)
+
 
 @dataclass(frozen=True)
 class AspfSurfaceUpdateEvent:
     surface: str
     representative: str
 
+    def dispatch_to(self, visitor: AspfEventReplayVisitor) -> None:
+        visitor.surface_update(self)
+
 
 @dataclass(frozen=True)
 class AspfRunBoundaryEvent:
     boundary: Literal["equivalence_surface_row"]
     payload: Mapping[str, object]
+
+
+class AspfTraceReplayEvent(Protocol):
+    def dispatch_to(self, visitor: AspfEventReplayVisitor) -> None: ...
 
 
 class AspfEventReplayVisitor(Protocol):
@@ -210,6 +226,15 @@ def adapt_live_event_stream_to_visitor(
                 representative=str(surface_representatives.get(surface, "")),
             )
         )
+
+
+def adapt_trace_event_iterator_to_visitor(
+    *,
+    events: Iterable[AspfTraceReplayEvent],
+    visitor: AspfEventReplayVisitor,
+) -> None:
+    for event in events:
+        event.dispatch_to(visitor)
 
 
 def adapt_event_log_reader_iterator_to_visitor(
