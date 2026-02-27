@@ -6,6 +6,7 @@ import hashlib
 from typing import Callable, Iterable, Literal, Mapping, Protocol, cast
 
 from gabion.analysis.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.resume_codec import mapping_or_empty, sequence_or_none
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 
@@ -391,6 +392,26 @@ class OpportunityAlgebraicObservation:
     surfaces: tuple[str, ...] = ()
     witness_ids: tuple[str, ...] = ()
     classification: str = ""
+    representative: str = ""
+    one_cell_carrier_observed: bool = False
+    cofibration_entry_count: int = 0
+    witness_chain: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class OpportunityProofObligation:
+    obligation: str
+    satisfied: bool
+    predicate: str
+    detail: str
+
+    def as_row(self) -> JSONObject:
+        return {
+            "obligation": self.obligation,
+            "satisfied": self.satisfied,
+            "predicate": self.predicate,
+            "detail": self.detail,
+        }
 
 
 @dataclass(frozen=True)
@@ -404,9 +425,22 @@ class OpportunityDecisionProtocol:
     confidence_provenance: OpportunityConfidenceProvenance
     witness_requirement: OpportunityWitnessRequirement
     actionability: OpportunityActionabilityState
+    proof_obligations: tuple[OpportunityProofObligation, ...] = ()
+    carrier_subgraph: JSONObject = field(default_factory=dict)
+    witness_chain: tuple[str, ...] = ()
     opportunity_hash: str = ""
 
+    def failed_obligations(self) -> tuple[str, ...]:
+        return tuple(
+            obligation.obligation
+            for obligation in self.proof_obligations
+            if not obligation.satisfied
+        )
+
     def confidence(self) -> float:
+        if self.proof_obligations:
+            satisfied = sum(1 for obligation in self.proof_obligations if obligation.satisfied)
+            return round(satisfied / len(self.proof_obligations), 2)
         score = 0.36
         if self.confidence_provenance is OpportunityConfidenceProvenance.INGRESS_OBSERVATION:
             score += 0.14
@@ -432,6 +466,12 @@ class OpportunityDecisionProtocol:
             "affected_surfaces": list(self.affected_surfaces),
             "witness_ids": list(self.witness_ids),
             "reason": self.reason,
+            "carrier_subgraph": self.carrier_subgraph,
+            "witness_chain": list(self.witness_chain),
+            "proof_obligations": [
+                obligation.as_row() for obligation in self.proof_obligations
+            ],
+            "failed_obligations": list(self.failed_obligations()),
             **({"opportunity_hash": self.opportunity_hash} if self.opportunity_hash else {}),
         }
 
@@ -445,9 +485,15 @@ class OpportunityDecisionProtocol:
             "canonical_identity": self.canonical_identity,
             "affected_surfaces": list(self.affected_surfaces),
             "required_witnesses": list(self.witness_ids),
+            "carrier_subgraph": self.carrier_subgraph,
+            "witness_chain": list(self.witness_chain),
             "decision_basis": {
                 "confidence_provenance": self.confidence_provenance,
                 "witness_requirement": self.witness_requirement,
+                "proof_obligations": [
+                    obligation.as_row() for obligation in self.proof_obligations
+                ],
+                "failed_obligations": list(self.failed_obligations()),
             },
             "summary": self.reason,
             **({"opportunity_hash": self.opportunity_hash} if self.opportunity_hash else {}),
@@ -460,6 +506,102 @@ def _node_id_identity_payload(node_id: NodeId) -> JSONObject:
         "node_id": node_id.as_dict(),
         "node_fingerprint": [fingerprint_kind, list(fingerprint_parts)],
     }
+
+
+def _reusable_boundary_obligations(
+    observation: OpportunityAlgebraicObservation,
+) -> tuple[OpportunityProofObligation, ...]:
+    return (
+        OpportunityProofObligation(
+            obligation="representative_collision",
+            satisfied=len(observation.surfaces) >= 2,
+            predicate="multiple semantic surfaces map to the same representative",
+            detail=f"surface_count={len(observation.surfaces)}",
+        ),
+        OpportunityProofObligation(
+            obligation="one_cell_carrier_presence",
+            satisfied=observation.one_cell_carrier_observed,
+            predicate="representative is realized by at least one observed 1-cell",
+            detail=f"representative={observation.representative}",
+        ),
+        OpportunityProofObligation(
+            obligation="two_cell_isomorphy_witness",
+            satisfied=bool(observation.witness_ids),
+            predicate="2-cell witnesses explicitly link representative to an equivalent peer",
+            detail=f"witness_count={len(observation.witness_ids)}",
+        ),
+        OpportunityProofObligation(
+            obligation="cofibration_support",
+            satisfied=observation.cofibration_entry_count > 0,
+            predicate="at least one cofibration entry validates domain→ASPF carrier embedding",
+            detail=f"cofibration_entry_count={observation.cofibration_entry_count}",
+        ),
+    )
+
+
+def _resume_boundary_obligations(
+    observation: OpportunityAlgebraicObservation,
+    *,
+    fused: bool,
+) -> tuple[OpportunityProofObligation, ...]:
+    return (
+        OpportunityProofObligation(
+            obligation="resume_state_reference_observed",
+            satisfied=True,
+            predicate="resume load/write metadata carry an explicit state reference",
+            detail=f"resume_ref={observation.subject_id}",
+        ),
+        OpportunityProofObligation(
+            obligation="resume_bidirectional_boundary",
+            satisfied=fused,
+            predicate="both resume_load and resume_write occurred for the same state reference",
+            detail=f"observed_kinds={sorted(observation.one_cell_kinds)}",
+        ),
+    )
+
+
+def _build_reusable_boundary_decision(
+    observation: OpportunityAlgebraicObservation,
+) -> OpportunityDecisionProtocol:
+    obligations = _reusable_boundary_obligations(observation)
+    actionable = all(obligation.satisfied for obligation in obligations)
+    return OpportunityDecisionProtocol(
+        opportunity_id=f"opp:reusable-boundary:{observation.subject_id}",
+        kind="reusable_boundary_artifact",
+        canonical_identity=_node_id_identity_payload(
+            NodeId(
+                kind="Opportunity:ReusableBoundaryRepresentative",
+                key=(observation.subject_id,),
+            )
+        ),
+        affected_surfaces=observation.surfaces,
+        witness_ids=observation.witness_ids,
+        reason=(
+            "witnessed representative isomorphy supports reusable boundary artifact"
+            if actionable
+            else "representative collision observed but explicit isomorphy obligations remain open"
+        ),
+        confidence_provenance=(
+            OpportunityConfidenceProvenance.REPRESENTATIVE_CONFLUENCE
+            if not observation.witness_ids
+            else OpportunityConfidenceProvenance.MORPHISM_WITNESS
+        ),
+        witness_requirement=OpportunityWitnessRequirement.REPRESENTATIVE_PAIR,
+        actionability=(
+            OpportunityActionabilityState.ACTIONABLE
+            if actionable
+            else OpportunityActionabilityState.OBSERVATIONAL
+        ),
+        proof_obligations=obligations,
+        carrier_subgraph={
+            "representative": observation.representative,
+            "surface_count": len(observation.surfaces),
+            "one_cell_carrier_observed": observation.one_cell_carrier_observed,
+            "cofibration_entry_count": observation.cofibration_entry_count,
+        },
+        witness_chain=observation.witness_chain,
+        opportunity_hash=observation.subject_id,
+    )
 
 
 @dataclass(frozen=True)
@@ -509,6 +651,14 @@ def _build_default_opportunity_taxonomy_registry() -> OpportunityTaxonomyRegistr
                     confidence_provenance=OpportunityConfidenceProvenance.INGRESS_OBSERVATION,
                     witness_requirement=OpportunityWitnessRequirement.NONE,
                     actionability=OpportunityActionabilityState.OBSERVATIONAL,
+                    proof_obligations=_resume_boundary_obligations(
+                        observation,
+                        fused=False,
+                    ),
+                    carrier_subgraph={
+                        "resume_ref": observation.subject_id,
+                        "kinds": sorted(observation.one_cell_kinds),
+                    },
                 ),
             ),
             OpportunityTaxonomyRegistration(
@@ -533,6 +683,14 @@ def _build_default_opportunity_taxonomy_registry() -> OpportunityTaxonomyRegistr
                     confidence_provenance=OpportunityConfidenceProvenance.INGRESS_OBSERVATION,
                     witness_requirement=OpportunityWitnessRequirement.NONE,
                     actionability=OpportunityActionabilityState.ACTIONABLE,
+                    proof_obligations=_resume_boundary_obligations(
+                        observation,
+                        fused=True,
+                    ),
+                    carrier_subgraph={
+                        "resume_ref": observation.subject_id,
+                        "kinds": sorted(observation.one_cell_kinds),
+                    },
                 ),
             ),
             OpportunityTaxonomyRegistration(
@@ -540,31 +698,7 @@ def _build_default_opportunity_taxonomy_registry() -> OpportunityTaxonomyRegistr
                     structure=OpportunityStructure.TWO_CELL,
                     min_one_cells=1,
                 ),
-                build=lambda observation: OpportunityDecisionProtocol(
-                    opportunity_id=f"opp:reusable-boundary:{observation.subject_id}",
-                    kind="reusable_boundary_artifact",
-                    canonical_identity=_node_id_identity_payload(
-                        NodeId(
-                            kind="Opportunity:ReusableBoundaryRepresentative",
-                            key=(observation.subject_id,),
-                        )
-                    ),
-                    affected_surfaces=observation.surfaces,
-                    witness_ids=observation.witness_ids,
-                    reason="multiple semantic surfaces share deterministic representative",
-                    confidence_provenance=(
-                        OpportunityConfidenceProvenance.REPRESENTATIVE_CONFLUENCE
-                        if not observation.witness_ids
-                        else OpportunityConfidenceProvenance.MORPHISM_WITNESS
-                    ),
-                    witness_requirement=OpportunityWitnessRequirement.REPRESENTATIVE_PAIR,
-                    actionability=(
-                        OpportunityActionabilityState.OBSERVATIONAL
-                        if len(observation.surfaces) < 2
-                        else OpportunityActionabilityState.ACTIONABLE
-                    ),
-                    opportunity_hash=observation.subject_id,
-                ),
+                build=_build_reusable_boundary_decision,
             ),
             OpportunityTaxonomyRegistration(
                 predicate=OpportunityAlgebraicPredicate(
@@ -590,6 +724,19 @@ def _build_default_opportunity_taxonomy_registry() -> OpportunityTaxonomyRegistr
                     confidence_provenance=OpportunityConfidenceProvenance.MORPHISM_WITNESS,
                     witness_requirement=OpportunityWitnessRequirement.TWO_CELL_WITNESS,
                     actionability=OpportunityActionabilityState.ACTIONABLE,
+                    proof_obligations=(
+                        OpportunityProofObligation(
+                            obligation="two_cell_equivalence_witness",
+                            satisfied=True,
+                            predicate="equivalence row classification is non_drift with witness_id",
+                            detail="surface row provided witnessed non-drift classification",
+                        ),
+                    ),
+                    carrier_subgraph={
+                        "surface": observation.surfaces[0] if observation.surfaces else "",
+                        "classification": observation.classification,
+                    },
+                    witness_chain=observation.witness_ids[:1],
                 ),
             ),
             OpportunityTaxonomyRegistration(
@@ -612,6 +759,21 @@ def _build_default_opportunity_taxonomy_registry() -> OpportunityTaxonomyRegistr
                     confidence_provenance=OpportunityConfidenceProvenance.MORPHISM_WITNESS,
                     witness_requirement=OpportunityWitnessRequirement.COFIBRATION_WITNESS,
                     actionability=OpportunityActionabilityState.OBSERVATIONAL,
+                    proof_obligations=(
+                        OpportunityProofObligation(
+                            obligation="cofibration_support",
+                            satisfied=observation.cofibration_count > 0,
+                            predicate=(
+                                "at least one cofibration entry validates domain→ASPF carrier embedding"
+                            ),
+                            detail=f"cofibration_entry_count={observation.cofibration_count}",
+                        ),
+                    ),
+                    carrier_subgraph={
+                        "canonical_identity_kind": observation.subject_id,
+                        "cofibration_entry_count": observation.cofibration_count,
+                    },
+                    witness_chain=observation.witness_ids,
                 ),
             ),
         )
@@ -626,8 +788,11 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
     _materialize_kinds_by_resume_ref: dict[str, set[str]] = field(default_factory=dict)
     _representative_to_surfaces: dict[str, list[str]] = field(default_factory=dict)
     _representative_witness_ids: dict[str, set[str]] = field(default_factory=dict)
+    _witness_chain_by_representative: dict[str, set[str]] = field(default_factory=dict)
+    _representatives_observed_in_one_cells: set[str] = field(default_factory=set)
     _non_drift_witness_ids_by_surface: dict[str, set[str]] = field(default_factory=dict)
     _cofibration_entry_count_by_kind: dict[str, int] = field(default_factory=dict)
+    _cofibration_entry_count_total: int = 0
 
     def one_cell(self, event: AspfOneCellEvent) -> None:
         self.on_trace_one_cell(index=event.index, one_cell=event.payload)
@@ -651,6 +816,9 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
         kind = str(one_cell.get("kind", ""))
         metadata = cast(Mapping[str, object], one_cell.get("metadata", {}))
+        representative = str(one_cell.get("representative", "")).strip()
+        if representative:
+            self._representatives_observed_in_one_cells.add(representative)
         resume_ref = ""
         for candidate_key in ("state_path", "import_state_path"):
             candidate = str(metadata.get(candidate_key, "")).strip()
@@ -679,9 +847,17 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
             return
         left = str(witness.get("left_representative", "")).strip()
         right = str(witness.get("right_representative", "")).strip()
+        if not left or not right:
+            left_payload = cast(Mapping[str, object], witness.get("left", {}))
+            right_payload = cast(Mapping[str, object], witness.get("right", {}))
+            left = str(left_payload.get("representative", "")).strip()
+            right = str(right_payload.get("representative", "")).strip()
         for representative in (left, right):
             if representative:
                 self._representative_witness_ids.setdefault(representative, set()).add(witness_id)
+                self._witness_chain_by_representative.setdefault(representative, set()).add(
+                    f"{left}->{right}"
+                )
 
     def on_trace_cofibration(
         self,
@@ -690,12 +866,12 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         cofibration: Mapping[str, object],
     ) -> None:
         canonical_identity_kind = str(cofibration.get("canonical_identity_kind", "")).strip()
-        normalized_cofibration = cast(Mapping[str, object], cofibration.get("cofibration", {}))
-        normalized_entries = cast(list[object], normalized_cofibration.get("entries", []))
+        normalized_cofibration = mapping_or_empty(cofibration.get("cofibration", {}))
+        normalized_entries = sequence_or_none(normalized_cofibration.get("entries"))
+        entry_count = len(normalized_entries) if normalized_entries is not None else 0
+        self._cofibration_entry_count_total += entry_count
         if canonical_identity_kind:
-            self._cofibration_entry_count_by_kind[canonical_identity_kind] = len(
-                normalized_entries
-            )
+            self._cofibration_entry_count_by_kind[canonical_identity_kind] = entry_count
 
     def on_equivalence_surface_row(
         self,
@@ -746,6 +922,12 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                     source="aspf_visitors.OpportunityPayloadEmitter.representative_witnesses",
                 )
             )
+            witness_chain = tuple(
+                sort_once(
+                    self._witness_chain_by_representative.get(representative, set()),
+                    source="aspf_visitors.OpportunityPayloadEmitter.representative_witness_chain",
+                )
+            )
             observations.append(
                 OpportunityAlgebraicObservation(
                     structure=OpportunityStructure.TWO_CELL,
@@ -754,6 +936,12 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                     two_cell_count=len(witness_ids),
                     surfaces=surfaces,
                     witness_ids=witness_ids,
+                    representative=representative,
+                    one_cell_carrier_observed=(
+                        representative in self._representatives_observed_in_one_cells
+                    ),
+                    cofibration_entry_count=self._cofibration_entry_count_total,
+                    witness_chain=witness_chain,
                 )
             )
 
