@@ -13,6 +13,7 @@ from gabion.analysis.timeout_context import (
     Deadline,
     GasMeter,
     TimeoutContext,
+    TimeoutTickCarrier,
     TimeoutExceeded,
     _deadline_profile_snapshot,
     _freeze_value,
@@ -171,9 +172,9 @@ def test_deadline_check_noop_when_not_expired() -> None:
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks
 def test_deadline_from_timeout_variants() -> None:
     with pytest.raises(NeverThrown):
-        Deadline.from_timeout_ticks(-5, 0)
+        Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=-5, tick_ns=0))
     with pytest.raises(NeverThrown):
-        Deadline.from_timeout_ticks(1, 0)
+        Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=1, tick_ns=0))
     with pytest.raises(NeverThrown):
         Deadline.from_timeout(-1)
     with pytest.raises(NeverThrown):

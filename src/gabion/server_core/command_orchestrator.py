@@ -99,6 +99,83 @@ class _DataflowCapabilityAnnotations:
     disabled_surface_reasons: dict[str, str]
 
 
+@dataclass(frozen=True)
+class _TimeoutIngressCarrier:
+    has_tick_timeout: bool
+    has_duration_timeout: bool
+
+
+@dataclass(frozen=True)
+class _AuxOperationIngressCarrier:
+    domain: str
+    action: str
+    state_in: object
+    baseline_path: Path | None
+
+
+@dataclass(frozen=True)
+class _CommandPayloadIngressCarrier:
+    payload: dict[str, object]
+    dataflow_capabilities: _DataflowCapabilityAnnotations
+    timeout: _TimeoutIngressCarrier
+    aux_operation: _AuxOperationIngressCarrier | None
+
+
+def _normalize_command_payload_ingress(
+    *,
+    payload: dict[str, object],
+    root: Path,
+) -> _CommandPayloadIngressCarrier:
+    normalized_payload, dataflow_capabilities = _normalize_dataflow_format_controls(payload)
+    has_tick_timeout = (
+        normalized_payload.get("analysis_timeout_ticks") not in (None, "")
+        or normalized_payload.get("analysis_timeout_tick_ns") not in (None, "")
+    )
+    has_duration_timeout = (
+        normalized_payload.get("analysis_timeout_ms") not in (None, "")
+        or normalized_payload.get("analysis_timeout_seconds") not in (None, "")
+    )
+    aux_operation_raw = normalized_payload.get("aux_operation")
+    aux_operation: _AuxOperationIngressCarrier | None = None
+    if aux_operation_raw is not None:
+        if not isinstance(aux_operation_raw, dict):
+            never("invalid aux operation payload", payload_type=type(aux_operation_raw).__name__)
+        aux_domain = str(aux_operation_raw.get("domain", "")).strip().lower()
+        aux_action = str(aux_operation_raw.get("action", "")).strip().lower()
+        aux_state_in = aux_operation_raw.get("state_in")
+        aux_baseline_path = resolve_baseline_path(
+            aux_operation_raw.get("baseline_path"),
+            root,
+        )
+        if aux_domain not in {"obsolescence", "annotation-drift", "ambiguity"}:
+            never(
+                "invalid aux operation domain",
+                domain=aux_domain,
+                action=aux_action,
+            )
+        if aux_action in {"delta", "baseline-write"} and aux_baseline_path is None:
+            never(
+                "aux operation missing baseline path",
+                domain=aux_domain,
+                action=aux_action,
+            )
+        aux_operation = _AuxOperationIngressCarrier(
+            domain=aux_domain,
+            action=aux_action,
+            state_in=aux_state_in,
+            baseline_path=aux_baseline_path,
+        )
+    return _CommandPayloadIngressCarrier(
+        payload=normalized_payload,
+        dataflow_capabilities=dataflow_capabilities,
+        timeout=_TimeoutIngressCarrier(
+            has_tick_timeout=has_tick_timeout,
+            has_duration_timeout=has_duration_timeout,
+        ),
+        aux_operation=aux_operation,
+    )
+
+
 def _normalize_dataflow_format_controls(
     payload: dict[str, object],
 ) -> tuple[dict[str, object], _DataflowCapabilityAnnotations]:
@@ -186,20 +263,12 @@ def _normalize_dataflow_format_controls(
 
 def _normalize_duration_timeout_clock_ticks(
     *,
-    payload: Mapping[str, object],
+    timeout: _TimeoutIngressCarrier,
     total_ticks: int,
 ) -> int:
-    has_tick_timeout = (
-        payload.get("analysis_timeout_ticks") not in (None, "")
-        or payload.get("analysis_timeout_tick_ns") not in (None, "")
-    )
-    if has_tick_timeout:
+    if timeout.has_tick_timeout:
         return total_ticks
-    has_duration_timeout = (
-        payload.get("analysis_timeout_ms") not in (None, "")
-        or payload.get("analysis_timeout_seconds") not in (None, "")
-    )
-    if not has_duration_timeout:
+    if not timeout.has_duration_timeout:
         return total_ticks
     return max(1, total_ticks * _DURATION_TIMEOUT_CLOCK_MULTIPLIER)
 
@@ -2698,6 +2767,7 @@ def _parse_execution_payload_options(
     *,
     payload: dict[str, object],
     root: Path,
+    aux_operation: _AuxOperationIngressCarrier | None,
 ) -> _ExecutionPayloadOptions:
     strictness = str(payload.get("strictness", "high"))
     if strictness not in {"high", "low"}:
@@ -2726,21 +2796,7 @@ def _parse_execution_payload_options(
     write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
     ambiguity_baseline_path_override: Path | None = None
 
-    aux_operation_raw = payload.get("aux_operation")
-    if isinstance(aux_operation_raw, dict):
-        aux_domain = str(aux_operation_raw.get("domain", "")).strip().lower()
-        aux_action = str(aux_operation_raw.get("action", "")).strip().lower()
-        aux_state_in = aux_operation_raw.get("state_in")
-        aux_baseline_path = resolve_baseline_path(
-            aux_operation_raw.get("baseline_path"),
-            root,
-        )
-        if aux_action in {"delta", "baseline-write"} and aux_baseline_path is None:
-            never(
-                "aux operation missing baseline path",
-                domain=aux_domain,
-                action=aux_action,
-            )
+    if aux_operation is not None:
         emit_test_obsolescence = False
         emit_test_obsolescence_state = False
         emit_test_obsolescence_delta = False
@@ -2751,31 +2807,27 @@ def _parse_execution_payload_options(
         emit_ambiguity_delta = False
         emit_ambiguity_state = False
         write_ambiguity_baseline = False
-        if aux_domain == "obsolescence":
-            emit_test_obsolescence = aux_action == "report"
-            emit_test_obsolescence_state = aux_action == "state"
-            emit_test_obsolescence_delta = aux_action == "delta"
-            write_test_obsolescence_baseline = aux_action == "baseline-write"
-            test_obsolescence_state_path = aux_state_in
-            obsolescence_baseline_path_override = aux_baseline_path
-        elif aux_domain == "annotation-drift":
-            emit_test_annotation_drift = aux_action in {"report", "state"}
-            emit_test_annotation_drift_delta = aux_action == "delta"
-            write_test_annotation_drift_baseline = aux_action == "baseline-write"
-            test_annotation_drift_state_path = aux_state_in
-            annotation_drift_baseline_path_override = aux_baseline_path
-        elif aux_domain == "ambiguity":
-            emit_ambiguity_state = aux_action == "state"
-            emit_ambiguity_delta = aux_action == "delta"
-            write_ambiguity_baseline = aux_action == "baseline-write"
-            ambiguity_state_path = aux_state_in
-            ambiguity_baseline_path_override = aux_baseline_path
-        else:
-            never(
-                "invalid aux operation domain",
-                domain=aux_domain,
-                action=aux_action,
+        if aux_operation.domain == "obsolescence":
+            emit_test_obsolescence = aux_operation.action == "report"
+            emit_test_obsolescence_state = aux_operation.action == "state"
+            emit_test_obsolescence_delta = aux_operation.action == "delta"
+            write_test_obsolescence_baseline = aux_operation.action == "baseline-write"
+            test_obsolescence_state_path = aux_operation.state_in
+            obsolescence_baseline_path_override = aux_operation.baseline_path
+        elif aux_operation.domain == "annotation-drift":
+            emit_test_annotation_drift = aux_operation.action in {"report", "state"}
+            emit_test_annotation_drift_delta = aux_operation.action == "delta"
+            write_test_annotation_drift_baseline = (
+                aux_operation.action == "baseline-write"
             )
+            test_annotation_drift_state_path = aux_operation.state_in
+            annotation_drift_baseline_path_override = aux_operation.baseline_path
+        else:
+            emit_ambiguity_state = aux_operation.action == "state"
+            emit_ambiguity_delta = aux_operation.action == "delta"
+            write_ambiguity_baseline = aux_operation.action == "baseline-write"
+            ambiguity_state_path = aux_operation.state_in
+            ambiguity_baseline_path_override = aux_operation.baseline_path
     return _ExecutionPayloadOptions(
         emit_phase_timeline=False,
         progress_heartbeat_seconds=_progress_heartbeat_seconds(payload),
@@ -3341,8 +3393,14 @@ def execute_command_total(
     timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
         payload
     )
-    normalized_timeout_total_ticks = _normalize_duration_timeout_clock_ticks(
+    ingress = _normalize_command_payload_ingress(
         payload=payload,
+        root=initial_root,
+    )
+    payload = ingress.payload
+    dataflow_capabilities = ingress.dataflow_capabilities
+    normalized_timeout_total_ticks = _normalize_duration_timeout_clock_ticks(
+        timeout=ingress.timeout,
         total_ticks=_analysis_timeout_total_ticks(payload),
     )
     timeout_total_ticks = normalize_timeout_total_ticks(
@@ -3415,16 +3473,6 @@ def execute_command_total(
     aspf_trace_state: object | None = None
     progress_emitter: _ProgressEmitter | None = None
     emit_phase_progress_events = False
-    dataflow_capabilities = _DataflowCapabilityAnnotations(
-        selected_adapter="python:default",
-        supported_analysis_surfaces=[
-            "decision_surfaces",
-            "rewrite_plans",
-            "type_ambiguities",
-            "value_decision_surfaces",
-        ],
-        disabled_surface_reasons={},
-    )
 
     def _emit_lsp_progress(**_kwargs: object) -> None:
         return
@@ -3504,7 +3552,6 @@ def execute_command_total(
                 fingerprint_index = index
                 constructor_registry = TypeConstructorRegistry(registry)
         payload = merge_payload(payload, defaults)
-        payload, dataflow_capabilities = _normalize_dataflow_format_controls(payload)
         deadline_roots = set(payload.get("deadline_roots", deadline_roots))
 
         raw_paths = payload.get("paths")
@@ -3530,7 +3577,11 @@ def execute_command_total(
         projection_rows = (
             execute_deps.report_projection_spec_rows_fn() if report_output_path else []
         )
-        options = _parse_execution_payload_options(payload=payload, root=Path(root))
+        options = _parse_execution_payload_options(
+            payload=payload,
+            root=Path(root),
+            aux_operation=ingress.aux_operation,
+        )
         aspf_trace_state = execute_deps.start_trace_fn(
             root=Path(root),
             payload=payload,

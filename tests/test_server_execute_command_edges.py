@@ -176,6 +176,42 @@ def _execute_with_deps(
     return server.execute_command_with_deps(ls, payload, deps=deps)
 
 
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"language": "javascript"},
+        {"ingest_profile": "unknown-profile"},
+        {"aux_operation": "invalid"},
+        {"aux_operation": {"domain": "unknown", "action": "state"}},
+        {"aux_operation": {"domain": "ambiguity", "action": "delta"}},
+    ],
+)
+def test_invalid_ingress_payload_rejected_before_analysis(
+    tmp_path: Path,
+    payload: dict[str, object],
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    called = False
+
+    def _never_called(*_args: object, **_kwargs: object) -> server.AnalysisResult:
+        nonlocal called
+        called = True
+        raise AssertionError("core analyzer should not be called for invalid ingress")
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], **payload}),
+        analyze_paths_fn=_never_called,
+    )
+
+    _assert_invariant_failure(result)
+    assert called is False
+
+
 def _progress_values(ls: _DummyNotifyingServer) -> list[dict[str, object]]:
     values: list[dict[str, object]] = []
     for method, params in ls.notifications:

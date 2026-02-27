@@ -103,6 +103,7 @@ from .timeout_context import (
     Deadline,
     GasMeter,
     TimeoutExceeded,
+    TimeoutTickCarrier,
     build_timeout_context_from_stack,
     check_deadline,
     deadline_loop_iter,
@@ -17400,14 +17401,17 @@ def _normalize_transparent_decorators(
 
 @contextmanager
 def _analysis_deadline_scope(args: argparse.Namespace):
-    timeout_ticks = int(args.analysis_timeout_ticks)
-    timeout_tick_ns = int(args.analysis_timeout_tick_ns)
-    if timeout_ticks <= 0:
-        never("invalid analysis timeout ticks", analysis_timeout_ticks=timeout_ticks)
-    if timeout_tick_ns <= 0:
-        never("invalid analysis timeout tick_ns", analysis_timeout_tick_ns=timeout_tick_ns)
+    timeout_carrier = TimeoutTickCarrier.from_ingress(
+        ticks=args.analysis_timeout_ticks,
+        tick_ns=args.analysis_timeout_tick_ns,
+    )
+    if timeout_carrier.ticks == 0:
+        never(
+            "invalid analysis timeout ticks",
+            analysis_timeout_ticks=timeout_carrier.ticks,
+        )
     tick_limit_value = args.analysis_tick_limit
-    logical_limit = timeout_ticks
+    logical_limit = timeout_carrier.ticks
     if tick_limit_value is not None:
         tick_limit = int(tick_limit_value)
         if tick_limit <= 0:
@@ -17416,7 +17420,7 @@ def _analysis_deadline_scope(args: argparse.Namespace):
     with ExitStack() as stack:
         stack.enter_context(forest_scope(Forest()))
         stack.enter_context(
-            deadline_scope(Deadline.from_timeout_ticks(timeout_ticks, timeout_tick_ns))
+            deadline_scope(Deadline.from_timeout_ticks(timeout_carrier))
         )
         stack.enter_context(deadline_clock_scope(GasMeter(limit=logical_limit)))
         yield

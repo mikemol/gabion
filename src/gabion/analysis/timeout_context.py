@@ -195,6 +195,20 @@ class _DecodedDeadlineProfile:
     edges_total: int
     io_total: int
 
+@dataclass(frozen=True)
+class TimeoutTickCarrier:
+    ticks: int
+    tick_ns: int
+
+    @classmethod
+    def from_ingress(cls, *, ticks: object, tick_ns: object) -> "TimeoutTickCarrier":
+        ticks_value = int(ticks)
+        tick_ns_value = int(tick_ns)
+        if ticks_value < 0:
+            never("invalid timeout ticks", ticks=ticks)
+        if tick_ns_value <= 0:
+            never("invalid timeout tick_ns", tick_ns=tick_ns)
+        return cls(ticks=ticks_value, tick_ns=tick_ns_value)
 
 class TimeoutExceeded(TimeoutError):
     def __init__(self, context: TimeoutContext) -> None:
@@ -211,19 +225,13 @@ class Deadline:
 
     @classmethod
     # dataflow-bundle: tick_ns, ticks
-    def from_timeout_ticks(cls, ticks: int, tick_ns: int) -> "Deadline":
-        ticks_value = int(ticks)
-        tick_ns_value = int(tick_ns)
-        if ticks_value < 0:
-            never("invalid timeout ticks", ticks=ticks)
-        if tick_ns_value <= 0:
-            never("invalid timeout tick_ns", tick_ns=tick_ns)
-        total_ns = ticks_value * tick_ns_value
+    def from_timeout_ticks(cls, carrier: TimeoutTickCarrier) -> "Deadline":
+        total_ns = carrier.ticks * carrier.tick_ns
         return cls(deadline_ns=_SYSTEM_CLOCK.get_mark() + total_ns)
 
     @classmethod
     def from_timeout_ms(cls, milliseconds: int) -> "Deadline":
-        return cls.from_timeout_ticks(milliseconds, 1_000_000)
+        return cls.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=milliseconds, tick_ns=1_000_000))
 
     @classmethod
     def from_timeout(cls, seconds: float) -> "Deadline":
