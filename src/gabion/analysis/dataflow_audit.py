@@ -3569,13 +3569,52 @@ def _execution_pattern_members(
     tree: ast.Module,
     rule: _ExecutionPatternRule,
 ) -> tuple[str, ...]:
+    facts = tuple(_iter_execution_function_facts(tree))
+    return _execution_pattern_members_from_facts(facts=facts, rule=rule)
+
+
+def _execution_pattern_members_from_facts(
+    *,
+    facts: Sequence[_ExecutionFunctionFact],
+    rule: _ExecutionPatternRule,
+) -> tuple[str, ...]:
     members: list[str] = []
-    for fact in _iter_execution_function_facts(tree):
-        check_deadline()
+    for fact_index, fact in enumerate(facts, start=1):
+        if fact_index % 64 == 0:
+            check_deadline()
         if any(not predicate.matches(fact=fact) for predicate in rule.predicates):
             continue
         members.append(fact.function_name)
     return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
+
+
+def _execution_pattern_members_by_rule(
+    *,
+    tree: ast.Module,
+) -> dict[str, tuple[str, ...]]:
+    facts = tuple(_iter_execution_function_facts(tree))
+    members_by_rule: dict[str, tuple[str, ...]] = {}
+    for rule_index, rule in enumerate(_EXECUTION_PATTERN_RULES, start=1):
+        if rule_index % 8 == 0:
+            check_deadline()
+        members_by_rule[rule.pattern_id] = _execution_pattern_members_from_facts(
+            facts=facts,
+            rule=rule,
+        )
+    return members_by_rule
+
+
+def _execution_pattern_match_suggestion(
+    *,
+    rule: _ExecutionPatternRule,
+    members: Sequence[str],
+) -> str:
+    return (
+        f"{rule.pattern_id} members={len(members)} "
+        + ", ".join(members[:8])
+        + (" ..." if len(members) > 8 else "")
+        + f"; candidate={rule.candidate}"
+    )
 
 
 def _execution_rule_residue_payload(
@@ -3614,10 +3653,11 @@ def _detect_execution_pattern_matches(
         tree = ast.parse(source)
     except _PARSE_MODULE_ERROR_TYPES:
         return []
+    members_by_rule = _execution_pattern_members_by_rule(tree=tree)
     matches: list[_ExecutionPatternMatch] = []
     for rule in _EXECUTION_PATTERN_RULES:
         check_deadline()
-        members = _execution_pattern_members(tree=tree, rule=rule)
+        members = members_by_rule.get(rule.pattern_id, ())
         if len(members) < rule.min_members:
             continue
         matches.append(
@@ -3626,11 +3666,9 @@ def _detect_execution_pattern_matches(
                 kind=rule.kind,
                 schema_family=rule.schema_family,
                 members=members,
-                suggestion=(
-                    f"{rule.pattern_id} members={len(members)} "
-                    + ", ".join(members[:8])
-                    + (" ..." if len(members) > 8 else "")
-                    + f"; candidate={rule.candidate}"
+                suggestion=_execution_pattern_match_suggestion(
+                    rule=rule,
+                    members=members,
                 ),
             )
         )
@@ -3643,32 +3681,45 @@ def _execution_pattern_instances(
     source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    matches = _detect_execution_pattern_matches(
-        source=source,
-        source_path=source_path,
-    )
-    for match in matches:
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return instances
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return instances
+    members_by_rule = _execution_pattern_members_by_rule(tree=tree)
+    for rule in _EXECUTION_PATTERN_RULES:
         check_deadline()
-        rule = _execution_pattern_rule(match.pattern_id)
+        members = members_by_rule.get(rule.pattern_id, ())
+        if len(members) < rule.min_members:
+            continue
         signature = execution_signature(
-            family=match.schema_family,
-            members=match.members,
+            family=rule.schema_family,
+            members=members,
         )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=match.kind,
+            kind=rule.kind,
             signature=signature,
             normalization={
-                "members": list(match.members),
-                "pattern_id": match.pattern_id,
+                "members": list(members),
+                "pattern_id": rule.pattern_id,
             },
         )
         instances.append(
             PatternInstance.build(
                 schema=schema,
-                members=match.members,
+                members=members,
                 suggestion=(
-                    f"execution_pattern {match.suggestion}"
+                    "execution_pattern "
+                    + _execution_pattern_match_suggestion(
+                        rule=rule,
+                        members=members,
+                    )
                 ),
                 residue=(
                     PatternResidue(
@@ -3676,23 +3727,23 @@ def _execution_pattern_instances(
                         reason="unreified_metafactory",
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
-                            kind=match.pattern_id,
+                            kind=rule.pattern_id,
                             expected={
                                 "min_members": rule.min_members,
                                 "candidate": rule.candidate,
                                 "rule": _execution_rule_residue_payload(
                                     rule=rule,
-                                    members=match.members,
-                                    observed_member_count=len(match.members),
+                                    members=members,
+                                    observed_member_count=len(members),
                                 ),
                             },
                             observed={
-                                "members": list(match.members),
-                                "member_count": len(match.members),
+                                "members": list(members),
+                                "member_count": len(members),
                                 "rule": _execution_rule_residue_payload(
                                     rule=rule,
-                                    members=match.members,
-                                    observed_member_count=len(match.members),
+                                    members=members,
+                                    observed_member_count=len(members),
                                 ),
                             },
                         ),
@@ -3700,13 +3751,9 @@ def _execution_pattern_instances(
                 ),
             )
         )
-    try:
-        tree = ast.parse(source if source is not None else (source_path or Path(__file__)).read_text())
-    except (OSError, *_PARSE_MODULE_ERROR_TYPES):
-        return instances
     for rule in _EXECUTION_PATTERN_RULES:
         check_deadline()
-        near_miss_members = _execution_pattern_members(tree=tree, rule=rule)
+        near_miss_members = members_by_rule.get(rule.pattern_id, ())
         if len(near_miss_members) != max(rule.min_members - 1, 1):
             continue
         signature = execution_signature(

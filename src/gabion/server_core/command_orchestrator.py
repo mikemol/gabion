@@ -3,7 +3,7 @@ from __future__ import annotations
 # gabion:decision_protocol_module
 
 from itertools import zip_longest
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 
 _BOUND = False
+_DURATION_TIMEOUT_CLOCK_MULTIPLIER = 16
 
 
 def _bind_server_symbols() -> None:
@@ -181,6 +182,28 @@ def _normalize_dataflow_format_controls(
             cast(dict[str, str], normalized_payload["disabled_surface_reasons"])
         ),
     )
+
+
+def _normalize_duration_timeout_clock_ticks(
+    *,
+    payload: Mapping[str, object],
+    total_ticks: int,
+) -> int:
+    has_tick_timeout = (
+        payload.get("analysis_timeout_ticks") not in (None, "")
+        or payload.get("analysis_timeout_tick_ns") not in (None, "")
+    )
+    if has_tick_timeout:
+        return total_ticks
+    has_duration_timeout = (
+        payload.get("analysis_timeout_ms") not in (None, "")
+        or payload.get("analysis_timeout_seconds") not in (None, "")
+    )
+    if not has_duration_timeout:
+        return total_ticks
+    return max(1, total_ticks * _DURATION_TIMEOUT_CLOCK_MULTIPLIER)
+
+
 def _validate_auxiliary_flag_conflicts(
     *,
     emit_test_obsolescence_delta: bool,
@@ -794,7 +817,18 @@ class _TimeoutCleanupContext:
     aspf_trace_state: object | None
     ensure_report_sections_cache_fn: object
     emit_lsp_progress_fn: object
-    dataflow_capabilities: _DataflowCapabilityAnnotations
+    dataflow_capabilities: _DataflowCapabilityAnnotations = field(
+        default_factory=lambda: _DataflowCapabilityAnnotations(
+            selected_adapter="python:default",
+            supported_analysis_surfaces=[
+                "decision_surfaces",
+                "value_decision_surfaces",
+                "type_ambiguities",
+                "rewrite_plans",
+            ],
+            disabled_surface_reasons={},
+        )
+    )
     analysis_resume_source: str = "cold_start"
     analysis_resume_state_compatibility_status: str | None = None
 
@@ -3307,9 +3341,13 @@ def execute_command_total(
     timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
         payload
     )
+    normalized_timeout_total_ticks = _normalize_duration_timeout_clock_ticks(
+        payload=payload,
+        total_ticks=_analysis_timeout_total_ticks(payload),
+    )
     timeout_total_ticks = normalize_timeout_total_ticks(
         payload,
-        default_ticks=_analysis_timeout_total_ticks(payload),
+        default_ticks=normalized_timeout_total_ticks,
         never_fn=never,
     )
     runtime_input = CommandRuntimeInput(
