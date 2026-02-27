@@ -3696,7 +3696,7 @@ def _compute_fingerprint_warnings(
 
 def _collect_fingerprint_atom_keys(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
 ) -> tuple[list[str], list[str]]:
     check_deadline()
     base_keys: set[str] = set()
@@ -3712,12 +3712,11 @@ def _collect_fingerprint_atom_keys(
                 for param_name in bundle:
                     check_deadline()
                     hint = fn_annots.get(param_name)
-                    if hint is None:
-                        continue
-                    atoms: list[str] = []
-                    _collect_base_atoms(hint, atoms)
-                    base_keys.update(atom for atom in atoms if atom)
-                    _collect_constructors(hint, ctor_keys)
+                    if hint is not None:
+                        atoms: list[str] = []
+                        _collect_base_atoms(hint, atoms)
+                        base_keys.update(atom for atom in atoms if atom)
+                        _collect_constructors(hint, ctor_keys)
     return (
         sort_once(base_keys, source="_collect_fingerprint_atom_keys.base_keys"),
         sort_once(ctor_keys, source="_collect_fingerprint_atom_keys.ctor_keys"),
