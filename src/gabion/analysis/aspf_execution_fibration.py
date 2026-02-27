@@ -495,10 +495,12 @@ def build_opportunities_payload(
         visitor=emitter,
     )
     opportunities = emitter.build_rows()
+    rewrite_plans = emitter.build_rewrite_plans()
     return {
         "format_version": _OPPORTUNITY_FORMAT_VERSION,
         "trace_id": state.trace_id,
         "opportunities": opportunities,
+        "rewrite_plans": rewrite_plans,
     }
 
 

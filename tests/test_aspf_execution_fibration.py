@@ -253,6 +253,13 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
     kinds = {str(row.get("kind")) for row in rows if isinstance(row, dict)}
     assert "materialize_load_fusion" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    rewrite_plans = opportunities["rewrite_plans"]
+    assert isinstance(rewrite_plans, list)
+    fungible_plan = next(
+        plan for plan in rewrite_plans if isinstance(plan, dict) and plan.get("opportunity_id") == "opp:fungible-substitution:groups_by_path"
+    )
+    assert fungible_plan["actionability"] == "actionable"
+    assert fungible_plan["required_witnesses"] == ["w:groups-fungible"]
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_allows_state_object_roundtrip_import::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace
