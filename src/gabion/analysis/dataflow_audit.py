@@ -7884,6 +7884,30 @@ class _CacheSemanticContext:
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
+_CACHE_IDENTITY_PREFIX = "aspf:sha1:"
+_CACHE_IDENTITY_DIGEST_HEX = re.compile(r"^[0-9a-f]{40}$")
+
+
+@dataclass(frozen=True)
+class _CacheIdentity:
+    value: str
+
+    @classmethod
+    def from_digest(cls, digest: str) -> "_CacheIdentity | None":
+        cleaned = str(digest or "").strip().lower()
+        if not _CACHE_IDENTITY_DIGEST_HEX.fullmatch(cleaned):
+            return None
+        return cls(f"{_CACHE_IDENTITY_PREFIX}{cleaned}")
+
+    @classmethod
+    def from_boundary(cls, raw_identity) -> "_CacheIdentity | None":
+        identity = str(raw_identity or "").strip()
+        if not identity:
+            return None
+        if identity.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity[len(_CACHE_IDENTITY_PREFIX) :]
+            return cls.from_digest(digest)
+        return cls.from_digest(identity)
 
 
 def _sorted_text(values = None) -> tuple[str, ...]:
@@ -7898,7 +7922,7 @@ def _canonical_cache_identity(
     stage: Literal["parse", "index", "projection"],
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     payload: dict[str, JSONValue] = {
         "stage": stage,
         "forest_spec_id": str(cache_context.forest_spec_id or ""),
@@ -7908,41 +7932,34 @@ def _canonical_cache_identity(
     digest = hashlib.sha1(
         json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    return f"aspf:sha1:{digest}"
+    canonical = _CacheIdentity.from_digest(digest)
+    if canonical is None:
+        never("failed to construct canonical cache identity", digest=digest)
+    return canonical
 
 
 def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
-    value = str(identity or "")
-    if not value:
+    canonical = _CacheIdentity.from_boundary(identity)
+    if canonical is None:
         return ("",)
-    if value.startswith("aspf:sha1:"):
-        legacy = value[len("aspf:sha1:") :]
-        if legacy:
-            return (value, legacy)
-        return (value,)
-    if len(value) == 40 and all(ch in "0123456789abcdef" for ch in value.lower()):
-        return (value, f"aspf:sha1:{value}")
-    return (value,)
+    return (canonical.value,)
 
 
 def _cache_identity_matches(actual: str, expected: str) -> bool:
-    actual_aliases = set(_cache_identity_aliases(actual))
-    expected_aliases = set(_cache_identity_aliases(expected))
-    return bool(actual_aliases & expected_aliases)
+    actual_identity = _CacheIdentity.from_boundary(actual)
+    expected_identity = _CacheIdentity.from_boundary(expected)
+    if actual_identity is None or expected_identity is None:
+        return False
+    return actual_identity == expected_identity
 
 
 def _resume_variant_for_identity(
     variants: Mapping[str, JSONObject],
-    expected_identity: str,
+    expected_identity: _CacheIdentity,
 ):
-    direct = variants.get(expected_identity)
+    direct = variants.get(expected_identity.value)
     if direct is not None:
         return direct
-    expected_aliases = set(_cache_identity_aliases(expected_identity))
-    for variant_identity, variant in variants.items():
-        check_deadline()
-        if expected_aliases & set(_cache_identity_aliases(variant_identity)):
-            return variant
     return None
 
 
@@ -7953,14 +7970,15 @@ def _parse_stage_cache_key(
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
 ) -> tuple[str, str, str, Hashable]:
+    identity = _canonical_cache_identity(
+        stage="parse",
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
     return (
         "parse",
         stage.value,
-        _canonical_cache_identity(
-            stage="parse",
-            cache_context=cache_context,
-            config_subset=config_subset,
-        ),
+        identity.value,
         detail,
     )
 
@@ -7969,7 +7987,7 @@ def _index_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="index",
         cache_context=cache_context,
@@ -7981,7 +7999,7 @@ def _projection_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="projection",
         cache_context=cache_context,
@@ -8094,8 +8112,8 @@ def _build_analysis_index(
     ) = _load_analysis_index_resume_payload(
         payload=resume_payload,
         file_paths=ordered_paths,
-        expected_index_cache_identity=index_cache_identity,
-        expected_projection_cache_identity=projection_cache_identity,
+        expected_index_cache_identity=index_cache_identity.value,
+        expected_projection_cache_identity=projection_cache_identity.value,
     )
     symbol_table.external_filter = external_filter
     function_index_acc = _FunctionIndexAccumulator(
@@ -8154,8 +8172,8 @@ def _build_analysis_index(
                         by_qual=function_index_acc.by_qual,
                         symbol_table=symbol_table,
                         class_index=class_index,
-                        index_cache_identity=index_cache_identity,
-                        projection_cache_identity=projection_cache_identity,
+                        index_cache_identity=index_cache_identity.value,
+                        projection_cache_identity=projection_cache_identity.value,
                         profiling_v1=_index_profile_payload(),
                         previous_payload=resume_payload,
                     )
@@ -8242,8 +8260,8 @@ def _build_analysis_index(
         by_qual=function_index_acc.by_qual,
         symbol_table=symbol_table,
         class_index=class_index,
-        index_cache_identity=index_cache_identity,
-        projection_cache_identity=projection_cache_identity,
+        index_cache_identity=index_cache_identity.value,
+        projection_cache_identity=projection_cache_identity.value,
     )
 
 
@@ -14693,11 +14711,20 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
 
 
 def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    return {
+    variant_payload = {
         str(key): payload[key]
         for key in payload
         if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
     }
+    index_identity = _CacheIdentity.from_boundary(variant_payload.get("index_cache_identity"))
+    if index_identity is not None:
+        variant_payload["index_cache_identity"] = index_identity.value
+    projection_identity = _CacheIdentity.from_boundary(
+        variant_payload.get("projection_cache_identity")
+    )
+    if projection_identity is not None:
+        variant_payload["projection_cache_identity"] = projection_identity.value
+    return variant_payload
 
 
 def _analysis_index_resume_variants(
@@ -14712,10 +14739,11 @@ def _analysis_index_resume_variants(
         for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
             raw_variant_mapping = mapping_or_none(raw_variant)
-            if type(identity) is str and raw_variant_mapping is not None:
+            variant_identity = _CacheIdentity.from_boundary(identity)
+            if variant_identity is not None and raw_variant_mapping is not None:
                 variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
                 if variant_payload is not None:
-                    variants[identity] = _analysis_index_resume_variant_payload(
+                    variants[variant_identity.value] = _analysis_index_resume_variant_payload(
                         variant_payload
                     )
     return variants
@@ -14726,16 +14754,20 @@ def _with_analysis_index_resume_variants(
     payload: JSONObject,
     previous_payload,
 ) -> JSONObject:
-    current_identity = str(payload.get("index_cache_identity", "") or "")
+    current_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
     variants = _analysis_index_resume_variants(previous_payload)
-    if current_identity:
-        variants[current_identity] = _analysis_index_resume_variant_payload(payload)
+    if current_identity is not None:
+        payload["index_cache_identity"] = current_identity.value
+        variants[current_identity.value] = _analysis_index_resume_variant_payload(payload)
+    projection_identity = _CacheIdentity.from_boundary(payload.get("projection_cache_identity"))
+    if projection_identity is not None:
+        payload["projection_cache_identity"] = projection_identity.value
     if not variants:
         return payload
     ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
-    if current_identity and current_identity in ordered_variant_keys:
-        ordered_variant_keys.remove(current_identity)
-        ordered_variant_keys.append(current_identity)
+    if current_identity is not None and current_identity.value in ordered_variant_keys:
+        ordered_variant_keys.remove(current_identity.value)
+        ordered_variant_keys.append(current_identity.value)
     if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
         ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
     payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
@@ -14755,6 +14787,14 @@ def _serialize_analysis_index_resume_payload(
     profiling_v1 = None,
     previous_payload = None,
 ) -> JSONObject:
+    canonical_index_identity = _CacheIdentity.from_boundary(index_cache_identity)
+    canonical_projection_identity = _CacheIdentity.from_boundary(
+        projection_cache_identity
+    )
+    if canonical_index_identity is None:
+        never("resume serialization requires canonical index identity")
+    if canonical_projection_identity is None:
+        never("resume serialization requires canonical projection identity")
     hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
@@ -14789,8 +14829,8 @@ def _serialize_analysis_index_resume_payload(
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
-        "index_cache_identity": index_cache_identity,
-        "projection_cache_identity": projection_cache_identity,
+        "index_cache_identity": canonical_index_identity.value,
+        "projection_cache_identity": canonical_projection_identity.value,
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
@@ -14828,18 +14868,26 @@ def _load_analysis_index_resume_payload(
     payload = payload_with_format(payload, format_version=1)
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
+    expected_index_identity = _CacheIdentity.from_boundary(expected_index_cache_identity)
+    expected_projection_identity = _CacheIdentity.from_boundary(expected_projection_cache_identity)
     selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity:
-        resume_identity = str(payload.get("index_cache_identity", "") or "")
-        if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
+        if expected_index_identity is None:
+            return hydrated_paths, by_qual, symbol_table, class_index
+        resume_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
+        if resume_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
-            variant = _resume_variant_for_identity(variants, expected_index_cache_identity)
+            variant = _resume_variant_for_identity(variants, expected_index_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
     if expected_projection_cache_identity:
-        projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
-        if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
+        if expected_projection_identity is None:
+            return hydrated_paths, by_qual, symbol_table, class_index
+        projection_identity = _CacheIdentity.from_boundary(
+            selected_payload.get("projection_cache_identity")
+        )
+        if projection_identity != expected_projection_identity:
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,
