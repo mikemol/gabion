@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 import hashlib
 from typing import Iterable, Literal, Mapping, Protocol, cast
 
@@ -280,11 +281,84 @@ class TracePayloadEmitter(NullAspfTraversalVisitor):
         self.surface_representatives[str(surface)] = str(representative)
 
 
+class OpportunityConfidenceProvenance(StrEnum):
+    MORPHISM_WITNESS = "morphism_witness"
+    REPRESENTATIVE_CONFLUENCE = "representative_confluence"
+    INGRESS_OBSERVATION = "ingress_observation"
+
+
+class OpportunityWitnessRequirement(StrEnum):
+    NONE = "none"
+    REPRESENTATIVE_PAIR = "representative_pair"
+    TWO_CELL_WITNESS = "two_cell_witness"
+
+
+class OpportunityActionabilityState(StrEnum):
+    ACTIONABLE = "actionable"
+    OBSERVATIONAL = "observational"
+
+
+@dataclass(frozen=True)
+class OpportunityDecisionProtocol:
+    opportunity_id: str
+    kind: str
+    affected_surfaces: tuple[str, ...]
+    witness_ids: tuple[str, ...]
+    reason: str
+    confidence_provenance: OpportunityConfidenceProvenance
+    witness_requirement: OpportunityWitnessRequirement
+    actionability: OpportunityActionabilityState
+
+    def confidence(self) -> float:
+        score = 0.36
+        if self.confidence_provenance is OpportunityConfidenceProvenance.INGRESS_OBSERVATION:
+            score += 0.14
+        if self.confidence_provenance is OpportunityConfidenceProvenance.REPRESENTATIVE_CONFLUENCE:
+            score += 0.18
+        if self.confidence_provenance is OpportunityConfidenceProvenance.MORPHISM_WITNESS:
+            score += 0.26
+        if self.witness_requirement is OpportunityWitnessRequirement.TWO_CELL_WITNESS:
+            score += 0.14
+        if self.witness_ids:
+            score += min(0.18, 0.06 * len(self.witness_ids))
+        return round(min(score, 0.99), 2)
+
+    def as_row(self) -> JSONObject:
+        return {
+            "opportunity_id": self.opportunity_id,
+            "kind": self.kind,
+            "confidence": self.confidence(),
+            "confidence_provenance": self.confidence_provenance,
+            "witness_requirement": self.witness_requirement,
+            "actionability": self.actionability,
+            "affected_surfaces": list(self.affected_surfaces),
+            "witness_ids": list(self.witness_ids),
+            "reason": self.reason,
+        }
+
+    def as_rewrite_plan(self) -> JSONObject:
+        return {
+            "plan_id": f"rewrite:{self.opportunity_id}",
+            "kind": "aspf_opportunity",
+            "priority": self.confidence(),
+            "actionability": self.actionability,
+            "opportunity_id": self.opportunity_id,
+            "affected_surfaces": list(self.affected_surfaces),
+            "required_witnesses": list(self.witness_ids),
+            "decision_basis": {
+                "confidence_provenance": self.confidence_provenance,
+                "witness_requirement": self.witness_requirement,
+            },
+            "summary": self.reason,
+        }
+
+
 @dataclass
 class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
     _materialize_kinds_by_resume_ref: dict[str, set[str]] = field(default_factory=dict)
     _representative_to_surfaces: dict[str, list[str]] = field(default_factory=dict)
-    _fungible_rows: list[JSONObject] = field(default_factory=list)
+    _representative_witness_ids: dict[str, set[str]] = field(default_factory=dict)
+    _fungible_opportunities: list[OpportunityDecisionProtocol] = field(default_factory=list)
 
     def one_cell(self, event: AspfOneCellEvent) -> None:
         self.on_trace_one_cell(index=event.index, one_cell=event.payload)
@@ -325,6 +399,21 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
     ) -> None:
         self._representative_to_surfaces.setdefault(representative, []).append(surface)
 
+    def on_trace_two_cell_witness(
+        self,
+        *,
+        index: int,
+        witness: Mapping[str, object],
+    ) -> None:
+        witness_id = str(witness.get("witness_id", "")).strip()
+        if not witness_id:
+            return
+        left = str(witness.get("left_representative", "")).strip()
+        right = str(witness.get("right_representative", "")).strip()
+        for representative in (left, right):
+            if representative:
+                self._representative_witness_ids.setdefault(representative, set()).add(witness_id)
+
     def on_equivalence_surface_row(
         self,
         *,
@@ -338,37 +427,44 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
             and bool(surface)
             and witness_id not in (None, "")
         ):
-            self._fungible_rows.append(
-                {
-                    "opportunity_id": f"opp:fungible-substitution:{surface}",
-                    "kind": "fungible_execution_path_substitution",
-                    "confidence": 0.82,
-                    "affected_surfaces": [surface],
-                    "witness_ids": [str(witness_id)],
-                    "reason": "2-cell witness links baseline/current representatives",
-                }
+            self._fungible_opportunities.append(
+                OpportunityDecisionProtocol(
+                    opportunity_id=f"opp:fungible-substitution:{surface}",
+                    kind="fungible_execution_path_substitution",
+                    affected_surfaces=(surface,),
+                    witness_ids=(str(witness_id),),
+                    reason="2-cell witness links baseline/current representatives",
+                    confidence_provenance=OpportunityConfidenceProvenance.MORPHISM_WITNESS,
+                    witness_requirement=OpportunityWitnessRequirement.TWO_CELL_WITNESS,
+                    actionability=OpportunityActionabilityState.ACTIONABLE,
+                )
             )
 
-    def build_rows(self) -> list[JSONObject]:
-        rows: list[JSONObject] = []
+    def _build_decisions(self) -> list[OpportunityDecisionProtocol]:
+        decisions: list[OpportunityDecisionProtocol] = []
         for resume_ref in sort_once(
             self._materialize_kinds_by_resume_ref,
             source="aspf_visitors.OpportunityPayloadEmitter.materialize.resume_ref",
         ):
             kinds = self._materialize_kinds_by_resume_ref[resume_ref]
             fused = int("resume_load" in kinds and "resume_write" in kinds)
-            rows.append(
-                {
-                    "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
-                    "kind": ("materialize_load_observed", "materialize_load_fusion")[fused],
-                    "confidence": (0.51, 0.74)[fused],
-                    "affected_surfaces": [],
-                    "witness_ids": [],
-                    "reason": (
+            decisions.append(
+                OpportunityDecisionProtocol(
+                    opportunity_id=f"opp:materialize-load-fusion:{resume_ref}",
+                    kind=("materialize_load_observed", "materialize_load_fusion")[fused],
+                    affected_surfaces=(),
+                    witness_ids=(),
+                    reason=(
                         "resume boundary observed state reference",
                         "resume load and write boundaries share state reference",
                     )[fused],
-                }
+                    confidence_provenance=OpportunityConfidenceProvenance.INGRESS_OBSERVATION,
+                    witness_requirement=OpportunityWitnessRequirement.NONE,
+                    actionability=(
+                        OpportunityActionabilityState.OBSERVATIONAL,
+                        OpportunityActionabilityState.ACTIONABLE,
+                    )[fused],
+                )
             )
 
         for representative in sort_once(
@@ -382,19 +478,46 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                 )
             )
             digest = hashlib.sha256(representative.encode("utf-8")).hexdigest()[:12]
-            rows.append(
-                {
-                    "opportunity_id": f"opp:reusable-boundary:{digest}",
-                    "kind": "reusable_boundary_artifact",
-                    "confidence": 0.67,
-                    "affected_surfaces": list(surfaces),
-                    "witness_ids": [],
-                    "reason": "multiple semantic surfaces share deterministic representative",
-                }
+            witness_ids = tuple(
+                sort_once(
+                    self._representative_witness_ids.get(representative, set()),
+                    source="aspf_visitors.OpportunityPayloadEmitter.representative_witnesses",
+                )
+            )
+            decisions.append(
+                OpportunityDecisionProtocol(
+                    opportunity_id=f"opp:reusable-boundary:{digest}",
+                    kind="reusable_boundary_artifact",
+                    affected_surfaces=surfaces,
+                    witness_ids=witness_ids,
+                    reason="multiple semantic surfaces share deterministic representative",
+                    confidence_provenance=(
+                        OpportunityConfidenceProvenance.REPRESENTATIVE_CONFLUENCE
+                        if not witness_ids
+                        else OpportunityConfidenceProvenance.MORPHISM_WITNESS
+                    ),
+                    witness_requirement=OpportunityWitnessRequirement.REPRESENTATIVE_PAIR,
+                    actionability=(
+                        OpportunityActionabilityState.OBSERVATIONAL
+                        if len(surfaces) < 2
+                        else OpportunityActionabilityState.ACTIONABLE
+                    ),
+                )
             )
 
-        rows.extend(self._fungible_rows)
-        return sorted(rows, key=lambda item: str(item.get("opportunity_id", "")))
+        decisions.extend(self._fungible_opportunities)
+        return sorted(decisions, key=lambda item: item.opportunity_id)
+
+    def build_rows(self) -> list[JSONObject]:
+        return [decision.as_row() for decision in self._build_decisions()]
+
+    def build_rewrite_plans(self) -> list[JSONObject]:
+        decisions = [
+            decision
+            for decision in self._build_decisions()
+            if decision.actionability is OpportunityActionabilityState.ACTIONABLE
+        ]
+        return [decision.as_rewrite_plan() for decision in decisions]
 
 
 @dataclass
