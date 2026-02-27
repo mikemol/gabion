@@ -67,6 +67,7 @@ def _append_report_tail_sections(
     parse_failure_witnesses = report.parse_failure_witnesses
     resumability_obligations = report.resumability_obligations
     incremental_report_obligations = report.incremental_report_obligations
+    unsupported_by_adapter = report.unsupported_by_adapter
 
     if state.violations:
         start_section("violations")
@@ -319,6 +320,26 @@ def _append_report_tail_sections(
         state.lines.append("Contextvar/ambient rewrite suggestions:")
         state.lines.append("```")
         state.lines.extend(projected("context_suggestions", context_suggestions))
+        state.lines.append("```")
+    if unsupported_by_adapter:
+        start_section("unsupported_by_adapter")
+        state.lines.append("Skipped by adapter capabilities:")
+        state.lines.append("```")
+        unsupported_lines = _report_render_unsupported_section(
+            unsupported_by_adapter,
+            check_deadline=check_deadline,
+        )
+        for diagnostic in unsupported_by_adapter:
+            check_deadline()
+            if type(diagnostic) is not dict:
+                continue
+            if bool(dict(diagnostic).get("required_by_policy", False)):
+                surface = str(dict(diagnostic).get("surface", ""))
+                adapter = str(dict(diagnostic).get("adapter", "native"))
+                state.violations.append(
+                    f"{surface}: unsupported_by_adapter ({adapter}) [required]"
+                )
+        state.lines.extend(projected("unsupported_by_adapter", unsupported_lines))
         state.lines.append("```")
     schema_surfaces = find_anonymous_schema_surfaces(file_paths, project_root=root)
     if schema_surfaces:

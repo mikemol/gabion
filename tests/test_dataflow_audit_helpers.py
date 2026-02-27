@@ -800,8 +800,8 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
             and isinstance(scoped_key[1].key[2], str)
         ):
             cache_details.add(scoped_key[1].key[2])
-    assert "config_fields" in cache_details
-    assert "dataclass_registry" in cache_details
+    assert da._canonical_stage_cache_detail("config_fields") in cache_details
+    assert da._canonical_stage_cache_detail("dataclass_registry") in cache_details
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_hydrates_index_and_sink::dataflow_audit.py::gabion.analysis.dataflow_audit._run_indexed_pass::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:
@@ -1120,6 +1120,80 @@ def test_execution_pattern_detection_supports_alias_attribute_and_async_callable
 
     assert "indexed_pass_runner" in ids
     assert "indexed_pass_graph_builder" in ids
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_registry_detects_additional_orchestration_motifs::dataflow_audit.py::gabion.analysis.dataflow_audit._detect_execution_pattern_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_registry_detects_additional_orchestration_motifs() -> None:
+    da = _load()
+    source = """
+def sink_a(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def sink_b(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def parse_a(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def parse_b(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+"""
+
+    matches = da._detect_execution_pattern_matches(source=source)
+    pattern_ids = {match.pattern_id for match in matches}
+    assert "parse_failure_sink_plumbing" in pattern_ids
+    assert "parse_module_tree_stage" in pattern_ids
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_schema_id_matrix_is_stable_for_semantic_equivalents_across_modules::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_execution_pattern_schema_id_matrix_is_stable_for_semantic_equivalents_across_modules() -> None:
+    da = _load()
+    module_a = """
+def parse_alpha(path, *, parse_failure_witnesses):
+    sink = _parse_failure_sink
+    sink(parse_failure_witnesses)
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def parse_beta(path, *, parse_failure_witnesses):
+    return _parse_module_tree(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+def sink_gamma(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+def sink_delta(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+"""
+    module_b = """
+def parse_beta(path, *, parse_failure_witnesses):
+    parser = audit._parse_module_tree
+    return parser(path, stage=_ParseModuleStage.CLASS_INDEX, parse_failure_witnesses=parse_failure_witnesses)
+def parse_alpha(path, *, parse_failure_witnesses):
+    sink = plumbing._parse_failure_sink
+    sink(parse_failure_witnesses)
+    return _parse_module_tree(path, stage=_ParseModuleStage.CALL_NODES, parse_failure_witnesses=parse_failure_witnesses)
+def sink_gamma(parse_failure_witnesses=None):
+    alias = plumbing._parse_failure_sink
+    return alias(parse_failure_witnesses)
+def sink_delta(parse_failure_witnesses=None):
+    return _parse_failure_sink(parse_failure_witnesses)
+"""
+
+    def _schema_and_residue(source: str, pattern_id: str) -> tuple[str, dict[str, object]]:
+        instances = da._pattern_schema_matches(groups_by_path={}, source=source)
+        execution_instances = [entry for entry in instances if entry.schema.axis.value == "execution"]
+        matched = next(entry for entry in execution_instances if pattern_id in entry.suggestion)
+        payload = matched.residue[0].payload
+        observed = payload["observed"]
+        assert isinstance(observed, dict)
+        rule_payload = observed["rule"]
+        assert isinstance(rule_payload, dict)
+        return matched.schema.schema_id, rule_payload
+
+    matrix = {
+        pattern_id: (
+            _schema_and_residue(module_a, pattern_id),
+            _schema_and_residue(module_b, pattern_id),
+        )
+        for pattern_id in ("parse_module_tree_stage", "parse_failure_sink_plumbing")
+    }
+
+    for (schema_a, residue_a), (schema_b, residue_b) in matrix.values():
+        assert schema_a == schema_b
+        assert residue_a["predicate_contract"] == residue_b["predicate_contract"]
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_residue_is_stable_under_source_order_permutations::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_residue_lines::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
@@ -2645,8 +2719,8 @@ def test_deserialize_call_args_handles_invalid_shapes() -> None:
             "callee": "mod.fn",
             "pos_map": {"a": "p", 1: "bad", "b": 2},
             "kw_map": {"k": "v"},
-            "const_pos": {"a": "1"},
-            "const_kw": {"k": "2"},
+            "const_pos": {"c": "1"},
+            "const_kw": {"z": "2"},
             "non_const_pos": ["x", 1],
             "non_const_kw": ["y", 2],
             "star_pos": [[0, "p"], ["bad", "q"], [1, 2], ["3", "r"], [9]],
@@ -4981,6 +5055,50 @@ def test_cache_identity_alias_and_resume_variant_edges() -> None:
     assert expected_identity is not None
     assert da._resume_variant_for_identity({prefixed: variant}, expected_identity) == variant
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_hits_for_equivalent_parse_key_config_serializations::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_stage_cache_key
+def test_analysis_index_stage_cache_hits_for_equivalent_parse_key_config_serializations(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "m.py"
+    _write(module, "x = 1\n")
+    identity = "aspf:sha1:" + "1" * 40
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity=identity,
+    )
+    first_parse_key = da._parse_stage_cache_key(
+        stage=da._ParseModuleStage.CONFIG_FIELDS,
+        cache_context=da._CacheSemanticContext(),
+        config_subset={"alpha": 1, "nested": {"z": 2, "a": [1, 2]}},
+        detail="config_fields",
+    )
+    second_parse_key = da._parse_stage_cache_key(
+        stage=da._ParseModuleStage.CONFIG_FIELDS,
+        cache_context=da._CacheSemanticContext(),
+        config_subset={"nested": {"a": [1, 2], "z": 2}, "alpha": 1},
+        detail="config_fields",
+    )
+    assert first_parse_key == second_parse_key
+    scoped_first = (identity, first_parse_key)
+    analysis_index.stage_cache_by_key[scoped_first] = {module: {"legacy": {"field"}}}
+    parse_failures: list[dict[str, object]] = []
+    result = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=da._StageCacheSpec(
+            stage=da._ParseModuleStage.CONFIG_FIELDS,
+            cache_key=second_parse_key,
+            build=lambda _tree, _path: (_ for _ in ()).throw(AssertionError("should reuse cache")),
+        ),
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert result[module] == {"legacy": {"field"}}
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._get_stage_cache_bucket
 def test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases(

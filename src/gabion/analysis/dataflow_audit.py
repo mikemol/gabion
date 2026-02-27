@@ -40,6 +40,7 @@ from gabion.analysis.pattern_schema import (
     execution_signature,
     mismatch_residue_payload,
 )
+from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.analysis.evidence import (
@@ -49,7 +50,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.aspf import Alt, Forest, Node, NodeId, structural_key_atom, structural_key_json
 from gabion.analysis.derivation_cache import get_global_derivation_cache
 from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
@@ -57,7 +58,9 @@ from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
     dataflow_defaults,
+    dataflow_adapter_payload,
     dataflow_deadline_roots,
+    dataflow_required_surfaces,
     decision_defaults,
     decision_ignore_list,
     decision_require_tiers,
@@ -83,6 +86,7 @@ from gabion.analysis.type_fingerprints import (
     format_fingerprint,
     fingerprint_carrier_soundness,
     fingerprint_identity_payload,
+    fingerprint_stage_cache_identity,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -181,7 +185,16 @@ from .dataflow_exception_obligations import (
     node_in_try_body as _exc_node_in_try_body,
     _builtin_exception_class as _exc_builtin_exception_class,
 )
+from .semantic_primitives import (
+    AnalysisPassPrerequisites,
+    CallArgumentMapping,
+    CallableId,
+    DecisionPredicateEvidence,
+    ParameterId,
+    SpanIdentity,
+)
 from .dataflow_report_rendering import (
+    render_unsupported_by_adapter_section as _report_render_unsupported_section,
     render_synthesis_section as _report_render_synthesis_section,
 )
 from .dataflow_bundle_iteration import (
@@ -342,11 +355,86 @@ class _ExecutionPatternRule:
     pattern_id: str
     kind: str
     schema_family: str
-    required_params: frozenset[str]
-    callee_names: frozenset[str]
+    predicates: tuple["_ExecutionPatternPredicate", ...]
     min_members: int
     candidate: str
     description: str
+
+
+@dataclass(frozen=True)
+class _ExecutionCallShape:
+    positional_args: int
+    keyword_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _ExecutionFunctionFact:
+    function_name: str
+    param_names: frozenset[str]
+    called_names: frozenset[str]
+    call_shapes: Mapping[str, tuple[_ExecutionCallShape, ...]]
+
+
+class _ExecutionPatternPredicateKind(StrEnum):
+    PARAMS = "params"
+    CALLEE = "callee"
+    CALL_SHAPE = "call_shape"
+
+
+@dataclass(frozen=True)
+class _ExecutionPatternPredicate:
+    kind: _ExecutionPatternPredicateKind
+    required_params: frozenset[str] = frozenset()
+    callee_names: frozenset[str] = frozenset()
+    required_keywords: frozenset[str] = frozenset()
+    min_positional_args: int = 0
+
+    def matches(self, *, fact: _ExecutionFunctionFact) -> bool:
+        check_deadline()
+        if self.kind is _ExecutionPatternPredicateKind.PARAMS:
+            return self.required_params.issubset(fact.param_names)
+        if self.kind is _ExecutionPatternPredicateKind.CALLEE:
+            return bool(fact.called_names.intersection(self.callee_names))
+        if self.kind is _ExecutionPatternPredicateKind.CALL_SHAPE:
+            for callee_name in self.callee_names:
+                check_deadline()
+                for shape in fact.call_shapes.get(callee_name, ()):  # boundary alias normalization
+                    check_deadline()
+                    if shape.positional_args < self.min_positional_args:
+                        continue
+                    if not self.required_keywords.issubset(shape.keyword_names):
+                        continue
+                    return True
+            return False
+        return never(self.kind)
+
+    def payload(self) -> JSONObject:
+        check_deadline()
+        payload: JSONObject = {"kind": self.kind.value}
+        if self.required_params:
+            payload["required_params"] = list(
+                sort_once(
+                    self.required_params,
+                    source="_ExecutionPatternPredicate.payload.required_params",
+                )
+            )
+        if self.callee_names:
+            payload["callee_names"] = list(
+                sort_once(
+                    self.callee_names,
+                    source="_ExecutionPatternPredicate.payload.callee_names",
+                )
+            )
+        if self.required_keywords:
+            payload["required_keywords"] = list(
+                sort_once(
+                    self.required_keywords,
+                    source="_ExecutionPatternPredicate.payload.required_keywords",
+                )
+            )
+        if self.min_positional_args:
+            payload["min_positional_args"] = self.min_positional_args
+        return payload
 
 
 @dataclass
@@ -376,6 +464,41 @@ class CallArgs:
     span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
+
+    def __post_init__(self) -> None:
+        if set(self.pos_map) & set(self.const_pos):
+            never("positional slot cannot be both param and constant")
+        if set(self.pos_map) & set(self.non_const_pos):
+            never("positional slot cannot be both param and non-const")
+        if set(self.const_pos) & set(self.non_const_pos):
+            never("positional slot cannot be both const and non-const")
+        if set(self.kw_map) & set(self.const_kw):
+            never("keyword slot cannot be both param and constant")
+        if set(self.kw_map) & set(self.non_const_kw):
+            never("keyword slot cannot be both param and non-const")
+        if set(self.const_kw) & set(self.non_const_kw):
+            never("keyword slot cannot be both const and non-const")
+
+    def callable_id(self) -> CallableId:
+        return CallableId.from_raw(self.callee)
+
+    def argument_mapping(self) -> CallArgumentMapping:
+        positional = {
+            int(idx): ParameterId.from_raw(param)
+            for idx, param in self.pos_map.items()
+        }
+        keywords = {
+            key: ParameterId.from_raw(param)
+            for key, param in self.kw_map.items()
+        }
+        return CallArgumentMapping(
+            positional=positional,
+            keywords=keywords,
+            star_positional=tuple(
+                (idx, ParameterId.from_raw(param)) for idx, param in self.star_pos
+            ),
+            star_keywords=tuple(ParameterId.from_raw(param) for param in self.star_kw),
+        )
 
 
 @dataclass(frozen=True)
@@ -529,6 +652,46 @@ class SymbolTable:
         return None
 
 
+@dataclass(frozen=True)
+class AdapterCapabilities:
+    bundle_inference: bool = True
+    decision_surfaces: bool = True
+    type_flow: bool = True
+    exception_obligations: bool = True
+    rewrite_plan_support: bool = True
+
+
+def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
+    if type(payload) is not dict:
+        return AdapterCapabilities()
+    raw = cast(dict[object, object], payload)
+
+    def _read(name: str, default: bool = True) -> bool:
+        value = raw.get(name)
+        if type(value) is bool:
+            return bool(value)
+        if type(value) is int:
+            return int(value) != 0
+        return default
+
+    return AdapterCapabilities(
+        bundle_inference=_read("bundle_inference"),
+        decision_surfaces=_read("decision_surfaces"),
+        type_flow=_read("type_flow"),
+        exception_obligations=_read("exception_obligations"),
+        rewrite_plan_support=_read("rewrite_plan_support"),
+    )
+
+
+def normalize_adapter_contract(payload: object) -> JSONObject:
+    if type(payload) is not dict:
+        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
+    raw = cast(dict[object, object], payload)
+    name = str(raw.get("name", "native") or "native")
+    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
+    return {"name": name, "capabilities": {str(key): bool(capabilities[key]) for key in capabilities}}
+
+
 @dataclass
 class AuditConfig:
     project_root: OptionalPath = None
@@ -553,6 +716,8 @@ class AuditConfig:
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
     ] = field(default_factory=tuple)
+    adapter_contract: OptionalJsonObject = None
+    required_analysis_surfaces: set[str] = field(default_factory=set)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -615,6 +780,7 @@ class AnalysisResult:
     profiling_v1: OptionalJsonObject = None
     deprecated_artifacts: OptionalDeprecatedExtractionArtifacts = None
     deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
 
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
@@ -660,6 +826,7 @@ class ReportCarrier:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
     phase_progress_v2: OptionalJsonObject = None
     deprecated_signals: tuple[str, ...] = ()
@@ -700,6 +867,7 @@ class ReportCarrier:
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
+            unsupported_by_adapter=analysis.unsupported_by_adapter,
             deprecated_signals=(
                 analysis.deprecated_artifacts.informational_signals
                 if analysis.deprecated_artifacts is not None
@@ -1408,43 +1576,11 @@ def _normalize_callee(name: str, class_name) -> str:
 
 
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
-    """Expand input paths to python files, pruning ignored directories early."""
-    check_deadline()
-    out: list[Path] = []
-    for p in paths:
-        check_deadline()
-        path = Path(p)
-        if path.is_dir():
-            for root, dirnames, filenames in os.walk(path, topdown=True):
-                check_deadline()
-                if config.exclude_dirs:
-                    # Prune excluded dirs before descending to avoid scanning
-                    # large env/vendor trees like `.venv/`.
-                    dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
-                dirnames[:] = sort_once(
-                    dirnames,
-                    source="_iter_paths.dirnames",
-                    # Lexical directory names for deterministic traversal order.
-                    key=lambda name: name,
-                )
-                for filename in sort_once(
-                    filenames,
-                    source="_iter_paths.filenames",
-                ):
-                    check_deadline()
-                    if not filename.endswith(".py"):
-                        continue
-                    candidate = Path(root) / filename
-                    if config.is_ignored_path(candidate):
-                        continue
-                    out.append(candidate)
-        else:
-            if config.is_ignored_path(path):
-                continue
-            out.append(path)
-    return sort_once(
-        out,
-        source="_iter_paths.out",
+    return iter_python_paths(
+        paths,
+        config=config,
+        check_deadline=check_deadline,
+        sort_once=sort_once,
     )
 
 
@@ -2105,11 +2241,30 @@ class _DecisionSurfaceSpec:
     rewrite_line: object = None
 
 
+def _decision_predicate_evidence(
+    info: FunctionInfo,
+    param: str,
+) -> DecisionPredicateEvidence:
+    reasons = tuple(
+        sort_once(
+            info.decision_surface_reasons.get(param, set()),
+            source="_decision_predicate_evidence.reasons",
+        )
+    )
+    span = info.param_spans.get(param)
+    return DecisionPredicateEvidence(
+        parameter=ParameterId.from_raw(param),
+        reasons=reasons,
+        spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
+    )
+
+
 def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
     labels: set[str] = set()
     for param in params:
         check_deadline()
-        labels.update(info.decision_surface_reasons.get(param, set()))
+        evidence = _decision_predicate_evidence(info, param)
+        labels.update(evidence.reasons)
     if not labels:
         return "heuristic"
     return ", ".join(
@@ -2152,6 +2307,26 @@ def _decision_surface_alt_evidence(
     payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
     payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
     return payload
+
+
+def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
+    suite_node = forest.nodes.get(suite_id)
+    if suite_node is None:
+        never("suite site missing during label projection", suite_id=str(suite_id))
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    if not path or not qual or not suite_kind or span is None:
+        never(
+            "suite site label projection missing identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+            span=suite_node.meta.get("span"),
+        )
+    span_text = _format_span_fields(*span)
+    return f"{path}:{qual}[{suite_kind}]@{span_text}" if span_text else f"{path}:{qual}[{suite_kind}]"
 
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
@@ -2282,7 +2457,7 @@ def _analyze_decision_surface_indexed(
             ),
         )
         surfaces.append(
-            f"{info.path.name}:{info.qual} {spec.surface_label}: "
+            f"{_suite_site_label(forest=forest, suite_id=suite_id)} {spec.surface_label}: "
             + ", ".join(params)
             + f" ({descriptor})"
         )
@@ -3124,12 +3299,36 @@ _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
         "analysis_index",
     }
 )
+_INDEXED_PASS_CALL_SHAPE_KEYWORDS = frozenset(
+    {
+        "project_root",
+        "ignore_params",
+        "strictness",
+        "external_filter",
+        "transparent_decorators",
+        "parse_failure_witnesses",
+    }
+)
 _INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_ingress",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+            required_keywords=_INDEXED_PASS_CALL_SHAPE_KEYWORDS,
+            min_positional_args=1,
+        ),
+    ),
     min_members=3,
     candidate="IndexedPassSpec[T] metafactory",
     description=(
@@ -3141,8 +3340,22 @@ _INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_runner",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_run_indexed_pass"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
     min_members=2,
     candidate="IndexedPassSpec[T] runner Protocol",
     description=(
@@ -3154,8 +3367,22 @@ _INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
     pattern_id="indexed_pass_graph_builder",
     kind="execution_pattern",
     schema_family="indexed_pass_cluster",
-    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
-    callee_names=frozenset({"_build_call_graph"}),
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_call_graph"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
     min_members=2,
     candidate="IndexedPassSpec[T] graph-builder Protocol",
     description=(
@@ -3163,11 +3390,80 @@ _INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
         "share one indexed-pass graph-builder execution contract."
     ),
 )
+_PARSE_FAILURE_SINK_RULE = _ExecutionPatternRule(
+    pattern_id="parse_failure_sink_plumbing",
+    kind="execution_pattern",
+    schema_family="parse_failure_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseFailureSinkCarrier Protocol",
+    description=(
+        "Functions normalizing parse-failure witnesses should share one "
+        "typed sink-carrier boundary contract."
+    ),
+)
+_PARSE_MODULE_TREE_RULE = _ExecutionPatternRule(
+    pattern_id="parse_module_tree_stage",
+    kind="execution_pattern",
+    schema_family="parse_module_tree_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_module_tree"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_module_tree"}),
+            required_keywords=frozenset({"parse_failure_witnesses", "stage"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseModuleStageSpec Protocol",
+    description=(
+        "Functions reusing parse-module stage dispatch should centralize "
+        "stage + witness carriage into a shared protocol."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
     _INDEXED_PASS_RUNNER_RULE,
     _INDEXED_PASS_GRAPH_RULE,
+    _PARSE_FAILURE_SINK_RULE,
+    _PARSE_MODULE_TREE_RULE,
 )
+
+_EXECUTION_PATTERN_RULE_REGISTRY: dict[str, _ExecutionPatternRule] = {
+    rule.pattern_id: rule
+    for rule in _EXECUTION_PATTERN_RULES
+}
+
+
+def _execution_pattern_rule(pattern_id: str) -> _ExecutionPatternRule:
+    check_deadline()
+    rule = _EXECUTION_PATTERN_RULE_REGISTRY.get(pattern_id)
+    if rule is None:
+        raise KeyError(f"unknown execution pattern rule: {pattern_id}")
+    return rule
+
 
 
 def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
@@ -3196,16 +3492,18 @@ def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
     return (attribute.attr, dotted)
 
 
-def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
-    for node in tree.body:
-        check_deadline()
+def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunctionFact]:
+    for node_index, node in enumerate(tree.body, start=1):
+        if node_index % 32 == 0:
+            check_deadline()
         if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
             continue
         function_node = cast(FunctionNode, node)
         param_names = frozenset(_function_param_names(function_node))
         alias_map: dict[str, tuple[str, ...]] = {}
-        for statement in function_node.body:
-            check_deadline()
+        for statement_index, statement in enumerate(function_node.body, start=1):
+            if statement_index % 32 == 0:
+                check_deadline()
             if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
                 continue
             assign_node = cast(ast.Assign, statement)
@@ -3217,6 +3515,7 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, froz
                 continue
             alias_map[cast(ast.Name, target).id] = variants
         called_names: set[str] = set()
+        call_shapes: dict[str, set[_ExecutionCallShape]] = defaultdict(set)
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
@@ -3226,12 +3525,43 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, froz
             variants = _callable_name_variants(call_node.func)
             if not variants:
                 continue
+            shape = _ExecutionCallShape(
+                positional_args=len(call_node.args),
+                keyword_names=frozenset(
+                    keyword.arg
+                    for keyword in call_node.keywords
+                    if keyword.arg is not None
+                ),
+            )
             for variant in variants:
-                check_deadline()
                 called_names.add(variant)
+                call_shapes[variant].add(shape)
                 for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
                     called_names.add(alias_variant)
-        yield function_node.name, param_names, frozenset(called_names)
+                    call_shapes[alias_variant].add(shape)
+        yield _ExecutionFunctionFact(
+            function_name=function_node.name,
+            param_names=param_names,
+            called_names=frozenset(called_names),
+            call_shapes={
+                name: tuple(
+                    sort_once(
+                        shapes,
+                        source="_iter_execution_function_facts.call_shapes",
+                        key=lambda entry: (
+                            entry.positional_args,
+                            tuple(
+                                sort_once(
+                                    entry.keyword_names,
+                                    source="_iter_execution_function_facts.call_shape_keywords",
+                                )
+                            ),
+                        ),
+                    )
+                )
+                for name, shapes in call_shapes.items()
+            },
+        )
 
 
 def _execution_pattern_members(
@@ -3240,14 +3570,33 @@ def _execution_pattern_members(
     rule: _ExecutionPatternRule,
 ) -> tuple[str, ...]:
     members: list[str] = []
-    for name, param_names, called_names in _iter_execution_function_facts(tree):
+    for fact in _iter_execution_function_facts(tree):
         check_deadline()
-        if not rule.required_params.issubset(param_names):
+        if any(not predicate.matches(fact=fact) for predicate in rule.predicates):
             continue
-        if not called_names.intersection(rule.callee_names):
-            continue
-        members.append(name)
+        members.append(fact.function_name)
     return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
+
+
+def _execution_rule_residue_payload(
+    *,
+    rule: _ExecutionPatternRule,
+    members: Sequence[str],
+    observed_member_count: int,
+) -> JSONObject:
+    check_deadline()
+    return {
+        "pattern_id": rule.pattern_id,
+        "schema_family": rule.schema_family,
+        "predicate_contract": [predicate.payload() for predicate in rule.predicates],
+        "members": list(
+            sort_once(
+                {str(member) for member in members},
+                source="_execution_rule_residue_payload.members",
+            )
+        ),
+        "member_count": observed_member_count,
+    }
 
 
 def _detect_execution_pattern_matches(
@@ -3300,7 +3649,7 @@ def _execution_pattern_instances(
     )
     for match in matches:
         check_deadline()
-        rule = next(rule for rule in _EXECUTION_PATTERN_RULES if rule.pattern_id == match.pattern_id)
+        rule = _execution_pattern_rule(match.pattern_id)
         signature = execution_signature(
             family=match.schema_family,
             members=match.members,
@@ -3328,8 +3677,24 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=match.pattern_id,
-                            expected={"min_members": rule.min_members, "candidate": rule.candidate},
-                            observed={"members": list(match.members), "member_count": len(match.members)},
+                            expected={
+                                "min_members": rule.min_members,
+                                "candidate": rule.candidate,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=match.members,
+                                    observed_member_count=len(match.members),
+                                ),
+                            },
+                            observed={
+                                "members": list(match.members),
+                                "member_count": len(match.members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=match.members,
+                                    observed_member_count=len(match.members),
+                                ),
+                            },
                         ),
                     ),
                 ),
@@ -3372,8 +3737,23 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=rule.pattern_id,
-                            expected={"min_members": rule.min_members},
-                            observed={"members": list(near_miss_members), "member_count": len(near_miss_members)},
+                            expected={
+                                "min_members": rule.min_members,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
+                            observed={
+                                "members": list(near_miss_members),
+                                "member_count": len(near_miss_members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
                         ),
                     ),
                 ),
@@ -5576,6 +5956,13 @@ def _collect_never_invariants(
                     "call",
                     span=normalized_span,
                 )
+                suite_node = forest.nodes.get(site_id)
+                if suite_node is not None:
+                    site_payload = cast(dict[str, object], entry["site"])
+                    suite_identity = suite_node.meta.get("suite_id")
+                    if type(suite_identity) is str and suite_identity:
+                        site_payload["suite_id"] = suite_identity
+                cast(dict[str, object], entry["site"])["suite_kind"] = "call"
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -6638,41 +7025,41 @@ def _caller_param_bindings_for_call(
     named_params = set(pos_params) | kwonly_params
     mapping: dict[str, set[str]] = defaultdict(set)
     mapped_params: set[str] = set()
-    for pos_idx, caller_param in call.pos_map.items():
+    call_mapping = call.argument_mapping()
+    for pos_idx, caller_param in call_mapping.positional.items():
         check_deadline()
-        idx = int(pos_idx)
-        if idx < len(pos_params):
-            callee_param = pos_params[idx]
+        if pos_idx < len(pos_params):
+            callee_param = pos_params[pos_idx]
         elif callee.vararg is not None:
             callee_param = callee.vararg
         else:
             continue
         mapped_params.add(callee_param)
-        mapping[callee_param].add(caller_param)
-    for kw_name, caller_param in call.kw_map.items():
+        mapping[callee_param].add(caller_param.value)
+    for kw_name, caller_param in call_mapping.keywords.items():
         check_deadline()
         if kw_name in named_params:
             mapped_params.add(kw_name)
-            mapping[kw_name].add(caller_param)
+            mapping[kw_name].add(caller_param.value)
         elif callee.kwarg is not None:
             mapped_params.add(callee.kwarg)
-            mapping[callee.kwarg].add(caller_param)
+            mapping[callee.kwarg].add(caller_param.value)
     if strictness == "low":
         remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5870') if p not in mapped_params]
         if callee.vararg is not None and callee.vararg not in mapped_params:
             remaining.append(callee.vararg)
         if callee.kwarg is not None and callee.kwarg not in mapped_params:
             remaining.append(callee.kwarg)
-        if len(call.star_pos) == 1:
-            _, star_param = call.star_pos[0]
+        if len(call_mapping.star_positional) == 1:
+            _, star_param = call_mapping.star_positional[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
-        if len(call.star_kw) == 1:
-            star_param = call.star_kw[0]
+                mapping[param].add(star_param.value)
+        if len(call_mapping.star_keywords) == 1:
+            star_param = call_mapping.star_keywords[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
+                mapping[param].add(star_param.value)
     return mapping
 
 
@@ -7431,10 +7818,11 @@ def _summarize_never_invariants(
     def _format_site(row: Mapping[str, JSONValue]) -> str:
         path = row.get("site_path") or "?"
         function = row.get("site_function") or "?"
+        suite_kind = row.get("site_suite_kind") or "?"
         span = _format_span(row)
         if span:
-            return f"{path}:{function}@{span}"
-        return f"{path}:{function}"
+            return f"{path}:{function}[{suite_kind}]@{span}"
+        return f"{path}:{function}[{suite_kind}]"
 
     def _format_evidence(row: Mapping[str, JSONValue], status: str) -> str:
         witness_ref = row.get("witness_ref")
@@ -7496,6 +7884,8 @@ def _summarize_never_invariants(
                 "status_rank": _NEVER_STATUS_ORDER.get(status, 3),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site_mapping.get("suite_id", "") or ""),
+                "site_suite_kind": str(site_mapping.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7521,6 +7911,18 @@ def _summarize_never_invariants(
         op_registry={"never_status_allowed": _never_status_allowed},
         params_override=params,
     )
+    suite_kind_by_never_id = {
+        str(row.get("never_id", "") or ""): str(row.get("site_suite_kind", "") or "")
+        for row in relation
+    }
+    for row in projected:
+        check_deadline()
+        never_id = str(row.get("never_id", "") or "")
+        if str(row.get("site_suite_kind", "") or ""):
+            continue
+        suite_kind = suite_kind_by_never_id.get(never_id, "")
+        if suite_kind:
+            row["site_suite_kind"] = suite_kind
     ordered_statuses = list(params.get("ordered_statuses") or [])
     grouped: dict[str, list[dict[str, JSONValue]]] = {}
     for row in projected:
@@ -8085,6 +8487,15 @@ def _normalize_cache_config(value: JSONValue) -> JSONValue:
     return value
 
 
+def _canonical_stage_cache_detail(detail: Hashable) -> str:
+    structural_detail = structural_key_atom(
+        detail,
+        source="dataflow_audit._canonical_stage_cache_detail",
+    )
+    canonical_json = structural_key_json(structural_detail)
+    return json.dumps(canonical_json, sort_keys=False, separators=(",", ":"))
+
+
 def _build_stage_cache_identity_spec(
     *,
     stage: Literal["parse", "index", "projection"],
@@ -8095,7 +8506,7 @@ def _build_stage_cache_identity_spec(
     return _StageCacheIdentitySpec(
         stage=stage,
         forest_spec_id=str(cache_context.forest_spec_id or ""),
-        fingerprint_seed_revision=str(cache_context.fingerprint_seed_revision or ""),
+        fingerprint_seed_revision=fingerprint_stage_cache_identity(cache_context.fingerprint_seed_revision),
         normalized_config=normalized_config,
     )
 
@@ -8172,7 +8583,7 @@ def _parse_stage_cache_key(
         key=(
             stage.value,
             identity.value,
-            detail,
+            _canonical_stage_cache_detail(detail),
         ),
     )
 
@@ -10635,29 +11046,29 @@ def _propagate_groups(
         if call.callee not in callee_groups:
             continue
         callee_params = callee_param_orders[call.callee]
+        mapping = call.argument_mapping()
         # Build mapping from callee param to caller param.
         callee_to_caller: dict[str, str] = {}
         for idx, pname in enumerate(callee_params):
             check_deadline()
-            key = str(idx)
-            if key in call.pos_map:
-                callee_to_caller[pname] = call.pos_map[key]
-        for kw, caller_name in call.kw_map.items():
+            if idx in mapping.positional:
+                callee_to_caller[pname] = mapping.positional[idx].value
+        for kw, caller_param in mapping.keywords.items():
             check_deadline()
-            callee_to_caller[kw] = caller_name
+            callee_to_caller[kw] = caller_param.value
         if strictness == "low":
             mapped = set(callee_to_caller.keys())
             remaining = [p for p in callee_params if p not in mapped]
-            if len(call.star_pos) == 1:
-                _, star_param = call.star_pos[0]
+            if len(mapping.star_positional) == 1:
+                _, star_param = mapping.star_positional[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
-            if len(call.star_kw) == 1:
-                star_param = call.star_kw[0]
+                    callee_to_caller.setdefault(param, star_param.value)
+            if len(mapping.star_keywords) == 1:
+                star_param = mapping.star_keywords[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
+                    callee_to_caller.setdefault(param, star_param.value)
         for group in callee_groups[call.callee]:
             check_deadline()
             mapped = {callee_to_caller.get(p) for p in group}
@@ -10686,25 +11097,27 @@ def _callsite_evidence_for_bundle(
         if call.span is not None:
             params_in_call: list[str] = []
             slots: list[str] = []
-            for idx_str, param in call.pos_map.items():
+            mapping = call.argument_mapping()
+            callable_id = call.callable_id()
+            for idx, param in mapping.positional.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
-                    slots.append(f"arg[{idx_str}]")
-            for name, param in call.kw_map.items():
+                if param.value in bundle:
+                    params_in_call.append(param.value)
+                    slots.append(f"arg[{idx}]")
+            for name, param in mapping.keywords.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"kw[{name}]")
-            for idx, param in call.star_pos:
+            for idx, param in mapping.star_positional:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"arg[{idx}]*")
-            for param in call.star_kw:
+            for param in mapping.star_keywords:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append("kw[**]")
             distinct = tuple(
                 sort_once(
@@ -10719,13 +11132,27 @@ def _callsite_evidence_for_bundle(
                         source="src/gabion/analysis/dataflow_audit.py:10519",
                     )
                 )
-                key = (call.span, call.callee, distinct, slot_list)
+                span_identity = SpanIdentity.from_tuple(
+                    require_not_none(
+                        call.span,
+                        reason="callsite evidence requires span",
+                        strict=True,
+                    )
+                )
+                span_tuple = (
+                    span_identity.start_line,
+                    span_identity.start_col,
+                    span_identity.end_line,
+                    span_identity.end_col,
+                )
+                callable_id = call.callable_id()
+                key = (span_tuple, callable_id.value, distinct, slot_list)
                 if key not in seen:
                     seen.add(key)
                     out.append(
                         {
-                            "callee": call.callee,
-                            "span": list(call.span),
+                            "callee": callable_id.value,
+                            "span": list(span_tuple),
                             "params": list(distinct),
                             "slots": list(slot_list),
                             "callable_kind": call.callable_kind,
@@ -10746,249 +11173,49 @@ def _callsite_evidence_for_bundle(
     return out[:limit]
 
 
-def _analyze_file_internal(
-    path: Path,
-    recursive: bool = True,
+
+
+def _adapt_ingest_carrier_to_analysis_maps(ingest_carrier):
+    return (
+        dict(ingest_carrier.function_use),
+        dict(ingest_carrier.function_calls),
+        dict(ingest_carrier.function_param_orders),
+        dict(ingest_carrier.function_param_spans),
+        set(ingest_carrier.opaque_callees),
+    )
+
+
+def analyze_ingested_file(
+    ingest_carrier,
     *,
-    config = None,
-    resume_state = None,
-    on_progress = None,
+    recursive: bool,
+    config: AuditConfig,
     on_profile = None,
-    analyze_function_fn = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
     dict[str, list[list[JSONObject]]],
 ]:
-    check_deadline()
-    if analyze_function_fn is None:
-        analyze_function_fn = _analyze_function
-    if config is None:
-        config = AuditConfig()
-    profile_stage_ns: dict[str, int] = {
-        "file_scan.read_parse": 0,
-        "file_scan.parent_annotation": 0,
-        "file_scan.collect_functions": 0,
-        "file_scan.function_scan": 0,
-        "file_scan.resolve_local_calls": 0,
-        "file_scan.resolve_local_methods": 0,
-        "file_scan.grouping": 0,
-        "file_scan.propagation": 0,
-        "file_scan.bundle_sites": 0,
-    }
-    profile_counters: Counter[str] = Counter()
-    parse_started_ns = time.monotonic_ns()
-    tree = ast.parse(path.read_text())
-    profile_stage_ns["file_scan.read_parse"] += time.monotonic_ns() - parse_started_ns
-    parent_started_ns = time.monotonic_ns()
-    parent = ParentAnnotator()
-    parent.visit(tree)
-    profile_stage_ns["file_scan.parent_annotation"] += (
-        time.monotonic_ns() - parent_started_ns
-    )
-    parents = parent.parents
-    is_test = _is_test_path(path)
-
-    collect_started_ns = time.monotonic_ns()
-    funcs = _collect_functions(tree)
-    profile_stage_ns["file_scan.collect_functions"] += (
-        time.monotonic_ns() - collect_started_ns
-    )
-    profile_counters["file_scan.functions_total"] = len(funcs)
-    fn_keys_in_file: set[str] = set()
-    for function_node in funcs:
-        check_deadline()
-        scopes = _enclosing_scopes(function_node, parents)
-        fn_keys_in_file.add(_function_key(scopes, function_node.name))
-    return_aliases = _collect_return_aliases(
-        funcs, parents, ignore_params=config.ignore_params
-    )
     (
         fn_use,
         fn_calls,
         fn_param_orders,
         fn_param_spans,
-        fn_names,
-        fn_lexical_scopes,
-        fn_class_names,
         opaque_callees,
-    ) = _load_file_scan_resume_state(
-        payload=resume_state,
-        valid_fn_keys=fn_keys_in_file,
-    )
-    scanned_since_emit = 0
-    last_scan_progress_emit_monotonic = None
-
-    def _emit_scan_progress(*, force: bool = False) -> bool:
-        nonlocal last_scan_progress_emit_monotonic
-        if on_progress is None:
-            return False
-        now = time.monotonic()
-        if (
-            not force
-            and last_scan_progress_emit_monotonic is not None
-            and now - last_scan_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ):
-            return False
-        progress_payload = _serialize_file_scan_resume_state(
-            fn_use=fn_use,
-            fn_calls=fn_calls,
-            fn_param_orders=fn_param_orders,
-            fn_param_spans=fn_param_spans,
-            fn_names=fn_names,
-            fn_lexical_scopes=fn_lexical_scopes,
-            fn_class_names=fn_class_names,
-            opaque_callees=opaque_callees,
-        )
-        progress_payload["profiling_v1"] = _profiling_v1_payload(
-            stage_ns=profile_stage_ns,
-            counters=profile_counters,
-        )
-        on_progress(progress_payload)
-        last_scan_progress_emit_monotonic = now
-        return True
+    ) = _adapt_ingest_carrier_to_analysis_maps(ingest_carrier)
+    profile_stage_ns: dict[str, int] = {
+        "file_scan.grouping": 0,
+        "file_scan.propagation": 0,
+        "file_scan.bundle_sites": 0,
+    }
 
     def _emit_file_profile() -> None:
         if on_profile is not None:
-            on_profile(
-                _profiling_v1_payload(
-                    stage_ns=profile_stage_ns,
-                    counters=profile_counters,
-                )
-            )
-
-    try:
-        scan_started_ns = time.monotonic_ns()
-        for f in funcs:
-            check_deadline()
-            class_name = _enclosing_class(f, parents)
-            scopes = _enclosing_scopes(f, parents)
-            lexical_scopes = _enclosing_function_scopes(f, parents)
-            fn_key = _function_key(scopes, f.name)
-            if (
-                fn_key in fn_use
-                and fn_key in fn_calls
-                and fn_key in fn_param_orders
-                and fn_key in fn_param_spans
-                and fn_key in fn_names
-                and fn_key in fn_lexical_scopes
-                and fn_key in fn_class_names
-            ):
-                continue
-            if not _decorators_transparent(f, config.transparent_decorators):
-                opaque_callees.add(fn_key)
-            use_map, call_args = analyze_function_fn(
-                f,
-                parents,
-                is_test=is_test,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                class_name=class_name,
-                return_aliases=return_aliases,
-            )
-            fn_use[fn_key] = use_map
-            fn_calls[fn_key] = call_args
-            fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
-            fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
-            fn_names[fn_key] = f.name
-            fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
-            fn_class_names[fn_key] = class_name
-            scanned_since_emit += 1
-            if (
-                scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL
-                and _emit_scan_progress()
-            ):
-                scanned_since_emit = 0
-        profile_stage_ns["file_scan.function_scan"] += time.monotonic_ns() - scan_started_ns
-    except TimeoutExceeded:
-        _emit_scan_progress(force=True)
-        _emit_file_profile()
-        raise
-    if scanned_since_emit > 0:
-        _emit_scan_progress(force=True)
-
-    local_by_name: dict[str, list[str]] = defaultdict(list)
-    for key, name in fn_names.items():
-        check_deadline()
-        local_by_name[name].append(key)
-
-    def _resolve_local_callee(callee: str, caller_key: str):
-        check_deadline()
-        if "." in callee:
-            return None
-        candidates = local_by_name.get(callee, [])
-        if not candidates:
-            return None
-        effective_scope = list(fn_lexical_scopes.get(caller_key, ())) + [fn_names[caller_key]]
-        while True:
-            check_deadline()
-            scoped = [
-                key
-                for key in candidates
-                if fn_lexical_scopes.get(key, ()) == tuple(effective_scope)
-                and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
-            ]
-            if len(scoped) == 1:
-                return scoped[0]
-            if len(scoped) > 1:
-                return None
-            if not effective_scope:
-                break
-            effective_scope = effective_scope[:-1]
-        return None
-
-    local_resolve_started_ns = time.monotonic_ns()
-    for caller_key, calls in list(fn_calls.items()):
-        check_deadline()
-        resolved_calls: list[CallArgs] = []
-        for call in calls:
-            check_deadline()
-            resolved = _resolve_local_callee(call.callee, caller_key)
-            if resolved:
-                resolved_calls.append(replace(call, callee=resolved))
-            else:
-                resolved_calls.append(call)
-        fn_calls[caller_key] = resolved_calls
-    profile_stage_ns["file_scan.resolve_local_calls"] += (
-        time.monotonic_ns() - local_resolve_started_ns
-    )
-
-    class_bases = _collect_local_class_bases(tree, parents)
-    profile_counters["file_scan.class_bases_count"] = len(class_bases)
-    if class_bases:
-        method_resolve_started_ns = time.monotonic_ns()
-        local_functions = set(fn_use.keys())
-
-        def _resolve_local_method(callee: str):
-            class_part, method = callee.rsplit(".", 1)
-            return _resolve_local_method_in_hierarchy(
-                class_part,
-                method,
-                class_bases=class_bases,
-                local_functions=local_functions,
-                seen=set(),
-            )
-
-        for caller_key, calls in list(fn_calls.items()):
-            check_deadline()
-            resolved_calls = []
-            for call in calls:
-                check_deadline()
-                if "." in call.callee:
-                    resolved = _resolve_local_method(call.callee)
-                    if resolved and resolved != call.callee:
-                        resolved_calls.append(replace(call, callee=resolved))
-                        continue
-                resolved_calls.append(call)
-            fn_calls[caller_key] = resolved_calls
-        profile_stage_ns["file_scan.resolve_local_methods"] += (
-            time.monotonic_ns() - method_resolve_started_ns
-        )
+            on_profile(_profiling_v1_payload(stage_ns=profile_stage_ns, counters=Counter()))
 
     grouping_started_ns = time.monotonic_ns()
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
     profile_stage_ns["file_scan.grouping"] += time.monotonic_ns() - grouping_started_ns
-    profile_counters["file_scan.functions_scanned"] = len(fn_use)
 
     if not recursive:
         bundle_started_ns = time.monotonic_ns()
@@ -11037,6 +11264,61 @@ def _analyze_file_internal(
     profile_stage_ns["file_scan.bundle_sites"] += time.monotonic_ns() - bundle_started_ns
     _emit_file_profile()
     return groups_by_fn, fn_param_spans, bundle_sites_by_fn
+
+def _analyze_file_internal(
+    path: Path,
+    recursive: bool = True,
+    *,
+    config = None,
+    resume_state = None,
+    on_progress = None,
+    on_profile = None,
+    analyze_function_fn = None,
+) -> tuple[
+    dict[str, list[set[str]]],
+    dict[str, dict[str, tuple[int, int, int, int]]],
+    dict[str, list[list[JSONObject]]],
+]:
+    check_deadline()
+    if analyze_function_fn is None:
+        analyze_function_fn = _analyze_function
+    if config is None:
+        config = AuditConfig()
+    ingest_carrier = ingest_python_file(
+        path,
+        config=config,
+        recursive=recursive,
+        parse_module=_parse_module_source,
+        collect_functions=_collect_functions,
+        collect_return_aliases=_collect_return_aliases,
+        load_resume_state=_load_file_scan_resume_state,
+        serialize_resume_state=_serialize_file_scan_resume_state,
+        profiling_payload=_profiling_v1_payload,
+        analyze_function=analyze_function_fn,
+        enclosing_class=_enclosing_class,
+        enclosing_scopes=_enclosing_scopes,
+        enclosing_function_scopes=_enclosing_function_scopes,
+        function_key=_function_key,
+        decorators_transparent=_decorators_transparent,
+        param_names=_param_names,
+        param_spans=_param_spans,
+        collect_local_class_bases=_collect_local_class_bases,
+        resolve_local_method_in_hierarchy=_resolve_local_method_in_hierarchy,
+        is_test_path=_is_test_path,
+        check_deadline=check_deadline,
+        parent_annotator_factory=ParentAnnotator,
+        progress_emit_interval=_FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+        progress_min_interval_seconds=_PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+        on_progress=on_progress,
+        on_profile=on_profile,
+        resume_state=resume_state,
+    )
+    return analyze_ingested_file(
+        ingest_carrier,
+        recursive=recursive,
+        config=config,
+        on_profile=on_profile,
+    )
 
 
 def analyze_file(
@@ -12314,6 +12596,13 @@ def _infer_type_flow(
 ):
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
+    AnalysisPassPrerequisites(
+        bundle_inference=True,
+        call_propagation=True,
+        decision_surfaces=True,
+        type_flow=True,
+        lint_evidence=True,
+    ).validate(pass_id="type_flow")
     index = require_not_none(
         analysis_index,
         reason="_infer_type_flow requires prebuilt analysis_index",
@@ -17193,6 +17482,12 @@ def _run_impl(
         merged.get("transparent_decorators")
     )
     deadline_roots = set(dataflow_deadline_roots(merged))
+    adapter_payload = dataflow_adapter_payload(merged)
+    required_analysis_surfaces = {
+        str(item)
+        for item in dataflow_required_surfaces(merged)
+        if type(item) is str and str(item)
+    }
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
@@ -17212,6 +17507,8 @@ def _run_impl(
         fingerprint_synth_min_occurrences=synth_min_occurrences,
         fingerprint_synth_version=synth_version,
         fingerprint_synth_registry=synth_registry,
+        adapter_contract=normalize_adapter_contract(adapter_payload),
+        required_analysis_surfaces=required_analysis_surfaces,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

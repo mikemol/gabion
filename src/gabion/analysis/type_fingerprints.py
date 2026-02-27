@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Iterable, cast
+import hashlib
 import math
 
 from gabion.analysis.aspf_core import (
@@ -32,6 +33,7 @@ from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none, str_
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
+from gabion.runtime import stable_encode
 
 TYPE_BASE_NAMESPACE = "type_base"
 TYPE_CTOR_NAMESPACE = "type_ctor"
@@ -569,6 +571,17 @@ def fingerprint_identity_payload(
     if cofibration.entries:
         payload["cofibration_witness"] = cofibration.as_dict()
     return payload
+
+
+def fingerprint_stage_cache_identity(
+    fingerprint_seed_revision: object,
+) -> str:
+    text = str(fingerprint_seed_revision or "").strip()
+    if not text:
+        return ""
+    canonical_text = stable_encode.stable_compact_text({"fingerprint_seed_revision": text})
+    digest = hashlib.sha1(canonical_text.encode("utf-8")).hexdigest()
+    return f"aspf:sha1:{digest}"
 
 
 def _fingerprint_sort_key(fingerprint: Fingerprint) -> tuple[int, int, int, int, int, int, int, int]:
