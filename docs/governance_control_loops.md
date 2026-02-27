@@ -16,16 +16,16 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - glossary.md#contract
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  AGENTS.md#agent_obligations: 1
-  POLICY_SEED.md#policy_seed: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 2
+  AGENTS.md#agent_obligations: 2
+  POLICY_SEED.md#policy_seed: 2
+  CONTRIBUTING.md#contributing_contract: 2
   glossary.md#contract: 1
 doc_review_notes:
-  README.md#repo_contract: "Repo contract reviewed; control-loop domains remain aligned with scope and entry points."
-  AGENTS.md#agent_obligations: "Agent obligations reviewed; loop enforcement remains mechanized and refusal-safe."
-  POLICY_SEED.md#policy_seed: "Policy seed reviewed; first-order and second-order loops map to declared sensors/actuators."
-  CONTRIBUTING.md#contributing_contract: "Contributor workflow reviewed; verification commands align with local and CI loops."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#contract: "Glossary contract reviewed; loop predicates remain semantically coherent with enforcement terms."
 doc_sections:
   governance_control_loops: 1
@@ -39,25 +39,25 @@ doc_section_requires:
 doc_section_reviews:
   governance_control_loops:
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Repo contract reviewed; governed domains map to declared loop entries."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent obligations reviewed; loop declarations stay machine-checkable."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Policy constraints map cleanly onto loop schema fields."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Contributor commands remain valid loop verification operators."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1

@@ -19,8 +19,8 @@ doc_requires:
   - glossary.md#deadness_witness
   - glossary.md#exception_obligation
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
   glossary.md#decision_table: 1
   glossary.md#decision_bundle: 1
   glossary.md#decision_protocol: 1
@@ -29,8 +29,8 @@ doc_reviewed_as_of:
   glossary.md#deadness_witness: 1
   glossary.md#exception_obligation: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#decision_table: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
   glossary.md#decision_bundle: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
   glossary.md#decision_protocol: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
@@ -54,15 +54,15 @@ doc_section_requires:
 doc_section_reviews:
   sppf_checklist:
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 8
       outcome: no_change
-      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 8
       outcome: no_change
-      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#decision_table:
       dep_version: 1
       self_version_at_review: 8

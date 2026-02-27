@@ -17,19 +17,19 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
   glossary.md#exception_obligation: 1
   glossary.md#handledness_witness: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 2
+  README.md#repo_contract: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
   glossary.md#handledness_witness: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
 doc_sections:
   influence_index: 2
 doc_section_requires:
@@ -43,10 +43,10 @@ doc_section_requires:
 doc_section_reviews:
   influence_index:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
@@ -63,15 +63,15 @@ doc_section_reviews:
       outcome: no_change
       note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting

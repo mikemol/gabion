@@ -17,19 +17,19 @@ doc_requires:
   - glossary.md#contract
   - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
-  POLICY_SEED.md#policy_seed: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
+  POLICY_SEED.md#policy_seed: 2
+  docs/normative_clause_index.md#normative_clause_index: 2
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with contributor scope."
-  CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
-  AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations and cross-linked to the machine-readable enforcement ledger."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
@@ -45,33 +45,33 @@ doc_section_requires:
 doc_section_reviews:
   contributing_contract:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Repo contract reviewed; contributor contract unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations reviewed; contributor contract unchanged."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed reviewed; contributor contract unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Clause IDs reviewed; contributing guidance now links canonical obligations."
+      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; contributor contract unchanged."
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Coverage semantics reviewed; contributor contract unchanged."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"

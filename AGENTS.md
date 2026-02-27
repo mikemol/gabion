@@ -15,17 +15,17 @@ doc_requires:
   - glossary.md#contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  docs/normative_clause_index.md#normative_clause_index: 2
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
-  docs/normative_clause_index.md#normative_clause_index: "Agent obligations now reference canonical clause IDs for repeated policy language."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:
@@ -38,30 +38,30 @@ doc_section_requires:
 doc_section_reviews:
   agent_obligations:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Repo contract reviewed; agent obligations unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Contributor contract reviewed; agent obligations unchanged."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed reviewed; agent obligations unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; agent obligations unchanged."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Clause index reviewed; AGENTS links remain aligned with canonical obligations."
+      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first

@@ -14,15 +14,15 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
-  AGENTS.md#agent_obligations: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  POLICY_SEED.md#policy_seed: 2
+  AGENTS.md#agent_obligations: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  docs/normative_clause_index.md#normative_clause_index: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Protocol card operationalizes §4.8 for low-entropy execution under refactor pressure."
-  AGENTS.md#agent_obligations: "Examples align with boundary-normalization and Decision Protocol obligations."
-  CONTRIBUTING.md#contributing_contract: "Card mirrors mandatory refactor sequence used by reviewers."
-  docs/normative_clause_index.md#normative_clause_index: "Card references canonical clause IDs instead of duplicating governance prose."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
 ---
 
 <a id="shift_ambiguity_left_protocol"></a>

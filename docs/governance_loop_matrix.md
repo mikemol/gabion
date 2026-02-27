@@ -19,17 +19,17 @@ doc_requires:
   - glossary.md#contract
 doc_reviewed_as_of:
   docs/governance_control_loops.md#governance_control_loops: 1
-  README.md#repo_contract: 1
-  AGENTS.md#agent_obligations: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  AGENTS.md#agent_obligations: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
 doc_review_notes:
   docs/governance_control_loops.md#governance_control_loops: "Control-loop domain registry reviewed; matrix rows align to declared first-order loops and correction semantics."
-  README.md#repo_contract: "Repo contract and cross-reference structure reviewed; matrix linked from governance references."
-  AGENTS.md#agent_obligations: "Agent obligations reviewed; matrix keeps mechanized-governance and override language aligned with agent constraints."
-  CONTRIBUTING.md#contributing_contract: "Contributor contract reviewed; matrix commands align with repo-local tooling execution norms."
-  POLICY_SEED.md#policy_seed: "Policy seed reviewed; bounded-step and override mechanics are preserved in per-gate rows."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Glossary contract reviewed; gate identifiers and loop-domain labels are semantically stable."
 doc_sections:
   governance_loop_matrix: 1
@@ -49,25 +49,25 @@ doc_section_reviews:
       outcome: no_change
       note: "Domain/correction model remains compatible with matrix columns."
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Repo governance cross-reference expectations remain unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent obligations remain aligned with matrix override and enforcement semantics."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Contributor command discipline remains compatible with matrix sensors."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Override and correction ratchet requirements unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1

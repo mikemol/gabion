@@ -15,13 +15,13 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  POLICY_SEED.md#policy_seed: 2
 doc_review_notes:
-  README.md#repo_contract: "Reviewed command surfaces and workflow sections for user-loop alignment."
-  CONTRIBUTING.md#contributing_contract: "Reviewed contributor guardrails to keep this guide operational (not normative)."
-  POLICY_SEED.md#policy_seed: "Reviewed execution-policy constraints; this guide links out instead of restating policy."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
   user_workflows: 2
@@ -33,20 +33,20 @@ doc_section_requires:
 doc_section_reviews:
   user_workflows:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Workflow references match current README command entrypoints."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "No conflict with contributor contract; examples remain local-run focused."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy is linked as advanced reading; this doc remains usage-centric."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
 doc_erasure:
   - formatting
   - typos

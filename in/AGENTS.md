@@ -5,9 +5,9 @@ doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed policy seed execution constraints (mechanized governance, explicit review-discipline invariant, and mise-based tooling expectations); scoped in/ delta remains consistent.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage wording); scoped in/ deltas remain consistent.
 doc_id: in_agents
 doc_role: agent
 doc_scope:
@@ -23,10 +23,10 @@ doc_section_requires:
 doc_section_reviews:
   in_agents:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: Re-reviewed policy seed anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
+      note: Re-reviewed policy seed rev2 anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
 ---
 
 <a id="in_agents"></a>

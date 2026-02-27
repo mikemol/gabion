@@ -11,6 +11,38 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
   - CONTRIBUTING.md#contributing_contract
+doc_reviewed_as_of:
+  POLICY_SEED.md#policy_seed: 2
+  glossary.md#contract: 1
+  CONTRIBUTING.md#contributing_contract: 2
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure bundles, and enforced execution-coverage wording) for baseline playbook alignment."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1; baseline handling language remains semantically aligned."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 dual-sensor/correction-unit cadence; playbook loop remains interoperable."
+doc_sections:
+  baseline_zero_single_owner: 1
+doc_section_requires:
+  baseline_zero_single_owner:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - CONTRIBUTING.md#contributing_contract
+doc_section_reviews:
+  baseline_zero_single_owner:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 2
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Policy seed rev2 reviewed; baseline playbook semantics unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; baseline playbook semantics unchanged."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 2
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Contributing rev2 reviewed; playbook cadence remains aligned."
 doc_relations:
   refines:
     - CONTRIBUTING.md#contributing_contract

@@ -14,12 +14,12 @@ doc_requires:
   - docs/user_workflows.md#user_workflows
   - glossary.md#contract
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  docs/user_workflows.md#user_workflows: 1
+  README.md#repo_contract: 2
+  docs/user_workflows.md#user_workflows: 2
   glossary.md#contract: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed repository command surfaces and phase-1 artifact locations."
-  docs/user_workflows.md#user_workflows: "Reviewed workflow loop structure for trace/equivalence examples."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  docs/user_workflows.md#user_workflows: "Reviewed user_workflows rev2 (state/delta-only ASPF examples and ci_watch failure-bundle workflow language)."
   glossary.md#contract: "Reviewed semantic contract terms used by witness/drift classification text."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
@@ -32,18 +32,18 @@ doc_section_requires:
 doc_section_reviews:
   aspf_execution_fibration:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Command-level ASPF controls and artifact paths align with README."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     docs/user_workflows.md#user_workflows:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Dual-lane trace/equivalence loop aligns with workflow guidance."
+      note: "User workflows rev2 reviewed; operational examples remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Witness and drift terms remain consistent with glossary contract."
 doc_erasure:

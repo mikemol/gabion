@@ -15,16 +15,16 @@ doc_requires:
   - docs/normative_clause_index.md#normative_clause_index
   - docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  POLICY_SEED.md#policy_seed: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
+  docs/normative_clause_index.md#normative_clause_index: 2
   docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Task composes §4.8 shift-ambiguity-left requirements into one implementation slice."
-  CONTRIBUTING.md#contributing_contract: "Task preserves refactor-under-ambiguity sequence while collapsing rollout into a single PR objective."
-  AGENTS.md#agent_obligations: "Task aligns with boundary normalization, Decision Protocol, and no-sentinel-core constraints."
-  docs/normative_clause_index.md#normative_clause_index: "Task extends canonical clause usage for stable cross-doc references."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
   docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet: "Task keeps enforceable mappings explicit and machine-checkable."
 ---
 

@@ -23,20 +23,20 @@ doc_requires:
   - in/in-23.md#in_in_23
   - in/in-24.md#in_in_24
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
-  AGENTS.md#agent_obligations: 1
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  POLICY_SEED.md#policy_seed: 2
+  AGENTS.md#agent_obligations: 2
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
   docs/publishing_practices.md#publishing_practices: 1
   in/in-23.md#in_in_23: 1
   in/in-24.md#in_in_24: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed execution/CI constraints, trust boundaries, action pinning, and change protocol clauses used by this checklist."
-  AGENTS.md#agent_obligations: "Reviewed agent refusal rules, LSP-first constraints, and dataflow-bundle obligations used by this checklist."
-  README.md#repo_contract: "Reviewed repo scope, architecture and governance cross-reference expectations used by this checklist."
-  CONTRIBUTING.md#contributing_contract: "Reviewed contributor workflow guardrails, doc review discipline, and workflow-authoring constraints used by this checklist."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#contract: "Reviewed semantic typing rules for bundle/tier/protocol/decision/evidence terms referenced by this checklist."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed required rule/evidence coverage obligations and ratchet rules mapped in this checklist."
   docs/publishing_practices.md#publishing_practices: "Reviewed release hardening and trusted publishing practices referenced by policy-linked security checks."
@@ -59,25 +59,25 @@ doc_section_requires:
 doc_section_reviews:
   enforceable_rules_cheat_sheet:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Policy clauses remain compatible with this proxy interpretation layer."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent obligations align with checklist constraints and refusal behavior."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Repo contract and architecture summary align with this checklist's ARC rules."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Contributor contract remains consistent with checklist guardrails and required checks."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
