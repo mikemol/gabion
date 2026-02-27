@@ -5,7 +5,7 @@ from enum import StrEnum
 import hashlib
 from typing import Iterable, Literal, Mapping, Protocol, cast
 
-from gabion.analysis.aspf import Alt, Forest, Node
+from gabion.analysis.aspf import Alt, Forest, Node, NodeId
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 
@@ -302,12 +302,14 @@ class OpportunityActionabilityState(StrEnum):
 class OpportunityDecisionProtocol:
     opportunity_id: str
     kind: str
+    canonical_identity: JSONObject
     affected_surfaces: tuple[str, ...]
     witness_ids: tuple[str, ...]
     reason: str
     confidence_provenance: OpportunityConfidenceProvenance
     witness_requirement: OpportunityWitnessRequirement
     actionability: OpportunityActionabilityState
+    opportunity_hash: str = ""
 
     def confidence(self) -> float:
         score = 0.36
@@ -328,12 +330,14 @@ class OpportunityDecisionProtocol:
             "opportunity_id": self.opportunity_id,
             "kind": self.kind,
             "confidence": self.confidence(),
+            "canonical_identity": self.canonical_identity,
             "confidence_provenance": self.confidence_provenance,
             "witness_requirement": self.witness_requirement,
             "actionability": self.actionability,
             "affected_surfaces": list(self.affected_surfaces),
             "witness_ids": list(self.witness_ids),
             "reason": self.reason,
+            **({"opportunity_hash": self.opportunity_hash} if self.opportunity_hash else {}),
         }
 
     def as_rewrite_plan(self) -> JSONObject:
@@ -343,6 +347,7 @@ class OpportunityDecisionProtocol:
             "priority": self.confidence(),
             "actionability": self.actionability,
             "opportunity_id": self.opportunity_id,
+            "canonical_identity": self.canonical_identity,
             "affected_surfaces": list(self.affected_surfaces),
             "required_witnesses": list(self.witness_ids),
             "decision_basis": {
@@ -350,7 +355,16 @@ class OpportunityDecisionProtocol:
                 "witness_requirement": self.witness_requirement,
             },
             "summary": self.reason,
+            **({"opportunity_hash": self.opportunity_hash} if self.opportunity_hash else {}),
         }
+
+
+def _node_id_identity_payload(node_id: NodeId) -> JSONObject:
+    fingerprint_kind, fingerprint_parts = node_id.fingerprint()
+    return {
+        "node_id": node_id.as_dict(),
+        "node_fingerprint": [fingerprint_kind, list(fingerprint_parts)],
+    }
 
 
 @dataclass
@@ -431,6 +445,12 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                 OpportunityDecisionProtocol(
                     opportunity_id=f"opp:fungible-substitution:{surface}",
                     kind="fungible_execution_path_substitution",
+                    canonical_identity=_node_id_identity_payload(
+                        NodeId(
+                            kind="Opportunity:FungibleSubstitution",
+                            key=(surface, str(witness_id)),
+                        )
+                    ),
                     affected_surfaces=(surface,),
                     witness_ids=(str(witness_id),),
                     reason="2-cell witness links baseline/current representatives",
@@ -452,6 +472,12 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                 OpportunityDecisionProtocol(
                     opportunity_id=f"opp:materialize-load-fusion:{resume_ref}",
                     kind=("materialize_load_observed", "materialize_load_fusion")[fused],
+                    canonical_identity=_node_id_identity_payload(
+                        NodeId(
+                            kind="Opportunity:MaterializeLoad",
+                            key=(resume_ref, int(fused)),
+                        )
+                    ),
                     affected_surfaces=(),
                     witness_ids=(),
                     reason=(
@@ -484,10 +510,17 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                     source="aspf_visitors.OpportunityPayloadEmitter.representative_witnesses",
                 )
             )
+            representative_node_id = NodeId(
+                kind="Opportunity:ReusableBoundaryRepresentative",
+                key=(representative,),
+            )
             decisions.append(
                 OpportunityDecisionProtocol(
-                    opportunity_id=f"opp:reusable-boundary:{digest}",
+                    opportunity_id=(
+                        f"opp:reusable-boundary:{representative_node_id.kind}:{representative}"
+                    ),
                     kind="reusable_boundary_artifact",
+                    canonical_identity=_node_id_identity_payload(representative_node_id),
                     affected_surfaces=surfaces,
                     witness_ids=witness_ids,
                     reason="multiple semantic surfaces share deterministic representative",
@@ -502,6 +535,7 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
                         if len(surfaces) < 2
                         else OpportunityActionabilityState.ACTIONABLE
                     ),
+                    opportunity_hash=digest,
                 )
             )
 
