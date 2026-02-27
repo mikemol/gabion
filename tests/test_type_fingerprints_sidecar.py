@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from gabion.analysis.dataflow_audit import (
+    _collect_fingerprint_atom_keys,
     _compute_fingerprint_matches,
     _compute_fingerprint_provenance,
 )
@@ -241,3 +242,30 @@ def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> No
     assert entry["identity_layers"]["canonical"]["representative"] == entry[
         "canonical_identity_contract"
     ]["representative"]
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_collect_fingerprint_atom_keys_is_order_invariant::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_fingerprint_atom_keys
+def test_collect_fingerprint_atom_keys_is_order_invariant() -> None:
+    first = Path("pkg/a.py")
+    second = Path("pkg/b.py")
+    groups_a = {
+        first: {"f": [{"left", "right"}]},
+        second: {"g": [{"arg"}]},
+    }
+    annotations_a = {
+        first: {"f": {"left": "dict[str, list[int]]", "right": "set[str]"}},
+        second: {"g": {"arg": "tuple[int, str]"}},
+    }
+    groups_b = {
+        second: {"g": [{"arg"}]},
+        first: {"f": [{"right", "left"}]},
+    }
+    annotations_b = {
+        second: {"g": {"arg": "tuple[int, str]"}},
+        first: {"f": {"right": "set[str]", "left": "dict[str, list[int]]"}},
+    }
+
+    assert _collect_fingerprint_atom_keys(groups_a, annotations_a) == _collect_fingerprint_atom_keys(
+        groups_b,
+        annotations_b,
+    )

@@ -702,6 +702,18 @@ def _run_post_phase(
                 )
         else:
             _emit_post_phase_progress(marker="fingerprint:annotations:0/0")
+        base_keys, ctor_keys = _collect_fingerprint_atom_keys(
+            groups_by_path,
+            annotations_by_path,
+        )
+        for key in base_keys:
+            check_deadline()
+            config.fingerprint_registry.get_or_assign(key)
+        if config.constructor_registry is not None:
+            for key in ctor_keys:
+                check_deadline()
+                config.constructor_registry.get_or_assign(key)
+        _emit_post_phase_progress(marker="fingerprint:normalize")
         fingerprint_warnings = _compute_fingerprint_warnings(
             groups_by_path,
             annotations_by_path,

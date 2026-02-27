@@ -72,6 +72,8 @@ from gabion.analysis.type_fingerprints import (
     FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
+    _collect_base_atoms,
+    _collect_constructors,
     SynthRegistry,
     build_synth_registry,
     build_fingerprint_registry,
@@ -3689,6 +3691,35 @@ def _compute_fingerprint_warnings(
     return sort_once(
         set(warnings),
         source="_compute_fingerprint_warnings.warnings",
+    )
+
+
+def _collect_fingerprint_atom_keys(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
+) -> tuple[list[str], list[str]]:
+    check_deadline()
+    base_keys: set[str] = set()
+    ctor_keys: set[str] = set()
+    for path, groups in groups_by_path.items():
+        check_deadline()
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            check_deadline()
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                check_deadline()
+                for param_name in bundle:
+                    check_deadline()
+                    hint = fn_annots.get(param_name)
+                    if hint is not None:
+                        atoms: list[str] = []
+                        _collect_base_atoms(hint, atoms)
+                        base_keys.update(atom for atom in atoms if atom)
+                        _collect_constructors(hint, ctor_keys)
+    return (
+        sort_once(base_keys, source="_collect_fingerprint_atom_keys.base_keys"),
+        sort_once(ctor_keys, source="_collect_fingerprint_atom_keys.ctor_keys"),
     )
 
 
