@@ -6,6 +6,7 @@ open import Agda.Builtin.List using (List)
 open import Agda.Builtin.String using (String)
 open import Agda.Builtin.Nat using (Nat)
 open import Agda.Builtin.Bool using (Bool)
+open import Agda.Builtin.Equality using (_≡_)
 
 -- TC v2 introduces an explicit decomposition of contract concerns into
 -- sub-records that can be mapped independently to runtime surfaces.
@@ -91,3 +92,22 @@ forgetV2 contract =
     (TraceContractV2.points contract)
     (TraceContractV2.payloadKeys contract)
     (TraceContractV2.commandSurfaces contract)
+
+-- Slice/provenance bridge carriers used by stabilization-law modules.
+record SliceBridge : Set₁ where
+  constructor mkSliceBridge
+  field
+    Hist₀Slice : Set
+    Hist⋆Slice : Set
+    embed : Hist₀Slice → Hist⋆Slice
+    project : Hist⋆Slice → Hist₀Slice
+    project-embed : (s₀ : Hist₀Slice) → project (embed s₀) ≡ s₀
+
+record NonMaxCoverWitness : Set where
+  constructor mkNonMaxCoverWitness
+
+record Boundary : Set where
+  constructor mkBoundary
+
+record Unknown : Set where
+  constructor mkUnknown

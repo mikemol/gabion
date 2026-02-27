@@ -1,5 +1,5 @@
 ---
-doc_revision: 160
+doc_revision: 162
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -274,11 +274,11 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Proposition model + assert-based invariant extraction. (GH-67)
 - [x] Invariant emitter hooks (pluggable callbacks). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
-- [~] SIGv2 bridge typing in the Agda research lane (trace/payload/command surface contracts tracked against the TC design bridge; runtime remains advisory-only at this stage). (research lane) sppf{doc=partial; impl=partial; doc_ref=in/universal-curve-lab-bundle/docs/tc-design-bridge.md@1}
-- [~] CONSTRv2 constructor-shaping research lane (constructor bundle normalization and assembly contracts tracked in TC bridge mappings; production command handlers still own enforced payload shaping). (research lane) sppf{doc=partial; impl=partial; doc_ref=in/universal-curve-lab-bundle/docs/tc-design-bridge.md@1}
-- [x] GLUEv2 bridge-plan traceability lane tracked as completed research scaffolding (explicit cross-surface mapping bundle + non-production-enforced marker documented in the TC bridge, with v2 extension to be referenced when published). (research lane) sppf{doc=done; impl=done; doc_ref=in/universal-curve-lab-bundle/docs/tc-design-bridge.md@1}
-- [~] Admitted-image/path-NF gate tracked in research lane (normal-form gate semantics under evaluation via TC bridge notes and planned v2 extension; promotion blocked pending policy/contract approval). (research lane) sppf{doc=partial; impl=partial; doc_ref=in/universal-curve-lab-bundle/docs/tc-design-bridge.md@1}
-- [x] Runtime-enforcement boundary note: dependent-type research artifacts remain non-authoritative for runtime behavior; enforcement continues in Python command handlers until a separately approved policy/contract promotion is ratified. (research lane) sppf{doc=done; impl=done; doc_ref=in/universal-curve-lab-bundle/docs/tc-design-bridge.md@1}
+- [~] SIGv2 bridge typing in the Agda research lane (trace/payload/command surface contracts tracked against the TC design bridge; runtime remains advisory-only at this stage). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [~] CONSTRv2 constructor-shaping research lane (constructor bundle normalization and assembly contracts tracked in TC bridge mappings; production command handlers still own enforced payload shaping). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [x] GLUEv2 bridge-plan traceability lane tracked as completed research scaffolding (explicit cross-surface mapping bundle + non-production-enforced marker documented in the TC bridge, with v2 extension to be referenced when published). (research lane) sppf{doc=done; impl=done; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [~] Admitted-image/path-NF gate tracked in research lane (normal-form gate semantics under evaluation via TC bridge notes and planned v2 extension; promotion blocked pending policy/contract approval). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [x] Runtime-enforcement boundary note: dependent-type research artifacts remain non-authoritative for runtime behavior; enforcement continues in Python command handlers until a separately approved policy/contract promotion is ratified. (research lane) sppf{doc=done; impl=done; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [x] Property-based test hook manifest generation from invariants (deterministic hook IDs, confidence gating, callable mapping, traceability keys; optional Hypothesis template snippets). (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
