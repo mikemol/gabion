@@ -2159,16 +2159,19 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
-_run_check_delta_gates: CliRunCheckDeltaGatesFn = lambda: next(
-    (
-        gate_exit
-        for gate_exit in (
-            int(spec.run()) for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs())
+def _run_check_delta_gates() -> int:
+    with _cli_deadline_scope():
+        return next(
+            (
+                gate_exit
+                for gate_exit in (
+                    int(spec.run())
+                    for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs())
+                )
+                if gate_exit != 0
+            ),
+            0,
         )
-        if gate_exit != 0
-    ),
-    0,
-)
 
 
 def _run_check_command(

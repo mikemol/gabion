@@ -973,6 +973,25 @@ def test_dataflow_audit_timeout_uses_single_attempt_budget(
     assert calls["count"] == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_check_delta_gates_default_runner_with_deadline_budget::cli.py::gabion.cli._run_check_delta_gates
+def test_run_check_delta_gates_default_runner_with_deadline_budget(
+    env_scope,
+    restore_env,
+) -> None:
+    previous = env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "10000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        assert cli._run_check_delta_gates() == 0
+    finally:
+        restore_env(previous)
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification::cli.py::gabion.cli._phase_progress_from_progress_notification
 def test_phase_progress_from_progress_notification() -> None:
     payload = cli._phase_progress_from_progress_notification(
