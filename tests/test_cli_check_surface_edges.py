@@ -173,6 +173,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     )
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_bundle_dispatches_single_pass_delta_options
 def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     runner = CliRunner()
     captured: list[dict[str, object]] = []
@@ -193,6 +194,7 @@ def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     assert delta_options.emit_ambiguity_delta is True
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_gates_uses_gate_runner_exit_code
 def test_check_delta_gates_uses_gate_runner_exit_code() -> None:
     runner = CliRunner()
     result = runner.invoke(

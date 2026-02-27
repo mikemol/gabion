@@ -114,6 +114,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
 
 
+# gabion:evidence E:function_site::tests/test_cli_commands.py::test_removed_delta_wrapper_commands_emit_migration_errors
 def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     runner = CliRunner()
     removed_emit = _invoke(runner, ["delta-state-emit"])

@@ -70,6 +70,7 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
     assert [entry.get("status") for entry in entries] == ["success", "failed", "started"]
 
 
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_skips_success_entries_with_missing_state_files
 def test_prepare_step_skips_success_entries_with_missing_state_files(tmp_path: Path) -> None:
     root = tmp_path
     manifest_path = root / "manifest.json"
@@ -144,6 +145,7 @@ def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> No
     assert len(entries) == 1
 
 
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_manifest_paths_are_relative_and_portable
 def test_prepare_step_manifest_paths_are_relative_and_portable(tmp_path: Path) -> None:
     root_a = tmp_path / "root-a"
     root_b = tmp_path / "root-b"

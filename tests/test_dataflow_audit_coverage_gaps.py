@@ -4413,6 +4413,7 @@ def test_additional_exception_and_never_branch_edges(tmp_path: Path) -> None:
     assert dynamic_handledness
 
 
+# gabion:evidence E:function_site::tests/test_dataflow_audit_coverage_gaps.py::test_tail_branch_and_line_edges_for_eval_and_registry
 def test_tail_branch_and_line_edges_for_eval_and_registry(tmp_path: Path) -> None:
     da = _load()
 

@@ -219,6 +219,7 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     )
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._reject_removed_legacy_payload_keys
 @pytest.mark.parametrize(
     "removed_payload",
     [
@@ -228,7 +229,6 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
         {"emit_checkpoint_intro_timeline": True},
     ],
 )
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._reject_removed_legacy_payload_keys
 def test_execute_command_rejects_removed_legacy_resume_flags(
     tmp_path: Path,
     removed_payload: dict[str, object],
