@@ -2415,18 +2415,6 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     return entry.model_dump() if entry is not None else None
 
 
-def _lint_entries_from_lines(lines: Sequence[str]) -> list[dict[str, object]]:
-    decision = LintEntriesDecision(
-        kind="derive_from_lines",
-        lint_lines=tuple(str(line) for line in lines),
-        lint_entries_payload=(),
-    )
-    return cast(
-        list[dict[str, object]],
-        decision.normalize_entries(parse_lint_entry_fn=_parse_lint_line_as_payload),
-    )
-
-
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
     lint_decision = LintEntriesDecision.from_response(response)
     lint_lines = list(lint_decision.lint_lines)
