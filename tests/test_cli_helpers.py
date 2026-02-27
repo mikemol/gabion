@@ -17,6 +17,7 @@ from gabion import cli
 from gabion.analysis.timeout_context import check_deadline
 from gabion.commands import progress_contract as progress_timeline
 from gabion.exceptions import NeverThrown
+from gabion.tooling import tool_specs
 from tests.env_helpers import env_scope as _env_scope
 
 
@@ -973,23 +974,40 @@ def test_dataflow_audit_timeout_uses_single_attempt_budget(
     assert calls["count"] == 1
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_check_delta_gates_default_runner_with_deadline_budget::cli.py::gabion.cli._run_check_delta_gates
-def test_run_check_delta_gates_default_runner_with_deadline_budget(
-    env_scope,
-    restore_env,
-) -> None:
-    previous = env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "10000",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_check_delta_gates_uses_injected_specs::cli.py::gabion.cli._run_check_delta_gates
+def test_run_check_delta_gates_uses_injected_specs() -> None:
+    assert (
+        cli._run_check_delta_gates(
+            gate_specs=(
+                tool_specs.ToolSpec(
+                    id="gate-ok",
+                    label="gate-ok",
+                    kind="gate",
+                    run=lambda: 0,
+                ),
+            )
+        )
+        == 0
     )
-    try:
-        assert cli._run_check_delta_gates() == 0
-    finally:
-        restore_env(previous)
+    assert (
+        cli._run_check_delta_gates(
+            gate_specs=(
+                tool_specs.ToolSpec(
+                    id="gate-ok",
+                    label="gate-ok",
+                    kind="gate",
+                    run=lambda: 0,
+                ),
+                tool_specs.ToolSpec(
+                    id="gate-fail",
+                    label="gate-fail",
+                    kind="gate",
+                    run=lambda: 9,
+                ),
+            )
+        )
+        == 9
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification::cli.py::gabion.cli._phase_progress_from_progress_notification

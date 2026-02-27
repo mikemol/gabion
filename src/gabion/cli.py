@@ -2159,14 +2159,22 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
-def _run_check_delta_gates() -> int:
+def _run_check_delta_gates(
+    *,
+    gate_specs: tuple[tool_specs.ToolSpec, ...] | None = None,
+) -> int:
+    specs = (
+        tuple(tool_specs.dataflow_stage_gate_specs())
+        if gate_specs is None
+        else tuple(gate_specs)
+    )
     with _cli_deadline_scope():
         return next(
             (
                 gate_exit
                 for gate_exit in (
                     int(spec.run())
-                    for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs())
+                    for spec in deadline_loop_iter(specs)
                 )
                 if gate_exit != 0
             ),
