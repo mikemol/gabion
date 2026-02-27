@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -173,15 +172,14 @@ class _SortedCarrierList(list[object]):
     pass
 
 
-class _TruthyEmptyMapping(Mapping[str, object]):
-    def __getitem__(self, key: str) -> object:  # pragma: no cover - never reached
-        raise KeyError(key)
+class _TruthyEmptyUpdates(dict[str, object]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.iteration_count = 0
 
     def __iter__(self):
-        return iter(())
-
-    def __len__(self) -> int:
-        return 0
+        self.iteration_count += 1
+        return super().__iter__()
 
     def __bool__(self) -> bool:
         return True
@@ -226,14 +224,16 @@ def test_boundary_order_value_wrappers_and_update_shortcuts() -> None:
         )
         == base
     )
+    truthy_empty_updates = _TruthyEmptyUpdates()
     assert (
         boundary_order.apply_boundary_updates_once(
             base,
-            _TruthyEmptyMapping(),
+            truthy_empty_updates,
             source="tests.test_command_boundary_order.truthy_empty_updates",
         )
         == base
     )
+    assert truthy_empty_updates.iteration_count == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_boundary_order_rejects_set_on_enforced_egress::boundary_order.py::gabion.commands.boundary_order.enforce_boundary_value_ordered
