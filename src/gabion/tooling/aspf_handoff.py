@@ -179,9 +179,7 @@ def _successful_state_paths(entries: list[object], *, root: Path) -> list[Path]:
         status = str(raw_entry.get("status", "")).strip().lower()
         if status != "success":
             continue
-        state_path = str(raw_entry.get("state_path", "")).strip()
-        if not state_path:
-            continue
+        state_path = str(raw_entry["state_path"]).strip()
         paths.append(_path_from_manifest_ref(state_path, root=root))
     return paths
 

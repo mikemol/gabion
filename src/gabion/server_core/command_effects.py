@@ -9,8 +9,6 @@ class CommandEffects(Protocol):
 
     analyze_paths_fn: Callable[..., object]
     load_aspf_resume_state_fn: Callable[..., object]
-    append_aspf_delta_fn: Callable[..., None]
-    finalize_aspf_resume_state_fn: Callable[..., object]
     analysis_input_manifest_fn: Callable[..., object]
     analysis_input_manifest_digest_fn: Callable[..., str]
     build_analysis_collection_resume_seed_fn: Callable[..., object]

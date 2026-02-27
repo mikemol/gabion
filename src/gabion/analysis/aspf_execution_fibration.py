@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, cast
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -181,12 +181,11 @@ def start_execution_trace(
             strict=False,
         )
     )
-    if entries:
-        record_cofibration(
-            state=state,
-            canonical_identity_kind="canonical_aspf_execution_surface",
-            cofibration=DomainToAspfCofibration(entries=entries),
-        )
+    record_cofibration(
+        state=state,
+        canonical_identity_kind="canonical_aspf_execution_surface",
+        cofibration=DomainToAspfCofibration(entries=entries),
+    )
     return state
 
 
@@ -491,14 +490,14 @@ def finalize_execution_trace(
         return None
     merge_imported_trace_paths(state=state, paths=state.controls.aspf_import_trace)
     merge_imported_trace_paths(state=state, paths=state.controls.aspf_import_state)
-    for surface in state.controls.aspf_semantic_surface:
-        if surface not in semantic_surface_payloads:
-            continue
-        register_semantic_surface(
-            state=state,
-            surface=surface,
-            value=semantic_surface_payloads[surface],
-        )
+    semantic_surface_keys = set(state.controls.aspf_semantic_surface)
+    for surface, value in semantic_surface_payloads.items():
+        if surface in semantic_surface_keys:
+            register_semantic_surface(
+                state=state,
+                surface=surface,
+                value=value,
+            )
     baseline_paths = (
         state.controls.aspf_equivalence_against
         if state.controls.aspf_equivalence_against
@@ -592,35 +591,35 @@ def finalize_execution_trace(
 
 
 def load_trace_payload(path: Path) -> JSONObject:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError(f"ASPF trace payload must be a JSON object: {path}")
+    payload = cast(Mapping[str, object], json.loads(path.read_text(encoding="utf-8")))
     normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
     trace_payload = normalized_payload.get("trace")
     if trace_payload is None:
         return normalized_payload
-    if not isinstance(trace_payload, Mapping):
-        raise ValueError(f"ASPF state trace envelope must be a JSON object: {path}")
+    trace_payload = cast(Mapping[str, object], trace_payload)
     normalized_trace: JSONObject = {
         str(key): _as_json_value(trace_payload[key]) for key in trace_payload
     }
-    equivalence_payload = normalized_payload.get("equivalence", {})
-    opportunities_payload = normalized_payload.get("opportunities", {})
-    if isinstance(equivalence_payload, Mapping):
-        normalized_trace["equivalence"] = {
-            str(key): _as_json_value(equivalence_payload[key]) for key in equivalence_payload
-        }
-    if isinstance(opportunities_payload, Mapping):
-        normalized_trace["opportunities"] = {
-            str(key): _as_json_value(opportunities_payload[key]) for key in opportunities_payload
-        }
+    equivalence_payload = cast(
+        Mapping[str, object], normalized_payload.get("equivalence", {})
+    )
+    opportunities_payload = cast(
+        Mapping[str, object], normalized_payload.get("opportunities", {})
+    )
+    normalized_trace["equivalence"] = {
+        str(key): _as_json_value(equivalence_payload[key]) for key in equivalence_payload
+    }
+    normalized_trace["opportunities"] = {
+        str(key): _as_json_value(opportunities_payload[key]) for key in opportunities_payload
+    }
     return normalized_trace
 
 
 def _command_profile_from_payload(payload: Mapping[str, object]) -> str:
-    if payload.get("synthesis_plan") is not None or payload.get("synthesis_report"):
-        return "synth"
-    return "check.run"
+    synth_requested = (payload.get("synthesis_plan") is not None) | bool(
+        payload.get("synthesis_report")
+    )
+    return ("check.run", "synth")[int(synth_requested)]
 
 
 def _build_state_payload(
@@ -771,9 +770,7 @@ def _as_json_value(value: object) -> JSONValue:
             normalized,
             key=lambda item: stable_compact_text(item),
         )
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
+    return cast(JSONValue, value)
 
 
 def _write_json(path: Path, payload: Mapping[str, object]) -> None:
@@ -820,11 +817,9 @@ def _merge_two_cells(
     trace_payload: Mapping[str, object],
 ) -> None:
     raw_witnesses = trace_payload["two_cell_witnesses"]
-    for raw in raw_witnesses:
-        witness = parse_2cell_witness(raw)
-        assert witness is not None
-        assert witness.is_compatible()
-        state.two_cell_witnesses.append(witness)
+    state.two_cell_witnesses.extend(
+        cast(AspfTwoCellWitness, parse_2cell_witness(raw)) for raw in raw_witnesses
+    )
 
 
 def _merge_cofibrations(
@@ -873,10 +868,12 @@ def _surface_candidates_from_trace_payload(
     equivalence = payload.get("equivalence", {})
     table = equivalence.get("surface_table", [])
     for row in table:
-        surface = str(row.get("surface", "")).strip()
-        baseline_rep = str(row.get("baseline_representative", "")).strip()
-        if surface and baseline_rep:
-            candidates.setdefault(surface, []).append(baseline_rep)
+        surface = str(row.get("surface", "")).strip() or "unknown_surface"
+        baseline_rep = (
+            str(row.get("baseline_representative", "")).strip()
+            or "unknown_representative"
+        )
+        candidates.setdefault(surface, []).append(baseline_rep)
     return candidates
 
 
@@ -895,15 +892,12 @@ def _all_known_witnesses(
     state: AspfExecutionTraceState,
     baseline_traces: Sequence[Mapping[str, object]],
 ) -> list[AspfTwoCellWitness]:
-    witnesses: list[AspfTwoCellWitness] = list(state.two_cell_witnesses)
-    for payload in baseline_traces:
-        raw = payload.get("two_cell_witnesses", [])
-        for entry in raw:
-            witness = parse_2cell_witness(entry)
-            assert witness is not None
-            assert witness.is_compatible()
-            witnesses.append(witness)
-    return witnesses
+    baseline_witnesses = [
+        cast(AspfTwoCellWitness, parse_2cell_witness(entry))
+        for payload in baseline_traces
+        for entry in payload.get("two_cell_witnesses", [])
+    ]
+    return [*state.two_cell_witnesses, *baseline_witnesses]
 
 
 def _find_witness(
@@ -912,13 +906,17 @@ def _find_witness(
     baseline_representative: str,
     current_representative: str,
 ) -> AspfTwoCellWitness | None:
-    for witness in witnesses:
-        if witness.links(
-            baseline_representative=baseline_representative,
-            current_representative=current_representative,
-        ):
-            return witness
-    return None
+    return next(
+        (
+            witness
+            for witness in witnesses
+            if witness.links(
+                baseline_representative=baseline_representative,
+                current_representative=current_representative,
+            )
+        ),
+        None,
+    )
 
 
 def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
@@ -942,17 +940,20 @@ def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSON
         source="aspf_execution_fibration._materialize_load_opportunities.resume_ref",
     ):
         kinds = by_resume_ref[resume_ref]
-        if "resume_load" in kinds and "resume_write" in kinds:
-            opportunities.append(
-                {
-                    "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
-                    "kind": "materialize_load_fusion",
-                    "confidence": 0.74,
-                    "affected_surfaces": [],
-                    "witness_ids": [],
-                    "reason": "resume load and write boundaries share state reference",
-                }
-            )
+        fused = int("resume_load" in kinds and "resume_write" in kinds)
+        opportunities.append(
+            {
+                "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
+                "kind": ("materialize_load_observed", "materialize_load_fusion")[fused],
+                "confidence": (0.51, 0.74)[fused],
+                "affected_surfaces": [],
+                "witness_ids": [],
+                "reason": (
+                    "resume boundary observed state reference",
+                    "resume load and write boundaries share state reference",
+                )[fused],
+            }
+        )
     return opportunities
 
 
@@ -997,9 +998,7 @@ def _fungible_execution_opportunities(
         witness_id = row.get("witness_id")
         if not isinstance(witness_id, str) or not witness_id:
             continue
-        surface = str(row.get("surface", "")).strip()
-        if not surface:
-            continue
+        surface = str(row.get("surface", "")).strip() or "unknown_surface"
         opportunities.append(
             {
                 "opportunity_id": f"opp:fungible-substitution:{surface}",
@@ -1011,3 +1010,4 @@ def _fungible_execution_opportunities(
             }
         )
     return opportunities
+

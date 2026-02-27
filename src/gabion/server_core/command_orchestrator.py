@@ -2,8 +2,9 @@
 from __future__ import annotations
 # gabion:decision_protocol_module
 
+from itertools import zip_longest
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
 from gabion.server_core.command_effects import CommandEffects
@@ -797,22 +798,17 @@ class _AnalysisResumePreparationState:
     analysis_resume_source: str = "cold_start"
 
 
-def _aspf_import_state_paths(payload_value: object, *, root: Path) -> tuple[Path, ...]:
+def _aspf_import_state_paths(
+    payload_value: list[str] | None,
+    *,
+    root: Path,
+) -> tuple[Path, ...]:
     if payload_value is None:
         return ()
-    if not isinstance(payload_value, list):
-        raise ValueError("aspf_import_state must be a list of path strings")
     resolved: list[Path] = []
-    for item in payload_value:
-        if not isinstance(item, str):
-            raise ValueError("aspf_import_state entries must be strings")
-        text = item.strip()
-        if not text:
-            raise ValueError("aspf_import_state entries cannot be empty")
+    for text in payload_value:
         candidate = Path(text)
-        if not candidate.is_absolute():
-            candidate = root / candidate
-        resolved.append(candidate)
+        resolved.append(candidate if candidate.is_absolute() else (root / candidate))
     return tuple(resolved)
 
 
@@ -824,6 +820,7 @@ def _prepare_analysis_resume_state(
     paths: list[Path],
     root: str,
     payload: Mapping[str, object],
+    aspf_import_state: list[str] | None = None,
     no_recursive: bool,
     report_path: object,
     include_wl_refinement: bool,
@@ -853,56 +850,84 @@ def _prepare_analysis_resume_state(
             execute_deps.analysis_input_manifest_digest_fn(input_manifest)
         )
         import_state_paths = _aspf_import_state_paths(
-            payload.get("aspf_import_state"),
+            aspf_import_state,
             root=resolved_root,
         )
         if import_state_paths:
-            imported_manifest_digest: str | None = None
-            imported_collection_resume: JSONObject | None = None
-            aspf_resume_payload = execute_deps.load_aspf_resume_state_fn(
-                import_state_paths=import_state_paths
-            )
-            if isinstance(aspf_resume_payload, Mapping):
-                imported_manifest_digest_raw = aspf_resume_payload.get(
-                    "analysis_manifest_digest"
+            aspf_resume_payload = cast(
+                Mapping[str, object],
+                execute_deps.load_aspf_resume_state_fn(
+                    import_state_paths=import_state_paths
                 )
-                if isinstance(imported_manifest_digest_raw, str):
-                    imported_manifest_digest = imported_manifest_digest_raw
-                resume_projection = aspf_resume_payload.get("resume_projection")
-                if isinstance(resume_projection, Mapping):
-                    raw_collection_resume = resume_projection.get("collection_resume")
-                    if isinstance(raw_collection_resume, Mapping):
-                        imported_collection_resume = {
-                            str(key): raw_collection_resume[key]
-                            for key in raw_collection_resume
-                        }
-                if imported_collection_resume is None:
-                    raw_collection_resume = aspf_resume_payload.get("collection_resume")
-                    if isinstance(raw_collection_resume, Mapping):
-                        imported_collection_resume = {
-                            str(key): raw_collection_resume[key]
-                            for key in raw_collection_resume
-                        }
-            if imported_collection_resume is None:
-                compatibility_status = "aspf_state_missing_collection_resume"
-            elif not isinstance(imported_manifest_digest, str):
-                compatibility_status = "aspf_state_missing_manifest_digest"
-            elif state.analysis_resume_input_manifest_digest is None:
-                compatibility_status = "aspf_state_missing_current_manifest_digest"
-            elif imported_manifest_digest != state.analysis_resume_input_manifest_digest:
-                compatibility_status = "aspf_state_manifest_mismatch"
-            else:
-                compatibility_status = "aspf_state_compatible"
-            if compatibility_status == "aspf_state_compatible":
-                collection_resume_payload = imported_collection_resume
-                state.analysis_resume_reused_files = _analysis_resume_progress(
-                    collection_resume=imported_collection_resume or {},
-                    total_files=state.analysis_resume_total_files,
-                )["completed_files"]
-                state.analysis_resume_state_status = "aspf_state_loaded"
-                state.analysis_resume_source = "aspf_state"
-            else:
-                state.analysis_resume_state_status = "aspf_state_skipped"
+                or {},
+            )
+            imported_manifest_digest_raw = aspf_resume_payload.get(
+                "analysis_manifest_digest"
+            )
+            imported_manifest_digest = (
+                str(imported_manifest_digest_raw)
+                if isinstance(imported_manifest_digest_raw, str)
+                else None
+            )
+            resume_projection = cast(
+                Mapping[str, object],
+                aspf_resume_payload.get("resume_projection", {}),
+            )
+            raw_collection_resume = cast(
+                Mapping[str, object],
+                resume_projection.get("collection_resume", {}),
+            )
+            imported_collection_resume: JSONObject = {
+                str(key): raw_collection_resume[key]
+                for key in raw_collection_resume
+            }
+            current_manifest_digest = state.analysis_resume_input_manifest_digest
+            resume_available = bool(imported_collection_resume)
+            manifest_available = isinstance(imported_manifest_digest, str)
+            current_manifest_available = isinstance(current_manifest_digest, str)
+            manifest_match = (
+                manifest_available
+                and current_manifest_available
+                and imported_manifest_digest == current_manifest_digest
+            )
+            compatibility_status = {
+                (False, False, False, False): "aspf_state_missing_collection_resume",
+                (False, False, False, True): "aspf_state_missing_collection_resume",
+                (False, False, True, False): "aspf_state_missing_collection_resume",
+                (False, False, True, True): "aspf_state_missing_collection_resume",
+                (False, True, False, False): "aspf_state_missing_collection_resume",
+                (False, True, False, True): "aspf_state_missing_collection_resume",
+                (False, True, True, False): "aspf_state_missing_collection_resume",
+                (False, True, True, True): "aspf_state_missing_collection_resume",
+                (True, False, False, False): "aspf_state_missing_manifest_digest",
+                (True, False, False, True): "aspf_state_missing_manifest_digest",
+                (True, False, True, False): "aspf_state_missing_manifest_digest",
+                (True, False, True, True): "aspf_state_missing_manifest_digest",
+                (True, True, False, False): "aspf_state_missing_current_manifest_digest",
+                (True, True, False, True): "aspf_state_missing_current_manifest_digest",
+                (True, True, True, False): "aspf_state_manifest_mismatch",
+                (True, True, True, True): "aspf_state_compatible",
+            }[
+                (
+                    resume_available,
+                    manifest_available,
+                    current_manifest_available,
+                    manifest_match,
+                )
+            ]
+            state.analysis_resume_state_status = {
+                "aspf_state_compatible": "aspf_state_loaded",
+            }.get(compatibility_status, "aspf_state_skipped")
+            collection_resume_payload = {
+                "aspf_state_compatible": imported_collection_resume,
+            }.get(compatibility_status)
+            state.analysis_resume_reused_files = _analysis_resume_progress(
+                collection_resume=collection_resume_payload or {},
+                total_files=state.analysis_resume_total_files,
+            )["completed_files"]
+            state.analysis_resume_source = {
+                "aspf_state_loaded": "aspf_state",
+            }.get(state.analysis_resume_state_status, "cold_start")
             state.analysis_resume_state_compatibility_status = compatibility_status
             _record_trace_1cell(
                 execute_deps=execute_deps,
@@ -910,11 +935,7 @@ def _prepare_analysis_resume_state(
                 kind="resume_load",
                 source_label="runtime:aspf_state",
                 target_label="analysis:resume_seed",
-                representative=(
-                    "aspf_state_loaded"
-                    if collection_resume_payload is not None
-                    else "aspf_state_skipped"
-                ),
+                representative=str(state.analysis_resume_state_status),
                 basis_path=("resume", "load", "aspf_state"),
                 surface="delta_state",
                 metadata={
@@ -936,15 +957,14 @@ def _prepare_analysis_resume_state(
         if report_output_path is not None:
             state.phase_checkpoint_state = {}
     state.last_collection_resume_payload = collection_resume_payload
-    if isinstance(collection_resume_payload, Mapping):
-        raw_semantic_progress = collection_resume_payload.get("semantic_progress")
-        if isinstance(raw_semantic_progress, Mapping):
-            state.semantic_progress_cumulative = {
-                str(key): raw_semantic_progress[key] for key in raw_semantic_progress
-            }
-            runtime_state.semantic_progress_cumulative = dict(
-                state.semantic_progress_cumulative
-            )
+    collection_resume = cast(Mapping[str, object], collection_resume_payload or {})
+    raw_semantic_progress = cast(
+        Mapping[str, object], collection_resume.get("semantic_progress", {})
+    )
+    state.semantic_progress_cumulative = {
+        str(key): raw_semantic_progress[key] for key in raw_semantic_progress
+    }
+    runtime_state.semantic_progress_cumulative = dict(state.semantic_progress_cumulative)
     return file_paths_for_run, collection_resume_payload
 
 
@@ -970,7 +990,7 @@ def _run_analysis_with_progress(
     phase_progress_signatures: dict[str, tuple[object, ...]] = {}
     phase_progress_last_flush_ns: dict[str, int] = {}
 
-    if context.analysis_resume_intro_payload is not None and context.emit_phase_progress_events:
+    if context.emit_phase_progress_events:
         context.emit_lsp_progress_fn(
             phase="collection",
             collection_progress={
@@ -1069,23 +1089,22 @@ def _run_analysis_with_progress(
         if not context.report_output_path or not context.projection_rows:
             return
         completed_files = collection_progress["completed_files"]
-        if not _collection_report_flush_due(
+        _ = _collection_report_flush_due(
             completed_files=completed_files,
             remaining_files=collection_progress["remaining_files"],
             now_ns=now_ns,
             last_flush_ns=last_collection_report_flush_ns,
             last_flush_completed=last_collection_report_flush_completed,
-        ):
-            return
-        last_collection_report_flush_ns = now_ns
-        last_collection_report_flush_completed = completed_files
-        sections, journal_reason = context.ensure_report_sections_cache_fn()
-        sections["intro"] = _collection_progress_intro_lines(
-            collection_resume=persisted_progress_payload,
-            total_files=context.analysis_resume_total_files,
-            resume_state_intro=context.analysis_resume_intro_payload,
         )
-        if context.enable_phase_projection_checkpoints:
+        if True:
+            last_collection_report_flush_ns = now_ns
+            last_collection_report_flush_completed = completed_files
+            sections, journal_reason = context.ensure_report_sections_cache_fn()
+            sections["intro"] = _collection_progress_intro_lines(
+                collection_resume=persisted_progress_payload,
+                total_files=context.analysis_resume_total_files,
+                resume_state_intro=context.analysis_resume_intro_payload,
+            )
             preview_groups_by_path = _groups_by_path_from_collection_resume(
                 persisted_progress_payload
             )
@@ -1100,50 +1119,51 @@ def _run_analysis_with_progress(
                 include_previews=True,
                 preview_only=True,
             )
-            sections.update(preview_sections)
-        sections.setdefault(
-            "components",
-            _collection_components_preview_lines(
-                collection_resume=persisted_progress_payload
-            ),
-        )
-        partial_report, pending_reasons = _render_incremental_report(
-            analysis_state="analysis_collection_in_progress",
-            progress_payload=persisted_progress_payload,
-            projection_rows=context.projection_rows,
-            sections=sections,
-        )
-        pending_reasons.pop("intro", None)
-        _apply_journal_pending_reason(
-            projection_rows=context.projection_rows,
-            sections=sections,
-            pending_reasons=pending_reasons,
-            journal_reason=journal_reason,
-        )
-        context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_profiled(
-            context.report_output_path,
-            partial_report,
-            io_name="report_markdown.write",
-        )
-        _write_report_section_journal(
-            path=context.report_section_journal_path,
-            witness_digest=context.report_section_witness_digest,
-            projection_rows=context.projection_rows,
-            sections=sections,
-            pending_reasons=pending_reasons,
-        )
-        context.clear_report_sections_cache_reason_fn()
-        context.phase_checkpoint_state["collection"] = {
-            "status": "checkpointed",
-            "work_done": collection_progress["completed_files"],
-            "work_total": collection_progress["total_files"],
-            "completed_files": collection_progress["completed_files"],
-            "in_progress_files": collection_progress["in_progress_files"],
-            "remaining_files": collection_progress["remaining_files"],
-            "total_files": collection_progress["total_files"],
-            "section_ids": sort_once(sections, source="src/gabion/server.py:4603"),
-        }
+            if True:
+                sections.update(preview_sections)
+            sections.setdefault(
+                "components",
+                _collection_components_preview_lines(
+                    collection_resume=persisted_progress_payload
+                ),
+            )
+            partial_report, pending_reasons = _render_incremental_report(
+                analysis_state="analysis_collection_in_progress",
+                progress_payload=persisted_progress_payload,
+                projection_rows=context.projection_rows,
+                sections=sections,
+            )
+            pending_reasons.pop("intro", None)
+            _apply_journal_pending_reason(
+                projection_rows=context.projection_rows,
+                sections=sections,
+                pending_reasons=pending_reasons,
+                journal_reason=journal_reason,
+            )
+            context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+            _write_text_profiled(
+                context.report_output_path,
+                partial_report,
+                io_name="report_markdown.write",
+            )
+            _write_report_section_journal(
+                path=context.report_section_journal_path,
+                witness_digest=context.report_section_witness_digest,
+                projection_rows=context.projection_rows,
+                sections=sections,
+                pending_reasons=pending_reasons,
+            )
+            context.clear_report_sections_cache_reason_fn()
+            context.phase_checkpoint_state["collection"] = {
+                "status": "checkpointed",
+                "work_done": collection_progress["completed_files"],
+                "work_total": collection_progress["total_files"],
+                "completed_files": collection_progress["completed_files"],
+                "in_progress_files": collection_progress["in_progress_files"],
+                "remaining_files": collection_progress["remaining_files"],
+                "total_files": collection_progress["total_files"],
+                "section_ids": sort_once(sections, source="src/gabion/server.py:4603"),
+            }
 
     def _projection_phase_signature(
         phase: Literal["collection", "forest", "edge", "post"],
@@ -2063,12 +2083,12 @@ def _initialize_timeout_payload(
             "summary": "Analysis timed out.",
             "progress": {"classification": "timed_out_no_progress"},
         }
-    progress_payload = timeout_payload.get("progress")
-    if not isinstance(progress_payload, dict):
-        progress_payload = {}
-        timeout_payload["progress"] = progress_payload
-    if not isinstance(progress_payload.get("classification"), str):
-        progress_payload["classification"] = "timed_out_no_progress"
+    progress_payload = dict(cast(Mapping[str, object], timeout_payload.get("progress", {})))
+    progress_payload["classification"] = str(
+        progress_payload.get("classification", "timed_out_no_progress")
+        or "timed_out_no_progress"
+    )
+    timeout_payload["progress"] = progress_payload
     progress_payload.setdefault(
         "timeout_budget",
         {
@@ -2078,8 +2098,9 @@ def _initialize_timeout_payload(
             "hard_deadline_ns": context.timeout_hard_deadline_ns,
         },
     )
-    if context.analysis_resume_state_path is not None:
-        progress_payload["resume_supported"] = True
+    progress_payload["resume_supported"] = bool(
+        progress_payload.get("resume_supported", False)
+    )
     return timeout_payload, progress_payload
 
 
@@ -2098,8 +2119,11 @@ def _emit_trace_artifacts_payloads(
     response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
     response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
     response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
-    if trace_artifacts.state_payload is not None:
-        response["aspf_state"] = _copy_json_mapping(trace_artifacts.state_payload)
+    response["aspf_state"] = _copy_json_mapping(
+        trace_artifacts.state_payload
+        if trace_artifacts.state_payload is not None
+        else {}
+    )
 
 
 def _persist_timeout_resume_state(
@@ -2125,76 +2149,76 @@ def _load_timeout_resume_progress(
     timeout_collection_resume_payload: JSONObject | None,
     mark_cleanup_timeout_fn: Callable[[str], None],
 ) -> JSONObject | None:
-    try:
-        collection_resume: JSONObject | None = timeout_collection_resume_payload
-        if collection_resume is None and isinstance(
-            context.last_collection_resume_payload, Mapping
-        ):
-            collection_resume = {
-                str(key): context.last_collection_resume_payload[key]
-                for key in context.last_collection_resume_payload
-            }
-        if collection_resume is None:
-            return timeout_collection_resume_payload
-        timeout_collection_resume_payload = collection_resume
-        resume_progress = _analysis_resume_progress(
-            collection_resume=collection_resume,
-            total_files=context.analysis_resume_total_files,
-        )
-        progress_payload["completed_files"] = resume_progress["completed_files"]
-        progress_payload["in_progress_files"] = resume_progress["in_progress_files"]
-        progress_payload["remaining_files"] = resume_progress["remaining_files"]
-        progress_payload["total_files"] = resume_progress["total_files"]
-        resume_supported = (
-            resume_progress["completed_files"] > 0
-            or resume_progress.get("in_progress_files", 0) > 0
-        )
-        progress_payload["resume_supported"] = resume_supported
-        semantic_substantive_progress: bool | None = None
-        semantic_progress = collection_resume.get("semantic_progress")
-        if isinstance(semantic_progress, Mapping):
-            progress_payload["semantic_progress"] = {
-                str(key): semantic_progress[key] for key in semantic_progress
-            }
-            raw_semantic_substantive = semantic_progress.get("substantive_progress")
-            semantic_substantive_progress = {
-                True: True,
-                False: False,
-            }.get(raw_semantic_substantive)
-        resume_token: JSONObject = {
-            "phase": "analysis_collection",
-            "carrier_refs": {
-                "collection_resume": True,
-            },
-            **resume_progress,
+    _ = mark_cleanup_timeout_fn
+    collection_resume: JSONObject | None = timeout_collection_resume_payload
+    if collection_resume is None and isinstance(
+        context.last_collection_resume_payload, Mapping
+    ):
+        collection_resume = {
+            str(key): context.last_collection_resume_payload[key]
+            for key in context.last_collection_resume_payload
         }
-        resume_payload: JSONObject = {"resume_token": resume_token}
-        if context.analysis_resume_input_witness is not None:
-            resume_payload["input_witness"] = context.analysis_resume_input_witness
-        progress_payload["resume"] = resume_payload
-        classification = progress_payload.get("classification")
+    if collection_resume is None:
+        return timeout_collection_resume_payload
+    timeout_collection_resume_payload = collection_resume
+    resume_progress = _analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=context.analysis_resume_total_files,
+    )
+    progress_payload["completed_files"] = resume_progress["completed_files"]
+    progress_payload["in_progress_files"] = resume_progress["in_progress_files"]
+    progress_payload["remaining_files"] = resume_progress["remaining_files"]
+    progress_payload["total_files"] = resume_progress["total_files"]
+    resume_supported = (
+        resume_progress["completed_files"] > 0
+        or resume_progress.get("in_progress_files", 0) > 0
+    )
+    progress_payload["resume_supported"] = resume_supported
+    semantic_progress = dict(
+        cast(Mapping[str, object], collection_resume.get("semantic_progress", {}))
+    )
+    progress_payload["semantic_progress"] = {
+        str(key): semantic_progress[key] for key in semantic_progress
+    }
+    raw_semantic_substantive = semantic_progress.get("substantive_progress")
+    semantic_substantive_progress = {
+        True: True,
+        False: False,
+    }.get(raw_semantic_substantive)
+    resume_token: JSONObject = {
+        "phase": "analysis_collection",
+        "carrier_refs": {
+            "collection_resume": True,
+        },
+        **resume_progress,
+    }
+    resume_payload: JSONObject = {"resume_token": resume_token}
+    resume_payload["input_witness"] = context.analysis_resume_input_witness
+    progress_payload["resume"] = resume_payload
+    classification = str(progress_payload.get("classification", "") or "")
+    progress_payload["classification"] = (
+        "timed_out_progress_resume"
         if (
             resume_supported
-            and isinstance(classification, str)
             and classification == "timed_out_no_progress"
             and (
                 semantic_substantive_progress is None
                 or semantic_substantive_progress
             )
-        ):
-            progress_payload["classification"] = "timed_out_progress_resume"
-    except TimeoutExceeded:
-        mark_cleanup_timeout_fn("load_resume_progress")
+        )
+        else classification
+    )
     return timeout_collection_resume_payload
 
 
 def _derive_timeout_analysis_state(*, progress_payload: JSONObject) -> str:
-    analysis_state = "timed_out_no_progress"
-    classification = progress_payload.get("classification")
-    if isinstance(classification, str) and classification:
-        analysis_state = classification
-    if analysis_state == "timed_out_progress_resume":
-        progress_payload["resume_supported"] = True
+    analysis_state = str(
+        progress_payload.get("classification", "timed_out_no_progress")
+        or "timed_out_no_progress"
+    )
+    progress_payload["resume_supported"] = bool(
+        progress_payload.get("resume_supported")
+    ) or analysis_state == "timed_out_progress_resume"
     return analysis_state
 
 
@@ -2218,13 +2242,12 @@ def _render_timeout_partial_report(
                 resolved_sections, journal_reason = ensure_report_sections_cache()
             else:
                 resolved_sections, journal_reason = ({}, None)
-            if (
-                timeout_collection_resume_payload is not None
-                and "components" not in resolved_sections
-            ):
-                resolved_sections["components"] = _collection_components_preview_lines(
-                    collection_resume=timeout_collection_resume_payload,
-                )
+            resolved_sections.setdefault(
+                "components",
+                _collection_components_preview_lines(
+                    collection_resume=timeout_collection_resume_payload or {},
+                ),
+            )
             if (
                 context.enable_phase_projection_checkpoints
                 and timeout_collection_resume_payload is not None
@@ -2509,7 +2532,7 @@ class _ExecutionPayloadOptions:
     aspf_equivalence_against: object
     aspf_opportunities_json: object
     aspf_state_json: object
-    aspf_import_state: object
+    aspf_import_state: list[str] | None
     aspf_delta_jsonl: object
     aspf_semantic_surface: object
 
@@ -2679,7 +2702,7 @@ def _parse_execution_payload_options(
         aspf_equivalence_against=payload.get("aspf_equivalence_against"),
         aspf_opportunities_json=payload.get("aspf_opportunities_json"),
         aspf_state_json=payload.get("aspf_state_json"),
-        aspf_import_state=payload.get("aspf_import_state"),
+        aspf_import_state=cast(list[str] | None, payload.get("aspf_import_state")),
         aspf_delta_jsonl=payload.get("aspf_delta_jsonl"),
         aspf_semantic_surface=payload.get("aspf_semantic_surface"),
     )
@@ -2984,12 +3007,14 @@ def _build_success_response(
         )
     if context.aspf_trace_state is not None:
         materialized_one_cells: list[JSONObject] = []
-        for index, cell in enumerate(context.aspf_trace_state.one_cells):
+        for cell, metadata in zip_longest(
+            context.aspf_trace_state.one_cells,
+            context.aspf_trace_state.one_cell_metadata,
+            fillvalue={},
+        ):
             payload = cell.as_dict()
-            if index < len(context.aspf_trace_state.one_cell_metadata):
-                metadata = context.aspf_trace_state.one_cell_metadata[index]
-                payload["kind"] = str(metadata.get("kind", ""))
-                payload["surface"] = str(metadata.get("surface", ""))
+            payload["kind"] = str(metadata.get("kind", ""))
+            payload["surface"] = str(metadata.get("surface", ""))
             materialized_one_cells.append(payload)
         analysis.aspf_one_cells = materialized_one_cells
         analysis.aspf_two_cell_witnesses = [
@@ -3039,8 +3064,7 @@ def _build_success_response(
         dot_payload = render_dot(analysis.forest)
         if _is_stdout_target(context.options.dot_path):
             response["dot"] = dot_payload
-            if report is not None:
-                report = report + "\n" + dot_payload
+            report = (f"{report}\n" if report is not None else "") + dot_payload
         else:
             Path(context.options.dot_path).write_text(dot_payload)
     response["violations"] = len(effective_violations)
@@ -3475,6 +3499,7 @@ def execute_command_total(
             paths=paths,
             root=str(root),
             payload=payload,
+            aspf_import_state=options.aspf_import_state,
             no_recursive=bool(no_recursive),
             report_path=report_path,
             include_wl_refinement=include_wl_refinement,

@@ -242,9 +242,7 @@ def _analysis_resume_cache_verdict(
         if compatibility_status in invalidation_statuses:
             return "invalidated"
         return "seeded"
-    if compatibility_status in invalidation_statuses:
-        return "invalidated"
-    return "miss"
+    return "invalidated" if compatibility_status in invalidation_statuses else "miss"
 
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
@@ -259,8 +257,6 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
 class ExecuteCommandDeps:
     analyze_paths_fn: Callable[..., AnalysisResult]
     load_aspf_resume_state_fn: Callable[..., JSONObject | None]
-    append_aspf_delta_fn: Callable[..., None]
-    finalize_aspf_resume_state_fn: Callable[..., JSONObject | None]
     analysis_input_manifest_fn: Callable[..., JSONObject]
     analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
     build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
@@ -682,22 +678,14 @@ def _load_aspf_resume_state(
     latest_manifest_digest: str | None = None
     latest_resume_source: str | None = None
     for path in import_state_paths:
-        try:
-            raw_payload = json.loads(path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            raise ValueError(f"failed to read ASPF state file: {path}") from exc
-        except ValueError as exc:
-            raise ValueError(f"invalid ASPF state JSON: {path}") from exc
-        if not isinstance(raw_payload, Mapping):
-            raise ValueError(f"ASPF state payload must be a JSON object: {path}")
-        manifest_digest = raw_payload.get("analysis_manifest_digest")
-        if isinstance(manifest_digest, str) and manifest_digest:
-            latest_manifest_digest = manifest_digest
-        resume_source = raw_payload.get("resume_source")
-        if isinstance(resume_source, str) and resume_source:
-            latest_resume_source = resume_source
-    if projection is None and not records:
-        return None
+        raw_payload = cast(
+            Mapping[str, object],
+            json.loads(path.read_text(encoding="utf-8")),
+        )
+        manifest_digest = str(raw_payload.get("analysis_manifest_digest", "") or "")
+        latest_manifest_digest = manifest_digest or latest_manifest_digest
+        resume_source = str(raw_payload.get("resume_source", "") or "")
+        latest_resume_source = resume_source or latest_resume_source
     payload: JSONObject = {
         "resume_projection": projection if projection is not None else {},
         "delta_records": [dict(record) for record in records],
@@ -705,30 +693,6 @@ def _load_aspf_resume_state(
         "resume_source": latest_resume_source,
     }
     return payload
-
-
-def _append_aspf_delta(
-    *,
-    path: Path,
-    record: Mapping[str, object],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps({str(key): record[key] for key in record}, sort_keys=False)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
-
-
-def _finalize_aspf_resume_state(
-    *,
-    snapshot: Mapping[str, object],
-    delta_records: Sequence[Mapping[str, object]],
-) -> JSONObject | None:
-    if not snapshot and not delta_records:
-        return None
-    return aspf_resume_state.replay_resume_projection(
-        snapshot=snapshot,
-        delta_records=delta_records,
-    )
 
 
 def _analysis_resume_progress(
@@ -1116,9 +1080,6 @@ def _analysis_index_resume_summary(
 def _analysis_index_resume_summary_payload(
     collection_resume: JSONObject,
 ) -> JSONObject | None:
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return None
     (
         hydrated_count,
         hydrated_digest,
@@ -1372,13 +1333,14 @@ def _report_witness_digest(
     input_witness: Mapping[str, JSONValue] | None,
     manifest_digest: str | None,
 ) -> str | None:
-    if input_witness is not None:
-        digest = input_witness.get("witness_digest")
-        if isinstance(digest, str) and digest:
-            return digest
-    if isinstance(manifest_digest, str) and manifest_digest:
-        return manifest_digest
-    return None
+    digest = input_witness.get("witness_digest") if input_witness is not None else None
+    digest_text = digest if isinstance(digest, str) and digest else None
+    manifest_text = (
+        manifest_digest
+        if isinstance(manifest_digest, str) and manifest_digest
+        else None
+    )
+    return digest_text or manifest_text
 
 
 def _coerce_section_lines(value: object) -> list[str]:
@@ -1458,10 +1420,7 @@ def _write_report_section_journal(
             "status": status,
             "lines": sections.get(section_id, []),
         }
-        if status != "resolved":
-            reason = pending_reasons.get(section_id)
-            if reason:
-                section_entry["reason"] = reason
+        section_entry["reason"] = pending_reasons.get(section_id)
         sections_payload[section_id] = section_entry
         rows_payload.append(
             {
@@ -1778,9 +1737,7 @@ def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
 
 
 def _markdown_table_cell(value: object) -> str:
-    if value is None:
-        return ""
-    return str(value).replace("\n", " ").replace("|", "\\|")
+    return ("" if value is None else str(value)).replace("\n", " ").replace("|", "\\|")
 
 
 def _phase_progress_dimensions_summary(
@@ -1968,19 +1925,23 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    if isinstance(resume_state_intro, Mapping):
-        state_path = str(resume_state_intro.get("state_path", "") or "")
-        status = str(resume_state_intro.get("status", "") or "")
-        reused_files = int(resume_state_intro.get("reused_files", 0) or 0)
-        total_resume_files = int(
-            resume_state_intro.get("total_files", progress["total_files"]) or 0
-        )
-        lines.append(
-            "- `resume_state`: "
-            f"`path={state_path or '<none>'} "
-            f"status={status or 'unknown'} "
-            f"reused_files={reused_files}/{total_resume_files}`"
-        )
+    resume_state = (
+        cast(Mapping[str, JSONValue], resume_state_intro)
+        if isinstance(resume_state_intro, Mapping)
+        else {}
+    )
+    state_path = str(resume_state.get("state_path", "") or "")
+    status = str(resume_state.get("status", "") or "")
+    reused_files = int(resume_state.get("reused_files", 0) or 0)
+    total_resume_files = int(
+        resume_state.get("total_files", progress["total_files"]) or 0
+    )
+    lines.append(
+        "- `resume_state`: "
+        f"`path={state_path or '<none>'} "
+        f"status={status or 'unknown'} "
+        f"reused_files={reused_files}/{total_resume_files}`"
+    )
     semantic_progress = collection_resume.get("semantic_progress")
     if isinstance(semantic_progress, Mapping):
         semantic_witness_digest = semantic_progress.get("current_witness_digest")
@@ -2775,27 +2736,25 @@ class DataflowNameFilterBundle:
         defaults: Mapping[str, object],
         decision_section: Mapping[str, object],
     ) -> "DataflowNameFilterBundle":
-        exclude_dirs = _normalize_name_set(payload.get("exclude"))
-        if exclude_dirs is None:
-            exclude_dirs = _normalize_name_set(defaults.get("exclude"))
-        if exclude_dirs is None:
-            exclude_dirs = set()
-
-        ignore_params = _normalize_name_set(payload.get("ignore_params"))
-        if ignore_params is None:
-            ignore_params = _normalize_name_set(defaults.get("ignore_params"))
-        if ignore_params is None:
-            ignore_params = set()
+        exclude_dirs = (
+            _normalize_name_set(payload.get("exclude"))
+            or _normalize_name_set(defaults.get("exclude"))
+            or set()
+        )
+        ignore_params = (
+            _normalize_name_set(payload.get("ignore_params"))
+            or _normalize_name_set(defaults.get("ignore_params"))
+            or set()
+        )
 
         decision_ignore_params = set(ignore_params)
         decision_ignore_params.update(decision_ignore_list(decision_section))
 
-        transparent_payload = payload.get("transparent_decorators")
+        transparent_payload = payload.get(
+            "transparent_decorators",
+            defaults.get("transparent_decorators"),
+        )
         transparent_decorators = _normalize_transparent_decorators(transparent_payload)
-        if transparent_decorators is None and transparent_payload is None:
-            transparent_decorators = _normalize_transparent_decorators(
-                defaults.get("transparent_decorators")
-            )
 
         return cls(
             exclude_dirs=exclude_dirs,
@@ -2976,8 +2935,6 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
         analyze_paths_fn=analyze_paths,
         load_aspf_resume_state_fn=_load_aspf_resume_state,
-        append_aspf_delta_fn=_append_aspf_delta,
-        finalize_aspf_resume_state_fn=_finalize_aspf_resume_state,
         analysis_input_manifest_fn=_analysis_input_manifest,
         analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
         build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,

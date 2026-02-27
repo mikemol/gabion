@@ -121,8 +121,7 @@ def _assign_by_path(
     cursor: JSONObject = payload
     for raw_token in path_tokens[:-1]:
         token = str(raw_token).strip()
-        if token:
-            cursor = cast(JSONObject, cursor.setdefault(token, {}))
+        cursor = cast(JSONObject, cursor.setdefault(token, {}))
     leaf = str(path_tokens[-1]).strip()
     assert leaf
     cursor[leaf] = value
@@ -133,6 +132,4 @@ def _as_json_value(value: object) -> JSONValue:
         return {str(key): _as_json_value(value[key]) for key in value}
     if isinstance(value, (list, tuple, set)):
         return [_as_json_value(item) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
+    return cast(JSONValue, value)

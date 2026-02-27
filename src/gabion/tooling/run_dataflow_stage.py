@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, cast
 
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.commands import transport_policy
@@ -111,14 +111,12 @@ def _timeout_payload_from_aspf_state(path: Path | None) -> dict[str, object]:
     if path is None:
         return {}
     payload = _load_json_object(path)
-    semantic_surfaces = payload.get("semantic_surfaces")
-    if not isinstance(semantic_surfaces, dict):
-        return {}
-    delta_payload = semantic_surfaces.get("delta_payload")
-    if not isinstance(delta_payload, dict):
-        return {}
-    progress = delta_payload.get("progress")
-    return progress if isinstance(progress, dict) else {}
+    semantic_surfaces = cast(
+        Mapping[str, object], payload.get("semantic_surfaces", {})
+    )
+    delta_payload = cast(Mapping[str, object], semantic_surfaces.get("delta_payload", {}))
+    progress = cast(Mapping[str, object], delta_payload.get("progress", {}))
+    return dict(progress)
 
 
 def _metrics_line(deadline_profile_path: Path) -> str:
@@ -766,17 +764,11 @@ def _stage_ids(start_stage: str, max_attempts: int) -> list[str]:
 
 
 def _aspf_step_id(stage_id: str, command: Sequence[str], command_index: int) -> str:
-    tokens: list[str] = [stage_id]
-    for token in command:
-        if token.startswith("-"):
-            continue
-        text = token.strip()
-        if not text:
-            continue
-        tokens.append(text)
-        if len(tokens) >= 4:
-            break
-    joined = ".".join(tokens) if tokens else f"{stage_id}.{command_index + 1}"
+    normalized_tokens = [
+        token.strip() for token in command if not token.startswith("-") and token.strip()
+    ]
+    tokens = [stage_id, *normalized_tokens[:3]]
+    joined = ".".join(tokens)
     return f"{joined}.{command_index + 1}"
 
 
