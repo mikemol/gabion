@@ -59,6 +59,7 @@ from gabion.plan import (
     ExecutionPlanPolicyMetadata,
 )
 from gabion.tooling import (
+    delta_advisory as tooling_delta_advisory,
     docflow_delta_emit as tooling_docflow_delta_emit,
     governance_audit as tooling_governance_audit,
     impact_select_tests as tooling_impact_select_tests,
@@ -2171,6 +2172,7 @@ def _run_check_delta_gates(
         else tuple(gate_specs)
     )
     with _cli_deadline_scope():
+        tooling_delta_advisory.telemetry_main()
         return next(
             (
                 gate_exit
@@ -4379,6 +4381,7 @@ def _invoke_argparse_command(
 
 
 _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
+    "delta-advisory-telemetry": tooling_delta_advisory.telemetry_main,
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
 }
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
@@ -4438,6 +4441,12 @@ def removed_delta_triplets() -> None:
     raise typer.BadParameter(
         "Removed command: delta-triplets. Use `gabion check delta-gates`."
     )
+
+
+@app.command("delta-advisory-telemetry")
+def delta_advisory_telemetry() -> None:
+    """Emit non-blocking advisory telemetry artifacts."""
+    raise typer.Exit(code=_run_tooling_no_arg("delta-advisory-telemetry"))
 
 
 @app.command("docflow-delta-emit")

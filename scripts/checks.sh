@@ -136,6 +136,7 @@ if $run_dataflow; then
     "checks.check.run" \
     mise exec -- python -m gabion check run \
     "${baseline_arg[@]}"
+  mise exec -- python -m gabion delta-advisory-telemetry
 fi
 if $run_docflow; then
   docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")
