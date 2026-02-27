@@ -3240,7 +3240,9 @@ def test_check_rejects_removed_resume_checkpoint_flag(
         },
     )
     assert result.exit_code != 0
-    assert "No such option: --resume-checkpoint" in result.output
+    normalized_output = _strip_ansi(result.output)
+    assert "No such option" in normalized_output
+    assert "--resume-checkpoint" in normalized_output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_checkpoint_intro_timeline_header_once::cli.py::gabion.cli.app
