@@ -243,6 +243,13 @@ _PARSE_MODULE_ERROR_TYPES = (
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 OptionalIgnoredParams = set[str] | None
 ParamAnnotationMap = dict[str, str | None]
+
+
+@dataclass(frozen=True)
+class AnnotationValue:
+    text: str
+    parse_status: Literal["present", "missing", "unparse_failure"]
+
 ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
 OptionalReturnAliasMap = ReturnAliasMap | None
 OptionalClassName = str | None
@@ -2828,33 +2835,19 @@ def _param_annotations(
     args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
     names = [a.arg for a in args]
     annots: ParamAnnotationMap = {}
+
     for name, arg in zip(names, args):
         check_deadline()
-        if arg.annotation is None:
-            annots[name] = None
-        else:
-            try:
-                annots[name] = ast.unparse(arg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:
-                annots[name] = None
+        annotation_value = _extract_annotation_value(arg.annotation)
+        annots[name] = annotation_value.text if annotation_value.parse_status == "present" else None
     if fn.args.vararg:
         vararg = fn.args.vararg
-        if vararg.annotation is None:
-            annots[vararg.arg] = None
-        else:
-            try:
-                annots[vararg.arg] = ast.unparse(vararg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:
-                annots[vararg.arg] = None
+        annotation_value = _extract_annotation_value(vararg.annotation)
+        annots[vararg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
     if fn.args.kwarg:
         kwarg = fn.args.kwarg
-        if kwarg.annotation is None:
-            annots[kwarg.arg] = None
-        else:
-            try:
-                annots[kwarg.arg] = ast.unparse(kwarg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:
-                annots[kwarg.arg] = None
+        annotation_value = _extract_annotation_value(kwarg.annotation)
+        annots[kwarg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
     if names and names[0] in {"self", "cls"}:
         annots.pop(names[0], None)
     if ignore_params:
@@ -2863,6 +2856,19 @@ def _param_annotations(
             if name in ignore_params:
                 annots.pop(name, None)
     return annots
+
+
+def _extract_annotation_value(annotation: OptionalAstNode) -> AnnotationValue:
+    check_deadline()
+    if annotation is None:
+        return AnnotationValue(text="", parse_status="missing")
+    try:
+        return AnnotationValue(
+            text=ast.unparse(annotation),
+            parse_status="present",
+        )
+    except _AST_UNPARSE_ERROR_TYPES:
+        return AnnotationValue(text="", parse_status="unparse_failure")
 
 
 def _param_defaults(
