@@ -1,5 +1,5 @@
 ---
-doc_revision: 109
+doc_revision: 110
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -155,11 +155,15 @@ sequence in order:
    Core flows must consume deterministic contract types, not repeated ambiguity
    guards.
 5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the
-   change did not add new ambiguous unions, sentinel branches, or fallback-only
-   control paths.
+   change did not add new ambiguous unions, sentinel branches, fallback-only
+   control paths, or compatibility-layer bridges in semantic core modules.
 6. **Step F — remediate forward by default.** Treat ACP/branchless/defensive-fallback
    findings as transition signals for boundary reification; rollback is reserved
    for cases where forward remediation cannot preserve behavior or cannot converge.
+7. **Step G — collapse compatibility layers.** Remove dual-path compatibility in
+   semantic core and converge on one deterministic contract; temporary adapters
+   are boundary-only and must include lifecycle metadata (`actor`, `rationale`,
+   `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
 
 ## Construction-first callback and decode seams (normative)
 - Test seams must be DI-based; avoid runtime patch mutation and callable-probe fallback logic.
@@ -189,6 +193,9 @@ When sortedness is enforced, it must be treated as part of semantic behavior.
 ## Pull request checklist (normative)
 - [ ] Describe where ambiguity was discharged and what deterministic contract
       replaced it (Protocol, Decision Protocol, or equivalent typed boundary).
+- [ ] State whether compatibility-layer code was removed; if a temporary
+      boundary adapter remains, include lifecycle metadata and explicit removal
+      correction unit.
 - [ ] For each new/modified ordered surface, describe the sort key/function (or
       comparator), whether it is lexical/non-lexical, and why that ordering is
       semantically required.

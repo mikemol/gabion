@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: shift_ambiguity_left_protocol
 doc_role: playbook
@@ -31,13 +31,16 @@ doc_review_notes:
 Canonical rule: [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left).
 
 Trigger this protocol whenever a change would otherwise add local `isinstance`,
-`Optional`/`Union`/`Any`/`|`, sentinel returns, or branch ladders in semantic core.
+`Optional`/`Union`/`Any`/`|`, sentinel returns, branch ladders, or compatibility
+wrappers/legacy bridges in semantic core.
 
 1. **Classify the ambiguity**: input shape vs decision predicate vs cross-boundary bundle.
 2. **Reify the contract**: introduce/extend Protocol, dataclass, or Decision Protocol.
 3. **Normalize once at boundary**: discharge alternation before core execution.
 4. **Remove downstream ambiguity guards**: delete repeated local checks in core suites.
-5. **Verify signatures**: run policy checks and confirm no new ambiguity-contract findings.
+5. **Collapse to one deterministic path**: remove compatibility wrappers/dual-shape bridges in core; keep temporary adapters at boundary ingress only with lifecycle metadata.
+6. **Verify signatures**: run policy checks and confirm no new ambiguity-contract findings.
 
 Reviewer instruction: reject patches that add ambiguity signatures in deterministic
-core zones without boundary-level reification evidence.
+core zones without boundary-level reification evidence, and reject semantic-core
+"legacy bridge" patches that lack explicit boundary-lifecycle evidence.

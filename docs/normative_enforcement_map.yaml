@@ -51,7 +51,7 @@ clauses:
       - artifacts/dataflow_grammar/report.md
       - artifacts/audit_reports/dataflow_report.md
   NCI-SHIFT-AMBIGUITY-LEFT:
-    status: enforced
+    status: partial
     enforcing_modules:
       - scripts/branchless_policy_check.py
       - scripts/defensive_fallback_policy_check.py

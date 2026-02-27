@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -109,6 +109,9 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Ambiguity must be classified at ingress and discharged before semantic-core execution.
 - Reify ambiguity as explicit Protocol/Decision Protocol surfaces at boundaries.
 - Semantic core modules must not add ad-hoc branch/sentinel/type-alternation shortcuts as first response.
+- Semantic core modules must not introduce or preserve compatibility-layer wrappers, dual-shape bridges, or legacy fallback paths as steady-state behavior.
+- Temporary compatibility is permitted only at boundary ingress with an explicit Decision Protocol plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
+- Existing compatibility layers are remediation debt and must carry dated removal commitments.
 - ACP/branchless/defensive-fallback violations discovered during simplification are transition signals for forward boundary reification.
 - Rollback-first is disallowed by default; rollback is permitted only when forward remediation cannot preserve behavior or cannot converge.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.

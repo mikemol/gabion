@@ -1,5 +1,5 @@
 ---
-doc_revision: 81
+doc_revision: 82
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -129,7 +129,8 @@ scoped-delta validation, and precedence/conflict checks.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
-- Public-API compatibility shims for refactors are not yet implemented.
+- Semantic-core compatibility layers are disallowed; temporary compatibility is
+  boundary-only and must carry explicit lifecycle metadata and removal deadlines.
 - Multi-language support is out of scope (Python-first).
 
 ## Quick start

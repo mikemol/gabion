@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 51
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -536,12 +536,28 @@ Any of the above patterns discovered in semantic core changes MUST be treated as
 a policy violation unless accompanied by boundary-level reification that removes
 the ambiguity before core-flow execution.
 
+Compatibility-layer policy (normative):
+
+* A **compatibility layer** is any wrapper, dual-shape bridge, sentinel fallback,
+  or legacy-path branch retained only to preserve pre-reification behavior.
+* Hard default: semantic core modules MUST NOT introduce or preserve compatibility
+  layers as the implementation strategy.
+* Narrow exception: temporary compatibility adapters are permitted only at explicit
+  ingress/boundary layers, and only when paired with an explicit Decision Protocol
+  plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`,
+  `rollback_condition`, `evidence_links`).
+* Existing compatibility layers are remediation debt and MUST carry dated removal
+  commitments; net-new semantic-core compatibility debt is disallowed.
+* Forward remediation MUST collapse dual paths into one deterministic contract;
+  preserving dual-path compatibility in semantic core is non-compliant.
+
 Forward-remediation order (normative):
 
 1. Treat ACP/branchless/defensive-fallback findings as transition signals for
    boundary reification.
 2. Attempt forward remediation first via boundary normalization and explicit
-   Protocol/Decision-Protocol carriers.
+   Protocol/Decision-Protocol carriers, removing compatibility layers instead
+   of preserving dual paths.
 3. Rollback is allowed only when forward remediation cannot preserve behavior
    or cannot converge.
 

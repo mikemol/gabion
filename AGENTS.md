@@ -1,5 +1,5 @@
 ---
-doc_revision: 26
+doc_revision: 27
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -105,6 +105,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Per-correction-unit validation stack must include `scripts/policy_check.py --workflows`, `scripts/policy_check.py --ambiguity-contract`, targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
 - Ambiguity-policy regressions encountered during simplification are forward-remediation signals; prefer boundary normalization/protocol reification over rollback-first.
+- Reject semantic-core compatibility-layer additions (wrappers, dual-shape bridges, legacy fallbacks) unless they are temporary boundary adapters with explicit Decision Protocol plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
 - When using `scripts/ci_watch.py`, treat collected failure bundles under `artifacts/out/ci_watch/run_<run_id>/` as the triage source of truth for remote-first actionable failures.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
@@ -150,6 +151,7 @@ Use these as hard generation constraints when editing core semantics (`src/gabio
 1. **When blocked, do not add dynamic alternation in core; instead create boundary normalization + Protocol.**
 2. **Every new branch in core must correspond to an explicit Decision Protocol.**
 3. **No sentinel returns for control decisions; encode outcomes structurally.**
+4. **Do not preserve compatibility layers in semantic core; collapse to one deterministic contract and keep any temporary compatibility adapter at boundary ingress only with lifecycle evidence.**
 
 ### Concrete before/after idioms (from this repo)
 
