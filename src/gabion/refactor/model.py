@@ -33,11 +33,7 @@ def normalize_compatibility_shim(
 ) -> CompatibilityShimConfig:
     if type(compatibility_shim) is CompatibilityShimConfig:
         return compatibility_shim
-    if type(compatibility_shim) is bool and compatibility_shim:
-        return CompatibilityShimConfig(enabled=True)
-    if type(compatibility_shim) is bool:
-        return CompatibilityShimConfig(enabled=False)
-    raise TypeError("compatibility_shim must be bool or CompatibilityShimConfig")
+    return CompatibilityShimConfig(enabled=bool(compatibility_shim))
 
 
 @dataclass(frozen=True)

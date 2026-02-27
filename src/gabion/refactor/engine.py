@@ -223,25 +223,25 @@ def _module_name(path: Path, project_root) -> str:
 
 
 def _is_docstring(stmt: cst.CSTNode) -> bool:
-    if type(stmt) is cst.SimpleStatementLine:
-        line = cast(cst.SimpleStatementLine, stmt)
-        if line.body:
-            expr = line.body[0]
-            if type(expr) is cst.Expr:
-                value = cast(cst.Expr, expr).value
-                return type(value) is cst.SimpleString
-    return False
+    if type(stmt) is not cst.SimpleStatementLine:
+        return False
+    line = cast(cst.SimpleStatementLine, stmt)
+    expr = line.body[0]
+    if type(expr) is not cst.Expr:
+        return False
+    value = cast(cst.Expr, expr).value
+    return type(value) is cst.SimpleString
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:
-    if type(stmt) is cst.SimpleStatementLine:
-        line = cast(cst.SimpleStatementLine, stmt)
-        for item in line.body:
-            check_deadline()
-            item_type = type(item)
-            if item_type is cst.Import or item_type is cst.ImportFrom:
-                return True
-    return False
+    if type(stmt) is not cst.SimpleStatementLine:
+        return False
+    line = cast(cst.SimpleStatementLine, stmt)
+    return any(
+        (check_deadline() or True)
+        and (type(item) is cst.Import or type(item) is cst.ImportFrom)
+        for item in line.body
+    )
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
@@ -286,14 +286,9 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
                     import_item = cast(cst.Import, item)
                     for alias in import_item.names:
                         check_deadline()
-                        if type(alias) is cst.ImportAlias:
-                            import_alias = cast(cst.ImportAlias, alias)
-                            if type(import_alias.name) is cst.Name:
-                                if cast(cst.Name, import_alias.name).value == "typing":
-                                    return True
-                            elif type(import_alias.name) is cst.Attribute:
-                                if _module_expr_to_str(import_alias.name) == "typing":
-                                    return True  # pragma: no cover
+                        import_alias = cast(cst.ImportAlias, alias)
+                        if _module_expr_to_str(import_alias.name) == "typing":
+                            return True
     return False
 
 
@@ -312,11 +307,9 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
                     if module == "typing" and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
-                            if type(alias) is cst.ImportAlias:
-                                alias_name = cast(cst.ImportAlias, alias).name
-                                if type(alias_name) is cst.Name:
-                                    if cast(cst.Name, alias_name).value == "Protocol":
-                                        return True
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "Protocol":
+                                return True
     return False
 
 
@@ -335,11 +328,9 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
                     if module == "typing" and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
-                            if type(alias) is cst.ImportAlias:
-                                alias_name = cast(cst.ImportAlias, alias).name
-                                if type(alias_name) is cst.Name:
-                                    if cast(cst.Name, alias_name).value == "overload":
-                                        return True
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "overload":
+                                return True
     return False
 
 
@@ -355,11 +346,9 @@ def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
                     import_item = cast(cst.Import, item)
                     for alias in import_item.names:
                         check_deadline()
-                        if type(alias) is cst.ImportAlias:
-                            alias_name = cast(cst.ImportAlias, alias).name
-                            if type(alias_name) is cst.Name:
-                                if cast(cst.Name, alias_name).value == "warnings":
-                                    return True
+                        alias_name = cast(cst.ImportAlias, alias).name
+                        if _module_expr_to_str(alias_name) == "warnings":
+                            return True
     return False
 
 
@@ -667,11 +656,9 @@ def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
                         type(names) is list or type(names) is tuple
                     ):
                         for alias in names:
-                            if type(alias) is cst.ImportAlias:
-                                alias_name = cast(cst.ImportAlias, alias).name
-                                if type(alias_name) is cst.Name:
-                                    if alias_name.value == "ContextVar":
-                                        return True
+                            alias_name = cast(cst.ImportAlias, alias).name
+                            if _module_expr_to_str(alias_name) == "ContextVar":
+                                return True
     return False
 
 
@@ -701,9 +688,7 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
         if type(func) is cst.Name:
             target_name = cast(cst.Name, func).value
         elif type(func) is cst.Attribute:
-            attr = cast(cst.Attribute, func).attr
-            if type(attr) is cst.Name:
-                target_name = cast(cst.Name, attr).value
+            target_name = cast(cst.Attribute, func).attr.value
         if target_name not in self.targets:
             return updated_node
         if target_name == self.current:
@@ -1242,9 +1227,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             return False
         if type(func) is cst.Attribute:
             func_attr = cast(cst.Attribute, func)
-            if type(func_attr.attr) is not cst.Name:  # pragma: no cover
-                return False
-            attr = cast(cst.Name, func_attr.attr).value
+            attr = func_attr.attr.value
             if self.file_is_target and self._class_stack:
                 class_name = ".".join(self._class_stack)
                 methods = self.target_methods.get(class_name, set())

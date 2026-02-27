@@ -84,13 +84,7 @@ def rewrite_plan_schema(kind: object) -> RewritePlanSchemaLookup:
             is_known=False,
             schema=_EMPTY_REWRITE_PLAN_SCHEMA,
         )
-    schema = _REWRITE_PLAN_SCHEMAS.get(parsed)
-    if schema is None:
-        return RewritePlanSchemaLookup(
-            is_known=False,
-            schema=_EMPTY_REWRITE_PLAN_SCHEMA,
-        )
-    return RewritePlanSchemaLookup(is_known=True, schema=schema)
+    return RewritePlanSchemaLookup(is_known=True, schema=_REWRITE_PLAN_SCHEMAS[parsed])
 
 
 def rewrite_plan_kind_sort_key(kind: str) -> int:
@@ -141,11 +135,10 @@ def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
     if verification is not None:
         predicate_list = sequence_or_none(verification.get("predicates"))
         if predicate_list is not None:
-            predicates = []
-            for predicate in predicate_list:
-                parsed_predicate = mapping_or_none(predicate)
-                if parsed_predicate is not None:
-                    predicates.append(str(parsed_predicate.get("kind", "")))
+            predicates = [
+                str((mapping_or_none(predicate) or {}).get("kind", ""))
+                for predicate in predicate_list
+            ]
     for required in schema.required_predicates:
         if required not in predicates:
             issues.append(f"missing predicate: {required}")
