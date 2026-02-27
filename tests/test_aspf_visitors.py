@@ -6,8 +6,8 @@ from gabion.analysis.aspf import Alt, Forest, Node
 from gabion.analysis.aspf_visitors import (
     NullAspfTraversalVisitor,
     OpportunityPayloadEmitter,
-    replay_equivalence_payload_to_visitor,
-    replay_trace_payload_to_visitor,
+    adapt_event_log_reader_iterator_to_visitor,
+    adapt_live_event_stream_to_visitor,
     traverse_forest_to_visitor,
 )
 
@@ -40,37 +40,33 @@ def test_traverse_forest_to_visitor_uses_deterministic_order() -> None:
 
 def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     emitter = OpportunityPayloadEmitter()
-    replay_trace_payload_to_visitor(
-        trace_payload={
-            "one_cells": [
-                {
-                    "kind": "resume_load",
-                    "metadata": {"import_state_path": "state/a.json"},
-                },
-                {
-                    "kind": "resume_write",
-                    "metadata": {"state_path": "state/a.json"},
-                },
-            ],
-            "surface_representatives": {
-                "violation_summary": "rep:b",
-                "groups_by_path": "rep:a",
+    adapt_live_event_stream_to_visitor(
+        one_cells=[
+            {
+                "kind": "resume_load",
+                "metadata": {"import_state_path": "state/a.json"},
             },
-            "two_cell_witnesses": [],
-            "cofibration_witnesses": [],
+            {
+                "kind": "resume_write",
+                "metadata": {"state_path": "state/a.json"},
+            },
+        ],
+        surface_representatives={
+            "violation_summary": "rep:b",
+            "groups_by_path": "rep:a",
         },
+        two_cell_witnesses=[],
+        cofibration_witnesses=[],
         visitor=emitter,
     )
-    replay_equivalence_payload_to_visitor(
-        equivalence_payload={
-            "surface_table": [
-                {
-                    "surface": "groups_by_path",
-                    "classification": "non_drift",
-                    "witness_id": "w:1",
-                }
-            ]
-        },
+    adapt_event_log_reader_iterator_to_visitor(
+        event_log_rows=[
+            {
+                "surface": "groups_by_path",
+                "classification": "non_drift",
+                "witness_id": "w:1",
+            }
+        ],
         visitor=emitter,
     )
 
@@ -79,6 +75,15 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     assert "materialize_load_fusion" in kinds
     assert "reusable_boundary_artifact" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    fungible = next(
+        row for row in rows if isinstance(row, dict) and row.get("kind") == "fungible_execution_path_substitution"
+    )
+    assert fungible["actionability"] == "actionable"
+    assert fungible["confidence_provenance"] == "morphism_witness"
+
+    plans = emitter.build_rewrite_plans()
+    assert plans
+    assert plans[0]["opportunity_id"].startswith("opp:")
 
 
 def test_null_visitor_noop_methods_are_callable() -> None:
@@ -94,3 +99,33 @@ def test_null_visitor_noop_methods_are_callable() -> None:
     visitor.on_trace_cofibration(index=0, cofibration={})
     visitor.on_trace_surface_representative(surface="groups_by_path", representative="rep")
     visitor.on_equivalence_surface_row(index=0, row={})
+
+
+def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
+    emitter = OpportunityPayloadEmitter()
+    adapt_live_event_stream_to_visitor(
+        one_cells=[],
+        surface_representatives={
+            "groups_by_path": "rep:shared",
+            "rewrite_plans": "rep:shared",
+        },
+        two_cell_witnesses=[
+            {
+                "witness_id": "w:2",
+                "left_representative": "rep:shared",
+                "right_representative": "rep:baseline",
+            },
+            {
+                "witness_id": "w:1",
+                "left_representative": "rep:shared",
+                "right_representative": "rep:legacy",
+            },
+        ],
+        cofibration_witnesses=[],
+        visitor=emitter,
+    )
+
+    plans = emitter.build_rewrite_plans()
+    reusable = next(plan for plan in plans if plan["opportunity_id"].startswith("opp:reusable-boundary:"))
+    assert reusable["required_witnesses"] == ["w:1", "w:2"]
+    assert reusable["priority"] == 0.74

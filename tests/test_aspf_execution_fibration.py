@@ -253,6 +253,13 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
     kinds = {str(row.get("kind")) for row in rows if isinstance(row, dict)}
     assert "materialize_load_fusion" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    rewrite_plans = opportunities["rewrite_plans"]
+    assert isinstance(rewrite_plans, list)
+    fungible_plan = next(
+        plan for plan in rewrite_plans if isinstance(plan, dict) and plan.get("opportunity_id") == "opp:fungible-substitution:groups_by_path"
+    )
+    assert fungible_plan["actionability"] == "actionable"
+    assert fungible_plan["required_witnesses"] == ["w:groups-fungible"]
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_allows_state_object_roundtrip_import::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace
@@ -400,6 +407,50 @@ def test_execution_trace_state_preserves_preconfigured_event_visitors(tmp_path: 
         event_visitors=[visitor],
     )
     assert state.event_visitors == [visitor]
+
+
+def test_start_execution_trace_registers_streaming_sink(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    assert state.event_sinks
+
+
+def test_finalize_execution_trace_derives_payload_from_sink_index(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+
+    aspf_execution_fibration.register_semantic_surface(
+        state=state,
+        surface="groups_by_path",
+        value={"pkg/mod.py": {"fn": [{"a"}]}, "count": 1},
+    )
+    state.one_cells.clear()
+    state.one_cell_metadata.clear()
+    state.two_cell_witnesses.clear()
+    state.cofibrations.clear()
+    state.surface_representatives.clear()
+    state.delta_records.clear()
+
+    artifacts = aspf_execution_fibration.finalize_execution_trace(
+        state=state,
+        root=tmp_path,
+        semantic_surface_payloads={"groups_by_path": {"pkg/mod.py": {"fn": [{"a"}]}}},
+    )
+    assert artifacts is not None
+    assert artifacts.trace_payload["one_cells"]
+    assert artifacts.trace_payload["delta_record_count"] > 0
 
 
 def _one_cell_payload(*, representative: str) -> dict[str, object]:
