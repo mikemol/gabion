@@ -4208,6 +4208,30 @@ def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_load_analysis_index_resume_payload_uses_variant_for_matching_identity::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_index_resume_payload::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
+def test_resume_cache_identity_pair_round_trip() -> None:
+    da = _load()
+    payload = {
+        "index_cache_identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projection_cache_identity": "aspf:sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    }
+    identities = da._ResumeCacheIdentityPair.decode_required(payload)
+    assert identities.encode() == {
+        "index_cache_identity": "aspf:sha1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projection_cache_identity": "aspf:sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    }
+
+
+def test_resume_cache_identity_pair_decode_rejects_partial_identity() -> None:
+    da = _load()
+    with pytest.raises(NeverThrown):
+        da._ResumeCacheIdentityPair.decode_required(
+            {
+                "index_cache_identity": "",
+                "projection_cache_identity": "bad",
+            }
+        )
+
+
 def test_load_analysis_index_resume_payload_uses_variant_for_matching_identity(
     tmp_path: Path,
 ) -> None:
