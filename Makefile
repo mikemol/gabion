@@ -25,7 +25,7 @@ dataflow:
 	mise exec -- python -m gabion check
 
 lsp-smoke:
-	mise exec -- python scripts/lsp_smoke_test.py --root .
+	mise exec -- python -m scripts.lsp_smoke_test --root .
 
 audit-snapshot:
 	scripts/audit_snapshot.sh

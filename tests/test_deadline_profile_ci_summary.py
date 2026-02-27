@@ -43,7 +43,8 @@ def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> Non
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/deadline_profile_ci_summary.py",
+            "-m",
+            "scripts.deadline_profile_ci_summary",
             "--ci-profile",
             str(ci_profile),
             "--local-profile",
@@ -75,7 +76,8 @@ def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> N
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/deadline_profile_ci_summary.py",
+            "-m",
+            "scripts.deadline_profile_ci_summary",
             "--ci-profile",
             str(ci_profile),
             "--local-profile",

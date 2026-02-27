@@ -141,7 +141,7 @@ Normative pointers (explicit): [README.md#repo_contract](README.md#repo_contract
   `SPPF node` issue form.
 - Once the issue exists, append `(GH-####)` to the checklist line so planning and
   status remain bidirectionally linked.
-- Use `scripts/sppf_sync.py` locally to sync commit trailers (e.g. `SPPF: GH-17`)
+- Use `python -m scripts.sppf_sync` locally to sync commit trailers (e.g. `SPPF: GH-17`)
   with GitHub issue comments/labels without CI write permissions.
 - Do not close issues until a release containing the fix ships; use the
   `status/pending-release` label once work lands on `stage`.
@@ -150,7 +150,7 @@ Normative pointers (explicit): [README.md#repo_contract](README.md#repo_contract
 
 Docflow audit emits a violation when commits touching SPPF-relevant paths (`src/`,
 `in/`, or this checklist) lack GH references in commit messages. Use `GH-####`
-trailers or run `scripts/sppf_sync.py --comment` after adding references.
+trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 
 ## Governance tooling nodes
 - [~] Docflow audit outputs + frontmatter/anchorized report artifacts in `out/`. (in-28, GH-86) sppf{doc=done; impl=partial; doc_ref=in-28@8}

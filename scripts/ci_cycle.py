@@ -72,7 +72,8 @@ def _ci_cycle_main() -> int:
     if args.watch:
         _run_ci_cycle(
             sys.executable,
-            "scripts/ci_watch.py",
+            "-m",
+            "scripts.ci_watch",
             "--branch",
             args.branch,
             "--workflow",

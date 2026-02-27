@@ -70,10 +70,10 @@ mise exec -- python -m pip install pyyaml
 
 Run the policy checks manually when editing workflows:
 ```
-mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python -m scripts.policy_check --workflows
 ```
 
-CI also runs `scripts/policy_check.py --workflows --posture`, which checks the
+CI also runs `python -m scripts.policy_check --workflows --posture`, which checks the
 GitHub Actions settings for this repository.
 
 ## Doc front-matter (reader-only re-internment signal)
