@@ -1,5 +1,5 @@
 ---
-doc_revision: 51
+doc_revision: 52
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -659,6 +659,10 @@ not as a standalone numeric target.
 * Convergence/commutation coverage is required for semantic stability claims.
 * Execution coverage (line/branch %) is enforced by CI at the active threshold
   (currently `100%` line and branch for repo-local and CI gates).
+* `# pragma: no cover` is permitted only when the branch is guarded by
+  `never(...)` after ingress validation.
+* Enum exhaustiveness fallback branches should pair explicit `never(...)` with
+  `# pragma: no cover` on the dead post-invariant path.
 * Any execution-coverage threshold change MUST be explicit, ratchet-governed,
   and applied in both policy text and enforcing workflows/scripts in one change-set.
 

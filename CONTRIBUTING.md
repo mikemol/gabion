@@ -1,5 +1,5 @@
 ---
-doc_revision: 111
+doc_revision: 112
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -170,6 +170,8 @@ sequence in order:
 - Normalize optional boundary inputs once; internal decode/analysis paths should consume validated shapes.
 - Do not use sentinel parse outcomes for control decisions in core flows.
 - If an internal state is impossible after ingress validation, enforce it with `never()`.
+- `# pragma: no cover` is permitted only on branches protected by `never(...)`.
+- For enum exhaustiveness, prefer an explicit `never(...)` fallback with `# pragma: no cover` on the dead path so drift is immediately attributable.
 
 ## Sortedness Disclosure Ratchet (normative)
 When sortedness is enforced, it must be treated as part of semantic behavior.

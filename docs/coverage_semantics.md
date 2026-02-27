@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -181,6 +181,10 @@ kind of assurance.
 Line/branch coverage shows what code executed, but **does not** guarantee
 semantic correctness. This repository still requires full execution coverage as
 an enforceable gate for regression control.
+
+`# pragma: no cover` is permitted only when the covered branch is protected by
+`never(...)` after ingress validation. Enum exhaustiveness fallbacks should use
+this paired pattern so invariant drift faults at one obvious correction point.
 
 ### 1.2 Rule coverage (required)
 Each normative rule or invariant must be exercised by tests that include:
