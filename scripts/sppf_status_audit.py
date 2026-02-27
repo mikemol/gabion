@@ -8,9 +8,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:  # pragma: no cover - import form depends on invocation mode
+try:
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+except ModuleNotFoundError:
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.order_contract import ordered_or_sorted
@@ -209,5 +209,5 @@ def main(argv: list[str] | None = None) -> int:
         return code
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     raise SystemExit(main())

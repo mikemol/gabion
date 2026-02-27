@@ -112,15 +112,17 @@ controller_drift:
         governance_rules.load_governance_rules(remediation_not_mapping)
 
 
-# gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._yaml_loader::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
-def test_governance_rules_loader_none_and_gate_filtering(tmp_path: Path) -> None:
-    original_yaml = governance_rules.yaml
-    try:
-        governance_rules.yaml = None
-        with pytest.raises(RuntimeError):
-            governance_rules._yaml_loader()
-    finally:
-        governance_rules.yaml = original_yaml
+# gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._load_yaml_module::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
+def test_governance_rules_loader_none_and_gate_filtering(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise_missing_yaml(_: str):
+        raise ImportError("missing yaml")
+
+    monkeypatch.setattr(governance_rules, "import_module", _raise_missing_yaml)
+    with pytest.raises(RuntimeError, match="PyYAML is required"):
+        governance_rules._load_yaml_module()
 
     mixed = tmp_path / "mixed.yaml"
     mixed.write_text(
