@@ -3145,13 +3145,27 @@ _INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
         "the execution carrier into a shared runner Protocol."
     ),
 )
+_INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_graph_builder",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_build_call_graph"}),
+    min_members=2,
+    candidate="IndexedPassSpec[T] graph-builder Protocol",
+    description=(
+        "Functions repeatedly rebuilding call graph projections should "
+        "share one indexed-pass graph-builder execution contract."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
     _INDEXED_PASS_RUNNER_RULE,
+    _INDEXED_PASS_GRAPH_RULE,
 )
 
 
-def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
+def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
     params: list[str] = []
     params.extend(arg.arg for arg in node.args.posonlyargs)
     params.extend(arg.arg for arg in node.args.args)
@@ -3159,20 +3173,59 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
+def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
+    if type(node) is ast.Name:
+        return (cast(ast.Name, node).id,)
+    if type(node) is not ast.Attribute:
+        return ()
+    attribute = cast(ast.Attribute, node)
+    parts: list[str] = [attribute.attr]
+    cursor: ast.AST = attribute.value
+    while type(cursor) is ast.Attribute:
+        nested = cast(ast.Attribute, cursor)
+        parts.append(nested.attr)
+        cursor = nested.value
+    if type(cursor) is ast.Name:
+        parts.append(cast(ast.Name, cursor).id)
+    dotted = ".".join(reversed(parts))
+    return (attribute.attr, dotted)
+
+
 def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
     for node in tree.body:
         check_deadline()
-        if type(node) is not ast.FunctionDef:
+        if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
             continue
-        function_node = cast(ast.FunctionDef, node)
+        function_node = cast(FunctionNode, node)
         param_names = frozenset(_function_param_names(function_node))
+        alias_map: dict[str, tuple[str, ...]] = {}
+        for statement in function_node.body:
+            check_deadline()
+            if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
+                continue
+            assign_node = cast(ast.Assign, statement)
+            target = assign_node.targets[0]
+            if type(target) is not ast.Name:
+                continue
+            variants = _callable_name_variants(assign_node.value)
+            if not variants:
+                continue
+            alias_map[cast(ast.Name, target).id] = variants
         called_names: set[str] = set()
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if type(child) is not ast.Call or type(cast(ast.Call, child).func) is not ast.Name:
+            if type(child) is not ast.Call:
                 continue
-            called_names.add(cast(ast.Name, cast(ast.Call, child).func).id)
+            call_node = cast(ast.Call, child)
+            variants = _callable_name_variants(call_node.func)
+            if not variants:
+                continue
+            for variant in variants:
+                check_deadline()
+                called_names.add(variant)
+                for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
+                    called_names.add(alias_variant)
         yield function_node.name, param_names, frozenset(called_names)
 
 
