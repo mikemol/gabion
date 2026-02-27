@@ -361,3 +361,48 @@ def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path
 
     assert rc == 2
     assert any(item["sensor"] == "missing_normative_docs_in_repo" for item in payload["findings"])
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_payload_branching_allows_boundary_decode
+
+def test_policy_check_payload_branching_allows_boundary_decode(tmp_path: Path) -> None:
+    module = tmp_path / "ok.py"
+    module.write_text(
+        """
+from collections.abc import Mapping
+
+def _decode_payload(value: object) -> object:
+    match value:
+        case Mapping() as payload:
+            return payload
+        case list() as payload:
+            return payload
+        case _:
+            return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert policy_check._raw_payload_branching_violations(module) == []
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_payload_branching_flags_non_decode_functions
+
+def test_policy_check_payload_branching_flags_non_decode_functions(tmp_path: Path) -> None:
+    module = tmp_path / "bad.py"
+    module.write_text(
+        """
+from collections.abc import Mapping
+
+def semantic(value: object) -> object:
+    match value:
+        case Mapping() as payload:
+            return payload
+        case _:
+            return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    violations = policy_check._raw_payload_branching_violations(module)
+    assert violations
