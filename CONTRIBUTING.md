@@ -1,5 +1,5 @@
 ---
-doc_revision: 110
+doc_revision: 111
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -241,10 +241,16 @@ Correction-unit validation stack (recommended interoperability baseline):
 ```bash
 mise exec -- python scripts/policy_check.py --workflows
 mise exec -- python scripts/policy_check.py --ambiguity-contract
+mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
 mise exec -- python -m pytest -q <targeted-tests>
 mise exec -- python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
 git diff --exit-code out/test_evidence.json
 ```
+
+Adapter-ingestion corrections must include golden fixture evidence for each
+added adapter path under `tests/fixtures/ingest_adapter/`, plus parity
+assertions that equivalent adapter payloads preserve overlapping
+bundle/decision surfaces.
 
 When semantic-core modules or policy-check-critical files are touched, also run the strict coverage gate:
 

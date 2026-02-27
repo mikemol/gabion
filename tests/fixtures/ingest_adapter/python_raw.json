@@ -1,0 +1,42 @@
+{
+  "exit_code": "0",
+  "timeout": false,
+  "analysis_state": "done",
+  "errors": ["first error", 2],
+  "lint_lines": [
+    "pkg/module.py:9:2: DF001 ambiguous bundle",
+    "not-a-lint-line"
+  ],
+  "decision_surfaces": [
+    {"surface": "bundle", "id": "B1"},
+    {"surface": "deadness", "id": "D1"}
+  ],
+  "bundle_sites_by_path": {
+    "pkg/module.py": [
+      {"function": "f", "bundle": ["a", "b"]}
+    ]
+  },
+  "fingerprint_rewrite_plans": [
+    {
+      "plan_id": "rewrite:z.py:f:a:glossary-ambiguity:surface-canonicalize",
+      "site": {"path": "z.py", "function": "f", "bundle": ["a"]},
+      "rewrite": {"kind": "SURFACE_CANONICALIZE", "parameters": {"candidates": ["ctx"]}},
+      "verification": {"predicates": [{"kind": "base_conservation"}]},
+      "evidence": {"provenance_id": "p", "coherence_id": "c"}
+    },
+    {
+      "plan_id": "rewrite:a.py:f:a:glossary-ambiguity:bundle-align",
+      "site": {"path": "a.py", "function": "f", "bundle": ["a"]},
+      "rewrite": {"kind": "BUNDLE_ALIGN", "parameters": {"candidates": ["ctx"]}},
+      "verification": {
+        "predicates": [
+          {"kind": "base_conservation"},
+          {"kind": "ctor_coherence"},
+          {"kind": "match_strata"},
+          {"kind": "remainder_non_regression"}
+        ]
+      },
+      "evidence": {"provenance_id": "p", "coherence_id": "c"}
+    }
+  ]
+}
