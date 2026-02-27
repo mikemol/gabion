@@ -5,5 +5,6 @@ __all__ = [
     "env_policy",
     "json_io",
     "path_policy",
+    "policy_runtime",
     "stable_encode",
 ]

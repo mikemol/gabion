@@ -10,6 +10,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines_from_payload,
 )
 from gabion.exceptions import NeverThrown
+from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_spec_metadata_lines_emit_canonical_id_and_json::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
@@ -34,53 +35,23 @@ def test_spec_metadata_lines_from_payload_defaults_non_mapping_spec_payload() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_projection_registry_gas_limit_default_and_env_override::projection_registry.py::gabion.analysis.projection_registry._projection_registry_gas_limit
-def test_projection_registry_gas_limit_default_and_env_override(
-    env_scope,
-    restore_env,
-) -> None:
-    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
-    try:
-        assert _projection_registry_gas_limit() > 0
-        nested_previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "12345"})
-        try:
-            assert _projection_registry_gas_limit() == 12_345
-        finally:
-            restore_env(nested_previous)
-    finally:
-        restore_env(previous)
+def test_projection_registry_gas_limit_default_and_override() -> None:
+    assert _projection_registry_gas_limit() > 0
+    with runtime_policy_scope(RuntimePolicyConfig(projection_registry_gas_limit=12_345)):
+        assert _projection_registry_gas_limit() == 12_345
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_projection_registry_gas_limit_rejects_invalid_env::projection_registry.py::gabion.analysis.projection_registry._projection_registry_gas_limit
-def test_projection_registry_gas_limit_rejects_invalid_env(
-    env_scope,
-    restore_env,
-) -> None:
-    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
-    try:
-        invalid_zero = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "0"})
-        try:
-            with pytest.raises(NeverThrown):
-                _projection_registry_gas_limit()
-        finally:
-            restore_env(invalid_zero)
-        invalid_text = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "bad"})
-        try:
-            with pytest.raises(NeverThrown):
-                _projection_registry_gas_limit()
-        finally:
-            restore_env(invalid_text)
-    finally:
-        restore_env(previous)
+def test_projection_registry_gas_limit_rejects_invalid_runtime_value() -> None:
+    with runtime_policy_scope(RuntimePolicyConfig(projection_registry_gas_limit=1)):
+        assert _projection_registry_gas_limit() == 1
+    with pytest.raises(NeverThrown):
+        with runtime_policy_scope(RuntimePolicyConfig(projection_registry_gas_limit=0)):
+            _projection_registry_gas_limit()
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_build_registered_specs_uses_configured_gas_limit::projection_registry.py::gabion.analysis.projection_registry.build_registered_specs
-def test_build_registered_specs_uses_configured_gas_limit(
-    env_scope,
-    restore_env,
-) -> None:
-    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "10000"})
-    try:
+def test_build_registered_specs_uses_configured_gas_limit() -> None:
+    with runtime_policy_scope(RuntimePolicyConfig(projection_registry_gas_limit=10_000)):
         specs = build_registered_specs()
-    finally:
-        restore_env(previous)
     assert specs
