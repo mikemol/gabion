@@ -135,3 +135,23 @@ def test_build_check_payload_includes_aspf_controls() -> None:
         "artifacts/out/aspf_state/session/0000_prev.json"
     ]
     assert payload["aspf_semantic_surface"] == ["groups_by_path", "violation_summary"]
+
+
+# gabion:evidence E:function_site::tests/test_check_contract.py::test_lint_entries_decision_protocol_trichotomy
+def test_lint_entries_decision_protocol_trichotomy() -> None:
+    provided = check_contract.LintEntriesDecision.from_response(
+        {"lint_entries": [{"path": "a.py", "line": 1, "col": 1, "code": "X", "message": "m"}], "lint_lines": ["ignored"]}
+    )
+    assert provided.kind == "provided_entries"
+    assert len(provided.normalize_entries(parse_lint_entry_fn=lambda _line: None)) == 1
+
+    derived = check_contract.LintEntriesDecision.from_response(
+        {"lint_lines": ["a.py:1:2: X detail"]}
+    )
+    parsed = derived.normalize_entries(parse_lint_entry_fn=lambda line: {"line": line})
+    assert derived.kind == "derive_from_lines"
+    assert parsed == [{"line": "a.py:1:2: X detail"}]
+
+    empty = check_contract.LintEntriesDecision.from_response({})
+    assert empty.kind == "empty"
+    assert empty.normalize_entries(parse_lint_entry_fn=lambda _line: {"unused": True}) == []
