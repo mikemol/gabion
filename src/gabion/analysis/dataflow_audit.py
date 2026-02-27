@@ -2257,7 +2257,12 @@ def _analyze_decision_surface_indexed(
             else f"internal callers (transitive): {caller_count}"
         )
         descriptor = spec.descriptor(info, boundary)
-        site_id = forest.add_site(info.path.name, info.qual)
+        suite_id = forest.add_suite_site(
+            info.path.name,
+            info.qual,
+            "function_body",
+            span=info.function_span,
+        )
         paramset_id = forest.add_paramset(params)
         reason_summary = (
             _decision_reason_summary(info, params)
@@ -2266,7 +2271,7 @@ def _analyze_decision_surface_indexed(
         )
         forest.add_alt(
             spec.alt_kind,
-            (site_id, paramset_id),
+            (suite_id, paramset_id),
             evidence=_decision_surface_alt_evidence(
                 spec=spec,
                 boundary=boundary,
@@ -5512,7 +5517,12 @@ def _collect_never_invariants(
                     entry["environment_ref"] = environment_ref
                 entry["span"] = list(normalized_span)
                 invariants.append(entry)
-                site_id = forest.add_site(path.name, function)
+                site_id = forest.add_suite_site(
+                    path.name,
+                    function,
+                    "call",
+                    span=normalized_span,
+                )
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
