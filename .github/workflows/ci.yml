@@ -133,6 +133,8 @@ jobs:
         run: .venv/bin/python scripts/policy_check.py --workflows
       - name: Policy check (ambiguity contract)
         run: .venv/bin/python scripts/policy_check.py --ambiguity-contract
+      - name: Policy check (tier2 residue contract)
+        run: .venv/bin/python scripts/policy_check.py --tier2-residue-contract
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:

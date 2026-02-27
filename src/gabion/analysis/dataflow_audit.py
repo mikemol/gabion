@@ -37,6 +37,7 @@ from gabion.analysis.pattern_schema import (
     PatternInstance,
     PatternResidue,
     PatternSchema,
+    execution_signature,
     mismatch_residue_payload,
 )
 
@@ -331,6 +332,7 @@ class _ReportSectionKey:
 class _ExecutionPatternMatch:
     pattern_id: str
     kind: str
+    schema_family: str
     members: tuple[str, ...]
     suggestion: str
 
@@ -339,6 +341,11 @@ class _ExecutionPatternMatch:
 class _ExecutionPatternRule:
     pattern_id: str
     kind: str
+    schema_family: str
+    required_params: frozenset[str]
+    callee_names: frozenset[str]
+    min_members: int
+    candidate: str
     description: str
 
 
@@ -3100,14 +3107,6 @@ def _raw_sorted_contract_violations(
     return violations
 
 
-_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
-    pattern_id="indexed_pass_ingress",
-    kind="execution_pattern",
-    description=(
-        "Functions sharing the indexed-pass ingress contract should be reified "
-        "behind a typed pass metafactory."
-    ),
-)
 _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
     {
         "paths",
@@ -3120,8 +3119,35 @@ _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
         "analysis_index",
     }
 )
+_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_ingress",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+    min_members=3,
+    candidate="IndexedPassSpec[T] metafactory",
+    description=(
+        "Functions sharing the indexed-pass ingress contract should be reified "
+        "behind a typed pass metafactory."
+    ),
+)
+_INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_runner",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+    callee_names=frozenset({"_run_indexed_pass"}),
+    min_members=2,
+    candidate="IndexedPassSpec[T] runner Protocol",
+    description=(
+        "Functions repeatedly invoking _run_indexed_pass should consolidate "
+        "the execution carrier into a shared runner Protocol."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
+    _INDEXED_PASS_RUNNER_RULE,
 )
 
 
@@ -3133,52 +3159,37 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
-def _indexed_pass_ingress_members(
-    *,
-    source = None,
-    source_path = None,
-) -> tuple[str, ...]:
-    module_path = source_path or Path(__file__)
-    if source is None:
-        try:
-            source = module_path.read_text()
-        except OSError:
-            return ()
-    try:
-        tree = ast.parse(source)
-    except _PARSE_MODULE_ERROR_TYPES:
-        return ()
-    indexed_members: list[str] = []
+def _iter_execution_function_facts(tree: ast.Module) -> Iterator[tuple[str, frozenset[str], frozenset[str]]]:
     for node in tree.body:
         check_deadline()
         if type(node) is not ast.FunctionDef:
             continue
         function_node = cast(ast.FunctionDef, node)
-        param_names = _function_param_names(function_node)
-        if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
-            continue
-        calls_index_ingress = False
+        param_names = frozenset(_function_param_names(function_node))
+        called_names: set[str] = set()
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if type(child) is not ast.Call:
+            if type(child) is not ast.Call or type(cast(ast.Call, child).func) is not ast.Name:
                 continue
-            call_node = cast(ast.Call, child)
-            if type(call_node.func) is not ast.Name:
-                continue
-            call_name = cast(ast.Name, call_node.func)
-            if call_name.id in {"_build_analysis_index", "_build_call_graph"}:
-                calls_index_ingress = True
-                break
-        if not calls_index_ingress:
+            called_names.add(cast(ast.Name, cast(ast.Call, child).func).id)
+        yield function_node.name, param_names, frozenset(called_names)
+
+
+def _execution_pattern_members(
+    *,
+    tree: ast.Module,
+    rule: _ExecutionPatternRule,
+) -> tuple[str, ...]:
+    members: list[str] = []
+    for name, param_names, called_names in _iter_execution_function_facts(tree):
+        check_deadline()
+        if not rule.required_params.issubset(param_names):
             continue
-        indexed_members.append(function_node.name)
-    return tuple(
-        sort_once(
-            indexed_members,
-            source="_indexed_pass_ingress_members.indexed_members",
-        )
-    )
+        if not called_names.intersection(rule.callee_names):
+            continue
+        members.append(name)
+    return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
 
 
 def _detect_execution_pattern_matches(
@@ -3186,19 +3197,33 @@ def _detect_execution_pattern_matches(
     source = None,
     source_path = None,
 ) -> list[_ExecutionPatternMatch]:
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return []
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return []
     matches: list[_ExecutionPatternMatch] = []
-    members = _indexed_pass_ingress_members(source=source, source_path=source_path)
-    if len(members) >= 3:
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        members = _execution_pattern_members(tree=tree, rule=rule)
+        if len(members) < rule.min_members:
+            continue
         matches.append(
             _ExecutionPatternMatch(
-                pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                kind=_INDEXED_PASS_INGRESS_RULE.kind,
+                pattern_id=rule.pattern_id,
+                kind=rule.kind,
+                schema_family=rule.schema_family,
                 members=members,
                 suggestion=(
-                    f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(members)} "
+                    f"{rule.pattern_id} members={len(members)} "
                     + ", ".join(members[:8])
                     + (" ..." if len(members) > 8 else "")
-                    + "; candidate=IndexedPassSpec[T] metafactory"
+                    + f"; candidate={rule.candidate}"
                 ),
             )
         )
@@ -3211,20 +3236,25 @@ def _execution_pattern_instances(
     source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    for match in _detect_execution_pattern_matches(
+    matches = _detect_execution_pattern_matches(
         source=source,
         source_path=source_path,
-    ):
+    )
+    for match in matches:
         check_deadline()
-        signature: JSONObject = {
-            "pattern_id": match.pattern_id,
-            "members": list(match.members),
-        }
+        rule = next(rule for rule in _EXECUTION_PATTERN_RULES if rule.pattern_id == match.pattern_id)
+        signature = execution_signature(
+            family=match.schema_family,
+            members=match.members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=match.pattern_id,
+            kind=match.kind,
             signature=signature,
-            normalization={"members": list(match.members)},
+            normalization={
+                "members": list(match.members),
+                "pattern_id": match.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
@@ -3240,27 +3270,34 @@ def _execution_pattern_instances(
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
                             kind=match.pattern_id,
-                            expected={"min_members": 3, "candidate": "IndexedPassSpec[T]"},
+                            expected={"min_members": rule.min_members, "candidate": rule.candidate},
                             observed={"members": list(match.members), "member_count": len(match.members)},
                         ),
                     ),
                 ),
             )
         )
-    near_miss_members = _indexed_pass_ingress_members(
-        source=source,
-        source_path=source_path,
-    )
-    if len(near_miss_members) == 2:
-        signature: JSONObject = {
-            "pattern_id": _INDEXED_PASS_INGRESS_RULE.pattern_id,
-            "members": list(near_miss_members),
-        }
+    try:
+        tree = ast.parse(source if source is not None else (source_path or Path(__file__)).read_text())
+    except (OSError, *_PARSE_MODULE_ERROR_TYPES):
+        return instances
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        near_miss_members = _execution_pattern_members(tree=tree, rule=rule)
+        if len(near_miss_members) != max(rule.min_members - 1, 1):
+            continue
+        signature = execution_signature(
+            family=rule.schema_family,
+            members=near_miss_members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+            kind=rule.kind,
             signature=signature,
-            normalization={"members": list(near_miss_members)},
+            normalization={
+                "members": list(near_miss_members),
+                "pattern_id": rule.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
@@ -3268,7 +3305,7 @@ def _execution_pattern_instances(
                 members=near_miss_members,
                 suggestion=(
                     "execution_pattern near_miss "
-                    + f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(near_miss_members)}"
+                    + f"{rule.pattern_id} members={len(near_miss_members)}"
                 ),
                 residue=(
                     PatternResidue(
@@ -3276,9 +3313,9 @@ def _execution_pattern_instances(
                         reason="schema_contract_mismatch",
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
-                            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                            expected={"min_members": 3},
-                            observed={"members": list(near_miss_members), "member_count": 2},
+                            kind=rule.pattern_id,
+                            expected={"min_members": rule.min_members},
+                            observed={"members": list(near_miss_members), "member_count": len(near_miss_members)},
                         ),
                     ),
                 ),
@@ -3473,6 +3510,32 @@ def _pattern_schema_residue_entries(
     return sort_once(
         entries,
         source="_pattern_schema_residue_entries.entries",
+        key=lambda entry: (
+            entry.schema_id,
+            entry.reason,
+            json.dumps(entry.payload, sort_keys=False, separators=(",", ":")),
+        ),
+    )
+
+
+def _tier2_unreified_residue_entries(
+    entries: Sequence[PatternResidue],
+) -> list[PatternResidue]:
+    candidates: list[PatternResidue] = []
+    for entry in entries:
+        check_deadline()
+        if entry.reason not in {"unreified_protocol", "unreified_metafactory"}:
+            continue
+        expected = mapping_or_none(entry.payload.get("expected"))
+        if expected is None:
+            continue
+        tier_value = expected.get("tier")
+        min_members = expected.get("min_members")
+        if tier_value == 2 or (isinstance(min_members, int) and min_members >= 2):
+            candidates.append(entry)
+    return sort_once(
+        candidates,
+        source="_tier2_unreified_residue_entries.candidates",
         key=lambda entry: (
             entry.schema_id,
             entry.reason,
