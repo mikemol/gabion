@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -113,6 +113,10 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   dependencies.
 - Prefer impossible-by-construction contracts over sentinel parse outcomes;
   after ingress validation, invalid states must be discharged via `never()`.
+- `# pragma: no cover` is permitted only when the corresponding branch is
+  discharged by `never(...)`.
+- Enum exhaustiveness fallbacks should pair explicit `never(...)` with
+  `# pragma: no cover` on the dead post-invariant path.
 - Treat docflow as repo-local convenience only; do not project it as a
   general Gabion feature without explicit policy change.
 - Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit

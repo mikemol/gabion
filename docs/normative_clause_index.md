@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -114,6 +114,8 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Existing compatibility layers are remediation debt and must carry dated removal commitments.
 - ACP/branchless/defensive-fallback violations discovered during simplification are transition signals for forward boundary reification.
 - Rollback-first is disallowed by default; rollback is permitted only when forward remediation cannot preserve behavior or cannot converge.
+- `# pragma: no cover` is allowed only when the branch is protected by a `never()` invariant.
+- Enum exhaustiveness fallbacks should pair `never(...)` with `# pragma: no cover` so drift is explicit and correction is local.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.
 
 <a id="clause-baseline-ratchet"></a>
