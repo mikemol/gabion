@@ -249,6 +249,8 @@ class DataflowPayloadCommonOptions:
     allow_external: bool | None
     strictness: str | None
     lint: bool
+    language: str | None = None
+    ingest_profile: str | None = None
     deadline_profile: bool = True
     aspf_trace_json: Path | None = None
     aspf_import_trace: list[Path] | None = None
@@ -320,6 +322,8 @@ def build_dataflow_payload_common(
         "allow_external": options.allow_external,
         "strictness": options.strictness,
         "lint": options.lint,
+        "language": options.language,
+        "ingest_profile": options.ingest_profile,
         "deadline_profile": bool(options.deadline_profile),
         "aspf_trace_json": str(options.aspf_trace_json)
         if options.aspf_trace_json is not None

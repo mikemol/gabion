@@ -89,6 +89,98 @@ def _reject_removed_legacy_payload_keys(payload: dict[str, object]) -> None:
     )
 
 
+
+
+@dataclass(frozen=True)
+class _DataflowCapabilityAnnotations:
+    selected_adapter: str
+    supported_analysis_surfaces: list[str]
+    disabled_surface_reasons: dict[str, str]
+
+
+def _normalize_dataflow_format_controls(
+    payload: dict[str, object],
+) -> tuple[dict[str, object], _DataflowCapabilityAnnotations]:
+    supported_surfaces = {
+        "decision_surfaces": "Decision-surface extraction and reporting.",
+        "value_decision_surfaces": "Value-encoded decision-surface extraction.",
+        "type_ambiguities": "Type-ambiguity detection and reporting.",
+        "rewrite_plans": "Fingerprint rewrite-plan analysis and projection.",
+    }
+    profile_matrix: dict[str, tuple[list[str], dict[str, str]]] = {
+        "default": (
+            [
+                "decision_surfaces",
+                "value_decision_surfaces",
+                "type_ambiguities",
+                "rewrite_plans",
+            ],
+            {},
+        ),
+        "syntax-only": (
+            [],
+            {
+                surface: "disabled by ingest profile syntax-only"
+                for surface in supported_surfaces
+            },
+        ),
+    }
+    raw_language = payload.get("language")
+    normalized_language = (
+        str(raw_language).strip().lower() if raw_language is not None else "python"
+    )
+    if not normalized_language:
+        normalized_language = "python"
+    if normalized_language != "python":
+        never(
+            "unsupported dataflow language",
+            language=normalized_language,
+            supported_languages=["python"],
+        )
+    raw_ingest_profile = payload.get("ingest_profile")
+    normalized_ingest_profile = (
+        str(raw_ingest_profile).strip().lower()
+        if raw_ingest_profile is not None
+        else "default"
+    )
+    if not normalized_ingest_profile:
+        normalized_ingest_profile = "default"
+    if normalized_ingest_profile not in profile_matrix:
+        never(
+            "unsupported dataflow ingest profile",
+            language=normalized_language,
+            ingest_profile=normalized_ingest_profile,
+            supported_ingest_profiles=list(profile_matrix),
+        )
+    surfaces, disabled_surface_reasons = profile_matrix[normalized_ingest_profile]
+    selected_adapter = f"{normalized_language}:{normalized_ingest_profile}"
+    normalized_payload = boundary_order.apply_boundary_updates_once(
+        payload,
+        {
+            "language": normalized_language,
+            "ingest_profile": normalized_ingest_profile,
+            "selected_adapter": selected_adapter,
+            "supported_analysis_surfaces": sort_once(
+                list(surfaces),
+                source="server_core.command_orchestrator._normalize_dataflow_format_controls.supported_analysis_surfaces",
+            ),
+            "disabled_surface_reasons": {
+                surface: disabled_surface_reasons[surface]
+                for surface in sort_once(
+                    disabled_surface_reasons,
+                    source="server_core.command_orchestrator._normalize_dataflow_format_controls.disabled_surface_keys",
+                )
+            },
+        },
+        source="server_core.command_orchestrator._normalize_dataflow_format_controls.payload",
+    )
+    return normalized_payload, _DataflowCapabilityAnnotations(
+        selected_adapter=selected_adapter,
+        supported_analysis_surfaces=list(normalized_payload["supported_analysis_surfaces"]),
+        disabled_surface_reasons=dict(
+            cast(dict[str, str], normalized_payload["disabled_surface_reasons"])
+        ),
+    )
 def _validate_auxiliary_flag_conflicts(
     *,
     emit_test_obsolescence_delta: bool,
@@ -702,6 +794,7 @@ class _TimeoutCleanupContext:
     aspf_trace_state: object | None
     ensure_report_sections_cache_fn: object
     emit_lsp_progress_fn: object
+    dataflow_capabilities: _DataflowCapabilityAnnotations
     analysis_resume_source: str = "cold_start"
     analysis_resume_state_compatibility_status: str | None = None
 
@@ -2437,6 +2530,13 @@ def _handle_timeout_cleanup(
             "analysis_state": analysis_state,
             "execution_plan": context.execution_plan.as_json_dict(),
             "timeout_context": timeout_payload,
+            "selected_adapter": context.dataflow_capabilities.selected_adapter,
+            "supported_analysis_surfaces": list(
+                context.dataflow_capabilities.supported_analysis_surfaces
+            ),
+            "disabled_surface_reasons": dict(
+                context.dataflow_capabilities.disabled_surface_reasons
+            ),
         }
         trace_artifacts = context.execute_deps.finalize_trace_fn(
             state=context.aspf_trace_state,
@@ -2827,6 +2927,7 @@ class _SuccessResponseContext:
     semantic_progress_cumulative: JSONObject | None
     latest_collection_progress: JSONObject
     emit_lsp_progress_fn: Callable[..., None]
+    dataflow_capabilities: _DataflowCapabilityAnnotations
 
 
 @dataclass(frozen=True)
@@ -3104,6 +3205,13 @@ def _build_success_response(
             )
     response["analysis_state"] = "succeeded"
     response["execution_plan"] = context.execution_plan.as_json_dict()
+    response["selected_adapter"] = context.dataflow_capabilities.selected_adapter
+    response["supported_analysis_surfaces"] = list(
+        context.dataflow_capabilities.supported_analysis_surfaces
+    )
+    response["disabled_surface_reasons"] = dict(
+        context.dataflow_capabilities.disabled_surface_reasons
+    )
     trace_artifacts = context.execute_deps.finalize_trace_fn(
         state=context.aspf_trace_state,
         root=Path(context.root),
@@ -3269,6 +3377,16 @@ def execute_command_total(
     aspf_trace_state: object | None = None
     progress_emitter: _ProgressEmitter | None = None
     emit_phase_progress_events = False
+    dataflow_capabilities = _DataflowCapabilityAnnotations(
+        selected_adapter="python:default",
+        supported_analysis_surfaces=[
+            "decision_surfaces",
+            "rewrite_plans",
+            "type_ambiguities",
+            "value_decision_surfaces",
+        ],
+        disabled_surface_reasons={},
+    )
 
     def _emit_lsp_progress(**_kwargs: object) -> None:
         return
@@ -3348,6 +3466,7 @@ def execute_command_total(
                 fingerprint_index = index
                 constructor_registry = TypeConstructorRegistry(registry)
         payload = merge_payload(payload, defaults)
+        payload, dataflow_capabilities = _normalize_dataflow_format_controls(payload)
         deadline_roots = set(payload.get("deadline_roots", deadline_roots))
 
         raw_paths = payload.get("paths")
@@ -3692,6 +3811,7 @@ def execute_command_total(
                 semantic_progress_cumulative=semantic_progress_cumulative,
                 latest_collection_progress=latest_collection_progress,
                 emit_lsp_progress_fn=_emit_lsp_progress,
+                dataflow_capabilities=dataflow_capabilities,
             )
         )
         phase_checkpoint_state = success_outcome.phase_checkpoint_state
@@ -3736,6 +3856,7 @@ def execute_command_total(
                 aspf_trace_state=aspf_trace_state,
                 ensure_report_sections_cache_fn=_ensure_report_sections_cache,
                 emit_lsp_progress_fn=_emit_lsp_progress,
+                dataflow_capabilities=dataflow_capabilities,
             ),
         )
     except Exception:
