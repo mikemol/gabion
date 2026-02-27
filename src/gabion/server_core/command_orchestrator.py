@@ -1633,88 +1633,95 @@ def _create_progress_emitter(
                 template = (
                     dict(last_progress_template)
                     if isinstance(last_progress_template, dict)
-                    else None
+                    else {}
                 )
                 notification_ns = int(last_progress_notification_ns)
                 change_ns = int(last_progress_change_ns)
-            if template and notification_ns > 0 and change_ns > 0:
-                now_ns = time.monotonic_ns()
-                stale_notification_ns = now_ns - notification_ns
-                stale_seconds = max(0.0, (now_ns - change_ns) / 1_000_000_000.0)
-                heartbeat_due = (
-                    heartbeat_interval_ns > 0
-                    and stale_notification_ns >= heartbeat_interval_ns
-                    and now_ns - last_heartbeat_emit_ns >= heartbeat_interval_ns
+            now_ns = time.monotonic_ns()
+            progress_ready = bool(template) & (notification_ns > 0) & (change_ns > 0)
+            stale_notification_ns = now_ns - notification_ns if progress_ready else 0
+            stale_seconds = (
+                max(0.0, (now_ns - change_ns) / 1_000_000_000.0)
+                if progress_ready
+                else 0.0
+            )
+            heartbeat_due = bool(
+                progress_ready
+                & (heartbeat_interval_ns > 0)
+                & (stale_notification_ns >= heartbeat_interval_ns)
+                & (now_ns - last_heartbeat_emit_ns >= heartbeat_interval_ns)
+            )
+            deadline_due = bool(
+                progress_ready
+                & (stale_notification_ns >= deadline_emit_ns)
+                & (now_ns - last_watchdog_flush_ns >= deadline_emit_ns)
+            )
+            watchdog_due = bool(
+                progress_ready
+                & (stale_notification_ns >= watchdog_interval_ns)
+                & (now_ns - last_watchdog_flush_ns >= watchdog_interval_ns)
+            )
+            if deadline_due or watchdog_due:
+                emit_lsp_progress(
+                    phase=cast(
+                        Literal["collection", "forest", "edge", "post"],
+                        str(template.get("phase", "collection")),
+                    ),
+                    collection_progress=cast(
+                        Mapping[str, JSONValue],
+                        template.get("collection_progress", {}),
+                    ),
+                    semantic_progress=cast(
+                        Mapping[str, JSONValue] | None,
+                        template.get("semantic_progress"),
+                    ),
+                    work_done=cast(int | None, template.get("work_done")),
+                    work_total=cast(int | None, template.get("work_total")),
+                    include_timing=bool(template.get("include_timing", False)),
+                    done=False,
+                    analysis_state=cast(str | None, template.get("analysis_state")),
+                    classification=cast(str | None, template.get("classification")),
+                    phase_progress_v2=cast(
+                        Mapping[str, JSONValue] | None,
+                        template.get("phase_progress_v2"),
+                    ),
+                    progress_marker=cast(str | None, template.get("progress_marker")),
+                    event_kind="progress",
+                    stale_for_s=stale_seconds,
+                    record_for_heartbeat=False,
+                    update_notification_clock=False,
                 )
-                deadline_due = (
-                    stale_notification_ns >= deadline_emit_ns
-                    and now_ns - last_watchdog_flush_ns >= deadline_emit_ns
+                last_watchdog_flush_ns = now_ns
+            if heartbeat_due:
+                emit_lsp_progress(
+                    phase=cast(
+                        Literal["collection", "forest", "edge", "post"],
+                        str(template.get("phase", "collection")),
+                    ),
+                    collection_progress=cast(
+                        Mapping[str, JSONValue],
+                        template.get("collection_progress", {}),
+                    ),
+                    semantic_progress=cast(
+                        Mapping[str, JSONValue] | None,
+                        template.get("semantic_progress"),
+                    ),
+                    work_done=cast(int | None, template.get("work_done")),
+                    work_total=cast(int | None, template.get("work_total")),
+                    include_timing=bool(template.get("include_timing", False)),
+                    done=False,
+                    analysis_state=cast(str | None, template.get("analysis_state")),
+                    classification=cast(str | None, template.get("classification")),
+                    phase_progress_v2=cast(
+                        Mapping[str, JSONValue] | None,
+                        template.get("phase_progress_v2"),
+                    ),
+                    progress_marker=cast(str | None, template.get("progress_marker")),
+                    event_kind="heartbeat",
+                    stale_for_s=stale_seconds,
+                    record_for_heartbeat=False,
                 )
-                watchdog_due = (
-                    stale_notification_ns >= watchdog_interval_ns
-                    and now_ns - last_watchdog_flush_ns >= watchdog_interval_ns
-                )
-                if deadline_due or watchdog_due:
-                    emit_lsp_progress(
-                        phase=cast(
-                            Literal["collection", "forest", "edge", "post"],
-                            str(template.get("phase", "collection")),
-                        ),
-                        collection_progress=cast(
-                            Mapping[str, JSONValue],
-                            template.get("collection_progress", {}),
-                        ),
-                        semantic_progress=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("semantic_progress"),
-                        ),
-                        work_done=cast(int | None, template.get("work_done")),
-                        work_total=cast(int | None, template.get("work_total")),
-                        include_timing=bool(template.get("include_timing", False)),
-                        done=False,
-                        analysis_state=cast(str | None, template.get("analysis_state")),
-                        classification=cast(str | None, template.get("classification")),
-                        phase_progress_v2=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("phase_progress_v2"),
-                        ),
-                        progress_marker=cast(str | None, template.get("progress_marker")),
-                        event_kind="progress",
-                        stale_for_s=stale_seconds,
-                        record_for_heartbeat=False,
-                        update_notification_clock=False,
-                    )
-                    last_watchdog_flush_ns = now_ns
-                if heartbeat_due:
-                    emit_lsp_progress(
-                        phase=cast(
-                            Literal["collection", "forest", "edge", "post"],
-                            str(template.get("phase", "collection")),
-                        ),
-                        collection_progress=cast(
-                            Mapping[str, JSONValue],
-                            template.get("collection_progress", {}),
-                        ),
-                        semantic_progress=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("semantic_progress"),
-                        ),
-                        work_done=cast(int | None, template.get("work_done")),
-                        work_total=cast(int | None, template.get("work_total")),
-                        include_timing=bool(template.get("include_timing", False)),
-                        done=False,
-                        analysis_state=cast(str | None, template.get("analysis_state")),
-                        classification=cast(str | None, template.get("classification")),
-                        phase_progress_v2=cast(
-                            Mapping[str, JSONValue] | None,
-                            template.get("phase_progress_v2"),
-                        ),
-                        progress_marker=cast(str | None, template.get("progress_marker")),
-                        event_kind="heartbeat",
-                        stale_for_s=stale_seconds,
-                        record_for_heartbeat=False,
-                    )
-                    last_heartbeat_emit_ns = now_ns
+                last_heartbeat_emit_ns = now_ns
 
     if emit_phase_progress_events and progress_heartbeat_seconds > 0:
         heartbeat_thread = threading.Thread(
