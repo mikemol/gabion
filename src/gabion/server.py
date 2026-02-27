@@ -2424,6 +2424,36 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     return entry.model_dump() if entry is not None else None
 
 
+def _normalize_dataflow_boundary_controls(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    normalized_updates: dict[str, object] = {}
+    for key in ("language", "ingest_profile"):
+        raw_value = payload.get(key)
+        if raw_value is None:
+            continue
+        if not isinstance(raw_value, str):
+            never(
+                "invalid dataflow boundary control type",
+                control=key,
+                value_type=type(raw_value).__name__,
+            )
+        normalized_value = raw_value.strip().lower()
+        if not normalized_value:
+            never(
+                "empty dataflow boundary control",
+                control=key,
+            )
+        normalized_updates[key] = normalized_value
+    if not normalized_updates:
+        return payload
+    return boundary_order.apply_boundary_updates_once(
+        payload,
+        normalized_updates,
+        source="server._normalize_dataflow_boundary_controls",
+    )
+
+
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
     lint_decision = LintEntriesDecision.from_response(response)
     lint_lines = list(lint_decision.lint_lines)
@@ -2435,6 +2465,27 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     aspf_opportunities_raw = response.get("aspf_opportunities")
     aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
     aspf_state_raw = response.get("aspf_state")
+    supported_analysis_surfaces_raw = response.get("supported_analysis_surfaces")
+    disabled_surface_reasons_raw = response.get("disabled_surface_reasons")
+    supported_analysis_surfaces = (
+        sort_once(
+            [str(item) for item in supported_analysis_surfaces_raw],
+            source="server._normalize_dataflow_response.supported_analysis_surfaces",
+        )
+        if isinstance(supported_analysis_surfaces_raw, list)
+        else []
+    )
+    disabled_surface_reasons = (
+        {
+            str(key): str(disabled_surface_reasons_raw[key])
+            for key in sort_once(
+                disabled_surface_reasons_raw,
+                source="server._normalize_dataflow_response.disabled_surface_keys",
+            )
+        }
+        if isinstance(disabled_surface_reasons_raw, Mapping)
+        else {}
+    )
     base = DataflowAuditResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
@@ -2442,6 +2493,13 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
         lint_lines=lint_lines,
         lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
+        selected_adapter=(
+            str(response.get("selected_adapter"))
+            if response.get("selected_adapter") is not None
+            else None
+        ),
+        supported_analysis_surfaces=supported_analysis_surfaces,
+        disabled_surface_reasons=disabled_surface_reasons,
         aspf_trace=aspf_trace_raw if isinstance(aspf_trace_raw, Mapping) else None,
         aspf_equivalence=(
             aspf_equivalence_raw if isinstance(aspf_equivalence_raw, Mapping) else None
@@ -2479,7 +2537,24 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     normalized["analysis_state"] = base.analysis_state
     normalized["errors"] = base.errors
     normalized["lint_lines"] = base.lint_lines
+    normalized["selected_adapter"] = base.selected_adapter
+    normalized["supported_analysis_surfaces"] = list(
+        base.supported_analysis_surfaces
+    )
+    normalized["disabled_surface_reasons"] = dict(base.disabled_surface_reasons)
     normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    payload = normalized.get("payload")
+    if isinstance(payload, Mapping):
+        payload_updates: dict[str, object] = {
+            "selected_adapter": base.selected_adapter,
+            "supported_analysis_surfaces": list(base.supported_analysis_surfaces),
+            "disabled_surface_reasons": dict(base.disabled_surface_reasons),
+        }
+        normalized["payload"] = boundary_order.apply_boundary_updates_once(
+            {str(key): payload[key] for key in payload},
+            payload_updates,
+            source="server._normalize_dataflow_response.payload_capabilities",
+        )
     if base.aspf_trace is not None:
         normalized["aspf_trace"] = base.aspf_trace.model_dump()
     if base.aspf_equivalence is not None:
@@ -3001,6 +3076,7 @@ def _execute_dataflow_command_boundary(
 ) -> dict:
     try:
         normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
+        normalized_payload = _normalize_dataflow_boundary_controls(normalized_payload)
         normalized_result = _execute_command_total(ls, normalized_payload, deps=deps)
         return _ordered_command_response(
             normalized_result,
