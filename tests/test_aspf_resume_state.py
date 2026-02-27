@@ -103,3 +103,42 @@ def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -
 
     records = list(aspf_resume_state.iter_delta_records_from_jsonl_paths(jsonl_paths=(jsonl_path,)))
     assert [record["seq"] for record in records] == [1, 2]
+
+
+def test_iter_resume_mutations_prefers_jsonl_sidecar_over_snapshot_ledger(tmp_path: Path) -> None:
+    state_path = tmp_path / "0001_stage.snapshot.json"
+    state_path.write_text(
+        json.dumps(_state_payload(projection_value=9, seq=99)),
+        encoding="utf-8",
+    )
+    jsonl_path = tmp_path / "0001_stage.delta.jsonl"
+    jsonl_path.write_text(
+        json.dumps({"seq": 1, "mutation_target": "collection_resume.done", "mutation_value": 1}) + "\n",
+        encoding="utf-8",
+    )
+
+    records = list(aspf_resume_state.iter_resume_mutations(state_paths=(state_path,)))
+
+    assert [record["seq"] for record in records] == [1]
+
+
+def test_fold_resume_mutations_applies_projection_and_tracks_tail() -> None:
+    mutations = (
+        {"mutation_target": "collection_resume.a", "mutation_value": 1},
+        {"mutation_target": "collection_resume.b", "mutation_value": 2},
+        {"mutation_target": "collection_resume.c", "mutation_value": 3},
+    )
+
+    projection, count, tail = aspf_resume_state.fold_resume_mutations(
+        snapshot={"analysis_state": "timed_out"},
+        mutations=mutations,
+        tail_limit=2,
+    )
+
+    assert count == 3
+    assert projection["analysis_state"] == "timed_out"
+    assert projection["collection_resume"] == {"a": 1, "b": 2, "c": 3}
+    assert [record["mutation_target"] for record in tail] == [
+        "collection_resume.b",
+        "collection_resume.c",
+    ]
