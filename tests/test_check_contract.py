@@ -21,17 +21,9 @@ def _artifact_flags() -> check_contract.CheckArtifactFlags:
 
 def _delta_options() -> check_contract.CheckDeltaOptions:
     return check_contract.CheckDeltaOptions(
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
+        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
+        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
     )
 
 

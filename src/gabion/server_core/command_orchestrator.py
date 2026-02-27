@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from itertools import zip_longest
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Mapping, cast
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
@@ -204,49 +204,89 @@ def _normalize_duration_timeout_clock_ticks(
     return max(1, total_ticks * _DURATION_TIMEOUT_CLOCK_MULTIPLIER)
 
 
-def _validate_auxiliary_flag_conflicts(
+@dataclass(frozen=True)
+class _AuxiliaryMode:
+    domain: str
+    kind: str
+    state_path: object
+    baseline_path_override: Path | None = None
+
+    @property
+    def emit_report(self) -> bool:
+        return self.kind == "report"
+
+    @property
+    def emit_state(self) -> bool:
+        return self.kind in {"state", "delta"}
+
+    @property
+    def emit_delta(self) -> bool:
+        return self.kind == "delta"
+
+    @property
+    def write_baseline(self) -> bool:
+        return self.kind == "baseline-write"
+
+
+@dataclass(frozen=True)
+class _AuxiliaryModeSelection:
+    obsolescence: _AuxiliaryMode
+    annotation_drift: _AuxiliaryMode
+    ambiguity: _AuxiliaryMode
+
+
+def _auxiliary_mode_from_payload(
     *,
-    emit_test_obsolescence_delta: bool,
-    write_test_obsolescence_baseline: bool,
-    emit_test_annotation_drift_delta: bool,
-    write_test_annotation_drift_baseline: bool,
-    emit_ambiguity_delta: bool,
-    write_ambiguity_baseline: bool,
-    emit_test_obsolescence_state: bool,
-    test_obsolescence_state_path: object,
-    emit_ambiguity_state: bool,
-    ambiguity_state_path: object,
-) -> None:
-    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
-        never(
-            "conflicting obsolescence flags",
-            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+    payload: dict[str, object],
+    mode_key: str,
+    state_key: str,
+    emit_state_key: str,
+    emit_delta_key: str,
+    write_baseline_key: str,
+    emit_report_key: str | None,
+    domain: str,
+    allow_report: bool,
+) -> _AuxiliaryMode:
+    raw_mode = payload.get(mode_key)
+    if isinstance(raw_mode, Mapping):
+        kind = str(raw_mode.get("kind", "off") or "off").strip().lower()
+        state_path = raw_mode.get("state_path")
+    else:
+        emit_report = (
+            bool(payload.get(emit_report_key, False)) if emit_report_key is not None else False
         )
-    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
-        never(
-            "conflicting annotation drift flags",
-            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-        )
-    if emit_ambiguity_delta and write_ambiguity_baseline:
-        never(
-            "conflicting ambiguity flags",
-            emit_ambiguity_delta=emit_ambiguity_delta,
-            write_ambiguity_baseline=write_ambiguity_baseline,
-        )
-    if emit_test_obsolescence_state and test_obsolescence_state_path:
-        never(
-            "conflicting obsolescence state flags",
-            emit_test_obsolescence_state=emit_test_obsolescence_state,
-            test_obsolescence_state_path=test_obsolescence_state_path,
-        )
-    if emit_ambiguity_state and ambiguity_state_path:
-        never(
-            "conflicting ambiguity state flags",
-            emit_ambiguity_state=emit_ambiguity_state,
-            ambiguity_state_path=ambiguity_state_path,
-        )
+        emit_state = bool(payload.get(emit_state_key, False))
+        emit_delta = bool(payload.get(emit_delta_key, False))
+        write_baseline = bool(payload.get(write_baseline_key, False))
+        state_path = payload.get(state_key)
+        enabled = sum(1 for flag in (emit_report, emit_state, emit_delta, write_baseline) if flag)
+        if enabled > 1:
+            never(
+                "conflicting auxiliary mode flags",
+                domain=domain,
+                emit_report=emit_report,
+                emit_state=emit_state,
+                emit_delta=emit_delta,
+                write_baseline=write_baseline,
+            )
+        if emit_report:
+            kind = "report"
+        elif emit_state:
+            kind = "state"
+        elif emit_delta:
+            kind = "delta"
+        elif write_baseline:
+            kind = "baseline-write"
+        else:
+            kind = "off"
+    allowed = {"off", "state", "delta", "baseline-write"}
+    if allow_report:
+        allowed.add("report")
+    if kind not in allowed:
+        never("invalid auxiliary mode", domain=domain, kind=kind, allowed=sorted(allowed))
+    if kind == "state" and state_path not in (None, ""):
+        never("state mode does not accept state path", domain=domain, state_path=state_path)
+    return _AuxiliaryMode(domain=domain, kind=kind, state_path=state_path)
 
 
 def _emit_annotation_drift_outputs(
@@ -593,18 +633,6 @@ def _apply_auxiliary_artifact_outputs(
     annotation_drift_baseline_path: Path | None,
     ambiguity_baseline_path: Path | None,
 ) -> None:
-    _validate_auxiliary_flag_conflicts(
-        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-        emit_ambiguity_delta=emit_ambiguity_delta,
-        write_ambiguity_baseline=write_ambiguity_baseline,
-        emit_test_obsolescence_state=emit_test_obsolescence_state,
-        test_obsolescence_state_path=test_obsolescence_state_path,
-        emit_ambiguity_state=emit_ambiguity_state,
-        ambiguity_state_path=ambiguity_state_path,
-    )
     if emit_test_evidence_suggestions:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
@@ -2634,27 +2662,14 @@ class _ExecutionPayloadOptions:
     structure_tree_path: object
     structure_metrics_path: object
     decision_snapshot_path: object
-    emit_test_obsolescence: bool
-    emit_test_obsolescence_state: bool
-    test_obsolescence_state_path: object
-    emit_test_obsolescence_delta: bool
-    write_test_obsolescence_baseline: bool
-    obsolescence_baseline_path_override: Path | None
+    obsolescence_mode: _AuxiliaryMode
+    annotation_drift_mode: _AuxiliaryMode
+    ambiguity_mode: _AuxiliaryMode
     emit_test_evidence_suggestions: bool
     emit_call_clusters: bool
     emit_call_cluster_consolidation: bool
-    emit_test_annotation_drift: bool
     emit_semantic_coverage_map: bool
-    test_annotation_drift_state_path: object
     semantic_coverage_mapping_path: object
-    emit_test_annotation_drift_delta: bool
-    write_test_annotation_drift_baseline: bool
-    annotation_drift_baseline_path_override: Path | None
-    emit_ambiguity_delta: bool
-    emit_ambiguity_state: bool
-    ambiguity_state_path: object
-    write_ambiguity_baseline: bool
-    ambiguity_baseline_path_override: Path | None
     synthesis_max_tier: object
     synthesis_min_bundle_size: object
     synthesis_allow_singletons: object
@@ -2680,6 +2695,71 @@ class _ExecutionPayloadOptions:
     aspf_semantic_surface: object
 
 
+    @property
+    def emit_test_obsolescence(self) -> bool:
+        return self.obsolescence_mode.emit_report
+
+    @property
+    def emit_test_obsolescence_state(self) -> bool:
+        return self.obsolescence_mode.emit_state
+
+    @property
+    def test_obsolescence_state_path(self) -> object:
+        return self.obsolescence_mode.state_path
+
+    @property
+    def emit_test_obsolescence_delta(self) -> bool:
+        return self.obsolescence_mode.emit_delta
+
+    @property
+    def write_test_obsolescence_baseline(self) -> bool:
+        return self.obsolescence_mode.write_baseline
+
+    @property
+    def obsolescence_baseline_path_override(self) -> Path | None:
+        return self.obsolescence_mode.baseline_path_override
+
+    @property
+    def emit_test_annotation_drift(self) -> bool:
+        return self.annotation_drift_mode.kind in {"report", "state"}
+
+    @property
+    def test_annotation_drift_state_path(self) -> object:
+        return self.annotation_drift_mode.state_path
+
+    @property
+    def emit_test_annotation_drift_delta(self) -> bool:
+        return self.annotation_drift_mode.emit_delta
+
+    @property
+    def write_test_annotation_drift_baseline(self) -> bool:
+        return self.annotation_drift_mode.write_baseline
+
+    @property
+    def annotation_drift_baseline_path_override(self) -> Path | None:
+        return self.annotation_drift_mode.baseline_path_override
+
+    @property
+    def emit_ambiguity_delta(self) -> bool:
+        return self.ambiguity_mode.emit_delta
+
+    @property
+    def emit_ambiguity_state(self) -> bool:
+        return self.ambiguity_mode.emit_state
+
+    @property
+    def ambiguity_state_path(self) -> object:
+        return self.ambiguity_mode.state_path
+
+    @property
+    def write_ambiguity_baseline(self) -> bool:
+        return self.ambiguity_mode.write_baseline
+
+    @property
+    def ambiguity_baseline_path_override(self) -> Path | None:
+        return self.ambiguity_mode.baseline_path_override
+
+
 @dataclass(frozen=True)
 class _AnalysisInclusionFlags:
     type_audit: bool
@@ -2694,6 +2774,86 @@ class _AnalysisInclusionFlags:
     needs_analysis: bool
 
 
+def _select_auxiliary_mode_selection(
+    *,
+    payload: dict[str, object],
+    root: Path,
+) -> _AuxiliaryModeSelection:
+    obsolescence_mode = _auxiliary_mode_from_payload(
+        payload=payload,
+        mode_key="obsolescence_mode",
+        state_key="test_obsolescence_state",
+        emit_state_key="emit_test_obsolescence_state",
+        emit_delta_key="emit_test_obsolescence_delta",
+        write_baseline_key="write_test_obsolescence_baseline",
+        emit_report_key="emit_test_obsolescence",
+        domain="obsolescence",
+        allow_report=True,
+    )
+    annotation_drift_mode = _auxiliary_mode_from_payload(
+        payload=payload,
+        mode_key="annotation_drift_mode",
+        state_key="test_annotation_drift_state",
+        emit_state_key="emit_test_annotation_drift_state",
+        emit_delta_key="emit_test_annotation_drift_delta",
+        write_baseline_key="write_test_annotation_drift_baseline",
+        emit_report_key="emit_test_annotation_drift",
+        domain="annotation-drift",
+        allow_report=True,
+    )
+    ambiguity_mode = _auxiliary_mode_from_payload(
+        payload=payload,
+        mode_key="ambiguity_mode",
+        state_key="ambiguity_state",
+        emit_state_key="emit_ambiguity_state",
+        emit_delta_key="emit_ambiguity_delta",
+        write_baseline_key="write_ambiguity_baseline",
+        emit_report_key=None,
+        domain="ambiguity",
+        allow_report=False,
+    )
+    aux_operation_raw = payload.get("aux_operation")
+    if isinstance(aux_operation_raw, dict):
+        aux_domain = str(aux_operation_raw.get("domain", "")).strip().lower()
+        aux_action = str(aux_operation_raw.get("action", "")).strip().lower()
+        aux_state_in = aux_operation_raw.get("state_in")
+        aux_baseline_path = resolve_baseline_path(aux_operation_raw.get("baseline_path"), root)
+        if aux_action in {"delta", "baseline-write"} and aux_baseline_path is None:
+            never("aux operation missing baseline path", domain=aux_domain, action=aux_action)
+        allowed_actions = {
+            "obsolescence": {"report", "state", "delta", "baseline-write"},
+            "annotation-drift": {"report", "state", "delta", "baseline-write"},
+            "ambiguity": {"state", "delta", "baseline-write"},
+        }
+        if aux_action not in allowed_actions.get(aux_domain, set()):
+            never("invalid aux operation action", domain=aux_domain, action=aux_action)
+        aux_mode = _AuxiliaryMode(
+            domain=aux_domain,
+            kind=aux_action,
+            state_path=aux_state_in,
+            baseline_path_override=aux_baseline_path,
+        )
+        if aux_domain == "obsolescence":
+            obsolescence_mode = aux_mode
+            annotation_drift_mode = _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None)
+            ambiguity_mode = _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None)
+        elif aux_domain == "annotation-drift":
+            annotation_drift_mode = aux_mode
+            obsolescence_mode = _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None)
+            ambiguity_mode = _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None)
+        elif aux_domain == "ambiguity":
+            ambiguity_mode = aux_mode
+            obsolescence_mode = _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None)
+            annotation_drift_mode = _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None)
+        else:
+            never("invalid aux operation domain", domain=aux_domain, action=aux_action)
+    return _AuxiliaryModeSelection(
+        obsolescence=obsolescence_mode,
+        annotation_drift=annotation_drift_mode,
+        ambiguity=ambiguity_mode,
+    )
+
+
 def _parse_execution_payload_options(
     *,
     payload: dict[str, object],
@@ -2703,79 +2863,7 @@ def _parse_execution_payload_options(
     if strictness not in {"high", "low"}:
         never("invalid strictness", strictness=str(strictness))
     baseline_path = resolve_baseline_path(payload.get("baseline"), root)
-    emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
-    emit_test_obsolescence_state = bool(payload.get("emit_test_obsolescence_state", False))
-    test_obsolescence_state_path = payload.get("test_obsolescence_state")
-    emit_test_obsolescence_delta = bool(payload.get("emit_test_obsolescence_delta", False))
-    write_test_obsolescence_baseline = bool(
-        payload.get("write_test_obsolescence_baseline", False)
-    )
-    obsolescence_baseline_path_override: Path | None = None
-    emit_test_annotation_drift = bool(payload.get("emit_test_annotation_drift", False))
-    emit_test_annotation_drift_delta = bool(
-        payload.get("emit_test_annotation_drift_delta", False)
-    )
-    write_test_annotation_drift_baseline = bool(
-        payload.get("write_test_annotation_drift_baseline", False)
-    )
-    test_annotation_drift_state_path = payload.get("test_annotation_drift_state")
-    annotation_drift_baseline_path_override: Path | None = None
-    emit_ambiguity_delta = bool(payload.get("emit_ambiguity_delta", False))
-    emit_ambiguity_state = bool(payload.get("emit_ambiguity_state", False))
-    ambiguity_state_path = payload.get("ambiguity_state")
-    write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
-    ambiguity_baseline_path_override: Path | None = None
-
-    aux_operation_raw = payload.get("aux_operation")
-    if isinstance(aux_operation_raw, dict):
-        aux_domain = str(aux_operation_raw.get("domain", "")).strip().lower()
-        aux_action = str(aux_operation_raw.get("action", "")).strip().lower()
-        aux_state_in = aux_operation_raw.get("state_in")
-        aux_baseline_path = resolve_baseline_path(
-            aux_operation_raw.get("baseline_path"),
-            root,
-        )
-        if aux_action in {"delta", "baseline-write"} and aux_baseline_path is None:
-            never(
-                "aux operation missing baseline path",
-                domain=aux_domain,
-                action=aux_action,
-            )
-        emit_test_obsolescence = False
-        emit_test_obsolescence_state = False
-        emit_test_obsolescence_delta = False
-        write_test_obsolescence_baseline = False
-        emit_test_annotation_drift = False
-        emit_test_annotation_drift_delta = False
-        write_test_annotation_drift_baseline = False
-        emit_ambiguity_delta = False
-        emit_ambiguity_state = False
-        write_ambiguity_baseline = False
-        if aux_domain == "obsolescence":
-            emit_test_obsolescence = aux_action == "report"
-            emit_test_obsolescence_state = aux_action == "state"
-            emit_test_obsolescence_delta = aux_action == "delta"
-            write_test_obsolescence_baseline = aux_action == "baseline-write"
-            test_obsolescence_state_path = aux_state_in
-            obsolescence_baseline_path_override = aux_baseline_path
-        elif aux_domain == "annotation-drift":
-            emit_test_annotation_drift = aux_action in {"report", "state"}
-            emit_test_annotation_drift_delta = aux_action == "delta"
-            write_test_annotation_drift_baseline = aux_action == "baseline-write"
-            test_annotation_drift_state_path = aux_state_in
-            annotation_drift_baseline_path_override = aux_baseline_path
-        elif aux_domain == "ambiguity":
-            emit_ambiguity_state = aux_action == "state"
-            emit_ambiguity_delta = aux_action == "delta"
-            write_ambiguity_baseline = aux_action == "baseline-write"
-            ambiguity_state_path = aux_state_in
-            ambiguity_baseline_path_override = aux_baseline_path
-        else:
-            never(
-                "invalid aux operation domain",
-                domain=aux_domain,
-                action=aux_action,
-            )
+    aux_mode_selection = _select_auxiliary_mode_selection(payload=payload, root=root)
     return _ExecutionPayloadOptions(
         emit_phase_timeline=False,
         progress_heartbeat_seconds=_progress_heartbeat_seconds(payload),
@@ -2798,12 +2886,7 @@ def _parse_execution_payload_options(
         structure_tree_path=payload.get("structure_tree"),
         structure_metrics_path=payload.get("structure_metrics"),
         decision_snapshot_path=payload.get("decision_snapshot"),
-        emit_test_obsolescence=emit_test_obsolescence,
-        emit_test_obsolescence_state=emit_test_obsolescence_state,
-        test_obsolescence_state_path=test_obsolescence_state_path,
-        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-        obsolescence_baseline_path_override=obsolescence_baseline_path_override,
+        obsolescence_mode=aux_mode_selection.obsolescence,
         emit_test_evidence_suggestions=bool(
             payload.get("emit_test_evidence_suggestions", False)
         ),
@@ -2811,18 +2894,10 @@ def _parse_execution_payload_options(
         emit_call_cluster_consolidation=bool(
             payload.get("emit_call_cluster_consolidation", False)
         ),
-        emit_test_annotation_drift=emit_test_annotation_drift,
+        annotation_drift_mode=aux_mode_selection.annotation_drift,
+        ambiguity_mode=aux_mode_selection.ambiguity,
         emit_semantic_coverage_map=bool(payload.get("emit_semantic_coverage_map", False)),
-        test_annotation_drift_state_path=test_annotation_drift_state_path,
         semantic_coverage_mapping_path=payload.get("semantic_coverage_mapping"),
-        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-        annotation_drift_baseline_path_override=annotation_drift_baseline_path_override,
-        emit_ambiguity_delta=emit_ambiguity_delta,
-        emit_ambiguity_state=emit_ambiguity_state,
-        ambiguity_state_path=ambiguity_state_path,
-        write_ambiguity_baseline=write_ambiguity_baseline,
-        ambiguity_baseline_path_override=ambiguity_baseline_path_override,
         synthesis_max_tier=payload.get("synthesis_max_tier", 2),
         synthesis_min_bundle_size=payload.get("synthesis_min_bundle_size", 2),
         synthesis_allow_singletons=payload.get("synthesis_allow_singletons", False),
