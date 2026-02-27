@@ -926,3 +926,12 @@ def test_reverse_prime_index_preserves_decode_identity_across_reruns() -> None:
     assert remainder_b == 1
     assert keys_a == ["int", "int", "str"]
     assert keys_a == keys_b
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_fingerprint_stage_cache_identity_normalizes_equivalent_seed_text::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_stage_cache_identity
+def test_fingerprint_stage_cache_identity_normalizes_equivalent_seed_text() -> None:
+    tf = _load()
+    first = tf.fingerprint_stage_cache_identity(" seed@v1 ")
+    second = tf.fingerprint_stage_cache_identity("seed@v1")
+    assert first == second
+    assert first.startswith("aspf:sha1:")

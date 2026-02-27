@@ -49,7 +49,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.aspf import Alt, Forest, Node, NodeId, structural_key_atom, structural_key_json
 from gabion.analysis.derivation_cache import get_global_derivation_cache
 from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
@@ -83,6 +83,7 @@ from gabion.analysis.type_fingerprints import (
     format_fingerprint,
     fingerprint_carrier_soundness,
     fingerprint_identity_payload,
+    fingerprint_stage_cache_identity,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -8085,6 +8086,15 @@ def _normalize_cache_config(value: JSONValue) -> JSONValue:
     return value
 
 
+def _canonical_stage_cache_detail(detail: Hashable) -> str:
+    structural_detail = structural_key_atom(
+        detail,
+        source="dataflow_audit._canonical_stage_cache_detail",
+    )
+    canonical_json = structural_key_json(structural_detail)
+    return json.dumps(canonical_json, sort_keys=False, separators=(",", ":"))
+
+
 def _build_stage_cache_identity_spec(
     *,
     stage: Literal["parse", "index", "projection"],
@@ -8095,7 +8105,7 @@ def _build_stage_cache_identity_spec(
     return _StageCacheIdentitySpec(
         stage=stage,
         forest_spec_id=str(cache_context.forest_spec_id or ""),
-        fingerprint_seed_revision=str(cache_context.fingerprint_seed_revision or ""),
+        fingerprint_seed_revision=fingerprint_stage_cache_identity(cache_context.fingerprint_seed_revision),
         normalized_config=normalized_config,
     )
 
@@ -8172,7 +8182,7 @@ def _parse_stage_cache_key(
         key=(
             stage.value,
             identity.value,
-            detail,
+            _canonical_stage_cache_detail(detail),
         ),
     )
 
