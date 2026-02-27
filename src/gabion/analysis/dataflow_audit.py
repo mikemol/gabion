@@ -14254,6 +14254,9 @@ def compute_structure_reuse(
         witness_obligations = list(
             sequence_or_none(suggestion.get("witness_obligations")) or []
         )
+        aspf_witness_requirements = mapping_or_empty(
+            suggestion.get("aspf_witness_requirements")
+        )
         return {
             "plan_id": f"reuse:{kind}:{hash_value}:{suggestion_name}",
             "status": "UNVERIFIED",
@@ -14276,6 +14279,7 @@ def compute_structure_reuse(
             "evidence": {
                 "provenance_id": f"reuse:{hash_value}",
                 "coherence_id": f"aspf:{hash_value}",
+                "aspf_witness_requirements": aspf_witness_requirements,
                 "witness_obligations": witness_obligations,
             },
             "post_expectation": {
@@ -14366,6 +14370,25 @@ def compute_structure_reuse(
                         ),
                     }
                 )
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_coherence",
+                        "required": True,
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    }
+                )
+                suggestion["aspf_witness_requirements"] = {
+                    "equivalence": {
+                        "kind": "aspf_structure_class_equivalence",
+                        "witness_ref": f"aspf:{hash_value}",
+                    },
+                    "coherence": {
+                        "kind": "aspf_structure_class_coherence",
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    },
+                }
                 suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
                     suggestion=suggestion
                 )
@@ -14376,6 +14399,27 @@ def compute_structure_reuse(
         "min_count": min_count,
         "reused": reused,
         "suggested_lemmas": suggested,
+        "heuristic_structural_repetition_candidates": [
+            {
+                "hash": entry.get("hash"),
+                "kind": entry.get("kind"),
+                "count": entry.get("count"),
+                "source": "heuristic_structural_repetition",
+            }
+            for entry in reused
+            if entry.get("kind") in {"bundle", "function"}
+        ],
+        "witness_validated_isomorphy_candidates": [
+            {
+                "hash": suggestion.get("hash"),
+                "kind": suggestion.get("kind"),
+                "suggested_name": suggestion.get("suggested_name"),
+                "source": "aspf_witness_requirements",
+                "aspf_witness_requirements": suggestion.get("aspf_witness_requirements"),
+            }
+            for suggestion in suggested
+            if mapping_or_none(suggestion.get("aspf_witness_requirements")) is not None
+        ],
         "replacement_map": replacement_map,
         "warnings": warnings,
     }

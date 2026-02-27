@@ -52,9 +52,12 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
         entry.get("kind") == "bundle"
         and entry.get("suggested_name")
         and entry.get("witness_obligations")
+        and entry.get("aspf_witness_requirements")
         and entry.get("rewrite_plan_artifact")
         for entry in suggestions
     )
+    assert reuse.get("heuristic_structural_repetition_candidates")
+    assert reuse.get("witness_validated_isomorphy_candidates")
     replacement_map = reuse.get("replacement_map", {})
     assert any(location.startswith("a.py::f") for location in replacement_map)
 
@@ -158,6 +161,13 @@ def test_render_reuse_lemma_stubs_emits_plan_artifacts_from_reuse_suggestions() 
     assert any(
         any(
             obligation.get("kind") == "aspf_structure_class_equivalence"
+            for obligation in plan.get("evidence", {}).get("witness_obligations", [])
+        )
+        for plan in plans
+    )
+    assert any(
+        any(
+            obligation.get("kind") == "aspf_structure_class_coherence"
             for obligation in plan.get("evidence", {}).get("witness_obligations", [])
         )
         for plan in plans
