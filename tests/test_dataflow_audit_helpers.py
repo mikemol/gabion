@@ -789,9 +789,19 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert "AppConfig" in bundles[module]
     assert "module.AppConfig" in registry
     assert "module.Payload" in registry
-    cache_keys = {key[1] for key in analysis_index.stage_cache_by_key}
-    assert any(isinstance(key, tuple) and key[-1] == "config_fields" for key in cache_keys)
-    assert any(isinstance(key, tuple) and key[-1] == "dataclass_registry" for key in cache_keys)
+    cache_details = set()
+    for scoped_key in analysis_index.stage_cache_by_key:
+        if (
+            isinstance(scoped_key, tuple)
+            and len(scoped_key) == 2
+            and isinstance(scoped_key[1], da.NodeId)
+            and scoped_key[1].kind == "ParseStageCacheIdentity"
+            and len(scoped_key[1].key) == 3
+            and isinstance(scoped_key[1].key[2], str)
+        ):
+            cache_details.add(scoped_key[1].key[2])
+    assert "config_fields" in cache_details
+    assert "dataclass_registry" in cache_details
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_hydrates_index_and_sink::dataflow_audit.py::gabion.analysis.dataflow_audit._run_indexed_pass::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:

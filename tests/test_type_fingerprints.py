@@ -152,8 +152,11 @@ def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
     registry = tf.PrimeRegistry()
     int_prime = registry.get_or_assign("int")
     fingerprint = int_prime * 97
+    reverse_index = tf.build_reverse_prime_index(registry)
     keys, remaining = tf.fingerprint_to_type_keys_with_remainder(
-        fingerprint, registry
+        fingerprint,
+        registry,
+        reverse_index,
     )
     assert keys == ["int"]
     assert remaining == 97
