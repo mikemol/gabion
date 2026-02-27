@@ -223,6 +223,28 @@ def adapt_event_log_reader_iterator_to_visitor(
         )
 
 
+def replay_iterator_inputs_to_visitor(
+    *,
+    one_cells: Iterable[Mapping[str, object]],
+    two_cell_witnesses: Iterable[Mapping[str, object]],
+    cofibration_witnesses: Iterable[Mapping[str, object]],
+    surface_representatives: Mapping[str, str],
+    equivalence_surface_rows: Iterable[Mapping[str, object]],
+    visitor: AspfEventReplayVisitor,
+) -> None:
+    adapt_live_event_stream_to_visitor(
+        one_cells=one_cells,
+        two_cell_witnesses=two_cell_witnesses,
+        cofibration_witnesses=cofibration_witnesses,
+        surface_representatives=surface_representatives,
+        visitor=visitor,
+    )
+    adapt_event_log_reader_iterator_to_visitor(
+        event_log_rows=equivalence_surface_rows,
+        visitor=visitor,
+    )
+
+
 @dataclass
 class TracePayloadEmitter(NullAspfTraversalVisitor):
     one_cells: list[JSONValue] = field(default_factory=list)
