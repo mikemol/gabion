@@ -116,7 +116,7 @@ valid.
   once the workflow has bootstrapped pinned dependencies (for reproducible hermetic runs).
 - **Override lifecycle source-of-truth:** override record schema/validation semantics are enforced by `src/gabion/tooling/override_record.py` and consumed by both runtime transport policy and CI override emit/gates.
 - **Command transport decision surface:** CLI and tooling paths must use `src/gabion/commands/transport_policy.py` so direct-vs-LSP enforcement remains maturity/parity aligned.
-- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `scripts/policy_check.py --normative-map` green when governance mappings change.
+- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `python -m scripts.policy_check --normative-map` green when governance mappings change.
 
 ## Optional governance framing
 See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
@@ -241,11 +241,11 @@ Interoperability/tolerance expectation:
 Correction-unit validation stack (recommended interoperability baseline):
 
 ```bash
-mise exec -- python scripts/policy_check.py --workflows
-mise exec -- python scripts/policy_check.py --ambiguity-contract
+mise exec -- python -m scripts.policy_check --workflows
+mise exec -- python -m scripts.policy_check --ambiguity-contract
 mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
 mise exec -- python -m pytest -q <targeted-tests>
-mise exec -- python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
+mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
 git diff --exit-code out/test_evidence.json
 ```
 
@@ -285,13 +285,13 @@ like `SPPF: GH-17` or `Closes #17`.
 Non-mutating lifecycle validation can run locally and in CI:
 
 ```
-mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+mise exec -- python -m scripts.sppf_sync --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
 ```
 
 Mutating operations remain local-only. Use them explicitly when needed:
 
 ```
-mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
+mise exec -- python -m scripts.sppf_sync --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
 ```
 
 Use `--close` when you want to close the issue on `stage`, or keep it open
@@ -308,10 +308,10 @@ comments + lifecycle labels when `GABION_SPPF_SYNC` is set).
 git commit -m "Implement X" -m "SPPF: GH-123"
 
 # 2) run non-mutating validation
-mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+mise exec -- python -m scripts.sppf_sync --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
 
 # 3) apply lifecycle labels locally (mutating)
-mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
+mise exec -- python -m scripts.sppf_sync --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
 
 # 4) push stage
 git push origin stage
@@ -424,7 +424,7 @@ Default artifacts:
 
 Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
 `docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
-trailers or run `scripts/sppf_sync.py --comment` after adding references.
+trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
@@ -473,7 +473,7 @@ Gabion LSP server over stdio. It is a thin wrapper only.
 
 Run the LSP smoke test (optional):
 ```
-mise exec -- python scripts/lsp_smoke_test.py --root .
+mise exec -- python -m scripts.lsp_smoke_test --root .
 ```
 
 ## Testing
@@ -570,10 +570,10 @@ scripts/checks.sh --list
 Baseline refresh helpers:
 
 ```
-mise exec -- python scripts/refresh_baselines.py --obsolescence
-mise exec -- python scripts/refresh_baselines.py --annotation-drift
-mise exec -- python scripts/refresh_baselines.py --ambiguity
-mise exec -- python scripts/refresh_baselines.py --all
+mise exec -- python -m scripts.refresh_baselines --obsolescence
+mise exec -- python -m scripts.refresh_baselines --annotation-drift
+mise exec -- python -m scripts.refresh_baselines --ambiguity
+mise exec -- python -m scripts.refresh_baselines --all
 ```
 
 Baseline refresh guardrail (normative):
@@ -589,7 +589,7 @@ mise exec -- python scripts/ci_cycle.py --push --watch
 CI watch helper:
 
 ```
-mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
+mise exec -- python -m scripts.ci_watch --branch stage --workflow ci
 ```
 
 On a failed watched run, `ci_watch` collects a failure bundle under:
@@ -610,7 +610,7 @@ Default bundle files:
 To restrict download to specific artifact names and override output root:
 
 ```
-mise exec -- python scripts/ci_watch.py \
+mise exec -- python -m scripts.ci_watch \
   --branch stage \
   --workflow ci \
   --artifact-name test-runs \
@@ -622,7 +622,7 @@ By default this prefers active runs (in-progress/queued). If you want the most
 recent run regardless of status, pass:
 
 ```
-mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
+mise exec -- python -m scripts.ci_watch --branch stage --no-prefer-active
 ```
 
 When the watched run fails and collection encounters mandatory command failures,
@@ -665,7 +665,7 @@ Pull requests also run `.github/workflows/pr-dataflow-grammar.yml`, which
 uploads a dataflow report artifact and comments on same-repo PRs.
 
 If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
-(`scripts/policy_check.py --posture`) on pushes.
+(`python -m scripts.policy_check --posture`) on pushes.
 
 ## Policy guardrails
 - Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md#policy_seed`.
@@ -673,20 +673,20 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 - Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - Self-hosted jobs must use the required labels and actor guard.
 Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by
-`scripts/policy_check.py`.
+`python -m scripts.policy_check`.
 
-Workflow policy checks live in `scripts/policy_check.py` (requires `pyyaml`).
+Workflow policy checks live in `python -m scripts.policy_check` (requires `pyyaml`).
 Run:
 ```
 mise exec -- python -m pip install pyyaml
-mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
 mise exec -- python scripts/ci_finalize_dataflow_outcome.py --terminal-exit 0
 mise exec -- python scripts/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```
-mise exec -- python scripts/policy_check.py --posture
+mise exec -- python -m scripts.policy_check --posture
 ```
 
 ## Doc front-matter

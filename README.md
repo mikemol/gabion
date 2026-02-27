@@ -210,7 +210,7 @@ mise exec -- python -m gabion check run \
 For script orchestration, use `scripts/aspf_handoff.py` to reserve state paths
 and cumulative imports through `artifacts/out/aspf_handoff_manifest.json`.
 The repo scripts `scripts/checks.sh`, `scripts/ci_local_repro.sh`,
-`scripts/refresh_baselines.py`, and `scripts/audit_snapshot.sh` now enable this
+`python -m scripts.refresh_baselines`, and `scripts/audit_snapshot.sh` now enable this
 handoff loop by default (disable with `--no-aspf-handoff`).
 
 Phase-1 ASPF outputs:

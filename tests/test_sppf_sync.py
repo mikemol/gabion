@@ -33,7 +33,7 @@ def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
     assert len(violations) == 2
     assert "expected state 'open'" in violations[0]
     assert "missing required label(s): status/pending-release" in violations[1]
-    assert "scripts/sppf_sync.py --range <rev-range> --label status/pending-release" in violations[1]
+    assert "python -m scripts.sppf_sync --range <rev-range> --label status/pending-release" in violations[1]
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits

@@ -60,9 +60,9 @@ gh api repos/actions/checkout/git/tags/$sha --jq .object.sha
 ```
 
 ## Repo helper (recommended)
-Use `scripts/pin_actions.py` to pin `uses:` lines in place:
+Use `python -m scripts.pin_actions` to pin `uses:` lines in place:
 ```bash
-scripts/pin_actions.py docs/workflows/gabion_action_example.yml
+python -m scripts.pin_actions docs/workflows/gabion_action_example.yml
 ```
 
 ## Notes

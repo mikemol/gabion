@@ -196,7 +196,7 @@ mise exec -- python -m compileall -q src/gabion
 mise exec -- python scripts/order_lifetime_check.py --root .
 mise exec -- python scripts/complexity_audit.py --root . --fail-on-regression
 mise exec -- python scripts/structural_hash_policy_check.py --root .
-mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
 mise exec -- python -m coverage report --show-missing --fail-under=100

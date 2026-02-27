@@ -99,7 +99,7 @@ jobs:
           POLICY_GITHUB_TOKEN: ${{ secrets.POLICY_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python scripts/policy_check.py --workflows --posture
+          python -m scripts.policy_check --workflows --posture
 
   smoke-exports:
     needs: [changes, policy-check, audit]

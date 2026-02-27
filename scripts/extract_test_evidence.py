@@ -5,10 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
 _DEFAULT_TIMEOUT_TICKS = 120_000
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000

@@ -15,10 +15,10 @@ Options:
                           (.github/workflows/pr-dataflow-grammar.yml equivalent).
   --extended-checks       Run additional local hardening checks not present in ci.yml
                           (order_lifetime_check, structural_hash_policy_check, complexity_audit).
-  --skip-sppf-sync        Skip scripts/sppf_sync.py validation.
-  --run-sppf-sync         Force scripts/sppf_sync.py validation (requires gh auth
+  --skip-sppf-sync        Skip python -m scripts.sppf_sync validation.
+  --run-sppf-sync         Force python -m scripts.sppf_sync validation (requires gh auth
                           login or GH_TOKEN/GITHUB_TOKEN).
-  --sppf-range R          Override revision range passed to scripts/sppf_sync.py.
+  --sppf-range R          Override revision range passed to python -m scripts.sppf_sync.
   --skip-gabion-check-step
                           Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
   --pr-base-sha SHA       Override PR base SHA for --pr-dataflow-only mode.
@@ -559,10 +559,10 @@ run_checks_job() {
   step_timing_mode="checks"
 
   step "checks: policy_check --workflows"
-  timed_observed checks_policy_workflows "$PYTHON_BIN" scripts/policy_check.py --workflows
+  timed_observed checks_policy_workflows "$PYTHON_BIN" -m scripts.policy_check --workflows
 
   step "checks: policy_check --ambiguity-contract"
-  timed_observed checks_policy_ambiguity_contract "$PYTHON_BIN" scripts/policy_check.py --ambiguity-contract
+  timed_observed checks_policy_ambiguity_contract "$PYTHON_BIN" -m scripts.policy_check --ambiguity-contract
 
   step "checks: policy_check --posture"
   if [ "$ci_event_name" != "push" ]; then
@@ -570,14 +570,14 @@ run_checks_job() {
   elif [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
     echo "POLICY_GITHUB_TOKEN not set; skipping posture check (matches CI skip path)."
   else
-    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" "$PYTHON_BIN" scripts/policy_check.py --posture
+    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" "$PYTHON_BIN" -m scripts.policy_check --posture
   fi
 
   step "checks: docflow"
   timed_observed checks_docflow "$PYTHON_BIN" -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 
   step "checks: sppf_status_audit"
-  observed checks_sppf_status_audit "$PYTHON_BIN" scripts/sppf_status_audit.py --root .
+  observed checks_sppf_status_audit "$PYTHON_BIN" -m scripts.sppf_status_audit --root .
 
   case "$run_sppf_sync_mode" in
     skip)
@@ -590,7 +590,7 @@ run_checks_job() {
       elif gh_auth_available; then
         local rev_range
         rev_range="$(resolve_sppf_range)"
-        observed checks_sppf_sync_validate "$PYTHON_BIN" scripts/sppf_sync.py \
+        observed checks_sppf_sync_validate "$PYTHON_BIN" -m scripts.sppf_sync \
           --validate \
           --only-when-relevant \
           --range "$rev_range" \
@@ -600,7 +600,7 @@ run_checks_job() {
       elif gh_token="$(resolve_env_gh_token)"; then
         local rev_range
         rev_range="$(resolve_sppf_range)"
-        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" scripts/sppf_sync.py \
+        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" -m scripts.sppf_sync \
           --validate \
           --only-when-relevant \
           --range "$rev_range" \
@@ -617,7 +617,7 @@ run_checks_job() {
   esac
 
   step "checks: extract_test_evidence"
-  observed checks_extract_test_evidence env GABION_LSP_TIMEOUT_TICKS=300000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
+  observed checks_extract_test_evidence env GABION_LSP_TIMEOUT_TICKS=300000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
 
   step "checks: evidence drift diff (strict)"
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
@@ -797,7 +797,7 @@ run_dataflow_job() {
 
   step "dataflow: deadline profile summary"
   if [ -f artifacts/out/deadline_profile.json ]; then
-    "$PYTHON_BIN" scripts/deadline_profile_ci_summary.py \
+    "$PYTHON_BIN" -m scripts.deadline_profile_ci_summary \
       --allow-missing-local \
       --step-summary "$log_dir/deadline_profile_summary.md"
   else
