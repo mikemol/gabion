@@ -3,13 +3,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib import import_module
 from pathlib import Path
 from typing import Mapping
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover - dependency is pinned in pyproject
-    yaml = None
+
+def _load_yaml_module():
+    try:
+        module = import_module("yaml")
+    except ImportError as exc:
+        raise RuntimeError(
+            "PyYAML is required by the pinned governance toolchain; run `mise install` to provision dependencies."
+        ) from exc
+    return module
+
+
+yaml = _load_yaml_module()
 
 
 @dataclass(frozen=True)
@@ -71,9 +80,6 @@ class ControllerDriftPolicy:
 
 
 def _yaml_loader():
-    if yaml is None:
-        raise RuntimeError("PyYAML is required to load docs/governance_rules.yaml")
-
     class Loader(yaml.SafeLoader):
         pass
 

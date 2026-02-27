@@ -2,7 +2,6 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -330,7 +329,7 @@ def _module_expr_to_str(expr):
             parts.append(cast(cst.Name, current).value)
         if parts:
             return ".".join(reversed(parts))
-    return None  # pragma: no cover
+    return None
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
@@ -620,7 +619,7 @@ def _rewrite_call_sites_in_project(
         warnings.extend(call_warnings)
         if updated_module is not None:
             new_source = updated_module.code
-            if new_source != source:  # pragma: no cover
+            if new_source != source:
                 end_line = len(source.splitlines())
                 edits.append(
                     TextEdit(
