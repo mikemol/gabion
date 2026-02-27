@@ -4610,3 +4610,51 @@ def test_tail_branch_and_line_edges_for_eval_and_registry(tmp_path: Path) -> Non
         )
         == {}
     )
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_decision_surface_and_never_invariant_suite_site_locality::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_decision_surface_and_never_invariant_suite_site_locality(tmp_path: Path) -> None:
+    da = _load()
+    module_path = tmp_path / "suite_locality.py"
+    module_path.write_text(
+        "def probe(flag, gate):\n"
+        "    for _ in range(1):\n"
+        "        if flag:\n"
+        "            never('looped')\n"
+        "    if gate:\n"
+        "        return 1\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+
+    forest = da.Forest()
+    decision_surfaces, decision_warnings, decision_lint = da.analyze_decision_surfaces_repo(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="low",
+        external_filter=False,
+        decision_tiers={},
+        require_tiers=False,
+        forest=forest,
+    )
+    assert decision_warnings == []
+    assert any("[function_body]@" in surface for surface in decision_surfaces)
+    assert any("decision surface params:" in surface for surface in decision_surfaces)
+    assert decision_lint
+
+    never_entries = da._collect_never_invariants(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        forest=forest,
+    )
+    assert never_entries
+    loop_entry = next(entry for entry in never_entries if entry.get("reason") == "looped")
+    site = loop_entry.get("site", {})
+    assert site.get("suite_kind") == "call"
+    assert isinstance(site.get("suite_id"), str) and site.get("suite_id")
+    span = loop_entry.get("span")
+    assert isinstance(span, list) and len(span) == 4 and span[0] == 3
+
+    summary_lines = da._summarize_never_invariants(never_entries)
+    assert any("[call]" in line for line in summary_lines)

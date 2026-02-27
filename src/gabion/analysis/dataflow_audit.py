@@ -2153,6 +2153,26 @@ def _decision_surface_alt_evidence(
     payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
     return payload
 
+
+def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
+    suite_node = forest.nodes.get(suite_id)
+    if suite_node is None:
+        never("suite site missing during label projection", suite_id=str(suite_id))
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    if not path or not qual or not suite_kind or span is None:
+        never(
+            "suite site label projection missing identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+            span=suite_node.meta.get("span"),
+        )
+    span_text = _format_span_fields(*span)
+    return f"{path}:{qual}[{suite_kind}]@{span_text}" if span_text else f"{path}:{qual}[{suite_kind}]"
+
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
     alt_kind="DecisionSurface",
@@ -2282,7 +2302,7 @@ def _analyze_decision_surface_indexed(
             ),
         )
         surfaces.append(
-            f"{info.path.name}:{info.qual} {spec.surface_label}: "
+            f"{_suite_site_label(forest=forest, suite_id=suite_id)} {spec.surface_label}: "
             + ", ".join(params)
             + f" ({descriptor})"
         )
@@ -5576,6 +5596,13 @@ def _collect_never_invariants(
                     "call",
                     span=normalized_span,
                 )
+                suite_node = forest.nodes.get(site_id)
+                if suite_node is not None:
+                    site_payload = cast(dict[str, object], entry["site"])
+                    suite_identity = suite_node.meta.get("suite_id")
+                    if type(suite_identity) is str and suite_identity:
+                        site_payload["suite_id"] = suite_identity
+                cast(dict[str, object], entry["site"])["suite_kind"] = "call"
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -7431,10 +7458,11 @@ def _summarize_never_invariants(
     def _format_site(row: Mapping[str, JSONValue]) -> str:
         path = row.get("site_path") or "?"
         function = row.get("site_function") or "?"
+        suite_kind = row.get("site_suite_kind") or "?"
         span = _format_span(row)
         if span:
-            return f"{path}:{function}@{span}"
-        return f"{path}:{function}"
+            return f"{path}:{function}[{suite_kind}]@{span}"
+        return f"{path}:{function}[{suite_kind}]"
 
     def _format_evidence(row: Mapping[str, JSONValue], status: str) -> str:
         witness_ref = row.get("witness_ref")
@@ -7496,6 +7524,8 @@ def _summarize_never_invariants(
                 "status_rank": _NEVER_STATUS_ORDER.get(status, 3),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site_mapping.get("suite_id", "") or ""),
+                "site_suite_kind": str(site_mapping.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7521,6 +7551,18 @@ def _summarize_never_invariants(
         op_registry={"never_status_allowed": _never_status_allowed},
         params_override=params,
     )
+    suite_kind_by_never_id = {
+        str(row.get("never_id", "") or ""): str(row.get("site_suite_kind", "") or "")
+        for row in relation
+    }
+    for row in projected:
+        check_deadline()
+        never_id = str(row.get("never_id", "") or "")
+        if str(row.get("site_suite_kind", "") or ""):
+            continue
+        suite_kind = suite_kind_by_never_id.get(never_id, "")
+        if suite_kind:
+            row["site_suite_kind"] = suite_kind
     ordered_statuses = list(params.get("ordered_statuses") or [])
     grouped: dict[str, list[dict[str, JSONValue]]] = {}
     for row in projected:
