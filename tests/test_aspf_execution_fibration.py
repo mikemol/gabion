@@ -13,6 +13,7 @@ from gabion.analysis.aspf_morphisms import (
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
 )
+from gabion.exceptions import NeverRaise
 
 
 def _trace_payload(
@@ -621,3 +622,213 @@ def test_build_equivalence_payload_uses_baseline_two_cell_witness_index(tmp_path
     row = next(item for item in rows if isinstance(item, dict))
     assert row["classification"] == "non_drift"
     assert row["witness_id"] == "w:baseline-index"
+
+
+def test_finalize_execution_trace_handles_none_state(tmp_path: Path) -> None:
+    assert (
+        aspf_execution_fibration.finalize_execution_trace(
+            state=None,
+            root=tmp_path,
+            semantic_surface_payloads={},
+        )
+        is None
+    )
+
+
+def test_finalize_execution_trace_ignores_untracked_semantic_surface(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+
+    artifacts = aspf_execution_fibration.finalize_execution_trace(
+        state=state,
+        root=tmp_path,
+        semantic_surface_payloads={
+            "groups_by_path": {"pkg/mod.py": {"fn": [{"a"}]}},
+            "untracked_surface": {"payload": "ignored"},
+        },
+    )
+    assert artifacts is not None
+    assert "untracked_surface" not in state.surface_representatives
+
+
+def test_load_trace_stream_payload_skips_blank_lines(tmp_path: Path) -> None:
+    path = tmp_path / "trace.jsonl"
+    row = {
+        "kind": "one_cell",
+        "sequence": 1,
+        "payload": _one_cell_payload(representative="rep:blank-line"),
+    }
+    path.write_text("\n" + json.dumps(row) + "\n\n", encoding="utf-8")
+
+    payload = aspf_execution_fibration.load_trace_stream_payload(path)
+    one_cells = payload["one_cells"]
+    assert isinstance(one_cells, list)
+    assert len(one_cells) == 1
+
+
+def test_load_trace_stream_payload_rejects_unknown_event_kind(tmp_path: Path) -> None:
+    path = tmp_path / "trace.jsonl"
+    path.write_text(
+        json.dumps({"kind": "legacy_bridge", "sequence": 1, "payload": {}}) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(NeverRaise):
+        aspf_execution_fibration.load_trace_stream_payload(path)
+
+
+def test_close_execution_trace_sinks_is_idempotent(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    first = aspf_execution_fibration.close_execution_trace_sinks(state=state)
+    second = aspf_execution_fibration.close_execution_trace_sinks(state=state)
+    assert first
+    assert first == second
+
+
+def test_close_execution_trace_sinks_rejects_non_jsonl_sink(tmp_path: Path) -> None:
+    class _NonJsonlSink:
+        def write_one_cell(self, event) -> None:
+            return None
+
+        def write_two_cell(self, event) -> None:
+            return None
+
+        def write_cofibration(self, event) -> None:
+            return None
+
+        def write_surface_update(self, event) -> None:
+            return None
+
+        def write_finalize(self, event) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    state.event_sinks = [_NonJsonlSink()]
+    with pytest.raises(NeverRaise):
+        aspf_execution_fibration.close_execution_trace_sinks(state=state)
+
+
+def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    current_cell = aspf_execution_fibration.register_semantic_surface(
+        state=state,
+        surface="groups_by_path",
+        value={"pkg/mod.py": {"fn": [{"a"}]}},
+    )
+    baseline_cell = AspfOneCell(
+        source=BasisZeroCell("surface:groups_by_path:domain"),
+        target=BasisZeroCell("surface:groups_by_path:carrier"),
+        representative="rep:baseline",
+        basis_path=("groups_by_path", "post", "projection"),
+    )
+    aspf_execution_fibration.record_2cell_witness(
+        state,
+        left=baseline_cell,
+        right=current_cell,
+        witness_id="w:sink-replay",
+        reason="sink replay coverage",
+    )
+
+    state.delta_records.append({"event_kind": "manual", "phase": "manual"})
+    memory_iterators = aspf_execution_fibration._build_trace_replay_iterators(state=state)
+    assert list(memory_iterators.one_cells)
+    memory_delta_records = list(
+        aspf_execution_fibration._iter_delta_records(
+            state=state,
+            sink_indexes=(),
+        )
+    )
+    assert memory_delta_records
+
+    sink_indexes = aspf_execution_fibration.close_execution_trace_sinks(state=state)
+    assert sink_indexes
+
+    replay_iterators = aspf_execution_fibration._build_trace_replay_iterators(state=state)
+    assert list(replay_iterators.one_cells)
+    assert replay_iterators.delta_record_count > 0
+
+    sink_events = list(aspf_execution_fibration._iter_trace_events(state=state))
+    two_cell_payloads = [
+        event.payload
+        for event in sink_events
+        if type(event).__name__ == "AspfTwoCellEvent"
+    ]
+    assert any(payload.get("witness_id") == "w:sink-replay" for payload in two_cell_payloads)
+
+    sink_witnesses = list(aspf_execution_fibration._iter_two_cell_witnesses(state=state))
+    assert any(witness.witness_id == "w:sink-replay" for witness in sink_witnesses)
+
+    sink_deltas = list(
+        aspf_execution_fibration._iter_delta_records(
+            state=state,
+            sink_indexes=sink_indexes,
+        )
+    )
+    assert sink_deltas
+
+
+def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(trace_json=tmp_path / "trace.json"),
+    )
+    assert state is not None
+    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(state=state)
+    before = (
+        len(state.one_cells),
+        len(state.two_cell_witnesses),
+        len(state.cofibrations),
+        dict(state.surface_representatives),
+    )
+    visitor.run_boundary(
+        aspf_execution_fibration.AspfRunBoundaryEvent(
+            boundary="equivalence_surface_row",
+            payload={"surface": "groups_by_path"},
+        )
+    )
+    after = (
+        len(state.one_cells),
+        len(state.two_cell_witnesses),
+        len(state.cofibrations),
+        dict(state.surface_representatives),
+    )
+    assert before == after
+
+
+def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
+    controls = aspf_execution_fibration.controls_from_payload(
+        {
+            "aspf_trace_json": "trace.json",
+            "aspf_semantic_surface": [],
+        }
+    )
+    assert controls.aspf_semantic_surface == aspf_execution_fibration.DEFAULT_PHASE1_SEMANTIC_SURFACES

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Sequence, cast
 
+from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 from gabion.runtime.stable_encode import stable_compact_text
@@ -767,6 +768,8 @@ def _adapt_streamed_trace_events_to_visitor(
                     representative=str(event.get("representative", "")),
                 )
             )
+        else:
+            never("invalid streamed trace event kind", kind=kind)
 
 
 @dataclass
@@ -899,8 +902,9 @@ def close_execution_trace_sinks(*, state: AspfExecutionTraceState) -> tuple[Aspf
     indexes: list[AspfTraceSinkIndex] = []
     for sink in state.event_sinks:
         sink.close()
-        if isinstance(sink, AspfJsonlEventSink):
-            indexes.append(sink.build_index())
+        if not isinstance(sink, AspfJsonlEventSink):
+            never("aspf trace sink must be jsonl", sink_type=type(sink).__name__)
+        indexes.append(sink.build_index())
     state.sink_indexes.extend(indexes)
     return tuple(indexes)
 
@@ -945,17 +949,8 @@ def _build_trace_replay_iterators(
             delta_record_count=index.delta_record_count,
         )
 
-    def _iter_one_cells() -> Iterator[JSONObject]:
-        for index, cell in enumerate(state.one_cells):
-            one_cell_payload = cell.as_dict()
-            metadata = state.one_cell_metadata[index]
-            one_cell_payload["kind"] = str(metadata.get("kind", ""))
-            one_cell_payload["surface"] = str(metadata.get("surface", ""))
-            one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
-            yield one_cell_payload
-
     return AspfTraceReplayIterators(
-        one_cells=_iter_one_cells(),
+        one_cells=_iter_memory_one_cell_payloads(state=state),
         two_cell_witnesses=(witness.as_dict() for witness in state.two_cell_witnesses),
         cofibration_witnesses=(carrier.as_dict() for carrier in state.cofibrations),
         surface_representatives={
@@ -967,14 +962,6 @@ def _build_trace_replay_iterators(
         },
         delta_record_count=len(state.delta_records),
     )
-
-
-def _iter_equivalence_surface_rows(
-    *,
-    equivalence_payload: Mapping[str, object],
-) -> Iterator[Mapping[str, object]]:
-    rows = cast(Iterable[Mapping[str, object]], equivalence_payload.get("surface_table", []))
-    yield from rows
 
 
 def _iter_trace_events(*, state: AspfExecutionTraceState) -> Iterator[AspfTraceReplayEvent]:
