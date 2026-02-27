@@ -171,8 +171,15 @@ class AspfOpportunityDTO(BaseModel):
     opportunity_id: str
     kind: str
     confidence: float
+    confidence_provenance: Optional[str] = None
+    witness_requirement: Optional[str] = None
+    actionability: Optional[str] = None
     affected_surfaces: List[str] = []
     witness_ids: List[str] = []
+    carrier_subgraph: Dict[str, Any] = {}
+    witness_chain: List[str] = []
+    proof_obligations: List[Dict[str, Any]] = []
+    failed_obligations: List[str] = []
     reason: str
 
 

@@ -104,7 +104,12 @@ def test_null_visitor_noop_methods_are_callable() -> None:
 def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     emitter = OpportunityPayloadEmitter()
     adapt_live_event_stream_to_visitor(
-        one_cells=[],
+        one_cells=[
+            {
+                "kind": "semantic_surface",
+                "representative": "rep:shared",
+            }
+        ],
         surface_representatives={
             "groups_by_path": "rep:shared",
             "rewrite_plans": "rep:shared",
@@ -112,20 +117,81 @@ def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
         two_cell_witnesses=[
             {
                 "witness_id": "w:2",
-                "left_representative": "rep:shared",
-                "right_representative": "rep:baseline",
+                "left": {"representative": "rep:shared"},
+                "right": {"representative": "rep:baseline"},
             },
             {
                 "witness_id": "w:1",
-                "left_representative": "rep:shared",
-                "right_representative": "rep:legacy",
+                "left": {"representative": "rep:shared"},
+                "right": {"representative": "rep:legacy"},
             },
         ],
-        cofibration_witnesses=[],
+        cofibration_witnesses=[
+            {
+                "cofibration": {
+                    "entries": [
+                        {
+                            "domain": {"key": "d:int", "prime": 2},
+                            "aspf": {"key": "a:int", "prime": 2},
+                        }
+                    ]
+                }
+            }
+        ],
         visitor=emitter,
     )
 
     plans = emitter.build_rewrite_plans()
     reusable = next(plan for plan in plans if plan["opportunity_id"].startswith("opp:reusable-boundary:"))
     assert reusable["required_witnesses"] == ["w:1", "w:2"]
-    assert reusable["priority"] == 0.74
+    assert reusable["priority"] == 1.0
+
+
+ # gabion:evidence E:function_site::tests/test_aspf_visitors.py::tests.test_aspf_visitors.test_reusable_boundary_collision_vs_witnessed_isomorphy_golden
+def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
+    collision_only = OpportunityPayloadEmitter()
+    adapt_live_event_stream_to_visitor(
+        one_cells=[],
+        surface_representatives={
+            "groups_by_path": "rep:shared",
+            "violation_summary": "rep:shared",
+        },
+        two_cell_witnesses=[],
+        cofibration_witnesses=[],
+        visitor=collision_only,
+    )
+    collision_row = next(
+        row
+        for row in collision_only.build_rows()
+        if row.get("kind") == "reusable_boundary_artifact"
+    )
+
+    witnessed = OpportunityPayloadEmitter()
+    adapt_live_event_stream_to_visitor(
+        one_cells=[{"kind": "semantic_surface", "representative": "rep:shared"}],
+        surface_representatives={
+            "groups_by_path": "rep:shared",
+            "violation_summary": "rep:shared",
+        },
+        two_cell_witnesses=[
+            {
+                "witness_id": "w:iso",
+                "left": {"representative": "rep:shared"},
+                "right": {"representative": "rep:baseline"},
+            }
+        ],
+        cofibration_witnesses=[{"cofibration": {"entries": [{"domain": {}, "aspf": {}}]}}],
+        visitor=witnessed,
+    )
+    witnessed_row = next(
+        row for row in witnessed.build_rows() if row.get("kind") == "reusable_boundary_artifact"
+    )
+
+    assert collision_row["actionability"] == "observational"
+    assert collision_row["failed_obligations"] == [
+        "one_cell_carrier_presence",
+        "two_cell_isomorphy_witness",
+        "cofibration_support",
+    ]
+    assert witnessed_row["actionability"] == "actionable"
+    assert witnessed_row["failed_obligations"] == []
