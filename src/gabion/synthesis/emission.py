@@ -54,14 +54,10 @@ def _string_tuple_from_payload(
     values = sequence_or_none(payload.get(key))
     if values is None:
         return tuple()
-    normalized: list[str] = []
+    normalized = []
     for value in values:
         check_deadline()
-        match value:
-            case str() as value_text:
-                normalized.append(value_text)
-            case _:
-                pass
+        normalized.append(str(value))
     return tuple(sort_once(normalized, source=source))
 
 
@@ -74,14 +70,12 @@ def _field_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolFieldSpe
 
 def _protocol_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolSpec:
     tier_sort_key, tier_label = _tier_parts(payload.get("tier"))
-    raw_fields = sequence_or_none(payload.get("fields"))
-    field_specs: list[_ProtocolFieldSpec] = []
-    if raw_fields is not None:
-        for raw_field in raw_fields:
-            check_deadline()
-            parsed_field = mapping_or_none(raw_field)
-            if parsed_field is not None:
-                field_specs.append(_field_spec_from_payload(parsed_field))
+    raw_fields = sequence_or_none(payload.get("fields")) or ()
+    field_specs = []
+    for raw_field in raw_fields:
+        check_deadline()
+        parsed_field = mapping_or_none(raw_field) or {}
+        field_specs.append(_field_spec_from_payload(parsed_field))
     fields = tuple(
         sort_once(
             field_specs,
@@ -119,9 +113,8 @@ def _sorted_protocols(plan: Mapping[str, object]) -> list[_ProtocolSpec]:
     normalized: list[_ProtocolSpec] = []
     for raw_protocol in protocols:
         check_deadline()
-        parsed_protocol = mapping_or_none(raw_protocol)
-        if parsed_protocol is not None:
-            normalized.append(_protocol_spec_from_payload(parsed_protocol))
+        parsed_protocol = mapping_or_none(raw_protocol) or {}
+        normalized.append(_protocol_spec_from_payload(parsed_protocol))
     return sort_once(
         normalized,
         source="render_protocol_stubs.protocols",

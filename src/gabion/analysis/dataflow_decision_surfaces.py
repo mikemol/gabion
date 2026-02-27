@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable
 import re
 
 from gabion.analysis.json_types import JSONObject
+from gabion.analysis.resume_codec import sequence_or_none
 from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind,
@@ -41,12 +42,8 @@ def summarize_deadness_witnesses(
         environment = entry.get("environment", {})
         result = entry.get("result", "UNKNOWN")
         core = entry.get("core", [])
-        core_count = 0
-        match core:
-            case list() as core_entries:
-                core_count = len(core_entries)
-            case _:
-                pass
+        core_entries = sequence_or_none(core, allow_str=False) or ()
+        core_count = len(core_entries)
         lines.append(
             f"{path}:{function} bundle {bundle} result={result} "
             f"predicate={predicate} env={environment} core={core_count}"

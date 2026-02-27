@@ -702,6 +702,14 @@ def _write_text_to_target(
     )
 
 
+def _emit_result_json_to_stdout(*, payload: object) -> None:
+    _write_text_to_target(
+        _STDOUT_PATH,
+        json.dumps(payload, indent=2, sort_keys=False),
+        ensure_trailing_newline=True,
+    )
+
+
 def _normalize_optional_output_target(target: object) -> str | None:
     if target is None:
         return None
@@ -850,13 +858,17 @@ def _render_timeout_progress_markdown(
     if isinstance(ticks_remaining, int):
         lines.append(f"- `ticks_remaining`: `{ticks_remaining}`")
     progress_ticks_per_ns = progress.get("ticks_per_ns")
-    if isinstance(progress_ticks_per_ns, (int, float)):
-        lines.append(f"- `ticks_per_ns`: `{float(progress_ticks_per_ns):.9f}`")
-    if isinstance(deadline_profile, Mapping):
-        if not isinstance(progress_ticks_per_ns, (int, float)):
-            ticks_per_ns = deadline_profile.get("ticks_per_ns")
-            if isinstance(ticks_per_ns, (int, float)):
-                lines.append(f"- `ticks_per_ns`: `{float(ticks_per_ns):.9f}`")
+    resolved_ticks_per_ns = (
+        progress_ticks_per_ns
+        if isinstance(progress_ticks_per_ns, (int, float))
+        else (
+            deadline_profile.get("ticks_per_ns")
+            if isinstance(deadline_profile, Mapping)
+            else None
+        )
+    )
+    if isinstance(resolved_ticks_per_ns, (int, float)):
+        lines.append(f"- `ticks_per_ns`: `{float(resolved_ticks_per_ns):.9f}`")
     resume = progress.get("resume")
     if isinstance(resume, Mapping):
         token = resume.get("resume_token")
@@ -1027,8 +1039,11 @@ def _check_derived_artifacts(
             if aspf_opportunities_json is not None
             else "artifacts/out/aspf_opportunities.json"
         )
-        if aspf_state_json is not None:
-            derived.append(str(aspf_state_json))
+        derived.append(
+            str(aspf_state_json)
+            if aspf_state_json is not None
+            else "artifacts/out/aspf_state.json"
+        )
         derived.append(
             str(aspf_delta_jsonl)
             if aspf_delta_jsonl is not None
@@ -1681,51 +1696,18 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
                 json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
-        if _is_stdout_target(opts.emit_structure_tree) and "structure_tree" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["structure_tree"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.emit_structure_metrics) and "structure_metrics" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["structure_metrics"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.emit_decision_snapshot) and "decision_snapshot" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["decision_snapshot"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.aspf_trace_json) and "aspf_trace" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["aspf_trace"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.aspf_trace_json) and "aspf_equivalence" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["aspf_equivalence"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.aspf_opportunities_json)
-            and "aspf_opportunities" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["aspf_opportunities"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.aspf_state_json) and "aspf_state" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["aspf_state"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
+        stdout_json_targets = (
+            (opts.emit_structure_tree, "structure_tree"),
+            (opts.emit_structure_metrics, "structure_metrics"),
+            (opts.emit_decision_snapshot, "decision_snapshot"),
+            (opts.aspf_trace_json, "aspf_trace"),
+            (opts.aspf_trace_json, "aspf_equivalence"),
+            (opts.aspf_opportunities_json, "aspf_opportunities"),
+            (opts.aspf_state_json, "aspf_state"),
+        )
+        for output_target, result_key in stdout_json_targets:
+            if result_key in result and _is_stdout_target(output_target):
+                _emit_result_json_to_stdout(payload=result[result_key])
 
 
 def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
@@ -2177,14 +2159,16 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
-def _run_check_delta_gates() -> int:
-    with _cli_deadline_scope():
-        for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs()):
-            check_deadline()
-            gate_exit = int(spec.run())
-            if gate_exit != 0:
-                return gate_exit
-    return 0
+_run_check_delta_gates: CliRunCheckDeltaGatesFn = lambda: next(
+    (
+        gate_exit
+        for gate_exit in (
+            int(spec.run()) for spec in deadline_loop_iter(tool_specs.dataflow_stage_gate_specs())
+        )
+        if gate_exit != 0
+    ),
+    0,
+)
 
 
 def _run_check_command(
