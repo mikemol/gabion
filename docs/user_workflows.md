@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -124,8 +124,26 @@ mise exec -- python -m gabion check run \
 
 ### Terminal B: remote status-check lane
 ```bash
-mise exec -- python scripts/ci_watch.py --branch stage
+mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
 ```
+
+On watched-run failure, collect run metadata/logs/artifacts into:
+
+`artifacts/out/ci_watch/run_<run_id>/`
+
+Use explicit artifact filters when only selected bundles are needed:
+
+```bash
+mise exec -- python scripts/ci_watch.py \
+  --branch stage \
+  --workflow ci \
+  --artifact-name test-runs \
+  --artifact-name dataflow-report
+```
+
+If run watching fails and failure-bundle collection also fails, `ci_watch` exits
+with code `2` so automation can distinguish collection errors from watched-run
+status.
 
 ### Correction cadence
 1. Start both lanes concurrently when available.
