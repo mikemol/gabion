@@ -673,8 +673,8 @@ def _load_aspf_resume_state(
     *,
     import_state_paths: Sequence[Path],
 ) -> JSONObject | None:
-    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
-        state_paths=import_state_paths
+    projection = aspf_resume_state.load_latest_resume_projection_from_state_files(
+        state_paths=import_state_paths,
     )
     latest_manifest_digest: str | None = None
     latest_resume_source: str | None = None
@@ -689,7 +689,12 @@ def _load_aspf_resume_state(
         latest_resume_source = resume_source or latest_resume_source
     payload: JSONObject = {
         "resume_projection": projection if projection is not None else {},
-        "delta_records": [dict(record) for record in records],
+        "delta_records": [
+            dict(record)
+            for record in aspf_resume_state.iter_delta_records_from_state_files(
+                state_paths=import_state_paths,
+            )
+        ],
         "analysis_manifest_digest": latest_manifest_digest,
         "resume_source": latest_resume_source,
     }
@@ -2407,9 +2412,19 @@ def _parse_lint_line(line: str) -> LintEntryDTO | None:
 
 def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)
-    if entry is None:
-        return None
-    return entry.model_dump()
+    return entry.model_dump() if entry is not None else None
+
+
+def _lint_entries_from_lines(lines: Sequence[str]) -> list[dict[str, object]]:
+    decision = LintEntriesDecision(
+        kind="derive_from_lines",
+        lint_lines=tuple(str(line) for line in lines),
+        lint_entries_payload=(),
+    )
+    return cast(
+        list[dict[str, object]],
+        decision.normalize_entries(parse_lint_entry_fn=_parse_lint_line_as_payload),
+    )
 
 
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:

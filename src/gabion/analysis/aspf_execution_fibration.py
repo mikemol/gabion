@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Mapping, Sequence, cast
+from typing import Iterable, Iterator, Mapping, Sequence, cast
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -35,6 +35,22 @@ from .aspf_morphisms import (
     DomainPrimeBasis,
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
+)
+from .aspf_stream import (
+    AspfEventVisitor,
+    AspfInMemoryCompatibilityVisitor,
+    CofibrationRecorded,
+    OneCellRecorded,
+    RunFinalized,
+    SemanticSurfaceUpdated,
+    TwoCellWitnessRecorded,
+)
+from .aspf_visitors import (
+    OpportunityPayloadEmitter,
+    StatePayloadEmitter,
+    TracePayloadEmitter,
+    replay_equivalence_payload_to_visitor,
+    replay_trace_payload_to_visitor,
 )
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
@@ -90,6 +106,11 @@ class AspfExecutionTraceState:
     surface_representatives: dict[str, str] = field(default_factory=dict)
     imported_trace_payloads: list[JSONObject] = field(default_factory=list)
     delta_records: list[JSONObject] = field(default_factory=list)
+    event_visitors: list[AspfEventVisitor] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.event_visitors:
+            self.event_visitors.append(AspfInMemoryCompatibilityVisitor())
 
 
 @dataclass(frozen=True)
@@ -207,7 +228,6 @@ def record_1cell(
         representative=str(representative),
         basis_path=normalized_basis,
     )
-    state.one_cells.append(cell)
     metadata_payload = (
         _as_json_value(
             {str(key): metadata[key] for key in metadata}
@@ -215,33 +235,15 @@ def record_1cell(
         if isinstance(metadata, Mapping)
         else {}
     )
-    raw_metadata: JSONObject = {
-        "kind": str(kind),
-        "surface": str(surface) if surface is not None else "",
-        "metadata": metadata_payload,
-    }
-    state.one_cell_metadata.append(raw_metadata)
-    mutation_target = f"one_cells.{len(state.one_cells)}"
-    phase = normalized_basis[0] if normalized_basis else "runtime"
-    aspf_resume_state.append_delta_record(
-        records=state.delta_records,
-        event_kind=str(kind),
-        phase=str(phase),
-        analysis_state=(
-            str(metadata.get("analysis_state"))
-            if isinstance(metadata, Mapping)
-            and isinstance(metadata.get("analysis_state"), str)
-            else None
+    _publish_event(
+        state,
+        OneCellRecorded(
+            state=state,
+            cell=cell,
+            kind=str(kind),
+            surface=str(surface) if surface is not None else "",
+            metadata_payload=cast(JSONObject, metadata_payload),
         ),
-        mutation_target=mutation_target,
-        mutation_value={
-            "source": str(source_label),
-            "target": str(target_label),
-            "representative": str(representative),
-            "surface": str(surface) if surface is not None else None,
-            "metadata": metadata_payload,
-        },
-        one_cell_ref=mutation_target,
     )
     return cell
 
@@ -261,7 +263,10 @@ def record_2cell_witness(
         reason=str(reason),
     )
     validate_2cell_compatibility(witness)
-    state.two_cell_witnesses.append(witness)
+    _publish_event(
+        state,
+        TwoCellWitnessRecorded(state=state, witness=witness),
+    )
     return witness
 
 
@@ -272,11 +277,15 @@ def record_cofibration(
     cofibration: DomainToAspfCofibration,
 ) -> None:
     cofibration.validate()
-    state.cofibrations.append(
-        CofibrationWitnessCarrier(
-            canonical_identity_kind=str(canonical_identity_kind),
-            cofibration=cofibration,
-        )
+    _publish_event(
+        state,
+        CofibrationRecorded(
+            state=state,
+            carrier=CofibrationWitnessCarrier(
+                canonical_identity_kind=str(canonical_identity_kind),
+                cofibration=cofibration,
+            ),
+        ),
     )
 
 
@@ -312,15 +321,15 @@ def register_semantic_surface(
 ) -> AspfOneCell:
     normalized_value = _as_json_value(value)
     representative = stable_compact_text(normalized_value)
-    state.surface_representatives[str(surface)] = representative
-    aspf_resume_state.append_delta_record(
-        records=state.delta_records,
-        event_kind="semantic_surface_projection",
-        phase=str(phase),
-        analysis_state=None,
-        mutation_target=f"semantic_surfaces.{surface}",
-        mutation_value=normalized_value,
-        one_cell_ref=None,
+    _publish_event(
+        state,
+        SemanticSurfaceUpdated(
+            state=state,
+            surface=str(surface),
+            representative=representative,
+            normalized_value=normalized_value,
+            phase=str(phase),
+        ),
     )
     return record_1cell(
         state,
@@ -334,7 +343,19 @@ def register_semantic_surface(
 
 
 def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
-    one_cells_payload: list[JSONValue] = []
+    replay_payload: JSONObject = {
+        "one_cells": [],
+        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
+        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
+        "surface_representatives": {
+            surface: state.surface_representatives[surface]
+            for surface in sort_once(
+                state.surface_representatives,
+                source="aspf_execution_fibration.build_trace_payload.surface_representatives",
+            )
+        },
+    }
+    one_cells_payload = cast(list[JSONObject], replay_payload["one_cells"])
     for index, cell in enumerate(state.one_cells):
         one_cell_payload = cell.as_dict()
         metadata = (
@@ -346,6 +367,9 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
         one_cell_payload["surface"] = str(metadata.get("surface", ""))
         one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
         one_cells_payload.append(one_cell_payload)
+
+    emitter = TracePayloadEmitter()
+    replay_trace_payload_to_visitor(trace_payload=replay_payload, visitor=emitter)
     return {
         "format_version": _TRACE_FORMAT_VERSION,
         "trace_id": state.trace_id,
@@ -378,16 +402,10 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
             ),
             "aspf_semantic_surface": list(state.controls.aspf_semantic_surface),
         },
-        "one_cells": one_cells_payload,
-        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
-        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
-        "surface_representatives": {
-            surface: state.surface_representatives[surface]
-            for surface in sort_once(
-                state.surface_representatives,
-                source="aspf_execution_fibration.build_trace_payload.surface_representatives",
-            )
-        },
+        "one_cells": emitter.one_cells,
+        "two_cell_witnesses": emitter.two_cell_witnesses,
+        "cofibration_witnesses": emitter.cofibration_witnesses,
+        "surface_representatives": emitter.surface_representatives,
         "imported_trace_count": len(state.imported_trace_payloads),
         "delta_record_count": len(state.delta_records),
     }
@@ -396,21 +414,25 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
 def build_equivalence_payload(
     *,
     state: AspfExecutionTraceState,
-    baseline_traces: Sequence[Mapping[str, object]],
+    baseline_traces: Iterable[Mapping[str, object]],
 ) -> JSONObject:
-    baseline_candidates: dict[str, list[str]] = {}
+    baseline_candidates: dict[str, set[str]] = {}
+    known_witnesses = _witnesses_by_representative_pair(state=state)
     for payload in baseline_traces:
-        _merge_candidates(
+        _merge_candidate_sets(
             destination=baseline_candidates,
             candidates=_surface_candidates_from_trace_payload(payload),
         )
+        _merge_known_witnesses(
+            destination=known_witnesses,
+            payload=payload,
+        )
     table: list[JSONObject] = []
-    known_witnesses = _all_known_witnesses(state=state, baseline_traces=baseline_traces)
     for surface in state.controls.aspf_semantic_surface:
         current_representative = state.surface_representatives.get(surface)
         candidates = tuple(
             sort_once(
-                set(baseline_candidates.get(surface, [])),
+                baseline_candidates.get(surface, set()),
                 source=f"aspf_execution_fibration.build_equivalence_payload.{surface}.candidates",
             )
         )
@@ -427,7 +449,7 @@ def build_equivalence_payload(
         else:
             baseline_representative = current_representative or ""
         witness = _find_witness(
-            witnesses=known_witnesses,
+            witness_index=known_witnesses,
             baseline_representative=baseline_representative,
             current_representative=current_representative or "",
         )
@@ -463,14 +485,16 @@ def build_opportunities_payload(
     state: AspfExecutionTraceState,
     equivalence_payload: Mapping[str, object],
 ) -> JSONObject:
-    opportunities: list[JSONObject] = []
-    opportunities.extend(_materialize_load_opportunities(state))
-    opportunities.extend(_reusable_artifact_opportunities(state))
-    opportunities.extend(_fungible_execution_opportunities(equivalence_payload))
-    opportunities = sorted(
-        opportunities,
-        key=lambda item: str(item.get("opportunity_id", "")),
+    emitter = OpportunityPayloadEmitter()
+    replay_trace_payload_to_visitor(
+        trace_payload=build_trace_payload(state),
+        visitor=emitter,
     )
+    replay_equivalence_payload_to_visitor(
+        equivalence_payload=equivalence_payload,
+        visitor=emitter,
+    )
+    opportunities = emitter.build_rows()
     return {
         "format_version": _OPPORTUNITY_FORMAT_VERSION,
         "trace_id": state.trace_id,
@@ -503,11 +527,10 @@ def finalize_execution_trace(
         if state.controls.aspf_equivalence_against
         else (state.controls.aspf_import_trace + state.controls.aspf_import_state)
     )
-    baseline_traces = [load_trace_payload(path) for path in baseline_paths]
     trace_payload = build_trace_payload(state)
     equivalence_payload = build_equivalence_payload(
         state=state,
-        baseline_traces=baseline_traces,
+        baseline_traces=_iter_baseline_trace_payloads(baseline_paths),
     )
     opportunities_payload = build_opportunities_payload(
         state=state,
@@ -539,11 +562,11 @@ def finalize_execution_trace(
     }
     resume_projection = aspf_resume_state.replay_resume_projection(
         snapshot=resume_snapshot,
-        delta_records=state.delta_records,
+        delta_records=iter(state.delta_records),
     )
     delta_ledger_payload = aspf_resume_state.build_delta_ledger_payload(
         trace_id=state.trace_id,
-        records=state.delta_records,
+        records=iter(state.delta_records),
     )
     trace_path = state.controls.aspf_trace_json or (root / "artifacts/out/aspf_trace.json")
     equivalence_path = root / "artifacts/out/aspf_equivalence.json"
@@ -558,7 +581,7 @@ def finalize_execution_trace(
     _write_json(opportunities_path, opportunities_payload)
     aspf_resume_state.write_delta_jsonl(
         path=delta_jsonl_path,
-        records=state.delta_records,
+        records=iter(state.delta_records),
     )
     state_path = state.controls.aspf_state_json or (
         root / "artifacts/out/aspf_state/default/0001_aspf.snapshot.json"
@@ -576,6 +599,17 @@ def finalize_execution_trace(
         delta_ledger_payload=delta_ledger_payload,
     )
     _write_json(state_path, state_payload)
+    finalization_event = RunFinalized(
+        state=state,
+        trace_payload=trace_payload,
+        equivalence_payload=equivalence_payload,
+        opportunities_payload=opportunities_payload,
+        delta_ledger_payload=delta_ledger_payload,
+        state_payload=state_payload,
+    )
+    _publish_event(state, finalization_event)
+    for visitor in state.event_visitors:
+        visitor.on_finalize(finalization_event)
     return AspfFinalizationArtifacts(
         trace_payload=trace_payload,
         equivalence_payload=equivalence_payload,
@@ -635,6 +669,10 @@ def _build_state_payload(
     resume_projection: Mapping[str, object],
     delta_ledger_payload: Mapping[str, object],
 ) -> JSONObject:
+    emitter = StatePayloadEmitter()
+    emitter.set_trace_payload(trace_payload)
+    emitter.set_equivalence_payload(equivalence_payload)
+    emitter.set_opportunities_payload(opportunities_payload)
     session_id, step_id = _session_and_step_from_path(state_path)
     state_material = stable_compact_text(
         {
@@ -668,15 +706,9 @@ def _build_state_payload(
             if resume_compatibility_status is not None
             else None
         ),
-        "trace": {str(key): _as_json_value(trace_payload[key]) for key in trace_payload},
-        "equivalence": {
-            str(key): _as_json_value(equivalence_payload[key])
-            for key in equivalence_payload
-        },
-        "opportunities": {
-            str(key): _as_json_value(opportunities_payload[key])
-            for key in opportunities_payload
-        },
+        "trace": emitter.trace,
+        "equivalence": emitter.equivalence,
+        "opportunities": emitter.opportunities,
         "semantic_surfaces": {
             str(key): _as_json_value(semantic_surface_payloads[key])
             for key in semantic_surface_payloads
@@ -817,9 +849,38 @@ def _merge_two_cells(
     trace_payload: Mapping[str, object],
 ) -> None:
     raw_witnesses = trace_payload["two_cell_witnesses"]
-    state.two_cell_witnesses.extend(
-        cast(AspfTwoCellWitness, parse_2cell_witness(raw)) for raw in raw_witnesses
-    )
+    for raw in raw_witnesses:
+        parsed = cast(AspfTwoCellWitness, parse_2cell_witness(raw))
+        record_2cell_witness(
+            state,
+            left=parsed.left,
+            right=parsed.right,
+            witness_id=parsed.witness_id,
+            reason=parsed.reason,
+        )
+
+
+def _publish_event(
+    state: AspfExecutionTraceState,
+    event: (
+        OneCellRecorded
+        | TwoCellWitnessRecorded
+        | CofibrationRecorded
+        | SemanticSurfaceUpdated
+        | RunFinalized
+    ),
+) -> None:
+    for visitor in state.event_visitors:
+        if isinstance(event, OneCellRecorded):
+            visitor.visit_one_cell_recorded(event)
+        elif isinstance(event, TwoCellWitnessRecorded):
+            visitor.visit_two_cell_witness_recorded(event)
+        elif isinstance(event, CofibrationRecorded):
+            visitor.visit_cofibration_recorded(event)
+        elif isinstance(event, SemanticSurfaceUpdated):
+            visitor.visit_semantic_surface_updated(event)
+        else:
+            visitor.visit_run_finalized(event)
 
 
 def _merge_cofibrations(
@@ -877,137 +938,59 @@ def _surface_candidates_from_trace_payload(
     return candidates
 
 
-def _merge_candidates(
+def _merge_candidate_sets(
     *,
-    destination: dict[str, list[str]],
+    destination: dict[str, set[str]],
     candidates: Mapping[str, list[str]],
 ) -> None:
     for surface in candidates:
-        existing = destination.setdefault(surface, [])
-        existing.extend(candidates[surface])
+        existing = destination.setdefault(surface, set())
+        existing.update(candidates[surface])
 
 
-def _all_known_witnesses(
+def _witnesses_by_representative_pair(
     *,
     state: AspfExecutionTraceState,
-    baseline_traces: Sequence[Mapping[str, object]],
-) -> list[AspfTwoCellWitness]:
-    baseline_witnesses = [
-        cast(AspfTwoCellWitness, parse_2cell_witness(entry))
-        for payload in baseline_traces
-        for entry in payload.get("two_cell_witnesses", [])
-    ]
-    return [*state.two_cell_witnesses, *baseline_witnesses]
+ ) -> dict[tuple[str, str], AspfTwoCellWitness]:
+    witnesses: dict[tuple[str, str], AspfTwoCellWitness] = {}
+    for witness in state.two_cell_witnesses:
+        _store_witness_by_pair(destination=witnesses, witness=witness)
+    return witnesses
+
+
+def _merge_known_witnesses(
+    *,
+    destination: dict[tuple[str, str], AspfTwoCellWitness],
+    payload: Mapping[str, object],
+) -> None:
+    for entry in payload.get("two_cell_witnesses", []):
+        witness = cast(AspfTwoCellWitness, parse_2cell_witness(entry))
+        _store_witness_by_pair(destination=destination, witness=witness)
+
+
+def _store_witness_by_pair(
+    *,
+    destination: dict[tuple[str, str], AspfTwoCellWitness],
+    witness: AspfTwoCellWitness,
+) -> None:
+    baseline = witness.left.representative
+    current = witness.right.representative
+    destination.setdefault((baseline, current), witness)
+    destination.setdefault((current, baseline), witness)
 
 
 def _find_witness(
     *,
-    witnesses: Sequence[AspfTwoCellWitness],
+    witness_index: Mapping[tuple[str, str], AspfTwoCellWitness],
     baseline_representative: str,
     current_representative: str,
 ) -> AspfTwoCellWitness | None:
-    return next(
-        (
-            witness
-            for witness in witnesses
-            if witness.links(
-                baseline_representative=baseline_representative,
-                current_representative=current_representative,
-            )
-        ),
+    return witness_index.get(
+        (baseline_representative, current_representative),
         None,
     )
 
 
-def _materialize_load_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
-    by_resume_ref: dict[str, set[str]] = {}
-    for metadata in state.one_cell_metadata:
-        kind = str(metadata.get("kind", ""))
-        raw_payload = metadata.get("metadata", {})
-        payload = raw_payload if isinstance(raw_payload, Mapping) else {}
-        resume_ref = ""
-        for candidate_key in ("state_path", "import_state_path"):
-            candidate = str(payload.get(candidate_key, "")).strip()
-            if candidate:
-                resume_ref = candidate
-                break
-        if not resume_ref:
-            continue
-        by_resume_ref.setdefault(resume_ref, set()).add(kind)
-    opportunities: list[JSONObject] = []
-    for resume_ref in sort_once(
-        by_resume_ref,
-        source="aspf_execution_fibration._materialize_load_opportunities.resume_ref",
-    ):
-        kinds = by_resume_ref[resume_ref]
-        fused = int("resume_load" in kinds and "resume_write" in kinds)
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:materialize-load-fusion:{resume_ref}",
-                "kind": ("materialize_load_observed", "materialize_load_fusion")[fused],
-                "confidence": (0.51, 0.74)[fused],
-                "affected_surfaces": [],
-                "witness_ids": [],
-                "reason": (
-                    "resume boundary observed state reference",
-                    "resume load and write boundaries share state reference",
-                )[fused],
-            }
-        )
-    return opportunities
-
-
-def _reusable_artifact_opportunities(state: AspfExecutionTraceState) -> list[JSONObject]:
-    representative_to_surfaces: dict[str, list[str]] = {}
-    for surface in state.surface_representatives:
-        representative = state.surface_representatives[surface]
-        representative_to_surfaces.setdefault(representative, []).append(surface)
-    opportunities: list[JSONObject] = []
-    for representative in sort_once(
-        representative_to_surfaces,
-        source="aspf_execution_fibration._reusable_artifact_opportunities.representative",
-    ):
-        surfaces = tuple(
-            sort_once(
-                representative_to_surfaces[representative],
-                source="aspf_execution_fibration._reusable_artifact_opportunities.surfaces",
-            )
-        )
-        digest = hashlib.sha256(representative.encode("utf-8")).hexdigest()[:12]
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:reusable-boundary:{digest}",
-                "kind": "reusable_boundary_artifact",
-                "confidence": 0.67,
-                "affected_surfaces": list(surfaces),
-                "witness_ids": [],
-                "reason": "multiple semantic surfaces share deterministic representative",
-            }
-        )
-    return opportunities
-
-
-def _fungible_execution_opportunities(
-    equivalence_payload: Mapping[str, object],
-) -> list[JSONObject]:
-    table = equivalence_payload.get("surface_table", [])
-    opportunities: list[JSONObject] = []
-    for row in table:
-        if str(row.get("classification", "")) != "non_drift":
-            continue
-        witness_id = row.get("witness_id")
-        if not isinstance(witness_id, str) or not witness_id:
-            continue
-        surface = str(row.get("surface", "")).strip() or "unknown_surface"
-        opportunities.append(
-            {
-                "opportunity_id": f"opp:fungible-substitution:{surface}",
-                "kind": "fungible_execution_path_substitution",
-                "confidence": 0.82,
-                "affected_surfaces": [surface],
-                "witness_ids": [witness_id],
-                "reason": "2-cell witness links baseline/current representatives",
-            }
-        )
-    return opportunities
-
+def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[JSONObject]:
+    for path in paths:
+        yield load_trace_payload(path)

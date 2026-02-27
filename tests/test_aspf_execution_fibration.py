@@ -313,3 +313,171 @@ def test_finalize_execution_trace_allows_state_object_roundtrip_import(
     assert state_payload["session_id"] == "session-a"
     assert state_payload["step_id"] == "0002_current"
     assert state_payload["analysis_state"] == "succeeded"
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._publish_event
+def test_aspf_event_visitor_receives_finalize_hook(tmp_path: Path) -> None:
+    class CollectingVisitor:
+        def __init__(self) -> None:
+            self.one_cells = 0
+            self.surfaces = 0
+            self.finalized = 0
+            self.on_finalize_calls = 0
+
+        def visit_one_cell_recorded(self, event) -> None:
+            self.one_cells += 1
+
+        def visit_two_cell_witness_recorded(self, event) -> None:
+            return None
+
+        def visit_cofibration_recorded(self, event) -> None:
+            return None
+
+        def visit_semantic_surface_updated(self, event) -> None:
+            self.surfaces += 1
+
+        def visit_run_finalized(self, event) -> None:
+            self.finalized += 1
+
+        def on_finalize(self, event) -> None:
+            self.on_finalize_calls += 1
+
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    collector = CollectingVisitor()
+    state.event_visitors.append(collector)
+
+    artifacts = aspf_execution_fibration.finalize_execution_trace(
+        state=state,
+        root=tmp_path,
+        semantic_surface_payloads={
+            "groups_by_path": {"pkg/mod.py": {"fn": [{"a"}]}}
+        },
+    )
+
+    assert artifacts is not None
+    assert collector.surfaces == 1
+    assert collector.one_cells == 1
+    assert collector.finalized == 1
+    assert collector.on_finalize_calls == 1
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.AspfExecutionTraceState.__post_init__
+def test_execution_trace_state_preserves_preconfigured_event_visitors(tmp_path: Path) -> None:
+    class _Visitor:
+        def visit_one_cell_recorded(self, event) -> None:
+            pass
+
+        def visit_two_cell_witness_recorded(self, event) -> None:
+            pass
+
+        def visit_cofibration_recorded(self, event) -> None:
+            pass
+
+        def visit_semantic_surface_updated(self, event) -> None:
+            pass
+
+        def visit_run_finalized(self, event) -> None:
+            pass
+
+        def on_finalize(self, event) -> None:
+            pass
+
+    visitor = _Visitor()
+    state = aspf_execution_fibration.AspfExecutionTraceState(
+        trace_id="aspf-trace:test",
+        controls=aspf_execution_fibration.controls_from_payload(
+            {"aspf_trace_json": str(tmp_path / "trace.json")}
+        ),
+        started_at_utc="2026-01-01T00:00:00Z",
+        command_profile="check.run",
+        event_visitors=[visitor],
+    )
+    assert state.event_visitors == [visitor]
+
+
+def _one_cell_payload(*, representative: str) -> dict[str, object]:
+    return {
+        "source": "surface:groups_by_path:domain",
+        "target": "surface:groups_by_path:carrier",
+        "representative": representative,
+        "basis_path": ["groups_by_path", "post", "projection"],
+    }
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_two_cells
+def test_merge_imported_trace_parses_two_cell_witness_payloads(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+
+    aspf_execution_fibration.merge_imported_trace(
+        state=state,
+        trace_payload={
+            "surface_representatives": {"groups_by_path": "rep:baseline"},
+            "one_cells": [],
+            "two_cell_witnesses": [
+                {
+                    "left": _one_cell_payload(representative="rep:baseline"),
+                    "right": _one_cell_payload(representative="rep:current"),
+                    "witness_id": "w:imported",
+                    "reason": "imported witness",
+                }
+            ],
+            "cofibration_witnesses": [],
+        },
+    )
+
+    assert len(state.two_cell_witnesses) == 1
+    assert state.two_cell_witnesses[0].witness_id == "w:imported"
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_known_witnesses
+def test_build_equivalence_payload_uses_baseline_two_cell_witness_index(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    current_cell = aspf_execution_fibration.register_semantic_surface(
+        state=state,
+        surface="groups_by_path",
+        value={"pkg/mod.py": {"fn": [{"a"}]}},
+    )
+    baseline_rep = "rep:baseline"
+    equivalence = aspf_execution_fibration.build_equivalence_payload(
+        state=state,
+        baseline_traces=[
+            {
+                "surface_representatives": {"groups_by_path": baseline_rep},
+                "two_cell_witnesses": [
+                    {
+                        "left": _one_cell_payload(representative=baseline_rep),
+                        "right": _one_cell_payload(representative=current_cell.representative),
+                        "witness_id": "w:baseline-index",
+                        "reason": "baseline index witness",
+                    }
+                ],
+            }
+        ],
+    )
+
+    rows = equivalence["surface_table"]
+    assert isinstance(rows, list)
+    row = next(item for item in rows if isinstance(item, dict))
+    assert row["classification"] == "non_drift"
+    assert row["witness_id"] == "w:baseline-index"
