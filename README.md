@@ -1,5 +1,5 @@
 ---
-doc_revision: 80
+doc_revision: 81
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -27,7 +27,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
   docs/normative_clause_index.md#normative_clause_index: "Clause IDs adopted as canonical obligation references to reduce duplicated prose drift."
 doc_sections:
-  repo_contract: 1
+  repo_contract: 2
 doc_section_requires:
   repo_contract:
     - POLICY_SEED.md#policy_seed
@@ -176,9 +176,7 @@ substrate:
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
-  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl
 ```
 
 ### ASPF Cross-Execution Equivalence + Cross-Script Handoff (phase 1)
@@ -187,15 +185,12 @@ Phase-1 supports both:
 - trace/equivalence/opportunity artifacts (`--aspf-trace-json`, `--aspf-import-trace`)
 - serialized ASPF state objects for cross-script reuse (`--aspf-state-json`, `--aspf-import-state`)
 - append-only mutation ledgers (`--aspf-delta-jsonl`)
-- ranked cleanup plans (`--aspf-action-plan-json`, `--aspf-action-plan-md`)
 
 Capture a baseline lane as a first-class state object:
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md \
   --aspf-semantic-surface groups_by_path \
   --aspf-semantic-surface decision_surfaces \
   --aspf-semantic-surface rewrite_plans \
@@ -207,8 +202,6 @@ Run another lane and import prior state for glued equivalence reasoning:
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0002_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0002_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0002_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0002_check-run.action_plan.md \
   --aspf-import-state artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
   --aspf-opportunities-json artifacts/out/aspf_opportunities.json
 ```
@@ -225,14 +218,12 @@ Phase-1 ASPF outputs:
 - `artifacts/out/aspf_opportunities.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
 - `artifacts/out/aspf_handoff_manifest.json`
 
 See `docs/aspf_execution_fibration.md` for surface/witness/handoff details.
 
 Legacy timeout/resume checkpoint flags were removed from `gabion check run`.
-Use ASPF state import (`--aspf-import-state`) plus per-run delta/action-plan
+Use ASPF state import (`--aspf-import-state`) plus per-run snapshot/delta
 artifacts for continuation and progress tracking.
 
 Run the dataflow grammar audit in raw profile mode (prototype):

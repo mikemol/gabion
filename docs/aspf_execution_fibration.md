@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: aspf_execution_fibration
 doc_role: contract
@@ -23,7 +23,7 @@ doc_review_notes:
   glossary.md#contract: "Reviewed semantic contract terms used by witness/drift classification text."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
-  aspf_execution_fibration: 1
+  aspf_execution_fibration: 2
 doc_section_requires:
   aspf_execution_fibration:
     - README.md#repo_contract
@@ -102,8 +102,6 @@ Phase-1 cross-script reuse is ASPF-state-native and file-based:
   `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`.
 - ASPF mutation ledgers live in
   `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`.
-- per-step ranked cleanup plans live in
-  `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.{json,md}`.
 - handoff sequencing/import chains are tracked in
   `artifacts/out/aspf_handoff_manifest.json`.
 - manifest path fields are repo-relative for cross-job portability (absolute
@@ -126,8 +124,6 @@ Phase-1 artifacts:
 - `artifacts/out/aspf_opportunities.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
 - `artifacts/out/aspf_handoff_manifest.json`
 
 CLI controls:
@@ -138,6 +134,4 @@ CLI controls:
 - `--aspf-state-json`
 - `--aspf-import-state`
 - `--aspf-delta-jsonl`
-- `--aspf-action-plan-json`
-- `--aspf-action-plan-md`
 - `--aspf-semantic-surface`

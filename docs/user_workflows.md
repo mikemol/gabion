@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -24,7 +24,7 @@ doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed execution-policy constraints; this guide links out instead of restating policy."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
-  user_workflows: 1
+  user_workflows: 2
 doc_section_requires:
   user_workflows:
     - README.md#repo_contract
@@ -78,9 +78,7 @@ mise exec -- python -m gabion check run \
   --baseline artifacts/audit_reports/dataflow_baseline.txt \
   --baseline-mode enforce \
   --aspf-state-json artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json \
-  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0001_check-run.action_plan.md
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl
 ```
 
 ### Continuation handling
@@ -89,8 +87,6 @@ To continue from previous work, import prior state snapshot(s):
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-local/0002_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0002_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0002_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0002_check-run.action_plan.md \
   --aspf-import-state artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json
 ```
 
@@ -101,8 +97,6 @@ re-analysis:
 mise exec -- python -m gabion check delta-bundle \
   --aspf-state-json artifacts/out/aspf_state/session-local/0003_delta-bundle.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0003_delta-bundle.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-local/0003_delta-bundle.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-local/0003_delta-bundle.action_plan.md \
   --aspf-import-state artifacts/out/aspf_state/session-local/0002_check-run.snapshot.json
 
 mise exec -- python -m gabion check delta-gates
@@ -117,9 +111,7 @@ to drive correction together.
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-local/0001_check-run.snapshot.json \
-  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_action_plan.md
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-local/0001_check-run.delta.jsonl
 ```
 
 ### Terminal B: remote status-check lane
@@ -165,9 +157,7 @@ separate invocations.
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
-  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl
 ```
 
 ### Script/lane B: import cumulative prior state
@@ -175,8 +165,6 @@ mise exec -- python -m gabion check run \
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0002_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0002_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0002_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0002_check-run.action_plan.md \
   --aspf-import-state artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json
 ```
 
@@ -198,8 +186,6 @@ step.
 - `artifacts/out/aspf_opportunities.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
 - `artifacts/out/aspf_handoff_manifest.json`
 
 ## 4) VS Code-assisted remediation loop
@@ -244,7 +230,7 @@ Use this loop to review whether a PR is healthy and whether cache reuse behaved 
 Look at:
 - `artifacts/out/aspf_handoff_manifest.json` entries (`sequence`, `import_state_paths`, `status`).
 - per-step `*.snapshot.json` and `*.delta.jsonl` artifacts for deterministic continuation.
-- per-step action plans (`*.action_plan.json`/`*.action_plan.md`) for ranked cleanup work.
+- state/delta continuity across steps and sessions, including deterministic import ordering.
 
 ### Re-run with stable identity settings
 If continuity behavior seems unexpectedly poor, re-run while keeping identity-affecting
