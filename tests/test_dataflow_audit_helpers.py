@@ -4765,6 +4765,44 @@ def test_canonical_cache_identity_uses_aspf_prefix() -> None:
     assert len(identity.split(":")[-1]) == 40
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_canonical_cache_identity_normalizes_nested_config_order::dataflow_audit.py::gabion.analysis.dataflow_audit._canonical_cache_identity
+def test_canonical_cache_identity_normalizes_nested_config_order() -> None:
+    da = _load()
+    cache_context = da._CacheSemanticContext(
+        forest_spec_id="spec@1",
+        fingerprint_seed_revision="seed@2",
+    )
+    first = da._canonical_cache_identity(
+        stage="projection",
+        cache_context=cache_context,
+        config_subset={
+            "strictness": "high",
+            "projection": {
+                "beta": 2,
+                "alpha": [
+                    {"z": "last", "a": "first"},
+                    {"k2": False, "k1": True},
+                ],
+            },
+        },
+    )
+    second = da._canonical_cache_identity(
+        stage="projection",
+        cache_context=cache_context,
+        config_subset={
+            "projection": {
+                "alpha": [
+                    {"a": "first", "z": "last"},
+                    {"k1": True, "k2": False},
+                ],
+                "beta": 2,
+            },
+            "strictness": "high",
+        },
+    )
+    assert first == second
+
+
 # gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_cache_identity_alias_and_resume_variant_edges
 def test_cache_identity_alias_and_resume_variant_edges() -> None:
     da = _load()
@@ -4777,6 +4815,52 @@ def test_cache_identity_alias_and_resume_variant_edges() -> None:
 
     variant = {"path": "v"}
     assert da._resume_variant_for_identity({legacy: variant}, prefixed) == variant
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_stage_cache::dataflow_audit.py::gabion.analysis.dataflow_audit._get_stage_cache_bucket
+def test_analysis_index_stage_cache_migrates_legacy_parse_cache_key_aliases(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "m.py"
+    _write(module, "x = 1\n")
+    legacy_digest = "0123456789abcdef0123456789abcdef01234567"
+    prefixed_identity = f"aspf:sha1:{legacy_digest}"
+    legacy_parse_key = (
+        "parse",
+        da._ParseModuleStage.CONFIG_FIELDS.value,
+        legacy_digest,
+        "config_fields",
+    )
+    current_parse_key = (
+        "parse",
+        da._ParseModuleStage.CONFIG_FIELDS.value,
+        prefixed_identity,
+        "config_fields",
+    )
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity=prefixed_identity,
+    )
+    scoped_legacy_key = (prefixed_identity, legacy_parse_key)
+    analysis_index.stage_cache_by_key[scoped_legacy_key] = {module: {"legacy": {"field"}}}
+    parse_failures: list[dict[str, object]] = []
+    result = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=da._StageCacheSpec(
+            stage=da._ParseModuleStage.CONFIG_FIELDS,
+            cache_key=current_parse_key,
+            build=lambda _tree, _path: (_ for _ in ()).throw(AssertionError("should reuse cache")),
+        ),
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert result[module] == {"legacy": {"field"}}
+    assert (prefixed_identity, current_parse_key) in analysis_index.stage_cache_by_key
 
 
 # gabion:evidence E:function_site::tests/test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers.test_preview_deprecated_substrate_section_and_extinction_wrapper

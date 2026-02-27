@@ -7881,6 +7881,14 @@ class _CacheSemanticContext:
     fingerprint_seed_revision: OptionalString = None
 
 
+@dataclass(frozen=True)
+class _StageCacheIdentitySpec:
+    stage: Literal["parse", "index", "projection"]
+    forest_spec_id: str
+    fingerprint_seed_revision: str
+    normalized_config: JSONValue
+
+
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
@@ -7893,22 +7901,61 @@ def _sorted_text(values = None) -> tuple[str, ...]:
     return tuple(sort_once(cleaned, source = 'src/gabion/analysis/dataflow_audit.py:8091'))
 
 
+def _normalize_cache_config(value: JSONValue) -> JSONValue:
+    if type(value) is dict:
+        mapping = cast(dict[object, JSONValue], value)
+        normalized = {
+            str(key): _normalize_cache_config(mapping[key])
+            for key in sort_once(mapping, source="_normalize_cache_config.mapping")
+        }
+        return cast(JSONValue, normalized)
+    if type(value) is list:
+        return cast(JSONValue, [_normalize_cache_config(item) for item in value])
+    if type(value) is tuple:
+        return cast(JSONValue, [_normalize_cache_config(cast(JSONValue, item)) for item in value])
+    return value
+
+
+def _build_stage_cache_identity_spec(
+    *,
+    stage: Literal["parse", "index", "projection"],
+    cache_context: _CacheSemanticContext,
+    config_subset: Mapping[str, JSONValue],
+) -> _StageCacheIdentitySpec:
+    normalized_config = _normalize_cache_config(cast(JSONValue, config_subset))
+    return _StageCacheIdentitySpec(
+        stage=stage,
+        forest_spec_id=str(cache_context.forest_spec_id or ""),
+        fingerprint_seed_revision=str(cache_context.fingerprint_seed_revision or ""),
+        normalized_config=normalized_config,
+    )
+
+
+def _canonical_stage_cache_identity(spec: _StageCacheIdentitySpec) -> str:
+    payload: dict[str, JSONValue] = {
+        "stage": spec.stage,
+        "forest_spec_id": spec.forest_spec_id,
+        "fingerprint_seed_revision": spec.fingerprint_seed_revision,
+        "config_subset": spec.normalized_config,
+    }
+    digest = hashlib.sha1(
+        json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return f"aspf:sha1:{digest}"
+
+
 def _canonical_cache_identity(
     *,
     stage: Literal["parse", "index", "projection"],
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
-    payload: dict[str, JSONValue] = {
-        "stage": stage,
-        "forest_spec_id": str(cache_context.forest_spec_id or ""),
-        "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
-        "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
-    }
-    digest = hashlib.sha1(
-        json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    return f"aspf:sha1:{digest}"
+    spec = _build_stage_cache_identity_spec(
+        stage=stage,
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
+    return _canonical_stage_cache_identity(spec)
 
 
 def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
@@ -7953,14 +8000,15 @@ def _parse_stage_cache_key(
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
 ) -> tuple[str, str, str, Hashable]:
+    identity_spec = _build_stage_cache_identity_spec(
+        stage="parse",
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
     return (
         "parse",
         stage.value,
-        _canonical_cache_identity(
-            stage="parse",
-            cache_context=cache_context,
-            config_subset=config_subset,
-        ),
+        _canonical_stage_cache_identity(identity_spec),
         detail,
     )
 
@@ -7970,10 +8018,12 @@ def _index_stage_cache_identity(
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
-    return _canonical_cache_identity(
-        stage="index",
-        cache_context=cache_context,
-        config_subset=config_subset,
+    return _canonical_stage_cache_identity(
+        _build_stage_cache_identity_spec(
+            stage="index",
+            cache_context=cache_context,
+            config_subset=config_subset,
+        )
     )
 
 
@@ -7982,11 +8032,58 @@ def _projection_stage_cache_identity(
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
-    return _canonical_cache_identity(
-        stage="projection",
-        cache_context=cache_context,
-        config_subset=config_subset,
+    return _canonical_stage_cache_identity(
+        _build_stage_cache_identity_spec(
+            stage="projection",
+            cache_context=cache_context,
+            config_subset=config_subset,
+        )
     )
+
+
+def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
+    if (
+        type(key) is tuple
+        and len(key) == 2
+        and type(key[1]) is tuple
+    ):
+        scoped_identity = key[0]
+        parse_key = cast(Hashable, key[1])
+        parse_aliases = _stage_cache_key_aliases(parse_key)
+        if len(parse_aliases) > 1:
+            return tuple((scoped_identity, alias) for alias in parse_aliases)
+        return (key,)
+    if (
+        type(key) is tuple
+        and len(key) == 4
+        and key[0] == "parse"
+        and type(key[2]) is str
+    ):
+        identity = key[2]
+        aliases = _cache_identity_aliases(identity)
+        if len(aliases) > 1:
+            return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
+    return (key,)
+
+
+def _get_stage_cache_bucket(
+    analysis_index: AnalysisIndex,
+    *,
+    scoped_cache_key: Hashable,
+) -> dict[Path, object]:
+    stage_cache_by_key = analysis_index.stage_cache_by_key
+    bucket = stage_cache_by_key.get(scoped_cache_key)
+    if bucket is not None:
+        return bucket
+    for candidate_key in _stage_cache_key_aliases(scoped_cache_key):
+        check_deadline()
+        if candidate_key == scoped_cache_key:
+            continue
+        legacy_bucket = stage_cache_by_key.get(candidate_key)
+        if legacy_bucket is not None:
+            stage_cache_by_key[scoped_cache_key] = legacy_bucket
+            return legacy_bucket
+    return stage_cache_by_key.setdefault(scoped_cache_key, {})
 
 
 def _parse_module_source(path: Path) -> ast.Module:
@@ -8347,7 +8444,10 @@ def _analysis_index_stage_cache(
         parse_failure_witnesses=parse_failure_witnesses,
     )
     scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
-    cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
+    cache = _get_stage_cache_bucket(
+        analysis_index,
+        scoped_cache_key=scoped_cache_key,
+    )
     results = {}
     for path in paths:
         check_deadline()
