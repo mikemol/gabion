@@ -652,6 +652,7 @@ run_checks_job() {
     --log-file-level=INFO
 
   step "checks: check delta-bundle"
+  local delta_timeout_ns="${GABION_DELTA_BUNDLE_TIMEOUT_NS:-130000000000000ns}"
   if aspf_handoff_enabled_now; then
     ensure_aspf_handoff_session
     timed_observed checks_delta_bundle "$PYTHON_BIN" scripts/aspf_handoff.py run \
@@ -664,19 +665,19 @@ run_checks_job() {
       -- \
       "$PYTHON_BIN" -m gabion \
       --carrier direct \
-      --timeout 65000000000000ns \
+      --timeout "$delta_timeout_ns" \
       check delta-bundle
   else
     timed_observed checks_delta_bundle "$PYTHON_BIN" -m gabion \
       --carrier direct \
-      --timeout 65000000000000ns \
+      --timeout "$delta_timeout_ns" \
       check delta-bundle
   fi
 
   step "checks: check delta-gates"
   timed_observed checks_delta_gates "$PYTHON_BIN" -m gabion \
     --carrier direct \
-    --timeout 65000000000000ns \
+    --timeout "$delta_timeout_ns" \
     check delta-gates
 
   step "checks: governance telemetry emit"
