@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List, Tuple
 
 Position = Tuple[int, int]
@@ -66,8 +67,15 @@ class RewritePlanEntry:
     non_rewrite_reasons: List[str] = field(default_factory=list)
 
 
+class RefactorPlanOutcome(str, Enum):
+    APPLIED = "applied"
+    NO_CHANGES = "no_changes"
+    ERROR = "error"
+
+
 @dataclass
 class RefactorPlan:
+    outcome: RefactorPlanOutcome = RefactorPlanOutcome.APPLIED
     edits: List[TextEdit] = field(default_factory=list)
     rewrite_plans: List[RewritePlanEntry] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
