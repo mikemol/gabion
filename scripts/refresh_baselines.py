@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import inspect
 import json
 import os
@@ -535,7 +536,9 @@ def main(
             "",
         ).strip()
         if handoff_enabled and not handoff_session:
-            handoff_session = aspf_handoff.new_session_id()
+            handoff_session = (
+                f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}"
+            )
         handoff_manifest_path = Path(str(args.aspf_handoff_manifest))
         handoff_state_root = Path(str(args.aspf_state_root))
         raw_run_check_fn = run_check_fn

@@ -291,8 +291,9 @@ ensure_aspf_handoff_session() {
     return 0
   fi
   aspf_handoff_session="$("$PYTHON_BIN" - <<'PY'
-from gabion.tooling import aspf_handoff
-print(aspf_handoff.new_session_id())
+from datetime import datetime, timezone
+import os
+print(f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}")
 PY
 )"
 }

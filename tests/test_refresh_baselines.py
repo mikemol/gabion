@@ -229,7 +229,13 @@ def test_main_aspf_handoff_imports_prior_successful_state(tmp_path: Path) -> Non
             report_path,
             run_fn,
         )
-        captures.append(list(extra or []))
+        captured_extra = list(extra or [])
+        if "--aspf-state-json" in captured_extra:
+            state_index = captured_extra.index("--aspf-state-json")
+            state_path = Path(captured_extra[state_index + 1])
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text("{}", encoding="utf-8")
+        captures.append(captured_extra)
 
     args = [
         "--obsolescence",

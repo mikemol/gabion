@@ -1102,10 +1102,15 @@ def main(
         baseline_path=args.baseline,
     )
     handoff_enabled = not bool(args.no_aspf_handoff)
+    generated_handoff_session_id = (
+        f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}"
+        if handoff_enabled
+        else ""
+    )
     handoff_session_id = (
         str(args.aspf_handoff_session).strip()
         or os.getenv("GABION_ASPF_HANDOFF_SESSION", "").strip()
-        or (aspf_handoff.new_session_id() if handoff_enabled else "")
+        or generated_handoff_session_id
     )
     aspf_handoff_config = AspfHandoffConfig(
         enabled=handoff_enabled,

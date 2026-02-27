@@ -23,6 +23,8 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
     )
     assert step1.sequence == 1
     assert step1.import_state_paths == ()
+    step1.state_path.parent.mkdir(parents=True, exist_ok=True)
+    step1.state_path.write_text("{}", encoding="utf-8")
     assert aspf_handoff.record_step(
         manifest_path=manifest_path,
         session_id=session_id,
@@ -66,6 +68,40 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
     entries = manifest.get("entries")
     assert isinstance(entries, list)
     assert [entry.get("status") for entry in entries] == ["success", "failed", "started"]
+
+
+def test_prepare_step_skips_success_entries_with_missing_state_files(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "manifest.json"
+    state_root = root / "state"
+    session_id = "session-test"
+
+    step1 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step1.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    step2 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.next",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step2.import_state_paths == ()
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_prepare_step_resets_manifest_when_session_changes::aspf_handoff.py::gabion.tooling.aspf_handoff.prepare_step

@@ -27,12 +27,6 @@ class PreparedHandoffStep:
     manifest_path: Path
     started_at_utc: str
 
-
-def new_session_id() -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"session-{stamp}-{os.getpid()}"
-
-
 # gabion:decision_protocol
 def prepare_step(
     *,
@@ -52,7 +46,8 @@ def prepare_step(
         root=resolved_root,
         value=state_root if state_root is not None else _DEFAULT_STATE_ROOT,
     )
-    resolved_session_id = (session_id or "").strip() or new_session_id()
+    generated_session_id = f"session-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}"
+    resolved_session_id = (session_id or "").strip() or generated_session_id
     manifest = load_manifest(resolved_manifest_path)
     if manifest.get("session_id") != resolved_session_id:
         manifest = {
@@ -180,7 +175,10 @@ def _successful_state_paths(entries: list[object], *, root: Path) -> list[Path]:
         if status != "success":
             continue
         state_path = str(raw_entry["state_path"]).strip()
-        paths.append(_path_from_manifest_ref(state_path, root=root))
+        resolved_state_path = _path_from_manifest_ref(state_path, root=root)
+        if not resolved_state_path.exists():
+            continue
+        paths.append(resolved_state_path)
     return paths
 
 
