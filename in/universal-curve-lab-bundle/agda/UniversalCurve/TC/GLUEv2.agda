@@ -6,7 +6,6 @@ open import Agda.Builtin.List using (List)
 open import Agda.Builtin.String using (String)
 open import Agda.Builtin.Bool using (Bool; false)
 open import Agda.Builtin.Equality using (_≡_)
-open import Data.Sum using (_⊎_)
 
 open import UniversalCurve.TC.SIGv2
 open import UniversalCurve.TC.CONSTRv2
@@ -31,8 +30,10 @@ mkMapping concept surface coverage = mkRuntimeMapping concept surface coverage
 bridgePlanV2 : List RuntimeMapping → BridgePlanV2
 bridgePlanV2 maps = mkBridgePlanV2 sampleContractV2 maps false
 
-StabilizationProvenance : Set
-StabilizationProvenance = NonMaxCoverWitness ⊎ Boundary ⊎ Unknown
+data StabilizationProvenance : Set where
+  fromNonMaxCoverWitness : NonMaxCoverWitness → StabilizationProvenance
+  fromBoundary : Boundary → StabilizationProvenance
+  fromUnknown : Unknown → StabilizationProvenance
 
 record GLUEv2 : Set₁ where
   constructor mkGLUEv2
