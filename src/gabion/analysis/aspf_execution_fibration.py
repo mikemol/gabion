@@ -36,6 +36,15 @@ from .aspf_morphisms import (
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
 )
+from .aspf_stream import (
+    AspfEventVisitor,
+    AspfInMemoryCompatibilityVisitor,
+    CofibrationRecorded,
+    OneCellRecorded,
+    RunFinalized,
+    SemanticSurfaceUpdated,
+    TwoCellWitnessRecorded,
+)
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
     "groups_by_path",
@@ -90,6 +99,11 @@ class AspfExecutionTraceState:
     surface_representatives: dict[str, str] = field(default_factory=dict)
     imported_trace_payloads: list[JSONObject] = field(default_factory=list)
     delta_records: list[JSONObject] = field(default_factory=list)
+    event_visitors: list[AspfEventVisitor] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.event_visitors:
+            self.event_visitors.append(AspfInMemoryCompatibilityVisitor())
 
 
 @dataclass(frozen=True)
@@ -207,7 +221,6 @@ def record_1cell(
         representative=str(representative),
         basis_path=normalized_basis,
     )
-    state.one_cells.append(cell)
     metadata_payload = (
         _as_json_value(
             {str(key): metadata[key] for key in metadata}
@@ -215,33 +228,15 @@ def record_1cell(
         if isinstance(metadata, Mapping)
         else {}
     )
-    raw_metadata: JSONObject = {
-        "kind": str(kind),
-        "surface": str(surface) if surface is not None else "",
-        "metadata": metadata_payload,
-    }
-    state.one_cell_metadata.append(raw_metadata)
-    mutation_target = f"one_cells.{len(state.one_cells)}"
-    phase = normalized_basis[0] if normalized_basis else "runtime"
-    aspf_resume_state.append_delta_record(
-        records=state.delta_records,
-        event_kind=str(kind),
-        phase=str(phase),
-        analysis_state=(
-            str(metadata.get("analysis_state"))
-            if isinstance(metadata, Mapping)
-            and isinstance(metadata.get("analysis_state"), str)
-            else None
+    _publish_event(
+        state,
+        OneCellRecorded(
+            state=state,
+            cell=cell,
+            kind=str(kind),
+            surface=str(surface) if surface is not None else None,
+            metadata_payload=cast(JSONObject, metadata_payload),
         ),
-        mutation_target=mutation_target,
-        mutation_value={
-            "source": str(source_label),
-            "target": str(target_label),
-            "representative": str(representative),
-            "surface": str(surface) if surface is not None else None,
-            "metadata": metadata_payload,
-        },
-        one_cell_ref=mutation_target,
     )
     return cell
 
@@ -261,7 +256,10 @@ def record_2cell_witness(
         reason=str(reason),
     )
     validate_2cell_compatibility(witness)
-    state.two_cell_witnesses.append(witness)
+    _publish_event(
+        state,
+        TwoCellWitnessRecorded(state=state, witness=witness),
+    )
     return witness
 
 
@@ -272,11 +270,15 @@ def record_cofibration(
     cofibration: DomainToAspfCofibration,
 ) -> None:
     cofibration.validate()
-    state.cofibrations.append(
-        CofibrationWitnessCarrier(
-            canonical_identity_kind=str(canonical_identity_kind),
-            cofibration=cofibration,
-        )
+    _publish_event(
+        state,
+        CofibrationRecorded(
+            state=state,
+            carrier=CofibrationWitnessCarrier(
+                canonical_identity_kind=str(canonical_identity_kind),
+                cofibration=cofibration,
+            ),
+        ),
     )
 
 
@@ -312,15 +314,15 @@ def register_semantic_surface(
 ) -> AspfOneCell:
     normalized_value = _as_json_value(value)
     representative = stable_compact_text(normalized_value)
-    state.surface_representatives[str(surface)] = representative
-    aspf_resume_state.append_delta_record(
-        records=state.delta_records,
-        event_kind="semantic_surface_projection",
-        phase=str(phase),
-        analysis_state=None,
-        mutation_target=f"semantic_surfaces.{surface}",
-        mutation_value=normalized_value,
-        one_cell_ref=None,
+    _publish_event(
+        state,
+        SemanticSurfaceUpdated(
+            state=state,
+            surface=str(surface),
+            representative=representative,
+            normalized_value=normalized_value,
+            phase=str(phase),
+        ),
     )
     return record_1cell(
         state,
@@ -576,6 +578,17 @@ def finalize_execution_trace(
         delta_ledger_payload=delta_ledger_payload,
     )
     _write_json(state_path, state_payload)
+    finalization_event = RunFinalized(
+        state=state,
+        trace_payload=trace_payload,
+        equivalence_payload=equivalence_payload,
+        opportunities_payload=opportunities_payload,
+        delta_ledger_payload=delta_ledger_payload,
+        state_payload=state_payload,
+    )
+    _publish_event(state, finalization_event)
+    for visitor in state.event_visitors:
+        visitor.on_finalize(finalization_event)
     return AspfFinalizationArtifacts(
         trace_payload=trace_payload,
         equivalence_payload=equivalence_payload,
@@ -817,9 +830,38 @@ def _merge_two_cells(
     trace_payload: Mapping[str, object],
 ) -> None:
     raw_witnesses = trace_payload["two_cell_witnesses"]
-    state.two_cell_witnesses.extend(
-        cast(AspfTwoCellWitness, parse_2cell_witness(raw)) for raw in raw_witnesses
-    )
+    for raw in raw_witnesses:
+        parsed = cast(AspfTwoCellWitness, parse_2cell_witness(raw))
+        record_2cell_witness(
+            state,
+            left=parsed.left,
+            right=parsed.right,
+            witness_id=parsed.witness_id,
+            reason=parsed.reason,
+        )
+
+
+def _publish_event(
+    state: AspfExecutionTraceState,
+    event: (
+        OneCellRecorded
+        | TwoCellWitnessRecorded
+        | CofibrationRecorded
+        | SemanticSurfaceUpdated
+        | RunFinalized
+    ),
+) -> None:
+    for visitor in state.event_visitors:
+        if isinstance(event, OneCellRecorded):
+            visitor.visit_one_cell_recorded(event)
+        elif isinstance(event, TwoCellWitnessRecorded):
+            visitor.visit_two_cell_witness_recorded(event)
+        elif isinstance(event, CofibrationRecorded):
+            visitor.visit_cofibration_recorded(event)
+        elif isinstance(event, SemanticSurfaceUpdated):
+            visitor.visit_semantic_surface_updated(event)
+        else:
+            visitor.visit_run_finalized(event)
 
 
 def _merge_cofibrations(
@@ -1010,4 +1052,3 @@ def _fungible_execution_opportunities(
             }
         )
     return opportunities
-

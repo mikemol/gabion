@@ -313,3 +313,56 @@ def test_finalize_execution_trace_allows_state_object_roundtrip_import(
     assert state_payload["session_id"] == "session-a"
     assert state_payload["step_id"] == "0002_current"
     assert state_payload["analysis_state"] == "succeeded"
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._publish_event
+def test_aspf_event_visitor_receives_finalize_hook(tmp_path: Path) -> None:
+    class CollectingVisitor:
+        def __init__(self) -> None:
+            self.one_cells = 0
+            self.surfaces = 0
+            self.finalized = 0
+            self.on_finalize_calls = 0
+
+        def visit_one_cell_recorded(self, event) -> None:
+            self.one_cells += 1
+
+        def visit_two_cell_witness_recorded(self, event) -> None:
+            return None
+
+        def visit_cofibration_recorded(self, event) -> None:
+            return None
+
+        def visit_semantic_surface_updated(self, event) -> None:
+            self.surfaces += 1
+
+        def visit_run_finalized(self, event) -> None:
+            self.finalized += 1
+
+        def on_finalize(self, event) -> None:
+            self.on_finalize_calls += 1
+
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    collector = CollectingVisitor()
+    state.event_visitors.append(collector)
+
+    artifacts = aspf_execution_fibration.finalize_execution_trace(
+        state=state,
+        root=tmp_path,
+        semantic_surface_payloads={
+            "groups_by_path": {"pkg/mod.py": {"fn": [{"a"}]}}
+        },
+    )
+
+    assert artifacts is not None
+    assert collector.surfaces == 1
+    assert collector.one_cells == 1
+    assert collector.finalized == 1
+    assert collector.on_finalize_calls == 1
