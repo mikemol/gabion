@@ -9,7 +9,6 @@ from gabion.analysis.dataflow_audit import (
     CallAmbiguity,
     FunctionInfo,
     _ambiguity_suite_relation,
-    _ambiguity_suite_row_to_site,
     _ambiguity_suite_row_to_suite,
     _ambiguity_virtual_count_gt_1,
     _emit_call_ambiguities,
@@ -35,16 +34,15 @@ def _dummy_info(path: str = "mod.py", qual: str = "mod.fn") -> FunctionInfo:
 def test_ambiguity_suite_relation_skips_missing_function_meta() -> None:
     forest = Forest()
     forest.add_node("FunctionSite", ("", ""), {})
-    relation, function_index = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     assert relation == []
-    assert function_index == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_empty_alt_inputs::dataflow_audit.py::gabion.analysis.dataflow_audit._ambiguity_suite_relation
 def test_ambiguity_suite_relation_skips_empty_alt_inputs() -> None:
     forest = Forest()
     forest.add_alt("CallCandidate", ())
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     assert relation == []
 
 
@@ -53,7 +51,7 @@ def test_ambiguity_suite_relation_skips_non_suite_node() -> None:
     forest = Forest()
     func_id = forest.add_site("a.py", "mod.fn")
     forest.add_alt("CallCandidate", (func_id, func_id))
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     assert relation == []
 
 
@@ -63,7 +61,7 @@ def test_ambiguity_suite_relation_skips_non_call_suite() -> None:
     suite_id = forest.add_suite_site("a.py", "mod.fn", "function", span=(0, 0, 0, 1))
     candidate_id = forest.add_site("a.py", "mod.target")
     forest.add_alt("CallCandidate", (suite_id, candidate_id))
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     assert relation == []
 
 
@@ -108,11 +106,6 @@ def test_ambiguity_suite_relation_requires_int_span() -> None:
     forest.add_alt("CallCandidate", (suite_id, candidate_id))
     with pytest.raises(NeverThrown):
         _ambiguity_suite_relation(forest)
-
-
-# gabion:evidence E:call_footprint::tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_site_requires_path_qual::dataflow_audit.py::gabion.analysis.dataflow_audit._ambiguity_suite_row_to_site
-def test_ambiguity_suite_row_to_site_requires_path_qual() -> None:
-    assert _ambiguity_suite_row_to_site({}, {}) is None
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_suite_requires_identity::dataflow_audit.py::gabion.analysis.dataflow_audit._ambiguity_suite_row_to_suite

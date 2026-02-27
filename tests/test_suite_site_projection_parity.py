@@ -43,8 +43,9 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
         assert suite_node.meta.get("suite_kind") == "function_body"
         params = list(forest.nodes[alt.inputs[1]].meta.get("params", []))
         descriptor = str(alt.evidence.get("classification_descriptor", "") or "")
+        label = da._suite_site_label(forest=forest, suite_id=alt.inputs[0])
         projected.append(
-            f"{suite_node.meta['path']}:{suite_node.meta['qual']} decision surface params: {', '.join(params)} ({descriptor})"
+            f"{label} decision surface params: {', '.join(params)} ({descriptor})"
         )
 
     assert sorted(projected) == sorted(analysis.decision_surfaces)

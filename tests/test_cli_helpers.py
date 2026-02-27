@@ -2174,6 +2174,7 @@ def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_pa
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record::cli.py::gabion.cli._resolve_command_transport
 def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record(tmp_path: Path) -> None:
+    (tmp_path / "x.py").write_text("def x() -> int:\n    return 1\n", encoding="utf-8")
     with _env_scope({
         "GABION_DIRECT_RUN": "1",
         "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",

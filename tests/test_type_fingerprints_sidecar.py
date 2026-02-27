@@ -9,6 +9,7 @@ from gabion.analysis.type_fingerprints import (
     FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
+    build_reverse_prime_index,
     bundle_fingerprint_dimensional,
     fingerprint_to_type_keys_with_remainder,
     format_fingerprint,
@@ -17,13 +18,16 @@ from gabion.order_contract import ordered_or_sorted
 
 
 def _legacy_decode(fingerprint, registry: PrimeRegistry) -> tuple[list[str], int, list[str], int]:
+    reverse_index = build_reverse_prime_index(registry)
     base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
         fingerprint.base.product,
         registry,
+        reverse_index,
     )
     ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
         fingerprint.ctor.product,
         registry,
+        reverse_index,
     )
     ctor_keys = [
         key[len("ctor:") :] if key.startswith("ctor:") else key
@@ -42,8 +46,17 @@ def test_dimension_sidecar_decode_matches_legacy_division() -> None:
         ctor_registry,
     )
 
-    expected_base = fingerprint_to_type_keys_with_remainder(fingerprint.base.product, registry)
-    expected_ctor = fingerprint_to_type_keys_with_remainder(fingerprint.ctor.product, registry)
+    reverse_index = build_reverse_prime_index(registry)
+    expected_base = fingerprint_to_type_keys_with_remainder(
+        fingerprint.base.product,
+        registry,
+        reverse_index,
+    )
+    expected_ctor = fingerprint_to_type_keys_with_remainder(
+        fingerprint.ctor.product,
+        registry,
+        reverse_index,
+    )
 
     base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
     ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
@@ -90,6 +103,7 @@ def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
     assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
         fingerprint.base.product,
         registry,
+        build_reverse_prime_index(registry),
     )
 
 
@@ -119,6 +133,7 @@ def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
         inconsistent.product,
         registry,
+        build_reverse_prime_index(registry),
     )
 
 

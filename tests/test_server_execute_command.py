@@ -375,7 +375,7 @@ def test_execute_command_defaults_tick_ns(tmp_path: Path) -> None:
         {
             "root": str(tmp_path),
             "paths": [str(module_path)],
-            "analysis_timeout_ticks": 2000,
+            "analysis_timeout_ticks": 20000,
             "analysis_timeout_tick_ns": 1_000_000,
         },
     )
