@@ -70,10 +70,64 @@ class TimeoutContext:
 class _FileSite:
     path: str
 
+    def __post_init__(self) -> None:
+        if not self.path:
+            never("file site path missing")
+
     def as_payload(self) -> dict[str, JSONValue]:
         # Keep canonical key order ("key" then "kind") so caller-order checks
         # can hold without fallback sorting.
         return {"key": [self.path], "kind": "FileSite"}
+
+    @classmethod
+    def decode_payload(cls, payload: Mapping[str, object]) -> "_FileSite":
+        kind = str(payload.get("kind", "") or "")
+        key_payload = payload.get("key")
+        match (kind, key_payload):
+            case ("FileSite", [str() as path]):
+                return cls(path=path)
+            case _:
+                never("invalid file site payload", payload_kind=kind)
+                return cls(path="")  # pragma: no cover - never() raises
+
+
+@dataclass(frozen=True)
+class _FunctionSiteIdentity:
+    path: str
+    qual: str
+    span: tuple[int, int, int, int] = (0, 0, 0, 0)
+    has_span: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.path or not self.qual:
+            never("site identity missing path/qual", path=self.path, qual=self.qual)
+        if len(self.span) != 4 or any(type(part) is not int for part in self.span):
+            never("invalid function site span", span=self.span)
+
+    def key(self) -> tuple[object, ...]:
+        key: list[object] = [_FileSite(self.path), self.qual]
+        if self.has_span:
+            key.extend(self.span)
+        return tuple(key)
+
+    @classmethod
+    def decode_payload(cls, site: Mapping[str, object]) -> "_FunctionSiteIdentity":
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        raw_span = site.get("span")
+        span = (0, 0, 0, 0)
+        has_span = False
+        if raw_span is not None:
+            match raw_span:
+                case [a, b, c, d]:
+                    try:
+                        span = (int(a), int(b), int(c), int(d))
+                    except (TypeError, ValueError):
+                        never("invalid function site span payload", span=raw_span)
+                case _:
+                    never("invalid function site span payload", span=raw_span)
+            has_span = True
+        return cls(path=path, qual=qual, span=span, has_span=has_span)
 
 
 @dataclass(frozen=True)
@@ -820,10 +874,14 @@ def _site_key(
     qual: str,
     span = None,
 ) -> tuple[object, ...]:
-    key: list[object] = [_FileSite(path), qual]
-    if span and len(span) == 4:
-        key.extend(span)
-    return tuple(key)
+    has_span = bool(span and len(span) == 4)
+    identity = _FunctionSiteIdentity(
+        path=path,
+        qual=qual,
+        span=tuple(int(part) for part in span) if has_span else (0, 0, 0, 0),
+        has_span=has_span,
+    )
+    return identity.key()
 
 
 def _function_site(
@@ -840,14 +898,7 @@ def _site_part_from_payload(value: object) -> object:
         case _FileSite():
             return value
         case Mapping() as mapping_value:
-            kind = str(mapping_value.get("kind", "") or "")
-            key_payload = mapping_value.get("key")
-            match (kind, key_payload):
-                case ("FileSite", [str() as path]):
-                    return _FileSite(path)
-                case _:
-                    never("invalid site key mapping payload", payload_kind=kind)
-                    return mapping_value  # pragma: no cover - never() raises
+            return _FileSite.decode_payload(mapping_value)
         case list() as payload_list:
             return tuple(_site_part_from_payload(part) for part in payload_list)
         case None | str() | int() | float() | bool():
@@ -954,17 +1005,12 @@ def _normalize_site_payload(
             )
         case _:
             pass
-    path = str(site.get("path", "") or "")
-    qual = str(site.get("qual", "") or "")
-    if not path or not qual:
-        never("site payload missing path/qual", site=dict(site))
-    span = site.get("span")
-    match span:
-        case list() as span_values:
-            span_list = list(span_values)
-        case _:
-            span_list = None
-    return _function_site(path=path, qual=qual, span=span_list)
+    identity = _FunctionSiteIdentity.decode_payload(site)
+    return _function_site(
+        path=identity.path,
+        qual=identity.qual,
+        span=list(identity.span) if identity.has_span else None,
+    )
 
 
 def _freeze_value(value: object) -> object:
