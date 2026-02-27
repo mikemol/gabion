@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import textwrap
 
-from gabion.analysis.timeout_context import Deadline, deadline_scope
+from gabion.analysis.timeout_context import Deadline, TimeoutTickCarrier, deadline_scope
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -29,7 +29,7 @@ def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     config = da.AuditConfig(project_root=tmp_path)
-    with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
+    with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
         analysis = da.analyze_paths(
             [target],
             forest=da.Forest(),
@@ -74,7 +74,7 @@ def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     config = da.AuditConfig(project_root=tmp_path)
-    with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
+    with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
         analysis = da.analyze_paths(
             [target],
             forest=da.Forest(),
@@ -121,7 +121,7 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     config = da.AuditConfig(project_root=tmp_path)
-    with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
+    with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
         analysis = da.analyze_paths(
             [target],
             forest=da.Forest(),
@@ -173,7 +173,7 @@ def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     config = da.AuditConfig(project_root=tmp_path)
-    with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
+    with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
         lines = da._internal_broad_type_lint_lines(
             [target],
             project_root=tmp_path,

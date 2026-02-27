@@ -1760,7 +1760,7 @@ def test_scope_normalization_and_timeout_cleanup_edges(tmp_path: Path) -> None:
     # analyze_paths timeout cleanup should still flush best-effort emitters.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(1, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=1, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=1)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
@@ -2801,7 +2801,7 @@ def test_branch_shifted_exports_refactor_and_scope_edges(tmp_path: Path) -> None
     # analyze_paths timeout before collection-progress callback is defined.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(10, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=10, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=2)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
