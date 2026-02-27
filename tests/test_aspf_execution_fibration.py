@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pytest
 
@@ -462,7 +463,7 @@ def _one_cell_payload(*, representative: str) -> dict[str, object]:
     }
 
 
-# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_two_cells
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_two_cell_payload
 def test_merge_imported_trace_parses_two_cell_witness_payloads(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -494,7 +495,95 @@ def test_merge_imported_trace_parses_two_cell_witness_payloads(tmp_path: Path) -
     assert state.two_cell_witnesses[0].witness_id == "w:imported"
 
 
-# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_known_witnesses
+def _write_stream_trace_fixture(path: Path, *, trace_payload: dict[str, object]) -> None:
+    rows: list[dict[str, object]] = []
+    for index, one_cell in enumerate(trace_payload.get("one_cells", [])):
+        rows.append({"kind": "one_cell", "sequence": 20 + index, "payload": one_cell})
+    for index, witness in enumerate(trace_payload.get("two_cell_witnesses", [])):
+        rows.append({"kind": "two_cell", "sequence": 40 + index, "payload": witness})
+    for index, cofibration in enumerate(trace_payload.get("cofibration_witnesses", [])):
+        rows.append({"kind": "cofibration", "sequence": 60 + index, "payload": cofibration})
+    for index, (surface, representative) in enumerate(
+        sorted(trace_payload.get("surface_representatives", {}).items())
+    ):
+        rows.append(
+            {
+                "kind": "surface_update",
+                "sequence": 10 + index,
+                "surface": surface,
+                "representative": representative,
+            }
+        )
+    # Deliberately reverse write order; importer must reorder by sequence deterministically.
+    lines = [
+        json.dumps(row, sort_keys=False)
+        for row in sorted(rows, key=lambda row: int(row["sequence"]), reverse=True)
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.load_trace_stream_payload
+def test_merge_imported_trace_paths_streaming_matches_legacy_payload_merge(tmp_path: Path) -> None:
+    controls = _trace_payload(trace_json=tmp_path / "trace.json", surfaces=["groups_by_path"])
+
+    legacy_state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path / "legacy",
+        payload=controls,
+    )
+    stream_state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path / "stream",
+        payload=controls,
+    )
+    assert legacy_state is not None
+    assert stream_state is not None
+
+    trace_payload = {
+        "surface_representatives": {"groups_by_path": "rep:baseline"},
+        "one_cells": [_one_cell_payload(representative="rep:baseline")],
+        "two_cell_witnesses": [
+            {
+                "left": _one_cell_payload(representative="rep:baseline"),
+                "right": _one_cell_payload(representative="rep:current"),
+                "witness_id": "w:imported",
+                "reason": "imported witness",
+            }
+        ],
+        "cofibration_witnesses": [
+            {
+                "canonical_identity_kind": "group",
+                "cofibration": {
+                    "entries": [
+                        {
+                            "domain": {"key": "domain", "prime": 2},
+                            "aspf": {"key": "aspf", "prime": 2},
+                        }
+                    ]
+                },
+            }
+        ],
+    }
+
+    legacy_path = tmp_path / "import_legacy.json"
+    stream_path = tmp_path / "import_stream.jsonl"
+    legacy_path.write_text(json.dumps(trace_payload) + "\n", encoding="utf-8")
+    _write_stream_trace_fixture(stream_path, trace_payload=trace_payload)
+
+    aspf_execution_fibration.merge_imported_trace_paths(state=legacy_state, paths=(legacy_path,))
+    aspf_execution_fibration.merge_imported_trace_paths(state=stream_state, paths=(stream_path,))
+
+    assert [cell.as_dict() for cell in legacy_state.one_cells] == [
+        cell.as_dict() for cell in stream_state.one_cells
+    ]
+    assert [w.as_dict() for w in legacy_state.two_cell_witnesses] == [
+        w.as_dict() for w in stream_state.two_cell_witnesses
+    ]
+    assert [c.as_dict() for c in legacy_state.cofibrations] == [
+        c.as_dict() for c in stream_state.cofibrations
+    ]
+    assert legacy_state.surface_representatives == stream_state.surface_representatives
+
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.build_equivalence_payload
+
 def test_build_equivalence_payload_uses_baseline_two_cell_witness_index(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,

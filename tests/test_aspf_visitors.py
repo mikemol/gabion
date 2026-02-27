@@ -4,10 +4,15 @@ from dataclasses import dataclass, field
 
 from gabion.analysis.aspf import Alt, Forest, Node
 from gabion.analysis.aspf_visitors import (
+    AspfCofibrationEvent,
+    AspfOneCellEvent,
+    AspfSurfaceUpdateEvent,
+    AspfTwoCellEvent,
     NullAspfTraversalVisitor,
     OpportunityPayloadEmitter,
     adapt_event_log_reader_iterator_to_visitor,
     adapt_live_event_stream_to_visitor,
+    adapt_trace_event_iterator_to_visitor,
     traverse_forest_to_visitor,
 )
 
@@ -56,7 +61,19 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
             "groups_by_path": "rep:a",
         },
         two_cell_witnesses=[],
-        cofibration_witnesses=[],
+        cofibration_witnesses=[
+            {
+                "canonical_identity_kind": "suite_site",
+                "cofibration": {
+                    "entries": [
+                        {
+                            "domain": {"key": "domain:x", "prime": 2},
+                            "aspf": {"key": "aspf:x", "prime": 2},
+                        }
+                    ]
+                },
+            }
+        ],
         visitor=emitter,
     )
     adapt_event_log_reader_iterator_to_visitor(
@@ -75,15 +92,68 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     assert "materialize_load_fusion" in kinds
     assert "reusable_boundary_artifact" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    assert "cofibration_prime_embedding_reuse" in kinds
     fungible = next(
         row for row in rows if isinstance(row, dict) and row.get("kind") == "fungible_execution_path_substitution"
     )
     assert fungible["actionability"] == "actionable"
     assert fungible["confidence_provenance"] == "morphism_witness"
 
+    cofibration = next(
+        row for row in rows if isinstance(row, dict) and row.get("kind") == "cofibration_prime_embedding_reuse"
+    )
+    assert cofibration["witness_requirement"] == "cofibration_witness"
+
     plans = emitter.build_rewrite_plans()
     assert plans
     assert plans[0]["opportunity_id"].startswith("opp:")
+
+
+def test_trace_event_iterator_adapter_dispatches_without_json_batching() -> None:
+    emitter = OpportunityPayloadEmitter()
+    adapt_trace_event_iterator_to_visitor(
+        events=[
+            AspfOneCellEvent(
+                index=0,
+                payload={
+                    "kind": "resume_load",
+                    "metadata": {"import_state_path": "state/a.json"},
+                },
+            ),
+            AspfOneCellEvent(
+                index=1,
+                payload={
+                    "kind": "resume_write",
+                    "metadata": {"state_path": "state/a.json"},
+                },
+            ),
+            AspfTwoCellEvent(
+                index=0,
+                payload={
+                    "witness_id": "w:1",
+                    "left_representative": "rep:a",
+                    "right_representative": "rep:b",
+                },
+            ),
+            AspfCofibrationEvent(index=0, payload={"canonical_identity_kind": "k"}),
+            AspfSurfaceUpdateEvent(surface="groups_by_path", representative="rep:a"),
+        ],
+        visitor=emitter,
+    )
+    adapt_event_log_reader_iterator_to_visitor(
+        event_log_rows=[
+            {
+                "surface": "groups_by_path",
+                "classification": "non_drift",
+                "witness_id": "w:1",
+            }
+        ],
+        visitor=emitter,
+    )
+
+    kinds = {str(row.get("kind")) for row in emitter.build_rows() if isinstance(row, dict)}
+    assert "materialize_load_fusion" in kinds
+    assert "fungible_execution_path_substitution" in kinds
 
 
 def test_null_visitor_noop_methods_are_callable() -> None:
@@ -126,6 +196,12 @@ def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     )
 
     plans = emitter.build_rewrite_plans()
-    reusable = next(plan for plan in plans if plan["opportunity_id"].startswith("opp:reusable-boundary:"))
+    reusable = next(
+        plan
+        for plan in plans
+        if plan["opportunity_id"].startswith("opp:reusable-boundary:")
+    )
     assert reusable["required_witnesses"] == ["w:1", "w:2"]
     assert reusable["priority"] == 0.74
+    assert reusable["canonical_identity"]["node_id"]["kind"] == "Opportunity:ReusableBoundaryRepresentative"
+    assert reusable["opportunity_hash"]
