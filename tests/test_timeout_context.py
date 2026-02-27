@@ -226,6 +226,25 @@ def test_pack_call_stack_accepts_list_key_part() -> None:
     ]
 
 
+def test_function_site_identity_payload_round_trip() -> None:
+    packed = pack_call_stack(
+        [
+            {
+                "kind": "FunctionSite",
+                "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn", 1, 2, 3, 4],
+            }
+        ]
+    )
+    payload = packed.as_payload()
+    restored = pack_call_stack(payload["site_table"])
+    assert restored.as_payload()["site_table"] == payload["site_table"]
+
+
+def test_function_site_identity_decode_rejects_partial_identity() -> None:
+    with pytest.raises(NeverThrown):
+        pack_call_stack([{"path": "a.py", "qual": "", "span": [1, 2, 3]}])
+
+
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_pack_call_stack_uses_first_seen_site_order::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
 def test_pack_call_stack_uses_first_seen_site_order() -> None:
     packed = pack_call_stack(
