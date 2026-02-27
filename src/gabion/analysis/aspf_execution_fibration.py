@@ -37,8 +37,12 @@ from .aspf_morphisms import (
     DomainToAspfCofibrationEntry,
 )
 from .aspf_stream import (
+    AspfEventSink,
     AspfEventVisitor,
     AspfInMemoryCompatibilityVisitor,
+    AspfJsonlEventSink,
+    AspfSinkVisitor,
+    AspfTraceSinkIndex,
     CofibrationRecorded,
     OneCellRecorded,
     RunFinalized,
@@ -107,6 +111,8 @@ class AspfExecutionTraceState:
     imported_trace_payloads: list[JSONObject] = field(default_factory=list)
     delta_records: list[JSONObject] = field(default_factory=list)
     event_visitors: list[AspfEventVisitor] = field(default_factory=list)
+    event_sinks: list[AspfEventSink] = field(default_factory=list)
+    sink_indexes: list[AspfTraceSinkIndex] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.event_visitors:
@@ -191,6 +197,7 @@ def start_execution_trace(
         started_at_utc=datetime.now(timezone.utc).isoformat(),
         command_profile=_command_profile_from_payload(payload),
     )
+    _register_default_trace_sinks(state=state, root=root)
     entries = tuple(
         DomainToAspfCofibrationEntry(
             domain=DomainPrimeBasis(domain_key=f"domain:{surface}", prime=prime),
@@ -343,30 +350,7 @@ def register_semantic_surface(
 
 
 def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
-    replay_payload: JSONObject = {
-        "one_cells": [],
-        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
-        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
-        "surface_representatives": {
-            surface: state.surface_representatives[surface]
-            for surface in sort_once(
-                state.surface_representatives,
-                source="aspf_execution_fibration.build_trace_payload.surface_representatives",
-            )
-        },
-    }
-    one_cells_payload = cast(list[JSONObject], replay_payload["one_cells"])
-    for index, cell in enumerate(state.one_cells):
-        one_cell_payload = cell.as_dict()
-        metadata = (
-            state.one_cell_metadata[index]
-            if index < len(state.one_cell_metadata)
-            else {"kind": "", "surface": "", "metadata": {}}
-        )
-        one_cell_payload["kind"] = str(metadata.get("kind", ""))
-        one_cell_payload["surface"] = str(metadata.get("surface", ""))
-        one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
-        one_cells_payload.append(one_cell_payload)
+    replay_payload, delta_record_count = _build_trace_replay_payload(state=state)
 
     emitter = TracePayloadEmitter()
     replay_trace_payload_to_visitor(trace_payload=replay_payload, visitor=emitter)
@@ -407,7 +391,7 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
         "cofibration_witnesses": emitter.cofibration_witnesses,
         "surface_representatives": emitter.surface_representatives,
         "imported_trace_count": len(state.imported_trace_payloads),
-        "delta_record_count": len(state.delta_records),
+        "delta_record_count": delta_record_count,
     }
 
 
@@ -527,7 +511,8 @@ def finalize_execution_trace(
         if state.controls.aspf_equivalence_against
         else (state.controls.aspf_import_trace + state.controls.aspf_import_state)
     )
-    trace_payload = build_trace_payload(state)
+    sink_indexes = close_execution_trace_sinks(state=state)
+    trace_payload = derive_trace_payload_from_sinks(state=state, sink_indexes=sink_indexes)
     equivalence_payload = build_equivalence_payload(
         state=state,
         baseline_traces=_iter_baseline_trace_payloads(baseline_paths),
@@ -562,11 +547,11 @@ def finalize_execution_trace(
     }
     resume_projection = aspf_resume_state.replay_resume_projection(
         snapshot=resume_snapshot,
-        delta_records=iter(state.delta_records),
+        delta_records=_iter_delta_records(state=state, sink_indexes=sink_indexes),
     )
     delta_ledger_payload = aspf_resume_state.build_delta_ledger_payload(
         trace_id=state.trace_id,
-        records=iter(state.delta_records),
+        records=tuple(_iter_delta_records(state=state, sink_indexes=sink_indexes)),
     )
     trace_path = state.controls.aspf_trace_json or (root / "artifacts/out/aspf_trace.json")
     equivalence_path = root / "artifacts/out/aspf_equivalence.json"
@@ -581,7 +566,7 @@ def finalize_execution_trace(
     _write_json(opportunities_path, opportunities_payload)
     aspf_resume_state.write_delta_jsonl(
         path=delta_jsonl_path,
-        records=iter(state.delta_records),
+        records=_iter_delta_records(state=state, sink_indexes=sink_indexes),
     )
     state_path = state.controls.aspf_state_json or (
         root / "artifacts/out/aspf_state/default/0001_aspf.snapshot.json"
@@ -732,6 +717,35 @@ def _session_and_step_from_path(path: Path) -> tuple[str, str]:
     return session_id, step_id
 
 
+def _register_default_trace_sinks(*, state: AspfExecutionTraceState, root: Path) -> None:
+    sink_root = root / "artifacts/out/aspf_stream" / state.trace_id.replace(":", "_")
+    sink = AspfJsonlEventSink.create(sink_root=sink_root)
+    state.event_sinks.append(sink)
+    state.event_visitors.append(AspfSinkVisitor(sink=sink))
+
+
+def close_execution_trace_sinks(*, state: AspfExecutionTraceState) -> tuple[AspfTraceSinkIndex, ...]:
+    if state.sink_indexes:
+        return tuple(state.sink_indexes)
+    indexes: list[AspfTraceSinkIndex] = []
+    for sink in state.event_sinks:
+        sink.close()
+        if isinstance(sink, AspfJsonlEventSink):
+            indexes.append(sink.build_index())
+    state.sink_indexes.extend(indexes)
+    return tuple(indexes)
+
+
+def derive_trace_payload_from_sinks(
+    *,
+    state: AspfExecutionTraceState,
+    sink_indexes: Sequence[AspfTraceSinkIndex],
+) -> JSONObject:
+    if sink_indexes:
+        return build_trace_payload(state)
+    return build_trace_payload(state)
+
+
 def _optional_path(value: object) -> Path | None:
     if value is None:
         return None
@@ -742,6 +756,55 @@ def _path_sequence(value: object) -> tuple[Path, ...]:
     if value is None:
         return ()
     return tuple(Path(str(item).strip()) for item in value)
+
+
+def _build_trace_replay_payload(
+    *,
+    state: AspfExecutionTraceState,
+) -> tuple[JSONObject, int]:
+    if state.sink_indexes:
+        index = state.sink_indexes[0]
+        return (
+            {
+                "one_cells": list(index.iter_one_cells()),
+                "two_cell_witnesses": list(index.iter_two_cell_witnesses()),
+                "cofibration_witnesses": list(index.iter_cofibrations()),
+                "surface_representatives": {
+                    surface: str(index.surface_representatives[surface])
+                    for surface in sort_once(
+                        index.surface_representatives,
+                        source="aspf_execution_fibration._build_trace_replay_payload.sink.surface_representatives",
+                    )
+                },
+            },
+            index.delta_record_count,
+        )
+
+    replay_payload: JSONObject = {
+        "one_cells": [],
+        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
+        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
+        "surface_representatives": {
+            surface: state.surface_representatives[surface]
+            for surface in sort_once(
+                state.surface_representatives,
+                source="aspf_execution_fibration._build_trace_replay_payload.memory.surface_representatives",
+            )
+        },
+    }
+    one_cells_payload = cast(list[JSONObject], replay_payload["one_cells"])
+    for index, cell in enumerate(state.one_cells):
+        one_cell_payload = cell.as_dict()
+        metadata = (
+            state.one_cell_metadata[index]
+            if index < len(state.one_cell_metadata)
+            else {"kind": "", "surface": "", "metadata": {}}
+        )
+        one_cell_payload["kind"] = str(metadata.get("kind", ""))
+        one_cell_payload["surface"] = str(metadata.get("surface", ""))
+        one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
+        one_cells_payload.append(one_cell_payload)
+    return replay_payload, len(state.delta_records)
 
 
 def _semantic_surface_sequence(value: object) -> tuple[str, ...]:
@@ -951,11 +1014,30 @@ def _merge_candidate_sets(
 def _witnesses_by_representative_pair(
     *,
     state: AspfExecutionTraceState,
- ) -> dict[tuple[str, str], AspfTwoCellWitness]:
+) -> dict[tuple[str, str], AspfTwoCellWitness]:
     witnesses: dict[tuple[str, str], AspfTwoCellWitness] = {}
-    for witness in state.two_cell_witnesses:
+    for witness in _iter_two_cell_witnesses(state=state):
         _store_witness_by_pair(destination=witnesses, witness=witness)
     return witnesses
+
+
+def _iter_two_cell_witnesses(*, state: AspfExecutionTraceState) -> Iterator[AspfTwoCellWitness]:
+    if state.sink_indexes:
+        for raw in state.sink_indexes[0].iter_two_cell_witnesses():
+            yield cast(AspfTwoCellWitness, parse_2cell_witness(raw))
+        return
+    yield from state.two_cell_witnesses
+
+
+def _iter_delta_records(
+    *,
+    state: AspfExecutionTraceState,
+    sink_indexes: Sequence[AspfTraceSinkIndex],
+) -> Iterator[JSONObject]:
+    if sink_indexes:
+        yield from sink_indexes[0].iter_delta_records()
+        return
+    yield from state.delta_records
 
 
 def _merge_known_witnesses(
