@@ -6812,6 +6812,8 @@ def _suite_order_relation(
     alt_degree: Counter[NodeId] = Counter()
     for alt in forest.alts:
         check_deadline()
+        if alt.kind == "SpecFacet":
+            continue
         for node_id in alt.inputs:
             check_deadline()
             alt_degree[node_id] += 1
@@ -6873,6 +6875,20 @@ def _suite_order_relation(
         suite_index[
             (path, qual, suite_kind, span_line, span_col, span_end_line, span_end_col)
         ] = node_id
+    relation = sort_once(
+        relation,
+        key=lambda row: (
+            int(row.get("depth", 0) or 0),
+            int(row.get("complexity", 0) or 0),
+            str(row.get("suite_path", "") or ""),
+            str(row.get("suite_qual", "") or ""),
+            int(row.get("span_line", -1) or -1),
+            int(row.get("span_col", -1) or -1),
+            int(row.get("span_end_line", -1) or -1),
+            int(row.get("span_end_col", -1) or -1),
+        ),
+        source="src/gabion/analysis/dataflow_audit.py:_suite_order_relation.relation",
+    )
     return relation, suite_index
 
 
@@ -6923,18 +6939,8 @@ def _materialize_suite_order_spec(
 
 def _ambiguity_suite_relation(
     forest: Forest,
-) -> tuple[list[dict[str, JSONValue]], dict[tuple[str, str], NodeId]]:
+) -> list[dict[str, JSONValue]]:
     relation: list[dict[str, JSONValue]] = []
-    function_index: dict[tuple[str, str], NodeId] = {}
-    for node_id, node in forest.nodes.items():
-        check_deadline()
-        if node_id.kind != "FunctionSite":
-            continue
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        function_index[(path, qual)] = node_id
     for alt in forest.alts:
         check_deadline()
         if alt.kind != "CallCandidate":
@@ -6979,18 +6985,7 @@ def _ambiguity_suite_relation(
                         "phase": str(alt.evidence.get("phase", "") or ""),
                     }
                 )
-    return relation, function_index
-
-
-def _ambiguity_suite_row_to_site(
-    row: Mapping[str, JSONValue],
-    function_index: Mapping[tuple[str, str], NodeId],
-):
-    path = str(row.get("suite_path", "") or "")
-    qual = str(row.get("suite_qual", "") or "")
-    if not path or not qual:
-        return None
-    return function_index.get((path, qual))
+    return relation
 
 
 def _ambiguity_suite_row_to_suite(
@@ -7035,7 +7030,7 @@ def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, function_index = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
     projected = apply_spec(AMBIGUITY_SUITE_AGG_SPEC, relation)
@@ -7043,7 +7038,7 @@ def _materialize_ambiguity_suite_agg_spec(
         spec=AMBIGUITY_SUITE_AGG_SPEC,
         projected=projected,
         forest=forest,
-        row_to_site=lambda row: _ambiguity_suite_row_to_site(row, function_index),
+        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
     )
 
 
@@ -7051,7 +7046,7 @@ def _materialize_ambiguity_virtual_set_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
 
@@ -7101,6 +7096,8 @@ def _summarize_deadline_obligations(
                 "detail": str(entry.get("detail", "") or ""),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site.get("suite_id", "") or ""),
+                "site_suite_kind": str(site.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7117,6 +7114,7 @@ def _summarize_deadline_obligations(
             return None
         span = _spec_row_span(row)
         path_name = Path(path).name
+        suite_kind = str(row.get("site_suite_kind", "") or "")
         require_not_none(
             span,
             reason="projection spec row missing span",
@@ -7124,6 +7122,8 @@ def _summarize_deadline_obligations(
             path=path,
             function=function,
         )
+        if suite_kind:
+            return forest.add_suite_site(path_name, function, suite_kind, span=span)
         return forest.add_site(path_name, function, span)
 
     _materialize_projection_spec_rows(

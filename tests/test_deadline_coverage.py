@@ -879,7 +879,12 @@ def test_deadline_summary_materializes_spec_facets() -> None:
     entries = [
         {
             "deadline_id": "deadline:mod.py:f:missing",
-            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "site": {
+                "path": "mod.py",
+                "function": "f",
+                "bundle": [],
+                "suite_kind": "loop",
+            },
             "status": "VIOLATION",
             "kind": "missing",
             "detail": "oops",
@@ -915,6 +920,50 @@ def test_suite_order_spec_materializes_spec_facets() -> None:
     assert any("order_key" in alt.evidence for alt in spec_facets)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_relation_skips_spec_sites::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation::test_deadline_coverage.py::tests.test_deadline_coverage._load
+
+
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_projection_is_quotient_idempotent_under_reinternment::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_suite_order_spec::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation
+def test_suite_order_projection_is_quotient_idempotent_under_reinternment() -> None:
+    da = _load()
+    forest = da.Forest()
+    forest.add_suite_site("mod.py", "mod.fn", "loop", span=(2, 0, 3, 1))
+    forest.add_suite_site("mod.py", "mod.fn", "call", span=(4, 0, 4, 8))
+
+    da._materialize_suite_order_spec(forest=forest)
+    first = [
+        dict(alt.evidence)
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "suite_order"
+    ]
+
+    da._materialize_suite_order_spec(forest=forest)
+    second = [
+        dict(alt.evidence)
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "suite_order"
+    ]
+
+    assert first
+    assert len(first) == len(second)
+    assert first == second[: len(first)]
+
+
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_projection_parity_under_suite_insertion_order::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation
+def test_suite_order_projection_parity_under_suite_insertion_order() -> None:
+    da = _load()
+
+    def _relation_for(order: tuple[tuple[str, tuple[int, int, int, int]], ...]):
+        forest = da.Forest()
+        for suite_kind, span in order:
+            forest.add_suite_site("mod.py", "mod.fn", suite_kind, span=span)
+        relation, _ = da._suite_order_relation(forest)
+        return relation
+
+    left = _relation_for((("call", (4, 0, 4, 8)), ("loop", (2, 0, 3, 1))))
+    right = _relation_for((("loop", (2, 0, 3, 1)), ("call", (4, 0, 4, 8))))
+
+    assert left == right
+
 def test_suite_order_relation_skips_spec_sites() -> None:
     da = _load()
     forest = da.Forest()
