@@ -1010,6 +1010,40 @@ def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     suggestions = da._execution_pattern_suggestions(source=source)
     assert any("indexed_pass_ingress" in line for line in suggestions)
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_execution_pattern_matches_include_runner_motif_and_shared_schema_identity::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches
+def test_execution_pattern_matches_include_runner_motif_and_shared_schema_identity() -> None:
+    da = _load()
+    source = (
+        "def ingress_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "def ingress_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def ingress_c(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "def runner_a(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _run_indexed_pass(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index, spec='x', build_index=False)\n"
+        "def runner_b(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _run_indexed_pass(paths, project_root=project_root, ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index, spec='y', build_index=False)\n"
+    )
+    matches = da._detect_execution_pattern_matches(source=source)
+    pattern_ids = {match.pattern_id for match in matches}
+    assert "indexed_pass_ingress" in pattern_ids
+    assert "indexed_pass_runner" in pattern_ids
+
+    instances = da._pattern_schema_matches(groups_by_path={}, source=source)
+    execution_instances = [entry for entry in instances if entry.schema.axis.value == "execution"]
+    runner_instance = next(entry for entry in execution_instances if "indexed_pass_runner" in entry.suggestion)
+    ingress_instance = next(entry for entry in execution_instances if "indexed_pass_ingress" in entry.suggestion)
+    assert runner_instance.schema.kind == ingress_instance.schema.kind
+    assert runner_instance.schema.schema_contract == "pattern_schema.v2"
+
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_pattern_schema_suggestions_include_execution_and_dataflow_axes::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_suggestions::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> None:
     da = _load()
@@ -1087,6 +1121,31 @@ def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     residue_lines = da._pattern_schema_residue_lines(residue_entries)
     assert any("reason=unreified_metafactory" in line for line in residue_lines)
     assert any("reason=unreified_protocol" in line for line in residue_lines)
+
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_tier2_unreified_residue_entries_filters_expected_tier2_reification::dataflow_audit.py::gabion.analysis.dataflow_audit._tier2_unreified_residue_entries
+def test_tier2_unreified_residue_entries_filters_expected_tier2_reification() -> None:
+    da = _load()
+    entries = [
+        da.PatternResidue(
+            schema_id="schema:a",
+            reason="unreified_protocol",
+            payload={"expected": {"tier": 2}},
+        ),
+        da.PatternResidue(
+            schema_id="schema:b",
+            reason="unreified_metafactory",
+            payload={"expected": {"min_members": 3}},
+        ),
+        da.PatternResidue(
+            schema_id="schema:c",
+            reason="schema_contract_mismatch",
+            payload={"expected": {"tier": 2}},
+        ),
+    ]
+    filtered = da._tier2_unreified_residue_entries(entries)
+    assert [entry.schema_id for entry in filtered] == ["schema:a", "schema:b"]
 
 
 

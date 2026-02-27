@@ -99,6 +99,25 @@ def pattern_schema_id(*, kind: str, signature: Mapping[str, JSONValue]) -> str:
     return f"schema:{digest}"
 
 
+def execution_signature(
+    *,
+    family: str,
+    members: Sequence[str],
+) -> JSONObject:
+    check_deadline()
+    canonical_members = sort_once(
+        {str(member) for member in members},
+        source="pattern_schema.execution_signature.members",
+    )
+    return normalize_signature(
+        {
+            "family": family,
+            "members": list(canonical_members),
+            "member_count": len(canonical_members),
+        }
+    )
+
+
 def legacy_pattern_schema_id(*, axis: PatternAxis, kind: str, signature: Mapping[str, JSONValue]) -> str:
     check_deadline()
     normalized = normalize_signature(signature)
