@@ -6,12 +6,13 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Callable, Mapping, TypeAlias
+from typing import Callable, Literal, Mapping, TypeAlias
 import warnings
 
 from gabion.invariants import never
 from gabion.lsp_client import run_command, run_command_direct
 from gabion.tooling.governance_rules import CommandPolicy, load_governance_rules
+from gabion.schema import TransportSelectionDTO
 from gabion.tooling.override_record import validate_override_record_json
 
 Runner: TypeAlias = Callable[..., Mapping[str, object]]
@@ -42,6 +43,28 @@ class CommandTransportDecision:
     direct_override_evidence: str | None
     direct_override_telemetry: Mapping[str, object] | None
     policy: CommandPolicy | None
+
+
+TransportCarrierMode = Literal["auto", "lsp", "direct"]
+
+
+@dataclass(frozen=True)
+class TransportCarrierDecision:
+    mode: TransportCarrierMode
+
+    @classmethod
+    def from_carrier(cls, carrier: str | None) -> "TransportCarrierDecision":
+        if carrier is None:
+            return cls(mode="auto")
+        carrier_text = carrier.strip().lower()
+        if carrier_text not in {"lsp", "direct"}:
+            never("invalid transport carrier", carrier=carrier)
+        return cls(mode=carrier_text)
+
+    def to_direct_requested(self) -> bool | None:
+        if self.mode == "auto":
+            return None
+        return self.mode == "direct"
 
 
 def transport_override() -> TransportOverrideConfig | None:
@@ -90,23 +113,20 @@ def apply_cli_transport_flags(
     ):
         set_transport_override(None)
         return
-    direct_requested: bool | None
-    if carrier is None:
-        direct_requested = None
-    else:
-        carrier_text = carrier.strip().lower()
-        if carrier_text not in {"lsp", "direct"}:
-            never("invalid transport carrier", carrier=carrier)
-        direct_requested = carrier_text == "direct"
+    carrier_text = carrier.strip().lower() if isinstance(carrier, str) and carrier.strip() else None
+    carrier_decision = TransportCarrierDecision.from_carrier(carrier_text)
+    selection = TransportSelectionDTO(
+        carrier=carrier_decision.mode,
+        carrier_override_record=(
+            override_record_path.strip()
+            if isinstance(override_record_path, str) and override_record_path.strip()
+            else None
+        ),
+    )
     set_transport_override(
         TransportOverrideConfig(
-            direct_requested=direct_requested,
-            override_record_path=(
-                override_record_path.strip()
-                if isinstance(override_record_path, str)
-                else None
-            )
-            or None,
+            direct_requested=carrier_decision.to_direct_requested(),
+            override_record_path=selection.carrier_override_record,
             override_record_json=None,
         )
     )

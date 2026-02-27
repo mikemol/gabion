@@ -37,6 +37,7 @@ from lsprotocol.types import (
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.commands import boundary_order, command_ids, direct_dispatch, payload_codec
+from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
     ExecutionPlan,
     ExecutionPlanObligations,
@@ -2404,21 +2405,19 @@ def _parse_lint_line(line: str) -> LintEntryDTO | None:
     )
 
 
-def _lint_entries_from_lines(lines: Sequence[str]) -> list[dict[str, object]]:
-    entries: list[dict[str, object]] = []
-    for line in lines:
-        check_deadline()
-        entry = _parse_lint_line(line)
-        if entry is not None:
-            entries.append(entry.model_dump())
-    return entries
+def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
+    entry = _parse_lint_line(line)
+    if entry is None:
+        return None
+    return entry.model_dump()
 
 
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
-    lint_lines_raw = response.get("lint_lines")
-    lint_lines = [str(line) for line in lint_lines_raw] if isinstance(lint_lines_raw, list) else []
-    lint_entries_raw = response.get("lint_entries")
-    lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else _lint_entries_from_lines(lint_lines)
+    lint_decision = LintEntriesDecision.from_response(response)
+    lint_lines = list(lint_decision.lint_lines)
+    lint_entries = lint_decision.normalize_entries(
+        parse_lint_entry_fn=_parse_lint_line_as_payload,
+    )
     aspf_trace_raw = response.get("aspf_trace")
     aspf_equivalence_raw = response.get("aspf_equivalence")
     aspf_opportunities_raw = response.get("aspf_opportunities")

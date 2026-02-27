@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -110,6 +110,16 @@ class LintEntryDTO(BaseModel):
     code: str
     message: str
     severity: str = "warning"
+
+
+class LintEntriesResolutionDTO(BaseModel):
+    kind: Literal["provided_entries", "derive_from_lines", "empty"]
+    lint_lines: List[str] = []
+
+
+class TransportSelectionDTO(BaseModel):
+    carrier: Literal["auto", "lsp", "direct"] = "auto"
+    carrier_override_record: Optional[str] = None
 
 
 class AspfOneCellDTO(BaseModel):

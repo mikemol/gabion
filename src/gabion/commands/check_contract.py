@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal, Mapping
 
 import typer
 
@@ -11,6 +11,13 @@ from gabion.json_types import JSONObject
 
 SplitCsvEntriesFn = Callable[[list[str]], list[str]]
 SplitCsvFn = Callable[[str], list[str]]
+ParseLintEntryFn = Callable[[str], object | None]
+
+LintResolutionKind = Literal[
+    "provided_entries",
+    "derive_from_lines",
+    "empty",
+]
 
 
 def split_csv_entries(entries: list[str]) -> list[str]:
@@ -111,6 +118,54 @@ class DataflowFilterBundle:
             else None
         )
         return ignore_list, transparent_list
+
+
+@dataclass(frozen=True)
+class LintEntriesDecision:
+    """Decision-protocol surface for lint-entry trichotomy normalization."""
+
+    kind: LintResolutionKind
+    lint_lines: tuple[str, ...]
+    lint_entries_payload: tuple[object, ...]
+
+    @classmethod
+    def from_response(cls, response: Mapping[str, object]) -> "LintEntriesDecision":
+        lint_lines_raw = response.get("lint_lines")
+        lint_lines = (
+            tuple(str(line) for line in lint_lines_raw)
+            if isinstance(lint_lines_raw, list)
+            else ()
+        )
+        lint_entries_raw = response.get("lint_entries")
+        if isinstance(lint_entries_raw, list):
+            return cls(
+                kind="provided_entries",
+                lint_lines=lint_lines,
+                lint_entries_payload=tuple(lint_entries_raw),
+            )
+        if lint_lines:
+            return cls(
+                kind="derive_from_lines",
+                lint_lines=lint_lines,
+                lint_entries_payload=(),
+            )
+        return cls(
+            kind="empty",
+            lint_lines=(),
+            lint_entries_payload=(),
+        )
+
+    def normalize_entries(self, *, parse_lint_entry_fn: ParseLintEntryFn) -> list[object]:
+        if self.kind == "provided_entries":
+            return list(self.lint_entries_payload)
+        if self.kind == "derive_from_lines":
+            entries: list[object] = []
+            for line in self.lint_lines:
+                parsed = parse_lint_entry_fn(line)
+                if parsed is not None:
+                    entries.append(parsed)
+            return entries
+        return []
 
 
 @dataclass(frozen=True)

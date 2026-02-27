@@ -168,3 +168,10 @@ def test_resolve_transport_controls_reads_override_record_path_and_missing_path_
         transport_policy._load_override_record_json_from_path(
             str(tmp_path / "missing.json")
         )
+
+
+# gabion:evidence E:function_site::tests/test_transport_policy.py::test_transport_carrier_decision_trichotomy
+def test_transport_carrier_decision_trichotomy() -> None:
+    assert transport_policy.TransportCarrierDecision.from_carrier(None).mode == "auto"
+    assert transport_policy.TransportCarrierDecision.from_carrier("lsp").to_direct_requested() is False
+    assert transport_policy.TransportCarrierDecision.from_carrier("direct").to_direct_requested() is True
