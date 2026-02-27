@@ -53,8 +53,7 @@ from .aspf_visitors import (
     OpportunityPayloadEmitter,
     StatePayloadEmitter,
     TracePayloadEmitter,
-    adapt_event_log_reader_iterator_to_visitor,
-    adapt_live_event_stream_to_visitor,
+    replay_iterator_inputs_to_visitor,
 )
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
@@ -131,6 +130,15 @@ class AspfFinalizationArtifacts:
     delta_jsonl_path: Path
     state_payload: JSONObject | None = None
     state_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class AspfTraceReplayIterators:
+    one_cells: Iterable[Mapping[str, object]]
+    two_cell_witnesses: Iterable[Mapping[str, object]]
+    cofibration_witnesses: Iterable[Mapping[str, object]]
+    surface_representatives: Mapping[str, str]
+    delta_record_count: int
 
 
 def controls_from_payload(payload: Mapping[str, object]) -> AspfTraceControls:
@@ -350,23 +358,15 @@ def register_semantic_surface(
 
 
 def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
-    replay_payload, delta_record_count = _build_trace_replay_payload(state=state)
+    replay_iterators = _build_trace_replay_iterators(state=state)
 
     emitter = TracePayloadEmitter()
-    adapt_live_event_stream_to_visitor(
-        one_cells=cast(list[Mapping[str, object]], replay_payload["one_cells"]),
-        two_cell_witnesses=cast(
-            list[Mapping[str, object]],
-            replay_payload["two_cell_witnesses"],
-        ),
-        cofibration_witnesses=cast(
-            list[Mapping[str, object]],
-            replay_payload["cofibration_witnesses"],
-        ),
-        surface_representatives=cast(
-            Mapping[str, str],
-            replay_payload["surface_representatives"],
-        ),
+    replay_iterator_inputs_to_visitor(
+        one_cells=replay_iterators.one_cells,
+        two_cell_witnesses=replay_iterators.two_cell_witnesses,
+        cofibration_witnesses=replay_iterators.cofibration_witnesses,
+        surface_representatives=replay_iterators.surface_representatives,
+        equivalence_surface_rows=(),
         visitor=emitter,
     )
     return {
@@ -406,7 +406,7 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
         "cofibration_witnesses": emitter.cofibration_witnesses,
         "surface_representatives": emitter.surface_representatives,
         "imported_trace_count": len(state.imported_trace_payloads),
-        "delta_record_count": delta_record_count,
+        "delta_record_count": replay_iterators.delta_record_count,
     }
 
 
@@ -485,27 +485,14 @@ def build_opportunities_payload(
     equivalence_payload: Mapping[str, object],
 ) -> JSONObject:
     emitter = OpportunityPayloadEmitter()
-    trace_payload = build_trace_payload(state)
-    adapt_live_event_stream_to_visitor(
-        one_cells=cast(list[Mapping[str, object]], trace_payload["one_cells"]),
-        two_cell_witnesses=cast(
-            list[Mapping[str, object]],
-            trace_payload["two_cell_witnesses"],
-        ),
-        cofibration_witnesses=cast(
-            list[Mapping[str, object]],
-            trace_payload["cofibration_witnesses"],
-        ),
-        surface_representatives=cast(
-            Mapping[str, str],
-            trace_payload["surface_representatives"],
-        ),
-        visitor=emitter,
-    )
-    adapt_event_log_reader_iterator_to_visitor(
-        event_log_rows=cast(
-            list[Mapping[str, object]],
-            equivalence_payload.get("surface_table", []),
+    replay_iterators = _build_trace_replay_iterators(state=state)
+    replay_iterator_inputs_to_visitor(
+        one_cells=replay_iterators.one_cells,
+        two_cell_witnesses=replay_iterators.two_cell_witnesses,
+        cofibration_witnesses=replay_iterators.cofibration_witnesses,
+        surface_representatives=replay_iterators.surface_representatives,
+        equivalence_surface_rows=_iter_equivalence_surface_rows(
+            equivalence_payload=equivalence_payload,
         ),
         visitor=emitter,
     )
@@ -791,53 +778,64 @@ def _path_sequence(value: object) -> tuple[Path, ...]:
     return tuple(Path(str(item).strip()) for item in value)
 
 
-def _build_trace_replay_payload(
+def _build_trace_replay_iterators(
     *,
     state: AspfExecutionTraceState,
-) -> tuple[JSONObject, int]:
+) -> AspfTraceReplayIterators:
     if state.sink_indexes:
         index = state.sink_indexes[0]
-        return (
-            {
-                "one_cells": list(index.iter_one_cells()),
-                "two_cell_witnesses": list(index.iter_two_cell_witnesses()),
-                "cofibration_witnesses": list(index.iter_cofibrations()),
-                "surface_representatives": {
-                    surface: str(index.surface_representatives[surface])
-                    for surface in sort_once(
-                        index.surface_representatives,
-                        source="aspf_execution_fibration._build_trace_replay_payload.sink.surface_representatives",
-                    )
-                },
+        return AspfTraceReplayIterators(
+            one_cells=index.iter_one_cells(),
+            two_cell_witnesses=index.iter_two_cell_witnesses(),
+            cofibration_witnesses=index.iter_cofibrations(),
+            surface_representatives={
+                surface: str(index.surface_representatives[surface])
+                for surface in sort_once(
+                    index.surface_representatives,
+                    source="aspf_execution_fibration._build_trace_replay_iterators.sink.surface_representatives",
+                )
             },
-            index.delta_record_count,
+            delta_record_count=index.delta_record_count,
         )
 
-    replay_payload: JSONObject = {
-        "one_cells": [],
-        "two_cell_witnesses": [witness.as_dict() for witness in state.two_cell_witnesses],
-        "cofibration_witnesses": [carrier.as_dict() for carrier in state.cofibrations],
-        "surface_representatives": {
+    def _iter_one_cells() -> Iterator[JSONObject]:
+        for index, cell in enumerate(state.one_cells):
+            one_cell_payload = cell.as_dict()
+            metadata = (
+                state.one_cell_metadata[index]
+                if index < len(state.one_cell_metadata)
+                else {"kind": "", "surface": "", "metadata": {}}
+            )
+            one_cell_payload["kind"] = str(metadata.get("kind", ""))
+            one_cell_payload["surface"] = str(metadata.get("surface", ""))
+            one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
+            yield one_cell_payload
+
+    return AspfTraceReplayIterators(
+        one_cells=_iter_one_cells(),
+        two_cell_witnesses=(witness.as_dict() for witness in state.two_cell_witnesses),
+        cofibration_witnesses=(carrier.as_dict() for carrier in state.cofibrations),
+        surface_representatives={
             surface: state.surface_representatives[surface]
             for surface in sort_once(
                 state.surface_representatives,
-                source="aspf_execution_fibration._build_trace_replay_payload.memory.surface_representatives",
+                source="aspf_execution_fibration._build_trace_replay_iterators.memory.surface_representatives",
             )
         },
-    }
-    one_cells_payload = cast(list[JSONObject], replay_payload["one_cells"])
-    for index, cell in enumerate(state.one_cells):
-        one_cell_payload = cell.as_dict()
-        metadata = (
-            state.one_cell_metadata[index]
-            if index < len(state.one_cell_metadata)
-            else {"kind": "", "surface": "", "metadata": {}}
-        )
-        one_cell_payload["kind"] = str(metadata.get("kind", ""))
-        one_cell_payload["surface"] = str(metadata.get("surface", ""))
-        one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
-        one_cells_payload.append(one_cell_payload)
-    return replay_payload, len(state.delta_records)
+        delta_record_count=len(state.delta_records),
+    )
+
+
+def _iter_equivalence_surface_rows(
+    *,
+    equivalence_payload: Mapping[str, object],
+) -> Iterator[Mapping[str, object]]:
+    rows = equivalence_payload.get("surface_table", [])
+    if not isinstance(rows, Iterable):
+        return
+    for row in rows:
+        if isinstance(row, Mapping):
+            yield cast(Mapping[str, object], row)
 
 
 def _semantic_surface_sequence(value: object) -> tuple[str, ...]:
