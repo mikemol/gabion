@@ -4,16 +4,20 @@ set -euo pipefail
 run_docflow=true
 run_dataflow=true
 run_tests=true
+run_status_watch=false
 list_only=false
 docflow_mode="required"
 aspf_handoff=true
 aspf_handoff_manifest="${GABION_ASPF_HANDOFF_MANIFEST:-artifacts/out/aspf_handoff_manifest.json}"
 aspf_handoff_session="${GABION_ASPF_HANDOFF_SESSION:-}"
 aspf_state_root="${GABION_ASPF_STATE_ROOT:-artifacts/out/aspf_state}"
+status_watch_branch="${GABION_STATUS_WATCH_BRANCH:-stage}"
+status_watch_workflow="${GABION_STATUS_WATCH_WORKFLOW:-ci}"
 
 usage() {
   cat <<'USAGE' >&2
 Usage: scripts/checks.sh [--docflow|--no-docflow|--docflow-only|--dataflow-only|--tests-only|--docflow-advisory|--list]
+                         [--status-watch|--no-status-watch|--status-watch-branch <branch>|--status-watch-workflow <workflow>]
                          [--no-aspf-handoff|--aspf-handoff-manifest <path>|--aspf-handoff-session <id>|--aspf-state-root <path>]
 USAGE
 }
@@ -59,6 +63,24 @@ while [ "$#" -gt 0 ]; do
     --docflow-only) run_docflow=true; run_dataflow=false; run_tests=false ;;
     --tests-only) run_tests=true; run_dataflow=false; run_docflow=false ;;
     --dataflow-only) run_dataflow=true; run_docflow=false; run_tests=false ;;
+    --status-watch) run_status_watch=true ;;
+    --no-status-watch) run_status_watch=false ;;
+    --status-watch-branch)
+      if [ "$#" -lt 2 ]; then
+        echo "missing value for --status-watch-branch" >&2
+        exit 2
+      fi
+      status_watch_branch="$2"
+      shift
+      ;;
+    --status-watch-workflow)
+      if [ "$#" -lt 2 ]; then
+        echo "missing value for --status-watch-workflow" >&2
+        exit 2
+      fi
+      status_watch_workflow="$2"
+      shift
+      ;;
     --list) list_only=true ;;
     --docflow-advisory) docflow_mode="advisory" ;;
     --no-aspf-handoff) aspf_handoff=false ;;
@@ -103,6 +125,7 @@ if $list_only; then
   echo "Checks to run:" >&2
   $run_dataflow && echo "- lsp parity gate (gabion lsp-parity-gate --command gabion.check)" >&2
   $run_dataflow && echo "- dataflow (gabion check run)" >&2
+  $run_dataflow && $run_status_watch && echo "- status watch (gabion ci-watch --branch $status_watch_branch --workflow $status_watch_workflow)" >&2
   $run_dataflow && $aspf_handoff && echo "- aspf handoff (state + cumulative imports)" >&2
   $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
@@ -137,6 +160,11 @@ if $run_dataflow; then
     mise exec -- python -m gabion check run \
     "${baseline_arg[@]}"
   mise exec -- python -m gabion delta-advisory-telemetry
+  if $run_status_watch; then
+    mise exec -- python -m gabion ci-watch \
+      --branch "$status_watch_branch" \
+      --workflow "$status_watch_workflow"
+  fi
 fi
 if $run_docflow; then
   docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")

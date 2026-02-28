@@ -87,6 +87,18 @@ def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
 
 
 # gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
+def test_check_aux_operation_accepts_taint_lifecycle_without_baseline() -> None:
+    aux = check_contract.CheckAuxOperation(
+        domain="taint",
+        action="lifecycle",
+    )
+    payload = aux.to_payload()
+    assert payload["domain"] == "taint"
+    assert payload["action"] == "lifecycle"
+    assert payload["baseline_path"] is None
+
+
+# gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
 def test_build_check_payload_includes_aspf_controls() -> None:
     payload = check_contract.build_check_payload(
         paths=[Path("sample.py")],

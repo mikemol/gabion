@@ -1,0 +1,11 @@
+in_steps:
+  - in-46
+  - in-47
+  - in-48
+  - in-49
+  - in-50
+  - in-51
+  - in-52
+  - in-53
+  - in-58
+justification: marker protocol generalization now classifies todo/deprecated marker kinds in runtime never/todo/deprecated markers and static alias-map extraction while preserving crosswalk row coverage; current taint diagnostic and marker-ingress refinements preserve existing ASPF crosswalk obligations and identifier anchors; decision-protocol module markers introduced for policy compliance do not alter marker/ASPF identifier mappings; boundary-normalization markers on taint/ci-watch payload extraction helpers are policy-annotation only and do not alter ASPF identifier mappings or taint crosswalk semantics; marker reason coercion to string at payload normalization is runtime-hardening for invariant throws and does not change ASPF identifier anchors or taint crosswalk semantics.

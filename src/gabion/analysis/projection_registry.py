@@ -527,6 +527,48 @@ AMBIGUITY_STATE_SPEC = ProjectionSpec(
 )
 
 
+TAINT_STATE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="taint_state",
+    domain="taint_state",
+)
+
+
+TAINT_BASELINE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="taint_baseline",
+    domain="taint_baseline",
+)
+
+
+TAINT_DELTA_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="taint_delta",
+    domain="taint_delta",
+)
+
+
+QUOTIENT_PROTOCOL_READINESS_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="quotient_protocol_readiness",
+    domain="quotient_protocol_readiness",
+)
+
+
+QUOTIENT_PROMOTION_DECISION_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="quotient_promotion_decision",
+    domain="quotient_promotion_decision",
+)
+
+
+QUOTIENT_DEMOTION_INCIDENTS_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="quotient_demotion_incidents",
+    domain="quotient_demotion_incidents",
+)
+
+
 WL_REFINEMENT_SPEC = ProjectionSpec(
     spec_version=1,
     name="wl_refinement",
@@ -593,6 +635,12 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         AMBIGUITY_BASELINE_SPEC,
         AMBIGUITY_DELTA_SPEC,
         AMBIGUITY_STATE_SPEC,
+        TAINT_STATE_SPEC,
+        TAINT_BASELINE_SPEC,
+        TAINT_DELTA_SPEC,
+        QUOTIENT_PROTOCOL_READINESS_SPEC,
+        QUOTIENT_PROMOTION_DECISION_SPEC,
+        QUOTIENT_DEMOTION_INCIDENTS_SPEC,
         WL_REFINEMENT_SPEC,
     )
 
@@ -626,4 +674,3 @@ def projection_registry_runtime_config_scope(config: ProjectionRegistryRuntimeCo
         yield
     finally:
         reset_projection_registry_runtime_config(token)
-

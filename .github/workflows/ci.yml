@@ -129,6 +129,8 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip uv
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
+      - name: CLI ci-watch surface
+        run: .venv/bin/python -m gabion ci-watch --help
       - name: Policy check (workflows)
         run: .venv/bin/python -m scripts.policy_check --workflows
       - name: Policy check (ambiguity contract)

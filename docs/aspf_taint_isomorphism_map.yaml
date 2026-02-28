@@ -1,0 +1,148 @@
+entries:
+  - in_step: in-46
+    concept: crosswalk_enforcement_prevents_speculative_duplication
+    existing_modules:
+      - scripts/policy_check.py
+      - src/gabion/analysis/dataflow_audit.py
+    existing_identifiers:
+      - AspfOneCell
+      - AspfTwoCellWitness
+      - DomainToAspfCofibration
+      - append_delta_record
+      - NeverInvariantSink
+      - NEVER_INVARIANTS_SPEC
+    existing_artifacts_or_projections:
+      - docs/normative_enforcement_map.yaml
+      - out/test_evidence.json
+      - artifacts/audit_snapshots/LATEST
+    gap_status: partial
+    rationale: Existing ASPF and never surfaces are present; explicit taint/isomorphism crosswalk and acknowledgement enforcement are now documented but remain emergent in runtime semantics.
+
+  - in_step: in-47
+    concept: architecture_constraint_enforcement
+    existing_modules:
+      - scripts/policy_check.py
+      - src/gabion/config.py
+      - src/gabion/analysis/marker_protocol.py
+    existing_identifiers:
+      - DomainToAspfCofibration
+      - NEVER_INVARIANTS_SPEC
+      - NeverInvariantSink
+    existing_artifacts_or_projections:
+      - docs/aspf_taint_isomorphism_map.yaml
+      - docs/normative_clause_index.md
+    gap_status: emergent
+    rationale: Enforcement hooks exist and now fail fast on missing crosswalk coverage; deeper taint/lifecycle coupling still needs implementation units.
+
+  - in_step: in-48
+    concept: marker_kernel_before_extraction
+    existing_modules:
+      - src/gabion/analysis/marker_protocol.py
+      - src/gabion/invariants.py
+      - src/gabion/exceptions.py
+    existing_identifiers:
+      - NeverInvariantSink
+      - NEVER_INVARIANTS_SPEC
+    existing_artifacts_or_projections:
+      - src/gabion/analysis/dataflow_audit.py
+      - artifacts/audit_snapshots/LATEST
+    gap_status: partial
+    rationale: Marker kernel and deterministic IDs exist for never callsites with backward-compatible plain reason handling, typed semantic links (including unknown-kind filtering), and normalized payload carriage; non-never families are still new work.
+
+  - in_step: in-49
+    concept: runtime_shape_before_static_projection
+    existing_modules:
+      - src/gabion/invariants.py
+      - src/gabion/exceptions.py
+      - src/gabion/analysis/dataflow_audit.py
+    existing_identifiers:
+      - NeverInvariantSink
+      - append_delta_record
+    existing_artifacts_or_projections:
+      - out/test_evidence.json
+      - artifacts/audit_snapshots/LATEST
+    gap_status: partial
+    rationale: Runtime never exceptions now carry normalized payloads consumed by analysis surfaces; static taint schemas remain pending.
+
+  - in_step: in-50
+    concept: static_normalization_before_aspf_projection
+    existing_modules:
+      - src/gabion/config.py
+      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/projection_registry.py
+    existing_identifiers:
+      - NEVER_INVARIANTS_SPEC
+      - NeverInvariantSink
+    existing_artifacts_or_projections:
+      - artifacts/audit_snapshots/LATEST/never_invariants.json
+      - gabion.toml
+    gap_status: emergent
+    rationale: Config now supports marker-family defaults while static projection keeps legacy never compatibility and canonical marker-id emission in never invariants; generalized marker families are staged.
+
+  - in_step: in-51
+    concept: aspf_projection_reuse_before_taint_semantics
+    existing_modules:
+      - src/gabion/analysis/aspf_core.py
+      - src/gabion/analysis/aspf_morphisms.py
+      - src/gabion/analysis/forest_spec.py
+    existing_identifiers:
+      - AspfOneCell
+      - AspfTwoCellWitness
+      - DomainToAspfCofibration
+      - NeverInvariantSink
+    existing_artifacts_or_projections:
+      - artifacts/audit_snapshots/LATEST/forest.json
+      - artifacts/audit_snapshots/LATEST/projection_registry.json
+    gap_status: partial
+    rationale: ASPF/forest projection surfaces are deterministic and reusable; dedicated taint projections derived from marker+ASPF carriers are new.
+
+  - in_step: in-52
+    concept: taint_semantics_before_lifecycle
+    existing_modules:
+      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/marker_protocol.py
+      - src/gabion/analysis/forest_spec.py
+    existing_identifiers:
+      - NeverInvariantSink
+      - NEVER_INVARIANTS_SPEC
+      - AspfTwoCellWitness
+    existing_artifacts_or_projections:
+      - artifacts/audit_snapshots/LATEST/never_invariants.json
+      - out/test_evidence.json
+    gap_status: new
+    rationale: Marker parsing emits structured links and marker metadata, but dedicated taint taxonomies, loci, and witness erasure validation remain new surfaces.
+
+  - in_step: in-53
+    concept: lifecycle_governance_closure
+    existing_modules:
+      - scripts/policy_check.py
+      - src/gabion/analysis/marker_protocol.py
+      - src/gabion/analysis/dataflow_audit.py
+    existing_identifiers:
+      - NEVER_INVARIANTS_SPEC
+      - NeverInvariantSink
+    existing_artifacts_or_projections:
+      - docs/normative_enforcement_map.yaml
+      - artifacts/out/ci_watch
+    gap_status: emergent
+    rationale: Lifecycle fields exist in marker payload contract and policy checks enforce acknowledgement discipline; machine-readable promotion/demotion protocol artifacts are pending.
+
+  - in_step: in-58
+    concept: quotient_discipline_institutionalization
+    existing_modules:
+      - docs/aspf_taint_isomorphism_map.yaml
+      - scripts/policy_check.py
+      - src/gabion/analysis/marker_protocol.py
+    existing_identifiers:
+      - AspfOneCell
+      - AspfTwoCellWitness
+      - DomainToAspfCofibration
+      - append_delta_record
+      - NeverInvariantSink
+      - NEVER_INVARIANTS_SPEC
+    existing_artifacts_or_projections:
+      - docs/normative_clause_index.md
+      - out/test_evidence.json
+      - artifacts/audit_snapshots/LATEST
+    gap_status: partial
+    rationale: Deterministic crosswalk + marker normalization make quotient discipline explicit; full taint/lifecycle institutionalization requires remaining implementation units.

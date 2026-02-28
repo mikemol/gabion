@@ -1,5 +1,5 @@
 ---
-doc_revision: 28
+doc_revision: 29
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -102,6 +102,9 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
+- Treat coverage-gate drops as dedicated fix-forward correction-unit signals; do not use rollback-first reasoning when coverage regresses.
+- Treat any GitHub API error during monitoring/forensics as a process-remediation signal for API access; do not respond with backoff-only behavior.
+- When a workstream sets an API polling cadence cap, obey the cap and maximize data per query.
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
 - Per-correction-unit validation stack must include `scripts/policy_check.py --workflows`, `scripts/policy_check.py --ambiguity-contract`, targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
 - Ambiguity-policy regressions encountered during simplification are forward-remediation signals; prefer boundary normalization/protocol reification over rollback-first.
@@ -129,9 +132,10 @@ Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.
 2. Act on the first actionable failure signal from either sensor; do not serialize waiting for the other sensor once one signal is actionable.
 3. Stage A (pre-signal): bounded dependency-cluster publication is allowed before actionable failures exist.
 4. Stage B (post-signal): once an actionable signal exists, form one correction unit per push (one blocking surface, or tightly coupled set for one blocking surface).
-5. Validate the correction unit locally with the required policy/ambiguity/targeted-test/evidence-drift stack.
-6. Stage, commit, and push the correction unit immediately after local validation.
-7. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
+5. Coverage regressions and API-access failures are Stage-B actionable signals and must trigger dedicated remediation units.
+6. Validate the correction unit locally with the required policy/ambiguity/targeted-test/evidence-drift stack.
+7. Stage, commit, and push the correction unit immediately after local validation.
+8. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
 
 If only one sensor is available, proceed with that sensor and restore dual-sensor operation when available.
 

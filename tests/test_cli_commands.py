@@ -42,6 +42,7 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     assert "normative-symdiff" in result.output
     assert "impact-select-tests" in result.output
     assert "run-dataflow-stage" in result.output
+    assert "ci-watch" in result.output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app
@@ -53,6 +54,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         "normative-symdiff",
         "impact-select-tests",
         "run-dataflow-stage",
+        "ci-watch",
     ):
         result = _invoke(runner, [command_name, "--help"])
         assert result.exit_code == 0, command_name
@@ -83,11 +85,13 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     argv_seen: list[list[str]] = []
     ambiguity_args: list[list[str]] = []
     symdiff_args: list[list[str]] = []
+    ci_watch_args: list[list[str]] = []
     with cli._tooling_runner_override(
         no_arg={
             "docflow-delta-emit": lambda: 13,
         },
         with_argv={
+            "ci-watch": lambda argv: (ci_watch_args.append(list(argv or [])) or 18),
             "ambiguity-contract-gate": lambda argv: (ambiguity_args.append(list(argv or [])) or 16),
             "normative-symdiff": lambda argv: (symdiff_args.append(list(argv or [])) or 17),
             "impact-select-tests": lambda argv: (argv_seen.append(list(argv or [])) or 14),
@@ -109,10 +113,43 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
         with pytest.raises(typer.Exit) as exc:
             cli.run_dataflow_stage(_Ctx(["--stage-id", "run"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 15
+        with pytest.raises(typer.Exit) as exc:
+            cli.ci_watch(
+                run_id="123",
+                branch="stage",
+                workflow="ci",
+                status=None,
+                prefer_active=False,
+                download_artifacts_on_failure=True,
+                artifact_output_root=Path("artifacts/out/ci_watch"),
+                artifact_name=["test-runs"],
+                collect_failed_logs=False,
+                summary_json=Path("artifacts/out/ci_watch_summary.json"),
+            )
+        assert exc.value.exit_code == 18
 
     assert argv_seen == [["--root", "."]]
     assert ambiguity_args == [["--root", ".", "--baseline", "b.json"]]
     assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
+    assert ci_watch_args == [
+        [
+            "--branch",
+            "stage",
+            "--run-id",
+            "123",
+            "--workflow",
+            "ci",
+            "--no-prefer-active",
+            "--download-artifacts-on-failure",
+            "--artifact-output-root",
+            "artifacts/out/ci_watch",
+            "--artifact-name",
+            "test-runs",
+            "--no-collect-failed-logs",
+            "--summary-json",
+            "artifacts/out/ci_watch_summary.json",
+        ]
+    ]
 
 
 # gabion:evidence E:function_site::tests/test_cli_commands.py::test_removed_delta_wrapper_commands_emit_migration_errors

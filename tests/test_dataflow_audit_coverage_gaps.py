@@ -3263,9 +3263,12 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
     mod.write_text(
         "def f(flag, extra, mystery):\n"
         "    if flag and extra:\n"
-        "        gabion.never(reason='kw')\n"
+        "        gabion.never("
+        "reason='kw', owner='core', expiry='2099-01-01', "
+        "links=[{'kind':'policy_id','value':'NCI-LSP-FIRST'}])\n"
         "    if mystery:\n"
         "        gabion.never('plain')\n"
+        "    gabion.todo(reason='later')\n"
         "\n"
         "gabion.never(reason='module')\n",
         encoding="utf-8",
@@ -3280,11 +3283,12 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
             "deadness_id": "dead:f:flag",
         }
     ]
+    forest = da.Forest()
     entries = da._collect_never_invariants(
         [broken, mod],
         project_root=tmp_path,
         ignore_params=set(),
-        forest=da.Forest(),
+        forest=forest,
         deadness_witnesses=deadness,
     )
 
@@ -3298,6 +3302,27 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
     assert any(
         entry.get("status") == "OBLIGATION" and entry.get("undecidable_reason")
         for entry in entries
+    )
+
+
+    assert all("marker_id" in entry for entry in entries)
+    assert all("marker_site_id" in entry for entry in entries)
+    assert any(entry.get("marker_kind") == "todo" for entry in entries)
+    assert all(
+        isinstance(entry.get("marker_id"), str) and ":never:" not in str(entry.get("marker_id"))
+        for entry in entries
+    )
+    kw_entries = [entry for entry in entries if entry.get("reason") == "kw"]
+    assert kw_entries
+    assert kw_entries[0].get("owner") == "core"
+    assert kw_entries[0].get("expiry") == "2099-01-01"
+    assert kw_entries[0].get("links") == [{"kind": "policy_id", "value": "NCI-LSP-FIRST"}]
+    never_alts = [alt for alt in forest.alts if alt.kind == "NeverInvariantSink"]
+    assert any(
+        alt.evidence.get("owner") == "core"
+        and alt.evidence.get("expiry") == "2099-01-01"
+        and alt.evidence.get("links") == [{"kind": "policy_id", "value": "NCI-LSP-FIRST"}]
+        for alt in never_alts
     )
 
 
@@ -4357,6 +4382,11 @@ def test_additional_exception_and_never_branch_edges(tmp_path: Path) -> None:
         forest=forest,
     )
     assert never_entries
+    assert all("marker_id" in entry and "marker_site_id" in entry for entry in never_entries)
+    assert all(
+        str(entry.get("marker_site_id", "")).startswith("never:")
+        for entry in never_entries
+    )
     summary_lines = da._summarize_never_invariants(
         never_entries,
         include_proven_unreachable=True,

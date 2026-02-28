@@ -60,10 +60,24 @@ def _default_runtime_override_scope():
                 tick_ns=1_000_000,
             )
         )
-    if not transport_policy.transport_override_present():
+    transport_override = transport_policy.transport_override()
+    if (
+        transport_override is None
+        or transport_override.direct_requested is None
+    ):
         transport_token = transport_policy.set_transport_override(
             transport_policy.TransportOverrideConfig(
                 direct_requested=True,
+                override_record_path=(
+                    transport_override.override_record_path
+                    if transport_override is not None
+                    else None
+                ),
+                override_record_json=(
+                    transport_override.override_record_json
+                    if transport_override is not None
+                    else None
+                ),
             )
         )
     try:

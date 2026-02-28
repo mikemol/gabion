@@ -34,6 +34,7 @@ def build_forest_spec(
     include_decision_surfaces: bool,
     include_value_decision_surfaces: bool,
     include_never_invariants: bool,
+    include_taint_projections: bool = False,
     include_wl_refinement: bool = False,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
@@ -125,6 +126,22 @@ def build_forest_spec(
             )
         )
 
+    if include_taint_projections:
+        outputs = (
+            "TaintBoundaryLocus",
+            "TaintWitness",
+            "TaintLedgerRecord",
+            "TaintLifecycleDecision",
+        )
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="taint_projection",
+                outputs=outputs,
+                params={"strictness": str(strictness)},
+            )
+        )
+
     if include_ambiguities:
         outputs = ("SuiteSite", "SuiteSiteInFunction", "CallCandidate", "PartitionWitness")
         declared_outputs.update(outputs)
@@ -198,6 +215,7 @@ def default_forest_spec(
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_never_invariants: bool = False,
+    include_taint_projections: bool = False,
     include_wl_refinement: bool = False,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
@@ -208,6 +226,7 @@ def default_forest_spec(
         include_decision_surfaces=include_decision_surfaces,
         include_value_decision_surfaces=include_value_decision_surfaces,
         include_never_invariants=include_never_invariants,
+        include_taint_projections=include_taint_projections,
         include_wl_refinement=include_wl_refinement,
         include_ambiguities=include_ambiguities,
         include_deadline_obligations=include_deadline_obligations,

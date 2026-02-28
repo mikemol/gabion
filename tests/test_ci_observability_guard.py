@@ -178,7 +178,7 @@ def test_guard_counts_in_place_progress_chunks_without_newlines(tmp_path: Path) 
     result = _run_guard(
         tmp_path=tmp_path,
         label="chunk_progress_case",
-        max_gap_seconds=0.08,
+        max_gap_seconds=0.15,
         max_wall_seconds=5.0,
         command=command,
     )

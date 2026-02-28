@@ -99,55 +99,75 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
 
 # gabion:evidence E:function_site::test_delta_script_telemetry.py::tests.test_delta_script_telemetry.test_delta_triplets_default_runtime_override_scope_edges
 def test_delta_triplets_default_runtime_override_scope_edges() -> None:
-    with env_scope(
-        {
-            "GABION_DIRECT_RUN": None,
-            "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
-            "GABION_OVERRIDE_RECORD_JSON": None,
-        }
-    ):
-        with delta_triplets._default_runtime_override_scope():
-            timeout_override = env_policy.lsp_timeout_override()
-            transport_override = transport_policy.transport_override()
-            assert timeout_override is not None
-            assert timeout_override.ticks == 65_000_000
-            assert timeout_override.tick_ns == 1_000_000
-            assert transport_override is not None
-            assert transport_override.direct_requested is True
-        assert env_policy.lsp_timeout_override() is None
-        assert transport_policy.transport_override() is None
-
-    with env_scope(
-        {
-            "GABION_DIRECT_RUN": "0",
-            "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
-            "GABION_OVERRIDE_RECORD_JSON": None,
-        }
-    ):
-        with delta_triplets._default_runtime_override_scope():
-            timeout_override = env_policy.lsp_timeout_override()
-            assert timeout_override is not None
-            assert timeout_override.ticks == 65_000_000
-            assert timeout_override.tick_ns == 1_000_000
-            transport_override = transport_policy.transport_override()
-            assert transport_override is not None
-            assert transport_override.direct_requested is True
-
-    timeout_token = env_policy.set_lsp_timeout_override(
-        env_policy.LspTimeoutConfig(ticks=9, tick_ns=11)
-    )
-    transport_token = transport_policy.set_transport_override(
-        transport_policy.TransportOverrideConfig(direct_requested=True)
-    )
+    baseline_timeout_token = env_policy.set_lsp_timeout_override(None)
+    baseline_transport_token = transport_policy.set_transport_override(None)
     try:
-        with delta_triplets._default_runtime_override_scope():
+        with env_scope(
+            {
+                "GABION_DIRECT_RUN": None,
+                "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
+                "GABION_OVERRIDE_RECORD_JSON": None,
+            }
+        ):
+            with delta_triplets._default_runtime_override_scope():
+                timeout_override = env_policy.lsp_timeout_override()
+                transport_override = transport_policy.transport_override()
+                assert timeout_override is not None
+                assert timeout_override.ticks == 65_000_000
+                assert timeout_override.tick_ns == 1_000_000
+                assert transport_override is not None
+                assert transport_override.direct_requested is True
+            assert env_policy.lsp_timeout_override() is None
+            assert transport_policy.transport_override() is None
+
+        with env_scope(
+            {
+                "GABION_DIRECT_RUN": "0",
+                "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
+                "GABION_OVERRIDE_RECORD_JSON": None,
+            }
+        ):
+            with delta_triplets._default_runtime_override_scope():
+                timeout_override = env_policy.lsp_timeout_override()
+                assert timeout_override is not None
+                assert timeout_override.ticks == 65_000_000
+                assert timeout_override.tick_ns == 1_000_000
+                transport_override = transport_policy.transport_override()
+                assert transport_override is not None
+                assert transport_override.direct_requested is True
+
+        auto_transport_token = transport_policy.set_transport_override(
+            transport_policy.TransportOverrideConfig(direct_requested=None)
+        )
+        try:
+            with delta_triplets._default_runtime_override_scope():
+                transport_override = transport_policy.transport_override()
+                assert transport_override is not None
+                assert transport_override.direct_requested is True
+            restored_override = transport_policy.transport_override()
+            assert restored_override is not None
+            assert restored_override.direct_requested is None
+        finally:
+            transport_policy.reset_transport_override(auto_transport_token)
+
+        timeout_token = env_policy.set_lsp_timeout_override(
+            env_policy.LspTimeoutConfig(ticks=9, tick_ns=11)
+        )
+        transport_token = transport_policy.set_transport_override(
+            transport_policy.TransportOverrideConfig(direct_requested=True)
+        )
+        try:
+            with delta_triplets._default_runtime_override_scope():
+                assert env_policy.lsp_timeout_override() is not None
+                assert transport_policy.transport_override() is not None
             assert env_policy.lsp_timeout_override() is not None
             assert transport_policy.transport_override() is not None
-        assert env_policy.lsp_timeout_override() is not None
-        assert transport_policy.transport_override() is not None
+        finally:
+            transport_policy.reset_transport_override(transport_token)
+            env_policy.reset_lsp_timeout_override(timeout_token)
     finally:
-        transport_policy.reset_transport_override(transport_token)
-        env_policy.reset_lsp_timeout_override(timeout_token)
+        transport_policy.reset_transport_override(baseline_transport_token)
+        env_policy.reset_lsp_timeout_override(baseline_timeout_token)
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main

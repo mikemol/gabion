@@ -715,6 +715,7 @@ def _run_post_phase(
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             forest=forest,
+            marker_aliases=set(config.never_exceptions),
             deadness_witnesses=deadness_witnesses,
         )
         post_work_done += 1

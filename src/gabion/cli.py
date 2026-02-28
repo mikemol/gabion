@@ -59,6 +59,7 @@ from gabion.plan import (
     ExecutionPlanPolicyMetadata,
 )
 from gabion.tooling import (
+    ci_watch as tooling_ci_watch,
     delta_advisory as tooling_delta_advisory,
     docflow_delta_emit as tooling_docflow_delta_emit,
     governance_audit as tooling_governance_audit,
@@ -101,10 +102,16 @@ check_ambiguity_app = typer.Typer(
     help="Ambiguity modalities.",
     invoke_without_command=True,
 )
+check_taint_app = typer.Typer(
+    add_completion=False,
+    help="Taint modalities.",
+    invoke_without_command=True,
+)
 app.add_typer(check_app, name="check")
 check_app.add_typer(check_obsolescence_app, name="obsolescence")
 check_app.add_typer(check_annotation_drift_app, name="annotation-drift")
 check_app.add_typer(check_ambiguity_app, name="ambiguity")
+check_app.add_typer(check_taint_app, name="taint")
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
@@ -112,12 +119,17 @@ CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
 CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
 CliRunSppfSyncFn: TypeAlias = Callable[..., int]
 CliRunCheckDeltaGatesFn: TypeAlias = Callable[[], int]
+CliRunCiWatchFn: TypeAlias = Callable[
+    [tooling_ci_watch.StatusWatchOptions],
+    tooling_ci_watch.StatusWatchResult,
+]
 
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_CHECK_REPORT_REL_PATH = path_policy.DEFAULT_CHECK_REPORT_REL_PATH
+_DEFAULT_STATUS_WATCH_ARTIFACT_ROOT = Path("artifacts/out/ci_watch")
 _SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
@@ -180,6 +192,7 @@ class CliDeps:
     run_check_fn: CliRunCheckFn
     run_sppf_sync_fn: CliRunSppfSyncFn
     run_check_delta_gates_fn: CliRunCheckDeltaGatesFn
+    run_ci_watch_fn: CliRunCiWatchFn
 
 
 def _context_callable_dep(
@@ -236,6 +249,14 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
                 ctx=ctx,
                 key="run_check_delta_gates",
                 default=_run_check_delta_gates,
+            ),
+        ),
+        run_ci_watch_fn=cast(
+            CliRunCiWatchFn,
+            _context_callable_dep(
+                ctx=ctx,
+                key="run_ci_watch",
+                default=_run_ci_watch,
             ),
         ),
     )
@@ -2022,6 +2043,12 @@ def _context_run_check(ctx: typer.Context) -> Callable[..., JSONObject]:
     return _context_cli_deps(ctx).run_check_fn
 
 
+def _context_run_ci_watch(
+    ctx: typer.Context,
+) -> CliRunCiWatchFn:
+    return _context_cli_deps(ctx).run_ci_watch_fn
+
+
 def _run_dataflow_raw_argv(
     argv: list[str],
     *,
@@ -2163,6 +2190,73 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
+def _build_status_watch_options(
+    *,
+    status_watch: bool,
+    run_id: str | None,
+    branch: str | None,
+    workflow: str | None,
+    status: str | None,
+    prefer_active: bool | None,
+    download_artifacts_on_failure: bool | None,
+    artifact_output_root: Path | None,
+    artifact_name: list[str] | None,
+    collect_failed_logs: bool | None,
+    summary_json: Path | None,
+) -> tooling_ci_watch.StatusWatchOptions | None:
+    has_prefixed_options = any(
+        (
+            run_id is not None,
+            branch is not None,
+            workflow is not None,
+            status is not None,
+            prefer_active is not None,
+            download_artifacts_on_failure is not None,
+            artifact_output_root is not None,
+            bool(artifact_name),
+            collect_failed_logs is not None,
+            summary_json is not None,
+        )
+    )
+    if not status_watch:
+        if has_prefixed_options:
+            raise typer.BadParameter(
+                "--status-watch-* options require --status-watch."
+            )
+        return None
+    return tooling_ci_watch.StatusWatchOptions(
+        branch=str(branch or "stage"),
+        run_id=str(run_id) if run_id else None,
+        status=str(status) if status else None,
+        workflow=str(workflow) if workflow else None,
+        prefer_active=True if prefer_active is None else bool(prefer_active),
+        download_artifacts_on_failure=(
+            True
+            if download_artifacts_on_failure is None
+            else bool(download_artifacts_on_failure)
+        ),
+        artifact_output_root=artifact_output_root or _DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
+        artifact_names=tuple(str(name) for name in (artifact_name or [])),
+        collect_failed_logs=(
+            True if collect_failed_logs is None else bool(collect_failed_logs)
+        ),
+        summary_json=summary_json,
+    )
+
+
+def _emit_status_watch_outcome(
+    *,
+    result: tooling_ci_watch.StatusWatchResult,
+    options: tooling_ci_watch.StatusWatchOptions,
+) -> None:
+    line = f"status-watch run_id={result.run_id}"
+    if options.summary_json is not None:
+        line = f"{line} summary={options.summary_json}"
+    if result.collection is not None:
+        line = f"{line} failure_bundle={result.collection.run_root}"
+    typer.echo(line)
+
+
 def _run_check_delta_gates(
     *,
     gate_specs: tuple[tool_specs.ToolSpec, ...] | None = None,
@@ -2185,6 +2279,12 @@ def _run_check_delta_gates(
             ),
             0,
         )
+
+
+def _run_ci_watch(
+    options: tooling_ci_watch.StatusWatchOptions,
+) -> tooling_ci_watch.StatusWatchResult:
+    return tooling_ci_watch.run_watch(options=options)
 
 
 def _run_check_command(
@@ -2217,6 +2317,7 @@ def _run_check_command(
     aspf_delta_jsonl: Path | None = None,
     aspf_semantic_surface: list[str] | None = None,
     aux_operation: CheckAuxOperation | None = None,
+    status_watch_options: tooling_ci_watch.StatusWatchOptions | None = None,
 ) -> None:
     fail_on_violations, fail_on_type_ambiguities = _check_gate_policy(gate)
     lint_enabled, lint_line = _check_lint_mode(
@@ -2305,7 +2406,19 @@ def _run_check_command(
         )
     _emit_analysis_resume_summary(result)
     _emit_nonzero_exit_causes(result)
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    local_exit_code = int(result.get("exit_code", 0))
+    if local_exit_code != 0:
+        raise typer.Exit(code=local_exit_code)
+    if status_watch_options is None:
+        raise typer.Exit(code=local_exit_code)
+    try:
+        watch_result = deps.run_ci_watch_fn(status_watch_options)
+    except SystemExit as exc:
+        if isinstance(exc.code, str) and exc.code:
+            typer.secho(str(exc.code), err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=int(exc.code) if isinstance(exc.code, int) else 1) from None
+    _emit_status_watch_outcome(result=watch_result, options=status_watch_options)
+    raise typer.Exit(code=watch_result.exit_code)
 
 
 @check_app.command("delta-bundle")
@@ -2557,7 +2670,7 @@ def check_group(
         or removed_write_test_obsolescence_baseline
     ):
         raise typer.BadParameter(
-            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity` subcommands."
+            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity|taint` subcommands."
         )
     _check_help_or_exit(ctx)
 
@@ -2574,6 +2687,11 @@ def check_annotation_drift_group(ctx: typer.Context) -> None:
 
 @check_ambiguity_app.callback()
 def check_ambiguity_group(ctx: typer.Context) -> None:
+    _check_help_or_exit(ctx)
+
+
+@check_taint_app.callback()
+def check_taint_group(ctx: typer.Context) -> None:
     _check_help_or_exit(ctx)
 
 
@@ -2660,6 +2778,61 @@ def check_run(
         None,
         "--aspf-semantic-surface",
     ),
+    status_watch: bool = typer.Option(
+        False,
+        "--status-watch/--no-status-watch",
+        help="Watch GitHub status checks after a successful local check run.",
+    ),
+    status_watch_run_id: Optional[str] = typer.Option(
+        None,
+        "--status-watch-run-id",
+        help="Specific run id to watch (skips lookup).",
+    ),
+    status_watch_branch: Optional[str] = typer.Option(
+        None,
+        "--status-watch-branch",
+        help="Branch to watch (default: stage).",
+    ),
+    status_watch_workflow: Optional[str] = typer.Option(
+        None,
+        "--status-watch-workflow",
+        help="Optional workflow name or file filter.",
+    ),
+    status_watch_status: Optional[str] = typer.Option(
+        None,
+        "--status-watch-status",
+        help="Optional status filter for fallback run lookup.",
+    ),
+    status_watch_prefer_active: Optional[bool] = typer.Option(
+        None,
+        "--status-watch-prefer-active/--no-status-watch-prefer-active",
+        help="Prefer queued/in-progress runs when selecting run id.",
+    ),
+    status_watch_download_artifacts_on_failure: Optional[bool] = typer.Option(
+        None,
+        "--status-watch-download-artifacts-on-failure/--no-status-watch-download-artifacts-on-failure",
+        help="Collect failed-run logs/artifacts when watch fails.",
+    ),
+    status_watch_artifact_output_root: Optional[Path] = typer.Option(
+        None,
+        "--status-watch-artifact-output-root",
+        help="Output root for failure bundle collection.",
+    ),
+    status_watch_artifact_name: Optional[List[str]] = typer.Option(
+        None,
+        "--status-watch-artifact-name",
+        help="Artifact name filter for failure downloads (repeatable).",
+    ),
+    status_watch_collect_failed_logs: Optional[bool] = typer.Option(
+        None,
+        "--status-watch-collect-failed-logs/--no-status-watch-collect-failed-logs",
+        help="Collect `gh run view --log-failed` output.",
+    ),
+    status_watch_summary_json: Optional[Path] = typer.Option(
+        None,
+        "--status-watch-summary-json",
+        help="Write status-watch summary JSON to this path.",
+    ),
 ) -> None:
     if removed_analysis_tick_limit is not None:
         raise typer.BadParameter(
@@ -2675,6 +2848,19 @@ def check_run(
         )
     baseline_path = baseline if baseline_mode is not CheckBaselineMode.off else None
     baseline_write = baseline_mode is CheckBaselineMode.write
+    status_watch_options = _build_status_watch_options(
+        status_watch=status_watch,
+        run_id=status_watch_run_id,
+        branch=status_watch_branch,
+        workflow=status_watch_workflow,
+        status=status_watch_status,
+        prefer_active=status_watch_prefer_active,
+        download_artifacts_on_failure=status_watch_download_artifacts_on_failure,
+        artifact_output_root=status_watch_artifact_output_root,
+        artifact_name=status_watch_artifact_name,
+        collect_failed_logs=status_watch_collect_failed_logs,
+        summary_json=status_watch_summary_json,
+    )
     _run_check_command(
         ctx=ctx,
         paths=paths,
@@ -2706,6 +2892,7 @@ def check_run(
         aspf_delta_jsonl=aspf_delta_jsonl,
         aspf_import_state=aspf_import_state,
         aspf_semantic_surface=aspf_semantic_surface,
+        status_watch_options=status_watch_options,
     )
 
 
@@ -3218,6 +3405,193 @@ def check_ambiguity_baseline_write(
         state_in=state_in,
         out_json=out_json,
         out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("state")
+def check_taint_state(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="state",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=None,
+        out_json=out_json,
+        out_md=None,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("delta")
+def check_taint_delta(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="delta",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("baseline-write")
+def check_taint_baseline_write(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="baseline-write",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("lifecycle")
+def check_taint_lifecycle(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="lifecycle",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=None,
         report=report,
         decision_snapshot=decision_snapshot,
         analysis_budget_checks=analysis_budget_checks,
@@ -4386,6 +4760,7 @@ _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
 }
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
+    "ci-watch": tooling_ci_watch.main,
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
@@ -4454,6 +4829,74 @@ def delta_advisory_telemetry() -> None:
 def docflow_delta_emit() -> None:
     """Emit docflow compliance delta through the gabion CLI."""
     raise typer.Exit(code=_run_tooling_no_arg("docflow-delta-emit"))
+
+
+@app.command("ci-watch")
+def ci_watch(
+    run_id: Optional[str] = typer.Option(
+        None,
+        "--run-id",
+        help="Specific run id to watch (skips lookup).",
+    ),
+    branch: str = typer.Option(
+        "stage",
+        "--branch",
+        help="Branch to watch (default: stage).",
+    ),
+    workflow: Optional[str] = typer.Option(
+        None,
+        "--workflow",
+        help="Optional workflow name or file filter.",
+    ),
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        help="Optional status filter for fallback run lookup.",
+    ),
+    prefer_active: bool = typer.Option(
+        True,
+        "--prefer-active/--no-prefer-active",
+        help="Prefer in-progress/queued runs during run lookup.",
+    ),
+    download_artifacts_on_failure: bool = typer.Option(
+        True,
+        "--download-artifacts-on-failure/--no-download-artifacts-on-failure",
+        help="Collect failure metadata/logs/artifacts when watched run fails.",
+    ),
+    artifact_output_root: Path = typer.Option(
+        _DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
+        "--artifact-output-root",
+        help="Root path for failure bundle collection.",
+    ),
+    artifact_name: Optional[List[str]] = typer.Option(
+        None,
+        "--artifact-name",
+        help="Artifact name filter (repeatable).",
+    ),
+    collect_failed_logs: bool = typer.Option(
+        True,
+        "--collect-failed-logs/--no-collect-failed-logs",
+        help="Collect `gh run view --log-failed` output on failure.",
+    ),
+    summary_json: Optional[Path] = typer.Option(
+        None,
+        "--summary-json",
+        help="Write watch/collection summary JSON to this path.",
+    ),
+) -> None:
+    options = tooling_ci_watch.StatusWatchOptions(
+        branch=branch,
+        run_id=run_id,
+        status=status,
+        workflow=workflow,
+        prefer_active=prefer_active,
+        download_artifacts_on_failure=download_artifacts_on_failure,
+        artifact_output_root=artifact_output_root,
+        artifact_names=tuple(artifact_name or []),
+        collect_failed_logs=collect_failed_logs,
+        summary_json=summary_json,
+    )
+    raise typer.Exit(code=_run_tooling_with_argv("ci-watch", options.to_argv()))
 
 
 @app.command(
