@@ -1,5 +1,5 @@
 ---
-doc_revision: 112
+doc_revision: 113
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -233,6 +233,12 @@ Recommended loop:
 4. Stage B (post-signal): once an actionable failure exists, package one blocking-surface correction unit per push.
 5. Validate locally with the correction-unit stack, then stage/commit/push immediately.
 6. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
+
+Coverage/API signal handling:
+
+- Treat strict-coverage regressions as actionable correction-unit triggers; fix forward with focused coverage remediation units rather than rollback-first changes.
+- Treat GitHub API errors during status-check monitoring or failure forensics as actionable process-remediation triggers; patch API access/query process in a correction unit instead of backoff-only behavior.
+- If a workstream sets an API polling cadence bound, keep queries within that bound and gather maximal structured status data per query.
 
 Interoperability/tolerance expectation:
 

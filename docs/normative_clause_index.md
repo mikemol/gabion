@@ -1,5 +1,5 @@
 ---
-doc_revision: 9
+doc_revision: 10
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -164,6 +164,9 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Agents must act on the first actionable failure signal and avoid serialized waiting when one sensor already produced actionable information.
 - First actionable remote failure may preempt an in-progress local lane; agents must not wait for local completion once the remote signal is actionable.
 - Bounded dependency-cluster publication is allowed before actionable signals exist; once actionable signals exist, agents must use one blocking-surface correction unit per push.
+- Coverage gate regressions are actionable Stage-B signals; agents must open a dedicated coverage-remediation correction unit and fix forward without rollback-first reasoning.
+- GitHub API errors during status monitoring/forensics are actionable Stage-B signals; agents must remediate the API-access process itself (query density, cadence, and invocation wiring) in a correction unit instead of only backing off.
+- When an operator specifies an API polling cadence limit, agents must obey that bound and maximize signal extraction per call.
 - Correction-unit validation stack must include workflow policy check, ambiguity-contract check, targeted pytest, and evidence-carrier drift refresh/check when tests or semantic surfaces changed.
 - A correction unit is one failing signal (or a tightly coupled set) targeting one blocking surface; after local validation, stage/commit/push immediately.
 - Multiple CI runs in flight are expected; fallout is handled by subsequent detect/correct/push iterations.

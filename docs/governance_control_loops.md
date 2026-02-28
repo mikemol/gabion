@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_control_loops
 doc_role: policy
@@ -70,6 +70,8 @@ loop_domains:
   - LSP architecture
   - dataflow grammar
   - baseline ratchets
+  - execution coverage
+  - GitHub status API process
 doc_invariants:
   - mechanized_governance_invariant
   - lsp_first_invariant
@@ -183,6 +185,32 @@ Clause links: [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first)
 - **max correction step:** one guarded baseline refresh transaction.
 - **verification command:** `mise exec -- python -m scripts.refresh_baselines --docflow --timeout 600`.
 - **escalation threshold:** guard rejects refresh twice for the same unresolved source.
+
+### 6) execution coverage
+
+Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
+
+- **sensor:** strict coverage gate (`pytest --cov=src/gabion --cov-branch --cov-fail-under=100`) in local repro and CI.
+- **state artifact:** terminal coverage report plus `artifacts/test_runs/coverage.xml`.
+- **target predicate:** total and branch coverage remain at 100% with no uncovered semantic-core regressions.
+- **error signal:** any coverage drop below gate.
+- **actuator:** open a dedicated fix-forward correction unit to cover the uncovered branches/lines; prefer simplification/reification where feasible before adding broad compatibility behavior.
+- **max correction step:** one coverage-blocking surface per push.
+- **verification command:** `mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing --cov-fail-under=100`.
+- **escalation threshold:** repeated coverage failure for the same uncovered surface after one correction step.
+
+### 7) GitHub status API process
+
+Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law).
+
+- **sensor:** API invocation outcomes for `gh api` / `gh run view --json` monitoring calls.
+- **state artifact:** CI-watch summaries and local monitoring transcripts.
+- **target predicate:** status monitoring remains low-noise, high-density, and error-free under workstream cadence bounds.
+- **error signal:** any API transport/auth/rate-limit error during monitoring or forensics.
+- **actuator:** remediate the API-access process itself (query consolidation, cadence control, fallback wiring, and parse robustness) in a dedicated correction unit; backoff-only responses are insufficient.
+- **max correction step:** one monitoring-process patchset per blocking API error class.
+- **verification command:** one-call-per-interval high-density status query plus local parse checks over returned JSON.
+- **escalation threshold:** repeated API error for the same access path after one process-remediation step.
 
 ## Second-order controller loop (cybernetic meta-loop)
 
