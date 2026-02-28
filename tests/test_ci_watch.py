@@ -37,6 +37,7 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
     run_id = "12345"
     commands: list[tuple[list[str], bool, bool, bool]] = []
     stderr_messages: list[str] = []
+    summary_json = tmp_path / "ci_watch_summary.json"
 
     run_payload = json.dumps(
         {
@@ -110,6 +111,8 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
             run_id,
             "--artifact-output-root",
             str(tmp_path),
+            "--summary-json",
+            str(summary_json),
             "--artifact-name",
             "test-runs",
             "--artifact-name",
@@ -136,6 +139,7 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
     artifact_manifest = json.loads(
         (run_root / "artifacts_manifest.json").read_text(encoding="utf-8")
     )
+    summary_payload = json.loads(summary_json.read_text(encoding="utf-8"))
     assert len(failed_jobs) == 1
     assert failed_jobs[0]["name"] == "audit"
     assert len(failed_steps) == 1
@@ -144,6 +148,12 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
     assert collection_status["mandatory_failures"] == []
     assert artifact_manifest["artifact_dirs"] == ["test-runs"]
     assert artifact_manifest["files"] == ["test-runs/payload.txt"]
+    assert summary_payload["run_id"] == run_id
+    assert summary_payload["watch_exit_code"] == 1
+    assert summary_payload["exit_code"] == 1
+    assert summary_payload["artifact_output_root"] == str(tmp_path)
+    assert summary_payload["collection"]["run_root"] == str(run_root)
+    assert summary_payload["collection"]["status"]["collection_success"] is True
 
     download_commands = [command for command, _, _, _ in commands if command[:3] == ["gh", "run", "download"]]
     assert len(download_commands) == 1
