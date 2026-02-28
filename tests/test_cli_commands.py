@@ -22,13 +22,14 @@ def _cli_env() -> dict[str, str]:
     return {
         **os.environ,
         "GABION_DIRECT_RUN": "1",
-        "GABION_LSP_TIMEOUT_TICKS": "50000",
-        "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
     }
 
 
 def _invoke(runner: CliRunner, args: list[str], *, input_text: str | None = None):
-    return runner.invoke(cli.app, args, env=_cli_env(), input=input_text)
+    argv = list(args)
+    if "--timeout" not in argv:
+        argv = ["--timeout", "50000000000ns", *argv]
+    return runner.invoke(cli.app, argv, env=_cli_env(), input=input_text)
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands::cli.py::gabion.cli.app

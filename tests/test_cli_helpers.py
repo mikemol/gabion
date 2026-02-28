@@ -18,6 +18,7 @@ from gabion.analysis.timeout_context import check_deadline
 from gabion.commands import progress_contract as progress_timeline
 from gabion.commands import transport_policy
 from gabion.exceptions import NeverThrown
+from gabion.runtime import env_policy
 from gabion.tooling import tool_specs
 from tests.env_helpers import env_scope as _env_scope
 
@@ -937,8 +938,6 @@ def test_dataflow_audit_timeout_progress_resume_is_single_attempt(
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_uses_single_attempt_budget::cli.py::gabion.cli._run_dataflow_raw_argv::timeout_context.py::gabion.analysis.timeout_context.check_deadline
 def test_dataflow_audit_timeout_uses_single_attempt_budget(
     tmp_path: Path,
-    env_scope,
-    restore_env,
 ) -> None:
     calls = {"count": 0}
 
@@ -951,15 +950,9 @@ def test_dataflow_audit_timeout_uses_single_attempt_budget(
             "analysis_state": "timed_out_progress_resume",
         }
 
-    previous = env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "3",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000000",
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
-    )
-    try:
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=3, tick_ns=1_000_000_000)
+    ):
         with pytest.raises(typer.Exit) as exc:
             cli._run_dataflow_raw_argv(
                 [
@@ -969,8 +962,6 @@ def test_dataflow_audit_timeout_uses_single_attempt_budget(
                 ],
                 runner=runner,
             )
-    finally:
-        restore_env(previous)
     assert exc.value.exit_code == 2
     assert calls["count"] == 1
 

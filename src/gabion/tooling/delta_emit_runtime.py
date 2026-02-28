@@ -78,24 +78,14 @@ def timeout_ticks() -> int:
     override = env_policy.lsp_timeout_override()
     if override is not None:
         return int(override.ticks)
-    raw = env_policy.env_text("GABION_LSP_TIMEOUT_TICKS", default=DEFAULT_TIMEOUT_TICKS)
-    try:
-        parsed = int(raw)
-    except (TypeError, ValueError):
-        return int(DEFAULT_TIMEOUT_TICKS)
-    return parsed if parsed > 0 else int(DEFAULT_TIMEOUT_TICKS)
+    return int(DEFAULT_TIMEOUT_TICKS)
 
 
 def timeout_tick_ns() -> int:
     override = env_policy.lsp_timeout_override()
     if override is not None:
         return int(override.tick_ns)
-    raw = env_policy.env_text("GABION_LSP_TIMEOUT_TICK_NS", default=DEFAULT_TIMEOUT_TICK_NS)
-    try:
-        parsed = int(raw)
-    except (TypeError, ValueError):
-        return int(DEFAULT_TIMEOUT_TICK_NS)
-    return parsed if parsed > 0 else int(DEFAULT_TIMEOUT_TICK_NS)
+    return int(DEFAULT_TIMEOUT_TICK_NS)
 
 
 def supports_notification_callback(

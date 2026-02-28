@@ -617,7 +617,7 @@ run_checks_job() {
   esac
 
   step "checks: extract_test_evidence"
-  observed checks_extract_test_evidence env GABION_LSP_TIMEOUT_TICKS=300000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+  observed checks_extract_test_evidence "$PYTHON_BIN" -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
 
   step "checks: evidence drift diff (strict)"
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
@@ -743,7 +743,7 @@ run_dataflow_job() {
   set +e
   observed dataflow_run_dataflow_stage "$PYTHON_BIN" -m gabion \
     --carrier direct \
-    --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+    --timeout "${GABION_TIMEOUT_NS:-130000000000000ns}" \
     run-dataflow-stage \
     --github-output "$outputs_file" \
     --step-summary "$summary_file" \
@@ -933,7 +933,7 @@ PY
       --state-root "$aspf_state_root" \
       -- \
       "$PYTHON_BIN" -m gabion \
-      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      --timeout "${GABION_TIMEOUT_NS:-130000000000000ns}" \
       check \
       raw -- . \
       --root . \
@@ -943,7 +943,7 @@ PY
       --baseline baselines/dataflow_baseline.txt
   else
     timed_observed pr_dataflow_render_check "$PYTHON_BIN" -m gabion \
-      --timeout "$(( ${GABION_LSP_TIMEOUT_TICKS:-130000000} * ${GABION_LSP_TIMEOUT_TICK_NS:-1000000} ))ns" \
+      --timeout "${GABION_TIMEOUT_NS:-130000000000000ns}" \
       check \
       raw -- . \
       --root . \

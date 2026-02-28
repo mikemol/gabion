@@ -260,8 +260,6 @@ def test_cli_normative_symdiff_smoke(tmp_path: Path) -> None:
         ],
         env={
             "GABION_DIRECT_RUN": "1",
-            "GABION_LSP_TIMEOUT_TICKS": "50000",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
         },
     )
     assert result.exit_code == 0

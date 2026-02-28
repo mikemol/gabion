@@ -254,8 +254,6 @@ def test_cli_lsp_parity_gate_command_reports_nonzero_exit() -> None:
         ["lsp-parity-gate", "--command", "gabion.unknown", "--root", "."],
         env={
             "GABION_DIRECT_RUN": "1",
-            "GABION_LSP_TIMEOUT_TICKS": "100000",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
         },
     )
     assert result.exit_code == 1
@@ -270,8 +268,6 @@ def test_cli_lsp_parity_gate_command_allows_zero_exit() -> None:
         ["lsp-parity-gate", "--command", "gabion.check", "--root", "."],
         env={
             "GABION_DIRECT_RUN": "1",
-            "GABION_LSP_TIMEOUT_TICKS": "100000",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
         },
     )
     assert result.exit_code == 0

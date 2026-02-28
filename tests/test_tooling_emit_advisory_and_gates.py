@@ -64,13 +64,7 @@ def test_emit_build_payload_handles_state_inputs_and_timeout_defaults(
     state_key: str,
 ) -> None:
     with _cwd(tmp_path):
-        with env_scope(
-            {
-                "GABION_LSP_TIMEOUT_TICKS": "bad",
-                "GABION_LSP_TIMEOUT_TICK_NS": "bad",
-            }
-        ):
-            payload = delta_state_emit._build_payload_for_emitter(emitter_id)
+        payload = delta_state_emit._build_payload_for_emitter(emitter_id)
         assert payload["analysis_timeout_ticks"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
         assert payload["analysis_timeout_tick_ns"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
         assert payload.get(state_key) is None

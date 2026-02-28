@@ -141,23 +141,14 @@ def test_check_command_includes_context_runtime_overrides(tmp_path: Path) -> Non
     assert "/tmp/override_record.json" in command
 
 
-# gabion:evidence E:function_site::test_run_dataflow_stage.py::tests.test_run_dataflow_stage.test_check_command_uses_env_timeout_fallback_when_context_missing
-def test_check_command_uses_env_timeout_fallback_when_context_missing(tmp_path: Path) -> None:
+# gabion:evidence E:function_site::test_run_dataflow_stage.py::tests.test_run_dataflow_stage.test_check_command_omits_timeout_when_context_missing
+def test_check_command_omits_timeout_when_context_missing(tmp_path: Path) -> None:
     paths = _stage_paths(_base_paths(tmp_path))
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "31",
-            "GABION_LSP_TIMEOUT_TICK_NS": "37",
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
-    ):
-        command = run_dataflow_stage._check_command(
-            paths=paths,
-            strictness=None,
-        )
-    assert "--timeout" in command
-    assert "1147ns" in command
+    command = run_dataflow_stage._check_command(
+        paths=paths,
+        strictness=None,
+    )
+    assert "--timeout" not in command
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text

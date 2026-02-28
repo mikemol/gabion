@@ -30,7 +30,6 @@ from gabion.analysis.timeout_context import (
 from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
 from gabion.json_types import JSONObject
-from gabion.runtime import env_policy
 
 
 class LspClientError(RuntimeError):
@@ -51,14 +50,6 @@ def _normalized_command_payload(
         arguments=request.arguments,
     )
     return list(envelope.command_args), envelope.payload
-
-
-def _has_env_timeout() -> bool:
-    return env_policy.lsp_timeout_env_present()
-
-
-def _env_timeout_ticks() -> tuple[int, int]:
-    return env_policy.timeout_ticks_from_env()
 
 
 def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
@@ -195,8 +186,6 @@ def run_command(
     remaining_deadline_ns_fn: Callable[[int], int] | None = None,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
-    if _has_env_timeout():
-        timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
     if timeout_ticks is None:
         timeout_ticks = 100
     ticks_value = int(timeout_ticks)

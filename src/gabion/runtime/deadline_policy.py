@@ -47,9 +47,12 @@ def timeout_budget_from_lsp_env(
     *,
     default_budget: DeadlineBudget = DEFAULT_TIMEOUT_BUDGET,
 ) -> DeadlineBudget:
-    if env_policy.lsp_timeout_env_present():
-        ticks, tick_ns = env_policy.timeout_ticks_from_env()
-        return DeadlineBudget(ticks=ticks, tick_ns=tick_ns)
+    timeout_override = env_policy.lsp_timeout_override()
+    if timeout_override is not None:
+        return DeadlineBudget(
+            ticks=timeout_override.ticks,
+            tick_ns=timeout_override.tick_ns,
+        )
     return DeadlineBudget(
         ticks=default_budget.ticks,
         tick_ns=default_budget.tick_ns,

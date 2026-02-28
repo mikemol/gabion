@@ -182,9 +182,6 @@ jobs:
             --require-label done-on-stage \
             --require-label status/pending-release
       - name: Test evidence index
-        env:
-          GABION_LSP_TIMEOUT_TICKS: "300000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
           .venv/bin/python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json

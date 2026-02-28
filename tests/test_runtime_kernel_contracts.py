@@ -36,18 +36,28 @@ def test_env_policy_truthy_helpers_explicit_values() -> None:
     assert env_policy.env_enabled_flag("UNUSED", value="off") is False
 
 
-# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_zero_seconds_rejected::env_policy.py::gabion.runtime.env_policy.timeout_ticks_from_env::env_helpers.py::tests.env_helpers.env_scope
-def test_env_policy_zero_seconds_rejected() -> None:
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": "0",
-        }
-    ):
+# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_timeout_env_removed::env_policy.py::gabion.runtime.env_policy.timeout_ticks_from_env
+def test_env_policy_timeout_env_removed() -> None:
+    original_has_any_non_empty_env = env_policy.has_any_non_empty_env
+    try:
+        env_policy.has_any_non_empty_env = lambda _keys: True  # type: ignore[assignment]
         with pytest.raises(NeverThrown):
             env_policy.timeout_ticks_from_env()
+        env_policy.has_any_non_empty_env = lambda _keys: False  # type: ignore[assignment]
+        with pytest.raises(NeverThrown):
+            env_policy.timeout_ticks_from_env()
+    finally:
+        env_policy.has_any_non_empty_env = original_has_any_non_empty_env
+
+
+# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_helpers_cover_non_env_timeout_paths::env_policy.py::gabion.runtime.env_policy.has_any_non_empty_env::env_policy.py::gabion.runtime.env_policy.parse_positive_int_text
+def test_env_policy_helpers_cover_non_env_timeout_paths() -> None:
+    assert env_policy.has_any_non_empty_env(("UNUSED_TIMEOUT_KEY",)) is False
+    assert env_policy.parse_positive_int_text("7", field="ticks") == 7
+    with pytest.raises(NeverThrown):
+        env_policy.parse_positive_int_text("0", field="ticks")
+    with pytest.raises(NeverThrown):
+        env_policy.parse_positive_int_text("bad", field="ticks")
 
 
 # gabion:evidence E:function_site::test_runtime_kernel_contracts.py::tests.test_runtime_kernel_contracts.test_env_policy_cli_timeout_overrides_and_scope_paths
@@ -75,20 +85,12 @@ def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
     with pytest.raises(NeverThrown):
         env_policy.timeout_config_from_cli_flags(seconds="0.0001")
 
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
-    ):
-        env_policy.apply_cli_timeout_flags(ticks=17, tick_ns=19)
-        assert env_policy.lsp_timeout_env_present() is True
-        assert env_policy.timeout_ticks_from_env() == (17, 19)
-        env_policy.apply_cli_timeout_flags()
-        assert env_policy.lsp_timeout_override() is None
-        assert env_policy.lsp_timeout_env_present() is False
+    env_policy.apply_cli_timeout_flags(ticks=17, tick_ns=19)
+    assert env_policy.lsp_timeout_env_present() is True
+    assert env_policy.timeout_ticks_from_env() == (17, 19)
+    env_policy.apply_cli_timeout_flags()
+    assert env_policy.lsp_timeout_override() is None
+    assert env_policy.lsp_timeout_env_present() is False
 
     assert env_policy.lsp_timeout_override() is None
     with env_policy.lsp_timeout_override_scope(
@@ -168,29 +170,16 @@ def test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guar
             delattr(env_policy, "int")
 
 
-# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_env_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env::env_helpers.py::tests.env_helpers.env_scope
-def test_deadline_policy_budget_from_env_paths() -> None:
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
-    ):
-        budget = deadline_policy.timeout_budget_from_lsp_env(
-            default_budget=deadline_policy.DeadlineBudget(ticks=7, tick_ns=9),
-        )
+# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_override_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env
+def test_deadline_policy_budget_from_override_paths() -> None:
+    budget = deadline_policy.timeout_budget_from_lsp_env(
+        default_budget=deadline_policy.DeadlineBudget(ticks=7, tick_ns=9),
+    )
     assert budget.ticks == 7
     assert budget.tick_ns == 9
 
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "11",
-            "GABION_LSP_TIMEOUT_TICK_NS": "13",
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=11, tick_ns=13)
     ):
         budget = deadline_policy.timeout_budget_from_lsp_env(
             default_budget=deadline_policy.DeadlineBudget(ticks=1, tick_ns=1),

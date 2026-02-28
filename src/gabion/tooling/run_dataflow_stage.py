@@ -555,17 +555,6 @@ def _check_commands(
                 ),
             ]
         )
-    elif env_policy.lsp_timeout_env_present():
-        ticks, tick_ns = env_policy.timeout_ticks_from_env()
-        command_prefix.extend(
-            [
-                "--timeout",
-                env_policy.duration_text_from_ticks(
-                    ticks=ticks,
-                    tick_ns=tick_ns,
-                ),
-            ]
-        )
     transport_override = transport_policy.transport_override()
     if (
         transport_override is not None

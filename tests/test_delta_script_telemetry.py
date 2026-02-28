@@ -101,10 +101,6 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
 def test_delta_triplets_default_runtime_override_scope_edges() -> None:
     with env_scope(
         {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
             "GABION_DIRECT_RUN": None,
             "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
             "GABION_OVERRIDE_RECORD_JSON": None,
@@ -123,15 +119,16 @@ def test_delta_triplets_default_runtime_override_scope_edges() -> None:
 
     with env_scope(
         {
-            "GABION_LSP_TIMEOUT_TICKS": "9",
-            "GABION_LSP_TIMEOUT_TICK_NS": "11",
             "GABION_DIRECT_RUN": "0",
             "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None,
             "GABION_OVERRIDE_RECORD_JSON": None,
         }
     ):
         with delta_triplets._default_runtime_override_scope():
-            assert env_policy.lsp_timeout_override() is None
+            timeout_override = env_policy.lsp_timeout_override()
+            assert timeout_override is not None
+            assert timeout_override.ticks == 65_000_000
+            assert timeout_override.tick_ns == 1_000_000
             transport_override = transport_policy.transport_override()
             assert transport_override is not None
             assert transport_override.direct_requested is True
@@ -284,14 +281,8 @@ def test_delta_state_emit_helper_branches_and_nonzero_exit(
     assert "items" in row
     assert "1/2 items" in row
 
-    with env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "bad",
-            "GABION_LSP_TIMEOUT_TICK_NS": "bad",
-        }
-    ):
-        assert delta_state_emit._timeout_ticks() == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
-        assert delta_state_emit._timeout_tick_ns() == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
+    assert delta_state_emit._timeout_ticks() == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
+    assert delta_state_emit._timeout_tick_ns() == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
 
     assert (
         delta_state_emit._phase_progress_from_notification({"method": "x"}) is None
@@ -408,15 +399,9 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
     previous_cwd = Path.cwd()
     os.chdir(tmp_path)
     try:
-        with env_scope(
-            {
-                "GABION_LSP_TIMEOUT_TICKS": "1",
-                "GABION_LSP_TIMEOUT_TICK_NS": "1",
-            }
-        ):
-            payload = delta_state_emit._build_payload()
-        assert payload["analysis_timeout_ticks"] == 1
-        assert payload["analysis_timeout_tick_ns"] == 1
+        payload = delta_state_emit._build_payload()
+        assert payload["analysis_timeout_ticks"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
+        assert payload["analysis_timeout_tick_ns"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
     finally:
         os.chdir(previous_cwd)
 
