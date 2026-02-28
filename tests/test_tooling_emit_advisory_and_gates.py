@@ -731,3 +731,99 @@ def test_write_aggregate_with_domain_skips_legacy_entries_without_list_payload()
 
     assert captured["domains"] == ("annotation_drift",)
     assert captured["generated_at"] == "2025-01-02T03:04:05Z"
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries::delta_advisory.py::gabion.tooling.delta_advisory._write_aggregate_with_domain
+def test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries() -> None:
+    existing = {
+        "advisories": {
+            "docflow": {
+                "source_delta_path": "artifacts/out/docflow_compliance_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": [
+                    {
+                        "key": "contradicts",
+                        "baseline": 3,
+                        "current": 4,
+                        "delta": 1,
+                        "threshold_class": "telemetry_non_blocking",
+                        "message": "legacy-docflow",
+                        "timestamp": "2025-01-01T00:00:00Z",
+                    }
+                ],
+            },
+            "obsolescence": {
+                "source_delta_path": "artifacts/out/test_obsolescence_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": [
+                    {
+                        "key": "unmapped",
+                        "baseline": 1,
+                        "current": 2,
+                        "delta": 1,
+                        "threshold_class": "telemetry_non_blocking",
+                        "message": "legacy-obsolescence",
+                        "timestamp": "2025-01-01T00:00:00Z",
+                    }
+                ],
+            },
+            "ambiguity": {
+                "source_delta_path": "artifacts/out/ambiguity_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": {"bad": "shape"},
+            },
+        }
+    }
+    captured: dict[str, object] = {}
+
+    def _load_existing(_path: Path) -> dict[str, object]:
+        return existing
+
+    def _capture_write(
+        payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload],
+        *,
+        aggregate_path: Path = advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH,
+        generated_at: str | None = None,
+    ) -> None:
+        _ = aggregate_path
+        captured["payloads"] = dict(payloads)
+        captured["generated_at"] = generated_at
+
+    replacement_payload = advisory_evidence.AdvisoryEvidencePayload(
+        domain="docflow",
+        source_delta_path="artifacts/out/docflow_compliance_delta.json",
+        generated_at="2025-01-02T03:04:05Z",
+        entries=(
+            advisory_evidence.AdvisoryEvidenceEntry(
+                domain="docflow",
+                key="contradicts",
+                baseline=10,
+                current=10,
+                delta=0,
+                threshold_class="telemetry_non_blocking",
+                message="replacement-docflow",
+                timestamp="2025-01-02T03:04:05Z",
+            ),
+        ),
+    )
+
+    original_load = delta_advisory.json_io.load_json_object_path
+    original_write = advisory_evidence.write_aggregate
+    delta_advisory.json_io.load_json_object_path = _load_existing
+    advisory_evidence.write_aggregate = _capture_write
+    try:
+        delta_advisory._write_aggregate_with_domain(replacement_payload)
+    finally:
+        delta_advisory.json_io.load_json_object_path = original_load
+        advisory_evidence.write_aggregate = original_write
+
+    payloads = captured["payloads"]
+    assert isinstance(payloads, dict)
+    assert tuple(sorted(payloads)) == ("docflow", "obsolescence")
+    assert payloads["docflow"] is replacement_payload
+    obsolescence_payload = payloads["obsolescence"]
+    assert isinstance(obsolescence_payload, advisory_evidence.AdvisoryEvidencePayload)
+    assert obsolescence_payload.domain == "obsolescence"
+    assert len(obsolescence_payload.entries) == 1
+    assert obsolescence_payload.entries[0].key == "unmapped"
+    assert captured["generated_at"] == "2025-01-02T03:04:05Z"

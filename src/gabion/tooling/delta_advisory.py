@@ -210,8 +210,6 @@ def _write_aggregate_with_domain(payload: advisory_evidence.AdvisoryEvidencePayl
     advisories_raw = _mapping(existing.get("advisories"))
     domain_payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload] = {}
     for raw_domain, raw_payload in advisories_raw.items():
-        if raw_domain == payload.domain:
-            continue
         item = _mapping(raw_payload)
         entries_raw = item.get("entries")
         if not isinstance(entries_raw, list):
