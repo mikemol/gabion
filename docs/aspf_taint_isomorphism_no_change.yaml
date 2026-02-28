@@ -8,4 +8,4 @@ in_steps:
   - in-52
   - in-53
   - in-58
-justification: marker protocol generalization now classifies todo/deprecated marker kinds in runtime never/todo/deprecated markers and static alias-map extraction while preserving crosswalk row coverage; current taint diagnostic and marker-ingress refinements preserve existing ASPF crosswalk obligations and identifier anchors.
+justification: marker protocol generalization now classifies todo/deprecated marker kinds in runtime never/todo/deprecated markers and static alias-map extraction while preserving crosswalk row coverage; current taint diagnostic and marker-ingress refinements preserve existing ASPF crosswalk obligations and identifier anchors; decision-protocol module markers introduced for policy compliance do not alter marker/ASPF identifier mappings.

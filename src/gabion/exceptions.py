@@ -1,4 +1,5 @@
 """Exception protocol markers for Gabion analysis."""
+# gabion:decision_protocol_module
 
 from __future__ import annotations
 
