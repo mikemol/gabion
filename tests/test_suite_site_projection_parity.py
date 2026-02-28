@@ -9,7 +9,7 @@ def _load():
     return da
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed
 def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -51,7 +51,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
     assert sorted(projected) == sorted(analysis.decision_surfaces)
 
 
-# gabion:evidence E:never/sink::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants
 def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "never_case.py"
