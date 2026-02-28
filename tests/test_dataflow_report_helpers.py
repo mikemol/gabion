@@ -509,3 +509,40 @@ def test_report_projection_topological_order_is_stable_for_shuffled_dep_order() 
     )
 
     assert [spec.section_id for spec in ordered] == [spec.section_id for spec in ordered_shuffled]
+
+
+def test_emit_report_tail_skips_empty_pattern_sections_and_non_mapping_adapter_rows() -> None:
+    from gabion.analysis import dataflow_reporting
+
+    dataflow_reporting._bind_audit_symbols()
+    original_matches = dataflow_reporting._pattern_schema_matches
+    original_suggestions = dataflow_reporting._pattern_schema_suggestions_from_instances
+    original_residue = dataflow_reporting._pattern_schema_residue_entries
+    dataflow_reporting._pattern_schema_matches = lambda **_kwargs: []
+    dataflow_reporting._pattern_schema_suggestions_from_instances = lambda _instances: []
+    dataflow_reporting._pattern_schema_residue_entries = lambda _instances: []
+    try:
+        report, violations = dataflow_reporting.emit_report(
+            {},
+            3,
+            report=dataflow_reporting.ReportCarrier(
+                forest=dataflow_reporting.Forest(),
+                unsupported_by_adapter=[
+                    "invalid",
+                    {
+                        "surface": "type-flow",
+                        "adapter": "limited",
+                        "required_by_policy": True,
+                    },
+                ],
+            ),
+        )
+    finally:
+        dataflow_reporting._pattern_schema_matches = original_matches
+        dataflow_reporting._pattern_schema_suggestions_from_instances = original_suggestions
+        dataflow_reporting._pattern_schema_residue_entries = original_residue
+
+    assert "Execution pattern opportunities:" not in report
+    assert "Pattern schema residue (non-blocking):" not in report
+    assert "type-flow: unsupported_by_adapter (limited) [required]" in report
+    assert "type-flow: unsupported_by_adapter (limited) [required]" in violations

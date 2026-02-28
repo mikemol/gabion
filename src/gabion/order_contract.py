@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import inspect
-import os
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Iterable, Iterator, TypeVar
 
@@ -16,11 +16,6 @@ from gabion.invariants import never
 T = TypeVar("T")
 _PY_SORT = sorted
 
-_CALLER_SORTED_ENV = "GABION_CALLER_SORTED"
-_ORDER_POLICY_ENV = "GABION_ORDER_POLICY"
-_ORDER_TELEMETRY_ENV = "GABION_ORDER_TELEMETRY"
-_ORDER_CANONICAL_ALLOWLIST_ENV = "GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"
-_ORDER_DEADLINE_PROBE_ENV = "GABION_ORDER_DEADLINE_PROBE"
 _CANONICAL_SORT_SOURCE_ALLOWLIST: frozenset[str] = frozenset(
     {
         "_normalize_predicates.cleaned",
@@ -76,6 +71,21 @@ class OrderPolicy(str, Enum):
     ENFORCE = "enforce"
 
 
+@dataclass(frozen=True)
+class OrderRuntimeConfig:
+    default_policy: OrderPolicy | None = None
+    legacy_caller_sorted: bool = False
+    telemetry_enabled: bool = False
+    enforce_canonical_allowlist: bool = False
+    deadline_probe_enabled: bool = False
+
+
+_ORDER_RUNTIME_CONFIG: ContextVar[OrderRuntimeConfig] = ContextVar(
+    "gabion_order_runtime_config",
+    default=OrderRuntimeConfig(),
+)
+
+
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
     limit = getattr(clock, "limit", None)
     current = getattr(clock, "current", None)
@@ -85,7 +95,7 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
 
 
 def _deadline_probe_enabled() -> bool:
-    return os.environ.get(_ORDER_DEADLINE_PROBE_ENV) == "1"
+    return bool(_ORDER_RUNTIME_CONFIG.get().deadline_probe_enabled)
 
 
 def ordered_or_sorted(
@@ -298,9 +308,9 @@ def _resolve_policy(
     context_policy = _ORDER_POLICY_CONTEXT.get()
     if context_policy is not None:
         return context_policy
-    env_policy = _order_policy_from_env()
-    if env_policy is not None:
-        return env_policy
+    configured_policy = _configured_order_policy()
+    if configured_policy is not None:
+        return configured_policy
     if _caller_sorted_mode_enabled():
         return OrderPolicy.ENFORCE
     return OrderPolicy.SORT
@@ -370,44 +380,20 @@ def order_telemetry() -> Iterator[list[dict[str, object]]]:
         _ORDER_TELEMETRY_CONTEXT.reset(token)
 
 
-def _order_policy_from_env() -> OrderPolicy | None:
-    # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import check_deadline
-
-    deadline_clock = _deadline_clock_if_available()
-    if (
-        deadline_clock is not None
-        and _deadline_probe_enabled()
-        and _deadline_tick_budget_allows_check(deadline_clock)
-    ):
-        check_deadline(allow_frame_fallback=False)
-    raw = os.environ.get(_ORDER_POLICY_ENV)
-    if raw is None:
-        return None
-    value = raw.strip().lower()
-    if not value:
-        return None
-    if value in {"off", "false", "0"}:
-        return OrderPolicy.SORT
-    if value in {"on", "true", "1"}:
-        return OrderPolicy.ENFORCE
-    return _normalize_policy(value)
+def _configured_order_policy() -> OrderPolicy | None:
+    return _ORDER_RUNTIME_CONFIG.get().default_policy
 
 
 def _caller_sorted_mode_enabled() -> bool:
-    return os.environ.get(_CALLER_SORTED_ENV) == "1"
+    return bool(_ORDER_RUNTIME_CONFIG.get().legacy_caller_sorted)
 
 
 def _order_telemetry_enabled() -> bool:
-    return os.environ.get(_ORDER_TELEMETRY_ENV) == "1"
+    return bool(_ORDER_RUNTIME_CONFIG.get().telemetry_enabled)
 
 
 def _canonical_allowlist_enforced() -> bool:
-    raw = os.environ.get(_ORDER_CANONICAL_ALLOWLIST_ENV)
-    if raw is None:
-        return False
-    value = raw.strip().lower()
-    return value in {"1", "true", "yes", "on"}
+    return bool(_ORDER_RUNTIME_CONFIG.get().enforce_canonical_allowlist)
 
 
 def _validate_canonical_sort_allowlist(
@@ -585,3 +571,20 @@ def _auto_sort_source(
     lineno = outer.f_lineno
     function = outer.f_code.co_name
     return f"{filename}:{function}:{lineno}"
+
+def set_order_runtime_config(config: OrderRuntimeConfig) -> Token[OrderRuntimeConfig]:
+    return _ORDER_RUNTIME_CONFIG.set(config)
+
+
+def reset_order_runtime_config(token: Token[OrderRuntimeConfig]) -> None:
+    _ORDER_RUNTIME_CONFIG.reset(token)
+
+
+@contextmanager
+def order_runtime_config_scope(config: OrderRuntimeConfig) -> Iterator[None]:
+    token = set_order_runtime_config(config)
+    try:
+        yield
+    finally:
+        reset_order_runtime_config(token)
+

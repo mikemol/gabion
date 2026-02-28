@@ -2,19 +2,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import pytest
+
 from gabion.analysis.aspf import Alt, Forest, Node
 from gabion.analysis.aspf_visitors import (
     AspfCofibrationEvent,
     AspfOneCellEvent,
+    AspfRunBoundaryEvent,
     AspfSurfaceUpdateEvent,
     AspfTwoCellEvent,
     NullAspfTraversalVisitor,
     OpportunityPayloadEmitter,
+    OpportunityActionabilityState,
+    OpportunityAlgebraicObservation,
+    OpportunityAlgebraicPredicate,
+    OpportunityStructure,
+    OpportunityDecisionProtocol,
+    OpportunityConfidenceProvenance,
+    OpportunityWitnessRequirement,
+    TwoCellReplayNormalizationKind,
+    _normalize_two_cell_witness_for_replay,
     adapt_event_log_reader_iterator_to_visitor,
     adapt_live_event_stream_to_visitor,
     adapt_trace_event_iterator_to_visitor,
     traverse_forest_to_visitor,
 )
+from gabion.exceptions import NeverRaise
 
 
 @dataclass
@@ -270,3 +283,100 @@ def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
     ]
     assert witnessed_row["actionability"] == "actionable"
     assert witnessed_row["failed_obligations"] == []
+
+
+def test_replay_event_dispatch_rejects_unknown_event_type() -> None:
+    visitor = NullAspfTraversalVisitor()
+    with pytest.raises(NeverRaise):
+        visitor.on_replay_event(event=object())  # type: ignore[arg-type]
+
+
+def test_two_cell_replay_normalization_uses_nested_representatives_and_skip_outcome() -> None:
+    normalized = _normalize_two_cell_witness_for_replay(
+        {
+            "witness_id": "w:nested",
+            "left": {"representative": "rep:left"},
+            "right": {"representative": "rep:right"},
+        }
+    )
+    assert normalized.kind is TwoCellReplayNormalizationKind.VALID
+    assert normalized.payload["left_representative"] == "rep:left"
+    assert normalized.payload["right_representative"] == "rep:right"
+
+    skipped = _normalize_two_cell_witness_for_replay({"witness_id": "w:missing"})
+    assert skipped.kind is TwoCellReplayNormalizationKind.SKIP
+
+
+def test_adapt_live_event_stream_skips_invalid_two_cell_payloads() -> None:
+    emitter = OpportunityPayloadEmitter()
+    adapt_live_event_stream_to_visitor(
+        one_cells=[],
+        two_cell_witnesses=[{"witness_id": "w:invalid"}],
+        cofibration_witnesses=[],
+        surface_representatives={},
+        visitor=emitter,
+    )
+    assert emitter.build_rows() == []
+
+
+def test_opportunity_predicate_requires_resume_kinds_and_confidence_default() -> None:
+    observation = OpportunityAlgebraicObservation(
+        structure=OpportunityStructure.ONE_CELL,
+        subject_id="subject",
+        one_cell_count=1,
+        one_cell_kinds=frozenset({"resume_write"}),
+    )
+    requires_load = OpportunityAlgebraicPredicate(
+        structure=OpportunityStructure.ONE_CELL,
+        min_one_cells=1,
+        requires_resume_load=True,
+    )
+    requires_write = OpportunityAlgebraicPredicate(
+        structure=OpportunityStructure.ONE_CELL,
+        min_one_cells=1,
+        requires_resume_write=True,
+    )
+    assert requires_load.matches(observation=observation) is False
+    assert requires_write.matches(observation=observation) is True
+    assert requires_write.matches(
+        observation=OpportunityAlgebraicObservation(
+            structure=OpportunityStructure.ONE_CELL,
+            subject_id="subject-no-write",
+            one_cell_count=1,
+            one_cell_kinds=frozenset({"resume_load"}),
+        )
+    ) is False
+
+    decision = OpportunityDecisionProtocol(
+        opportunity_id="opp:test",
+        kind="test",
+        canonical_identity={},
+        affected_surfaces=(),
+        witness_ids=(),
+        reason="test",
+        confidence_provenance=OpportunityConfidenceProvenance.INGRESS_OBSERVATION,
+        witness_requirement=OpportunityWitnessRequirement.NONE,
+        actionability=OpportunityActionabilityState.OBSERVATIONAL,
+    )
+    assert decision.confidence() == 0.0
+
+
+def test_run_boundary_event_path_can_be_replayed() -> None:
+    @dataclass
+    class _BoundaryCaptureVisitor(NullAspfTraversalVisitor):
+        rows: list[dict[str, object]] = field(default_factory=list)
+
+        def on_equivalence_surface_row(
+            self,
+            *,
+            index: int,
+            row: dict[str, object],
+        ) -> None:
+            self.rows.append(row)
+
+    visitor = _BoundaryCaptureVisitor()
+    adapt_trace_event_iterator_to_visitor(
+        events=[AspfRunBoundaryEvent(boundary="equivalence_surface_row", payload={})],
+        visitor=visitor,
+    )
+    assert visitor.rows == [{}]

@@ -7,6 +7,7 @@ from typing import Iterator
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
     Deadline,
+    TimeoutTickCarrier,
     deadline_clock_scope,
     deadline_scope,
     forest_scope,
@@ -65,7 +66,7 @@ def deadline_scope_from_ticks(
     if limit <= 0:
         never("invalid deadline gas limit", gas_limit=gas_limit)
     with forest_scope(Forest()):
-        with deadline_scope(Deadline.from_timeout_ticks(budget.ticks, budget.tick_ns)):
+        with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=budget.ticks, tick_ns=budget.tick_ns))):
             with deadline_clock_scope(GasMeter(limit=limit)):  # pragma: no branch
                 yield
 

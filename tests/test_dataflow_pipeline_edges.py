@@ -164,3 +164,85 @@ def test_analyze_paths_primes_constructor_registry_from_collected_ctor_keys(
         dataflow_pipeline._collect_fingerprint_atom_keys = original_collect
 
     assert registry.prime_for("ctor:list") is not None
+
+
+def test_capability_enabled_treats_non_mapping_capabilities_as_enabled() -> None:
+    _bind()
+    assert dataflow_pipeline._capability_enabled(
+        {"name": "adapter", "capabilities": []},
+        "bundle_inference",
+    ) is True
+
+
+def test_unsupported_surface_diagnostic_uses_adapter_name_from_contract(tmp_path: Path) -> None:
+    _bind()
+    diagnostic = dataflow_pipeline._unsupported_surface_diagnostic(
+        surface="bundle-inference",
+        capability_name="bundle_inference",
+        runtime_config=dataflow_pipeline.AuditConfig(
+            project_root=tmp_path,
+            adapter_contract={"name": "limited"},
+        ),
+    )
+    assert diagnostic["adapter"] == "limited"
+    assert diagnostic["required_by_policy"] is False
+
+
+def test_unsupported_surface_diagnostic_defaults_native_for_non_mapping_contract(
+    tmp_path: Path,
+) -> None:
+    _bind()
+    diagnostic = dataflow_pipeline._unsupported_surface_diagnostic(
+        surface="bundle-inference",
+        capability_name="bundle_inference",
+        runtime_config=dataflow_pipeline.AuditConfig(
+            project_root=tmp_path,
+            adapter_contract="legacy",
+        ),
+    )
+    assert diagnostic["adapter"] == "native"
+
+
+def test_analyze_paths_disables_unsupported_surfaces_by_adapter_contract(tmp_path: Path) -> None:
+    _bind()
+    result = dataflow_pipeline.analyze_paths(
+        paths=[],
+        forest=dataflow_pipeline.Forest(),
+        recursive=False,
+        type_audit=True,
+        type_audit_report=True,
+        type_audit_max=1,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_bundle_forest=True,
+        include_decision_surfaces=True,
+        include_value_decision_surfaces=True,
+        include_exception_obligations=True,
+        include_handledness_witnesses=True,
+        include_rewrite_plans=True,
+        config=dataflow_pipeline.AuditConfig(
+            project_root=tmp_path,
+            adapter_contract={
+                "name": "limited",
+                "capabilities": {
+                    "bundle_inference": False,
+                    "decision_surfaces": False,
+                    "type_flow": False,
+                    "exception_obligations": False,
+                    "rewrite_plan_support": False,
+                },
+            },
+        ),
+        file_paths_override=[],
+    )
+    surfaces = {
+        str(item.get("surface", ""))
+        for item in result.unsupported_by_adapter
+    }
+    assert {
+        "bundle-inference",
+        "decision-surfaces",
+        "type-flow",
+        "exception-obligations",
+        "rewrite-plan-support",
+    }.issubset(surfaces)

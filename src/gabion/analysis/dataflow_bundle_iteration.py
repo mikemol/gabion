@@ -337,6 +337,7 @@ def _apply_constructor_plan(
     fields: Sequence[str],
     plan: _ConstructorPlan,
 ) -> ConstructorProjectionResult:
+    _bind_audit_symbols()
     witness_effects = list(plan.witness_effects)
     if plan.terminal_status != "apply":
         return _ConstructorProjectionRejected(
@@ -442,9 +443,13 @@ def iter_dataclass_call_bundle_effects(
                         fields=fields,
                         plan=plan,
                     )
-                    witness_effects.extend(projection.witness_effects)
                     match projection:
-                        case _ConstructorProjectionApplied(kind="applied", names=names):
+                        case _ConstructorProjectionApplied(
+                            kind="applied",
+                            names=names,
+                            witness_effects=projection_witness_effects,
+                        ):
+                            witness_effects.extend(projection_witness_effects)
                             if len(names) >= 2:
                                 bundles.add(
                                     tuple(
@@ -457,8 +462,10 @@ def iter_dataclass_call_bundle_effects(
                                         )
                                     )
                                 )
-                        case _ConstructorProjectionRejected(kind="rejected"):
-                            pass
+                        case _ConstructorProjectionRejected(
+                            kind="rejected", witness_effects=projection_witness_effects
+                        ):
+                            witness_effects.extend(projection_witness_effects)
                         case _:
                             never(projection)
             case _:

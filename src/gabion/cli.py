@@ -37,7 +37,7 @@ from gabion.commands import (
     progress_contract as progress_timeline,
     transport_policy,
 )
-from gabion.runtime import deadline_policy, env_policy, path_policy
+from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
 CHECK_COMMAND = command_ids.CHECK_COMMAND
@@ -312,17 +312,19 @@ def configure_runtime_flags(
             "Removed transport flags (--transport/--direct-run-override-evidence/--override-record-json). "
             "Use --carrier and --carrier-override-record."
         )
+    policy_runtime.apply_runtime_policy_from_env()
     env_policy.apply_cli_timeout_flag(timeout=timeout)
-    carrier_text = None if carrier is None else str(carrier.value)
-    carrier_override_record_text = (
-        None
-        if carrier_override_record is None
-        else str(carrier_override_record)
-    )
-    transport_policy.apply_cli_transport_flags(
-        carrier=carrier_text,
-        override_record_path=carrier_override_record_text,
-    )
+    if carrier is not None or carrier_override_record is not None:
+        carrier_text = None if carrier is None else str(carrier.value)
+        carrier_override_record_text = (
+            None
+            if carrier_override_record is None
+            else str(carrier_override_record)
+        )
+        transport_policy.apply_cli_transport_flags(
+            carrier=carrier_text,
+            override_record_path=carrier_override_record_text,
+        )
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -1283,6 +1285,13 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
         "structure_tree": structure_tree_target,
         "structure_metrics": structure_metrics_target,
+        "proof_mode": getattr(opts, "proof_mode", None),
+        "order_policy": getattr(opts, "order_policy", None),
+        "order_telemetry": getattr(opts, "order_telemetry", None),
+        "order_enforce_canonical_allowlist": getattr(opts, "order_enforce_canonical_allowlist", None),
+        "order_deadline_probe": getattr(opts, "order_deadline_probe", None),
+        "derivation_cache_max_entries": getattr(opts, "derivation_cache_max_entries", None),
+        "projection_registry_gas_limit": getattr(opts, "projection_registry_gas_limit", None),
         }
     )
     return payload
@@ -2084,17 +2093,9 @@ def _default_check_artifact_flags() -> CheckArtifactFlags:
 
 def _default_check_delta_options() -> CheckDeltaOptions:
     return CheckDeltaOptions(
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
+        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
+        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
         semantic_coverage_mapping=None,
     )
 

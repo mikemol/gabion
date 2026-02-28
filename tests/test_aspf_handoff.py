@@ -302,3 +302,130 @@ def test_prepare_record_can_skip_manifest_projection_write(tmp_path: Path) -> No
     assert isinstance(entries, list)
     assert len(entries) == 1
     assert entries[0].get("status") == "success"
+
+
+def test_handoff_event_reducer_ignores_record_for_different_session() -> None:
+    state = aspf_handoff.HandoffProjectionState(
+        manifest={
+            "session_id": "session-a",
+            "entries": [
+                {
+                    "sequence": 1,
+                    "status": "started",
+                    "state_path": "state/one.json",
+                }
+            ],
+        }
+    )
+    reduced = aspf_handoff.HandoffEventReducer.apply(
+        state,
+        aspf_handoff.RecordStepEvent(
+            event="record_step",
+            session_id="session-b",
+            sequence=1,
+            status="success",
+            exit_code=0,
+            analysis_state="succeeded",
+            completed_at_utc="2026-01-01T00:00:00Z",
+        ),
+    )
+    assert reduced.manifest == state.manifest
+
+
+def test_handoff_event_reducer_ignores_missing_sequence_record() -> None:
+    state = aspf_handoff.HandoffProjectionState(
+        manifest={
+            "session_id": "session-a",
+            "entries": [
+                {
+                    "sequence": 1,
+                    "status": "started",
+                    "state_path": "state/one.json",
+                }
+            ],
+        }
+    )
+    reduced = aspf_handoff.HandoffEventReducer.apply(
+        state,
+        aspf_handoff.RecordStepEvent(
+            event="record_step",
+            session_id="session-a",
+            sequence=2,
+            status="success",
+            exit_code=0,
+            analysis_state="succeeded",
+            completed_at_utc="2026-01-01T00:00:00Z",
+        ),
+    )
+    assert reduced.manifest == state.manifest
+
+
+def test_record_step_returns_false_when_sequence_is_missing(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "session_id": "session-a",
+                "root": str(tmp_path),
+                "entries": [
+                    {
+                        "sequence": 1,
+                        "status": "started",
+                        "state_path": "state/one.json",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        aspf_handoff.record_step(
+            manifest_path=manifest_path,
+            session_id="session-a",
+            sequence=2,
+            status="failed",
+            exit_code=1,
+            analysis_state="failed",
+        )
+        is False
+    )
+
+
+def test_fold_journal_skips_blank_and_unknown_events(tmp_path: Path) -> None:
+    journal_path = tmp_path / "manifest.journal.jsonl"
+    journal_path.write_text(
+        "\n".join(
+            [
+                "",
+                json.dumps({"event": "unknown"}),
+                json.dumps(
+                    {
+                        "event": "prepare_step",
+                        "session_id": "session-a",
+                        "root": str(tmp_path),
+                        "entry": {
+                            "sequence": 1,
+                            "status": "started",
+                            "state_path": "state/one.json",
+                        },
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    folded = aspf_handoff._fold_journal(journal_path)
+    assert folded.get("session_id") == "session-a"
+    entries = folded.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+
+
+def test_events_from_manifest_payload_requires_session_id() -> None:
+    assert aspf_handoff._events_from_manifest_payload({"entries": []}) == []
+
+
+def test_event_from_payload_returns_none_for_unknown_kind() -> None:
+    assert aspf_handoff._event_from_payload({"event": "legacy"}) is None

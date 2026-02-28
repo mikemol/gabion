@@ -809,21 +809,25 @@ class _ImportedTraceMergeVisitor:
     state: AspfExecutionTraceState
 
     def on_replay_event(self, *, event: AspfTraceReplayEvent) -> None:
-        match event:
-            case AspfOneCellEvent(payload=payload):
-                _merge_one_cell_payload(state=self.state, one_cell_payload=payload)
-            case AspfTwoCellEvent(payload=payload):
-                _merge_two_cell_payload(state=self.state, witness_payload=payload)
-            case AspfCofibrationEvent(payload=payload):
-                _merge_cofibration_payload(state=self.state, cofibration_payload=payload)
-            case AspfSurfaceUpdateEvent(surface=surface, representative=representative):
-                _merge_surface_representative(
-                    state=self.state,
-                    surface=surface,
-                    representative=representative,
-                )
-            case AspfRunBoundaryEvent():
-                return None
+        if isinstance(event, AspfOneCellEvent):
+            _merge_one_cell_payload(state=self.state, one_cell_payload=event.payload)
+            return None
+        if isinstance(event, AspfTwoCellEvent):
+            _merge_two_cell_payload(state=self.state, witness_payload=event.payload)
+            return None
+        if isinstance(event, AspfCofibrationEvent):
+            _merge_cofibration_payload(state=self.state, cofibration_payload=event.payload)
+            return None
+        if isinstance(event, AspfSurfaceUpdateEvent):
+            _merge_surface_representative(
+                state=self.state,
+                surface=event.surface,
+                representative=event.representative,
+            )
+            return None
+        if isinstance(event, AspfRunBoundaryEvent):
+            return None
+        never("invalid imported trace replay event", event_kind=type(event).__name__)
 
 
 def _merge_imported_trace_with_visitor(

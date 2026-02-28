@@ -54,6 +54,7 @@ from gabion.analysis.aspf import Alt, Forest, Node, NodeId, structural_key_atom,
 from gabion.analysis.derivation_cache import get_global_derivation_cache
 from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
+from gabion.exceptions import NeverThrown
 from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
@@ -103,6 +104,7 @@ from .timeout_context import (
     Deadline,
     GasMeter,
     TimeoutExceeded,
+    TimeoutTickCarrier,
     build_timeout_context_from_stack,
     check_deadline,
     deadline_loop_iter,
@@ -5988,13 +5990,16 @@ def _collect_never_invariants(
                     "call",
                     span=normalized_span,
                 )
-                suite_node = forest.nodes.get(site_id)
-                if suite_node is not None:
-                    site_payload = cast(dict[str, object], entry["site"])
-                    suite_identity = suite_node.meta.get("suite_id")
-                    if type(suite_identity) is str and suite_identity:
-                        site_payload["suite_id"] = suite_identity
-                cast(dict[str, object], entry["site"])["suite_kind"] = "call"
+                suite_node = require_not_none(
+                    forest.nodes.get(site_id),
+                    reason="suite site missing from forest",
+                    strict=True,
+                    path=path_value,
+                    function=function,
+                )
+                site_payload = cast(dict[str, object], entry["site"])
+                site_payload["suite_id"] = str(suite_node.meta.get("suite_id", "") or "")
+                site_payload["suite_kind"] = "call"
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -8522,6 +8527,39 @@ class _CacheIdentity:
             digest = identity[len(_CACHE_IDENTITY_PREFIX) :]
             return cls.from_digest(digest)
         return cls.from_digest(identity)
+
+    @classmethod
+    def from_boundary_required(cls, raw_identity, *, field: str) -> "_CacheIdentity":
+        identity = cls.from_boundary(raw_identity)
+        if identity is None:
+            never("invalid cache identity", field=field)
+            return cls(value="")  # pragma: no cover - never() raises
+        return identity
+
+
+@dataclass(frozen=True)
+class _ResumeCacheIdentityPair:
+    canonical_index: _CacheIdentity
+    canonical_projection: _CacheIdentity
+
+    def encode(self) -> dict[str, str]:
+        return {
+            "index_cache_identity": self.canonical_index.value,
+            "projection_cache_identity": self.canonical_projection.value,
+        }
+
+    @classmethod
+    def decode_required(cls, payload: Mapping[str, JSONValue]) -> "_ResumeCacheIdentityPair":
+        return cls(
+            canonical_index=_CacheIdentity.from_boundary_required(
+                payload.get("index_cache_identity"),
+                field="index_cache_identity",
+            ),
+            canonical_projection=_CacheIdentity.from_boundary_required(
+                payload.get("projection_cache_identity"),
+                field="projection_cache_identity",
+            ),
+        )
 
 
 def _sorted_text(values = None) -> tuple[str, ...]:
@@ -15478,14 +15516,11 @@ def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> 
         for key in payload
         if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
     }
-    index_identity = _CacheIdentity.from_boundary(variant_payload.get("index_cache_identity"))
-    if index_identity is not None:
-        variant_payload["index_cache_identity"] = index_identity.value
-    projection_identity = _CacheIdentity.from_boundary(
-        variant_payload.get("projection_cache_identity")
-    )
-    if projection_identity is not None:
-        variant_payload["projection_cache_identity"] = projection_identity.value
+    try:
+        identities = _ResumeCacheIdentityPair.decode_required(variant_payload)
+    except NeverThrown:
+        return variant_payload
+    variant_payload.update(identities.encode())
     return variant_payload
 
 
@@ -15516,20 +15551,18 @@ def _with_analysis_index_resume_variants(
     payload: JSONObject,
     previous_payload,
 ) -> JSONObject:
-    current_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
+    identities = _ResumeCacheIdentityPair.decode_required(payload)
     variants = _analysis_index_resume_variants(previous_payload)
-    if current_identity is not None:
-        payload["index_cache_identity"] = current_identity.value
-        variants[current_identity.value] = _analysis_index_resume_variant_payload(payload)
-    projection_identity = _CacheIdentity.from_boundary(payload.get("projection_cache_identity"))
-    if projection_identity is not None:
-        payload["projection_cache_identity"] = projection_identity.value
-    if not variants:
-        return payload
-    ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
-    if current_identity is not None and current_identity.value in ordered_variant_keys:
-        ordered_variant_keys.remove(current_identity.value)
-        ordered_variant_keys.append(current_identity.value)
+    payload.update(identities.encode())
+    variants[identities.canonical_index.value] = _analysis_index_resume_variant_payload(payload)
+    ordered_variant_keys = [
+        key
+        for key in sort_once(
+            variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360'
+        )
+        if key != identities.canonical_index.value
+    ]
+    ordered_variant_keys.append(identities.canonical_index.value)
     if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
         ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
     payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
@@ -15549,14 +15582,16 @@ def _serialize_analysis_index_resume_payload(
     profiling_v1 = None,
     previous_payload = None,
 ) -> JSONObject:
-    canonical_index_identity = _CacheIdentity.from_boundary(index_cache_identity)
-    canonical_projection_identity = _CacheIdentity.from_boundary(
-        projection_cache_identity
+    identities = _ResumeCacheIdentityPair(
+        canonical_index=_CacheIdentity.from_boundary_required(
+            index_cache_identity,
+            field="index_cache_identity",
+        ),
+        canonical_projection=_CacheIdentity.from_boundary_required(
+            projection_cache_identity,
+            field="projection_cache_identity",
+        ),
     )
-    if canonical_index_identity is None:
-        never("resume serialization requires canonical index identity")  # pragma: no cover - invariant sink
-    if canonical_projection_identity is None:
-        never("resume serialization requires canonical projection identity")  # pragma: no cover - invariant sink
     hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
@@ -15591,8 +15626,7 @@ def _serialize_analysis_index_resume_payload(
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
-        "index_cache_identity": canonical_index_identity.value,
-        "projection_cache_identity": canonical_projection_identity.value,
+        **identities.encode(),
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
@@ -15633,19 +15667,15 @@ def _load_analysis_index_resume_payload(
     expected_index_identity = _CacheIdentity.from_boundary(expected_index_cache_identity)
     expected_projection_identity = _CacheIdentity.from_boundary(expected_projection_cache_identity)
     selected_payload: Mapping[str, JSONValue] = payload
-    if expected_index_cache_identity:
-        if expected_index_identity is None:
-            never("invalid expected index cache identity")  # pragma: no cover - invariant sink
-        resume_identity = _CacheIdentity.from_boundary(payload.get("index_cache_identity"))
-        if resume_identity != expected_index_identity:
+    if expected_index_identity is not None:
+        selected_identity = _CacheIdentity.from_boundary(selected_payload.get("index_cache_identity"))
+        if selected_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
             variant = _resume_variant_for_identity(variants, expected_index_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
-    if expected_projection_cache_identity:
-        if expected_projection_identity is None:
-            never("invalid expected projection cache identity")  # pragma: no cover - invariant sink
+    if expected_projection_identity is not None:
         projection_identity = _CacheIdentity.from_boundary(
             selected_payload.get("projection_cache_identity")
         )
@@ -17377,14 +17407,17 @@ def _normalize_transparent_decorators(
 
 @contextmanager
 def _analysis_deadline_scope(args: argparse.Namespace):
-    timeout_ticks = int(args.analysis_timeout_ticks)
-    timeout_tick_ns = int(args.analysis_timeout_tick_ns)
-    if timeout_ticks <= 0:
-        never("invalid analysis timeout ticks", analysis_timeout_ticks=timeout_ticks)
-    if timeout_tick_ns <= 0:
-        never("invalid analysis timeout tick_ns", analysis_timeout_tick_ns=timeout_tick_ns)
+    timeout_carrier = TimeoutTickCarrier.from_ingress(
+        ticks=args.analysis_timeout_ticks,
+        tick_ns=args.analysis_timeout_tick_ns,
+    )
+    if timeout_carrier.ticks == 0:
+        never(
+            "invalid analysis timeout ticks",
+            analysis_timeout_ticks=timeout_carrier.ticks,
+        )
     tick_limit_value = args.analysis_tick_limit
-    logical_limit = timeout_ticks
+    logical_limit = timeout_carrier.ticks
     if tick_limit_value is not None:
         tick_limit = int(tick_limit_value)
         if tick_limit <= 0:
@@ -17393,7 +17426,7 @@ def _analysis_deadline_scope(args: argparse.Namespace):
     with ExitStack() as stack:
         stack.enter_context(forest_scope(Forest()))
         stack.enter_context(
-            deadline_scope(Deadline.from_timeout_ticks(timeout_ticks, timeout_tick_ns))
+            deadline_scope(Deadline.from_timeout_ticks(timeout_carrier))
         )
         stack.enter_context(deadline_clock_scope(GasMeter(limit=logical_limit)))
         yield

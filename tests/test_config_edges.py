@@ -65,3 +65,12 @@ def test_config_helpers_cover_bool_and_lists() -> None:
 def test_normalize_name_list_ignores_non_string_entries() -> None:
     assert config._normalize_name_list(["a, b", 1, None, "c"]) == ["a", "b", "c"]
     assert config._normalize_name_list(5) == []
+
+
+def test_dataflow_adapter_payload_normalizes_invalid_shapes() -> None:
+    assert config.dataflow_adapter_payload(None) == {}
+    assert config.dataflow_adapter_payload("not-a-table") == {}
+    assert config.dataflow_adapter_payload({"adapter": "not-a-mapping"}) == {}
+    assert config.dataflow_adapter_payload({"adapter": {"required_surfaces": ["x"]}}) == {
+        "required_surfaces": ["x"]
+    }

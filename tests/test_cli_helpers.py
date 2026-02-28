@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 from gabion import cli
 from gabion.analysis.timeout_context import check_deadline
 from gabion.commands import progress_contract as progress_timeline
+from gabion.commands import transport_policy
 from gabion.exceptions import NeverThrown
 from gabion.tooling import tool_specs
 from tests.env_helpers import env_scope as _env_scope
@@ -2108,7 +2109,9 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_blocks_direct_transport_for_beta_without_override::cli.py::gabion.cli._resolve_command_transport
 def test_dispatch_command_blocks_direct_transport_for_beta_without_override(tmp_path: Path) -> None:
-    with _env_scope({"GABION_DIRECT_RUN": "1", "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None}):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(direct_requested=True)
+    ):
         with pytest.raises(NeverThrown):
             cli.dispatch_command(
                 command=cli.CHECK_COMMAND,
@@ -2120,7 +2123,9 @@ def test_dispatch_command_blocks_direct_transport_for_beta_without_override(tmp_
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_direct_transport_for_debug_maturity::cli.py::gabion.cli._resolve_command_transport
 def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: Path) -> None:
-    with _env_scope({"GABION_DIRECT_RUN": "1", "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": None}):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(direct_requested=True)
+    ):
         result = cli.dispatch_command(
             command=cli.LSP_PARITY_GATE_COMMAND,
             payload={},
@@ -2132,11 +2137,9 @@ def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: P
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence::cli.py::gabion.cli._resolve_command_transport
 def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_record(tmp_path: Path) -> None:
-    with _env_scope({
-        "GABION_DIRECT_RUN": "1",
-        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
-        "GABION_OVERRIDE_RECORD_JSON": None,
-    }):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(direct_requested=True, override_record_json=None)
+    ):
         with pytest.raises(NeverThrown):
             cli.dispatch_command(
                 command=cli.CHECK_COMMAND,
@@ -2148,21 +2151,22 @@ def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_reco
 
 # gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_blocks_beta_direct_with_expired_override_record
 def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_path: Path) -> None:
-    with _env_scope({
-        "GABION_DIRECT_RUN": "1",
-        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
-        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
-            {
-                "actor": "ci",
-                "rationale": "temporary",
-                "scope": "direct_transport",
-                "start": "2024-01-01T00:00:00Z",
-                "expiry": "2024-01-02T00:00:00Z",
-                "rollback_condition": "fix merged",
-                "evidence_links": ["artifact://x"],
-            }
-        ),
-    }):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=True,
+            override_record_json=json.dumps(
+                {
+                    "actor": "ci",
+                    "rationale": "temporary",
+                    "scope": "direct_transport",
+                    "start": "2024-01-01T00:00:00Z",
+                    "expiry": "2024-01-02T00:00:00Z",
+                    "rollback_condition": "fix merged",
+                    "evidence_links": ["artifact://x"],
+                }
+            ),
+        )
+    ):
         with pytest.raises(NeverThrown):
             cli.dispatch_command(
                 command=cli.CHECK_COMMAND,
@@ -2175,21 +2179,22 @@ def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_pa
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record::cli.py::gabion.cli._resolve_command_transport
 def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record(tmp_path: Path) -> None:
     (tmp_path / "x.py").write_text("def x() -> int:\n    return 1\n", encoding="utf-8")
-    with _env_scope({
-        "GABION_DIRECT_RUN": "1",
-        "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE": "audit://ci/transport-override/123",
-        "GABION_OVERRIDE_RECORD_JSON": json.dumps(
-            {
-                "actor": "ci",
-                "rationale": "temporary",
-                "scope": "direct_transport",
-                "start": "2024-01-01T00:00:00Z",
-                "expiry": "2999-01-02T00:00:00Z",
-                "rollback_condition": "fix merged",
-                "evidence_links": ["artifact://x"],
-            }
-        ),
-    }):
+    with transport_policy.transport_override_scope(
+        transport_policy.TransportOverrideConfig(
+            direct_requested=True,
+            override_record_json=json.dumps(
+                {
+                    "actor": "ci",
+                    "rationale": "temporary",
+                    "scope": "direct_transport",
+                    "start": "2024-01-01T00:00:00Z",
+                    "expiry": "2999-01-02T00:00:00Z",
+                    "rollback_condition": "fix merged",
+                    "evidence_links": ["artifact://x"],
+                }
+            ),
+        )
+    ):
         result = cli.dispatch_command(
             command=cli.CHECK_COMMAND,
             payload={"paths": [str(tmp_path / "x.py")]},

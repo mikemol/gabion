@@ -70,10 +70,64 @@ class TimeoutContext:
 class _FileSite:
     path: str
 
+    def __post_init__(self) -> None:
+        if not self.path:
+            never("file site path missing")
+
     def as_payload(self) -> dict[str, JSONValue]:
         # Keep canonical key order ("key" then "kind") so caller-order checks
         # can hold without fallback sorting.
         return {"key": [self.path], "kind": "FileSite"}
+
+    @classmethod
+    def decode_payload(cls, payload: Mapping[str, object]) -> "_FileSite":
+        kind = str(payload.get("kind", "") or "")
+        key_payload = payload.get("key")
+        match (kind, key_payload):
+            case ("FileSite", [str() as path]):
+                return cls(path=path)
+            case _:
+                never("invalid file site payload", payload_kind=kind)
+                return cls(path="")  # pragma: no cover - never() raises
+
+
+@dataclass(frozen=True)
+class _FunctionSiteIdentity:
+    path: str
+    qual: str
+    span: tuple[int, int, int, int] = (0, 0, 0, 0)
+    has_span: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.path or not self.qual:
+            never("site identity missing path/qual", path=self.path, qual=self.qual)
+        if len(self.span) != 4 or any(type(part) is not int for part in self.span):
+            never("invalid function site span", span=self.span)
+
+    def key(self) -> tuple[object, ...]:
+        key: list[object] = [_FileSite(self.path), self.qual]
+        if self.has_span:
+            key.extend(self.span)
+        return tuple(key)
+
+    @classmethod
+    def decode_payload(cls, site: Mapping[str, object]) -> "_FunctionSiteIdentity":
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        raw_span = site.get("span")
+        span = (0, 0, 0, 0)
+        has_span = False
+        if raw_span is not None:
+            match raw_span:
+                case [a, b, c, d]:
+                    try:
+                        span = (int(a), int(b), int(c), int(d))
+                    except (TypeError, ValueError):
+                        never("invalid function site span payload", span=raw_span)
+                case _:
+                    never("invalid function site span payload", span=raw_span)
+            has_span = True
+        return cls(path=path, qual=qual, span=span, has_span=has_span)
 
 
 @dataclass(frozen=True)
@@ -141,6 +195,20 @@ class _DecodedDeadlineProfile:
     edges_total: int
     io_total: int
 
+@dataclass(frozen=True)
+class TimeoutTickCarrier:
+    ticks: int
+    tick_ns: int
+
+    @classmethod
+    def from_ingress(cls, *, ticks: object, tick_ns: object) -> "TimeoutTickCarrier":
+        ticks_value = int(ticks)
+        tick_ns_value = int(tick_ns)
+        if ticks_value < 0:
+            never("invalid timeout ticks", ticks=ticks)
+        if tick_ns_value <= 0:
+            never("invalid timeout tick_ns", tick_ns=tick_ns)
+        return cls(ticks=ticks_value, tick_ns=tick_ns_value)
 
 class TimeoutExceeded(TimeoutError):
     def __init__(self, context: TimeoutContext) -> None:
@@ -157,19 +225,13 @@ class Deadline:
 
     @classmethod
     # dataflow-bundle: tick_ns, ticks
-    def from_timeout_ticks(cls, ticks: int, tick_ns: int) -> "Deadline":
-        ticks_value = int(ticks)
-        tick_ns_value = int(tick_ns)
-        if ticks_value < 0:
-            never("invalid timeout ticks", ticks=ticks)
-        if tick_ns_value <= 0:
-            never("invalid timeout tick_ns", tick_ns=tick_ns)
-        total_ns = ticks_value * tick_ns_value
+    def from_timeout_ticks(cls, carrier: TimeoutTickCarrier) -> "Deadline":
+        total_ns = carrier.ticks * carrier.tick_ns
         return cls(deadline_ns=_SYSTEM_CLOCK.get_mark() + total_ns)
 
     @classmethod
     def from_timeout_ms(cls, milliseconds: int) -> "Deadline":
-        return cls.from_timeout_ticks(milliseconds, 1_000_000)
+        return cls.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=milliseconds, tick_ns=1_000_000))
 
     @classmethod
     def from_timeout(cls, seconds: float) -> "Deadline":
@@ -915,10 +977,14 @@ def _site_key(
     qual: str,
     span = None,
 ) -> tuple[object, ...]:
-    key: list[object] = [_FileSite(path), qual]
-    if span and len(span) == 4:
-        key.extend(span)
-    return tuple(key)
+    has_span = bool(span and len(span) == 4)
+    identity = _FunctionSiteIdentity(
+        path=path,
+        qual=qual,
+        span=tuple(int(part) for part in span) if has_span else (0, 0, 0, 0),
+        has_span=has_span,
+    )
+    return identity.key()
 
 
 def _function_site(
@@ -1055,22 +1121,29 @@ def _normalize_site_payload(
 def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
-    if isinstance(key_payload, list) and key_payload:
-        key = [value for value in key_payload]
-        first = key[0]
-        second = key[1] if key[1:] else None
-        if isinstance(first, str) and isinstance(second, str):
-            key = [_FileSite(first), second, *key[2:]]
-        key_tuple = tuple(_decode_site_part_payload(value) for value in key)
-        return _CallSite(kind=kind, key=key_tuple)
-
-    path = str(site.get("path", "") or "")
-    qual = str(site.get("qual", "") or "")
-    if not path or not qual:
-        never("site payload missing path/qual", site={str(key): value for key, value in site.items()})
-    span = site.get("span")
-    span_list = list(span) if isinstance(span, list) else None
-    return _function_site(path=path, qual=qual, span=span_list)
+    match key_payload:
+        case list() as key_entries if key_entries:
+            key = [value for value in key_entries]
+            first = key[0]
+            second = key[1] if key[1:] else None
+            match (first, second):
+                case (str() as path_value, str() as qual_value):
+                    key = [_FileSite(path_value), qual_value, *key[2:]]
+                case _:
+                    pass
+            key_tuple = tuple(_site_part_from_payload(value) for value in key)
+            return _CallSite(
+                kind=kind,
+                key=key_tuple,
+            )
+        case _:
+            pass
+    identity = _FunctionSiteIdentity.decode_payload(site)
+    return _function_site(
+        path=identity.path,
+        qual=identity.qual,
+        span=list(identity.span) if identity.has_span else None,
+    )
 
 
 def _freeze_value(value: object) -> object:

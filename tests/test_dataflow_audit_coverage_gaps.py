@@ -1760,7 +1760,7 @@ def test_scope_normalization_and_timeout_cleanup_edges(tmp_path: Path) -> None:
     # analyze_paths timeout cleanup should still flush best-effort emitters.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(1, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=1, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=1)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
@@ -2801,7 +2801,7 @@ def test_branch_shifted_exports_refactor_and_scope_edges(tmp_path: Path) -> None
     # analyze_paths timeout before collection-progress callback is defined.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(10, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=10, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=2)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
@@ -3811,8 +3811,9 @@ def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
     )
     assert variants == {}
 
-    payload = {"index_cache_identity": ""}
-    assert da._with_analysis_index_resume_variants(payload=payload, previous_payload=None) == payload
+    payload = {"index_cache_identity": "", "projection_cache_identity": ""}
+    with pytest.raises(NeverThrown):
+        da._with_analysis_index_resume_variants(payload=payload, previous_payload=None)
 
     max_variants = da._ANALYSIS_INDEX_RESUME_MAX_VARIANTS
     previous_payload = {
@@ -3825,7 +3826,10 @@ def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
         }
     }
     trimmed = da._with_analysis_index_resume_variants(
-        payload={"index_cache_identity": ""},
+        payload={
+            "index_cache_identity": f"aspf:sha1:{(max_variants + 5):040x}",
+            "projection_cache_identity": f"aspf:sha1:{(max_variants + 6):040x}",
+        },
         previous_payload=previous_payload,
     )
     assert len(trimmed[da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY]) == max_variants

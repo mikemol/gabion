@@ -7,6 +7,10 @@ import libcst as cst
 from gabion.refactor import RefactorCompatibilityShimConfig, engine as refactor_engine
 
 
+def _target_module(module_name: str):
+    return refactor_engine._validated_module_identifier(module_name).identifier
+
+
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._is_docstring::stmt E:decision_surface/direct::engine.py::gabion.refactor.engine._is_import::stmt E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::stale_ecf5255c2c00
 def test_import_helpers_and_insert_index() -> None:
     module = cst.parse_module('"""Doc"""\nimport typing\nfrom typing import Protocol\n')
@@ -43,7 +47,7 @@ def test_collect_import_context() -> None:
         "from other import Thing\n"
     )
     module_aliases, imported_targets, protocol_alias = refactor_engine._collect_import_context(
-        module, target_module="pkg.mod", protocol_name="Protocol"
+        module, target_module=_target_module("pkg.mod"), protocol_name="Protocol"
     )
     assert module_aliases == {"pm": "pkg.mod"}
     assert imported_targets == {"Alias": "Target", "Proto": "Protocol"}
@@ -68,7 +72,7 @@ def test_rewrite_call_sites_target_and_imports(tmp_path: Path) -> None:
         module,
         file_path=tmp_path / "consumer.py",
         target_path=tmp_path / "consumer.py",
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target"},
@@ -85,7 +89,7 @@ def test_rewrite_call_sites_target_and_imports(tmp_path: Path) -> None:
         module,
         file_path=tmp_path / "other.py",
         target_path=tmp_path / "target.py",
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target"},
@@ -106,7 +110,7 @@ def test_rewrite_call_sites_in_project(tmp_path: Path) -> None:
     edits, warnings = refactor_engine._rewrite_call_sites_in_project(
         project_root=tmp_path,
         target_path=target,
-        target_module="target",
+        target_module=_target_module("target"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target"},

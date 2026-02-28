@@ -335,9 +335,9 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     call = da.CallArgs(
         callee="callee",
         pos_map={"0": "p0", "2": "p2"},
-        kw_map={"opt": "popt", "extra": "pextra"},
+        kw_map={"extra": "pextra"},
         const_pos={"1": "None", "3": "7", "6": "11"},
-        const_kw={"other": "None", "aux": "3"},
+        const_kw={"opt": "3", "other": "None", "aux": "3"},
         non_const_pos={"4"},
         non_const_kw={"opt2"},
         star_pos=[(5, "star")],
@@ -348,7 +348,24 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     info = da._fallback_deadline_arg_info(call, callee, strictness="high")
     assert info["a"].kind == "param"
     assert info["b"].kind == "none"
+    assert info["opt"].kind == "const"
     assert "kwargs" in info
+
+    kw_only_call = da.CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={"opt": "popt"},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    kw_only_info = da._fallback_deadline_arg_info(kw_only_call, callee, strictness="high")
+    assert kw_only_info["opt"].kind == "param"
 
     call_low = da.CallArgs(
         callee="callee",

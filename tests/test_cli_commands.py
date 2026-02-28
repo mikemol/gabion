@@ -125,6 +125,15 @@ def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     assert "delta-gates" in removed_triplets.output
 
 
+def test_delta_advisory_telemetry_command_forwards_exit_code() -> None:
+    with cli._tooling_runner_override(
+        no_arg={"delta-advisory-telemetry": lambda: 7},
+    ):
+        with pytest.raises(typer.Exit) as exc:
+            cli.delta_advisory_telemetry()
+    assert exc.value.exit_code == 7
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_tooling_runner_override_ignores_non_mapping_overrides::cli.py::gabion.cli._tooling_runner_override
 def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
     no_arg_before = dict(cli._TOOLING_NO_ARG_RUNNERS)

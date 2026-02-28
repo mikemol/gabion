@@ -165,19 +165,22 @@ class RefactorEngine:
                 new_module = new_module.visit(transformer)
                 warnings.extend(transformer.warnings)
 
+        project_callsite_edits: list[TextEdit] = []
+        project_callsite_warnings: list[str] = []
         if targets and not request.ambient_rewrite:
             target_module = _module_name(path, self.project_root)
-            validated_target_module = _validated_module_identifier(target_module)
-            if validated_target_module.status is _ModuleIdentifierValidationStatus.INVALID:
+            module_validation = _validated_module_identifier(target_module)
+            if module_validation.status is _ModuleIdentifierValidationStatus.INVALID:
                 return RefactorPlan(
                     outcome=RefactorPlanOutcome.ERROR,
                     errors=[f"Invalid target module identifier: {target_module}"],
                 )
+            validated_target_module_identifier = module_validation.identifier
             call_warnings, call_edits = _rewrite_call_sites(
                 new_module,
                 file_path=path,
                 target_path=path,
-                target_module=validated_target_module.identifier,
+                target_module=validated_target_module_identifier,
                 protocol_name=protocol,
                 bundle_fields=bundle_fields,
                 targets=targets,
@@ -188,10 +191,17 @@ class RefactorEngine:
             else:
                 new_module = call_edits
                 new_source = new_module.code
+            if self.project_root:
+                project_callsite_edits, project_callsite_warnings = _rewrite_call_sites_in_project(
+                    project_root=self.project_root,
+                    target_path=path,
+                    target_module=validated_target_module_identifier,
+                    protocol_name=protocol,
+                    bundle_fields=bundle_fields,
+                    targets=targets,
+                )
         else:
             new_source = new_module.code
-        if new_source == source:
-            return RefactorPlan(outcome=RefactorPlanOutcome.NO_CHANGES, warnings=warnings)
         end_line = len(source.splitlines())
         edits = [
             TextEdit(
@@ -201,25 +211,8 @@ class RefactorEngine:
                 replacement=new_source,
             )
         ]
-
-        if targets and self.project_root and not request.ambient_rewrite:
-            target_module = _module_name(path, self.project_root)
-            validated_target_module = _validated_module_identifier(target_module)
-            if validated_target_module.status is _ModuleIdentifierValidationStatus.INVALID:
-                return RefactorPlan(
-                    outcome=RefactorPlanOutcome.ERROR,
-                    errors=[f"Invalid target module identifier: {target_module}"],
-                )
-            extra_edits, extra_warnings = _rewrite_call_sites_in_project(
-                project_root=self.project_root,
-                target_path=path,
-                target_module=validated_target_module.identifier,
-                protocol_name=protocol,
-                bundle_fields=bundle_fields,
-                targets=targets,
-            )
-            edits.extend(extra_edits)
-            warnings.extend(extra_warnings)
+        edits.extend(project_callsite_edits)
+        warnings.extend(project_callsite_warnings)
         return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
 
 
@@ -327,8 +320,8 @@ def _module_expr_to_str(expr):
             current = current_attr.value
         if type(current) is cst.Name:
             parts.append(cast(cst.Name, current).value)
-        if parts:
-            return ".".join(reversed(parts))
+        # `cst.Attribute` always contributes at least one attr segment.
+        return ".".join(reversed(parts))
     return None
 
 
@@ -619,16 +612,15 @@ def _rewrite_call_sites_in_project(
         warnings.extend(call_warnings)
         if updated_module is not None:
             new_source = updated_module.code
-            if new_source != source:
-                end_line = len(source.splitlines())
-                edits.append(
-                    TextEdit(
-                        path=str(path),
-                        start=(0, 0),
-                        end=(end_line, 0),
-                        replacement=new_source,
-                    )
+            end_line = len(source.splitlines())
+            edits.append(
+                TextEdit(
+                    path=str(path),
+                    start=(0, 0),
+                    end=(end_line, 0),
+                    replacement=new_source,
                 )
+            )
     return edits, warnings
 
 
@@ -864,13 +856,12 @@ else:
             updated_block = cast(cst.IndentedBlock, updated_body)
             existing = list(updated_block.body)
             insert_at = 0
-            if existing:
-                first = existing[0]
-                if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
-                    first_line = cast(cst.SimpleStatementLine, first)
-                    expr = first_line.body[0]
-                    if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
-                        insert_at = 1
+            first = existing[0]
+            if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                first_line = cast(cst.SimpleStatementLine, first)
+                expr = first_line.body[0]
+                if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
+                    insert_at = 1
             updated_body = updated_block.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
 
         updated_params: list[cst.Param] = []
