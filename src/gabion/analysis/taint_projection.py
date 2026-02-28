@@ -432,6 +432,7 @@ def _sequence_payload(value: object) -> tuple[object, ...]:
     return tuple(sequence)
 
 
+# gabion:boundary_normalization
 def _mapping_payload(value: object) -> Mapping[str, object]:
     mapping = mapping_or_none(value)
     if mapping is None:

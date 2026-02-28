@@ -250,6 +250,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+# gabion:boundary_normalization
 def _decode_json_dict(payload: str) -> dict[str, Any]:
     try:
         parsed = json.loads(payload)
@@ -260,6 +261,7 @@ def _decode_json_dict(payload: str) -> dict[str, Any]:
     return parsed
 
 
+# gabion:boundary_normalization
 def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
     raw_jobs = run_payload.get("jobs")
@@ -285,6 +287,7 @@ def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     return failed
 
 
+# gabion:boundary_normalization
 def _failed_steps(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
     raw_jobs = run_payload.get("jobs")
