@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import os
@@ -37,6 +38,7 @@ def _env_flag(name: str) -> bool:
     return value.strip().lower() in _STRICT_VALUES
 
 
+# gabion:boundary_normalization
 def _env_optional_policy(name: str) -> OrderPolicy | None:
     value = os.getenv(name)
     if value is None:

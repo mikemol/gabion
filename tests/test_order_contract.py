@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from gabion import order_contract
 from gabion.analysis.timeout_context import (
     Deadline,
     GasMeter,
@@ -248,6 +249,11 @@ def test_get_order_policy_reads_runtime_values() -> None:
 def test_get_order_policy_rejects_unknown_runtime_policy() -> None:
     with pytest.raises(ValueError):
         OrderPolicy("nonsense")
+
+
+def test_normalize_policy_rejects_unknown_policy_string() -> None:
+    with pytest.raises(NeverThrown):
+        order_contract._normalize_policy("not-a-policy")  # type: ignore[name-defined]
 
 
 # gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_check_handles_incomparable_values::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted

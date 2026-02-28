@@ -673,3 +673,67 @@ def test_advisory_aggregate_domain_order_is_lexical(tmp_path: Path) -> None:
     )
     data = json.loads(out.read_text(encoding="utf-8"))
     assert tuple(data["advisories"].keys()) == ("ambiguity", "obsolescence")
+
+
+def test_advisory_load_aggregate_reads_written_object(tmp_path: Path) -> None:
+    aggregate_path = tmp_path / "aggregate.json"
+    advisory_evidence.write_aggregate(
+        {
+            "ambiguity": advisory_evidence.AdvisoryEvidencePayload(
+                domain="ambiguity",
+                source_delta_path="artifacts/out/ambiguity_delta.json",
+                generated_at="2025-01-02T03:04:05Z",
+                entries=(),
+            )
+        },
+        aggregate_path=aggregate_path,
+        generated_at="2025-01-02T03:04:05Z",
+    )
+    loaded = advisory_evidence.load_aggregate(aggregate_path)
+    assert loaded["schema_version"] == 1
+    assert "ambiguity" in dict(loaded.get("advisories", {}))
+
+
+def test_write_aggregate_with_domain_skips_legacy_entries_without_list_payload() -> None:
+    existing = {
+        "advisories": {
+            "obsolescence": {
+                "source_delta_path": "artifacts/out/test_obsolescence_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": {"bad": "shape"},
+            }
+        }
+    }
+    captured: dict[str, object] = {}
+
+    def _load_existing(_path: Path) -> dict[str, object]:
+        return existing
+
+    def _capture_write(
+        payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload],
+        *,
+        aggregate_path: Path = advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH,
+        generated_at: str | None = None,
+    ) -> None:
+        captured["domains"] = tuple(sorted(payloads))
+        captured["generated_at"] = generated_at
+
+    original_load = delta_advisory.json_io.load_json_object_path
+    original_write = advisory_evidence.write_aggregate
+    delta_advisory.json_io.load_json_object_path = _load_existing
+    advisory_evidence.write_aggregate = _capture_write
+    try:
+        delta_advisory._write_aggregate_with_domain(
+            advisory_evidence.AdvisoryEvidencePayload(
+                domain="annotation_drift",
+                source_delta_path="artifacts/out/test_annotation_drift_delta.json",
+                generated_at="2025-01-02T03:04:05Z",
+                entries=(),
+            )
+        )
+    finally:
+        delta_advisory.json_io.load_json_object_path = original_load
+        advisory_evidence.write_aggregate = original_write
+
+    assert captured["domains"] == ("annotation_drift",)
+    assert captured["generated_at"] == "2025-01-02T03:04:05Z"

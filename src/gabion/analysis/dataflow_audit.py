@@ -54,6 +54,7 @@ from gabion.analysis.aspf import Alt, Forest, Node, NodeId, structural_key_atom,
 from gabion.analysis.derivation_cache import get_global_derivation_cache
 from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
+from gabion.exceptions import NeverThrown
 from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
@@ -5989,13 +5990,16 @@ def _collect_never_invariants(
                     "call",
                     span=normalized_span,
                 )
-                suite_node = forest.nodes.get(site_id)
-                if suite_node is not None:
-                    site_payload = cast(dict[str, object], entry["site"])
-                    suite_identity = suite_node.meta.get("suite_id")
-                    if type(suite_identity) is str and suite_identity:
-                        site_payload["suite_id"] = suite_identity
-                cast(dict[str, object], entry["site"])["suite_kind"] = "call"
+                suite_node = require_not_none(
+                    forest.nodes.get(site_id),
+                    reason="suite site missing from forest",
+                    strict=True,
+                    path=path_value,
+                    function=function,
+                )
+                site_payload = cast(dict[str, object], entry["site"])
+                site_payload["suite_id"] = str(suite_node.meta.get("suite_id", "") or "")
+                site_payload["suite_kind"] = "call"
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -15551,12 +15555,14 @@ def _with_analysis_index_resume_variants(
     variants = _analysis_index_resume_variants(previous_payload)
     payload.update(identities.encode())
     variants[identities.canonical_index.value] = _analysis_index_resume_variant_payload(payload)
-    if not variants:
-        return payload
-    ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
-    if identities.canonical_index.value in ordered_variant_keys:
-        ordered_variant_keys.remove(identities.canonical_index.value)
-        ordered_variant_keys.append(identities.canonical_index.value)
+    ordered_variant_keys = [
+        key
+        for key in sort_once(
+            variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360'
+        )
+        if key != identities.canonical_index.value
+    ]
+    ordered_variant_keys.append(identities.canonical_index.value)
     if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
         ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
     payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {

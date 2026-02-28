@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 
 import pytest
@@ -145,3 +146,18 @@ def test_transport_carrier_decision_trichotomy() -> None:
     assert transport_policy.TransportCarrierDecision.from_carrier(None).mode == "auto"
     assert transport_policy.TransportCarrierDecision.from_carrier("lsp").to_direct_requested() is False
     assert transport_policy.TransportCarrierDecision.from_carrier("direct").to_direct_requested() is True
+
+
+def test_warn_legacy_transport_env_usage_is_once() -> None:
+    original = transport_policy._LEGACY_TRANSPORT_ENV_WARNED
+    try:
+        transport_policy._LEGACY_TRANSPORT_ENV_WARNED = False
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            transport_policy._warn_legacy_transport_env_usage()
+            transport_policy._warn_legacy_transport_env_usage()
+        assert transport_policy._LEGACY_TRANSPORT_ENV_WARNED is True
+        assert len(caught) == 1
+        assert issubclass(caught[0].category, DeprecationWarning)
+    finally:
+        transport_policy._LEGACY_TRANSPORT_ENV_WARNED = original

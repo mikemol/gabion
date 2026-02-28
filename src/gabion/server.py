@@ -3593,8 +3593,6 @@ def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     if match is None:
         return None
     path = str(match.group("path") or "").strip()
-    if not path:
-        return None
     start_group = match.group("start")
     end_group = match.group("end")
     if start_group is None:

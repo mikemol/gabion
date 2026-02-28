@@ -412,6 +412,35 @@ def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() ->
     assert transformer.warnings
 
 
+def test_ambient_rewrite_transformer_preamble_insert_when_first_stmt_is_compound() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    module = cst.parse_module(
+        textwrap.dedent(
+            """
+            def route(ctx):
+                if ctx:
+                    return sink(ctx)
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    node = module.body[0]
+    assert isinstance(node, cst.FunctionDef)
+
+    transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    rewritten = transformer._rewrite_function(node)
+    assert isinstance(rewritten, cst.FunctionDef)
+    code = cst.Module(body=[rewritten]).code
+    assert code.index("if ctx is None:") < code.index("if ctx:")
+
+
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
 def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
     import libcst as cst

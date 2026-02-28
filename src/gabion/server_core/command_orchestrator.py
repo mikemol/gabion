@@ -1718,7 +1718,7 @@ def _notification_runtime(send_notification: object) -> _NotificationRuntime:
     return _NotificationRuntime(
         send_notification_fn=lambda _method, _params: None,
         emit_phase_progress_events=False,
-    )
+    )  # pragma: no cover - never() raises
 
 
 def _create_progress_emitter(
@@ -2925,28 +2925,25 @@ def _select_auxiliary_mode_selection(
             "annotation-drift": {"report", "state", "delta", "baseline-write"},
             "ambiguity": {"state", "delta", "baseline-write"},
         }
-        if aux_action not in allowed_actions.get(aux_domain, set()):
+        domain_actions = allowed_actions.get(aux_domain)
+        if domain_actions is None:
+            never("invalid aux operation domain", domain=aux_domain, action=aux_action)
+        if aux_action not in domain_actions:
             never("invalid aux operation action", domain=aux_domain, action=aux_action)
-        aux_mode = _AuxiliaryMode(
+        baseline_modes = {
+            "obsolescence": _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None),
+            "annotation-drift": _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None),
+            "ambiguity": _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None),
+        }
+        baseline_modes[aux_domain] = _AuxiliaryMode(
             domain=aux_domain,
             kind=aux_action,
             state_path=aux_operation.state_in,
             baseline_path_override=aux_operation.baseline_path,
         )
-        if aux_domain == "obsolescence":
-            obsolescence_mode = aux_mode
-            annotation_drift_mode = _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None)
-            ambiguity_mode = _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None)
-        elif aux_domain == "annotation-drift":
-            annotation_drift_mode = aux_mode
-            obsolescence_mode = _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None)
-            ambiguity_mode = _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None)
-        elif aux_domain == "ambiguity":
-            ambiguity_mode = aux_mode
-            obsolescence_mode = _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None)
-            annotation_drift_mode = _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None)
-        else:
-            never("invalid aux operation domain", domain=aux_domain, action=aux_action)
+        obsolescence_mode = baseline_modes["obsolescence"]
+        annotation_drift_mode = baseline_modes["annotation-drift"]
+        ambiguity_mode = baseline_modes["ambiguity"]
     return _AuxiliaryModeSelection(
         obsolescence=obsolescence_mode,
         annotation_drift=annotation_drift_mode,

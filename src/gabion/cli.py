@@ -314,16 +314,17 @@ def configure_runtime_flags(
         )
     policy_runtime.apply_runtime_policy_from_env()
     env_policy.apply_cli_timeout_flag(timeout=timeout)
-    carrier_text = None if carrier is None else str(carrier.value)
-    carrier_override_record_text = (
-        None
-        if carrier_override_record is None
-        else str(carrier_override_record)
-    )
-    transport_policy.apply_cli_transport_flags(
-        carrier=carrier_text,
-        override_record_path=carrier_override_record_text,
-    )
+    if carrier is not None or carrier_override_record is not None:
+        carrier_text = None if carrier is None else str(carrier.value)
+        carrier_override_record_text = (
+            None
+            if carrier_override_record is None
+            else str(carrier_override_record)
+        )
+        transport_policy.apply_cli_transport_flags(
+            carrier=carrier_text,
+            override_record_path=carrier_override_record_text,
+        )
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:

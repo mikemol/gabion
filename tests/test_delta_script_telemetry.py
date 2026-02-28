@@ -132,7 +132,25 @@ def test_delta_triplets_default_runtime_override_scope_edges() -> None:
     ):
         with delta_triplets._default_runtime_override_scope():
             assert env_policy.lsp_timeout_override() is None
-            assert transport_policy.transport_override() is None
+            transport_override = transport_policy.transport_override()
+            assert transport_override is not None
+            assert transport_override.direct_requested is True
+
+    timeout_token = env_policy.set_lsp_timeout_override(
+        env_policy.LspTimeoutConfig(ticks=9, tick_ns=11)
+    )
+    transport_token = transport_policy.set_transport_override(
+        transport_policy.TransportOverrideConfig(direct_requested=True)
+    )
+    try:
+        with delta_triplets._default_runtime_override_scope():
+            assert env_policy.lsp_timeout_override() is not None
+            assert transport_policy.transport_override() is not None
+        assert env_policy.lsp_timeout_override() is not None
+        assert transport_policy.transport_override() is not None
+    finally:
+        transport_policy.reset_transport_override(transport_token)
+        env_policy.reset_lsp_timeout_override(timeout_token)
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main

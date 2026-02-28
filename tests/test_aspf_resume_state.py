@@ -142,3 +142,17 @@ def test_fold_resume_mutations_applies_projection_and_tracks_tail() -> None:
         "collection_resume.b",
         "collection_resume.c",
     ]
+
+
+def test_fold_resume_mutations_without_tail_limit_skips_tail_append() -> None:
+    projection, count, tail = aspf_resume_state.fold_resume_mutations(
+        snapshot={},
+        mutations=(
+            {"mutation_target": "collection_resume.a", "mutation_value": 1},
+            {"mutation_target": "collection_resume.b", "mutation_value": 2},
+        ),
+        tail_limit=0,
+    )
+    assert count == 2
+    assert projection["collection_resume"] == {"a": 1, "b": 2}
+    assert tail == ()

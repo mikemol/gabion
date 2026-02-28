@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from gabion.analysis import aspf_mutation_log
 from gabion.analysis.aspf_mutation_log import (
     ArchiveManifest,
     AspfMutationRecord,
@@ -244,3 +247,104 @@ def test_replay_determinism_hash_stable_across_projection_and_tar_runs(tmp_path:
 
     assert hashes[0] == hashes[1]
     assert tar_payloads[0] == tar_payloads[1]
+
+
+def test_protobuf_varint_and_wire_error_branches() -> None:
+    with pytest.raises(ValueError):
+        aspf_mutation_log._encode_varint(-1)
+
+    encoded = aspf_mutation_log._encode_varint(300)
+    decoded, cursor = aspf_mutation_log._decode_varint(encoded, 0)
+    assert decoded == 300
+    assert cursor == len(encoded)
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._decode_varint(bytes([0x80] * 10), 0)
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._decode_varint(b"\x80", 0)
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._parse_wire_fields(b"\x0a\x05hi")
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._parse_wire_fields(b"\x09")
+
+
+def test_protobuf_json_decode_error_branches() -> None:
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._json_bytes_to_object(b"\xff")
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log._json_bytes_to_object(b"[]")
+
+
+def test_event_snapshot_manifest_and_commit_decode_error_branches() -> None:
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_event_envelope_proto(
+            aspf_mutation_log._encode_uint64(1, 1)
+        )
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_event_envelope_proto(
+            b"".join(
+                (
+                    aspf_mutation_log._encode_uint64(1, 1),
+                    aspf_mutation_log._encode_length_delimited(2, b"\xff"),
+                    aspf_mutation_log._encode_length_delimited(3, b"{}"),
+                )
+            )
+        )
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_snapshot_envelope_proto(
+            aspf_mutation_log._encode_uint64(2, 1)
+        )
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_snapshot_envelope_proto(
+            b"".join(
+                (
+                    aspf_mutation_log._encode_length_delimited(1, b"\xff"),
+                    aspf_mutation_log._encode_uint64(2, 1),
+                    aspf_mutation_log._encode_length_delimited(3, b'{"seq":1,"state":{}}'),
+                )
+            )
+        )
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_archive_manifest_proto(b"")
+
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_commit_marker_proto(b"")
+    with pytest.raises(ProtobufDecodeError):
+        aspf_mutation_log.decode_commit_marker_proto(
+            aspf_mutation_log._encode_length_delimited(1, b"\xff")
+        )
+
+
+def test_package_archive_tar_skips_target_path_when_preexisting(tmp_path: Path) -> None:
+    root = tmp_path / "archive"
+    root.mkdir()
+    (root / "payload.txt").write_text("payload", encoding="utf-8")
+    tar_path = root / "archive.tar"
+    tar_path.write_text("stale", encoding="utf-8")
+    package_archive_tar(root_dir=root, tar_path=tar_path)
+    assert tar_path.exists()
+    assert tar_path.stat().st_size > 0
+
+
+def test_replay_from_projected_archive_requires_snapshot(tmp_path: Path) -> None:
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir()
+    project_archive_filesystem(
+        root_dir=archive_root,
+        manifest=ArchiveManifest(
+            schema_version=1,
+            projection_version=1,
+            run_id="run-1",
+            event_sequences=(),
+            snapshot_sequences=(),
+        ),
+        events=[],
+        snapshots=[],
+        commit=CommitMarker(run_id="run-1", last_durable_sequence=0),
+    )
+    with pytest.raises(ProtobufDecodeError):
+        replay_from_projected_archive(root_dir=archive_root)

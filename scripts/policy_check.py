@@ -1309,6 +1309,7 @@ _KNOWN_ADAPTER_SURFACES = {
 
 
 def _raw_payload_branching_violations(path: Path) -> list[str]:
+    check_deadline()
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -1320,14 +1321,17 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
 
     function_ranges: list[tuple[int, int, str]] = []
     for node in ast.walk(module):
+        check_deadline()
         if isinstance(node, ast.FunctionDef):
             start = int(getattr(node, "lineno", 0) or 0)
             end = int(getattr(node, "end_lineno", start) or start)
             function_ranges.append((start, end, node.name))
 
     def _function_name_for_line(line_no: int) -> str | None:
+        check_deadline()
         best: tuple[int, str] | None = None
         for start, end, name in function_ranges:
+            check_deadline()
             if start <= line_no <= end:
                 width = end - start
                 if best is None or width < best[0]:
@@ -1341,6 +1345,7 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
         return name.startswith(_ALLOWED_PAYLOAD_BRANCH_FUNCTION_PREFIXES)
 
     def _pattern_mentions_raw_payload(pattern: ast.pattern) -> bool:
+        check_deadline()
         if isinstance(pattern, ast.MatchClass):
             cls = pattern.cls
             if isinstance(cls, ast.Name) and cls.id in {"Mapping", "list"}:
@@ -1348,11 +1353,13 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
             if isinstance(cls, ast.Attribute) and cls.attr in {"Mapping", "list"}:
                 return True
         for child in ast.iter_child_nodes(pattern):
+            check_deadline()
             if isinstance(child, ast.pattern) and _pattern_mentions_raw_payload(child):
                 return True
         return False
 
     def _isinstance_mentions_raw_payload(call: ast.Call) -> bool:
+        check_deadline()
         if not (isinstance(call.func, ast.Name) and call.func.id == "isinstance"):
             return False
         if len(call.args) < 2:
@@ -1364,6 +1371,7 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
         else:
             targets.append(type_arg)
         for target in targets:
+            check_deadline()
             if isinstance(target, ast.Name) and target.id in {"Mapping", "list"}:
                 return True
             if isinstance(target, ast.Attribute) and target.attr in {"Mapping", "list"}:
@@ -1377,6 +1385,7 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
 
     violations: list[str] = []
     for node in ast.walk(module):
+        check_deadline()
         if isinstance(node, ast.match_case):
             lineno = int(getattr(node.pattern, "lineno", 0) or 0)
             if lineno > 0 and _pattern_mentions_raw_payload(node.pattern) and not _is_allowed(lineno):

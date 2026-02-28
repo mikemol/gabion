@@ -111,3 +111,14 @@ def test_render_unsupported_by_adapter_section_marks_required() -> None:
     )
     assert "type-flow: unsupported_by_adapter (limited)" in lines
     assert "decision-surfaces: unsupported_by_adapter (limited) [required]" in lines
+
+
+def test_render_unsupported_by_adapter_section_skips_non_mapping_entries() -> None:
+    lines = render_unsupported_by_adapter_section(
+        [
+            "not-a-diagnostic",
+            {"surface": "bundle-inference", "adapter": "native", "required_by_policy": False},
+        ],
+        check_deadline=_check_deadline,
+    )
+    assert lines == ["bundle-inference: unsupported_by_adapter (native)"]

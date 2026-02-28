@@ -824,6 +824,17 @@ def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
     assert before == after
 
 
+def test_imported_trace_merge_visitor_rejects_unknown_event_type(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(trace_json=tmp_path / "trace.json"),
+    )
+    assert state is not None
+    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(state=state)
+    with pytest.raises(NeverRaise):
+        visitor.on_replay_event(event=object())  # type: ignore[arg-type]
+
+
 def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
     controls = aspf_execution_fibration.controls_from_payload(
         {
@@ -867,3 +878,59 @@ def test_normalize_imported_trace_payload_filters_invalid_two_cell_witnesses() -
             "right_representative": "rep:right",
         }
     ]
+
+
+def test_normalize_imported_trace_payload_skips_non_mapping_two_cell_entries() -> None:
+    payload = aspf_execution_fibration.normalize_imported_trace_payload(
+        {
+            "one_cells": [],
+            "surface_representatives": {},
+            "cofibration_witnesses": [],
+            "two_cell_witnesses": [
+                "bad",
+                {
+                    "witness_id": "w:valid",
+                    "left_representative": "rep:left",
+                    "right_representative": "rep:right",
+                },
+            ],
+        }
+    )
+    assert payload["two_cell_witnesses"] == [
+        {
+            "witness_id": "w:valid",
+            "left_representative": "rep:left",
+            "right_representative": "rep:right",
+        }
+    ]
+
+
+def test_normalize_imported_trace_payload_replaces_non_sequence_two_cell_payload() -> None:
+    payload = aspf_execution_fibration.normalize_imported_trace_payload(
+        {
+            "one_cells": [],
+            "surface_representatives": {},
+            "cofibration_witnesses": [],
+            "two_cell_witnesses": "legacy-bridge",
+        }
+    )
+    assert payload["two_cell_witnesses"] == []
+
+
+def test_imported_trace_merge_visitor_explicit_run_boundary_case() -> None:
+    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(
+        state=aspf_execution_fibration.AspfExecutionTraceState(
+            trace_id="aspf-trace:test",
+            controls=aspf_execution_fibration.controls_from_payload(
+                {"aspf_trace_json": "trace.json"}
+            ),
+            started_at_utc="2026-01-01T00:00:00Z",
+            command_profile="check.run",
+        )
+    )
+    assert visitor.on_replay_event(
+        event=aspf_execution_fibration.AspfRunBoundaryEvent(
+            boundary="equivalence_surface_row",
+            payload={},
+        )
+    ) is None
