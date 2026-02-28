@@ -18,6 +18,7 @@ from gabion.analysis import (
     ambiguity_delta,
     ambiguity_state,
     evidence_keys,
+    taint_state,
     test_annotation_drift,
     test_annotation_drift_delta,
     test_obsolescence,
@@ -187,6 +188,7 @@ def _execute_with_deps(
         {"aux_operation": "invalid"},
         {"aux_operation": {"domain": "unknown", "action": "state"}},
         {"aux_operation": {"domain": "ambiguity", "action": "delta"}},
+        {"aux_operation": {"domain": "taint", "action": "delta"}},
     ],
 )
 def test_invalid_ingress_payload_rejected_before_analysis(
@@ -4774,6 +4776,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
                 "obsolescence_mode": {"kind": "baseline-write", "state_path": None},
                 "annotation_drift_mode": {"kind": "baseline-write", "state_path": None},
                 "ambiguity_mode": {"kind": "baseline-write", "state_path": None},
+                "taint_mode": {"kind": "baseline-write", "state_path": None},
                 "fingerprint_synth_json": str(synth_registry_path),
                 "fingerprint_provenance_json": str(provenance_path),
                 "fingerprint_deadness_json": str(deadness_path),
@@ -4806,6 +4809,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert (tmp_path / "baselines" / "test_obsolescence_baseline.json").exists()
     assert (tmp_path / "baselines" / "test_annotation_drift_baseline.json").exists()
     assert (tmp_path / "baselines" / "ambiguity_baseline.json").exists()
+    assert (tmp_path / "baselines" / "taint_baseline.json").exists()
     assert synth_registry_path.exists()
     assert provenance_path.exists()
     assert deadness_path.exists()
@@ -4814,6 +4818,143 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert result.get("fingerprint_coherence") == analysis.coherence_witnesses
     assert result.get("fingerprint_rewrite_plans") == analysis.rewrite_plans
     assert isinstance(result.get("semantic_coverage_map_summary"), dict)
+
+
+def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    analysis = _empty_analysis_result()
+    analysis.never_invariants = [
+        {
+            "marker_kind": "todo",
+            "marker_id": "todo:abc123",
+            "marker_site_id": "never:sample.py:caller:1:1",
+            "reason": "pending boundary normalization",
+            "site": {
+                "path": "sample.py",
+                "function": "caller",
+                "suite_id": "suite:caller",
+                "suite_kind": "function",
+            },
+            "links": [
+                {"kind": "policy_id", "value": "NCI-LSP-FIRST"},
+                {"kind": "object_id", "value": "justification_code:just-1"},
+                {"kind": "object_id", "value": "boundary_id:boundary-main"},
+                {"kind": "object_id", "value": "taint_kind:control_ambiguity"},
+            ],
+            "owner": "core",
+        }
+    ]
+
+    baseline_write_result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "taint_mode": {"kind": "state", "state_path": None},
+                "taint_profile": "contain",
+                "taint_boundary_registry": [
+                    {
+                        "boundary_id": "boundary-main",
+                        "suite_id": "suite:caller",
+                        "allowed_taint_kinds": ["control_ambiguity"],
+                    }
+                ],
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+    )
+    assert baseline_write_result["exit_code"] == 0
+    assert (tmp_path / "artifacts" / "out" / "taint_state.json").exists()
+
+    baseline_path = tmp_path / "baselines" / "taint_baseline.json"
+    write_result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "aux_operation": {
+                    "domain": "taint",
+                    "action": "baseline-write",
+                    "baseline_path": str(baseline_path),
+                },
+                "taint_profile": "contain",
+                "taint_boundary_registry": [
+                    {
+                        "boundary_id": "boundary-main",
+                        "suite_id": "suite:caller",
+                        "allowed_taint_kinds": ["control_ambiguity"],
+                    }
+                ],
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+    )
+    assert write_result["exit_code"] == 0
+    assert baseline_path.exists()
+    assert write_result.get("taint_baseline_written") is True
+
+    delta_result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "aux_operation": {
+                    "domain": "taint",
+                    "action": "delta",
+                    "baseline_path": str(baseline_path),
+                },
+                "taint_profile": "contain",
+                "taint_boundary_registry": [
+                    {
+                        "boundary_id": "boundary-main",
+                        "suite_id": "suite:caller",
+                        "allowed_taint_kinds": ["control_ambiguity"],
+                    }
+                ],
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+    )
+    assert delta_result["exit_code"] == 0
+    assert "taint_delta_summary" in delta_result
+    assert (tmp_path / "artifacts" / "out" / "taint_delta.json").exists()
+    assert (tmp_path / "out" / "taint_delta.md").exists()
+
+    lifecycle_result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "aux_operation": {
+                    "domain": "taint",
+                    "action": "lifecycle",
+                },
+                "taint_profile": "contain",
+                "taint_boundary_registry": [
+                    {
+                        "boundary_id": "boundary-main",
+                        "suite_id": "suite:caller",
+                        "allowed_taint_kinds": ["control_ambiguity"],
+                    }
+                ],
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+    )
+    assert lifecycle_result["exit_code"] == 0
+    assert "quotient_protocol_readiness" in lifecycle_result
+    assert "quotient_promotion_decision" in lifecycle_result
+    assert "quotient_demotion_incidents" in lifecycle_result
+    assert (tmp_path / "out" / "quotient_protocol_readiness.json").exists()
+    assert (tmp_path / "out" / "quotient_promotion_decision.json").exists()
+    assert (tmp_path / "out" / "quotient_demotion_incidents.json").exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
@@ -4831,6 +4972,10 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
         {
             "emit_ambiguity_delta": True,
             "write_ambiguity_baseline": True,
+        },
+        {
+            "emit_taint_delta": True,
+            "write_taint_baseline": True,
         },
     ],
 )
@@ -4947,6 +5092,31 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
         ),
     )
     _assert_invariant_failure(ambiguity_result)
+
+    taint_state_path = artifact_dir / "taint_state.json"
+    taint_payload = taint_state.build_state_payload(
+        marker_rows=[
+            {
+                "marker_kind": "todo",
+                "marker_id": "todo:abc",
+                "site": {"path": "sample.py", "function": "caller", "suite_id": "suite:sample"},
+                "links": [],
+            }
+        ]
+    )
+    taint_state_path.write_text(json.dumps(taint_payload), encoding="utf-8")
+    taint_result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_taint_delta": True,
+                "taint_state": str(taint_state_path),
+            }
+        ),
+    )
+    _assert_invariant_failure(taint_result)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._analysis_resume_checkpoint_compatibility

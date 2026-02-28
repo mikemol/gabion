@@ -182,6 +182,22 @@ def test_select_auxiliary_mode_selection_ambiguity_domain_branch() -> None:
     assert selection.annotation_drift.kind == "off"
 
 
+def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None:
+    _bind()
+    selection = orchestrator._select_auxiliary_mode_selection(
+        payload={},
+        aux_operation=orchestrator._AuxOperationIngressCarrier(
+            domain="taint",
+            action="lifecycle",
+            state_in="taint_state.json",
+            baseline_path=None,
+        ),
+    )
+    assert selection.taint.kind == "lifecycle"
+    assert selection.taint.state_path == "taint_state.json"
+    assert selection.ambiguity.kind == "off"
+
+
 def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analysis(
     tmp_path: Path,
 ) -> None:

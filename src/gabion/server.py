@@ -86,6 +86,10 @@ from gabion.analysis import ambiguity_state
 from gabion.analysis import call_cluster_consolidation
 from gabion.analysis import call_clusters
 from gabion.analysis import semantic_coverage_map
+from gabion.analysis import taint_delta
+from gabion.analysis import taint_lifecycle
+from gabion.analysis import taint_projection
+from gabion.analysis import taint_state
 from gabion.analysis import test_annotation_drift
 from gabion.analysis import test_annotation_drift_delta
 from gabion.analysis import test_obsolescence
@@ -124,6 +128,9 @@ from gabion.config import (
     exception_defaults,
     exception_never_list,
     fingerprint_defaults,
+    taint_boundary_registry,
+    taint_defaults,
+    taint_profile,
     merge_payload,
 )
 from gabion.analysis.type_fingerprints import (

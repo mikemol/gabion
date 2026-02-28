@@ -101,10 +101,16 @@ check_ambiguity_app = typer.Typer(
     help="Ambiguity modalities.",
     invoke_without_command=True,
 )
+check_taint_app = typer.Typer(
+    add_completion=False,
+    help="Taint modalities.",
+    invoke_without_command=True,
+)
 app.add_typer(check_app, name="check")
 check_app.add_typer(check_obsolescence_app, name="obsolescence")
 check_app.add_typer(check_annotation_drift_app, name="annotation-drift")
 check_app.add_typer(check_ambiguity_app, name="ambiguity")
+check_app.add_typer(check_taint_app, name="taint")
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
@@ -2557,7 +2563,7 @@ def check_group(
         or removed_write_test_obsolescence_baseline
     ):
         raise typer.BadParameter(
-            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity` subcommands."
+            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity|taint` subcommands."
         )
     _check_help_or_exit(ctx)
 
@@ -2574,6 +2580,11 @@ def check_annotation_drift_group(ctx: typer.Context) -> None:
 
 @check_ambiguity_app.callback()
 def check_ambiguity_group(ctx: typer.Context) -> None:
+    _check_help_or_exit(ctx)
+
+
+@check_taint_app.callback()
+def check_taint_group(ctx: typer.Context) -> None:
     _check_help_or_exit(ctx)
 
 
@@ -3218,6 +3229,193 @@ def check_ambiguity_baseline_write(
         state_in=state_in,
         out_json=out_json,
         out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("state")
+def check_taint_state(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="state",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=None,
+        out_json=out_json,
+        out_md=None,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("delta")
+def check_taint_delta(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="delta",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("baseline-write")
+def check_taint_baseline_write(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    baseline: Path = typer.Option(..., "--baseline"),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    out_md: Optional[Path] = typer.Option(None, "--out-md"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="baseline-write",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+
+
+@check_taint_app.command("lifecycle")
+def check_taint_lifecycle(
+    ctx: typer.Context,
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    state_in: Optional[Path] = typer.Option(None, "--state-in"),
+    out_json: Optional[Path] = typer.Option(None, "--out-json"),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    decision_snapshot: Optional[Path] = typer.Option(None, "--decision-snapshot"),
+    analysis_budget_checks: Optional[int] = typer.Option(
+        None,
+        "--analysis-budget-checks",
+        min=1,
+    ),
+    aspf_state_json: Optional[Path] = typer.Option(None, "--aspf-state-json"),
+    aspf_import_state: Optional[List[Path]] = typer.Option(
+        None,
+        "--aspf-import-state",
+    ),
+) -> None:
+    _run_check_aux_operation(
+        ctx=ctx,
+        domain="taint",
+        action="lifecycle",
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=None,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=None,
         report=report,
         decision_snapshot=decision_snapshot,
         analysis_budget_checks=analysis_budget_checks,

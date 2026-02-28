@@ -150,7 +150,7 @@ def _normalize_command_payload_ingress(
             aux_operation_raw.get("baseline_path"),
             root,
         )
-        if aux_domain not in {"obsolescence", "annotation-drift", "ambiguity"}:
+        if aux_domain not in {"obsolescence", "annotation-drift", "ambiguity", "taint"}:
             never(
                 "invalid aux operation domain",
                 domain=aux_domain,
@@ -299,12 +299,17 @@ class _AuxiliaryMode:
     def write_baseline(self) -> bool:
         return self.kind == "baseline-write"
 
+    @property
+    def emit_lifecycle(self) -> bool:
+        return self.kind == "lifecycle"
+
 
 @dataclass(frozen=True)
 class _AuxiliaryModeSelection:
     obsolescence: _AuxiliaryMode
     annotation_drift: _AuxiliaryMode
     ambiguity: _AuxiliaryMode
+    taint: _AuxiliaryMode
 
 
 def _auxiliary_mode_from_payload(
@@ -318,6 +323,7 @@ def _auxiliary_mode_from_payload(
     emit_report_key: str | None,
     domain: str,
     allow_report: bool,
+    allow_lifecycle: bool = False,
 ) -> _AuxiliaryMode:
     raw_mode = payload.get(mode_key)
     if isinstance(raw_mode, Mapping):
@@ -354,6 +360,8 @@ def _auxiliary_mode_from_payload(
     allowed = {"off", "state", "delta", "baseline-write"}
     if allow_report:
         allowed.add("report")
+    if allow_lifecycle:
+        allowed.add("lifecycle")
     if kind not in allowed:
         never("invalid auxiliary mode", domain=domain, kind=kind, allowed=sorted(allowed))
     if kind == "state" and state_path not in (None, ""):
@@ -675,6 +683,116 @@ def _emit_ambiguity_outputs(
             response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
 
 
+def _emit_taint_outputs(
+    *,
+    response: dict[str, object],
+    analysis: AnalysisResult,
+    root: str,
+    taint_state_path: object,
+    emit_taint_delta: bool,
+    emit_taint_state: bool,
+    write_taint_baseline: bool,
+    emit_taint_lifecycle: bool,
+    taint_profile_name: str,
+    taint_boundary_registry_payload: object,
+    taint_baseline_path: Path | None = None,
+) -> None:
+    state_payload: dict[str, object] | None = None
+    state: taint_state.TaintState | None = None
+    if taint_state_path:
+        state_path = Path(str(taint_state_path))
+        if not state_path.exists():
+            never("taint state not found", path=str(state_path))
+        loaded = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, Mapping):
+            never("invalid taint state payload", path=str(state_path))
+        state_payload = {str(key): loaded[key] for key in loaded}
+        state = taint_state.parse_state_payload(
+            cast(Mapping[str, JSONValue], state_payload)
+        )
+    elif emit_taint_delta or write_taint_baseline or emit_taint_state or emit_taint_lifecycle:
+        marker_rows = [{str(key): row[key] for key in row} for row in analysis.never_invariants]
+        state_payload = taint_state.build_state_payload(
+            marker_rows=marker_rows,
+            boundary_registry=cast(
+                Mapping[str, object] | list[Mapping[str, object]] | None,
+                taint_boundary_registry_payload if taint_boundary_registry_payload is not None else None,
+            ),
+            profile=taint_profile_name,
+        )
+        state = taint_state.parse_state_payload(cast(Mapping[str, JSONValue], state_payload))
+    if state is None or state_payload is None:
+        return
+    report_root = Path(root)
+    out_dir, artifact_dir = _output_dirs(report_root)
+    if emit_taint_state:
+        (artifact_dir / "taint_state.json").write_text(
+            json.dumps(state_payload, indent=2, sort_keys=False) + "\n"
+        )
+        response["taint_state_summary"] = state.summary
+    if (emit_taint_delta or write_taint_baseline):
+        taint_baseline_payload = taint_delta.build_baseline_payload(state.records)
+        current_baseline = taint_delta.parse_baseline_payload(
+            cast(Mapping[str, JSONValue], taint_baseline_payload)
+        )
+        baseline_path = (
+            taint_baseline_path
+            if taint_baseline_path is not None
+            else taint_delta.resolve_baseline_path(report_root)
+        )
+        response["taint_baseline_path"] = str(baseline_path)
+        if write_taint_baseline:
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            taint_delta.write_baseline(
+                str(baseline_path),
+                cast(Mapping[str, JSONValue], taint_baseline_payload),
+            )
+            response["taint_baseline_written"] = True
+        else:
+            response["taint_baseline_written"] = False
+        if emit_taint_delta:
+            if not baseline_path.exists():
+                never("taint baseline not found", path=str(baseline_path))
+            baseline = taint_delta.load_baseline(str(baseline_path))
+            delta_payload = taint_delta.build_delta_payload(
+                baseline,
+                current_baseline,
+                baseline_path=str(baseline_path),
+            )
+            report_json = json.dumps(delta_payload, indent=2, sort_keys=False) + "\n"
+            report_md = taint_delta.render_markdown(
+                cast(Mapping[str, JSONValue], delta_payload)
+            )
+            (artifact_dir / "taint_delta.json").write_text(report_json)
+            (out_dir / "taint_delta.md").write_text(report_md)
+            response["taint_delta_summary"] = delta_payload.get("summary", {})
+    if emit_taint_lifecycle:
+        readiness_payload = taint_lifecycle.build_readiness_payload(
+            taint_state_payload=cast(Mapping[str, JSONValue], state_payload),
+            current_profile=taint_profile_name,
+        )
+        promotion_payload = taint_lifecycle.build_promotion_decision_payload(
+            readiness_payload=cast(Mapping[str, JSONValue], readiness_payload),
+            current_profile=taint_profile_name,
+        )
+        demotion_payload = taint_lifecycle.build_demotion_incidents_payload(
+            taint_state_payload=cast(Mapping[str, JSONValue], state_payload),
+            current_profile=taint_profile_name,
+        )
+        (out_dir / "quotient_protocol_readiness.json").write_text(
+            json.dumps(readiness_payload, indent=2, sort_keys=False) + "\n"
+        )
+        (out_dir / "quotient_promotion_decision.json").write_text(
+            json.dumps(promotion_payload, indent=2, sort_keys=False) + "\n"
+        )
+        (out_dir / "quotient_demotion_incidents.json").write_text(
+            json.dumps(demotion_payload, indent=2, sort_keys=False) + "\n"
+        )
+        response["quotient_protocol_readiness"] = readiness_payload
+        response["quotient_promotion_decision"] = promotion_payload
+        response["quotient_demotion_incidents"] = demotion_payload
+
+
 def _apply_auxiliary_artifact_outputs(
     *,
     response: dict[str, object],
@@ -701,9 +819,17 @@ def _apply_auxiliary_artifact_outputs(
     emit_ambiguity_state: bool,
     ambiguity_state_path: object,
     write_ambiguity_baseline: bool,
+    emit_taint_delta: bool,
+    emit_taint_state: bool,
+    taint_state_path: object,
+    write_taint_baseline: bool,
+    emit_taint_lifecycle: bool,
+    taint_profile_name: str,
+    taint_boundary_registry_payload: object,
     obsolescence_baseline_path: Path | None,
     annotation_drift_baseline_path: Path | None,
     ambiguity_baseline_path: Path | None,
+    taint_baseline_path: Path | None,
 ) -> None:
     if emit_test_evidence_suggestions:
         report_root = Path(root)
@@ -815,6 +941,19 @@ def _apply_auxiliary_artifact_outputs(
         emit_ambiguity_state=emit_ambiguity_state,
         write_ambiguity_baseline=write_ambiguity_baseline,
         ambiguity_baseline_path=ambiguity_baseline_path,
+    )
+    _emit_taint_outputs(
+        response=response,
+        analysis=analysis,
+        root=root,
+        taint_state_path=taint_state_path,
+        emit_taint_delta=emit_taint_delta,
+        emit_taint_state=emit_taint_state,
+        write_taint_baseline=write_taint_baseline,
+        emit_taint_lifecycle=emit_taint_lifecycle,
+        taint_profile_name=taint_profile_name,
+        taint_boundary_registry_payload=taint_boundary_registry_payload,
+        taint_baseline_path=taint_baseline_path,
     )
 
 
@@ -2770,6 +2909,9 @@ class _ExecutionPayloadOptions:
     obsolescence_mode: _AuxiliaryMode
     annotation_drift_mode: _AuxiliaryMode
     ambiguity_mode: _AuxiliaryMode
+    taint_mode: _AuxiliaryMode
+    taint_profile: str
+    taint_boundary_registry: object
     emit_test_evidence_suggestions: bool
     emit_call_clusters: bool
     emit_call_cluster_consolidation: bool
@@ -2864,6 +3006,30 @@ class _ExecutionPayloadOptions:
     def ambiguity_baseline_path_override(self) -> Path | None:
         return self.ambiguity_mode.baseline_path_override
 
+    @property
+    def emit_taint_delta(self) -> bool:
+        return self.taint_mode.emit_delta
+
+    @property
+    def emit_taint_state(self) -> bool:
+        return self.taint_mode.emit_state
+
+    @property
+    def taint_state_path(self) -> object:
+        return self.taint_mode.state_path
+
+    @property
+    def write_taint_baseline(self) -> bool:
+        return self.taint_mode.write_baseline
+
+    @property
+    def emit_taint_lifecycle(self) -> bool:
+        return self.taint_mode.emit_lifecycle
+
+    @property
+    def taint_baseline_path_override(self) -> Path | None:
+        return self.taint_mode.baseline_path_override
+
 
 @dataclass(frozen=True)
 class _AnalysisInclusionFlags:
@@ -2917,6 +3083,18 @@ def _select_auxiliary_mode_selection(
         domain="ambiguity",
         allow_report=False,
     )
+    taint_mode = _auxiliary_mode_from_payload(
+        payload=payload,
+        mode_key="taint_mode",
+        state_key="taint_state",
+        emit_state_key="emit_taint_state",
+        emit_delta_key="emit_taint_delta",
+        write_baseline_key="write_taint_baseline",
+        emit_report_key=None,
+        domain="taint",
+        allow_report=False,
+        allow_lifecycle=True,
+    )
     if aux_operation is not None:
         aux_domain = aux_operation.domain
         aux_action = aux_operation.action
@@ -2924,6 +3102,7 @@ def _select_auxiliary_mode_selection(
             "obsolescence": {"report", "state", "delta", "baseline-write"},
             "annotation-drift": {"report", "state", "delta", "baseline-write"},
             "ambiguity": {"state", "delta", "baseline-write"},
+            "taint": {"state", "delta", "baseline-write", "lifecycle"},
         }
         domain_actions = allowed_actions.get(aux_domain)
         if domain_actions is None:
@@ -2934,6 +3113,7 @@ def _select_auxiliary_mode_selection(
             "obsolescence": _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None),
             "annotation-drift": _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None),
             "ambiguity": _AuxiliaryMode(domain="ambiguity", kind="off", state_path=None),
+            "taint": _AuxiliaryMode(domain="taint", kind="off", state_path=None),
         }
         baseline_modes[aux_domain] = _AuxiliaryMode(
             domain=aux_domain,
@@ -2944,10 +3124,12 @@ def _select_auxiliary_mode_selection(
         obsolescence_mode = baseline_modes["obsolescence"]
         annotation_drift_mode = baseline_modes["annotation-drift"]
         ambiguity_mode = baseline_modes["ambiguity"]
+        taint_mode = baseline_modes["taint"]
     return _AuxiliaryModeSelection(
         obsolescence=obsolescence_mode,
         annotation_drift=annotation_drift_mode,
         ambiguity=ambiguity_mode,
+        taint=taint_mode,
     )
 
 
@@ -2997,6 +3179,9 @@ def _parse_execution_payload_options(
         ),
         annotation_drift_mode=aux_mode_selection.annotation_drift,
         ambiguity_mode=aux_mode_selection.ambiguity,
+        taint_mode=aux_mode_selection.taint,
+        taint_profile=str(payload.get("taint_profile", "observe") or "observe"),
+        taint_boundary_registry=payload.get("taint_boundary_registry"),
         emit_semantic_coverage_map=bool(payload.get("emit_semantic_coverage_map", False)),
         semantic_coverage_mapping_path=payload.get("semantic_coverage_mapping"),
         synthesis_max_tier=payload.get("synthesis_max_tier", 2),
@@ -3048,7 +3233,13 @@ def _compute_analysis_inclusion_flags(
     include_handledness_witnesses = bool(report_path) or bool(
         options.fingerprint_handledness_json
     )
-    include_never_invariants = bool(report_path)
+    include_never_invariants = bool(report_path) or options.emit_taint_state
+    if (
+        options.emit_taint_delta
+        or options.write_taint_baseline
+        or options.emit_taint_lifecycle
+    ) and not options.taint_state_path:
+        include_never_invariants = True
     include_ambiguities = bool(report_path) or options.lint or options.emit_ambiguity_state
     if (options.emit_ambiguity_delta or options.write_ambiguity_baseline) and not options.ambiguity_state_path:
         include_ambiguities = True
@@ -3079,6 +3270,7 @@ def _compute_analysis_inclusion_flags(
         or bool(options.type_audit_report)
         or bool(options.fail_on_type_ambiguities)
         or bool(options.fail_on_violations)
+        or bool(include_never_invariants)
         or options.baseline_path is not None
         or bool(options.lint)
         or bool(options.emit_test_evidence_suggestions)
@@ -3297,19 +3489,32 @@ def _build_success_response(
         emit_ambiguity_state=context.options.emit_ambiguity_state,
         ambiguity_state_path=context.options.ambiguity_state_path,
         write_ambiguity_baseline=context.options.write_ambiguity_baseline,
+        emit_taint_delta=context.options.emit_taint_delta,
+        emit_taint_state=context.options.emit_taint_state,
+        taint_state_path=context.options.taint_state_path,
+        write_taint_baseline=context.options.write_taint_baseline,
+        emit_taint_lifecycle=context.options.emit_taint_lifecycle,
+        taint_profile_name=context.options.taint_profile,
+        taint_boundary_registry_payload=context.options.taint_boundary_registry,
         obsolescence_baseline_path=context.options.obsolescence_baseline_path_override,
         annotation_drift_baseline_path=(
             context.options.annotation_drift_baseline_path_override
         ),
         ambiguity_baseline_path=context.options.ambiguity_baseline_path_override,
+        taint_baseline_path=context.options.taint_baseline_path_override,
     )
     for artifact_key, representative in (
         ("test_obsolescence_delta_summary", "emit:test_obsolescence_delta"),
         ("test_annotation_drift_delta_summary", "emit:test_annotation_drift_delta"),
         ("ambiguity_delta_summary", "emit:ambiguity_delta"),
+        ("taint_delta_summary", "emit:taint_delta"),
         ("test_obsolescence_summary", "emit:test_obsolescence_state"),
         ("test_annotation_drift_summary", "emit:test_annotation_drift_state"),
         ("ambiguity_state_summary", "emit:ambiguity_state"),
+        ("taint_state_summary", "emit:taint_state"),
+        ("quotient_protocol_readiness", "emit:quotient_protocol_readiness"),
+        ("quotient_promotion_decision", "emit:quotient_promotion_decision"),
+        ("quotient_demotion_incidents", "emit:quotient_demotion_incidents"),
     ):
         if artifact_key not in response:
             continue
@@ -3434,6 +3639,7 @@ def _build_success_response(
                 "test_obsolescence": response.get("test_obsolescence_summary"),
                 "test_annotation_drift": response.get("test_annotation_drift_summary"),
                 "ambiguity": response.get("ambiguity_state_summary"),
+                "taint": response.get("taint_state_summary"),
             },
             "delta_payload": {
                 "test_obsolescence_delta": response.get("test_obsolescence_delta_summary"),
@@ -3441,6 +3647,16 @@ def _build_success_response(
                     "test_annotation_drift_delta_summary"
                 ),
                 "ambiguity_delta": response.get("ambiguity_delta_summary"),
+                "taint_delta": response.get("taint_delta_summary"),
+                "quotient_protocol_readiness": response.get(
+                    "quotient_protocol_readiness"
+                ),
+                "quotient_promotion_decision": response.get(
+                    "quotient_promotion_decision"
+                ),
+                "quotient_demotion_incidents": response.get(
+                    "quotient_demotion_incidents"
+                ),
             },
             "violation_summary": {
                 "violations": len(effective_violations),
@@ -3643,6 +3859,9 @@ def execute_command_total(
         )
         decision_tiers = decision_tier_map(decision_section)
         decision_require = decision_require_tiers(decision_section)
+        taint_section = taint_defaults(
+            Path(root), Path(config_path) if config_path else None
+        )
         exception_section = exception_defaults(
             Path(root), Path(config_path) if config_path else None
         )
@@ -3676,6 +3895,11 @@ def execute_command_total(
                 fingerprint_index = index
                 constructor_registry = TypeConstructorRegistry(registry)
         payload = merge_payload(payload, defaults)
+        payload.setdefault("taint_profile", taint_profile(taint_section))
+        payload.setdefault(
+            "taint_boundary_registry",
+            taint_boundary_registry(taint_section),
+        )
         deadline_roots = set(payload.get("deadline_roots", deadline_roots))
 
         raw_paths = payload.get("paths")

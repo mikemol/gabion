@@ -73,6 +73,7 @@ def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
         ["check", "obsolescence"],
         ["check", "annotation-drift"],
         ["check", "ambiguity"],
+        ["check", "taint"],
     ):
         result = runner.invoke(cli.app, argv)
         assert result.exit_code == 2
@@ -429,6 +430,14 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
             "ambiguity",
             "baseline-write",
         ),
+        (["taint", "state", "sample.py"], "taint", "state"),
+        (["taint", "delta", "sample.py", "--baseline", "taint.json"], "taint", "delta"),
+        (
+            ["taint", "baseline-write", "sample.py", "--baseline", "taint.json"],
+            "taint",
+            "baseline-write",
+        ),
+        (["taint", "lifecycle", "sample.py"], "taint", "lifecycle"),
     ],
 )
 def test_check_aux_subcommands_forward_domain_and_action(

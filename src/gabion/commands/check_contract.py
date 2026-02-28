@@ -52,6 +52,7 @@ _CHECK_AUX_DOMAIN_ACTIONS: dict[str, tuple[str, ...]] = {
     "obsolescence": ("report", "state", "delta", "baseline-write"),
     "annotation-drift": ("report", "state", "delta", "baseline-write"),
     "ambiguity": ("state", "delta", "baseline-write"),
+    "taint": ("state", "delta", "baseline-write", "lifecycle"),
 }
 
 
@@ -70,7 +71,7 @@ class CheckAuxOperation:
         allowed = _CHECK_AUX_DOMAIN_ACTIONS.get(domain)
         if allowed is None:
             raise typer.BadParameter(
-                "aux_operation domain must be one of: obsolescence, annotation-drift, ambiguity."
+                "aux_operation domain must be one of: obsolescence, annotation-drift, ambiguity, taint."
             )
         if action not in allowed:
             raise typer.BadParameter(
