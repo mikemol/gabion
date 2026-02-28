@@ -406,3 +406,36 @@ def semantic(value: object) -> object:
     )
     violations = policy_check._raw_payload_branching_violations(module)
     assert violations
+
+
+def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
+    original_changed = policy_check._changed_repo_paths
+    try:
+        policy_check._changed_repo_paths = lambda: set()  # type: ignore[assignment]
+        policy_check.check_aspf_taint_crosswalk_ack()
+    finally:
+        policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]
+
+
+def test_policy_check_aspf_crosswalk_requires_ack_file(tmp_path: Path) -> None:
+    map_path = tmp_path / "aspf_taint_isomorphism_map.yaml"
+    map_path.write_text("entries: []\n", encoding="utf-8")
+    no_change = tmp_path / "aspf_taint_isomorphism_no_change.yaml"
+    no_change.write_text("{}\n", encoding="utf-8")
+
+    original_map = policy_check.ASPF_TAINT_MAP
+    original_no_change = policy_check.ASPF_TAINT_NO_CHANGE
+    original_changed = policy_check._changed_repo_paths
+    try:
+        policy_check.ASPF_TAINT_MAP = map_path
+        policy_check.ASPF_TAINT_NO_CHANGE = no_change
+        policy_check._changed_repo_paths = lambda: {"src/gabion/invariants.py"}  # type: ignore[assignment]
+        try:
+            policy_check.check_aspf_taint_crosswalk_ack()
+            assert False, "expected ASPF crosswalk check to fail"
+        except SystemExit as exc:
+            assert exc.code == 2
+    finally:
+        policy_check.ASPF_TAINT_MAP = original_map
+        policy_check.ASPF_TAINT_NO_CHANGE = original_no_change
+        policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]

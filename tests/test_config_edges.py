@@ -59,6 +59,9 @@ def test_config_helpers_cover_bool_and_lists() -> None:
     assert config.exception_never_list(None) == []
     assert config.exception_never_list("bad") == []
     assert config.exception_never_list({"never": "A, B"}) == ["A", "B"]
+    marker_section = {"markers": {"never": ["N1", "N2"], "taint": ["T1"]}}
+    assert config.exception_never_list(marker_section) == ["N1", "N2"]
+    assert config.exception_marker_family(marker_section, "taint") == ["T1"]
 
 
 # gabion:evidence E:call_footprint::tests/test_config_edges.py::test_normalize_name_list_ignores_non_string_entries::config.py::gabion.config._normalize_name_list
