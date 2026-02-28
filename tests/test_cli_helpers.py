@@ -279,6 +279,7 @@ def test_context_cli_deps_use_defaults_for_non_mapping_context() -> None:
     assert deps.run_dataflow_raw_argv_fn is cli._run_dataflow_raw_argv
     assert deps.run_check_fn is cli.run_check
     assert deps.run_sppf_sync_fn is cli._run_sppf_sync
+    assert deps.run_ci_watch_fn is cli._run_ci_watch
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_cli_deps_accept_callable_overrides::cli.py::gabion.cli._context_cli_deps
@@ -295,17 +296,30 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
     def _run_sppf(**_kwargs: object) -> int:
         return 0
 
+    def _run_ci_watch(
+        _options: object,
+    ) -> cli.tooling_ci_watch.StatusWatchResult:
+        return cli.tooling_ci_watch.StatusWatchResult(
+            run_id="1",
+            watch_exit_code=0,
+            exit_code=0,
+            artifact_output_root=Path("artifacts/out/ci_watch"),
+            collection=None,
+        )
+
     class _Ctx:
         obj = {
             "run_dataflow_raw_argv": _run_dataflow,
             "run_check": _run_check,
             "run_sppf_sync": _run_sppf,
+            "run_ci_watch": _run_ci_watch,
         }
 
     deps = cli._context_cli_deps(_Ctx())
     assert deps.run_dataflow_raw_argv_fn is _run_dataflow
     assert deps.run_check_fn is _run_check
     assert deps.run_sppf_sync_fn is _run_sppf
+    assert deps.run_ci_watch_fn is _run_ci_watch
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables::cli.py::gabion.cli._context_callable_dep
@@ -325,12 +339,15 @@ def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -
         obj = {
             "run_check": "not-callable",
             "run_sppf_sync": "not-callable",
+            "run_ci_watch": "not-callable",
         }
 
     with pytest.raises(NeverThrown):
         cli._context_run_check(_Ctx())
     with pytest.raises(NeverThrown):
         cli._context_run_sppf_sync(_Ctx())
+    with pytest.raises(NeverThrown):
+        cli._context_run_ci_watch(_Ctx())
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_a0c064f7325b

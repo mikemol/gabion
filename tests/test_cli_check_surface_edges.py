@@ -22,14 +22,18 @@ def _check_obj(
     captured: list[dict[str, object]],
     *,
     run_check_delta_gates: object | None = None,
+    run_check_exit_code: int = 0,
+    run_ci_watch: object | None = None,
 ) -> dict[str, object]:
     def _run_check(**kwargs: object) -> dict[str, object]:
         captured.append({str(key): kwargs[key] for key in kwargs})
-        return {"exit_code": 0, "lint_lines": []}
+        return {"exit_code": run_check_exit_code, "lint_lines": []}
 
     obj: dict[str, object] = {
         "run_check": _run_check,
     }
+    if run_ci_watch is not None:
+        obj["run_ci_watch"] = run_ci_watch
     if run_check_delta_gates is not None:
         obj["run_check_delta_gates"] = run_check_delta_gates
     return obj
@@ -171,6 +175,139 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     assert removed_retry.exit_code != 0
     assert "No such option: --resume-on-timeout" in _normalize_output(
         removed_retry.output
+    )
+
+
+def test_check_run_status_watch_requires_status_watch_flag() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--status-watch-run-id",
+            "123",
+        ],
+        obj=_check_obj([]),
+    )
+    assert result.exit_code != 0
+    assert "--status-watch-* options require --status-watch." in _normalize_output(
+        result.output
+    )
+
+
+def test_check_run_status_watch_executes_after_local_success(tmp_path: Path) -> None:
+    runner = CliRunner()
+    captured: list[dict[str, object]] = []
+    status_watch_calls: list[object] = []
+
+    def _run_ci_watch(options: object):
+        status_watch_calls.append(options)
+        return cli.tooling_ci_watch.StatusWatchResult(
+            run_id="123",
+            watch_exit_code=0,
+            exit_code=0,
+            artifact_output_root=tmp_path,
+            collection=None,
+        )
+
+    summary_json = tmp_path / "status_watch_summary.json"
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--status-watch",
+            "--status-watch-run-id",
+            "123",
+            "--status-watch-summary-json",
+            str(summary_json),
+        ],
+        obj=_check_obj(captured, run_ci_watch=_run_ci_watch),
+    )
+    assert result.exit_code == 0
+    assert len(captured) == 1
+    assert len(status_watch_calls) == 1
+    status_watch_options = status_watch_calls[0]
+    assert isinstance(status_watch_options, cli.tooling_ci_watch.StatusWatchOptions)
+    assert status_watch_options.run_id == "123"
+    assert status_watch_options.summary_json == summary_json
+    normalized = _normalize_output(result.output)
+    assert "status-watch run_id=123" in normalized
+    assert f"summary={summary_json}" in normalized
+
+
+def test_check_run_failed_local_check_skips_status_watch() -> None:
+    runner = CliRunner()
+    status_watch_calls: list[object] = []
+
+    def _run_ci_watch(options: object):
+        status_watch_calls.append(options)
+        return cli.tooling_ci_watch.StatusWatchResult(
+            run_id="123",
+            watch_exit_code=0,
+            exit_code=0,
+            artifact_output_root=Path("artifacts/out/ci_watch"),
+            collection=None,
+        )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--status-watch",
+        ],
+        obj=_check_obj([], run_check_exit_code=7, run_ci_watch=_run_ci_watch),
+    )
+    assert result.exit_code == 7
+    assert status_watch_calls == []
+
+
+def test_check_run_status_watch_propagates_collection_failure_exit_code() -> None:
+    runner = CliRunner()
+
+    def _run_ci_watch(_options: object):
+        return cli.tooling_ci_watch.StatusWatchResult(
+            run_id="77",
+            watch_exit_code=1,
+            exit_code=2,
+            artifact_output_root=Path("artifacts/out/ci_watch"),
+            collection=cli.tooling_ci_watch.FailureCollectionResult(
+                run_root=Path("artifacts/out/ci_watch/run_77"),
+                status=cli.tooling_ci_watch.CollectionStatus(
+                    run_view_json_rc=0,
+                    log_failed_rc=0,
+                    download_rc=1,
+                    failed_job_count=1,
+                    failed_step_count=1,
+                    artifact_file_count=0,
+                ),
+            ),
+        )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--status-watch",
+            "--status-watch-run-id",
+            "77",
+        ],
+        obj=_check_obj([], run_ci_watch=_run_ci_watch),
+    )
+    assert result.exit_code == 2
+    assert "failure_bundle=artifacts/out/ci_watch/run_77" in _normalize_output(
+        result.output
     )
 
 
