@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+import warnings
 
 import pytest
 from typer.testing import CliRunner
@@ -249,15 +250,17 @@ def test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload() -> No
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_lsp_parity_gate_command_reports_nonzero_exit::cli.py::gabion.cli.lsp_parity_gate
 def test_cli_lsp_parity_gate_command_reports_nonzero_exit() -> None:
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        ["lsp-parity-gate", "--command", "gabion.unknown", "--root", "."],
-        env={
-            "GABION_DIRECT_RUN": "1",
-            "GABION_LSP_TIMEOUT_TICKS": "100000",
-            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
-        },
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        result = runner.invoke(
+            cli.app,
+            ["lsp-parity-gate", "--command", "gabion.unknown", "--root", "."],
+            env={
+                "GABION_DIRECT_RUN": "1",
+                "GABION_LSP_TIMEOUT_TICKS": "100000",
+                "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+            },
+        )
     assert result.exit_code == 1
     assert "missing command policy for gabion.unknown" in result.stdout
 
