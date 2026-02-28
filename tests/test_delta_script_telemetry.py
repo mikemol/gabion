@@ -133,6 +133,20 @@ def test_delta_triplets_default_runtime_override_scope_edges() -> None:
             assert transport_override is not None
             assert transport_override.direct_requested is True
 
+    auto_transport_token = transport_policy.set_transport_override(
+        transport_policy.TransportOverrideConfig(direct_requested=None)
+    )
+    try:
+        with delta_triplets._default_runtime_override_scope():
+            transport_override = transport_policy.transport_override()
+            assert transport_override is not None
+            assert transport_override.direct_requested is True
+        restored_override = transport_policy.transport_override()
+        assert restored_override is not None
+        assert restored_override.direct_requested is None
+    finally:
+        transport_policy.reset_transport_override(auto_transport_token)
+
     timeout_token = env_policy.set_lsp_timeout_override(
         env_policy.LspTimeoutConfig(ticks=9, tick_ns=11)
     )
