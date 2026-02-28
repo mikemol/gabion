@@ -73,7 +73,8 @@ def _ci_cycle_main() -> int:
         _run_ci_cycle(
             sys.executable,
             "-m",
-            "scripts.ci_watch",
+            "gabion",
+            "ci-watch",
             "--branch",
             args.branch,
             "--workflow",
