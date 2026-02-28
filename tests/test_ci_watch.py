@@ -595,7 +595,7 @@ def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
     assert (result.run_root / "failed.log").read_text(encoding="utf-8") == ""
 
 
-def test_run_watch_uses_default_deps(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_watch_uses_default_deps() -> None:
     def _fake_run(
         cmd: list[str],
         *,
@@ -606,14 +606,18 @@ def test_run_watch_uses_default_deps(monkeypatch: pytest.MonkeyPatch) -> None:
         assert cmd[:3] == ["gh", "run", "watch"]
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
-    monkeypatch.setattr(subprocess, "run", _fake_run)
-    result = tooling_ci_watch.run_watch(
-        options=tooling_ci_watch.StatusWatchOptions(
-            run_id="55",
-            download_artifacts_on_failure=False,
-        ),
-        deps=None,
-    )
+    original_run = subprocess.run
+    try:
+        subprocess.run = _fake_run  # type: ignore[assignment]
+        result = tooling_ci_watch.run_watch(
+            options=tooling_ci_watch.StatusWatchOptions(
+                run_id="55",
+                download_artifacts_on_failure=False,
+            ),
+            deps=None,
+        )
+    finally:
+        subprocess.run = original_run  # type: ignore[assignment]
     assert result.exit_code == 0
 
 
@@ -623,7 +627,7 @@ def test_default_print_err_writes_stderr(capsys: Any) -> None:
     assert "error-line" in captured.err
 
 
-def test_ci_watch_module_entrypoint_executes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ci_watch_module_entrypoint_executes() -> None:
     original_argv = list(sys.argv)
 
     def _fake_run(
@@ -637,8 +641,9 @@ def test_ci_watch_module_entrypoint_executes(monkeypatch: pytest.MonkeyPatch) ->
             return subprocess.CompletedProcess(cmd, 0, "", "")
         raise AssertionError(f"unexpected command: {cmd}")
 
-    monkeypatch.setattr(subprocess, "run", _fake_run)
+    original_run = subprocess.run
     try:
+        subprocess.run = _fake_run  # type: ignore[assignment]
         sys.argv = [
             "ci_watch.py",
             "--run-id",
@@ -649,4 +654,5 @@ def test_ci_watch_module_entrypoint_executes(monkeypatch: pytest.MonkeyPatch) ->
             runpy.run_module("gabion.tooling.ci_watch", run_name="__main__")
         assert exc.value.code == 0
     finally:
+        subprocess.run = original_run  # type: ignore[assignment]
         sys.argv = original_argv

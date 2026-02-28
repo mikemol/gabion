@@ -323,7 +323,6 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
 
 
 def test_run_ci_watch_wrapper_calls_tooling_runner(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: list[cli.tooling_ci_watch.StatusWatchOptions] = []
 
@@ -339,13 +338,17 @@ def test_run_ci_watch_wrapper_calls_tooling_runner(
             collection=None,
         )
 
-    monkeypatch.setattr(cli.tooling_ci_watch, "run_watch", _fake_run_watch)
-    result = cli._run_ci_watch(
-        cli.tooling_ci_watch.StatusWatchOptions(
-            run_id="88",
-            download_artifacts_on_failure=False,
+    original_run_watch = cli.tooling_ci_watch.run_watch
+    try:
+        cli.tooling_ci_watch.run_watch = _fake_run_watch  # type: ignore[assignment]
+        result = cli._run_ci_watch(
+            cli.tooling_ci_watch.StatusWatchOptions(
+                run_id="88",
+                download_artifacts_on_failure=False,
+            )
         )
-    )
+    finally:
+        cli.tooling_ci_watch.run_watch = original_run_watch  # type: ignore[assignment]
     assert result.run_id == "88"
     assert len(seen) == 1
 
