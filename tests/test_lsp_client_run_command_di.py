@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import json
 import subprocess
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -173,14 +172,12 @@ def test_run_command_uses_env_timeout() -> None:
         }
     )
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            result = run_command(
-                CommandRequest("gabion.dataflowAudit", [{}]),
-                root=Path("."),
-                process_factory=factory,
-                remaining_deadline_ns_fn=lambda _deadline_ns: 3_000_000_000,
-            )
+        result = run_command(
+            CommandRequest("gabion.dataflowAudit", [{}]),
+            root=Path("."),
+            process_factory=factory,
+            remaining_deadline_ns_fn=lambda _deadline_ns: 3_000_000_000,
+        )
     finally:
         _restore_env(previous)
     assert result == {}
