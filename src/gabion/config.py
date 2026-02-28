@@ -137,7 +137,39 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
         return []
     if not isinstance(section, dict):
         return []
+    markers = exception_marker_families(section)
+    if "never" in markers and markers["never"]:
+        return markers["never"]
     return _normalize_name_list(section.get("never"))
+
+
+def exception_marker_families(section: TomlTable | None) -> dict[str, list[str]]:
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        return {}
+    markers = section.get("markers")
+    if not isinstance(markers, dict):
+        return {}
+    families: dict[str, list[str]] = {}
+    for family, payload in markers.items():
+        check_deadline()
+        family_name = str(family).strip()
+        if not family_name:
+            continue
+        families[family_name] = _normalize_name_list(payload)
+    return families
+
+
+def exception_marker_family(section: TomlTable | None, family: str) -> list[str]:
+    if not family.strip():
+        return []
+    families = exception_marker_families(section)
+    if family in families and families[family]:
+        return families[family]
+    if family == "never":
+        return exception_never_list(section)
+    return []
 
 
 def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:

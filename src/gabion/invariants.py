@@ -36,9 +36,21 @@ def never(reason: str = "", **env: object) -> NoReturn:
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
-    _ = env
-    message = reason or "never() invariant reached"
-    raise NeverThrown(message)
+    from gabion.analysis.marker_protocol import never_marker_payload
+
+    owner = str(env.get("owner", ""))
+    expiry = str(env.get("expiry", ""))
+    raw_links = env.get("links", ())
+    links = raw_links if isinstance(raw_links, list) else ()
+    extra_env = {key: value for key, value in env.items() if key not in {"owner", "expiry", "links"}}
+    payload = never_marker_payload(
+        reason=reason,
+        env=extra_env,
+        owner=owner,
+        expiry=expiry,
+        links=tuple(item for item in links if isinstance(item, dict)),
+    )
+    raise NeverThrown(payload.reason, marker_payload=payload)
 
 
 def proof_mode() -> bool:

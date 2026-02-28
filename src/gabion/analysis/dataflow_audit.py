@@ -67,11 +67,13 @@ from gabion.config import (
     decision_require_tiers,
     decision_tier_map,
     exception_defaults,
+    exception_marker_family,
     exception_never_list,
     fingerprint_defaults,
     merge_payload,
     synthesis_defaults,
 )
+from gabion.analysis.marker_protocol import DEFAULT_MARKER_ALIASES, MarkerKind
 from gabion.analysis.type_fingerprints import (
     Fingerprint,
     FingerprintDimension,
@@ -1900,15 +1902,14 @@ def _decorator_matches(name: str, allowlist: set[str]) -> bool:
     return False
 
 
-_NEVER_MARKERS = {"never", "gabion.never", "gabion.invariants.never"}
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
 
 
-def _is_never_call(call: ast.Call) -> bool:
+def _is_marker_call(call: ast.Call, aliases: set[str]) -> bool:
     name = _decorator_name(call.func)
     if not name:
         return False
-    return _decorator_matches(name, _NEVER_MARKERS)
+    return _decorator_matches(name, aliases)
 
 
 def _is_never_marker_raise(
@@ -5849,6 +5850,8 @@ def _collect_exception_obligations(
     source = 'src/gabion/analysis/dataflow_audit.py:4672')
 
 
+
+
 def _never_reason(call: ast.Call):
     check_deadline()
     if call.args:
@@ -5874,6 +5877,7 @@ def _collect_never_invariants(
     project_root,
     ignore_params: set[str],
     forest: Forest,
+    marker_aliases: set[str],
     deadness_witnesses=None,
 ) -> list[JSONObject]:
     check_deadline()
@@ -5895,7 +5899,7 @@ def _collect_never_invariants(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if type(node) is ast.Call and _is_never_call(cast(ast.Call, node)):
+            if type(node) is ast.Call and _is_marker_call(cast(ast.Call, node), marker_aliases):
                 call_node = cast(ast.Call, node)
                 fn_node = _enclosing_function_node(call_node, parents)
                 if fn_node is None:
@@ -5910,6 +5914,7 @@ def _collect_never_invariants(
                 lineno = getattr(call_node, "lineno", 0)
                 col = getattr(call_node, "col_offset", 0)
                 never_id = f"never:{path_value}:{function}:{lineno}:{col}"
+                canonical_marker_id = never_id
                 reason = _never_reason(call_node) or ""
                 status = "OBLIGATION"
                 witness_ref = None
@@ -17472,7 +17477,10 @@ def _run_impl(
     decision_tiers = decision_tier_map(decision_section)
     decision_require = decision_require_tiers(decision_section)
     exception_section = exception_defaults(Path(args.root), config_path)
-    never_exceptions = set(exception_never_list(exception_section))
+    never_exceptions = set(exception_marker_family(exception_section, "never"))
+    never_exceptions.update(exception_never_list(exception_section))
+    never_marker_aliases = set(DEFAULT_MARKER_ALIASES.get(MarkerKind.NEVER, ()))
+    never_exceptions.update(never_marker_aliases)
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"

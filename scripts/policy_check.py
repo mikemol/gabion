@@ -64,6 +64,121 @@ _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-DUAL-SENSOR-CORRECTION-LOOP",
 }
 
+ASPF_TAINT_MAP = REPO_ROOT / "docs" / "aspf_taint_isomorphism_map.yaml"
+ASPF_TAINT_NO_CHANGE = REPO_ROOT / "docs" / "aspf_taint_isomorphism_no_change.yaml"
+_REQUIRED_ASPF_IN_STEPS = {"in-46", "in-47", "in-48", "in-49", "in-50", "in-51", "in-52", "in-53", "in-58"}
+_EXPECTED_ASPF_IDENTIFIER_ANCHORS = {
+    "AspfOneCell",
+    "AspfTwoCellWitness",
+    "DomainToAspfCofibration",
+    "append_delta_record",
+    "NeverInvariantSink",
+    "NEVER_INVARIANTS_SPEC",
+}
+_ASPF_TAINT_TRIGGER_PATHS = {
+    "src/gabion/invariants.py",
+    "src/gabion/exceptions.py",
+    "in/in-46.md",
+    "in/in-47.md",
+    "in/in-48.md",
+    "in/in-49.md",
+    "in/in-50.md",
+    "in/in-51.md",
+    "in/in-52.md",
+    "in/in-53.md",
+    "in/in-58.md",
+}
+_ASPF_TAINT_TRIGGER_PREFIXES = (
+    "src/gabion/analysis/",
+)
+
+
+def _changed_repo_paths() -> set[str]:
+    check_deadline()
+    commands = (
+        ["git", "diff", "--name-only", "HEAD"],
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    )
+    changed: set[str] = set()
+    for command in commands:
+        check_deadline()
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (subprocess.CalledProcessError, OSError):
+            continue
+        for line in completed.stdout.splitlines():
+            check_deadline()
+            path = line.strip()
+            if path:
+                changed.add(path)
+    return changed
+
+
+def _is_aspf_taint_trigger(path: str) -> bool:
+    if path in _ASPF_TAINT_TRIGGER_PATHS:
+        return True
+    return any(path.startswith(prefix) for prefix in _ASPF_TAINT_TRIGGER_PREFIXES)
+
+
+def check_aspf_taint_crosswalk_ack() -> None:
+    check_deadline()
+    changed = _changed_repo_paths()
+    triggered = sorted(path for path in changed if _is_aspf_taint_trigger(path))
+    if not triggered:
+        return
+    if not ASPF_TAINT_MAP.exists():
+        _fail([f"missing ASPF taint crosswalk map: {ASPF_TAINT_MAP}"])
+    payload = _load_yaml(ASPF_TAINT_MAP)
+    entries = payload.get("entries") if isinstance(payload, dict) else None
+    if not isinstance(entries, list):
+        _fail(["docs/aspf_taint_isomorphism_map.yaml: entries must be a list"])
+    mapped_steps: set[str] = set()
+    seen_identifiers: set[str] = set()
+    for entry in entries:
+        check_deadline()
+        if not isinstance(entry, dict):
+            continue
+        in_step = str(entry.get("in_step", "")).strip()
+        if in_step:
+            mapped_steps.add(in_step)
+        identifiers = entry.get("existing_identifiers")
+        if isinstance(identifiers, list):
+            for item in identifiers:
+                check_deadline()
+                value = str(item).strip()
+                if value:
+                    seen_identifiers.add(value)
+    missing_steps = _REQUIRED_ASPF_IN_STEPS - mapped_steps
+    missing_anchors = _EXPECTED_ASPF_IDENTIFIER_ANCHORS - seen_identifiers
+    map_changed = "docs/aspf_taint_isomorphism_map.yaml" in changed
+    no_change_payload = _load_yaml(ASPF_TAINT_NO_CHANGE) if ASPF_TAINT_NO_CHANGE.exists() else {}
+    no_change_changed = "docs/aspf_taint_isomorphism_no_change.yaml" in changed
+    no_change_valid = False
+    if isinstance(no_change_payload, dict):
+        justification = str(no_change_payload.get("justification", "")).strip()
+        steps = no_change_payload.get("in_steps")
+        if justification and isinstance(steps, list) and set(str(step).strip() for step in steps) >= _REQUIRED_ASPF_IN_STEPS:
+            no_change_valid = True
+    errors: list[str] = []
+    if missing_steps:
+        errors.append(f"ASPF taint crosswalk missing in_step mappings: {_sorted(missing_steps)}")
+    if missing_anchors:
+        errors.append(f"ASPF taint crosswalk missing identifier anchors: {_sorted(missing_anchors)}")
+    if not map_changed and not (no_change_changed and no_change_valid):
+        errors.append(
+            "taint/marker/ASPF-relevant changes require either docs/aspf_taint_isomorphism_map.yaml updates "
+            "or docs/aspf_taint_isomorphism_no_change.yaml with in_steps + justification"
+        )
+    if errors:
+        _fail(["ASPF taint crosswalk acknowledgement check failed", f"triggered paths: {triggered}", *errors])
+
+
 
 def _workflow_doc(path: Path):
     if not path.exists():
@@ -1438,9 +1553,10 @@ def main():
     parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
+    parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1458,6 +1574,8 @@ def main():
             check_adapter_surface_policy()
         if args.semantic_core_payload_branching:
             check_semantic_core_payload_branching()
+        if args.aspf_taint_crosswalk or args.workflows:
+            check_aspf_taint_crosswalk_ack()
     return 0
 
 
