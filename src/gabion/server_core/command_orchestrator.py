@@ -3115,7 +3115,7 @@ class _SuccessResponseContext:
     analysis: AnalysisResult
     root: str
     paths: list[Path]
-    payload: dict[str, object]
+    payload: Mapping[str, object]
     config: AuditConfig
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
@@ -3134,7 +3134,6 @@ class _SuccessResponseContext:
     analysis_resume_total_files: int
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
-    payload: Mapping[str, object]
     phase_checkpoint_state: JSONObject
     execution_plan: ExecutionPlan
     last_collection_resume_payload: JSONObject | None

@@ -133,6 +133,7 @@ def _analysis_context(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         },
+        payload={},
     )
 
 
@@ -551,9 +552,14 @@ def test_parse_execution_payload_options_aux_operation_domain_routing(
             "state_in": state_in,
         },
     }
-    options = orchestrator._parse_execution_payload_options(
+    ingress = orchestrator._normalize_command_payload_ingress(
         payload=payload,
         root=tmp_path,
+    )
+    options = orchestrator._parse_execution_payload_options(
+        payload=ingress.payload,
+        root=tmp_path,
+        aux_operation=ingress.aux_operation,
     )
     if domain == "obsolescence":
         assert options.emit_test_obsolescence_state is True
@@ -572,7 +578,7 @@ def test_parse_execution_payload_options_aux_operation_domain_routing(
 def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> None:
     orchestrator._bind_server_symbols()
     with pytest.raises(NeverThrown):
-        orchestrator._parse_execution_payload_options(
+        orchestrator._normalize_command_payload_ingress(
             payload={
                 "strictness": "high",
                 "aux_operation": {"domain": "obsolescence", "action": "delta"},
@@ -580,7 +586,7 @@ def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> 
             root=Path("."),
         )
     with pytest.raises(NeverThrown):
-        orchestrator._parse_execution_payload_options(
+        orchestrator._normalize_command_payload_ingress(
             payload={
                 "strictness": "high",
                 "aux_operation": {"domain": "invalid", "action": "state"},
