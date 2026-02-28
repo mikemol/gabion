@@ -311,6 +311,49 @@ def test_check_run_status_watch_propagates_collection_failure_exit_code() -> Non
     )
 
 
+def test_check_run_status_watch_system_exit_string_maps_to_exit_one() -> None:
+    runner = CliRunner()
+
+    def _run_ci_watch(_options: object):
+        raise SystemExit("watch failed")
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--status-watch",
+        ],
+        obj=_check_obj([], run_ci_watch=_run_ci_watch),
+    )
+    assert result.exit_code == 1
+    assert "watch failed" in _normalize_output(result.output)
+
+
+def test_check_run_status_watch_system_exit_int_propagates() -> None:
+    runner = CliRunner()
+
+    def _run_ci_watch(_options: object):
+        raise SystemExit(9)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "run",
+            "sample.py",
+            "--gate",
+            "none",
+            "--status-watch",
+        ],
+        obj=_check_obj([], run_ci_watch=_run_ci_watch),
+    )
+    assert result.exit_code == 9
+
+
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_bundle_dispatches_single_pass_delta_options
 def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     runner = CliRunner()

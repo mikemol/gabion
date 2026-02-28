@@ -297,6 +297,53 @@ def test_decision_surface_metafactory_parity(tmp_path: Path) -> None:
     assert direct_repo == (direct_helper[0], direct_helper[1], direct_helper[3])
     assert value_repo == value_helper
 
+
+def test_never_marker_keyword_and_kind_helper_paths() -> None:
+    da = _load()
+    call = ast.parse(
+        "never(owner='core', links=[{'kind':'policy_id','value':'NCI-A'}])"
+    ).body[0].value
+    assert isinstance(call, ast.Call)
+    assert da._is_never_call(call, aliases=()) is True
+    assert da._is_never_call(call, aliases=("never",)) is True
+    assert da._keyword_string_literal(call, "owner") == "core"
+    assert da._keyword_links_literal(call) == [{"kind": "policy_id", "value": "NCI-A"}]
+
+    non_constant_owner = ast.parse("never(owner=value)").body[0].value
+    assert isinstance(non_constant_owner, ast.Call)
+    assert da._keyword_string_literal(non_constant_owner, "owner") == ""
+    non_string_owner = ast.parse("never(owner=1)").body[0].value
+    assert isinstance(non_string_owner, ast.Call)
+    assert da._keyword_string_literal(non_string_owner, "owner") == ""
+
+    non_list_links = ast.parse("never(links='bad')").body[0].value
+    assert isinstance(non_list_links, ast.Call)
+    assert da._keyword_links_literal(non_list_links) == []
+    mixed_links = ast.parse(
+        "never(links=["
+        "1, "
+        "{k: 'v'}, "
+        "{'kind': value}, "
+        "{1: 2}, "
+        "{'kind': '', 'value': 'x'}, "
+        "{'kind': 'k', 'value': ''}, "
+        "{'kind': 'k', 'value': 'v'}"
+        "])"
+    ).body[0].value
+    assert isinstance(mixed_links, ast.Call)
+    assert da._keyword_links_literal(mixed_links) == [{"kind": "k", "value": "v"}]
+
+    lambda_call = ast.parse("(lambda: 1)()").body[0].value
+    assert isinstance(lambda_call, ast.Call)
+    assert da._marker_kind_for_call(lambda_call, {}) is da.MarkerKind.NEVER
+
+    dotted_call = ast.parse("pkg.todo()").body[0].value
+    assert isinstance(dotted_call, ast.Call)
+    assert da._marker_kind_for_call(
+        dotted_call,
+        {"todo": da.MarkerKind.TODO},
+    ) is da.MarkerKind.TODO
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::stale_31e952b1ef31
 def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     da = _load()

@@ -61,3 +61,15 @@ def test_validate_aux_operation_or_never_rejects_invalid_combinations(
             action=action,
             baseline_path=baseline_path,
         )
+
+
+def test_aux_operation_contract_error_never_details_optional_fields() -> None:
+    error = aux_operation_contract.AuxOperationContractError(
+        kind="invalid_domain",
+        domain="x",
+        action="y",
+        allowed_domains=(),
+        allowed_actions=(),
+    )
+    details = error.never_details()
+    assert details == {"domain": "x", "action": "y"}

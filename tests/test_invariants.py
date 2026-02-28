@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+from gabion.analysis.marker_protocol import (
+    MarkerKind,
+    MarkerLifecycleState,
+    MarkerPayload,
+    SemanticLinkKind,
+    SemanticReference,
+)
 from gabion import invariants
 from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
@@ -39,3 +46,43 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
 
     assert invariants.decision_protocol(_sample) is _sample
     assert invariants.boundary_normalization(_sample) is _sample
+
+
+def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
+    with pytest.raises(NeverThrown) as exc_info:
+        invariants.never(
+            "boom",
+            links=[
+                "bad",
+                {"kind": "", "value": "skip"},
+                {"kind": "object_id", "value": "taint_kind:control_ambiguity"},
+            ],
+        )
+    assert exc_info.value.marker_payload.links == (
+        SemanticReference(
+            kind=SemanticLinkKind.OBJECT_ID,
+            value="taint_kind:control_ambiguity",
+        ),
+    )
+
+    custom_payload = MarkerPayload(
+        marker_kind=MarkerKind.NEVER,
+        reason="boom",
+        owner="core",
+        expiry="2099-01-01",
+        lifecycle_state=MarkerLifecycleState.ACTIVE,
+        links=[  # type: ignore[arg-type]
+            SemanticReference(
+                kind=SemanticLinkKind.OBJECT_ID,
+                value="taint_kind:control_ambiguity",
+            )
+        ],
+        env={},
+    )
+    payload = NeverThrown("boom", marker_payload=custom_payload).marker_payload_dict
+    assert payload["links"] == [
+        {
+            "kind": "object_id",
+            "value": "taint_kind:control_ambiguity",
+        }
+    ]

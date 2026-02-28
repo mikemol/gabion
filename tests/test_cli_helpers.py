@@ -322,6 +322,34 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
     assert deps.run_ci_watch_fn is _run_ci_watch
 
 
+def test_run_ci_watch_wrapper_calls_tooling_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[cli.tooling_ci_watch.StatusWatchOptions] = []
+
+    def _fake_run_watch(
+        *, options: cli.tooling_ci_watch.StatusWatchOptions
+    ) -> cli.tooling_ci_watch.StatusWatchResult:
+        seen.append(options)
+        return cli.tooling_ci_watch.StatusWatchResult(
+            run_id="88",
+            watch_exit_code=0,
+            exit_code=0,
+            artifact_output_root=Path("artifacts/out/ci_watch"),
+            collection=None,
+        )
+
+    monkeypatch.setattr(cli.tooling_ci_watch, "run_watch", _fake_run_watch)
+    result = cli._run_ci_watch(
+        cli.tooling_ci_watch.StatusWatchOptions(
+            run_id="88",
+            download_artifacts_on_failure=False,
+        )
+    )
+    assert result.run_id == "88"
+    assert len(seen) == 1
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables::cli.py::gabion.cli._context_callable_dep
 def test_context_dependency_helpers_reject_noncallables() -> None:
     class DummyCtx:

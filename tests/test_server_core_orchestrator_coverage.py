@@ -198,6 +198,29 @@ def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None
     assert selection.ambiguity.kind == "off"
 
 
+def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
+    _bind()
+    assert orchestrator._taint_marker_row_from_ambiguity_witness("bad") is None
+    row = orchestrator._taint_marker_row_from_ambiguity_witness(
+        {
+            "kind": "k",
+            "candidate_count": "bad-count",
+            "site": "not-a-mapping",
+        }
+    )
+    assert isinstance(row, dict)
+    assert row["reason"] == "ambiguity witness kind=k candidates=0"
+    assert "span" not in row["site"]
+
+
+def test_taint_marker_row_from_type_ambiguity_edge_inputs() -> None:
+    _bind()
+    assert orchestrator._taint_marker_row_from_type_ambiguity("") is None
+    path, function = orchestrator._type_ambiguity_site("only-function downstream types conflict: x")
+    assert path == ""
+    assert function == "only-function"
+
+
 def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analysis(
     tmp_path: Path,
 ) -> None:
@@ -224,6 +247,41 @@ def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analys
         collection_resume_payload=None,
     )
     assert isinstance(outcome.analysis, AnalysisResult)
+
+
+def test_emit_taint_outputs_rejects_missing_or_invalid_state_payload(
+    tmp_path: Path,
+) -> None:
+    _bind()
+    with pytest.raises(NeverThrown):
+        orchestrator._emit_taint_outputs(
+            response={},
+            analysis=_empty_analysis_result(),
+            root=str(tmp_path),
+            taint_state_path="missing-state.json",
+            emit_taint_delta=False,
+            emit_taint_state=False,
+            write_taint_baseline=False,
+            emit_taint_lifecycle=False,
+            taint_profile_name="observe",
+            taint_boundary_registry_payload=None,
+        )
+
+    bad_state = tmp_path / "bad_state.json"
+    bad_state.write_text("[]", encoding="utf-8")
+    with pytest.raises(NeverThrown):
+        orchestrator._emit_taint_outputs(
+            response={},
+            analysis=_empty_analysis_result(),
+            root=str(tmp_path),
+            taint_state_path=str(bad_state),
+            emit_taint_delta=False,
+            emit_taint_state=False,
+            write_taint_baseline=False,
+            emit_taint_lifecycle=False,
+            taint_profile_name="observe",
+            taint_boundary_registry_payload=None,
+        )
 
 
 def test_run_analysis_with_progress_skips_resume_seed_when_resume_payload_present(

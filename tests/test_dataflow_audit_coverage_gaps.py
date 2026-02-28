@@ -3263,7 +3263,9 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
     mod.write_text(
         "def f(flag, extra, mystery):\n"
         "    if flag and extra:\n"
-        "        gabion.never(reason='kw')\n"
+        "        gabion.never("
+        "reason='kw', owner='core', expiry='2099-01-01', "
+        "links=[{'kind':'policy_id','value':'NCI-LSP-FIRST'}])\n"
         "    if mystery:\n"
         "        gabion.never('plain')\n"
         "    gabion.todo(reason='later')\n"
@@ -3281,11 +3283,12 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
             "deadness_id": "dead:f:flag",
         }
     ]
+    forest = da.Forest()
     entries = da._collect_never_invariants(
         [broken, mod],
         project_root=tmp_path,
         ignore_params=set(),
-        forest=da.Forest(),
+        forest=forest,
         deadness_witnesses=deadness,
     )
 
@@ -3308,6 +3311,18 @@ def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> 
     assert all(
         isinstance(entry.get("marker_id"), str) and ":never:" not in str(entry.get("marker_id"))
         for entry in entries
+    )
+    kw_entries = [entry for entry in entries if entry.get("reason") == "kw"]
+    assert kw_entries
+    assert kw_entries[0].get("owner") == "core"
+    assert kw_entries[0].get("expiry") == "2099-01-01"
+    assert kw_entries[0].get("links") == [{"kind": "policy_id", "value": "NCI-LSP-FIRST"}]
+    never_alts = [alt for alt in forest.alts if alt.kind == "NeverInvariantSink"]
+    assert any(
+        alt.evidence.get("owner") == "core"
+        and alt.evidence.get("expiry") == "2099-01-01"
+        and alt.evidence.get("links") == [{"kind": "policy_id", "value": "NCI-LSP-FIRST"}]
+        for alt in never_alts
     )
 
 

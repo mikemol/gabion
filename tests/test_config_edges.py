@@ -85,3 +85,24 @@ def test_dataflow_adapter_payload_normalizes_invalid_shapes() -> None:
     assert config.dataflow_adapter_payload({"adapter": {"required_surfaces": ["x"]}}) == {
         "required_surfaces": ["x"]
     }
+
+
+def test_exception_and_taint_config_edge_paths() -> None:
+    assert config.exception_marker_families(None) == {}
+    assert config.exception_marker_families("bad") == {}
+    assert config.exception_marker_families({"markers": "not-a-dict"}) == {}
+    families = config.exception_marker_families(
+        {"markers": {"": ["skip"], "never": ["NeverRaise"]}}
+    )
+    assert families == {"never": ["NeverRaise"]}
+    assert config.exception_marker_family({"markers": {"taint": ["T"]}}, "") == []
+    assert config.exception_marker_family({"markers": {"taint": ["T"]}}, "unknown") == []
+
+    assert config.taint_profile(None) == "observe"
+    assert config.taint_profile("bad") == "observe"
+    assert config.taint_boundary_registry(None) == []
+    assert config.taint_boundary_registry("bad") == []
+    assert config.taint_boundary_registry({"boundaries": "bad"}) == []
+    assert config.taint_boundary_registry({"boundaries": ["bad", {"suite_id": "s"}]}) == [
+        {"suite_id": "s"}
+    ]
