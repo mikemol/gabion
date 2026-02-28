@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from itertools import zip_longest
 from dataclasses import dataclass, field
+from hashlib import sha1
+import json
 from typing import TYPE_CHECKING, Mapping, cast
 import dataclasses
 
+from gabion.commands import aux_operation_contract
 from gabion.order_contract import OrderPolicy
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
@@ -150,21 +153,14 @@ def _normalize_command_payload_ingress(
             aux_operation_raw.get("baseline_path"),
             root,
         )
-        if aux_domain not in {"obsolescence", "annotation-drift", "ambiguity", "taint"}:
-            never(
-                "invalid aux operation domain",
-                domain=aux_domain,
-                action=aux_action,
-            )
-        if aux_action in {"delta", "baseline-write"} and aux_baseline_path is None:
-            never(
-                "aux operation missing baseline path",
-                domain=aux_domain,
-                action=aux_action,
-            )
-        aux_operation = _AuxOperationIngressCarrier(
+        decision = aux_operation_contract.validate_aux_operation_or_never(
             domain=aux_domain,
             action=aux_action,
+            baseline_path=aux_baseline_path,
+        )
+        aux_operation = _AuxOperationIngressCarrier(
+            domain=decision.domain,
+            action=decision.action,
             state_in=aux_state_in,
             baseline_path=aux_baseline_path,
         )
@@ -683,6 +679,138 @@ def _emit_ambiguity_outputs(
             response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
 
 
+def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, object]]:
+    marker_rows: list[dict[str, object]] = [
+        {str(key): row[key] for key in row} for row in analysis.never_invariants
+    ]
+    marker_rows.extend(
+        row
+        for row in (
+            _taint_marker_row_from_ambiguity_witness(entry)
+            for entry in analysis.ambiguity_witnesses
+        )
+        if row is not None
+    )
+    marker_rows.extend(
+        row
+        for row in (
+            _taint_marker_row_from_type_ambiguity(entry)
+            for entry in analysis.type_ambiguities
+        )
+        if row is not None
+    )
+    return sort_once(
+        marker_rows,
+        source="command_orchestrator._normalize_taint_marker_rows.rows",
+        key=lambda row: (
+            str(row.get("marker_id", "")),
+            str(row.get("marker_kind", "")),
+            str(row.get("reason", "")),
+        ),
+    )
+
+
+def _taint_marker_row_from_ambiguity_witness(
+    witness: object,
+) -> dict[str, object] | None:
+    if not isinstance(witness, Mapping):
+        return None
+    site_payload = witness.get("site")
+    if not isinstance(site_payload, Mapping):
+        site_payload = {}
+    path = str(site_payload.get("path", "") or "").strip()
+    function = str(
+        site_payload.get("function", "")
+        or site_payload.get("qual", "")
+        or ""
+    ).strip()
+    span_payload = site_payload.get("span")
+    span = (
+        [int(value) for value in span_payload]
+        if isinstance(span_payload, list)
+        and all(isinstance(value, int) for value in span_payload)
+        else None
+    )
+    kind = str(witness.get("kind", "local_resolution_ambiguous") or "local_resolution_ambiguous").strip()
+    candidate_count_raw = witness.get("candidate_count")
+    try:
+        candidate_count = int(candidate_count_raw or 0)
+    except (TypeError, ValueError):
+        candidate_count = 0
+    digest = _taint_marker_digest(
+        {
+            "kind": kind,
+            "path": path,
+            "function": function,
+            "span": span or [],
+            "candidate_count": candidate_count,
+        }
+    )
+    site: dict[str, object] = {
+        "path": path,
+        "function": function,
+        "suite_id": f"suite:ambiguity:{digest}",
+    }
+    if span is not None:
+        site["span"] = span
+    return {
+        "marker_kind": "never",
+        "marker_id": f"ambiguity:{digest}",
+        "marker_site_id": f"ambiguity:{digest}",
+        "reason": f"ambiguity witness kind={kind} candidates={candidate_count}",
+        "site": site,
+        "links": [
+            {"kind": "object_id", "value": "taint_kind:control_ambiguity"},
+            {"kind": "object_id", "value": "source_surface:ambiguity_witness"},
+        ],
+        "owner": "analysis",
+    }
+
+
+def _taint_marker_row_from_type_ambiguity(entry: object) -> dict[str, object] | None:
+    text = str(entry or "").strip()
+    if not text:
+        return None
+    path, function = _type_ambiguity_site(text)
+    digest = _taint_marker_digest(
+        {
+            "type_ambiguity": text,
+            "path": path,
+            "function": function,
+        }
+    )
+    return {
+        "marker_kind": "deprecated",
+        "marker_id": f"type_ambiguity:{digest}",
+        "marker_site_id": f"type_ambiguity:{digest}",
+        "reason": text,
+        "site": {
+            "path": path,
+            "function": function,
+            "suite_id": f"suite:type_ambiguity:{digest}",
+        },
+        "links": [
+            {"kind": "object_id", "value": "taint_kind:type_ambiguity"},
+            {"kind": "object_id", "value": "source_surface:type_ambiguity"},
+        ],
+        "owner": "analysis",
+    }
+
+
+def _type_ambiguity_site(entry: str) -> tuple[str, str]:
+    lhs, _, _ = entry.partition(" downstream types conflict: ")
+    path, separator, remainder = lhs.partition(":")
+    if not separator:
+        return "", lhs.strip()
+    function, _, _ = remainder.partition(".")
+    return path.strip(), function.strip()
+
+
+def _taint_marker_digest(payload: Mapping[str, object]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return sha1(encoded.encode("utf-8")).hexdigest()[:16]
+
+
 def _emit_taint_outputs(
     *,
     response: dict[str, object],
@@ -711,7 +839,7 @@ def _emit_taint_outputs(
             cast(Mapping[str, JSONValue], state_payload)
         )
     elif emit_taint_delta or write_taint_baseline or emit_taint_state or emit_taint_lifecycle:
-        marker_rows = [{str(key): row[key] for key in row} for row in analysis.never_invariants]
+        marker_rows = _normalize_taint_marker_rows(analysis=analysis)
         state_payload = taint_state.build_state_payload(
             marker_rows=marker_rows,
             boundary_registry=cast(
@@ -3096,19 +3224,13 @@ def _select_auxiliary_mode_selection(
         allow_lifecycle=True,
     )
     if aux_operation is not None:
-        aux_domain = aux_operation.domain
-        aux_action = aux_operation.action
-        allowed_actions = {
-            "obsolescence": {"report", "state", "delta", "baseline-write"},
-            "annotation-drift": {"report", "state", "delta", "baseline-write"},
-            "ambiguity": {"state", "delta", "baseline-write"},
-            "taint": {"state", "delta", "baseline-write", "lifecycle"},
-        }
-        domain_actions = allowed_actions.get(aux_domain)
-        if domain_actions is None:
-            never("invalid aux operation domain", domain=aux_domain, action=aux_action)
-        if aux_action not in domain_actions:
-            never("invalid aux operation action", domain=aux_domain, action=aux_action)
+        aux_decision = aux_operation_contract.validate_aux_operation_or_never(
+            domain=aux_operation.domain,
+            action=aux_operation.action,
+            baseline_path=aux_operation.baseline_path,
+        )
+        aux_domain = aux_decision.domain
+        aux_action = aux_decision.action
         baseline_modes = {
             "obsolescence": _AuxiliaryMode(domain="obsolescence", kind="off", state_path=None),
             "annotation-drift": _AuxiliaryMode(domain="annotation-drift", kind="off", state_path=None),
@@ -3219,6 +3341,14 @@ def _compute_analysis_inclusion_flags(
     decision_tiers: dict[str, int],
 ) -> _AnalysisInclusionFlags:
     type_audit = bool(options.type_audit)
+    needs_taint_marker_sources = (
+        options.emit_taint_state
+        or options.emit_taint_delta
+        or options.write_taint_baseline
+        or options.emit_taint_lifecycle
+    ) and not options.taint_state_path
+    if needs_taint_marker_sources:
+        type_audit = True
     if options.fail_on_type_ambiguities:
         type_audit = True
     include_decisions = bool(report_path) or bool(options.decision_snapshot_path) or bool(
@@ -3242,6 +3372,8 @@ def _compute_analysis_inclusion_flags(
         include_never_invariants = True
     include_ambiguities = bool(report_path) or options.lint or options.emit_ambiguity_state
     if (options.emit_ambiguity_delta or options.write_ambiguity_baseline) and not options.ambiguity_state_path:
+        include_ambiguities = True
+    if needs_taint_marker_sources:
         include_ambiguities = True
     include_coherence = (
         bool(report_path)

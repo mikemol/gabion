@@ -4847,6 +4847,16 @@ def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
             "owner": "core",
         }
     ]
+    analysis.ambiguity_witnesses = [
+        {
+            "kind": "local_resolution_ambiguous",
+            "site": {"path": "sample.py", "function": "caller", "span": [1, 1, 1, 2]},
+            "candidate_count": 2,
+        }
+    ]
+    analysis.type_ambiguities = [
+        "sample.py:caller.arg downstream types conflict: ['int', 'str']"
+    ]
 
     baseline_write_result = _execute_with_deps(
         _DummyServer(str(tmp_path)),
@@ -4868,7 +4878,13 @@ def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
         analyze_paths_fn=lambda *_args, **_kwargs: analysis,
     )
     assert baseline_write_result["exit_code"] == 0
-    assert (tmp_path / "artifacts" / "out" / "taint_state.json").exists()
+    taint_state_path = tmp_path / "artifacts" / "out" / "taint_state.json"
+    assert taint_state_path.exists()
+    taint_state_payload = json.loads(taint_state_path.read_text(encoding="utf-8"))
+    taint_records = taint_state_payload["taint_records"]
+    assert len(taint_records) == 3
+    assert any(row["taint_kind"] == "control_ambiguity" for row in taint_records)
+    assert any(row["taint_kind"] == "type_ambiguity" for row in taint_records)
 
     baseline_path = tmp_path / "baselines" / "taint_baseline.json"
     write_result = _execute_with_deps(

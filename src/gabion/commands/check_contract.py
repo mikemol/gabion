@@ -7,6 +7,7 @@ from typing import Callable, Literal, Mapping
 
 import typer
 
+from gabion.commands import aux_operation_contract
 from gabion.json_types import JSONObject
 
 SplitCsvEntriesFn = Callable[[list[str]], list[str]]
@@ -48,14 +49,6 @@ class CheckPolicyFlags:
     lint: bool
 
 
-_CHECK_AUX_DOMAIN_ACTIONS: dict[str, tuple[str, ...]] = {
-    "obsolescence": ("report", "state", "delta", "baseline-write"),
-    "annotation-drift": ("report", "state", "delta", "baseline-write"),
-    "ambiguity": ("state", "delta", "baseline-write"),
-    "taint": ("state", "delta", "baseline-write", "lifecycle"),
-}
-
-
 @dataclass(frozen=True)
 class CheckAuxOperation:
     domain: str
@@ -66,27 +59,21 @@ class CheckAuxOperation:
     out_md: Path | None = None
 
     def validate(self) -> None:
-        domain = self.domain.strip().lower()
-        action = self.action.strip().lower()
-        allowed = _CHECK_AUX_DOMAIN_ACTIONS.get(domain)
-        if allowed is None:
-            raise typer.BadParameter(
-                "aux_operation domain must be one of: obsolescence, annotation-drift, ambiguity, taint."
-            )
-        if action not in allowed:
-            raise typer.BadParameter(
-                f"aux_operation action '{action}' is not valid for domain '{domain}'."
-            )
-        if action in {"delta", "baseline-write"} and self.baseline_path is None:
-            raise typer.BadParameter(
-                "aux_operation requires baseline_path for delta and baseline-write actions."
-            )
+        aux_operation_contract.validate_aux_operation_for_typer(
+            domain=self.domain,
+            action=self.action,
+            baseline_path=self.baseline_path,
+        )
 
     def to_payload(self) -> JSONObject:
-        self.validate()
+        decision = aux_operation_contract.validate_aux_operation_for_typer(
+            domain=self.domain,
+            action=self.action,
+            baseline_path=self.baseline_path,
+        )
         return {
-            "domain": self.domain.strip().lower(),
-            "action": self.action.strip().lower(),
+            "domain": decision.domain,
+            "action": decision.action,
             "baseline_path": str(self.baseline_path)
             if self.baseline_path is not None
             else None,
