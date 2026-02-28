@@ -76,6 +76,14 @@ def fingerprint_defaults(
     return section if isinstance(section, dict) else {}
 
 
+def taint_defaults(
+    root: Path | None = None, config_path: Path | None = None
+) -> TomlTable:
+    data = load_config(root=root, config_path=config_path)
+    section = data.get("taint", {})
+    return section if isinstance(section, dict) else {}
+
+
 def _normalize_name_list(value: TomlValue) -> list[str]:
     check_deadline()
     items: list[str] = []
@@ -137,7 +145,64 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
         return []
     if not isinstance(section, dict):
         return []
+    markers = exception_marker_families(section)
+    if "never" in markers and markers["never"]:
+        return markers["never"]
     return _normalize_name_list(section.get("never"))
+
+
+def exception_marker_families(section: TomlTable | None) -> dict[str, list[str]]:
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        return {}
+    markers = section.get("markers")
+    if not isinstance(markers, dict):
+        return {}
+    families: dict[str, list[str]] = {}
+    for family, payload in markers.items():
+        check_deadline()
+        family_name = str(family).strip()
+        if not family_name:
+            continue
+        families[family_name] = _normalize_name_list(payload)
+    return families
+
+
+def exception_marker_family(section: TomlTable | None, family: str) -> list[str]:
+    if not family.strip():
+        return []
+    families = exception_marker_families(section)
+    if family in families and families[family]:
+        return families[family]
+    if family == "never":
+        return exception_never_list(section)
+    return []
+
+
+def taint_profile(section: TomlTable | None) -> str:
+    if section is None:
+        return "observe"
+    if not isinstance(section, dict):
+        return "observe"
+    return str(section.get("profile", "observe") or "observe").strip().lower()
+
+
+def taint_boundary_registry(section: TomlTable | None) -> list[dict[str, TomlValue]]:
+    if section is None:
+        return []
+    if not isinstance(section, dict):
+        return []
+    boundaries = section.get("boundaries")
+    if not isinstance(boundaries, list):
+        return []
+    normalized: list[dict[str, TomlValue]] = []
+    for row in boundaries:
+        check_deadline()
+        if not isinstance(row, dict):
+            continue
+        normalized.append({str(key): row[key] for key in row})
+    return normalized
 
 
 def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:

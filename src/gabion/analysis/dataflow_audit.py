@@ -67,10 +67,18 @@ from gabion.config import (
     decision_require_tiers,
     decision_tier_map,
     exception_defaults,
+    exception_marker_family,
     exception_never_list,
     fingerprint_defaults,
     merge_payload,
     synthesis_defaults,
+)
+from gabion.analysis.marker_protocol import (
+    DEFAULT_MARKER_ALIASES,
+    MarkerKind,
+    MarkerLifecycleState,
+    marker_identity,
+    normalize_marker_payload,
 )
 from gabion.analysis.type_fingerprints import (
     Fingerprint,
@@ -1900,15 +1908,24 @@ def _decorator_matches(name: str, allowlist: set[str]) -> bool:
     return False
 
 
-_NEVER_MARKERS = {"never", "gabion.never", "gabion.invariants.never"}
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
 
 
-def _is_never_call(call: ast.Call) -> bool:
+def _is_marker_call(call: ast.Call, aliases: set[str]) -> bool:
     name = _decorator_name(call.func)
     if not name:
         return False
-    return _decorator_matches(name, _NEVER_MARKERS)
+    return _decorator_matches(name, aliases)
+
+
+def _is_never_call(call: ast.Call, aliases: tuple[str, ...] = ()) -> bool:
+    active_aliases = set(aliases)
+    if not active_aliases:
+        active_aliases = set(DEFAULT_MARKER_ALIASES.get(MarkerKind.NEVER, ()))
+    if not _is_marker_call(call, active_aliases):
+        return False
+    _, alias_map = _marker_alias_kind_map(tuple(active_aliases))
+    return _marker_kind_for_call(call, alias_map) is MarkerKind.NEVER
 
 
 def _is_never_marker_raise(
@@ -5849,6 +5866,124 @@ def _collect_exception_obligations(
     source = 'src/gabion/analysis/dataflow_audit.py:4672')
 
 
+
+
+
+
+def _keyword_string_literal(call: ast.Call, key: str) -> str:
+    check_deadline()
+    for kw in call.keywords:
+        check_deadline()
+        if kw.arg != key:
+            continue
+        kw_value = kw.value
+        if type(kw_value) is ast.Constant:
+            constant_value = cast(ast.Constant, kw_value).value
+            if type(constant_value) is str:
+                return constant_value
+    return ""
+
+
+def _keyword_links_literal(call: ast.Call) -> list[JSONObject]:
+    check_deadline()
+    for kw in call.keywords:
+        check_deadline()
+        if kw.arg != "links":
+            continue
+        kw_value = kw.value
+        if type(kw_value) is not ast.List:
+            return []
+        links: list[JSONObject] = []
+        for item in cast(ast.List, kw_value).elts:
+            check_deadline()
+            if type(item) is not ast.Dict:
+                continue
+            dict_node = cast(ast.Dict, item)
+            payload: JSONObject = {}
+            for raw_key, raw_value in zip(dict_node.keys, dict_node.values, strict=False):
+                check_deadline()
+                if type(raw_key) is not ast.Constant:
+                    continue
+                if type(raw_value) is not ast.Constant:
+                    continue
+                key_value = cast(ast.Constant, raw_key).value
+                value_value = cast(ast.Constant, raw_value).value
+                if type(key_value) is str and type(value_value) is str:
+                    payload[key_value] = value_value
+            kind = str(payload.get("kind", "")).strip()
+            value = str(payload.get("value", "")).strip()
+            if kind and value:
+                links.append({"kind": kind, "value": value})
+        return sort_once(
+            links,
+            key=lambda item: (str(item.get("kind", "")), str(item.get("value", ""))),
+            source="_keyword_links_literal",
+        )
+    return []
+
+
+def _never_marker_metadata(
+    call: ast.Call,
+    never_id: str,
+    reason: str,
+    *,
+    marker_kind: MarkerKind = MarkerKind.NEVER,
+) -> JSONObject:
+    check_deadline()
+    owner = _keyword_string_literal(call, "owner")
+    expiry = _keyword_string_literal(call, "expiry")
+    links = _keyword_links_literal(call)
+    payload = normalize_marker_payload(
+        reason=reason,
+        env={},
+        marker_kind=marker_kind,
+        owner=owner,
+        expiry=expiry,
+        lifecycle_state=MarkerLifecycleState.ACTIVE,
+        links=tuple(cast(dict[str, str], link) for link in links),
+    )
+    return {
+        "marker_kind": marker_kind.value,
+        "marker_id": marker_identity(payload),
+        "marker_site_id": never_id,
+        "owner": owner,
+        "expiry": expiry,
+        "links": links,
+    }
+
+
+
+def _marker_alias_kind_map(marker_aliases: Sequence[str]) -> tuple[set[str], dict[str, MarkerKind]]:
+    check_deadline()
+    alias_map: dict[str, MarkerKind] = {}
+    for marker_kind, aliases in DEFAULT_MARKER_ALIASES.items():
+        check_deadline()
+        for alias in aliases:
+            check_deadline()
+            alias_map[alias] = marker_kind
+            alias_map[alias.split(".")[-1]] = marker_kind
+    active_aliases = set(marker_aliases)
+    if not active_aliases:
+        active_aliases = set(alias_map.keys())
+    else:
+        for alias in active_aliases:
+            check_deadline()
+            alias_map.setdefault(alias, MarkerKind.NEVER)
+            if "." in alias:
+                alias_map.setdefault(alias.split(".")[-1], MarkerKind.NEVER)
+    return active_aliases, alias_map
+
+
+def _marker_kind_for_call(call: ast.Call, alias_map: Mapping[str, MarkerKind]) -> MarkerKind:
+    check_deadline()
+    name = _decorator_name(call.func) or ""
+    if not name:
+        return MarkerKind.NEVER
+    if name in alias_map:
+        return alias_map[name]
+    short = name.split(".")[-1]
+    return alias_map.get(short, MarkerKind.NEVER)
+
 def _never_reason(call: ast.Call):
     check_deadline()
     if call.args:
@@ -5874,10 +6009,12 @@ def _collect_never_invariants(
     project_root,
     ignore_params: set[str],
     forest: Forest,
+    marker_aliases: Sequence[str] = (),
     deadness_witnesses=None,
 ) -> list[JSONObject]:
     check_deadline()
     invariants: list[JSONObject] = []
+    effective_aliases, alias_kind_map = _marker_alias_kind_map(marker_aliases)
     dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
         check_deadline()
@@ -5895,7 +6032,7 @@ def _collect_never_invariants(
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
-            if type(node) is ast.Call and _is_never_call(cast(ast.Call, node)):
+            if type(node) is ast.Call and _is_marker_call(cast(ast.Call, node), effective_aliases):
                 call_node = cast(ast.Call, node)
                 fn_node = _enclosing_function_node(call_node, parents)
                 if fn_node is None:
@@ -5911,6 +6048,8 @@ def _collect_never_invariants(
                 col = getattr(call_node, "col_offset", 0)
                 never_id = f"never:{path_value}:{function}:{lineno}:{col}"
                 reason = _never_reason(call_node) or ""
+                marker_kind = _marker_kind_for_call(call_node, alias_kind_map)
+                marker_metadata = _never_marker_metadata(call_node, never_id, reason, marker_kind=marker_kind)
                 status = "OBLIGATION"
                 witness_ref = None
                 environment_ref: JSONValue = None
@@ -5974,6 +6113,12 @@ def _collect_never_invariants(
                     },
                     "status": status,
                     "reason": reason,
+                    "marker_kind": marker_metadata.get("marker_kind", MarkerKind.NEVER.value),
+                    "marker_id": marker_metadata.get("marker_id", never_id),
+                    "marker_site_id": marker_metadata.get("marker_site_id", never_id),
+                    "owner": marker_metadata.get("owner", ""),
+                    "expiry": marker_metadata.get("expiry", ""),
+                    "links": marker_metadata.get("links", []),
                 }
                 normalized_span = span or (lineno, col, lineno, col)
                 if undecidable_reason:
@@ -6004,6 +6149,17 @@ def _collect_never_invariants(
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
                     evidence["reason"] = reason
+                evidence["marker_id"] = str(marker_metadata.get("marker_id", never_id))
+                evidence["marker_site_id"] = str(marker_metadata.get("marker_site_id", never_id))
+                marker_links = marker_metadata.get("links")
+                if type(marker_links) is list and marker_links:
+                    evidence["links"] = marker_links
+                marker_owner = str(marker_metadata.get("owner", "")).strip()
+                if marker_owner:
+                    evidence["owner"] = marker_owner
+                marker_expiry = str(marker_metadata.get("expiry", "")).strip()
+                if marker_expiry:
+                    evidence["expiry"] = marker_expiry
                 evidence["span"] = list(normalized_span)
                 forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
     return sort_once(
@@ -17472,7 +17628,14 @@ def _run_impl(
     decision_tiers = decision_tier_map(decision_section)
     decision_require = decision_require_tiers(decision_section)
     exception_section = exception_defaults(Path(args.root), config_path)
-    never_exceptions = set(exception_never_list(exception_section))
+    never_exceptions = set(exception_marker_family(exception_section, "never"))
+    never_exceptions.update(exception_never_list(exception_section))
+    all_marker_aliases = {
+        alias
+        for aliases in DEFAULT_MARKER_ALIASES.values()
+        for alias in aliases
+    }
+    never_exceptions.update(all_marker_aliases)
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"
