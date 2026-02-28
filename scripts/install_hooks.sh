@@ -38,7 +38,7 @@ current_branch=$(git rev-parse --abbrev-ref HEAD)
 rev_range="origin/stage..HEAD"
 
 if [ "$current_branch" = "stage" ]; then
-  "$repo_root/scripts/sppf_sync.py" \
+  python -m scripts.sppf_sync \
     --validate \
     --only-when-relevant \
     --range "$rev_range" \
@@ -48,7 +48,7 @@ if [ "$current_branch" = "stage" ]; then
 fi
 
 if [ -n "${GABION_SPPF_SYNC:-}" ] && [ "$current_branch" = "stage" ]; then
-  "$repo_root/scripts/sppf_sync.py" \
+  python -m scripts.sppf_sync \
     --comment \
     --range "$rev_range" \
     --label done-on-stage \

@@ -37,6 +37,7 @@ from lsprotocol.types import (
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.commands import boundary_order, command_ids, direct_dispatch, payload_codec
+from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
     ExecutionPlan,
     ExecutionPlanObligations,
@@ -671,10 +672,9 @@ def _canonical_json_text(payload: object) -> str:
 def _load_aspf_resume_state(
     *,
     import_state_paths: Sequence[Path],
+    include_delta_records: bool = False,
+    diagnostic_tail_limit: int = 32,
 ) -> JSONObject | None:
-    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
-        state_paths=import_state_paths
-    )
     latest_manifest_digest: str | None = None
     latest_resume_source: str | None = None
     for path in import_state_paths:
@@ -686,12 +686,27 @@ def _load_aspf_resume_state(
         latest_manifest_digest = manifest_digest or latest_manifest_digest
         resume_source = str(raw_payload.get("resume_source", "") or "")
         latest_resume_source = resume_source or latest_resume_source
+    projection, mutation_count, mutation_tail = aspf_resume_state.fold_resume_mutations(
+        snapshot={},
+        mutations=aspf_resume_state.iter_resume_mutations(
+            state_paths=import_state_paths,
+        ),
+        tail_limit=diagnostic_tail_limit,
+    )
     payload: JSONObject = {
-        "resume_projection": projection if projection is not None else {},
-        "delta_records": [dict(record) for record in records],
+        "resume_projection": projection,
+        "delta_record_count": mutation_count,
+        "delta_records_tail": list(mutation_tail),
         "analysis_manifest_digest": latest_manifest_digest,
         "resume_source": latest_resume_source,
     }
+    if include_delta_records:
+        payload["delta_records"] = [
+            dict(record)
+            for record in aspf_resume_state.iter_resume_mutations(
+                state_paths=import_state_paths,
+            )
+        ]
     return payload
 
 
@@ -2404,26 +2419,73 @@ def _parse_lint_line(line: str) -> LintEntryDTO | None:
     )
 
 
-def _lint_entries_from_lines(lines: Sequence[str]) -> list[dict[str, object]]:
-    entries: list[dict[str, object]] = []
-    for line in lines:
-        check_deadline()
-        entry = _parse_lint_line(line)
-        if entry is not None:
-            entries.append(entry.model_dump())
-    return entries
+def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
+    entry = _parse_lint_line(line)
+    return entry.model_dump() if entry is not None else None
+
+
+def _normalize_dataflow_boundary_controls(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    normalized_updates: dict[str, object] = {}
+    for key in ("language", "ingest_profile"):
+        raw_value = payload.get(key)
+        if raw_value is None:
+            continue
+        if not isinstance(raw_value, str):
+            never(  # pragma: no cover - invariant sink
+                "invalid dataflow boundary control type",
+                control=key,
+                value_type=type(raw_value).__name__,
+            )
+        normalized_value = raw_value.strip().lower()
+        if not normalized_value:
+            never(  # pragma: no cover - invariant sink
+                "empty dataflow boundary control",
+                control=key,
+            )
+        normalized_updates[key] = normalized_value
+    if not normalized_updates:
+        return payload
+    return boundary_order.apply_boundary_updates_once(
+        payload,
+        normalized_updates,
+        source="server._normalize_dataflow_boundary_controls",
+    )
 
 
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
-    lint_lines_raw = response.get("lint_lines")
-    lint_lines = [str(line) for line in lint_lines_raw] if isinstance(lint_lines_raw, list) else []
-    lint_entries_raw = response.get("lint_entries")
-    lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else _lint_entries_from_lines(lint_lines)
+    lint_decision = LintEntriesDecision.from_response(response)
+    lint_lines = list(lint_decision.lint_lines)
+    lint_entries = lint_decision.normalize_entries(
+        parse_lint_entry_fn=_parse_lint_line_as_payload,
+    )
     aspf_trace_raw = response.get("aspf_trace")
     aspf_equivalence_raw = response.get("aspf_equivalence")
     aspf_opportunities_raw = response.get("aspf_opportunities")
     aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
     aspf_state_raw = response.get("aspf_state")
+    supported_analysis_surfaces_raw = response.get("supported_analysis_surfaces")
+    disabled_surface_reasons_raw = response.get("disabled_surface_reasons")
+    supported_analysis_surfaces = (
+        sort_once(
+            [str(item) for item in supported_analysis_surfaces_raw],
+            source="server._normalize_dataflow_response.supported_analysis_surfaces",
+        )
+        if isinstance(supported_analysis_surfaces_raw, list)
+        else []
+    )
+    disabled_surface_reasons = (
+        {
+            str(key): str(disabled_surface_reasons_raw[key])
+            for key in sort_once(
+                disabled_surface_reasons_raw,
+                source="server._normalize_dataflow_response.disabled_surface_keys",
+            )
+        }
+        if isinstance(disabled_surface_reasons_raw, Mapping)
+        else {}
+    )
     base = DataflowAuditResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
@@ -2431,6 +2493,13 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
         lint_lines=lint_lines,
         lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
+        selected_adapter=(
+            str(response.get("selected_adapter"))
+            if response.get("selected_adapter") is not None
+            else None
+        ),
+        supported_analysis_surfaces=supported_analysis_surfaces,
+        disabled_surface_reasons=disabled_surface_reasons,
         aspf_trace=aspf_trace_raw if isinstance(aspf_trace_raw, Mapping) else None,
         aspf_equivalence=(
             aspf_equivalence_raw if isinstance(aspf_equivalence_raw, Mapping) else None
@@ -2468,7 +2537,24 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
     normalized["analysis_state"] = base.analysis_state
     normalized["errors"] = base.errors
     normalized["lint_lines"] = base.lint_lines
+    normalized["selected_adapter"] = base.selected_adapter
+    normalized["supported_analysis_surfaces"] = list(
+        base.supported_analysis_surfaces
+    )
+    normalized["disabled_surface_reasons"] = dict(base.disabled_surface_reasons)
     normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    payload = normalized.get("payload")
+    if isinstance(payload, Mapping):
+        payload_updates: dict[str, object] = {
+            "selected_adapter": base.selected_adapter,
+            "supported_analysis_surfaces": list(base.supported_analysis_surfaces),
+            "disabled_surface_reasons": dict(base.disabled_surface_reasons),
+        }
+        normalized["payload"] = boundary_order.apply_boundary_updates_once(
+            {str(key): payload[key] for key in payload},
+            payload_updates,
+            source="server._normalize_dataflow_response.payload_capabilities",
+        )
     if base.aspf_trace is not None:
         normalized["aspf_trace"] = base.aspf_trace.model_dump()
     if base.aspf_equivalence is not None:
@@ -2830,9 +2916,9 @@ def _diagnostics_for_path(
                 ):
                     check_deadline()
                     span = param_spans.get(name)
-                    if span is None:  # pragma: no cover - spans are derived from parsed params
-                        start = Position(line=0, character=0)  # pragma: no cover
-                        end = Position(line=0, character=1)  # pragma: no cover
+                    if span is None:
+                        start = Position(line=0, character=0)
+                        end = Position(line=0, character=1)
                     else:
                         start_line, start_col, end_line, end_col = span
                         start = Position(line=start_line, character=start_col)
@@ -2990,6 +3076,7 @@ def _execute_dataflow_command_boundary(
 ) -> dict:
     try:
         normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
+        normalized_payload = _normalize_dataflow_boundary_controls(normalized_payload)
         normalized_result = _execute_command_total(ls, normalized_payload, deps=deps)
         return _ordered_command_response(
             normalized_result,
@@ -3343,6 +3430,146 @@ class ImpactEdge:
     inferred: bool
 
 
+@dataclass(frozen=True)
+class ImpactPayloadDTO:
+    root: Path
+    max_call_depth: int | None
+    confidence_threshold: float
+    changes: tuple[ImpactSpan, ...]
+
+
+@dataclass(frozen=True)
+class ImpactEdgeBuckets:
+    reverse_edges: dict[str, list[ImpactEdge]]
+    unresolved_edges: tuple[dict[str, object], ...]
+
+
+class ParityProbeError(RuntimeError):
+    pass
+
+
+class LspProbeExecutionError(ParityProbeError):
+    pass
+
+
+class DirectProbeExecutionError(ParityProbeError):
+    pass
+
+
+def _normalize_impact_payload(
+    payload: Mapping[str, object],
+    *,
+    workspace_root: str | None,
+) -> ImpactPayloadDTO:
+    root = Path(str(payload.get("root") or workspace_root or "."))
+
+    max_call_depth_raw = payload.get("max_call_depth")
+    try:
+        max_call_depth = int(max_call_depth_raw) if max_call_depth_raw is not None else None
+    except (TypeError, ValueError) as exc:
+        raise ValueError("max_call_depth must be an integer") from exc
+    if max_call_depth is not None and max_call_depth < 0:
+        raise ValueError("max_call_depth must be non-negative")
+
+    threshold_raw = payload.get("confidence_threshold", 0.5)
+    try:
+        confidence_threshold = float(threshold_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("confidence_threshold must be numeric") from exc
+    normalized_threshold = max(0.0, min(1.0, confidence_threshold))
+
+    changes: list[ImpactSpan] = []
+    raw_changes = payload.get("changes")
+    if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
+        for entry in deadline_loop_iter(raw_changes):
+            parsed = _normalize_impact_change_entry(entry)
+            if parsed is not None:
+                changes.append(
+                    ImpactSpan(
+                        path=parsed.path.replace("\\", "/"),
+                        start_line=parsed.start_line,
+                        end_line=parsed.end_line,
+                    )
+                )
+    raw_diff = payload.get("git_diff")
+    if isinstance(raw_diff, str) and raw_diff.strip():
+        for diff_span in deadline_loop_iter(_parse_impact_diff_ranges(raw_diff)):
+            changes.append(
+                ImpactSpan(
+                    path=diff_span.path.replace("\\", "/"),
+                    start_line=diff_span.start_line,
+                    end_line=diff_span.end_line,
+                )
+            )
+    if not changes:
+        raise ValueError("Provide at least one change span or git diff")
+
+    return ImpactPayloadDTO(
+        root=root,
+        max_call_depth=max_call_depth,
+        confidence_threshold=normalized_threshold,
+        changes=tuple(changes),
+    )
+
+
+def _normalize_impact_edge_buckets(
+    *,
+    edges: Sequence[ImpactEdge],
+    functions_by_qual: Mapping[str, ImpactFunction],
+) -> ImpactEdgeBuckets:
+    reverse_edges: dict[str, list[ImpactEdge]] = defaultdict(list)
+    unresolved: list[dict[str, object]] = []
+    for edge in deadline_loop_iter(edges):
+        check_deadline()
+        if edge.caller not in functions_by_qual or edge.callee not in functions_by_qual:
+            unresolved.append(
+                {
+                    "caller": edge.caller,
+                    "callee": edge.callee,
+                    "reason": "unresolvable_function_id",
+                }
+            )
+            continue
+        reverse_edges[edge.callee].append(edge)
+    return ImpactEdgeBuckets(reverse_edges=reverse_edges, unresolved_edges=tuple(unresolved))
+
+
+def _probe_lsp_executor(
+    executor: Callable[[LanguageServer, dict[str, object] | None], dict],
+    *,
+    ls: LanguageServer,
+    command: str,
+    probe_payload: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        return boundary_order.normalize_boundary_mapping_once(
+            executor(ls, dict(probe_payload)),
+            source=f"server.lsp_parity_gate.{command}.lsp_result",
+        )
+    except NeverThrown:
+        raise
+    except Exception as exc:
+        raise LspProbeExecutionError(str(exc)) from exc
+
+
+def _probe_direct_executor(
+    executor: Callable[[LanguageServer, dict[str, object] | None], dict],
+    *,
+    ls: LanguageServer,
+    command: str,
+    probe_payload: Mapping[str, object],
+) -> dict[str, object]:
+    try:
+        return boundary_order.normalize_boundary_mapping_once(
+            executor(ls, dict(probe_payload)),
+            source=f"server.lsp_parity_gate.{command}.direct_result",
+        )
+    except NeverThrown:
+        raise
+    except Exception as exc:
+        raise DirectProbeExecutionError(str(exc)) from exc
+
+
 def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     check_deadline()
     if isinstance(entry, Mapping):
@@ -3366,8 +3593,6 @@ def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     if match is None:
         return None
     path = str(match.group("path") or "").strip()
-    if not path:  # pragma: no cover - regex requires a non-empty path token
-        return None
     start_group = match.group("start")
     end_group = match.group("end")
     if start_group is None:
@@ -3640,14 +3865,18 @@ def _execute_lsp_parity_gate_total(
                 error = f"no direct executor registered for {command}"
             else:
                 try:
-                    lsp_result = boundary_order.normalize_boundary_mapping_once(
-                        lsp_executor(ls, dict(normalized_probe)),
-                        source=f"server.lsp_parity_gate.{command}.lsp_result",
+                    lsp_result = _probe_lsp_executor(
+                        lsp_executor,
+                        ls=ls,
+                        command=command,
+                        probe_payload=normalized_probe,
                     )
                     lsp_validated = True
-                    direct_result = boundary_order.normalize_boundary_mapping_once(
-                        direct_executor(ls, dict(normalized_probe)),
-                        source=f"server.lsp_parity_gate.{command}.direct_result",
+                    direct_result = _probe_direct_executor(
+                        direct_executor,
+                        ls=ls,
+                        command=command,
+                        probe_payload=normalized_probe,
                     )
                     lsp_comparable = boundary_order.normalize_boundary_mapping_once(
                         _strip_parity_ignored_keys(lsp_result, ignored_keys=policy.parity_ignore_keys),
@@ -3662,7 +3891,7 @@ def _execute_lsp_parity_gate_total(
                         error = f"parity mismatch for {command}"
                 except NeverThrown as exc:
                     error = str(exc) or f"invariant violation while probing {command}"
-                except Exception as exc:  # pragma: no cover - defensive conversion
+                except ParityProbeError as exc:
                     error = str(exc)
         if policy.require_lsp_carrier and not lsp_validated and error is None:
             error = f"beta/production command requires LSP validation: {command}"
@@ -3711,37 +3940,11 @@ def execute_impact(
 
 def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
     with _deadline_scope_from_payload(payload):
-        root = Path(str(payload.get("root") or ls.workspace.root_path or "."))
-        max_call_depth_raw = payload.get("max_call_depth")
         try:
-            max_call_depth = int(max_call_depth_raw) if max_call_depth_raw is not None else None
-        except (TypeError, ValueError):
-            return {"exit_code": 2, "errors": ["max_call_depth must be an integer"]}
-        if isinstance(max_call_depth, int) and max_call_depth < 0:
-            return {"exit_code": 2, "errors": ["max_call_depth must be non-negative"]}
-
-        threshold_raw = payload.get("confidence_threshold", 0.5)
-        try:
-            confidence_threshold = float(threshold_raw)
-        except (TypeError, ValueError):
-            return {"exit_code": 2, "errors": ["confidence_threshold must be numeric"]}
-        confidence_threshold = max(0.0, min(1.0, confidence_threshold))
-
-        changes: list[ImpactSpan] = []
-        raw_changes = payload.get("changes")
-        if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
-            for entry in deadline_loop_iter(raw_changes):
-                parsed = _normalize_impact_change_entry(entry)
-                if parsed is not None:
-                    changes.append(parsed)
-        raw_diff = payload.get("git_diff")
-        if isinstance(raw_diff, str) and raw_diff.strip():
-            changes.extend(_parse_impact_diff_ranges(raw_diff))
-        if not changes:
-            return {
-                "exit_code": 2,
-                "errors": ["Provide at least one change span or git diff"],
-            }
+            options = _normalize_impact_payload(payload, workspace_root=ls.workspace.root_path)
+        except ValueError as exc:
+            return {"exit_code": 2, "errors": [str(exc)]}
+        root = options.root
 
         py_paths = sort_once(
             root.rglob("*.py"),
@@ -3762,28 +3965,26 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 check_deadline()
                 functions[fn.qual] = fn
 
-        reverse_edges: dict[str, list[ImpactEdge]] = defaultdict(list)
-        for edge in deadline_loop_iter(
-            _impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path)
-        ):
-            check_deadline()
-            reverse_edges[edge.callee].append(edge)
+        edge_buckets = _normalize_impact_edge_buckets(
+            edges=_impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path),
+            functions_by_qual=functions,
+        )
+        reverse_edges = edge_buckets.reverse_edges
 
         seed_functions: set[str] = set()
         normalized_changes: list[dict[str, object]] = []
-        for change in deadline_loop_iter(changes):
+        for change in deadline_loop_iter(options.changes):
             check_deadline()
-            normalized_path = change.path.replace("\\", "/")
             normalized_changes.append(
                 {
-                    "path": normalized_path,
+                    "path": change.path,
                     "start_line": change.start_line,
                     "end_line": change.end_line,
                 }
             )
             for fn in deadline_loop_iter(functions.values()):
                 check_deadline()
-                if fn.path != normalized_path:
+                if fn.path != change.path:
                     continue
                 if _impact_overlap(change.start_line, change.end_line, fn.start_line, fn.end_line):
                     seed_functions.add(fn.qual)
@@ -3808,13 +4009,13 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             if state_key in seen_state:
                 continue
             seen_state.add(state_key)
-            if isinstance(max_call_depth, int) and depth >= max_call_depth:
+            if options.max_call_depth is not None and depth >= options.max_call_depth:
                 continue
             for edge in deadline_loop_iter(reverse_edges.get(current, [])):
                 check_deadline()
                 caller_fn = functions.get(edge.caller)
-                if caller_fn is None:  # pragma: no cover - edges are derived from known functions
-                    continue
+                if caller_fn is None:
+                    never("reverse edge caller missing after normalization", caller=edge.caller)
                 next_inferred = has_inferred or edge.inferred
                 next_confidence = min(path_confidence, edge.confidence)
                 if caller_fn.is_test:
@@ -3838,7 +4039,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 source="_execute_impact_total.likely_tests",
                 key=lambda item: str(item["id"]),
             )
-            if float(item.get("confidence", 0.0)) >= confidence_threshold
+            if float(item.get("confidence", 0.0)) >= options.confidence_threshold
         ]
         docs: list[dict[str, object]] = []
         impacted_names = {functions[qual].name for qual in seed_functions if qual in functions}
@@ -3879,8 +4080,9 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             "likely_run_tests": filtered_likely,
             "impacted_docs": docs,
             "meta": {
-                "max_call_depth": max_call_depth,
-                "confidence_threshold": confidence_threshold,
+                "max_call_depth": options.max_call_depth,
+                "confidence_threshold": options.confidence_threshold,
+                "unresolved_reverse_edges": list(edge_buckets.unresolved_edges),
             },
         }
 
@@ -3929,5 +4131,5 @@ def start(start_fn: Callable[[], None] | None = None) -> None:
     (start_fn or server.start_io)()
 
 
-if __name__ == "__main__":  # pragma: no cover
-    start()  # pragma: no cover
+if __name__ == "__main__":
+    start()

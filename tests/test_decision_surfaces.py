@@ -10,6 +10,10 @@ def _load():
 
     return da
 
+
+def _suite_label(path: str, qual: str, span: str) -> str:
+    return f"{path}:{qual}[function_body]@{span}"
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::stale_78f2861e9ce7
 def test_decision_surface_params_collects_names() -> None:
     da = _load()
@@ -60,7 +64,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         forest=da.Forest(),
     )
     assert surfaces == [
-        "mod.py:mod.f decision surface params: b (boundary; reason=if)"
+        f"{_suite_label('mod.py', 'mod.f', '1:1-4:13')} decision surface params: b (boundary; reason=if)"
     ]
     assert warnings == []
     assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
@@ -120,7 +124,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         forest=da.Forest(),
     )
     assert surfaces == [
-        "mod.py:mod.f value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
+        f"{_suite_label('mod.py', 'mod.f', '1:1-5:21')} value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
     ]
     assert warnings == []
     assert rewrites == [
@@ -177,7 +181,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         forest=da.Forest(),
     )
     assert surfaces == [
-        "mod.py:mod.f decision surface params: b (internal callers (transitive): 1; reason=if)"
+        f"{_suite_label('mod.py', 'mod.f', '1:1-4:13')} decision surface params: b (internal callers (transitive): 1; reason=if)"
     ]
     assert warnings == []
     assert lint_lines == []
@@ -195,7 +199,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         config=da.AuditConfig(project_root=tmp_path),
     )
     assert analysis.context_suggestions == [
-        "Consider contextvar for mod.py:mod.f decision surface params: b (internal callers (transitive): 1; reason=if)"
+        f"Consider contextvar for {_suite_label('mod.py', 'mod.f', '1:1-4:13')} decision surface params: b (internal callers (transitive): 1; reason=if)"
     ]
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::stale_7b85aae43776_5a1aac92
@@ -297,7 +301,7 @@ def test_branch_heavy_module_detected_as_decision_surface(tmp_path: Path) -> Non
         forest=da.Forest(),
     )
     assert surfaces == [
-        "control.py:control.route decision surface params: mode, payload (boundary; reason=comprehension_guard, if, match_guard, match_subject)"
+        f"{_suite_label('control.py', 'control.route', '1:1-8:32')} decision surface params: mode, payload (boundary; reason=comprehension_guard, if, match_guard, match_subject)"
     ]
 
 

@@ -13,6 +13,7 @@ from gabion.commands import transport_policy
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
 from gabion.exceptions import NeverThrown
 from gabion.runtime import env_policy
+from gabion.tooling import advisory_evidence
 from gabion.tooling import ambiguity_delta_gate
 from gabion.tooling import annotation_drift_orphaned_gate
 from gabion.tooling import deadline_runtime
@@ -63,13 +64,7 @@ def test_emit_build_payload_handles_state_inputs_and_timeout_defaults(
     state_key: str,
 ) -> None:
     with _cwd(tmp_path):
-        with env_scope(
-            {
-                "GABION_LSP_TIMEOUT_TICKS": "bad",
-                "GABION_LSP_TIMEOUT_TICK_NS": "bad",
-            }
-        ):
-            payload = delta_state_emit._build_payload_for_emitter(emitter_id)
+        payload = delta_state_emit._build_payload_for_emitter(emitter_id)
         assert payload["analysis_timeout_ticks"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICKS)
         assert payload["analysis_timeout_tick_ns"] == int(delta_state_emit._DEFAULT_TIMEOUT_TICK_NS)
         assert payload.get(state_key) is None
@@ -330,9 +325,10 @@ def test_advisory_main_env_gate_without_skip_message() -> None:
     delta_advisory._ADVISORY_CONFIGS["docflow"] = delta_advisory.AdvisoryConfig(
         id="docflow",
         delta_path=original.delta_path,
+        artifact_path=original.artifact_path,
         missing_message=original.missing_message,
         error_prefix=original.error_prefix,
-        summary_renderer=original.summary_renderer,
+        summary_builder=original.summary_builder,
         env_flag="GABION_TEST_ADVISORY_FLAG",
         skip_message=None,
     )
@@ -559,3 +555,275 @@ def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> No
         == 0
     )
     assert delta_path.exists()
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_writes_domain_and_aggregate_artifacts::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
+def test_advisory_writes_domain_and_aggregate_artifacts(tmp_path: Path) -> None:
+    with _cwd(tmp_path):
+        delta_path = Path("artifacts/out/test_annotation_drift_delta.json")
+        delta_path.parent.mkdir(parents=True, exist_ok=True)
+        delta_path.write_text(
+            json.dumps(
+                {
+                    "summary": {
+                        "baseline": {"orphaned": 1},
+                        "current": {"orphaned": 3},
+                        "delta": {"orphaned": 2},
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        assert delta_advisory.main_for_advisory(
+            "annotation_drift",
+            timestamp_fn=lambda: "2025-01-02T03:04:05Z",
+        ) == 0
+
+        domain_artifact = json.loads(
+            Path("artifacts/out/annotation_drift_advisory.json").read_text(encoding="utf-8")
+        )
+        assert domain_artifact["schema_version"] == 1
+        assert domain_artifact["domain"] == "annotation_drift"
+        assert domain_artifact["entries"][0]["key"] == "orphaned"
+        assert domain_artifact["entries"][0]["threshold_class"] == "telemetry_non_blocking"
+
+        aggregate = json.loads(
+            advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH.read_text(encoding="utf-8")
+        )
+        assert aggregate["schema_version"] == 1
+        assert tuple(aggregate["advisories"].keys()) == ("annotation_drift",)
+        assert aggregate["advisories"]["annotation_drift"]["entries"][0]["domain"] == "annotation_drift"
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_payload_sort_determinism_and_key_stability::advisory_evidence.py::gabion.tooling.advisory_evidence.write_payload
+def test_advisory_payload_sort_determinism_and_key_stability(tmp_path: Path) -> None:
+    payload = advisory_evidence.AdvisoryEvidencePayload(
+        domain="ambiguity",
+        source_delta_path="artifacts/out/ambiguity_delta.json",
+        generated_at="2025-01-02T03:04:05Z",
+        entries=(
+            advisory_evidence.AdvisoryEvidenceEntry(
+                domain="ambiguity",
+                key="z_kind",
+                baseline=1,
+                current=1,
+                delta=0,
+                threshold_class="telemetry_non_blocking",
+                message="b",
+                timestamp="2025-01-02T03:04:05Z",
+            ),
+            advisory_evidence.AdvisoryEvidenceEntry(
+                domain="ambiguity",
+                key="a_kind",
+                baseline=1,
+                current=2,
+                delta=1,
+                threshold_class="telemetry_non_blocking",
+                message="a",
+                timestamp="2025-01-02T03:04:05Z",
+            ),
+        ),
+    )
+    out = tmp_path / "ambiguity_advisory.json"
+    advisory_evidence.write_payload(out, payload)
+
+    written = out.read_text(encoding="utf-8")
+    data = json.loads(written)
+    assert tuple(data.keys()) == (
+        "domain",
+        "entries",
+        "generated_at",
+        "schema_version",
+        "source_delta_path",
+    )
+    assert [entry["key"] for entry in data["entries"]] == ["a_kind", "z_kind"]
+
+    advisory_evidence.write_payload(out, payload)
+    assert out.read_text(encoding="utf-8") == written
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_aggregate_domain_order_is_lexical::advisory_evidence.py::gabion.tooling.advisory_evidence.write_aggregate
+def test_advisory_aggregate_domain_order_is_lexical(tmp_path: Path) -> None:
+    advisories = {
+        "obsolescence": advisory_evidence.AdvisoryEvidencePayload(
+            domain="obsolescence",
+            source_delta_path="a",
+            generated_at="2025-01-02T03:04:05Z",
+            entries=(),
+        ),
+        "ambiguity": advisory_evidence.AdvisoryEvidencePayload(
+            domain="ambiguity",
+            source_delta_path="b",
+            generated_at="2025-01-02T03:04:05Z",
+            entries=(),
+        ),
+    }
+    out = tmp_path / "advisory_aggregate.json"
+    advisory_evidence.write_aggregate(
+        advisories,
+        aggregate_path=out,
+        generated_at="2025-01-02T03:04:05Z",
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert tuple(data["advisories"].keys()) == ("ambiguity", "obsolescence")
+
+
+def test_advisory_load_aggregate_reads_written_object(tmp_path: Path) -> None:
+    aggregate_path = tmp_path / "aggregate.json"
+    advisory_evidence.write_aggregate(
+        {
+            "ambiguity": advisory_evidence.AdvisoryEvidencePayload(
+                domain="ambiguity",
+                source_delta_path="artifacts/out/ambiguity_delta.json",
+                generated_at="2025-01-02T03:04:05Z",
+                entries=(),
+            )
+        },
+        aggregate_path=aggregate_path,
+        generated_at="2025-01-02T03:04:05Z",
+    )
+    loaded = advisory_evidence.load_aggregate(aggregate_path)
+    assert loaded["schema_version"] == 1
+    assert "ambiguity" in dict(loaded.get("advisories", {}))
+
+
+def test_write_aggregate_with_domain_skips_legacy_entries_without_list_payload() -> None:
+    existing = {
+        "advisories": {
+            "obsolescence": {
+                "source_delta_path": "artifacts/out/test_obsolescence_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": {"bad": "shape"},
+            }
+        }
+    }
+    captured: dict[str, object] = {}
+
+    def _load_existing(_path: Path) -> dict[str, object]:
+        return existing
+
+    def _capture_write(
+        payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload],
+        *,
+        aggregate_path: Path = advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH,
+        generated_at: str | None = None,
+    ) -> None:
+        captured["domains"] = tuple(sorted(payloads))
+        captured["generated_at"] = generated_at
+
+    original_load = delta_advisory.json_io.load_json_object_path
+    original_write = advisory_evidence.write_aggregate
+    delta_advisory.json_io.load_json_object_path = _load_existing
+    advisory_evidence.write_aggregate = _capture_write
+    try:
+        delta_advisory._write_aggregate_with_domain(
+            advisory_evidence.AdvisoryEvidencePayload(
+                domain="annotation_drift",
+                source_delta_path="artifacts/out/test_annotation_drift_delta.json",
+                generated_at="2025-01-02T03:04:05Z",
+                entries=(),
+            )
+        )
+    finally:
+        delta_advisory.json_io.load_json_object_path = original_load
+        advisory_evidence.write_aggregate = original_write
+
+    assert captured["domains"] == ("annotation_drift",)
+    assert captured["generated_at"] == "2025-01-02T03:04:05Z"
+
+
+# gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries::delta_advisory.py::gabion.tooling.delta_advisory._write_aggregate_with_domain
+def test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries() -> None:
+    existing = {
+        "advisories": {
+            "docflow": {
+                "source_delta_path": "artifacts/out/docflow_compliance_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": [
+                    {
+                        "key": "contradicts",
+                        "baseline": 3,
+                        "current": 4,
+                        "delta": 1,
+                        "threshold_class": "telemetry_non_blocking",
+                        "message": "legacy-docflow",
+                        "timestamp": "2025-01-01T00:00:00Z",
+                    }
+                ],
+            },
+            "obsolescence": {
+                "source_delta_path": "artifacts/out/test_obsolescence_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": [
+                    {
+                        "key": "unmapped",
+                        "baseline": 1,
+                        "current": 2,
+                        "delta": 1,
+                        "threshold_class": "telemetry_non_blocking",
+                        "message": "legacy-obsolescence",
+                        "timestamp": "2025-01-01T00:00:00Z",
+                    }
+                ],
+            },
+            "ambiguity": {
+                "source_delta_path": "artifacts/out/ambiguity_delta.json",
+                "generated_at": "2025-01-01T00:00:00Z",
+                "entries": {"bad": "shape"},
+            },
+        }
+    }
+    captured: dict[str, object] = {}
+
+    def _load_existing(_path: Path) -> dict[str, object]:
+        return existing
+
+    def _capture_write(
+        payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload],
+        *,
+        aggregate_path: Path = advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH,
+        generated_at: str | None = None,
+    ) -> None:
+        _ = aggregate_path
+        captured["payloads"] = dict(payloads)
+        captured["generated_at"] = generated_at
+
+    replacement_payload = advisory_evidence.AdvisoryEvidencePayload(
+        domain="docflow",
+        source_delta_path="artifacts/out/docflow_compliance_delta.json",
+        generated_at="2025-01-02T03:04:05Z",
+        entries=(
+            advisory_evidence.AdvisoryEvidenceEntry(
+                domain="docflow",
+                key="contradicts",
+                baseline=10,
+                current=10,
+                delta=0,
+                threshold_class="telemetry_non_blocking",
+                message="replacement-docflow",
+                timestamp="2025-01-02T03:04:05Z",
+            ),
+        ),
+    )
+
+    original_load = delta_advisory.json_io.load_json_object_path
+    original_write = advisory_evidence.write_aggregate
+    delta_advisory.json_io.load_json_object_path = _load_existing
+    advisory_evidence.write_aggregate = _capture_write
+    try:
+        delta_advisory._write_aggregate_with_domain(replacement_payload)
+    finally:
+        delta_advisory.json_io.load_json_object_path = original_load
+        advisory_evidence.write_aggregate = original_write
+
+    payloads = captured["payloads"]
+    assert isinstance(payloads, dict)
+    assert tuple(sorted(payloads)) == ("docflow", "obsolescence")
+    assert payloads["docflow"] is replacement_payload
+    obsolescence_payload = payloads["obsolescence"]
+    assert isinstance(obsolescence_payload, advisory_evidence.AdvisoryEvidencePayload)
+    assert obsolescence_payload.domain == "obsolescence"
+    assert len(obsolescence_payload.entries) == 1
+    assert obsolescence_payload.entries[0].key == "unmapped"
+    assert captured["generated_at"] == "2025-01-02T03:04:05Z"

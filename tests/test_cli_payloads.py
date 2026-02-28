@@ -6,6 +6,7 @@ import pytest
 import typer
 
 from gabion import cli
+from gabion.commands import check_contract
 
 _DEFAULT_CHECK_ARTIFACT_FLAGS = cli.CheckArtifactFlags(
     emit_test_obsolescence=False,
@@ -14,6 +15,89 @@ _DEFAULT_CHECK_ARTIFACT_FLAGS = cli.CheckArtifactFlags(
     emit_call_cluster_consolidation=False,
     emit_test_annotation_drift=False,
 )
+
+
+def _delta_options_legacy(
+    *,
+    emit_test_obsolescence_state: bool,
+    test_obsolescence_state: Path | None,
+    emit_test_obsolescence_delta: bool,
+    test_annotation_drift_state: Path | None,
+    emit_test_annotation_drift_delta: bool,
+    write_test_annotation_drift_baseline: bool,
+    write_test_obsolescence_baseline: bool,
+    emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+    ambiguity_state: Path | None,
+    write_ambiguity_baseline: bool,
+) -> cli.CheckDeltaOptions:
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise typer.BadParameter(
+            "emit_test_obsolescence_delta and write_test_obsolescence_baseline are mutually exclusive."
+        )
+    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
+        raise typer.BadParameter(
+            "emit_test_annotation_drift_delta and write_test_annotation_drift_baseline are mutually exclusive."
+        )
+    if emit_ambiguity_delta and write_ambiguity_baseline:
+        raise typer.BadParameter(
+            "emit_ambiguity_delta and write_ambiguity_baseline are mutually exclusive."
+        )
+
+    obsolescence_kind = "off"
+    if write_test_obsolescence_baseline:
+        obsolescence_kind = "baseline-write"
+    elif emit_test_obsolescence_delta:
+        obsolescence_kind = "delta"
+    elif emit_test_obsolescence_state:
+        obsolescence_kind = "state"
+
+    annotation_drift_kind = "off"
+    if write_test_annotation_drift_baseline:
+        annotation_drift_kind = "baseline-write"
+    elif emit_test_annotation_drift_delta:
+        annotation_drift_kind = "delta"
+    elif test_annotation_drift_state is not None:
+        annotation_drift_kind = "state"
+
+    ambiguity_kind = "off"
+    if write_ambiguity_baseline:
+        ambiguity_kind = "baseline-write"
+    elif emit_ambiguity_delta:
+        ambiguity_kind = "delta"
+    elif emit_ambiguity_state:
+        ambiguity_kind = "state"
+
+    return cli.CheckDeltaOptions(
+        obsolescence_mode=check_contract.CheckAuxMode(
+            kind=obsolescence_kind,
+            state_path=test_obsolescence_state,
+        ),
+        annotation_drift_mode=check_contract.CheckAuxMode(
+            kind=annotation_drift_kind,
+            state_path=test_annotation_drift_state,
+        ),
+        ambiguity_mode=check_contract.CheckAuxMode(
+            kind=ambiguity_kind,
+            state_path=ambiguity_state,
+        ),
+    )
+
+
+def test_dataflow_payload_includes_language_and_ingest_profile() -> None:
+    opts = cli.parse_dataflow_args_or_exit(
+        [
+            ".",
+            "--language",
+            "Python",
+            "--ingest-profile",
+            "syntax-only",
+        ]
+    )
+    payload = cli.build_dataflow_payload(opts)
+    assert payload["language"] == "Python"
+    assert payload["ingest_profile"] == "syntax-only"
+
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_2a09d8d5ce19_af4348d7
@@ -28,7 +112,7 @@ def test_check_builds_payload() -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -56,21 +140,13 @@ def test_check_builds_payload() -> None:
     assert payload["fail_on_type_ambiguities"] is True
     assert payload["type_audit"] is True
     assert payload["emit_test_obsolescence"] is False
-    assert payload["emit_test_obsolescence_state"] is False
-    assert payload["test_obsolescence_state"] is None
-    assert payload["emit_test_obsolescence_delta"] is False
+    assert payload["obsolescence_mode"] == {"kind": "off", "state_path": None}
     assert payload["emit_test_evidence_suggestions"] is False
     assert payload["emit_call_clusters"] is False
     assert payload["emit_call_cluster_consolidation"] is False
     assert payload["emit_test_annotation_drift"] is False
-    assert payload["test_annotation_drift_state"] is None
-    assert payload["emit_test_annotation_drift_delta"] is False
-    assert payload["write_test_annotation_drift_baseline"] is False
-    assert payload["write_test_obsolescence_baseline"] is False
-    assert payload["emit_ambiguity_delta"] is False
-    assert payload["emit_ambiguity_state"] is False
-    assert payload["ambiguity_state"] is None
-    assert payload["write_ambiguity_baseline"] is False
+    assert payload["annotation_drift_mode"] == {"kind": "off", "state_path": None}
+    assert payload["ambiguity_mode"] == {"kind": "off", "state_path": None}
     assert payload["exclude"] is None
     assert payload["ignore_params"] is None
     assert payload["transparent_decorators"] is None
@@ -88,7 +164,7 @@ def test_check_builds_payload_with_none_filter_bundle() -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -124,7 +200,7 @@ def test_check_payload_preserves_strictness_for_server_validation() -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -162,7 +238,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         baseline_write=True,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -309,7 +385,7 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
         baseline_write=True,
         decision_snapshot=Path("decision.json"),
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -377,6 +453,8 @@ def test_check_and_raw_payloads_match_common_fields() -> None:
         "allow_external",
         "strictness",
         "lint",
+        "language",
+        "ingest_profile",
         "deadline_profile",
     ]
     assert {key: check_payload[key] for key in common_keys} == {
@@ -534,7 +612,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -564,21 +642,13 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     )
     assert (tmp_path / "artifacts" / "audit_reports").is_dir()
     assert captured["payload"]["emit_test_obsolescence"] is False
-    assert captured["payload"]["emit_test_obsolescence_state"] is False
-    assert captured["payload"]["test_obsolescence_state"] is None
-    assert captured["payload"]["emit_test_obsolescence_delta"] is False
+    assert captured["payload"]["obsolescence_mode"] == {"kind": "off", "state_path": None}
     assert captured["payload"]["emit_test_evidence_suggestions"] is False
     assert captured["payload"]["emit_call_clusters"] is False
     assert captured["payload"]["emit_call_cluster_consolidation"] is False
     assert captured["payload"]["emit_test_annotation_drift"] is False
-    assert captured["payload"]["test_annotation_drift_state"] is None
-    assert captured["payload"]["emit_test_annotation_drift_delta"] is False
-    assert captured["payload"]["write_test_annotation_drift_baseline"] is False
-    assert captured["payload"]["write_test_obsolescence_baseline"] is False
-    assert captured["payload"]["emit_ambiguity_delta"] is False
-    assert captured["payload"]["emit_ambiguity_state"] is False
-    assert captured["payload"]["ambiguity_state"] is None
-    assert captured["payload"]["write_ambiguity_baseline"] is False
+    assert captured["payload"]["annotation_drift_mode"] == {"kind": "off", "state_path": None}
+    assert captured["payload"]["ambiguity_mode"] == {"kind": "off", "state_path": None}
     execution_plan_request = captured["payload"].get("execution_plan_request")
     assert isinstance(execution_plan_request, dict)
     assert execution_plan_request["requested_operations"] == sorted(
@@ -615,7 +685,7 @@ def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -665,7 +735,7 @@ def test_run_check_with_none_filter_bundle(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-        delta_options=cli.CheckDeltaOptions(
+        delta_options=_delta_options_legacy(
             emit_test_obsolescence_state=False,
             test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
@@ -703,7 +773,7 @@ def test_check_payload_rejects_delta_and_baseline_write() -> None:
             baseline_write=False,
             decision_snapshot=None,
             artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            delta_options=cli.CheckDeltaOptions(
+            delta_options=_delta_options_legacy(
                 emit_test_obsolescence_state=False,
                 test_obsolescence_state=None,
                 emit_test_obsolescence_delta=True,
@@ -741,7 +811,7 @@ def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> No
             baseline_write=False,
             decision_snapshot=None,
             artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            delta_options=cli.CheckDeltaOptions(
+            delta_options=_delta_options_legacy(
                 emit_test_obsolescence_state=False,
                 test_obsolescence_state=None,
                 emit_test_obsolescence_delta=False,
@@ -779,7 +849,7 @@ def test_check_payload_rejects_ambiguity_delta_and_baseline_write() -> None:
             baseline_write=False,
             decision_snapshot=None,
             artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            delta_options=cli.CheckDeltaOptions(
+            delta_options=_delta_options_legacy(
                 emit_test_obsolescence_state=False,
                 test_obsolescence_state=None,
                 emit_test_obsolescence_delta=False,
@@ -817,7 +887,7 @@ def test_check_payload_rejects_obsolescence_state_and_path() -> None:
             baseline_write=False,
             decision_snapshot=None,
             artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            delta_options=cli.CheckDeltaOptions(
+            delta_options=_delta_options_legacy(
                 emit_test_obsolescence_state=True,
                 test_obsolescence_state=Path(
                     "artifacts/out/test_obsolescence_state.json"
@@ -857,7 +927,7 @@ def test_check_payload_rejects_ambiguity_state_and_path() -> None:
             baseline_write=False,
             decision_snapshot=None,
             artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            delta_options=cli.CheckDeltaOptions(
+            delta_options=_delta_options_legacy(
                 emit_test_obsolescence_state=False,
                 test_obsolescence_state=None,
                 emit_test_obsolescence_delta=False,

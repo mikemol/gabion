@@ -4,7 +4,7 @@ import pytest
 
 from gabion import invariants
 from gabion.exceptions import NeverThrown
-from tests.env_helpers import env_scope
+from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
@@ -26,8 +26,8 @@ def test_require_not_none_strict_raises() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_env_strict::env_helpers.py::tests.env_helpers.env_scope::invariants.py::gabion.invariants.require_not_none
-def test_require_not_none_env_strict() -> None:
-    with env_scope({"GABION_PROOF_MODE": "strict"}):
+def test_require_not_none_runtime_strict() -> None:
+    with runtime_policy_scope(RuntimePolicyConfig(proof_mode_enabled=True)):
         with pytest.raises(NeverThrown):
             invariants.require_not_none(None)
 

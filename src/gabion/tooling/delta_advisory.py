@@ -1,14 +1,16 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal, Mapping
 
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
-from gabion.runtime import env_policy
+import json
+
+from gabion.runtime import env_policy, json_io
+from gabion.tooling import advisory_evidence
 from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
 AdvisoryId = Literal["obsolescence", "annotation_drift", "ambiguity", "docflow"]
@@ -26,12 +28,27 @@ _DEFAULT_ADVISORY_TIMEOUT_BUDGET = DeadlineBudget(
 
 
 @dataclass(frozen=True)
+class AdvisoryMetric:
+    key: str
+    baseline: int
+    current: int
+    delta: int
+
+
+@dataclass(frozen=True)
+class AdvisoryNormalizedSummary:
+    heading: str
+    metrics: tuple[AdvisoryMetric, ...]
+
+
+@dataclass(frozen=True)
 class AdvisoryConfig:
     id: AdvisoryId
     delta_path: Path
+    artifact_path: Path
     missing_message: str
     error_prefix: str
-    summary_renderer: Callable[[Mapping[str, object], Callable[[str], None]], None]
+    summary_builder: Callable[[Mapping[str, object]], AdvisoryNormalizedSummary]
     env_flag: str | None = None
     skip_message: str | None = None
 
@@ -50,10 +67,32 @@ def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _obsolescence_summary(
-    payload: Mapping[str, object],
-    print_fn: Callable[[str], None],
-) -> None:
+def _count(value: object) -> int:
+    return int(value) if isinstance(value, int) else 0
+
+
+def _metric_entry(
+    key: str,
+    baseline: Mapping[str, object],
+    current: Mapping[str, object],
+    delta: Mapping[str, object],
+) -> AdvisoryMetric:
+    return AdvisoryMetric(
+        key=key,
+        baseline=_count(baseline.get(key)),
+        current=_count(current.get(key)),
+        delta=_count(delta.get(key)),
+    )
+
+
+def _render_summary(summary: AdvisoryNormalizedSummary, print_fn: Callable[[str], None]) -> None:
+    print_fn(summary.heading)
+    for entry in summary.metrics:
+        check_deadline()
+        print_fn(f"- {entry.key}: {entry.baseline} -> {entry.current} ({entry.delta})")
+
+
+def _obsolescence_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     counts = _mapping(summary.get("counts"))
     baseline = _mapping(counts.get("baseline"))
@@ -66,22 +105,25 @@ def _obsolescence_summary(
         "obsolete_candidate",
         "unmapped",
     ]
-    print_fn("Test obsolescence delta summary (advisory):")
-    for key in keys:
-        check_deadline()
-        print_fn(
-            f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} ({delta.get(key, 0)})"
+    metrics = [
+        _metric_entry(key, baseline, current, delta)
+        for key in keys
+    ]
+    metrics.append(
+        AdvisoryMetric(
+            key="opaque_evidence_count",
+            baseline=_count(opaque.get("baseline")),
+            current=_count(opaque.get("current")),
+            delta=_count(opaque.get("delta")),
         )
-    print_fn(
-        "- opaque_evidence_count: "
-        f"{opaque.get('baseline', 0)} -> {opaque.get('current', 0)} ({opaque.get('delta', 0)})"
+    )
+    return AdvisoryNormalizedSummary(
+        heading="Test obsolescence delta summary (advisory):",
+        metrics=tuple(metrics),
     )
 
 
-def _annotation_drift_summary(
-    payload: Mapping[str, object],
-    print_fn: Callable[[str], None],
-) -> None:
+def _annotation_drift_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     baseline = _mapping(summary.get("baseline"))
     current = _mapping(summary.get("current"))
@@ -90,64 +132,123 @@ def _annotation_drift_summary(
         {*baseline.keys(), *current.keys(), *delta.keys()},
         source="gabion.tooling.delta_advisory.annotation_summary_keys",
     )
-    print_fn("Annotation drift delta summary (advisory):")
-    for key in keys:
-        check_deadline()
-        print_fn(
-            f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} ({delta.get(key, 0)})"
-        )
+    return AdvisoryNormalizedSummary(
+        heading="Annotation drift delta summary (advisory):",
+        metrics=tuple(_metric_entry(str(key), baseline, current, delta) for key in keys),
+    )
 
 
-def _ambiguity_summary(
-    payload: Mapping[str, object],
-    print_fn: Callable[[str], None],
-) -> None:
+def _ambiguity_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     total = _mapping(summary.get("total"))
     by_kind = _mapping(summary.get("by_kind"))
     baseline = _mapping(by_kind.get("baseline"))
     current = _mapping(by_kind.get("current"))
     delta = _mapping(by_kind.get("delta"))
-    print_fn("Ambiguity delta summary (advisory):")
-    print_fn(
-        "- total: "
-        f"{total.get('baseline', 0)} -> {total.get('current', 0)} ({total.get('delta', 0)})"
-    )
     keys = sort_once(
         {*baseline.keys(), *current.keys(), *delta.keys()},
         source="gabion.tooling.delta_advisory.ambiguity_by_kind_keys",
     )
-    for key in keys:
-        check_deadline()
-        print_fn(
-            f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} ({delta.get(key, 0)})"
-        )
+    by_kind_metrics = [_metric_entry(str(key), baseline, current, delta) for key in keys]
+    return AdvisoryNormalizedSummary(
+        heading="Ambiguity delta summary (advisory):",
+        metrics=(
+            AdvisoryMetric(
+                key="total",
+                baseline=_count(total.get("baseline")),
+                current=_count(total.get("current")),
+                delta=_count(total.get("delta")),
+            ),
+            *by_kind_metrics,
+        ),
+    )
 
 
-def _docflow_summary(
-    payload: Mapping[str, object],
-    print_fn: Callable[[str], None],
-) -> None:
+def _docflow_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     baseline = _mapping(summary.get("baseline"))
     current = _mapping(summary.get("current"))
     delta = _mapping(summary.get("delta"))
     keys = ["compliant", "contradicts", "excess", "proposed"]
-    print_fn("Docflow compliance delta summary (advisory):")
-    for key in keys:
-        check_deadline()
-        print_fn(
-            f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} ({delta.get(key, 0)})"
+    return AdvisoryNormalizedSummary(
+        heading="Docflow compliance delta summary (advisory):",
+        metrics=tuple(_metric_entry(key, baseline, current, delta) for key in keys),
+    )
+
+
+def _evidence_payload(
+    *,
+    config: AdvisoryConfig,
+    normalized: AdvisoryNormalizedSummary,
+    timestamp: str,
+    threshold_class: str = "telemetry_non_blocking",
+) -> advisory_evidence.AdvisoryEvidencePayload:
+    entries = tuple(
+        advisory_evidence.AdvisoryEvidenceEntry(
+            domain=config.id,
+            key=entry.key,
+            baseline=entry.baseline,
+            current=entry.current,
+            delta=entry.delta,
+            threshold_class=threshold_class,
+            message=f"{config.id}:{entry.key} delta={entry.delta}",
+            timestamp=timestamp,
         )
+        for entry in normalized.metrics
+    )
+    return advisory_evidence.AdvisoryEvidencePayload(
+        domain=config.id,
+        source_delta_path=str(config.delta_path),
+        generated_at=timestamp,
+        entries=entries,
+    )
+
+
+# gabion:boundary_normalization
+def _write_aggregate_with_domain(payload: advisory_evidence.AdvisoryEvidencePayload) -> None:
+    existing = json_io.load_json_object_path(advisory_evidence.DEFAULT_ADVISORY_AGGREGATE_PATH)
+    advisories_raw = _mapping(existing.get("advisories"))
+    domain_payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload] = {}
+    for raw_domain, raw_payload in advisories_raw.items():
+        item = _mapping(raw_payload)
+        entries_raw = item.get("entries")
+        if not isinstance(entries_raw, list):
+            continue
+        entries = tuple(
+            advisory_evidence.AdvisoryEvidenceEntry(
+                domain=str(raw_domain),
+                key=str(_mapping(raw_entry).get("key", "")),
+                baseline=_count(_mapping(raw_entry).get("baseline")),
+                current=_count(_mapping(raw_entry).get("current")),
+                delta=_count(_mapping(raw_entry).get("delta")),
+                threshold_class=str(_mapping(raw_entry).get("threshold_class", "telemetry_non_blocking")),
+                message=str(_mapping(raw_entry).get("message", "")),
+                timestamp=str(_mapping(raw_entry).get("timestamp", payload.generated_at)),
+            )
+            for raw_entry in entries_raw
+            if isinstance(raw_entry, Mapping)
+        )
+        domain_payloads[str(raw_domain)] = advisory_evidence.AdvisoryEvidencePayload(
+            domain=str(raw_domain),
+            source_delta_path=str(item.get("source_delta_path", "")),
+            generated_at=str(item.get("generated_at", payload.generated_at)),
+            entries=entries,
+        )
+    domain_payloads[payload.domain] = payload
+    advisory_evidence.write_aggregate(
+        domain_payloads,
+        generated_at=payload.generated_at,
+    )
 
 
 _ADVISORY_CONFIGS: dict[AdvisoryId, AdvisoryConfig] = {
     "obsolescence": AdvisoryConfig(
         id="obsolescence",
         delta_path=Path("artifacts/out/test_obsolescence_delta.json"),
+        artifact_path=Path("artifacts/out/obsolescence_advisory.json"),
         missing_message="Test obsolescence delta missing (advisory).",
         error_prefix="Test obsolescence delta advisory error",
-        summary_renderer=_obsolescence_summary,
+        summary_builder=_obsolescence_summary,
         env_flag=OBSOLESCENCE_ENV_FLAG,
         skip_message=(
             "Test obsolescence delta advisory skipped; "
@@ -157,9 +258,10 @@ _ADVISORY_CONFIGS: dict[AdvisoryId, AdvisoryConfig] = {
     "annotation_drift": AdvisoryConfig(
         id="annotation_drift",
         delta_path=Path("artifacts/out/test_annotation_drift_delta.json"),
+        artifact_path=Path("artifacts/out/annotation_drift_advisory.json"),
         missing_message="Annotation drift delta missing (advisory).",
         error_prefix="Annotation drift delta advisory error",
-        summary_renderer=_annotation_drift_summary,
+        summary_builder=_annotation_drift_summary,
         env_flag=ANNOTATION_DRIFT_ENV_FLAG,
         skip_message=(
             "Annotation drift delta advisory skipped; "
@@ -169,9 +271,10 @@ _ADVISORY_CONFIGS: dict[AdvisoryId, AdvisoryConfig] = {
     "ambiguity": AdvisoryConfig(
         id="ambiguity",
         delta_path=Path("artifacts/out/ambiguity_delta.json"),
+        artifact_path=Path("artifacts/out/ambiguity_advisory.json"),
         missing_message="Ambiguity delta missing (advisory).",
         error_prefix="Ambiguity delta advisory error",
-        summary_renderer=_ambiguity_summary,
+        summary_builder=_ambiguity_summary,
         env_flag=AMBIGUITY_ENV_FLAG,
         skip_message=(
             "Ambiguity delta advisory skipped; "
@@ -181,9 +284,10 @@ _ADVISORY_CONFIGS: dict[AdvisoryId, AdvisoryConfig] = {
     "docflow": AdvisoryConfig(
         id="docflow",
         delta_path=Path("artifacts/out/docflow_compliance_delta.json"),
+        artifact_path=Path("artifacts/out/docflow_advisory.json"),
         missing_message="Docflow compliance delta missing (advisory).",
         error_prefix="Docflow compliance delta advisory error",
-        summary_renderer=_docflow_summary,
+        summary_builder=_docflow_summary,
     ),
 }
 
@@ -193,6 +297,7 @@ def main_for_advisory(
     *,
     delta_path: Path | None = None,
     print_fn: Callable[[str], None] = print,
+    timestamp_fn: Callable[[], str] = advisory_evidence.advisory_timestamp,
 ) -> int:
     config = _ADVISORY_CONFIGS[advisory_id]
     with _deadline_scope():
@@ -207,9 +312,28 @@ def main_for_advisory(
                 print_fn(config.missing_message)
                 return 0
             payload = json.loads(target_path.read_text(encoding="utf-8"))
-            config.summary_renderer(_mapping(payload), print_fn)
+            normalized = config.summary_builder(_mapping(payload))
+            _render_summary(normalized, print_fn)
+            timestamp = timestamp_fn()
+            evidence_payload = _evidence_payload(
+                config=config,
+                normalized=normalized,
+                timestamp=timestamp,
+            )
+            advisory_evidence.write_payload(config.artifact_path, evidence_payload)
+            _write_aggregate_with_domain(evidence_payload)
         except Exception as exc:  # advisory only; keep CI green
             print_fn(f"{config.error_prefix}: {exc}")
+    return 0
+
+
+def telemetry_main(*, print_fn: Callable[[str], None] = print) -> int:
+    for advisory_id in sort_once(
+        _ADVISORY_CONFIGS.keys(),
+        source="gabion.tooling.delta_advisory.telemetry_main",
+    ):
+        check_deadline()
+        main_for_advisory(advisory_id, print_fn=print_fn)
     return 0
 
 

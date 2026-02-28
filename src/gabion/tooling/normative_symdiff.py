@@ -22,22 +22,13 @@ from gabion_governance import governance_audit_impl as governance_audit
 from gabion import server
 from gabion.tooling import ambiguity_contract_policy_check
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts import branchless_policy_check
-    from scripts import defensive_fallback_policy_check
-    from scripts import governance_controller_audit
-    from scripts import no_monkeypatch_policy_check
-    from scripts import order_lifetime_check
-    from scripts import policy_check
-    from scripts import structural_hash_policy_check
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    import branchless_policy_check  # type: ignore[no-redef]
-    import defensive_fallback_policy_check  # type: ignore[no-redef]
-    import governance_controller_audit  # type: ignore[no-redef]
-    import no_monkeypatch_policy_check  # type: ignore[no-redef]
-    import order_lifetime_check  # type: ignore[no-redef]
-    import policy_check  # type: ignore[no-redef]
-    import structural_hash_policy_check  # type: ignore[no-redef]
+from scripts import branchless_policy_check
+from scripts import defensive_fallback_policy_check
+from scripts import governance_controller_audit
+from scripts import no_monkeypatch_policy_check
+from scripts import order_lifetime_check
+from scripts import policy_check
+from scripts import structural_hash_policy_check
 
 
 _CLAUSE_HEADING_RE = re.compile(r"^###\s+`(?P<id>NCI-[A-Z0-9-]+)`(?:\s|$)")

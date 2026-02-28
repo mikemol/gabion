@@ -11,7 +11,7 @@ doc_authority: informative
 doc_requires:
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
 doc_review_notes:
   POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
 doc_change_protocol: POLICY_SEED.md#change_protocol
@@ -27,10 +27,10 @@ doc_section_requires:
 doc_section_reviews:
   pinning_actions:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
 ---
 
 <a id="pinning_actions"></a>
@@ -60,9 +60,9 @@ gh api repos/actions/checkout/git/tags/$sha --jq .object.sha
 ```
 
 ## Repo helper (recommended)
-Use `scripts/pin_actions.py` to pin `uses:` lines in place:
+Use `python -m scripts.pin_actions` to pin `uses:` lines in place:
 ```bash
-scripts/pin_actions.py docs/workflows/gabion_action_example.yml
+python -m scripts.pin_actions docs/workflows/gabion_action_example.yml
 ```
 
 ## Notes

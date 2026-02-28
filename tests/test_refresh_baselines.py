@@ -25,8 +25,8 @@ def _cwd(path: Path):
         os.chdir(previous)
 
 
-# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
-def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_env(
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_preserves_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
+def test_refresh_subprocess_env_preserves_process_env(
 ) -> None:
     module = _load_refresh_baselines()
     timeout_env = module._refresh_lsp_timeout_env(None, None)
@@ -45,13 +45,11 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
 
     with _env_scope(
         {
-            "GABION_LSP_TIMEOUT_TICKS": "7",
-            "GABION_LSP_TIMEOUT_TICK_NS": "9",
             "GABION_DIRECT_RUN": None,
+            "GABION_REFRESH_TEST_SENTINEL": "1",
         }
     ):
-        original_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
-        original_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
+        original_sentinel = os.environ.get("GABION_REFRESH_TEST_SENTINEL")
         module._run_check(
             [
                 "ambiguity",
@@ -63,8 +61,7 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
             timeout_env=timeout_env,
             run_fn=_fake_run,
         )
-        assert os.environ.get("GABION_LSP_TIMEOUT_TICKS") == original_ticks
-        assert os.environ.get("GABION_LSP_TIMEOUT_TICK_NS") == original_tick_ns
+        assert os.environ.get("GABION_REFRESH_TEST_SENTINEL") == original_sentinel
         assert "GABION_DIRECT_RUN" not in os.environ
 
     assert len(calls) == 1

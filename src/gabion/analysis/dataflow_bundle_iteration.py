@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
-from typing import cast
+from typing import Literal, cast
 
 from gabion.analysis.json_types import JSONObject
 from gabion.order_contract import sort_once
@@ -28,7 +28,7 @@ def _bind_audit_symbols() -> None:
 @dataclass(frozen=True)
 class BundleIterationContext:
     path: Path
-    module: str
+    module: "ModuleIdentifier"
     symbol_table: object
     local_dataclasses: Mapping[str, tuple[str, ...]]
     dataclass_registry: Mapping[str, tuple[str, ...]]
@@ -56,10 +56,27 @@ class _ConstructorPlan:
 
 
 @dataclass(frozen=True)
-class _ConstructorProjectionOutcome:
+class ModuleIdentifier:
+    value: str
+
+
+@dataclass(frozen=True)
+class _ConstructorProjectionApplied:
+    kind: Literal["applied"]
     names: tuple[str, ...]
     witness_effects: tuple[JSONObject, ...]
-    projected: bool
+
+
+@dataclass(frozen=True)
+class _ConstructorProjectionRejected:
+    kind: Literal["rejected"]
+    reason: str
+    witness_effects: tuple[JSONObject, ...]
+
+
+ConstructorProjectionResult = (
+    _ConstructorProjectionApplied | _ConstructorProjectionRejected
+)
 
 
 def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
@@ -96,9 +113,18 @@ def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
     return local_dataclasses
 
 
+def _module_identifier(module_name: object) -> ModuleIdentifier:
+    if type(module_name) is not str:
+        raise ValueError("_module_name must return str")
+    normalized = module_name.strip()
+    if not normalized:
+        raise ValueError("module identifier must be non-empty")
+    return ModuleIdentifier(value=normalized)
+
+
 def _effective_dataclass_registry(
     *,
-    module: str,
+    module: ModuleIdentifier,
     local_dataclasses: Mapping[str, tuple[str, ...]],
     dataclass_registry: object,
 ) -> dict[str, tuple[str, ...]]:
@@ -114,11 +140,7 @@ def _effective_dataclass_registry(
     effective_registry: dict[str, tuple[str, ...]] = {}
     for name, fields in local_dataclasses.items():
         check_deadline()
-        if module:
-            effective_registry[f"{module}.{name}"] = fields
-            continue
-        # pragma: no cover - module name is always non-empty for file paths
-        effective_registry[name] = fields  # pragma: no cover
+        effective_registry[f"{module.value}.{name}"] = fields
     return effective_registry
 
 
@@ -132,26 +154,26 @@ def _resolve_dataclass_fields(
         case ast.Name(id=name):
             if name in context.local_dataclasses:
                 return context.local_dataclasses[name]
-            candidate = f"{context.module}.{name}"
+            candidate = f"{context.module.value}.{name}"
             if candidate in context.dataclass_registry:
                 return context.dataclass_registry[candidate]
             if symbol_table is not None:
-                resolved = symbol_table.resolve(context.module, name)
+                resolved = symbol_table.resolve(context.module.value, name)
                 if resolved in context.dataclass_registry:
                     return context.dataclass_registry[resolved]
-                resolved_star = symbol_table.resolve_star(context.module, name)
+                resolved_star = symbol_table.resolve_star(context.module.value, name)
                 if resolved_star in context.dataclass_registry:
                     return context.dataclass_registry[resolved_star]
             if name in context.dataclass_registry:
                 return context.dataclass_registry[name]
         case ast.Attribute(value=ast.Name(id=base), attr=attr):
             if symbol_table is not None:
-                base_fqn = symbol_table.resolve(context.module, base)
+                base_fqn = symbol_table.resolve(context.module.value, base)
                 if base_fqn:
                     candidate = f"{base_fqn}.{attr}"
                     if candidate in context.dataclass_registry:
                         return context.dataclass_registry[candidate]
-                base_star = symbol_table.resolve_star(context.module, base)
+                base_star = symbol_table.resolve_star(context.module.value, base)
                 if base_star:
                     candidate = f"{base_star}.{attr}"
                     if candidate in context.dataclass_registry:
@@ -314,13 +336,14 @@ def _apply_constructor_plan(
     call: ast.Call,
     fields: Sequence[str],
     plan: _ConstructorPlan,
-) -> _ConstructorProjectionOutcome:
+) -> ConstructorProjectionResult:
+    _bind_audit_symbols()
     witness_effects = list(plan.witness_effects)
     if plan.terminal_status != "apply":
-        return _ConstructorProjectionOutcome(  # pragma: no cover
-            names=(),
+        return _ConstructorProjectionRejected(
+            kind="rejected",
+            reason="plan_terminal_status",
             witness_effects=tuple(witness_effects),
-            projected=False,
         )
 
     field_set = set(fields)
@@ -340,10 +363,10 @@ def _apply_constructor_plan(
                             detail=f"source={operation.source} exceeds dataclass field count",
                         )
                     )
-                    return _ConstructorProjectionOutcome(
-                        names=(),
+                    return _ConstructorProjectionRejected(
+                        kind="rejected",
+                        reason="positional_arity_overflow",
                         witness_effects=tuple(witness_effects),
-                        projected=False,
                     )
                 names.append(fields[position])
                 position += 1
@@ -351,22 +374,22 @@ def _apply_constructor_plan(
         if operation.kind == "append_keyword" and operation.name:
             names.append(operation.name)
             continue
-        return _ConstructorProjectionOutcome(  # pragma: no cover
-            names=(),
+        return _ConstructorProjectionRejected(
+            kind="rejected",
+            reason="unknown_operation",
             witness_effects=tuple(witness_effects),
-            projected=False,
         )
 
     if any(name not in field_set for name in names):
-        return _ConstructorProjectionOutcome(
-            names=(),
+        return _ConstructorProjectionRejected(
+            kind="rejected",
+            reason="field_name_mismatch",
             witness_effects=tuple(witness_effects),
-            projected=False,
         )
-    return _ConstructorProjectionOutcome(
+    return _ConstructorProjectionApplied(
+        kind="applied",
         names=tuple(names),
         witness_effects=tuple(witness_effects),
-        projected=True,
     )
 
 
@@ -390,7 +413,7 @@ def iter_dataclass_call_bundle_effects(
     if tree is None:
         return BundleIterationOutcome(bundles=frozenset(), witness_effects=())
 
-    module = _module_name(path, project_root)
+    module = _module_identifier(_module_name(path, project_root))
     local_dataclasses = _collect_local_dataclasses(tree)
     effective_registry = _effective_dataclass_registry(
         module=module,
@@ -420,19 +443,31 @@ def iter_dataclass_call_bundle_effects(
                         fields=fields,
                         plan=plan,
                     )
-                    witness_effects.extend(projection.witness_effects)
-                    if projection.projected and len(projection.names) >= 2:
-                        bundles.add(
-                            tuple(
-                                sort_once(
-                                    projection.names,
-                                    source=(
-                                        "src/gabion/analysis/dataflow_bundle_iteration.py:"
-                                        "iter_dataclass_call_bundle_effects"
-                                    ),
+                    match projection:
+                        case _ConstructorProjectionApplied(
+                            kind="applied",
+                            names=names,
+                            witness_effects=projection_witness_effects,
+                        ):
+                            witness_effects.extend(projection_witness_effects)
+                            if len(names) >= 2:
+                                bundles.add(
+                                    tuple(
+                                        sort_once(
+                                            names,
+                                            source=(
+                                                "src/gabion/analysis/dataflow_bundle_iteration.py:"
+                                                "iter_dataclass_call_bundle_effects"
+                                            ),
+                                        )
+                                    )
                                 )
-                            )
-                        )
+                        case _ConstructorProjectionRejected(
+                            kind="rejected", witness_effects=projection_witness_effects
+                        ):
+                            witness_effects.extend(projection_witness_effects)
+                        case _:
+                            never(projection)
             case _:
                 pass
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 159
+doc_revision: 165
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -19,8 +19,8 @@ doc_requires:
   - glossary.md#deadness_witness
   - glossary.md#exception_obligation
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
   glossary.md#decision_table: 1
   glossary.md#decision_bundle: 1
   glossary.md#decision_protocol: 1
@@ -29,8 +29,8 @@ doc_reviewed_as_of:
   glossary.md#deadness_witness: 1
   glossary.md#exception_obligation: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#decision_table: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
   glossary.md#decision_bundle: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
   glossary.md#decision_protocol: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
@@ -39,7 +39,7 @@ doc_review_notes:
   glossary.md#deadness_witness: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_sections:
-  sppf_checklist: 8
+  sppf_checklist: 9
 doc_section_requires:
   sppf_checklist:
     - README.md#repo_contract
@@ -54,48 +54,48 @@ doc_section_requires:
 doc_section_reviews:
   sppf_checklist:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 8
+      dep_version: 2
+      self_version_at_review: 9
       outcome: no_change
-      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 8
+      dep_version: 2
+      self_version_at_review: 9
       outcome: no_change
-      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#decision_table:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
     glossary.md#decision_bundle:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
     glossary.md#decision_protocol:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
     glossary.md#decision_surface:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
     glossary.md#value_encoded_decision:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
     glossary.md#deadness_witness:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 8
+      self_version_at_review: 9
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -141,7 +141,7 @@ Normative pointers (explicit): [README.md#repo_contract](README.md#repo_contract
   `SPPF node` issue form.
 - Once the issue exists, append `(GH-####)` to the checklist line so planning and
   status remain bidirectionally linked.
-- Use `scripts/sppf_sync.py` locally to sync commit trailers (e.g. `SPPF: GH-17`)
+- Use `python -m scripts.sppf_sync` locally to sync commit trailers (e.g. `SPPF: GH-17`)
   with GitHub issue comments/labels without CI write permissions.
 - Do not close issues until a release containing the fix ships; use the
   `status/pending-release` label once work lands on `stage`.
@@ -150,7 +150,7 @@ Normative pointers (explicit): [README.md#repo_contract](README.md#repo_contract
 
 Docflow audit emits a violation when commits touching SPPF-relevant paths (`src/`,
 `in/`, or this checklist) lack GH references in commit messages. Use `GH-####`
-trailers or run `scripts/sppf_sync.py --comment` after adding references.
+trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 
 ## Governance tooling nodes
 - [~] Docflow audit outputs + frontmatter/anchorized report artifacts in `out/`. (in-28, GH-86) sppf{doc=done; impl=partial; doc_ref=in-28@8}
@@ -213,13 +213,13 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - <a id="in-23-aspf-carrier-formalization"></a>[x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73; anchors: `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_provenance`, `src/gabion/analysis/dataflow_audit.py::_compute_fingerprint_synth`, `src/gabion/analysis/type_fingerprints.py::build_synth_registry_from_payload`, `tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment`, `tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip`, `tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries`, `scripts/audit_snapshot.sh`, `scripts/latest_snapshot.sh`). sppf{doc=done; impl=done; doc_ref=in-23@10}
 - [~] SuiteSite carriers + loop-scoped deadline obligations (recursive loop attribution now outer-vs-inner precise; SuiteSite-native enforcement still incomplete). Evidence anchors: `src/gabion/analysis/dataflow_obligations.py::collect_deadline_obligations`, `tests/test_deadline_coverage.py::test_deadline_loop_unchecked_status_is_root_gated`. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
 - [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server; carrier budget semantics are stable but broader lane acceptance remains partial). Evidence anchors: `scripts/deadline_runtime.py::deadline_scope_from_lsp_env`, `tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit`. (in-30, GH-87) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
-- [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet (materialization landed; phase-3/4 decision-surface migration deferred). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_materialize_call_candidates`, `tests/test_deadline_coverage.py::test_materialized_call_candidates_target_function_suites`. (in-30, GH-88) sppf{doc=partial; impl=partial; doc_ref=in-30@27}
-- <a id="in-33-pattern-schema-unification"></a>[~] PatternSchema unification for dataflow bundles + execution patterns (shared cross-axis `schema:*` IDs, contract-versioned residue payloads, deterministic artifact ordering; execution rules still narrow). (in-33) sppf{doc=partial; impl=partial; doc_ref=in-33@3}
+- [~] Structural ambiguity as CallCandidate alts (SuiteSite) with SuiteSite-native decision/never facets; function-level decision and never views are projection-only and parity-verified by regression tests, while broader in-30 SuiteSite migration remains partial. Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_analyze_decision_surface_indexed`, `src/gabion/analysis/dataflow_audit.py::_collect_never_invariants`, `src/gabion/analysis/test_evidence_suggestions.py::_facet_site_id`, `tests/test_suite_site_projection_parity.py::test_decision_surface_function_projection_parity_from_suite_sites`, `tests/test_suite_site_projection_parity.py::test_never_invariant_function_projection_parity_from_suite_sites`. (in-30, GH-88) sppf{doc=partial; impl=done; doc_ref=in-30@27}
+- <a id="in-33-pattern-schema-unification"></a>[~] PatternSchema unification for dataflow bundles + execution patterns (shared cross-axis `schema:*` IDs, contract-versioned residue payloads, deterministic artifact ordering, Tier-2 residue ratchet/metafactory gate landed; execution rules still narrow). (in-33) sppf{doc=partial; impl=partial; doc_ref=in-33@3}
 - <a id="in-34-lambda-callable-sites"></a>[~] Lambda/closure callable indexing as first-class function sites (stable synthetic identities + direct/bound/closure lambda resolution; conservative dynamic fallback retained for unresolved alias/dynamic paths). Evidence anchors: `src/gabion/analysis/dataflow_audit.py::_resolve_callee_outcome`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call`, `tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls`. (in-34) sppf{doc=partial; impl=partial; doc_ref=in-34@2}
 - <a id="in-35-dict-key-carrier-tracking"></a>[~] Dict carrier tracking beyond literal subscript aliases (name-bound constant keys + unknown-key carrier evidence; key grammar remains conservative by design). Evidence anchors: `src/gabion/analysis/visitors.py::_normalize_key`, `tests/test_visitors_unit.py::test_subscript_forwarding_normalizes_const_keys`, `tests/test_visitors_unit.py::test_subscript_dynamic_key_marks_uncertainty`. (in-35) sppf{doc=partial; impl=partial; doc_ref=in-35@1}
 - <a id="in-36-starred-dataclass-call-bundles"></a>[x] Conservative starred dataclass constructor argument handling (`*` list/tuple/set, `**` dict literal) with unresolved-starred witnesses for dynamic payloads. (in-36) sppf{doc=done; impl=done; doc_ref=in-36@1}
 - <a id="in-37-dynamic-dispatch-uncertainty"></a>[x] Dynamic-dispatch uncertainty classification in call resolution (`unresolved_dynamic`) plus dedicated call-resolution obligation kind. (in-37) sppf{doc=done; impl=done; doc_ref=in-37@1}
-- <a id="in-38-aspf-log-structured-archive-projection"></a>[ ] ASPF mutation log-structured archive projection (protobuf payload records + protobuf-defined filesystem envelope projection + tar-packaged transport container + snapshot/tail replay). (in-38, GH-196) sppf{doc=done; impl=planned; doc_ref=in-38@1}
+- <a id="in-38-aspf-log-structured-archive-projection"></a>[~] ASPF mutation log-structured archive projection (protobuf payload records + protobuf-defined filesystem envelope projection + tar-packaged transport container + snapshot/tail replay). Transition note: envelopes/manifest/commit `.pb` files now use generated protobuf wire serialization; compatibility mode continues to decode legacy JSON-in-`.pb` artifacts for replay parity during migration. (in-38, GH-196) sppf{doc=partial; impl=partial; doc_ref=in-38@2}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -274,6 +274,11 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Proposition model + assert-based invariant extraction. (GH-67)
 - [x] Invariant emitter hooks (pluggable callbacks). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
+- [~] SIGv2 bridge typing in the Agda research lane (trace/payload/command surface contracts tracked against the TC design bridge; runtime remains advisory-only at this stage). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [~] CONSTRv2 constructor-shaping research lane (constructor bundle normalization and assembly contracts tracked in TC bridge mappings; production command handlers still own enforced payload shaping). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [x] GLUEv2 bridge-plan traceability lane tracked as completed research scaffolding (explicit cross-surface mapping bundle + non-production-enforced marker documented in the TC bridge, with v2 extension to be referenced when published). (research lane) sppf{doc=done; impl=done; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [~] Admitted-image/path-NF gate tracked in research lane (normal-form gate semantics under evaluation via TC bridge notes and planned v2 extension; promotion blocked pending policy/contract approval). (research lane) sppf{doc=partial; impl=partial; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
+- [x] Runtime-enforcement boundary note: dependent-type research artifacts remain non-authoritative for runtime behavior; enforcement continues in Python command handlers until a separately approved policy/contract promotion is ratified. (research lane) sppf{doc=done; impl=done; doc_ref=./in/universal-curve-lab-bundle/docs/tc-design-bridge.md@2}
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [x] Property-based test hook manifest generation from invariants (deterministic hook IDs, confidence gating, callable mapping, traceability keys; optional Hypothesis template snippets). (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
@@ -299,7 +304,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 - [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 - [x] Locked dependency set for CI (`requirements.lock`).
-- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@20}
+- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@21}
 
 ## Decision-flow tier nodes
 - <a id="decision-flow-tier3"></a>[x] Decision Table documentation for branch-heavy modules (Tier-3 evidence; see `docs/decision_flow_tiers.md#decision-flow-tier3`). (GH-47)

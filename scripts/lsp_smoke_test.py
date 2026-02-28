@@ -3,15 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
-try:
-    from gabion.lsp_client import CommandRequest, run_command
-except ModuleNotFoundError:
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
-    from gabion.lsp_client import CommandRequest, run_command
+from gabion.lsp_client import CommandRequest, run_command
 
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"

@@ -412,6 +412,35 @@ def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() ->
     assert transformer.warnings
 
 
+def test_ambient_rewrite_transformer_preamble_insert_when_first_stmt_is_compound() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    module = cst.parse_module(
+        textwrap.dedent(
+            """
+            def route(ctx):
+                if ctx:
+                    return sink(ctx)
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    node = module.body[0]
+    assert isinstance(node, cst.FunctionDef)
+
+    transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    rewritten = transformer._rewrite_function(node)
+    assert isinstance(rewritten, cst.FunctionDef)
+    code = cst.Module(body=[rewritten]).code
+    assert code.index("if ctx is None:") < code.index("if ctx:")
+
+
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
 def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
     import libcst as cst
@@ -518,41 +547,82 @@ def test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_sha
     assert isinstance(simple_suite_updated, cst.FunctionDef)
     assert isinstance(simple_suite_updated.body, cst.SimpleStatementSuite)
 
-    annotated_module = cst.parse_module(
-        "def route(ctx: CtxBundle | None = None):\n"
-        "    return sink(ctx)\n"
-    )
-    annotated_node = annotated_module.body[0]
-    assert isinstance(annotated_node, cst.FunctionDef)
-    annotated_transformer = refactor_engine._AmbientRewriteTransformer(
-        targets={"route", "sink"},
-        bundle_fields=["ctx"],
-        protocol_hint="CtxBundle[",
-    )
-    annotated_updated = annotated_transformer._rewrite_function(annotated_node)
-    assert isinstance(annotated_updated, cst.FunctionDef)
-    assert "ctx: CtxBundle | None = None" in cst.Module(body=[annotated_updated]).code
 
-    empty_body_node = annotated_node.with_changes(body=cst.IndentedBlock(body=()))
-    empty_body_transformer = refactor_engine._AmbientRewriteTransformer(
-        targets={"route", "sink"},
-        bundle_fields=["ctx"],
-        protocol_hint="CtxBundle",
-    )
-    empty_body_updated = empty_body_transformer._rewrite_function(empty_body_node)
-    assert isinstance(empty_body_updated, cst.FunctionDef)
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_reports_no_changes_outcome::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+def test_refactor_engine_reports_no_changes_outcome(tmp_path: Path) -> None:
+    from gabion.refactor.model import RefactorPlan, RefactorPlanOutcome
 
-    branchy_module = cst.parse_module(
-        "def route(ctx: CtxBundle | None = None):\n"
-        "    if True:\n"
-        "        return sink(ctx)\n"
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "sample.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def foo(bundle):
+                a = bundle.a
+                b = bundle.b
+                return a + b
+            """
+        ).strip()
+        + "\n"
     )
-    branchy_node = branchy_module.body[0]
-    assert isinstance(branchy_node, cst.FunctionDef)
-    branchy_transformer = refactor_engine._AmbientRewriteTransformer(
-        targets={"route", "sink"},
-        bundle_fields=["ctx"],
-        protocol_hint="CtxBundle",
+    request = RefactorRequest(
+        protocol_name="BundleProtocol",
+        bundle=["a", "b"],
+        fields=[FieldSpec(name="a"), FieldSpec(name="b")],
+        target_path=str(target),
+        target_functions=["foo"],
     )
-    branchy_updated = branchy_transformer._rewrite_function(branchy_node)
-    assert isinstance(branchy_updated, cst.FunctionDef)
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.outcome is RefactorPlanOutcome.APPLIED
+
+    no_change_plan = RefactorPlan(outcome=RefactorPlanOutcome.NO_CHANGES)
+    assert no_change_plan.outcome is RefactorPlanOutcome.NO_CHANGES
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_async_refactor_transformer_visit_leave_paths::engine.py::gabion.refactor.engine._RefactorTransformer.visit_AsyncFunctionDef::engine.py::gabion.refactor.engine._RefactorTransformer.leave_AsyncFunctionDef
+def test_refactor_engine_async_refactor_transformer_visit_leave_paths() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    module = cst.parse_module(
+        textwrap.dedent(
+            """
+            async def foo(a, b):
+                return a + b
+            """
+        ).strip()
+        + "\n"
+    )
+    transformer = refactor_engine._RefactorTransformer(
+        targets={"foo"},
+        bundle_fields=["a", "b"],
+        protocol_hint="BundleProtocol",
+    )
+    rewritten = module.visit(transformer)
+    normalized = _normalize(rewritten.code)
+    assert "asyncdeffoo(bundle:BundleProtocol)" in normalized
+    assert "a=bundle.a" in normalized
+    assert "b=bundle.b" in normalized
+    assert transformer._stack == []
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_rejects_unvalidated_module_identifier::engine.py::gabion.refactor.engine._validated_module_identifier
+def test_refactor_engine_rejects_unvalidated_module_identifier(tmp_path: Path) -> None:
+    from gabion.refactor.model import RefactorPlanOutcome
+
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    src_root = tmp_path / "src"
+    src_root.mkdir(parents=True)
+    target = src_root / "bad-module.py"
+    target.write_text("def foo(a, b):\n    return a + b\n")
+    request = RefactorRequest(
+        protocol_name="BundleProtocol",
+        bundle=["a", "b"],
+        fields=[FieldSpec(name="a"), FieldSpec(name="b")],
+        target_path=str(target),
+        target_functions=["foo"],
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.outcome is RefactorPlanOutcome.ERROR
+    assert plan.errors
+    assert "Invalid target module identifier" in plan.errors[0]

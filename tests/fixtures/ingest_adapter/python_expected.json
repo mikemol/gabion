@@ -1,0 +1,25 @@
+{
+  "exit_code": 0,
+  "timeout": false,
+  "analysis_state": "done",
+  "errors": ["2", "first error"],
+  "lint_entries": [
+    {
+      "path": "pkg/module.py",
+      "line": 9,
+      "col": 2,
+      "code": "DF001",
+      "message": "ambiguous bundle",
+      "severity": "warning"
+    }
+  ],
+  "decision_surfaces": [
+    {"surface": "bundle", "id": "B1"},
+    {"surface": "deadness", "id": "D1"}
+  ],
+  "bundle_sites_by_path": {
+    "pkg/module.py": [
+      {"function": "f", "bundle": ["a", "b"]}
+    ]
+  }
+}

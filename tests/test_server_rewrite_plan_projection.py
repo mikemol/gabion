@@ -45,3 +45,20 @@ def test_rewrite_plan_schema_helpers_cover_non_dict_and_unknown_kind() -> None:
     assert rewrite_plan_mod.attach_plan_schema({"rewrite": "bad"}) == {"rewrite": "bad"}
     unknown = {"rewrite": {"kind": "NOT_A_KIND"}}
     assert rewrite_plan_mod.attach_plan_schema(unknown) == unknown
+
+
+# gabion:evidence E:function_site::tests/test_server_rewrite_plan_projection.py::test_server_projection_normalizes_lint_entry_trichotomy
+def test_server_projection_normalizes_lint_entry_trichotomy() -> None:
+    provided = _normalize_dataflow_response(
+        {
+            "lint_lines": ["x.py:1:1: X ignored"],
+            "lint_entries": [{"path": "a.py", "line": 1, "col": 2, "code": "E", "message": "provided"}],
+        }
+    )
+    assert provided["lint_entries"][0]["path"] == "a.py"
+
+    derived = _normalize_dataflow_response({"lint_lines": ["b.py:2:3: W derived message"]})
+    assert derived["lint_entries"][0]["path"] == "b.py"
+
+    empty = _normalize_dataflow_response({})
+    assert empty["lint_entries"] == []

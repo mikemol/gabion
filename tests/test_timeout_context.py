@@ -13,6 +13,7 @@ from gabion.analysis.timeout_context import (
     Deadline,
     GasMeter,
     TimeoutContext,
+    TimeoutTickCarrier,
     TimeoutExceeded,
     _deadline_profile_snapshot,
     _freeze_value,
@@ -171,9 +172,9 @@ def test_deadline_check_noop_when_not_expired() -> None:
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks
 def test_deadline_from_timeout_variants() -> None:
     with pytest.raises(NeverThrown):
-        Deadline.from_timeout_ticks(-5, 0)
+        Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=-5, tick_ns=0))
     with pytest.raises(NeverThrown):
-        Deadline.from_timeout_ticks(1, 0)
+        Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=1, tick_ns=0))
     with pytest.raises(NeverThrown):
         Deadline.from_timeout(-1)
     with pytest.raises(NeverThrown):
@@ -224,6 +225,25 @@ def test_pack_call_stack_accepts_list_key_part() -> None:
     assert packed.as_payload()["site_table"] == [
         {"kind": "FunctionSite", "key": [["file"], "mod.fn"]}
     ]
+
+
+def test_function_site_identity_payload_round_trip() -> None:
+    packed = pack_call_stack(
+        [
+            {
+                "kind": "FunctionSite",
+                "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn", 1, 2, 3, 4],
+            }
+        ]
+    )
+    payload = packed.as_payload()
+    restored = pack_call_stack(payload["site_table"])
+    assert restored.as_payload()["site_table"] == payload["site_table"]
+
+
+def test_function_site_identity_decode_rejects_partial_identity() -> None:
+    with pytest.raises(NeverThrown):
+        pack_call_stack([{"path": "a.py", "qual": "", "span": [1, 2, 3]}])
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_pack_call_stack_uses_first_seen_site_order::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
@@ -309,6 +329,40 @@ def test_get_deadline_clock_requires_carrier() -> None:
     ctx = Context()
     with pytest.raises(NeverThrown):
         ctx.run(get_deadline_clock)
+
+
+def test_file_site_and_function_site_decode_invalid_payloads() -> None:
+    with pytest.raises(NeverThrown):
+        timeout_context._FileSite(path="")
+    assert timeout_context._FileSite.decode_payload(
+        {"kind": "FileSite", "key": ["a.py"]}
+    ) == timeout_context._FileSite(path="a.py")
+    with pytest.raises(NeverThrown):
+        timeout_context._FileSite.decode_payload({"kind": "Wrong", "key": ["a.py"]})
+    with pytest.raises(NeverThrown):
+        timeout_context._FunctionSiteIdentity(
+            path="a.py",
+            qual="mod.fn",
+            span=(1, 2, 3),
+            has_span=True,
+        )
+    with pytest.raises(NeverThrown):
+        timeout_context._FunctionSiteIdentity.decode_payload(
+            {"path": "a.py", "qual": "mod.fn", "span": ["x", 1, 2, 3]}
+        )
+    with pytest.raises(NeverThrown):
+        timeout_context._FunctionSiteIdentity.decode_payload(
+            {"path": "a.py", "qual": "mod.fn", "span": [1, 2, 3]}
+        )
+
+
+def test_decode_call_stack_sites_rejects_invalid_payload_type_and_normalize_site_payload() -> None:
+    with pytest.raises(NeverThrown):
+        timeout_context._decode_call_stack_sites([123])
+    normalized = timeout_context._normalize_site_payload(
+        {"kind": "FunctionSite", "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn"]}
+    )
+    assert normalized.kind == "FunctionSite"
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_check_deadline_requires_clock_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope

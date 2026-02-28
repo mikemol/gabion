@@ -70,7 +70,7 @@ jobs:
         if: always()
         run: |
           if [ -f artifacts/out/deadline_profile.json ]; then
-            .venv/bin/python scripts/deadline_profile_ci_summary.py \
+            .venv/bin/python -m scripts.deadline_profile_ci_summary \
               --allow-missing-local \
               --step-summary "$GITHUB_STEP_SUMMARY"
           else
@@ -130,9 +130,11 @@ jobs:
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
       - name: Policy check (workflows)
-        run: .venv/bin/python scripts/policy_check.py --workflows
+        run: .venv/bin/python -m scripts.policy_check --workflows
       - name: Policy check (ambiguity contract)
-        run: .venv/bin/python scripts/policy_check.py --ambiguity-contract
+        run: .venv/bin/python -m scripts.policy_check --ambiguity-contract
+      - name: Policy check (tier2 residue contract)
+        run: .venv/bin/python -m scripts.policy_check --tier2-residue-contract
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:
@@ -142,11 +144,11 @@ jobs:
             echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
             exit 0
           fi
-          .venv/bin/python scripts/policy_check.py --posture
+          .venv/bin/python -m scripts.policy_check --posture
       - name: Docflow audit
         run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
       - name: SPPF status drift audit
-        run: .venv/bin/python scripts/sppf_status_audit.py --root .
+        run: .venv/bin/python -m scripts.sppf_status_audit --root .
       - name: SPPF issue lifecycle validation (non-mutating)
         if: github.event_name == 'push'
         env:
@@ -172,7 +174,7 @@ jobs:
               rev_range="HEAD~20..HEAD"
             fi
           fi
-          .venv/bin/python scripts/sppf_sync.py \
+          .venv/bin/python -m scripts.sppf_sync \
             --validate \
             --only-when-relevant \
             --range "$rev_range" \
@@ -180,11 +182,8 @@ jobs:
             --require-label done-on-stage \
             --require-label status/pending-release
       - name: Test evidence index
-        env:
-          GABION_LSP_TIMEOUT_TICKS: "300000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
-          .venv/bin/python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
+          .venv/bin/python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
       - name: Policy check (no monkeypatch)
         run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .

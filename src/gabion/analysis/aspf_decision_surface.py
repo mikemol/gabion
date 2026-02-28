@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .aspf_core import AspfTwoCellWitness
+from ..invariants import never
 
 
 class RepresentativeSelectionMode(StrEnum):
@@ -48,7 +49,7 @@ def select_representative(options: RepresentativeSelectionOptions) -> Representa
     elif options.mode is RepresentativeSelectionMode.SHORTEST_PATH_THEN_LEXICOGRAPHIC:
         selected = min(options.candidates, key=lambda value: (len(value), value))
     else:  # pragma: no cover - enum exhaustiveness
-        raise ValueError(f"Unsupported representative selection mode: {options.mode}")
+        never("unsupported representative selection mode", mode=options.mode)
     return RepresentativeSelectionWitness(
         mode=options.mode,
         selected=selected,

@@ -1327,7 +1327,7 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
         ]
     }
     stubs = da.render_reuse_lemma_stubs(reuse)
-    assert "def lemma_name" in stubs
+    assert "reuse_rewrite_plan_bundle" in stubs
 
     text = da.render_refactor_plan(
         {
@@ -1760,7 +1760,7 @@ def test_scope_normalization_and_timeout_cleanup_edges(tmp_path: Path) -> None:
     # analyze_paths timeout cleanup should still flush best-effort emitters.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(1, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=1, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=1)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
@@ -2261,7 +2261,7 @@ def test_additional_branch_edges_rendering_variants() -> None:
     stubs = da.render_reuse_lemma_stubs(
         {"suggested_lemmas": [{"kind": "bundle", "suggested_name": "lemma", "count": 1}]}
     )
-    assert "def lemma" in stubs
+    assert "\"plans\"" in stubs
 
     # render_refactor_plan empty order branch.
     plan_text = da.render_refactor_plan({"bundles": [{"bundle": ["x"], "order": [], "cycles": []}]})
@@ -2801,7 +2801,7 @@ def test_branch_shifted_exports_refactor_and_scope_edges(tmp_path: Path) -> None
     # analyze_paths timeout before collection-progress callback is defined.
     timed_out = False
     try:
-        with da.deadline_scope(da.Deadline.from_timeout_ticks(10, 1)):
+        with da.deadline_scope(da.Deadline.from_timeout_ticks(da.TimeoutTickCarrier.from_ingress(ticks=10, tick_ns=1))):
             with da.deadline_clock_scope(da.GasMeter(limit=2)):
                 da.analyze_paths(
                     [tmp_path / "missing.py"],
@@ -3811,18 +3811,25 @@ def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
     )
     assert variants == {}
 
-    payload = {"index_cache_identity": ""}
-    assert da._with_analysis_index_resume_variants(payload=payload, previous_payload=None) == payload
+    payload = {"index_cache_identity": "", "projection_cache_identity": ""}
+    with pytest.raises(NeverThrown):
+        da._with_analysis_index_resume_variants(payload=payload, previous_payload=None)
 
     max_variants = da._ANALYSIS_INDEX_RESUME_MAX_VARIANTS
     previous_payload = {
         da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
-            f"id_{idx}": {"format_version": 1, "index_cache_identity": f"id_{idx}"}
+            f"aspf:sha1:{idx:040x}": {
+                "format_version": 1,
+                "index_cache_identity": f"aspf:sha1:{idx:040x}",
+            }
             for idx in range(max_variants + 2)
         }
     }
     trimmed = da._with_analysis_index_resume_variants(
-        payload={"index_cache_identity": ""},
+        payload={
+            "index_cache_identity": f"aspf:sha1:{(max_variants + 5):040x}",
+            "projection_cache_identity": f"aspf:sha1:{(max_variants + 6):040x}",
+        },
         previous_payload=previous_payload,
     )
     assert len(trimmed[da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY]) == max_variants
@@ -4189,14 +4196,15 @@ def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
     assert function_info_empty_reasons is not None
     assert function_info_empty_reasons.decision_surface_reasons == {}
 
+    canonical_id = "aspf:sha1:1111111111111111111111111111111111111111"
     variants = da._analysis_index_resume_variants(
         {
             da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
-                "id-1": {"format_version": 1, "value": "ok"}
+                canonical_id: {"format_version": 1, "value": "ok"}
             }
         }
     )
-    assert variants["id-1"]["value"] == "ok"
+    assert variants[canonical_id]["value"] == "ok"
 
     assert (
         da._analysis_index_resume_variants(
@@ -4211,8 +4219,8 @@ def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
         by_qual={},
         symbol_table=da.SymbolTable(),
         class_index={},
-        index_cache_identity="index",
-        projection_cache_identity="projection",
+        index_cache_identity="aspf:sha1:2222222222222222222222222222222222222222",
+        projection_cache_identity="aspf:sha1:3333333333333333333333333333333333333333",
     )
     stage_result = da._analysis_index_stage_cache(
         analysis_index,
@@ -4606,3 +4614,51 @@ def test_tail_branch_and_line_edges_for_eval_and_registry(tmp_path: Path) -> Non
         )
         == {}
     )
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_decision_surface_and_never_invariant_suite_site_locality::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_decision_surface_and_never_invariant_suite_site_locality(tmp_path: Path) -> None:
+    da = _load()
+    module_path = tmp_path / "suite_locality.py"
+    module_path.write_text(
+        "def probe(flag, gate):\n"
+        "    for _ in range(1):\n"
+        "        if flag:\n"
+        "            never('looped')\n"
+        "    if gate:\n"
+        "        return 1\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+
+    forest = da.Forest()
+    decision_surfaces, decision_warnings, decision_lint = da.analyze_decision_surfaces_repo(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="low",
+        external_filter=False,
+        decision_tiers={},
+        require_tiers=False,
+        forest=forest,
+    )
+    assert decision_warnings == []
+    assert any("[function_body]@" in surface for surface in decision_surfaces)
+    assert any("decision surface params:" in surface for surface in decision_surfaces)
+    assert decision_lint
+
+    never_entries = da._collect_never_invariants(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        forest=forest,
+    )
+    assert never_entries
+    loop_entry = next(entry for entry in never_entries if entry.get("reason") == "looped")
+    site = loop_entry.get("site", {})
+    assert site.get("suite_kind") == "call"
+    assert isinstance(site.get("suite_id"), str) and site.get("suite_id")
+    span = loop_entry.get("span")
+    assert isinstance(span, list) and len(span) == 4 and span[0] == 3
+
+    summary_lines = da._summarize_never_invariants(never_entries)
+    assert any("[call]" in line for line in summary_lines)

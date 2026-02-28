@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from typing import cast
 
 from gabion.analysis.aspf_core import (
     AspfCanonicalIdentityContract,
@@ -27,6 +28,7 @@ from gabion.analysis.aspf_morphisms import (
     DomainToAspfCofibrationEntry,
 )
 from gabion.analysis.evidence_keys import fingerprint_identity_layers
+from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_aspf_identity_and_associativity
@@ -185,6 +187,14 @@ def test_selection_and_cofibration_failure_edges() -> None:
             mode=RepresentativeSelectionMode.LEXICOGRAPHIC_MIN,
             candidates=("dup", "dup"),
         ).validate()
+
+    with pytest.raises(NeverThrown, match="unsupported representative selection mode"):
+        select_representative(
+            RepresentativeSelectionOptions(
+                mode=cast(RepresentativeSelectionMode, "unsupported_mode"),
+                candidates=("candidate",),
+            )
+        )
     assert (
         classify_drift_by_homotopy(
             baseline_representative="left",

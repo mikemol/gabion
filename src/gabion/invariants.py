@@ -3,18 +3,27 @@
 
 from __future__ import annotations
 
-import os
+from dataclasses import dataclass
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from typing import Callable, NoReturn, TypeVar
 
 from gabion.exceptions import NeverThrown
 
-_PROOF_ENV = "GABION_PROOF_MODE"
-_STRICT_VALUES = {"1", "true", "yes", "on", "strict"}
 _PROOF_MODE_OVERRIDE: ContextVar[bool | None] = ContextVar(
     "gabion_proof_mode_override",
     default=None,
+ )
+
+
+@dataclass(frozen=True)
+class ProofModeConfig:
+    enabled: bool = False
+
+
+_PROOF_MODE_CONFIG: ContextVar[ProofModeConfig] = ContextVar(
+    "gabion_proof_mode_config",
+    default=ProofModeConfig(),
 )
 
 T = TypeVar("T")
@@ -36,8 +45,24 @@ def proof_mode() -> bool:
     override = _PROOF_MODE_OVERRIDE.get()
     if override is not None:
         return bool(override)
-    value = os.environ.get(_PROOF_ENV, "")
-    return value.strip().lower() in _STRICT_VALUES
+    return bool(_PROOF_MODE_CONFIG.get().enabled)
+
+
+def set_proof_mode_config(config: ProofModeConfig) -> Token[ProofModeConfig]:
+    return _PROOF_MODE_CONFIG.set(config)
+
+
+def reset_proof_mode_config(token: Token[ProofModeConfig]) -> None:
+    _PROOF_MODE_CONFIG.reset(token)
+
+
+@contextmanager
+def proof_mode_config_scope(config: ProofModeConfig):
+    token = set_proof_mode_config(config)
+    try:
+        yield
+    finally:
+        reset_proof_mode_config(token)
 
 
 @contextmanager

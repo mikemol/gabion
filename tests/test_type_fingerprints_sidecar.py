@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from gabion.analysis.dataflow_audit import (
+    _collect_fingerprint_atom_keys,
     _compute_fingerprint_matches,
     _compute_fingerprint_provenance,
 )
@@ -8,6 +9,7 @@ from gabion.analysis.type_fingerprints import (
     FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
+    build_reverse_prime_index,
     bundle_fingerprint_dimensional,
     fingerprint_to_type_keys_with_remainder,
     format_fingerprint,
@@ -16,13 +18,16 @@ from gabion.order_contract import ordered_or_sorted
 
 
 def _legacy_decode(fingerprint, registry: PrimeRegistry) -> tuple[list[str], int, list[str], int]:
+    reverse_index = build_reverse_prime_index(registry)
     base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
         fingerprint.base.product,
         registry,
+        reverse_index,
     )
     ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
         fingerprint.ctor.product,
         registry,
+        reverse_index,
     )
     ctor_keys = [
         key[len("ctor:") :] if key.startswith("ctor:") else key
@@ -41,8 +46,17 @@ def test_dimension_sidecar_decode_matches_legacy_division() -> None:
         ctor_registry,
     )
 
-    expected_base = fingerprint_to_type_keys_with_remainder(fingerprint.base.product, registry)
-    expected_ctor = fingerprint_to_type_keys_with_remainder(fingerprint.ctor.product, registry)
+    reverse_index = build_reverse_prime_index(registry)
+    expected_base = fingerprint_to_type_keys_with_remainder(
+        fingerprint.base.product,
+        registry,
+        reverse_index,
+    )
+    expected_ctor = fingerprint_to_type_keys_with_remainder(
+        fingerprint.ctor.product,
+        registry,
+        reverse_index,
+    )
 
     base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
     ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
@@ -89,6 +103,7 @@ def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
     assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
         fingerprint.base.product,
         registry,
+        build_reverse_prime_index(registry),
     )
 
 
@@ -118,6 +133,7 @@ def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
         inconsistent.product,
         registry,
+        build_reverse_prime_index(registry),
     )
 
 
@@ -241,3 +257,30 @@ def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> No
     assert entry["identity_layers"]["canonical"]["representative"] == entry[
         "canonical_identity_contract"
     ]["representative"]
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_collect_fingerprint_atom_keys_is_order_invariant::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_fingerprint_atom_keys
+def test_collect_fingerprint_atom_keys_is_order_invariant() -> None:
+    first = Path("pkg/a.py")
+    second = Path("pkg/b.py")
+    groups_a = {
+        first: {"f": [{"left", "right"}]},
+        second: {"g": [{"arg"}]},
+    }
+    annotations_a = {
+        first: {"f": {"left": "dict[str, list[int]]", "right": "set[str]"}},
+        second: {"g": {"arg": "tuple[int, str]"}},
+    }
+    groups_b = {
+        second: {"g": [{"arg"}]},
+        first: {"f": [{"right", "left"}]},
+    }
+    annotations_b = {
+        second: {"g": {"arg": "tuple[int, str]"}},
+        first: {"f": {"right": "set[str]", "left": "dict[str, list[int]]"}},
+    }
+
+    assert _collect_fingerprint_atom_keys(groups_a, annotations_a) == _collect_fingerprint_atom_keys(
+        groups_b,
+        annotations_b,
+    )

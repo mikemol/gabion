@@ -6,6 +6,42 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
+_SURFACE_BUNDLE_INFERENCE = "bundle-inference"
+_SURFACE_DECISION_SURFACES = "decision-surfaces"
+_SURFACE_TYPE_FLOW = "type-flow"
+_SURFACE_EXCEPTION_OBLIGATIONS = "exception-obligations"
+_SURFACE_REWRITE_PLAN_SUPPORT = "rewrite-plan-support"
+
+
+def _capability_enabled(adapter_contract: object, capability_name: str) -> bool:
+    if type(adapter_contract) is not dict:
+        return True
+    capabilities = cast(dict[object, object], adapter_contract).get("capabilities")
+    if type(capabilities) is not dict:
+        return True
+    value = cast(dict[object, object], capabilities).get(capability_name)
+    return bool(value) if type(value) is bool else True
+
+
+def _unsupported_surface_diagnostic(
+    *,
+    surface: str,
+    capability_name: str,
+    runtime_config: AuditConfig,
+) -> JSONObject:
+    required = surface in runtime_config.required_analysis_surfaces
+    adapter_contract = runtime_config.adapter_contract
+    adapter_name = "native"
+    if type(adapter_contract) is dict:
+        adapter_name = str(cast(dict[object, object], adapter_contract).get("name", "native") or "native")
+    return {
+        "kind": "unsupported_by_adapter",
+        "surface": surface,
+        "capability": capability_name,
+        "adapter": adapter_name,
+        "required_by_policy": required,
+    }
+
 _BOUND = False
 
 
@@ -702,6 +738,18 @@ def _run_post_phase(
                 )
         else:
             _emit_post_phase_progress(marker="fingerprint:annotations:0/0")
+        base_keys, ctor_keys = _collect_fingerprint_atom_keys(
+            groups_by_path,
+            annotations_by_path,
+        )
+        for key in base_keys:
+            check_deadline()
+            config.fingerprint_registry.get_or_assign(key)
+        if config.constructor_registry is not None:
+            for key in ctor_keys:
+                check_deadline()
+                config.constructor_registry.get_or_assign(key)
+        _emit_post_phase_progress(marker="fingerprint:normalize")
         fingerprint_warnings = _compute_fingerprint_warnings(
             groups_by_path,
             annotations_by_path,
@@ -897,6 +945,70 @@ def analyze_paths(
         if config is None:
             config = AuditConfig()
         runtime_config = cast(AuditConfig, config)
+        unsupported_by_adapter: list[JSONObject] = []
+        if include_bundle_forest and not _capability_enabled(
+            runtime_config.adapter_contract,
+            "bundle_inference",
+        ):
+            include_bundle_forest = False
+            unsupported_by_adapter.append(
+                _unsupported_surface_diagnostic(
+                    surface=_SURFACE_BUNDLE_INFERENCE,
+                    capability_name="bundle_inference",
+                    runtime_config=runtime_config,
+                )
+            )
+        if (include_decision_surfaces or include_value_decision_surfaces) and not _capability_enabled(
+            runtime_config.adapter_contract,
+            "decision_surfaces",
+        ):
+            include_decision_surfaces = False
+            include_value_decision_surfaces = False
+            unsupported_by_adapter.append(
+                _unsupported_surface_diagnostic(
+                    surface=_SURFACE_DECISION_SURFACES,
+                    capability_name="decision_surfaces",
+                    runtime_config=runtime_config,
+                )
+            )
+        if (type_audit or type_audit_report) and not _capability_enabled(
+            runtime_config.adapter_contract,
+            "type_flow",
+        ):
+            type_audit = False
+            type_audit_report = False
+            unsupported_by_adapter.append(
+                _unsupported_surface_diagnostic(
+                    surface=_SURFACE_TYPE_FLOW,
+                    capability_name="type_flow",
+                    runtime_config=runtime_config,
+                )
+            )
+        if (include_exception_obligations or include_handledness_witnesses) and not _capability_enabled(
+            runtime_config.adapter_contract,
+            "exception_obligations",
+        ):
+            include_exception_obligations = False
+            include_handledness_witnesses = False
+            unsupported_by_adapter.append(
+                _unsupported_surface_diagnostic(
+                    surface=_SURFACE_EXCEPTION_OBLIGATIONS,
+                    capability_name="exception_obligations",
+                    runtime_config=runtime_config,
+                )
+            )
+        if include_rewrite_plans and not _capability_enabled(
+            runtime_config.adapter_contract,
+            "rewrite_plan_support",
+        ):
+            include_rewrite_plans = False
+            unsupported_by_adapter.append(
+                _unsupported_surface_diagnostic(
+                    surface=_SURFACE_REWRITE_PLAN_SUPPORT,
+                    capability_name="rewrite_plan_support",
+                    runtime_config=runtime_config,
+                )
+            )
         if file_paths_override is None:
             file_paths = resolve_analysis_paths(paths, config=runtime_config)
         else:
@@ -1322,6 +1434,7 @@ def analyze_paths(
             parse_failure_witnesses=parse_failure_witnesses,
             forest_spec=forest_spec,
             profiling_v1=profiling_v1,
+            unsupported_by_adapter=unsupported_by_adapter,
         )
     except TimeoutExceeded:
         _best_effort_timeout_flush(lambda: _emit_collection_progress(force=True))

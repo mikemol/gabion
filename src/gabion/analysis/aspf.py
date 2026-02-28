@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import cast
 
+from gabion.analysis.aspf_evidence import normalize_alt_evidence_payload
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.runtime import stable_encode
@@ -53,9 +54,11 @@ class _InternIdentity:
     fingerprint: NodeFingerprint
 
 
-def _canonicalize_intern_identity(kind: str, key: NodeKey) -> _InternIdentity:
-    node_id = NodeId(kind=kind, key=key)
-    return _InternIdentity(node_id=node_id, fingerprint=fingerprint_identity(kind, key))
+def _canonicalize_intern_identity(node_id: NodeId) -> _InternIdentity:
+    return _InternIdentity(
+        node_id=node_id,
+        fingerprint=fingerprint_identity(node_id.kind, node_id.key),
+    )
 
 
 @dataclass(frozen=True)
@@ -99,6 +102,13 @@ class Alt:
     inputs: tuple[NodeId, ...]
     evidence: dict[str, object] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "evidence",
+            _canonicalize_evidence(self.evidence),
+        )
+
     def as_dict(self) -> dict[str, object]:
         # Lazy import avoids module-cycle during timeout_context bootstrap.
         from gabion.analysis.timeout_context import check_deadline
@@ -141,16 +151,36 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
 
 
 def _canonicalize_evidence(evidence: object) -> dict[str, object]:
-    payload = evidence if evidence is not None else {}
-    canonical = stable_encode.stable_json_value(
-        payload,
-        source="aspf._canonicalize_evidence",
-    )
-    match canonical:
-        case dict() as canonical_map:
-            return cast(dict[str, object], canonical_map)
+    normalized = normalize_alt_evidence_payload(evidence)
+    return cast(dict[str, object], _canonicalize_evidence_value(normalized))
+
+
+def _canonicalize_evidence_value(value: object) -> object:
+    match value:
+        case dict() as mapping:
+            ordered_keys = sort_once(
+                (str(key) for key in mapping),
+                source="aspf._canonicalize_evidence_value.mapping",
+            )
+            return {
+                key: _canonicalize_evidence_value(mapping[key])
+                for key in ordered_keys
+            }
+        case list() | tuple() | set() as seq:
+            canonical_items = [_canonicalize_evidence_value(item) for item in seq]
+            by_stable_text: dict[str, object] = {}
+            for item in canonical_items:
+                stable_text = stable_encode.stable_compact_text(item)
+                by_stable_text.setdefault(stable_text, item)
+            return [
+                by_stable_text[key]
+                for key in sort_once(
+                    by_stable_text,
+                    source="aspf._canonicalize_evidence_value.sequence",
+                )
+            ]
         case _:
-            return {}
+            return value
 
 
 def _float_structural_atom(value: float) -> StructuralKeyAtom:
@@ -286,7 +316,7 @@ class Forest:
     ] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: object) -> NodeId:
-        identity = _canonicalize_intern_identity(node_id.kind, node_id.key)
+        identity = _canonicalize_intern_identity(node_id)
         existing = self._nodes_by_fingerprint.get(identity.fingerprint)
         if existing is not None:
             return existing
@@ -295,7 +325,7 @@ class Forest:
         return identity.node_id
 
     def has_node(self, kind: str, key: NodeKey) -> bool:
-        identity = _canonicalize_intern_identity(kind, key)
+        identity = _canonicalize_intern_identity(NodeId(kind=kind, key=key))
         return identity.fingerprint in self._nodes_by_fingerprint
 
     def add_file_site(self, path: str) -> NodeId:
@@ -454,20 +484,19 @@ class Forest:
         consume_deadline_ticks()
         normalized_kind = str(kind).strip()
         normalized_inputs = tuple(inputs)
-        normalized_evidence = _canonicalize_evidence(evidence)
+        alt = Alt(
+            kind=normalized_kind,
+            inputs=normalized_inputs,
+            evidence=cast(dict[str, object], evidence),
+        )
         evidence_identity = structural_key_atom(
-            normalized_evidence,
+            alt.evidence,
             source="Forest.add_alt.evidence",
         )
         structural_key = (normalized_kind, normalized_inputs, evidence_identity)
         interned = self._alt_index.get(structural_key)
         if interned is not None:
             return interned
-        alt = Alt(
-            kind=normalized_kind,
-            inputs=normalized_inputs,
-            evidence=normalized_evidence,
-        )
         self.alts.append(alt)
         self._alt_index[structural_key] = alt
         return alt

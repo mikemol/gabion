@@ -905,7 +905,7 @@ def _build_forest_evidence_index(
     check_deadline()
     site_index: dict[tuple[str, str], NodeId] = {}
     for node_id, node in forest.nodes.items():
-        if node_id.kind != "FunctionSite":
+        if node_id.kind not in {"FunctionSite", "SuiteSite"}:
             continue
         path, qual = _site_parts(node_id, forest)
         if not path or not qual:
@@ -915,7 +915,7 @@ def _build_forest_evidence_index(
     evidence_by_site: dict[NodeId, dict[str, EvidenceSuggestion]] = defaultdict(dict)
     for alt in forest.alts:
         if alt.kind in _ALT_EVIDENCE_PREFIX:
-            site_id = _alt_input(alt, "FunctionSite")
+            site_id = _facet_site_id(alt)
             if site_id is not None:
                 suggestion = _evidence_for_alt(alt, forest)
                 if suggestion is not None:
@@ -924,6 +924,13 @@ def _build_forest_evidence_index(
     for site_id, items in evidence_by_site.items():
         ordered[site_id] = tuple(items[key] for key in sort_once(items, source = 'src/gabion/analysis/test_evidence_suggestions.py:916'))
     return site_index, ordered
+
+
+def _facet_site_id(alt: Alt):
+    suite_id = _alt_input(alt, "SuiteSite")
+    if suite_id is not None:
+        return suite_id
+    return _alt_input(alt, "FunctionSite")
 
 
 def _evidence_for_alt(
@@ -946,7 +953,7 @@ def _evidence_for_alt(
         key = evidence_keys.make_paramset_key(paramset_key.split(","))
         display = evidence_keys.render_display(key)
         return EvidenceSuggestion(key=key, display=display)
-    site_id = _alt_input(alt, "FunctionSite")
+    site_id = _facet_site_id(alt)
     if site_id is None:
         return _NO_RESULT
     path, qual = _site_parts(site_id, forest)

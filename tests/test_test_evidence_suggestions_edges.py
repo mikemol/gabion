@@ -986,3 +986,11 @@ def test_suggest_for_entry_opaque_and_normalize_mapping_edges() -> None:
     )
     assert modules
     assert prefixes
+
+
+def test_facet_site_id_prefers_suite_site_input() -> None:
+    forest = Forest()
+    suite_id = forest.add_suite_site("mod.py", "f", "call", span=(1, 0, 1, 1))
+    paramset_id = forest.add_paramset(("a",))
+    alt = forest.add_alt("NeverInvariantSink", (suite_id, paramset_id))
+    assert test_evidence_suggestions._facet_site_id(alt) == suite_id

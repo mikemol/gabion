@@ -1,5 +1,5 @@
 ---
-doc_revision: 51
+doc_revision: 52
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -17,19 +17,19 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
   glossary.md#exception_obligation: 1
   glossary.md#handledness_witness: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 2
+  README.md#repo_contract: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
   glossary.md#handledness_witness: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
 doc_sections:
   influence_index: 2
 doc_section_requires:
@@ -43,10 +43,10 @@ doc_section_requires:
 doc_section_reviews:
   influence_index:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
@@ -63,15 +63,15 @@ doc_section_reviews:
       outcome: no_change
       note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -130,9 +130,9 @@ Status legend:
 - in/in-30.md — **partial** (implemented: suite ambiguity projections + suite-order SpecFacet path + tick-budget deadline propagation; open: SuiteSite-native loop obligation enforcement; deferred: phase-3/4 decision-surface migration; SPPF/GH-85, GH-87, GH-88.)
 - in/in-31.md — **partial** (implemented: suite-order ProjectionSpec/SpecFacet quotient path; open: explicit quotient/internment regression harness; deferred: internal broad-type lint tightening impact; SPPF/GH-85, GH-89.)
 - in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
-- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (implemented: PatternSchema/PatternInstance/PatternResidue carriers + unified schema suggestion/residue pipeline; open: execution-rule coverage breadth; deferred: Tier-2 residue ratchet/metafactory reification gate.)
+- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (implemented: PatternSchema/PatternInstance/PatternResidue carriers + unified schema suggestion/residue pipeline + Tier-2 residue ratchet/metafactory reification gate; open: execution-rule coverage breadth.)
 - in/in-34.md — [**partial**](docs/sppf_checklist.md#in-34-lambda-callable-sites) (synthetic lambda function sites are indexed and used for direct/bound lambda call resolution, while broader closure/alias cases still fall back conservatively.)
 - in/in-35.md — [**partial**](docs/sppf_checklist.md#in-35-dict-key-carrier-tracking) (dict key normalization now supports name-bound constants and records explicit unknown-key carrier evidence for non-recoverable keys; supported key grammar remains deliberately conservative.)
 - in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
 - in/in-37.md — [**adopted**](docs/sppf_checklist.md#in-37-dynamic-dispatch-uncertainty) (callee resolution now distinguishes `unresolved_dynamic` from unresolved internal/external states and emits a dedicated `unresolved_dynamic_callee` obligation kind.)
-- in/in-38.md — **queued** (formalized future design: ASPF mutation log-structured persistence with protobuf payloads, a protobuf-defined filesystem envelope projection, and tar-packaged archive transport; deferred implementation tracked in the checklist; SPPF/GH-196.)
+- in/in-38.md — **partial** (formalized ASPF mutation log-structured persistence design with partial implementation now landed: protobuf payload records, protobuf-defined filesystem envelope projection, and tar-packaged archive transport with migration compatibility behavior; checklist tracks remaining completion work; SPPF/GH-196.)

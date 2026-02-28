@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ast
 import json
 import os
 import re
@@ -10,13 +11,12 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-from gabion.analysis.timeout_context import check_deadline
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
+from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
+from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
 
 try:
     import yaml
@@ -48,6 +48,7 @@ _DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(
 
 
 NORMATIVE_ENFORCEMENT_MAP = REPO_ROOT / "docs" / "normative_enforcement_map.yaml"
+TIER2_RESIDUE_BASELINE = REPO_ROOT / "out" / "tier2_pattern_residue_baseline.json"
 _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-LSP-FIRST",
     "NCI-ACTIONS-PINNED",
@@ -1226,6 +1227,46 @@ def check_posture():
         _fail(errors)
 
 
+def _load_tier2_residue_baseline(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    residues = payload.get("residues", []) if isinstance(payload, dict) else []
+    if not isinstance(residues, list):
+        return set()
+    return {str(item) for item in residues if isinstance(item, str)}
+
+
+def check_tier2_residue_contract() -> None:
+    from gabion.analysis import dataflow_audit
+
+    source_path = REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py"
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _fail([f"tier2 residue policy check failed to read source: {exc}"])
+    with deadline_clock_scope(MonotonicClock()):
+        with deadline_scope(Deadline.from_timeout_ms(10_000)):
+            instances = dataflow_audit._pattern_schema_matches(
+                groups_by_path={},
+                source=source,
+                source_path=source_path,
+            )
+            residues = dataflow_audit._tier2_unreified_residue_entries(
+                dataflow_audit._pattern_schema_residue_entries(instances)
+            )
+    current = {
+        f"{entry.reason}:{entry.payload.get('kind', '')}:{entry.schema_id}"
+        for entry in residues
+    }
+    baseline = _load_tier2_residue_baseline(TIER2_RESIDUE_BASELINE)
+    new_keys = current - baseline
+    if new_keys:
+        _fail([
+            "tier2 residue policy check failed (new unreified Tier-2 residues)",
+            *[f"new residue: {item}" for item in _sorted(new_keys)],
+        ])
+
 def check_ambiguity_contract() -> None:
     cmd = [
         sys.executable,
@@ -1246,15 +1287,160 @@ def check_ambiguity_contract() -> None:
             details.append(stderr)
         _fail(["ambiguity contract policy check failed", *details])
 
+
+
+_SEMANTIC_CORE_PAYLOAD_BRANCH_MODULES = (
+    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py",
+    REPO_ROOT / "src" / "gabion" / "analysis" / "timeout_context.py",
+)
+
+_ALLOWED_PAYLOAD_BRANCH_FUNCTION_PREFIXES = (
+    "_decode_",
+)
+
+_KNOWN_ADAPTER_SURFACES = {
+    "bundle-inference": "bundle_inference",
+    "decision-surfaces": "decision_surfaces",
+    "type-flow": "type_flow",
+    "exception-obligations": "exception_obligations",
+    "rewrite-plan-support": "rewrite_plan_support",
+}
+
+
+
+def _raw_payload_branching_violations(path: Path) -> list[str]:
+    check_deadline()
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read source ({exc})"]
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        return [f"{path}: failed to parse source ({exc})"]
+
+    function_ranges: list[tuple[int, int, str]] = []
+    for node in ast.walk(module):
+        check_deadline()
+        if isinstance(node, ast.FunctionDef):
+            start = int(getattr(node, "lineno", 0) or 0)
+            end = int(getattr(node, "end_lineno", start) or start)
+            function_ranges.append((start, end, node.name))
+
+    def _function_name_for_line(line_no: int) -> str | None:
+        check_deadline()
+        best: tuple[int, str] | None = None
+        for start, end, name in function_ranges:
+            check_deadline()
+            if start <= line_no <= end:
+                width = end - start
+                if best is None or width < best[0]:
+                    best = (width, name)
+        return best[1] if best is not None else None
+
+    def _is_allowed(line_no: int) -> bool:
+        name = _function_name_for_line(line_no)
+        if name is None:
+            return False
+        return name.startswith(_ALLOWED_PAYLOAD_BRANCH_FUNCTION_PREFIXES)
+
+    def _pattern_mentions_raw_payload(pattern: ast.pattern) -> bool:
+        check_deadline()
+        if isinstance(pattern, ast.MatchClass):
+            cls = pattern.cls
+            if isinstance(cls, ast.Name) and cls.id in {"Mapping", "list"}:
+                return True
+            if isinstance(cls, ast.Attribute) and cls.attr in {"Mapping", "list"}:
+                return True
+        for child in ast.iter_child_nodes(pattern):
+            check_deadline()
+            if isinstance(child, ast.pattern) and _pattern_mentions_raw_payload(child):
+                return True
+        return False
+
+    def _isinstance_mentions_raw_payload(call: ast.Call) -> bool:
+        check_deadline()
+        if not (isinstance(call.func, ast.Name) and call.func.id == "isinstance"):
+            return False
+        if len(call.args) < 2:
+            return False
+        type_arg = call.args[1]
+        targets: list[ast.expr] = []
+        if isinstance(type_arg, ast.Tuple):
+            targets.extend(type_arg.elts)
+        else:
+            targets.append(type_arg)
+        for target in targets:
+            check_deadline()
+            if isinstance(target, ast.Name) and target.id in {"Mapping", "list"}:
+                return True
+            if isinstance(target, ast.Attribute) and target.attr in {"Mapping", "list"}:
+                return True
+        return False
+
+    try:
+        display_path = str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        display_path = str(path)
+
+    violations: list[str] = []
+    for node in ast.walk(module):
+        check_deadline()
+        if isinstance(node, ast.match_case):
+            lineno = int(getattr(node.pattern, "lineno", 0) or 0)
+            if lineno > 0 and _pattern_mentions_raw_payload(node.pattern) and not _is_allowed(lineno):
+                violations.append(f"{display_path}:{lineno}: raw Mapping/list match outside boundary decode")
+        if isinstance(node, ast.Call):
+            lineno = int(getattr(node, "lineno", 0) or 0)
+            if lineno > 0 and _isinstance_mentions_raw_payload(node) and not _is_allowed(lineno):
+                violations.append(f"{display_path}:{lineno}: isinstance Mapping/list branch outside boundary decode")
+    return violations
+
+
+def check_semantic_core_payload_branching() -> None:
+    errors: list[str] = []
+    for path in _SEMANTIC_CORE_PAYLOAD_BRANCH_MODULES:
+        check_deadline()
+        errors.extend(_raw_payload_branching_violations(path))
+    if errors:
+        _fail([
+            "semantic-core payload branching policy check failed",
+            *errors,
+        ])
+
+def check_adapter_surface_policy() -> None:
+    errors: list[str] = []
+    dataflow = dataflow_defaults(root=REPO_ROOT)
+    required = set(dataflow_required_surfaces(dataflow))
+    unknown = required - set(_KNOWN_ADAPTER_SURFACES)
+    if unknown:
+        errors.append(f"unknown required adapter surfaces: {_sorted(unknown)}")
+    adapter_payload = dataflow_adapter_payload(dataflow)
+    capabilities = adapter_payload.get("capabilities", {}) if isinstance(adapter_payload, dict) else {}
+    if not isinstance(capabilities, dict):
+        capabilities = {}
+    for surface in required & set(_KNOWN_ADAPTER_SURFACES):
+        check_deadline()
+        capability_key = _KNOWN_ADAPTER_SURFACES[surface]
+        if capabilities.get(capability_key) is False:
+            errors.append(
+                f"required adapter surface {surface!r} is disabled via capability {capability_key!r}"
+            )
+    if errors:
+        _fail(errors)
+
 def main():
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
+    parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
+    parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
+    parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1266,6 +1452,12 @@ def main():
             check_ambiguity_contract()
         if args.normative_map:
             check_normative_enforcement_map()
+        if args.tier2_residue_contract:
+            check_tier2_residue_contract()
+        if args.adapter_surfaces:
+            check_adapter_surface_policy()
+        if args.semantic_core_payload_branching:
+            check_semantic_core_payload_branching()
     return 0
 
 

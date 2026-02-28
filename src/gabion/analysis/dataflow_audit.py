@@ -37,8 +37,10 @@ from gabion.analysis.pattern_schema import (
     PatternInstance,
     PatternResidue,
     PatternSchema,
+    execution_signature,
     mismatch_residue_payload,
 )
+from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.analysis.evidence import (
@@ -48,15 +50,18 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.aspf import Alt, Forest, Node, NodeId, structural_key_atom, structural_key_json
 from gabion.analysis.derivation_cache import get_global_derivation_cache
 from gabion.analysis.derivation_contract import DerivationOp
 from gabion.analysis import evidence_keys
+from gabion.exceptions import NeverThrown
 from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
     dataflow_defaults,
+    dataflow_adapter_payload,
     dataflow_deadline_roots,
+    dataflow_required_surfaces,
     decision_defaults,
     decision_ignore_list,
     decision_require_tiers,
@@ -72,6 +77,8 @@ from gabion.analysis.type_fingerprints import (
     FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
+    _collect_base_atoms,
+    _collect_constructors,
     SynthRegistry,
     build_synth_registry,
     build_fingerprint_registry,
@@ -80,6 +87,7 @@ from gabion.analysis.type_fingerprints import (
     format_fingerprint,
     fingerprint_carrier_soundness,
     fingerprint_identity_payload,
+    fingerprint_stage_cache_identity,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -96,6 +104,7 @@ from .timeout_context import (
     Deadline,
     GasMeter,
     TimeoutExceeded,
+    TimeoutTickCarrier,
     build_timeout_context_from_stack,
     check_deadline,
     deadline_loop_iter,
@@ -178,7 +187,16 @@ from .dataflow_exception_obligations import (
     node_in_try_body as _exc_node_in_try_body,
     _builtin_exception_class as _exc_builtin_exception_class,
 )
+from .semantic_primitives import (
+    AnalysisPassPrerequisites,
+    CallArgumentMapping,
+    CallableId,
+    DecisionPredicateEvidence,
+    ParameterId,
+    SpanIdentity,
+)
 from .dataflow_report_rendering import (
+    render_unsupported_by_adapter_section as _report_render_unsupported_section,
     render_synthesis_section as _report_render_synthesis_section,
 )
 from .dataflow_bundle_iteration import (
@@ -227,6 +245,13 @@ _PARSE_MODULE_ERROR_TYPES = (
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 OptionalIgnoredParams = set[str] | None
 ParamAnnotationMap = dict[str, str | None]
+
+
+@dataclass(frozen=True)
+class AnnotationValue:
+    text: str
+    parse_status: Literal["present", "missing", "unparse_failure"]
+
 ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
 OptionalReturnAliasMap = ReturnAliasMap | None
 OptionalClassName = str | None
@@ -329,6 +354,7 @@ class _ReportSectionKey:
 class _ExecutionPatternMatch:
     pattern_id: str
     kind: str
+    schema_family: str
     members: tuple[str, ...]
     suggestion: str
 
@@ -337,7 +363,87 @@ class _ExecutionPatternMatch:
 class _ExecutionPatternRule:
     pattern_id: str
     kind: str
+    schema_family: str
+    predicates: tuple["_ExecutionPatternPredicate", ...]
+    min_members: int
+    candidate: str
     description: str
+
+
+@dataclass(frozen=True)
+class _ExecutionCallShape:
+    positional_args: int
+    keyword_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _ExecutionFunctionFact:
+    function_name: str
+    param_names: frozenset[str]
+    called_names: frozenset[str]
+    call_shapes: Mapping[str, tuple[_ExecutionCallShape, ...]]
+
+
+class _ExecutionPatternPredicateKind(StrEnum):
+    PARAMS = "params"
+    CALLEE = "callee"
+    CALL_SHAPE = "call_shape"
+
+
+@dataclass(frozen=True)
+class _ExecutionPatternPredicate:
+    kind: _ExecutionPatternPredicateKind
+    required_params: frozenset[str] = frozenset()
+    callee_names: frozenset[str] = frozenset()
+    required_keywords: frozenset[str] = frozenset()
+    min_positional_args: int = 0
+
+    def matches(self, *, fact: _ExecutionFunctionFact) -> bool:
+        check_deadline()
+        if self.kind is _ExecutionPatternPredicateKind.PARAMS:
+            return self.required_params.issubset(fact.param_names)
+        if self.kind is _ExecutionPatternPredicateKind.CALLEE:
+            return bool(fact.called_names.intersection(self.callee_names))
+        if self.kind is _ExecutionPatternPredicateKind.CALL_SHAPE:
+            for callee_name in self.callee_names:
+                check_deadline()
+                for shape in fact.call_shapes.get(callee_name, ()):  # boundary alias normalization
+                    check_deadline()
+                    if shape.positional_args < self.min_positional_args:
+                        continue
+                    if not self.required_keywords.issubset(shape.keyword_names):
+                        continue
+                    return True
+            return False
+        return never(self.kind)  # pragma: no cover - invariant sink
+
+    def payload(self) -> JSONObject:
+        check_deadline()
+        payload: JSONObject = {"kind": self.kind.value}
+        if self.required_params:
+            payload["required_params"] = list(
+                sort_once(
+                    self.required_params,
+                    source="_ExecutionPatternPredicate.payload.required_params",
+                )
+            )
+        if self.callee_names:
+            payload["callee_names"] = list(
+                sort_once(
+                    self.callee_names,
+                    source="_ExecutionPatternPredicate.payload.callee_names",
+                )
+            )
+        if self.required_keywords:
+            payload["required_keywords"] = list(
+                sort_once(
+                    self.required_keywords,
+                    source="_ExecutionPatternPredicate.payload.required_keywords",
+                )
+            )
+        if self.min_positional_args:
+            payload["min_positional_args"] = self.min_positional_args
+        return payload
 
 
 @dataclass
@@ -367,6 +473,41 @@ class CallArgs:
     span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
+
+    def __post_init__(self) -> None:
+        if set(self.pos_map) & set(self.const_pos):
+            never("positional slot cannot be both param and constant")  # pragma: no cover - invariant sink
+        if set(self.pos_map) & set(self.non_const_pos):
+            never("positional slot cannot be both param and non-const")  # pragma: no cover - invariant sink
+        if set(self.const_pos) & set(self.non_const_pos):
+            never("positional slot cannot be both const and non-const")  # pragma: no cover - invariant sink
+        if set(self.kw_map) & set(self.const_kw):
+            never("keyword slot cannot be both param and constant")  # pragma: no cover - invariant sink
+        if set(self.kw_map) & set(self.non_const_kw):
+            never("keyword slot cannot be both param and non-const")  # pragma: no cover - invariant sink
+        if set(self.const_kw) & set(self.non_const_kw):
+            never("keyword slot cannot be both const and non-const")  # pragma: no cover - invariant sink
+
+    def callable_id(self) -> CallableId:
+        return CallableId.from_raw(self.callee)
+
+    def argument_mapping(self) -> CallArgumentMapping:
+        positional = {
+            int(idx): ParameterId.from_raw(param)
+            for idx, param in self.pos_map.items()
+        }
+        keywords = {
+            key: ParameterId.from_raw(param)
+            for key, param in self.kw_map.items()
+        }
+        return CallArgumentMapping(
+            positional=positional,
+            keywords=keywords,
+            star_positional=tuple(
+                (idx, ParameterId.from_raw(param)) for idx, param in self.star_pos
+            ),
+            star_keywords=tuple(ParameterId.from_raw(param) for param in self.star_kw),
+        )
 
 
 @dataclass(frozen=True)
@@ -520,6 +661,44 @@ class SymbolTable:
         return None
 
 
+@dataclass(frozen=True)
+class AdapterCapabilities:
+    bundle_inference: bool = True
+    decision_surfaces: bool = True
+    type_flow: bool = True
+    exception_obligations: bool = True
+    rewrite_plan_support: bool = True
+
+
+def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
+    if type(payload) is not dict:
+        return AdapterCapabilities()
+    raw = cast(dict[object, object], payload)
+
+    def _read(name: str, default: bool = True) -> bool:
+        value = raw.get(name)
+        if type(value) is bool:
+            return bool(value)
+        return default
+
+    return AdapterCapabilities(
+        bundle_inference=_read("bundle_inference"),
+        decision_surfaces=_read("decision_surfaces"),
+        type_flow=_read("type_flow"),
+        exception_obligations=_read("exception_obligations"),
+        rewrite_plan_support=_read("rewrite_plan_support"),
+    )
+
+
+def normalize_adapter_contract(payload: object) -> JSONObject:
+    if type(payload) is not dict:
+        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
+    raw = cast(dict[object, object], payload)
+    name = str(raw.get("name", "native") or "native")
+    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
+    return {"name": name, "capabilities": {str(key): bool(capabilities[key]) for key in capabilities}}
+
+
 @dataclass
 class AuditConfig:
     project_root: OptionalPath = None
@@ -544,6 +723,8 @@ class AuditConfig:
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
     ] = field(default_factory=tuple)
+    adapter_contract: OptionalJsonObject = None
+    required_analysis_surfaces: set[str] = field(default_factory=set)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -606,6 +787,7 @@ class AnalysisResult:
     profiling_v1: OptionalJsonObject = None
     deprecated_artifacts: OptionalDeprecatedExtractionArtifacts = None
     deprecated_fibers: list[DeprecatedFiber] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
 
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
@@ -651,6 +833,7 @@ class ReportCarrier:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
+    unsupported_by_adapter: list[JSONObject] = field(default_factory=list)
     progress_marker: str = ""
     phase_progress_v2: OptionalJsonObject = None
     deprecated_signals: tuple[str, ...] = ()
@@ -691,6 +874,7 @@ class ReportCarrier:
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
+            unsupported_by_adapter=analysis.unsupported_by_adapter,
             deprecated_signals=(
                 analysis.deprecated_artifacts.informational_signals
                 if analysis.deprecated_artifacts is not None
@@ -1399,43 +1583,11 @@ def _normalize_callee(name: str, class_name) -> str:
 
 
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
-    """Expand input paths to python files, pruning ignored directories early."""
-    check_deadline()
-    out: list[Path] = []
-    for p in paths:
-        check_deadline()
-        path = Path(p)
-        if path.is_dir():
-            for root, dirnames, filenames in os.walk(path, topdown=True):
-                check_deadline()
-                if config.exclude_dirs:
-                    # Prune excluded dirs before descending to avoid scanning
-                    # large env/vendor trees like `.venv/`.
-                    dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
-                dirnames[:] = sort_once(
-                    dirnames,
-                    source="_iter_paths.dirnames",
-                    # Lexical directory names for deterministic traversal order.
-                    key=lambda name: name,
-                )
-                for filename in sort_once(
-                    filenames,
-                    source="_iter_paths.filenames",
-                ):
-                    check_deadline()
-                    if not filename.endswith(".py"):
-                        continue
-                    candidate = Path(root) / filename
-                    if config.is_ignored_path(candidate):
-                        continue
-                    out.append(candidate)
-        else:
-            if config.is_ignored_path(path):
-                continue
-            out.append(path)
-    return sort_once(
-        out,
-        source="_iter_paths.out",
+    return iter_python_paths(
+        paths,
+        config=config,
+        check_deadline=check_deadline,
+        sort_once=sort_once,
     )
 
 
@@ -2096,11 +2248,30 @@ class _DecisionSurfaceSpec:
     rewrite_line: object = None
 
 
+def _decision_predicate_evidence(
+    info: FunctionInfo,
+    param: str,
+) -> DecisionPredicateEvidence:
+    reasons = tuple(
+        sort_once(
+            info.decision_surface_reasons.get(param, set()),
+            source="_decision_predicate_evidence.reasons",
+        )
+    )
+    span = info.param_spans.get(param)
+    return DecisionPredicateEvidence(
+        parameter=ParameterId.from_raw(param),
+        reasons=reasons,
+        spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
+    )
+
+
 def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
     labels: set[str] = set()
     for param in params:
         check_deadline()
-        labels.update(info.decision_surface_reasons.get(param, set()))
+        evidence = _decision_predicate_evidence(info, param)
+        labels.update(evidence.reasons)
     if not labels:
         return "heuristic"
     return ", ".join(
@@ -2143,6 +2314,26 @@ def _decision_surface_alt_evidence(
     payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
     payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
     return payload
+
+
+def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
+    suite_node = forest.nodes.get(suite_id)
+    if suite_node is None:
+        never("suite site missing during label projection", suite_id=str(suite_id))  # pragma: no cover - invariant sink
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    if not path or not qual or not suite_kind or span is None:
+        never(  # pragma: no cover - invariant sink
+            "suite site label projection missing identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+            span=suite_node.meta.get("span"),
+        )
+    span_text = _format_span_fields(*span)
+    return f"{path}:{qual}[{suite_kind}]@{span_text}" if span_text else f"{path}:{qual}[{suite_kind}]"
 
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
@@ -2248,7 +2439,12 @@ def _analyze_decision_surface_indexed(
             else f"internal callers (transitive): {caller_count}"
         )
         descriptor = spec.descriptor(info, boundary)
-        site_id = forest.add_site(info.path.name, info.qual)
+        suite_id = forest.add_suite_site(
+            info.path.name,
+            info.qual,
+            "function_body",
+            span=info.function_span,
+        )
         paramset_id = forest.add_paramset(params)
         reason_summary = (
             _decision_reason_summary(info, params)
@@ -2257,7 +2453,7 @@ def _analyze_decision_surface_indexed(
         )
         forest.add_alt(
             spec.alt_kind,
-            (site_id, paramset_id),
+            (suite_id, paramset_id),
             evidence=_decision_surface_alt_evidence(
                 spec=spec,
                 boundary=boundary,
@@ -2268,7 +2464,7 @@ def _analyze_decision_surface_indexed(
             ),
         )
         surfaces.append(
-            f"{info.path.name}:{info.qual} {spec.surface_label}: "
+            f"{_suite_site_label(forest=forest, suite_id=suite_id)} {spec.surface_label}: "
             + ", ".join(params)
             + f" ({descriptor})"
         )
@@ -2641,33 +2837,19 @@ def _param_annotations(
     args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
     names = [a.arg for a in args]
     annots: ParamAnnotationMap = {}
+
     for name, arg in zip(names, args):
         check_deadline()
-        if arg.annotation is None:
-            annots[name] = None
-        else:
-            try:
-                annots[name] = ast.unparse(arg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:
-                annots[name] = None
+        annotation_value = _extract_annotation_value(arg.annotation)
+        annots[name] = annotation_value.text if annotation_value.parse_status == "present" else None
     if fn.args.vararg:
         vararg = fn.args.vararg
-        if vararg.annotation is None:
-            annots[vararg.arg] = None
-        else:
-            try:
-                annots[vararg.arg] = ast.unparse(vararg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
-                annots[vararg.arg] = None  # pragma: no cover
+        annotation_value = _extract_annotation_value(vararg.annotation)
+        annots[vararg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
     if fn.args.kwarg:
         kwarg = fn.args.kwarg
-        if kwarg.annotation is None:
-            annots[kwarg.arg] = None
-        else:
-            try:
-                annots[kwarg.arg] = ast.unparse(kwarg.annotation)
-            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
-                annots[kwarg.arg] = None  # pragma: no cover
+        annotation_value = _extract_annotation_value(kwarg.annotation)
+        annots[kwarg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
     if names and names[0] in {"self", "cls"}:
         annots.pop(names[0], None)
     if ignore_params:
@@ -2676,6 +2858,19 @@ def _param_annotations(
             if name in ignore_params:
                 annots.pop(name, None)
     return annots
+
+
+def _extract_annotation_value(annotation: OptionalAstNode) -> AnnotationValue:
+    check_deadline()
+    if annotation is None:
+        return AnnotationValue(text="", parse_status="missing")
+    try:
+        return AnnotationValue(
+            text=ast.unparse(annotation),
+            parse_status="present",
+        )
+    except _AST_UNPARSE_ERROR_TYPES:
+        return AnnotationValue(text="", parse_status="unparse_failure")
 
 
 def _param_defaults(
@@ -3098,14 +3293,6 @@ def _raw_sorted_contract_violations(
     return violations
 
 
-_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
-    pattern_id="indexed_pass_ingress",
-    kind="execution_pattern",
-    description=(
-        "Functions sharing the indexed-pass ingress contract should be reified "
-        "behind a typed pass metafactory."
-    ),
-)
 _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
     {
         "paths",
@@ -3118,12 +3305,165 @@ _INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
         "analysis_index",
     }
 )
+_INDEXED_PASS_CALL_SHAPE_KEYWORDS = frozenset(
+    {
+        "project_root",
+        "ignore_params",
+        "strictness",
+        "external_filter",
+        "transparent_decorators",
+        "parse_failure_witnesses",
+    }
+)
+_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_ingress",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_analysis_index", "_build_call_graph"}),
+            required_keywords=_INDEXED_PASS_CALL_SHAPE_KEYWORDS,
+            min_positional_args=1,
+        ),
+    ),
+    min_members=3,
+    candidate="IndexedPassSpec[T] metafactory",
+    description=(
+        "Functions sharing the indexed-pass ingress contract should be reified "
+        "behind a typed pass metafactory."
+    ),
+)
+_INDEXED_PASS_RUNNER_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_runner",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_run_indexed_pass"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="IndexedPassSpec[T] runner Protocol",
+    description=(
+        "Functions repeatedly invoking _run_indexed_pass should consolidate "
+        "the execution carrier into a shared runner Protocol."
+    ),
+)
+_INDEXED_PASS_GRAPH_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_graph_builder",
+    kind="execution_pattern",
+    schema_family="indexed_pass_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=_INDEXED_PASS_INGRESS_CORE_PARAMS,
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_build_call_graph"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_build_call_graph"}),
+            required_keywords=frozenset({"analysis_index"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="IndexedPassSpec[T] graph-builder Protocol",
+    description=(
+        "Functions repeatedly rebuilding call graph projections should "
+        "share one indexed-pass graph-builder execution contract."
+    ),
+)
+_PARSE_FAILURE_SINK_RULE = _ExecutionPatternRule(
+    pattern_id="parse_failure_sink_plumbing",
+    kind="execution_pattern",
+    schema_family="parse_failure_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_failure_sink"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseFailureSinkCarrier Protocol",
+    description=(
+        "Functions normalizing parse-failure witnesses should share one "
+        "typed sink-carrier boundary contract."
+    ),
+)
+_PARSE_MODULE_TREE_RULE = _ExecutionPatternRule(
+    pattern_id="parse_module_tree_stage",
+    kind="execution_pattern",
+    schema_family="parse_module_tree_cluster",
+    predicates=(
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.PARAMS,
+            required_params=frozenset({"parse_failure_witnesses"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALLEE,
+            callee_names=frozenset({"_parse_module_tree"}),
+        ),
+        _ExecutionPatternPredicate(
+            kind=_ExecutionPatternPredicateKind.CALL_SHAPE,
+            callee_names=frozenset({"_parse_module_tree"}),
+            required_keywords=frozenset({"parse_failure_witnesses", "stage"}),
+            min_positional_args=1,
+        ),
+    ),
+    min_members=2,
+    candidate="ParseModuleStageSpec Protocol",
+    description=(
+        "Functions reusing parse-module stage dispatch should centralize "
+        "stage + witness carriage into a shared protocol."
+    ),
+)
 _EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
     _INDEXED_PASS_INGRESS_RULE,
+    _INDEXED_PASS_RUNNER_RULE,
+    _INDEXED_PASS_GRAPH_RULE,
+    _PARSE_FAILURE_SINK_RULE,
+    _PARSE_MODULE_TREE_RULE,
 )
 
+_EXECUTION_PATTERN_RULE_REGISTRY: dict[str, _ExecutionPatternRule] = {
+    rule.pattern_id: rule
+    for rule in _EXECUTION_PATTERN_RULES
+}
 
-def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
+
+def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
     params: list[str] = []
     params.extend(arg.arg for arg in node.args.posonlyargs)
     params.extend(arg.arg for arg in node.args.args)
@@ -3131,52 +3471,158 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
-def _indexed_pass_ingress_members(
-    *,
-    source = None,
-    source_path = None,
-) -> tuple[str, ...]:
-    module_path = source_path or Path(__file__)
-    if source is None:
-        try:
-            source = module_path.read_text()
-        except OSError:
-            return ()
-    try:
-        tree = ast.parse(source)
-    except _PARSE_MODULE_ERROR_TYPES:
+def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
+    if type(node) is ast.Name:
+        return (cast(ast.Name, node).id,)
+    if type(node) is not ast.Attribute:
         return ()
-    indexed_members: list[str] = []
-    for node in tree.body:
-        check_deadline()
-        if type(node) is not ast.FunctionDef:
+    attribute = cast(ast.Attribute, node)
+    parts: list[str] = [attribute.attr]
+    cursor: ast.AST = attribute.value
+    while type(cursor) is ast.Attribute:
+        nested = cast(ast.Attribute, cursor)
+        parts.append(nested.attr)
+        cursor = nested.value
+    if type(cursor) is ast.Name:
+        parts.append(cast(ast.Name, cursor).id)
+    dotted = ".".join(reversed(parts))
+    return (attribute.attr, dotted)
+
+
+def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunctionFact]:
+    for node_index, node in enumerate(tree.body, start=1):
+        if node_index % 32 == 0:
+            check_deadline()
+        if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
             continue
-        function_node = cast(ast.FunctionDef, node)
-        param_names = _function_param_names(function_node)
-        if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
-            continue
-        calls_index_ingress = False
+        function_node = cast(FunctionNode, node)
+        param_names = frozenset(_function_param_names(function_node))
+        alias_map: dict[str, tuple[str, ...]] = {}
+        for statement_index, statement in enumerate(function_node.body, start=1):
+            if statement_index % 32 == 0:
+                check_deadline()
+            if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
+                continue
+            assign_node = cast(ast.Assign, statement)
+            target = assign_node.targets[0]
+            if type(target) is not ast.Name:
+                continue
+            variants = _callable_name_variants(assign_node.value)
+            if not variants:
+                continue
+            alias_map[cast(ast.Name, target).id] = variants
+        called_names: set[str] = set()
+        call_shapes: dict[str, set[_ExecutionCallShape]] = defaultdict(set)
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
             if type(child) is not ast.Call:
                 continue
             call_node = cast(ast.Call, child)
-            if type(call_node.func) is not ast.Name:
+            variants = _callable_name_variants(call_node.func)
+            if not variants:
                 continue
-            call_name = cast(ast.Name, call_node.func)
-            if call_name.id in {"_build_analysis_index", "_build_call_graph"}:
-                calls_index_ingress = True
-                break
-        if not calls_index_ingress:
-            continue
-        indexed_members.append(function_node.name)
-    return tuple(
-        sort_once(
-            indexed_members,
-            source="_indexed_pass_ingress_members.indexed_members",
+            shape = _ExecutionCallShape(
+                positional_args=len(call_node.args),
+                keyword_names=frozenset(
+                    keyword.arg
+                    for keyword in call_node.keywords
+                    if keyword.arg is not None
+                ),
+            )
+            for variant in variants:
+                called_names.add(variant)
+                call_shapes[variant].add(shape)
+                for alias_variant in alias_map.get(variant, ()):  # boundary alias normalization
+                    called_names.add(alias_variant)
+                    call_shapes[alias_variant].add(shape)
+        yield _ExecutionFunctionFact(
+            function_name=function_node.name,
+            param_names=param_names,
+            called_names=frozenset(called_names),
+            call_shapes={
+                name: tuple(
+                    sort_once(
+                        shapes,
+                        source="_iter_execution_function_facts.call_shapes",
+                        key=lambda entry: (
+                            entry.positional_args,
+                            tuple(
+                                sort_once(
+                                    entry.keyword_names,
+                                    source="_iter_execution_function_facts.call_shape_keywords",
+                                )
+                            ),
+                        ),
+                    )
+                )
+                for name, shapes in call_shapes.items()
+            },
         )
+
+
+def _execution_pattern_members_from_facts(
+    *,
+    facts: Sequence[_ExecutionFunctionFact],
+    rule: _ExecutionPatternRule,
+) -> tuple[str, ...]:
+    members: list[str] = []
+    for fact_index, fact in enumerate(facts, start=1):
+        if fact_index % 64 == 0:
+            check_deadline()
+        if any(not predicate.matches(fact=fact) for predicate in rule.predicates):
+            continue
+        members.append(fact.function_name)
+    return tuple(sort_once(members, source=f"_execution_pattern_members.{rule.pattern_id}"))
+
+
+def _execution_pattern_members_by_rule(
+    *,
+    tree: ast.Module,
+) -> dict[str, tuple[str, ...]]:
+    facts = tuple(_iter_execution_function_facts(tree))
+    members_by_rule: dict[str, tuple[str, ...]] = {}
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        members_by_rule[rule.pattern_id] = _execution_pattern_members_from_facts(
+            facts=facts,
+            rule=rule,
+        )
+    return members_by_rule
+
+
+def _execution_pattern_match_suggestion(
+    *,
+    rule: _ExecutionPatternRule,
+    members: Sequence[str],
+) -> str:
+    return (
+        f"{rule.pattern_id} members={len(members)} "
+        + ", ".join(members[:8])
+        + (" ..." if len(members) > 8 else "")
+        + f"; candidate={rule.candidate}"
     )
+
+
+def _execution_rule_residue_payload(
+    *,
+    rule: _ExecutionPatternRule,
+    members: Sequence[str],
+    observed_member_count: int,
+) -> JSONObject:
+    check_deadline()
+    return {
+        "pattern_id": rule.pattern_id,
+        "schema_family": rule.schema_family,
+        "predicate_contract": [predicate.payload() for predicate in rule.predicates],
+        "members": list(
+            sort_once(
+                {str(member) for member in members},
+                source="_execution_rule_residue_payload.members",
+            )
+        ),
+        "member_count": observed_member_count,
+    }
 
 
 def _detect_execution_pattern_matches(
@@ -3184,19 +3630,32 @@ def _detect_execution_pattern_matches(
     source = None,
     source_path = None,
 ) -> list[_ExecutionPatternMatch]:
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return []
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return []
+    members_by_rule = _execution_pattern_members_by_rule(tree=tree)
     matches: list[_ExecutionPatternMatch] = []
-    members = _indexed_pass_ingress_members(source=source, source_path=source_path)
-    if len(members) >= 3:
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        members = members_by_rule.get(rule.pattern_id, ())
+        if len(members) < rule.min_members:
+            continue
         matches.append(
             _ExecutionPatternMatch(
-                pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                kind=_INDEXED_PASS_INGRESS_RULE.kind,
+                pattern_id=rule.pattern_id,
+                kind=rule.kind,
+                schema_family=rule.schema_family,
                 members=members,
-                suggestion=(
-                    f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(members)} "
-                    + ", ".join(members[:8])
-                    + (" ..." if len(members) > 8 else "")
-                    + "; candidate=IndexedPassSpec[T] metafactory"
+                suggestion=_execution_pattern_match_suggestion(
+                    rule=rule,
+                    members=members,
                 ),
             )
         )
@@ -3209,27 +3668,45 @@ def _execution_pattern_instances(
     source_path = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    for match in _detect_execution_pattern_matches(
-        source=source,
-        source_path=source_path,
-    ):
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return instances
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return instances
+    members_by_rule = _execution_pattern_members_by_rule(tree=tree)
+    for rule in _EXECUTION_PATTERN_RULES:
         check_deadline()
-        signature: JSONObject = {
-            "pattern_id": match.pattern_id,
-            "members": list(match.members),
-        }
+        members = members_by_rule.get(rule.pattern_id, ())
+        if len(members) < rule.min_members:
+            continue
+        signature = execution_signature(
+            family=rule.schema_family,
+            members=members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=match.pattern_id,
+            kind=rule.kind,
             signature=signature,
-            normalization={"members": list(match.members)},
+            normalization={
+                "members": list(members),
+                "pattern_id": rule.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
                 schema=schema,
-                members=match.members,
+                members=members,
                 suggestion=(
-                    f"execution_pattern {match.suggestion}"
+                    "execution_pattern "
+                    + _execution_pattern_match_suggestion(
+                        rule=rule,
+                        members=members,
+                    )
                 ),
                 residue=(
                     PatternResidue(
@@ -3237,28 +3714,47 @@ def _execution_pattern_instances(
                         reason="unreified_metafactory",
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
-                            kind=match.pattern_id,
-                            expected={"min_members": 3, "candidate": "IndexedPassSpec[T]"},
-                            observed={"members": list(match.members), "member_count": len(match.members)},
+                            kind=rule.pattern_id,
+                            expected={
+                                "min_members": rule.min_members,
+                                "candidate": rule.candidate,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=members,
+                                    observed_member_count=len(members),
+                                ),
+                            },
+                            observed={
+                                "members": list(members),
+                                "member_count": len(members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=members,
+                                    observed_member_count=len(members),
+                                ),
+                            },
                         ),
                     ),
                 ),
             )
         )
-    near_miss_members = _indexed_pass_ingress_members(
-        source=source,
-        source_path=source_path,
-    )
-    if len(near_miss_members) == 2:
-        signature: JSONObject = {
-            "pattern_id": _INDEXED_PASS_INGRESS_RULE.pattern_id,
-            "members": list(near_miss_members),
-        }
+    for rule in _EXECUTION_PATTERN_RULES:
+        check_deadline()
+        near_miss_members = members_by_rule.get(rule.pattern_id, ())
+        if len(near_miss_members) != max(rule.min_members - 1, 1):
+            continue
+        signature = execution_signature(
+            family=rule.schema_family,
+            members=near_miss_members,
+        )
         schema = PatternSchema.build(
             axis=PatternAxis.EXECUTION,
-            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+            kind=rule.kind,
             signature=signature,
-            normalization={"members": list(near_miss_members)},
+            normalization={
+                "members": list(near_miss_members),
+                "pattern_id": rule.pattern_id,
+            },
         )
         instances.append(
             PatternInstance.build(
@@ -3266,7 +3762,7 @@ def _execution_pattern_instances(
                 members=near_miss_members,
                 suggestion=(
                     "execution_pattern near_miss "
-                    + f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(near_miss_members)}"
+                    + f"{rule.pattern_id} members={len(near_miss_members)}"
                 ),
                 residue=(
                     PatternResidue(
@@ -3274,9 +3770,24 @@ def _execution_pattern_instances(
                         reason="schema_contract_mismatch",
                         payload=mismatch_residue_payload(
                             axis=PatternAxis.EXECUTION,
-                            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
-                            expected={"min_members": 3},
-                            observed={"members": list(near_miss_members), "member_count": 2},
+                            kind=rule.pattern_id,
+                            expected={
+                                "min_members": rule.min_members,
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
+                            observed={
+                                "members": list(near_miss_members),
+                                "member_count": len(near_miss_members),
+                                "rule": _execution_rule_residue_payload(
+                                    rule=rule,
+                                    members=near_miss_members,
+                                    observed_member_count=len(near_miss_members),
+                                ),
+                            },
                         ),
                     ),
                 ),
@@ -3471,6 +3982,35 @@ def _pattern_schema_residue_entries(
     return sort_once(
         entries,
         source="_pattern_schema_residue_entries.entries",
+        key=lambda entry: (
+            entry.schema_id,
+            entry.reason,
+            json.dumps(entry.payload, sort_keys=False, separators=(",", ":")),
+        ),
+    )
+
+
+def _tier2_unreified_residue_entries(
+    entries: Sequence[PatternResidue],
+) -> list[PatternResidue]:
+    candidates: list[PatternResidue] = []
+    for entry in entries:
+        check_deadline()
+        expected = mapping_or_none(entry.payload.get("expected")) or {}
+        tier_value = expected.get("tier")
+        min_members_raw = str(expected.get("min_members", "")).strip()
+        min_members = (
+            int(min_members_raw)
+            if min_members_raw.lstrip("-").isdigit()
+            else -1
+        )
+        tier2_reason = entry.reason in {"unreified_protocol", "unreified_metafactory"}
+        tier2_expected = tier_value == 2 or min_members >= 2
+        if tier2_reason and tier2_expected:
+            candidates.append(entry)
+    return sort_once(
+        candidates,
+        source="_tier2_unreified_residue_entries.candidates",
         key=lambda entry: (
             entry.schema_id,
             entry.reason,
@@ -3689,6 +4229,35 @@ def _compute_fingerprint_warnings(
     return sort_once(
         set(warnings),
         source="_compute_fingerprint_warnings.warnings",
+    )
+
+
+def _collect_fingerprint_atom_keys(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, ParamAnnotationMap]],
+) -> tuple[list[str], list[str]]:
+    check_deadline()
+    base_keys: set[str] = set()
+    ctor_keys: set[str] = set()
+    for path, groups in groups_by_path.items():
+        check_deadline()
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            check_deadline()
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                check_deadline()
+                for param_name in bundle:
+                    check_deadline()
+                    hint = fn_annots.get(param_name)
+                    if hint is not None:
+                        atoms: list[str] = []
+                        _collect_base_atoms(hint, atoms)
+                        base_keys.update(atom for atom in atoms if atom)
+                        _collect_constructors(hint, ctor_keys)
+    return (
+        sort_once(base_keys, source="_collect_fingerprint_atom_keys.base_keys"),
+        sort_once(ctor_keys, source="_collect_fingerprint_atom_keys.ctor_keys"),
     )
 
 
@@ -4176,12 +4745,26 @@ def _evaluate_witness_obligation_non_regression_predicate(
             if mapped_item is not None:
                 obligations.append(mapped_item)
     missing_required: list[str] = []
+    aspf_identity_mismatches: list[str] = []
+    post_aspf_structure_class = mapping_or_empty(
+        context.post_entry.get("aspf_structure_class")
+    )
     for item in obligations:
         required = bool(item.get("required"))
         witness_ref = str(item.get("witness_ref", "") or "")
         witness_kind = str(item.get("kind", "witness") or "witness")
         if required and not witness_ref:
             missing_required.append(f"{witness_kind}:missing")
+        if witness_kind == "aspf_structure_class_equivalence":
+            expected_identity = mapping_or_none(item.get("canonical_identity_contract"))
+            post_identity_payload = mapping_or_none(
+                context.post_entry.get("canonical_identity_contract")
+            )
+            if expected_identity is not None and expected_identity != post_identity_payload:
+                aspf_identity_mismatches.append("canonical_identity_contract")
+            expected_structure_class = mapping_or_none(item.get("aspf_structure_class"))
+            if expected_structure_class is not None and expected_structure_class != post_aspf_structure_class:
+                aspf_identity_mismatches.append("aspf_structure_class")
     post_identity = context.post_entry.get("canonical_identity_contract")
     pre_identity = context.pre.get("canonical_identity_contract")
     identity_ok = True
@@ -4189,7 +4772,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
         identity_ok = pre_identity == post_identity
     elif post_identity is None:
         identity_ok = False
-    passed = (not missing_required) and identity_ok
+    passed = (not missing_required) and identity_ok and (not aspf_identity_mismatches)
     return {
         "kind": kind,
         "passed": passed,
@@ -4201,7 +4784,9 @@ def _evaluate_witness_obligation_non_regression_predicate(
         },
         "observed": {
             "missing_required": missing_required,
+            "aspf_identity_mismatches": aspf_identity_mismatches,
             "identity_contract": post_identity,
+            "aspf_structure_class": post_aspf_structure_class,
         },
     }
 
@@ -5399,7 +5984,22 @@ def _collect_never_invariants(
                     entry["environment_ref"] = environment_ref
                 entry["span"] = list(normalized_span)
                 invariants.append(entry)
-                site_id = forest.add_site(path.name, function)
+                site_id = forest.add_suite_site(
+                    path.name,
+                    function,
+                    "call",
+                    span=normalized_span,
+                )
+                suite_node = require_not_none(
+                    forest.nodes.get(site_id),
+                    reason="suite site missing from forest",
+                    strict=True,
+                    path=path_value,
+                    function=function,
+                )
+                site_payload = cast(dict[str, object], entry["site"])
+                site_payload["suite_id"] = str(suite_node.meta.get("suite_id", "") or "")
+                site_payload["suite_kind"] = "call"
                 paramset_id = forest.add_paramset(bundle)
                 evidence: dict[str, object] = {"path": path.name, "qual": function}
                 if reason:
@@ -6462,41 +7062,41 @@ def _caller_param_bindings_for_call(
     named_params = set(pos_params) | kwonly_params
     mapping: dict[str, set[str]] = defaultdict(set)
     mapped_params: set[str] = set()
-    for pos_idx, caller_param in call.pos_map.items():
+    call_mapping = call.argument_mapping()
+    for pos_idx, caller_param in call_mapping.positional.items():
         check_deadline()
-        idx = int(pos_idx)
-        if idx < len(pos_params):
-            callee_param = pos_params[idx]
+        if pos_idx < len(pos_params):
+            callee_param = pos_params[pos_idx]
         elif callee.vararg is not None:
             callee_param = callee.vararg
         else:
             continue
         mapped_params.add(callee_param)
-        mapping[callee_param].add(caller_param)
-    for kw_name, caller_param in call.kw_map.items():
+        mapping[callee_param].add(caller_param.value)
+    for kw_name, caller_param in call_mapping.keywords.items():
         check_deadline()
         if kw_name in named_params:
             mapped_params.add(kw_name)
-            mapping[kw_name].add(caller_param)
+            mapping[kw_name].add(caller_param.value)
         elif callee.kwarg is not None:
             mapped_params.add(callee.kwarg)
-            mapping[callee.kwarg].add(caller_param)
+            mapping[callee.kwarg].add(caller_param.value)
     if strictness == "low":
         remaining = [p for p in sort_once(named_params, source = 'src/gabion/analysis/dataflow_audit.py:5870') if p not in mapped_params]
         if callee.vararg is not None and callee.vararg not in mapped_params:
             remaining.append(callee.vararg)
         if callee.kwarg is not None and callee.kwarg not in mapped_params:
             remaining.append(callee.kwarg)
-        if len(call.star_pos) == 1:
-            _, star_param = call.star_pos[0]
+        if len(call_mapping.star_positional) == 1:
+            _, star_param = call_mapping.star_positional[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
-        if len(call.star_kw) == 1:
-            star_param = call.star_kw[0]
+                mapping[param].add(star_param.value)
+        if len(call_mapping.star_keywords) == 1:
+            star_param = call_mapping.star_keywords[0]
             for param in remaining:
                 check_deadline()
-                mapping[param].add(star_param)
+                mapping[param].add(star_param.value)
     return mapping
 
 
@@ -6647,7 +7247,26 @@ from gabion.analysis.dataflow_obligations import (
 )
 
 
-def _spec_row_span(row: Mapping[str, JSONValue]):
+@dataclass(frozen=True)
+class _ProjectionSpan:
+    line: int
+    col: int
+    end_line: int
+    end_col: int
+
+    def as_tuple(self) -> tuple[int, int, int, int]:
+        return (self.line, self.col, self.end_line, self.end_col)
+
+
+@dataclass(frozen=True)
+class _AmbiguitySuiteRow:
+    path: str
+    qual: str
+    suite_kind: str
+    span: _ProjectionSpan
+
+
+def _decode_projection_span(row: Mapping[str, JSONValue]) -> _ProjectionSpan:
     def _coerce(name: str, value: JSONValue) -> int:
         if value is None:
             never(
@@ -6675,7 +7294,11 @@ def _spec_row_span(row: Mapping[str, JSONValue]):
             span_end_line=end_line,
             span_end_col=end_col,
         )
-    return (line, col, end_line, end_col)
+    return _ProjectionSpan(line=line, col=col, end_line=end_line, end_col=end_col)
+
+
+def _spec_row_span(row: Mapping[str, JSONValue]):
+    return _decode_projection_span(row).as_tuple()
 
 
 def _materialize_projection_spec_rows(
@@ -6718,6 +7341,8 @@ def _suite_order_relation(
     alt_degree: Counter[NodeId] = Counter()
     for alt in forest.alts:
         check_deadline()
+        if alt.kind == "SpecFacet":
+            continue
         for node_id in alt.inputs:
             check_deadline()
             alt_degree[node_id] += 1
@@ -6779,6 +7404,20 @@ def _suite_order_relation(
         suite_index[
             (path, qual, suite_kind, span_line, span_col, span_end_line, span_end_col)
         ] = node_id
+    relation = sort_once(
+        relation,
+        key=lambda row: (
+            int(row.get("depth", 0) or 0),
+            int(row.get("complexity", 0) or 0),
+            str(row.get("suite_path", "") or ""),
+            str(row.get("suite_qual", "") or ""),
+            int(row.get("span_line", -1) or -1),
+            int(row.get("span_col", -1) or -1),
+            int(row.get("span_end_line", -1) or -1),
+            int(row.get("span_end_col", -1) or -1),
+        ),
+        source="src/gabion/analysis/dataflow_audit.py:_suite_order_relation.relation",
+    )
     return relation, suite_index
 
 
@@ -6829,18 +7468,8 @@ def _materialize_suite_order_spec(
 
 def _ambiguity_suite_relation(
     forest: Forest,
-) -> tuple[list[dict[str, JSONValue]], dict[tuple[str, str], NodeId]]:
+) -> list[dict[str, JSONValue]]:
     relation: list[dict[str, JSONValue]] = []
-    function_index: dict[tuple[str, str], NodeId] = {}
-    for node_id, node in forest.nodes.items():
-        check_deadline()
-        if node_id.kind != "FunctionSite":
-            continue
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        function_index[(path, qual)] = node_id
     for alt in forest.alts:
         check_deadline()
         if alt.kind != "CallCandidate":
@@ -6885,24 +7514,10 @@ def _ambiguity_suite_relation(
                         "phase": str(alt.evidence.get("phase", "") or ""),
                     }
                 )
-    return relation, function_index
+    return relation
 
 
-def _ambiguity_suite_row_to_site(
-    row: Mapping[str, JSONValue],
-    function_index: Mapping[tuple[str, str], NodeId],
-):
-    path = str(row.get("suite_path", "") or "")
-    qual = str(row.get("suite_qual", "") or "")
-    if not path or not qual:
-        return None
-    return function_index.get((path, qual))
-
-
-def _ambiguity_suite_row_to_suite(
-    row: Mapping[str, JSONValue],
-    forest: Forest,
-) -> NodeId:
+def _decode_ambiguity_suite_row(row: Mapping[str, JSONValue]) -> _AmbiguitySuiteRow:
     path = str(row.get("suite_path", "") or "")
     qual = str(row.get("suite_qual", "") or "")
     suite_kind = str(row.get("suite_kind", "") or "")
@@ -6913,17 +7528,24 @@ def _ambiguity_suite_row_to_suite(
             qual=qual,
             suite_kind=suite_kind,
         )
-    span = _spec_row_span(row)
-    require_not_none(
-        span,
-        reason="ambiguity suite row missing span",
-        strict=True,
+    return _AmbiguitySuiteRow(
+        path=path,
+        qual=qual,
+        suite_kind=suite_kind,
+        span=_decode_projection_span(row),
     )
+
+
+def _ambiguity_suite_row_to_suite(
+    row: Mapping[str, JSONValue],
+    forest: Forest,
+) -> NodeId:
+    decoded = _decode_ambiguity_suite_row(row)
     return forest.add_suite_site(
-        path,
-        qual,
-        suite_kind,
-        span=span,
+        decoded.path,
+        decoded.qual,
+        decoded.suite_kind,
+        span=decoded.span.as_tuple(),
     )
 
 
@@ -6941,7 +7563,7 @@ def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, function_index = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
     projected = apply_spec(AMBIGUITY_SUITE_AGG_SPEC, relation)
@@ -6949,7 +7571,7 @@ def _materialize_ambiguity_suite_agg_spec(
         spec=AMBIGUITY_SUITE_AGG_SPEC,
         projected=projected,
         forest=forest,
-        row_to_site=lambda row: _ambiguity_suite_row_to_site(row, function_index),
+        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
     )
 
 
@@ -6957,7 +7579,7 @@ def _materialize_ambiguity_virtual_set_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, _ = _ambiguity_suite_relation(forest)
+    relation = _ambiguity_suite_relation(forest)
     if not relation:
         return
 
@@ -7007,6 +7629,8 @@ def _summarize_deadline_obligations(
                 "detail": str(entry.get("detail", "") or ""),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site.get("suite_id", "") or ""),
+                "site_suite_kind": str(site.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7023,6 +7647,7 @@ def _summarize_deadline_obligations(
             return None
         span = _spec_row_span(row)
         path_name = Path(path).name
+        suite_kind = str(row.get("site_suite_kind", "") or "")
         require_not_none(
             span,
             reason="projection spec row missing span",
@@ -7030,6 +7655,8 @@ def _summarize_deadline_obligations(
             path=path,
             function=function,
         )
+        if suite_kind:
+            return forest.add_suite_site(path_name, function, suite_kind, span=span)
         return forest.add_site(path_name, function, span)
 
     _materialize_projection_spec_rows(
@@ -7255,10 +7882,11 @@ def _summarize_never_invariants(
     def _format_site(row: Mapping[str, JSONValue]) -> str:
         path = row.get("site_path") or "?"
         function = row.get("site_function") or "?"
+        suite_kind = row.get("site_suite_kind") or "?"
         span = _format_span(row)
         if span:
-            return f"{path}:{function}@{span}"
-        return f"{path}:{function}"
+            return f"{path}:{function}[{suite_kind}]@{span}"
+        return f"{path}:{function}[{suite_kind}]"
 
     def _format_evidence(row: Mapping[str, JSONValue], status: str) -> str:
         witness_ref = row.get("witness_ref")
@@ -7320,6 +7948,8 @@ def _summarize_never_invariants(
                 "status_rank": _NEVER_STATUS_ORDER.get(status, 3),
                 "site_path": path,
                 "site_function": function,
+                "site_suite_id": str(site_mapping.get("suite_id", "") or ""),
+                "site_suite_kind": str(site_mapping.get("suite_kind", "") or ""),
                 "span_line": line,
                 "span_col": col,
                 "span_end_line": end_line,
@@ -7345,6 +7975,18 @@ def _summarize_never_invariants(
         op_registry={"never_status_allowed": _never_status_allowed},
         params_override=params,
     )
+    suite_kind_by_never_id = {
+        str(row.get("never_id", "") or ""): str(row.get("site_suite_kind", "") or "")
+        for row in relation
+    }
+    for row in projected:
+        check_deadline()
+        never_id = str(row.get("never_id", "") or "")
+        if str(row.get("site_suite_kind", "") or ""):
+            continue
+        suite_kind = suite_kind_by_never_id.get(never_id, "")
+        if suite_kind:
+            row["site_suite_kind"] = suite_kind
     ordered_statuses = list(params.get("ordered_statuses") or [])
     grouped: dict[str, list[dict[str, JSONValue]]] = {}
     for row in projected:
@@ -7850,9 +8492,74 @@ class _CacheSemanticContext:
     fingerprint_seed_revision: OptionalString = None
 
 
+@dataclass(frozen=True)
+class _StageCacheIdentitySpec:
+    stage: Literal["parse", "index", "projection"]
+    forest_spec_id: str
+    fingerprint_seed_revision: str
+    normalized_config: JSONValue
+
+
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
 _ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
+_CACHE_IDENTITY_PREFIX = "aspf:sha1:"
+_CACHE_IDENTITY_DIGEST_HEX = re.compile(r"^[0-9a-f]{40}$")
+
+
+@dataclass(frozen=True)
+class _CacheIdentity:
+    value: str
+
+    @classmethod
+    def from_digest(cls, digest: str) -> "_CacheIdentity | None":
+        cleaned = str(digest or "").strip().lower()
+        if not _CACHE_IDENTITY_DIGEST_HEX.fullmatch(cleaned):
+            return None
+        return cls(f"{_CACHE_IDENTITY_PREFIX}{cleaned}")
+
+    @classmethod
+    def from_boundary(cls, raw_identity) -> "_CacheIdentity | None":
+        identity = str(raw_identity or "").strip()
+        if not identity:
+            return None
+        if identity.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity[len(_CACHE_IDENTITY_PREFIX) :]
+            return cls.from_digest(digest)
+        return cls.from_digest(identity)
+
+    @classmethod
+    def from_boundary_required(cls, raw_identity, *, field: str) -> "_CacheIdentity":
+        identity = cls.from_boundary(raw_identity)
+        if identity is None:
+            never("invalid cache identity", field=field)
+            return cls(value="")  # pragma: no cover - never() raises
+        return identity
+
+
+@dataclass(frozen=True)
+class _ResumeCacheIdentityPair:
+    canonical_index: _CacheIdentity
+    canonical_projection: _CacheIdentity
+
+    def encode(self) -> dict[str, str]:
+        return {
+            "index_cache_identity": self.canonical_index.value,
+            "projection_cache_identity": self.canonical_projection.value,
+        }
+
+    @classmethod
+    def decode_required(cls, payload: Mapping[str, JSONValue]) -> "_ResumeCacheIdentityPair":
+        return cls(
+            canonical_index=_CacheIdentity.from_boundary_required(
+                payload.get("index_cache_identity"),
+                field="index_cache_identity",
+            ),
+            canonical_projection=_CacheIdentity.from_boundary_required(
+                payload.get("projection_cache_identity"),
+                field="projection_cache_identity",
+            ),
+        )
 
 
 def _sorted_text(values = None) -> tuple[str, ...]:
@@ -7862,17 +8569,49 @@ def _sorted_text(values = None) -> tuple[str, ...]:
     return tuple(sort_once(cleaned, source = 'src/gabion/analysis/dataflow_audit.py:8091'))
 
 
-def _canonical_cache_identity(
+def _normalize_cache_config(value: JSONValue) -> JSONValue:
+    if type(value) is dict:
+        mapping = cast(dict[object, JSONValue], value)
+        normalized = {
+            str(key): _normalize_cache_config(mapping[key])
+            for key in sort_once(mapping, source="_normalize_cache_config.mapping")
+        }
+        return cast(JSONValue, normalized)
+    if type(value) is list:
+        return cast(JSONValue, [_normalize_cache_config(item) for item in value])
+    return value
+
+
+def _canonical_stage_cache_detail(detail: Hashable) -> str:
+    structural_detail = structural_key_atom(
+        detail,
+        source="dataflow_audit._canonical_stage_cache_detail",
+    )
+    canonical_json = structural_key_json(structural_detail)
+    return json.dumps(canonical_json, sort_keys=False, separators=(",", ":"))
+
+
+def _build_stage_cache_identity_spec(
     *,
     stage: Literal["parse", "index", "projection"],
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _StageCacheIdentitySpec:
+    normalized_config = _normalize_cache_config(cast(JSONValue, config_subset))
+    return _StageCacheIdentitySpec(
+        stage=stage,
+        forest_spec_id=str(cache_context.forest_spec_id or ""),
+        fingerprint_seed_revision=fingerprint_stage_cache_identity(cache_context.fingerprint_seed_revision),
+        normalized_config=normalized_config,
+    )
+
+
+def _canonical_stage_cache_identity(spec: _StageCacheIdentitySpec) -> str:
     payload: dict[str, JSONValue] = {
-        "stage": stage,
-        "forest_spec_id": str(cache_context.forest_spec_id or ""),
-        "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
-        "config_subset": {str(key): config_subset[key] for key in sort_once(config_subset, source = 'src/gabion/analysis/dataflow_audit.py:8104')},
+        "stage": spec.stage,
+        "forest_spec_id": spec.forest_spec_id,
+        "fingerprint_seed_revision": spec.fingerprint_seed_revision,
+        "config_subset": spec.normalized_config,
     }
     digest = hashlib.sha1(
         json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
@@ -7880,38 +8619,45 @@ def _canonical_cache_identity(
     return f"aspf:sha1:{digest}"
 
 
+def _canonical_cache_identity(
+    *,
+    stage: Literal["parse", "index", "projection"],
+    cache_context: _CacheSemanticContext,
+    config_subset: Mapping[str, JSONValue],
+) -> _CacheIdentity:
+    spec = _build_stage_cache_identity_spec(
+        stage=stage,
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
+    canonical = _CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
+    if canonical is None:
+        never("failed to construct canonical cache identity", stage=stage)  # pragma: no cover - invariant sink
+    return canonical
+
+
 def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
-    value = str(identity or "")
-    if not value:
+    canonical = _CacheIdentity.from_boundary(identity)
+    if canonical is None:
         return ("",)
-    if value.startswith("aspf:sha1:"):
-        legacy = value[len("aspf:sha1:") :]
-        if legacy:
-            return (value, legacy)
-        return (value,)
-    if len(value) == 40 and all(ch in "0123456789abcdef" for ch in value.lower()):
-        return (value, f"aspf:sha1:{value}")
-    return (value,)
+    return (canonical.value,)
 
 
 def _cache_identity_matches(actual: str, expected: str) -> bool:
-    actual_aliases = set(_cache_identity_aliases(actual))
-    expected_aliases = set(_cache_identity_aliases(expected))
-    return bool(actual_aliases & expected_aliases)
+    actual_identity = _CacheIdentity.from_boundary(actual)
+    expected_identity = _CacheIdentity.from_boundary(expected)
+    if actual_identity is None or expected_identity is None:
+        never("cache identity comparison requires canonical identities")  # pragma: no cover - invariant sink
+    return actual_identity == expected_identity
 
 
 def _resume_variant_for_identity(
     variants: Mapping[str, JSONObject],
-    expected_identity: str,
+    expected_identity: _CacheIdentity,
 ):
-    direct = variants.get(expected_identity)
+    direct = variants.get(expected_identity.value)
     if direct is not None:
         return direct
-    expected_aliases = set(_cache_identity_aliases(expected_identity))
-    for variant_identity, variant in variants.items():
-        check_deadline()
-        if expected_aliases & set(_cache_identity_aliases(variant_identity)):
-            return variant
     return None
 
 
@@ -7921,16 +8667,19 @@ def _parse_stage_cache_key(
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
-) -> tuple[str, str, str, Hashable]:
-    return (
-        "parse",
-        stage.value,
-        _canonical_cache_identity(
-            stage="parse",
-            cache_context=cache_context,
-            config_subset=config_subset,
+) -> NodeId:
+    identity = _canonical_cache_identity(
+        stage="parse",
+        cache_context=cache_context,
+        config_subset=config_subset,
+    )
+    return NodeId(
+        kind="ParseStageCacheIdentity",
+        key=(
+            stage.value,
+            identity.value,
+            _canonical_stage_cache_detail(detail),
         ),
-        detail,
     )
 
 
@@ -7938,7 +8687,7 @@ def _index_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="index",
         cache_context=cache_context,
@@ -7950,12 +8699,70 @@ def _projection_stage_cache_identity(
     *,
     cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
-) -> str:
+) -> _CacheIdentity:
     return _canonical_cache_identity(
         stage="projection",
         cache_context=cache_context,
         config_subset=config_subset,
     )
+def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
+    if (
+        type(key) is tuple
+        and len(key) == 2
+        and type(key[1]) is tuple
+    ):
+        scoped_identity = key[0]
+        parse_key = cast(Hashable, key[1])
+        parse_aliases = _stage_cache_key_aliases(parse_key)
+        if len(parse_aliases) > 1:
+            return tuple((scoped_identity, alias) for alias in parse_aliases)
+        return (key,)
+    if (
+        type(key) is tuple
+        and len(key) == 4
+        and key[0] == "parse"
+        and type(key[2]) is str
+    ):
+        identity = key[2]
+        aliases = _cache_identity_aliases(identity)
+        identity_text = str(identity)
+        if len(aliases) == 1 and identity_text.startswith(_CACHE_IDENTITY_PREFIX):
+            digest = identity_text[len(_CACHE_IDENTITY_PREFIX) :]
+            if _CACHE_IDENTITY_DIGEST_HEX.fullmatch(digest):
+                aliases = (aliases[0], digest)
+        if len(aliases) > 1:
+            return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
+    if (
+        type(key) is NodeId
+        and key.kind == "ParseStageCacheIdentity"
+        and len(key.key) == 3
+    ):
+        stage_value, identity, detail = key.key
+        if type(stage_value) is str and type(identity) is str:
+            legacy_key = ("parse", stage_value, identity, detail)
+            aliases = _stage_cache_key_aliases(legacy_key)
+            return (key, *aliases)
+    return (key,)
+
+
+def _get_stage_cache_bucket(
+    analysis_index: AnalysisIndex,
+    *,
+    scoped_cache_key: Hashable,
+) -> dict[Path, object]:
+    stage_cache_by_key = analysis_index.stage_cache_by_key
+    bucket = stage_cache_by_key.get(scoped_cache_key)
+    if bucket is not None:
+        return bucket
+    for candidate_key in _stage_cache_key_aliases(scoped_cache_key):
+        check_deadline()
+        if candidate_key == scoped_cache_key:
+            continue
+        legacy_bucket = stage_cache_by_key.get(candidate_key)
+        if legacy_bucket is not None:
+            stage_cache_by_key[scoped_cache_key] = legacy_bucket
+            return legacy_bucket
+    return stage_cache_by_key.setdefault(scoped_cache_key, {})
 
 
 def _parse_module_source(path: Path) -> ast.Module:
@@ -8063,8 +8870,8 @@ def _build_analysis_index(
     ) = _load_analysis_index_resume_payload(
         payload=resume_payload,
         file_paths=ordered_paths,
-        expected_index_cache_identity=index_cache_identity,
-        expected_projection_cache_identity=projection_cache_identity,
+        expected_index_cache_identity=index_cache_identity.value,
+        expected_projection_cache_identity=projection_cache_identity.value,
     )
     symbol_table.external_filter = external_filter
     function_index_acc = _FunctionIndexAccumulator(
@@ -8123,8 +8930,8 @@ def _build_analysis_index(
                         by_qual=function_index_acc.by_qual,
                         symbol_table=symbol_table,
                         class_index=class_index,
-                        index_cache_identity=index_cache_identity,
-                        projection_cache_identity=projection_cache_identity,
+                        index_cache_identity=index_cache_identity.value,
+                        projection_cache_identity=projection_cache_identity.value,
                         profiling_v1=_index_profile_payload(),
                         previous_payload=resume_payload,
                     )
@@ -8211,8 +9018,8 @@ def _build_analysis_index(
         by_qual=function_index_acc.by_qual,
         symbol_table=symbol_table,
         class_index=class_index,
-        index_cache_identity=index_cache_identity,
-        projection_cache_identity=projection_cache_identity,
+        index_cache_identity=index_cache_identity.value,
+        projection_cache_identity=projection_cache_identity.value,
     )
 
 
@@ -8316,7 +9123,10 @@ def _analysis_index_stage_cache(
         parse_failure_witnesses=parse_failure_witnesses,
     )
     scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
-    cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
+    cache = _get_stage_cache_bucket(
+        analysis_index,
+        scoped_cache_key=scoped_cache_key,
+    )
     results = {}
     for path in paths:
         check_deadline()
@@ -10331,29 +11141,29 @@ def _propagate_groups(
         if call.callee not in callee_groups:
             continue
         callee_params = callee_param_orders[call.callee]
+        mapping = call.argument_mapping()
         # Build mapping from callee param to caller param.
         callee_to_caller: dict[str, str] = {}
         for idx, pname in enumerate(callee_params):
             check_deadline()
-            key = str(idx)
-            if key in call.pos_map:
-                callee_to_caller[pname] = call.pos_map[key]
-        for kw, caller_name in call.kw_map.items():
+            if idx in mapping.positional:
+                callee_to_caller[pname] = mapping.positional[idx].value
+        for kw, caller_param in mapping.keywords.items():
             check_deadline()
-            callee_to_caller[kw] = caller_name
+            callee_to_caller[kw] = caller_param.value
         if strictness == "low":
             mapped = set(callee_to_caller.keys())
             remaining = [p for p in callee_params if p not in mapped]
-            if len(call.star_pos) == 1:
-                _, star_param = call.star_pos[0]
+            if len(mapping.star_positional) == 1:
+                _, star_param = mapping.star_positional[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
-            if len(call.star_kw) == 1:
-                star_param = call.star_kw[0]
+                    callee_to_caller.setdefault(param, star_param.value)
+            if len(mapping.star_keywords) == 1:
+                star_param = mapping.star_keywords[0]
                 for param in remaining:
                     check_deadline()
-                    callee_to_caller.setdefault(param, star_param)
+                    callee_to_caller.setdefault(param, star_param.value)
         for group in callee_groups[call.callee]:
             check_deadline()
             mapped = {callee_to_caller.get(p) for p in group}
@@ -10382,25 +11192,27 @@ def _callsite_evidence_for_bundle(
         if call.span is not None:
             params_in_call: list[str] = []
             slots: list[str] = []
-            for idx_str, param in call.pos_map.items():
+            mapping = call.argument_mapping()
+            callable_id = call.callable_id()
+            for idx, param in mapping.positional.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
-                    slots.append(f"arg[{idx_str}]")
-            for name, param in call.kw_map.items():
+                if param.value in bundle:
+                    params_in_call.append(param.value)
+                    slots.append(f"arg[{idx}]")
+            for name, param in mapping.keywords.items():
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"kw[{name}]")
-            for idx, param in call.star_pos:
+            for idx, param in mapping.star_positional:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append(f"arg[{idx}]*")
-            for param in call.star_kw:
+            for param in mapping.star_keywords:
                 check_deadline()
-                if param in bundle:
-                    params_in_call.append(param)
+                if param.value in bundle:
+                    params_in_call.append(param.value)
                     slots.append("kw[**]")
             distinct = tuple(
                 sort_once(
@@ -10415,13 +11227,27 @@ def _callsite_evidence_for_bundle(
                         source="src/gabion/analysis/dataflow_audit.py:10519",
                     )
                 )
-                key = (call.span, call.callee, distinct, slot_list)
+                span_identity = SpanIdentity.from_tuple(
+                    require_not_none(
+                        call.span,
+                        reason="callsite evidence requires span",
+                        strict=True,
+                    )
+                )
+                span_tuple = (
+                    span_identity.start_line,
+                    span_identity.start_col,
+                    span_identity.end_line,
+                    span_identity.end_col,
+                )
+                callable_id = call.callable_id()
+                key = (span_tuple, callable_id.value, distinct, slot_list)
                 if key not in seen:
                     seen.add(key)
                     out.append(
                         {
-                            "callee": call.callee,
-                            "span": list(call.span),
+                            "callee": callable_id.value,
+                            "span": list(span_tuple),
                             "params": list(distinct),
                             "slots": list(slot_list),
                             "callable_kind": call.callable_kind,
@@ -10442,249 +11268,49 @@ def _callsite_evidence_for_bundle(
     return out[:limit]
 
 
-def _analyze_file_internal(
-    path: Path,
-    recursive: bool = True,
+
+
+def _adapt_ingest_carrier_to_analysis_maps(ingest_carrier):
+    return (
+        dict(ingest_carrier.function_use),
+        dict(ingest_carrier.function_calls),
+        dict(ingest_carrier.function_param_orders),
+        dict(ingest_carrier.function_param_spans),
+        set(ingest_carrier.opaque_callees),
+    )
+
+
+def analyze_ingested_file(
+    ingest_carrier,
     *,
-    config = None,
-    resume_state = None,
-    on_progress = None,
+    recursive: bool,
+    config: AuditConfig,
     on_profile = None,
-    analyze_function_fn = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
     dict[str, list[list[JSONObject]]],
 ]:
-    check_deadline()
-    if analyze_function_fn is None:
-        analyze_function_fn = _analyze_function
-    if config is None:
-        config = AuditConfig()
-    profile_stage_ns: dict[str, int] = {
-        "file_scan.read_parse": 0,
-        "file_scan.parent_annotation": 0,
-        "file_scan.collect_functions": 0,
-        "file_scan.function_scan": 0,
-        "file_scan.resolve_local_calls": 0,
-        "file_scan.resolve_local_methods": 0,
-        "file_scan.grouping": 0,
-        "file_scan.propagation": 0,
-        "file_scan.bundle_sites": 0,
-    }
-    profile_counters: Counter[str] = Counter()
-    parse_started_ns = time.monotonic_ns()
-    tree = ast.parse(path.read_text())
-    profile_stage_ns["file_scan.read_parse"] += time.monotonic_ns() - parse_started_ns
-    parent_started_ns = time.monotonic_ns()
-    parent = ParentAnnotator()
-    parent.visit(tree)
-    profile_stage_ns["file_scan.parent_annotation"] += (
-        time.monotonic_ns() - parent_started_ns
-    )
-    parents = parent.parents
-    is_test = _is_test_path(path)
-
-    collect_started_ns = time.monotonic_ns()
-    funcs = _collect_functions(tree)
-    profile_stage_ns["file_scan.collect_functions"] += (
-        time.monotonic_ns() - collect_started_ns
-    )
-    profile_counters["file_scan.functions_total"] = len(funcs)
-    fn_keys_in_file: set[str] = set()
-    for function_node in funcs:
-        check_deadline()
-        scopes = _enclosing_scopes(function_node, parents)
-        fn_keys_in_file.add(_function_key(scopes, function_node.name))
-    return_aliases = _collect_return_aliases(
-        funcs, parents, ignore_params=config.ignore_params
-    )
     (
         fn_use,
         fn_calls,
         fn_param_orders,
         fn_param_spans,
-        fn_names,
-        fn_lexical_scopes,
-        fn_class_names,
         opaque_callees,
-    ) = _load_file_scan_resume_state(
-        payload=resume_state,
-        valid_fn_keys=fn_keys_in_file,
-    )
-    scanned_since_emit = 0
-    last_scan_progress_emit_monotonic = None
-
-    def _emit_scan_progress(*, force: bool = False) -> bool:
-        nonlocal last_scan_progress_emit_monotonic
-        if on_progress is None:
-            return False
-        now = time.monotonic()
-        if (
-            not force
-            and last_scan_progress_emit_monotonic is not None
-            and now - last_scan_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-        ):
-            return False
-        progress_payload = _serialize_file_scan_resume_state(
-            fn_use=fn_use,
-            fn_calls=fn_calls,
-            fn_param_orders=fn_param_orders,
-            fn_param_spans=fn_param_spans,
-            fn_names=fn_names,
-            fn_lexical_scopes=fn_lexical_scopes,
-            fn_class_names=fn_class_names,
-            opaque_callees=opaque_callees,
-        )
-        progress_payload["profiling_v1"] = _profiling_v1_payload(
-            stage_ns=profile_stage_ns,
-            counters=profile_counters,
-        )
-        on_progress(progress_payload)
-        last_scan_progress_emit_monotonic = now
-        return True
+    ) = _adapt_ingest_carrier_to_analysis_maps(ingest_carrier)
+    profile_stage_ns: dict[str, int] = {
+        "file_scan.grouping": 0,
+        "file_scan.propagation": 0,
+        "file_scan.bundle_sites": 0,
+    }
 
     def _emit_file_profile() -> None:
         if on_profile is not None:
-            on_profile(
-                _profiling_v1_payload(
-                    stage_ns=profile_stage_ns,
-                    counters=profile_counters,
-                )
-            )
-
-    try:
-        scan_started_ns = time.monotonic_ns()
-        for f in funcs:
-            check_deadline()
-            class_name = _enclosing_class(f, parents)
-            scopes = _enclosing_scopes(f, parents)
-            lexical_scopes = _enclosing_function_scopes(f, parents)
-            fn_key = _function_key(scopes, f.name)
-            if (
-                fn_key in fn_use
-                and fn_key in fn_calls
-                and fn_key in fn_param_orders
-                and fn_key in fn_param_spans
-                and fn_key in fn_names
-                and fn_key in fn_lexical_scopes
-                and fn_key in fn_class_names
-            ):
-                continue
-            if not _decorators_transparent(f, config.transparent_decorators):
-                opaque_callees.add(fn_key)
-            use_map, call_args = analyze_function_fn(
-                f,
-                parents,
-                is_test=is_test,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                class_name=class_name,
-                return_aliases=return_aliases,
-            )
-            fn_use[fn_key] = use_map
-            fn_calls[fn_key] = call_args
-            fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
-            fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
-            fn_names[fn_key] = f.name
-            fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
-            fn_class_names[fn_key] = class_name
-            scanned_since_emit += 1
-            if (
-                scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL
-                and _emit_scan_progress()
-            ):
-                scanned_since_emit = 0
-        profile_stage_ns["file_scan.function_scan"] += time.monotonic_ns() - scan_started_ns
-    except TimeoutExceeded:
-        _emit_scan_progress(force=True)
-        _emit_file_profile()
-        raise
-    if scanned_since_emit > 0:
-        _emit_scan_progress(force=True)
-
-    local_by_name: dict[str, list[str]] = defaultdict(list)
-    for key, name in fn_names.items():
-        check_deadline()
-        local_by_name[name].append(key)
-
-    def _resolve_local_callee(callee: str, caller_key: str):
-        check_deadline()
-        if "." in callee:
-            return None
-        candidates = local_by_name.get(callee, [])
-        if not candidates:
-            return None
-        effective_scope = list(fn_lexical_scopes.get(caller_key, ())) + [fn_names[caller_key]]
-        while True:
-            check_deadline()
-            scoped = [
-                key
-                for key in candidates
-                if fn_lexical_scopes.get(key, ()) == tuple(effective_scope)
-                and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
-            ]
-            if len(scoped) == 1:
-                return scoped[0]
-            if len(scoped) > 1:
-                return None
-            if not effective_scope:
-                break
-            effective_scope = effective_scope[:-1]
-        return None
-
-    local_resolve_started_ns = time.monotonic_ns()
-    for caller_key, calls in list(fn_calls.items()):
-        check_deadline()
-        resolved_calls: list[CallArgs] = []
-        for call in calls:
-            check_deadline()
-            resolved = _resolve_local_callee(call.callee, caller_key)
-            if resolved:
-                resolved_calls.append(replace(call, callee=resolved))
-            else:
-                resolved_calls.append(call)
-        fn_calls[caller_key] = resolved_calls
-    profile_stage_ns["file_scan.resolve_local_calls"] += (
-        time.monotonic_ns() - local_resolve_started_ns
-    )
-
-    class_bases = _collect_local_class_bases(tree, parents)
-    profile_counters["file_scan.class_bases_count"] = len(class_bases)
-    if class_bases:
-        method_resolve_started_ns = time.monotonic_ns()
-        local_functions = set(fn_use.keys())
-
-        def _resolve_local_method(callee: str):
-            class_part, method = callee.rsplit(".", 1)
-            return _resolve_local_method_in_hierarchy(
-                class_part,
-                method,
-                class_bases=class_bases,
-                local_functions=local_functions,
-                seen=set(),
-            )
-
-        for caller_key, calls in list(fn_calls.items()):
-            check_deadline()
-            resolved_calls = []
-            for call in calls:
-                check_deadline()
-                if "." in call.callee:
-                    resolved = _resolve_local_method(call.callee)
-                    if resolved and resolved != call.callee:
-                        resolved_calls.append(replace(call, callee=resolved))
-                        continue
-                resolved_calls.append(call)
-            fn_calls[caller_key] = resolved_calls
-        profile_stage_ns["file_scan.resolve_local_methods"] += (
-            time.monotonic_ns() - method_resolve_started_ns
-        )
+            on_profile(_profiling_v1_payload(stage_ns=profile_stage_ns, counters=Counter()))
 
     grouping_started_ns = time.monotonic_ns()
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
     profile_stage_ns["file_scan.grouping"] += time.monotonic_ns() - grouping_started_ns
-    profile_counters["file_scan.functions_scanned"] = len(fn_use)
 
     if not recursive:
         bundle_started_ns = time.monotonic_ns()
@@ -10733,6 +11359,61 @@ def _analyze_file_internal(
     profile_stage_ns["file_scan.bundle_sites"] += time.monotonic_ns() - bundle_started_ns
     _emit_file_profile()
     return groups_by_fn, fn_param_spans, bundle_sites_by_fn
+
+def _analyze_file_internal(
+    path: Path,
+    recursive: bool = True,
+    *,
+    config = None,
+    resume_state = None,
+    on_progress = None,
+    on_profile = None,
+    analyze_function_fn = None,
+) -> tuple[
+    dict[str, list[set[str]]],
+    dict[str, dict[str, tuple[int, int, int, int]]],
+    dict[str, list[list[JSONObject]]],
+]:
+    check_deadline()
+    if analyze_function_fn is None:
+        analyze_function_fn = _analyze_function
+    if config is None:
+        config = AuditConfig()
+    ingest_carrier = ingest_python_file(
+        path,
+        config=config,
+        recursive=recursive,
+        parse_module=_parse_module_source,
+        collect_functions=_collect_functions,
+        collect_return_aliases=_collect_return_aliases,
+        load_resume_state=_load_file_scan_resume_state,
+        serialize_resume_state=_serialize_file_scan_resume_state,
+        profiling_payload=_profiling_v1_payload,
+        analyze_function=analyze_function_fn,
+        enclosing_class=_enclosing_class,
+        enclosing_scopes=_enclosing_scopes,
+        enclosing_function_scopes=_enclosing_function_scopes,
+        function_key=_function_key,
+        decorators_transparent=_decorators_transparent,
+        param_names=_param_names,
+        param_spans=_param_spans,
+        collect_local_class_bases=_collect_local_class_bases,
+        resolve_local_method_in_hierarchy=_resolve_local_method_in_hierarchy,
+        is_test_path=_is_test_path,
+        check_deadline=check_deadline,
+        parent_annotator_factory=ParentAnnotator,
+        progress_emit_interval=_FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+        progress_min_interval_seconds=_PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+        on_progress=on_progress,
+        on_profile=on_profile,
+        resume_state=resume_state,
+    )
+    return analyze_ingested_file(
+        ingest_carrier,
+        recursive=recursive,
+        config=config,
+        on_profile=on_profile,
+    )
 
 
 def analyze_file(
@@ -12010,6 +12691,13 @@ def _infer_type_flow(
 ):
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
+    AnalysisPassPrerequisites(
+        bundle_inference=True,
+        call_propagation=True,
+        decision_surfaces=True,
+        type_flow=True,
+        lint_evidence=True,
+    ).validate(pass_id="type_flow")
     index = require_not_none(
         analysis_index,
         reason="_infer_type_flow requires prebuilt analysis_index",
@@ -13002,7 +13690,7 @@ def _dataclass_registry_for_tree(
             continue
         if module:
             registry[f"{module}.{class_node.name}"] = fields
-        else:  # pragma: no cover - module name is always non-empty for file paths
+        else:
             registry[class_node.name] = fields
     return registry
 
@@ -13962,6 +14650,98 @@ def compute_structure_reuse(
     )
     suggested: list[JSONObject] = []
     replacement_map: dict[str, list[JSONObject]] = {}
+
+    def _reuse_site_from_location(
+        *,
+        location: str,
+        fallback_value: object,
+    ) -> JSONObject:
+        location_parts = location.split("::")
+        path_value = location_parts[0] if location_parts else ""
+        function_value = location_parts[1] if len(location_parts) > 1 else ""
+        bundle_payload: list[str] = []
+        if len(location_parts) > 2 and location_parts[2].startswith("bundle:"):
+            raw_bundle = location_parts[2][len("bundle:") :]
+            bundle_payload = [part for part in raw_bundle.split(",") if part]
+        return {
+            "path": path_value,
+            "function": function_value,
+            "bundle": bundle_payload,
+        }
+
+    def _build_suggested_plan_artifact(
+        *,
+        suggestion: JSONObject,
+    ) -> JSONObject:
+        kind = str(suggestion.get("kind", ""))
+        suggestion_name = str(suggestion.get("suggested_name", ""))
+        hash_value = str(suggestion.get("hash", ""))
+        locations = sequence_or_none(suggestion.get("locations")) or ()
+        sorted_locations = sort_once(
+            [str(location) for location in locations if type(location) is str],
+            source="compute_structure_reuse.suggested_plan.locations",
+        )
+        primary_location = sorted_locations[0] if sorted_locations else ""
+        site = _reuse_site_from_location(
+            location=primary_location,
+            fallback_value=suggestion.get("value"),
+        )
+        witness_obligations = list(
+            sequence_or_none(suggestion.get("witness_obligations")) or []
+        )
+        aspf_witness_requirements = mapping_or_empty(
+            suggestion.get("aspf_witness_requirements")
+        )
+        return {
+            "plan_id": f"reuse:{kind}:{hash_value}:{suggestion_name}",
+            "status": "UNVERIFIED",
+            "site": site,
+            "pre": {
+                "canonical_identity_contract": suggestion.get("canonical_identity_contract"),
+                "aspf_structure_class": suggestion.get("aspf_structure_class"),
+            },
+            "rewrite": {
+                "kind": "BUNDLE_ALIGN" if kind == "bundle" else "AMBIENT_REWRITE",
+                "selector": {
+                    "hash": hash_value,
+                    "locations": sorted_locations,
+                },
+                "parameters": {
+                    "candidates": [suggestion_name] if suggestion_name else [],
+                    "strategy": "reuse-lemma" if kind != "bundle" else "reuse-align",
+                },
+            },
+            "evidence": {
+                "provenance_id": f"reuse:{hash_value}",
+                "coherence_id": f"aspf:{hash_value}",
+                "aspf_witness_requirements": aspf_witness_requirements,
+                "witness_obligations": witness_obligations,
+            },
+            "post_expectation": {
+                "match_strata": "exact",
+                "canonical_structure_class_equivalent": True,
+            },
+            "verification": {
+                "mode": "re-audit",
+                "status": "UNVERIFIED",
+                "predicates": [
+                    {"kind": "base_conservation", "expect": True},
+                    *(
+                        [{"kind": "ctor_coherence", "expect": True}]
+                        if kind == "bundle"
+                        else []
+                    ),
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": [suggestion_name] if suggestion_name else [],
+                    },
+                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                    {"kind": "witness_obligation_non_regression", "expect": "stable"},
+                ],
+            },
+        }
+
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
@@ -13975,6 +14755,11 @@ def compute_structure_reuse(
                     "count": count,
                     "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
                     "locations": entry.get("locations", []),
+                    "aspf_structure_class": entry.get("aspf_structure_class"),
+                    "canonical_identity_contract": {
+                        "identity_kind": "canonical_aspf_structure_class_equivalence",
+                        "representative": hash_value,
+                    },
                 }
                 if "value" in entry:
                     suggestion["value"] = entry.get("value")
@@ -14000,6 +14785,48 @@ def compute_structure_reuse(
                         warnings.append(
                             f"Missing declared bundle name for {list(key)}"
                         )
+                suggestion["witness_obligations"] = [
+                    {
+                        "kind": "reuse_suggestion_site",
+                        "required": True,
+                        "witness_ref": str(location),
+                    }
+                    for location in sequence_or_none(suggestion.get("locations")) or ()
+                    if type(location) is str
+                ]
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_equivalence",
+                        "required": True,
+                        "witness_ref": f"aspf:{hash_value}",
+                        "aspf_structure_class": suggestion.get("aspf_structure_class"),
+                        "canonical_identity_contract": suggestion.get(
+                            "canonical_identity_contract"
+                        ),
+                    }
+                )
+                suggestion["witness_obligations"].append(
+                    {
+                        "kind": "aspf_structure_class_coherence",
+                        "required": True,
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    }
+                )
+                suggestion["aspf_witness_requirements"] = {
+                    "equivalence": {
+                        "kind": "aspf_structure_class_equivalence",
+                        "witness_ref": f"aspf:{hash_value}",
+                    },
+                    "coherence": {
+                        "kind": "aspf_structure_class_coherence",
+                        "witness_ref": f"aspf:coherence:{hash_value}",
+                        "coherence_ref": f"aspf:{hash_value}",
+                    },
+                }
+                suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
+                    suggestion=suggestion
+                )
                 suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
@@ -14007,6 +14834,27 @@ def compute_structure_reuse(
         "min_count": min_count,
         "reused": reused,
         "suggested_lemmas": suggested,
+        "heuristic_structural_repetition_candidates": [
+            {
+                "hash": entry.get("hash"),
+                "kind": entry.get("kind"),
+                "count": entry.get("count"),
+                "source": "heuristic_structural_repetition",
+            }
+            for entry in reused
+            if entry.get("kind") in {"bundle", "function"}
+        ],
+        "witness_validated_isomorphy_candidates": [
+            {
+                "hash": suggestion.get("hash"),
+                "kind": suggestion.get("kind"),
+                "suggested_name": suggestion.get("suggested_name"),
+                "source": "aspf_witness_requirements",
+                "aspf_witness_requirements": suggestion.get("aspf_witness_requirements"),
+            }
+            for suggestion in suggested
+            if mapping_or_none(suggestion.get("aspf_witness_requirements")) is not None
+        ],
         "replacement_map": replacement_map,
         "warnings": warnings,
     }
@@ -14042,7 +14890,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     suggested = reuse.get("suggested_lemmas") or []
     lines = [
         "# Generated by gabion structure-reuse",
-        "# TODO: replace stubs with actual lemma definitions.",
+        "# Structured rewrite-plan artifacts for suggested reuse lemmas.",
         "",
     ]
     if not suggested:
@@ -14053,6 +14901,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         mapping_or_empty(raw_entry)
         for raw_entry in suggested
     ]
+    plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
         suggested_entries,
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
@@ -14060,20 +14909,20 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         check_deadline()
         name = entry.get("suggested_name")
         if type(name) is str and name:
-            kind = entry.get("kind", "lemma")
-            count = entry.get("count", 0)
-            value = entry.get("value")
-            child_count = entry.get("child_count")
-            lines.append(f"def {name}() -> None:")
-            lines.append('    """Auto-generated lemma stub."""')
-            lines.append(f"    # kind: {kind}")
-            lines.append(f"    # count: {count}")
-            if value is not None:
-                lines.append(f"    # value: {value}")
-            if child_count is not None:
-                lines.append(f"    # child_count: {child_count}")
-            lines.append("    ...")
-            lines.append("")
+            raw_plan = mapping_or_none(entry.get("rewrite_plan_artifact"))
+            if raw_plan is not None:
+                plan_artifacts.append({str(key): raw_plan[key] for key in raw_plan})
+    payload: JSONObject = {
+        "format_version": 1,
+        "artifact_kind": "reuse_rewrite_plan_bundle",
+        "plans": sort_once(
+            plan_artifacts,
+            source="render_reuse_lemma_stubs.plan_artifacts",
+            key=lambda plan: str(plan.get("plan_id", "")),
+        ),
+    }
+    lines.append(json.dumps(payload, indent=2, sort_keys=False))
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -14662,11 +15511,17 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
 
 
 def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    return {
+    variant_payload = {
         str(key): payload[key]
         for key in payload
         if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
     }
+    try:
+        identities = _ResumeCacheIdentityPair.decode_required(variant_payload)
+    except NeverThrown:
+        return variant_payload
+    variant_payload.update(identities.encode())
+    return variant_payload
 
 
 def _analysis_index_resume_variants(
@@ -14681,10 +15536,11 @@ def _analysis_index_resume_variants(
         for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
             raw_variant_mapping = mapping_or_none(raw_variant)
-            if type(identity) is str and raw_variant_mapping is not None:
+            variant_identity = _CacheIdentity.from_boundary(identity)
+            if variant_identity is not None and raw_variant_mapping is not None:
                 variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
                 if variant_payload is not None:
-                    variants[identity] = _analysis_index_resume_variant_payload(
+                    variants[variant_identity.value] = _analysis_index_resume_variant_payload(
                         variant_payload
                     )
     return variants
@@ -14695,16 +15551,18 @@ def _with_analysis_index_resume_variants(
     payload: JSONObject,
     previous_payload,
 ) -> JSONObject:
-    current_identity = str(payload.get("index_cache_identity", "") or "")
+    identities = _ResumeCacheIdentityPair.decode_required(payload)
     variants = _analysis_index_resume_variants(previous_payload)
-    if current_identity:
-        variants[current_identity] = _analysis_index_resume_variant_payload(payload)
-    if not variants:
-        return payload
-    ordered_variant_keys = sort_once(variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360')
-    if current_identity and current_identity in ordered_variant_keys:
-        ordered_variant_keys.remove(current_identity)
-        ordered_variant_keys.append(current_identity)
+    payload.update(identities.encode())
+    variants[identities.canonical_index.value] = _analysis_index_resume_variant_payload(payload)
+    ordered_variant_keys = [
+        key
+        for key in sort_once(
+            variants.keys(), source = 'src/gabion/analysis/dataflow_audit.py:15360'
+        )
+        if key != identities.canonical_index.value
+    ]
+    ordered_variant_keys.append(identities.canonical_index.value)
     if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
         ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
     payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
@@ -14724,6 +15582,16 @@ def _serialize_analysis_index_resume_payload(
     profiling_v1 = None,
     previous_payload = None,
 ) -> JSONObject:
+    identities = _ResumeCacheIdentityPair(
+        canonical_index=_CacheIdentity.from_boundary_required(
+            index_cache_identity,
+            field="index_cache_identity",
+        ),
+        canonical_projection=_CacheIdentity.from_boundary_required(
+            projection_cache_identity,
+            field="projection_cache_identity",
+        ),
+    )
     hydrated_path_keys = sort_once(
         (
             _analysis_collection_resume_path_key(path)
@@ -14758,8 +15626,7 @@ def _serialize_analysis_index_resume_payload(
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
-        "index_cache_identity": index_cache_identity,
-        "projection_cache_identity": projection_cache_identity,
+        **identities.encode(),
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
@@ -14797,18 +15664,22 @@ def _load_analysis_index_resume_payload(
     payload = payload_with_format(payload, format_version=1)
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
+    expected_index_identity = _CacheIdentity.from_boundary(expected_index_cache_identity)
+    expected_projection_identity = _CacheIdentity.from_boundary(expected_projection_cache_identity)
     selected_payload: Mapping[str, JSONValue] = payload
-    if expected_index_cache_identity:
-        resume_identity = str(payload.get("index_cache_identity", "") or "")
-        if not _cache_identity_matches(resume_identity, expected_index_cache_identity):
+    if expected_index_identity is not None:
+        selected_identity = _CacheIdentity.from_boundary(selected_payload.get("index_cache_identity"))
+        if selected_identity != expected_index_identity:
             variants = _analysis_index_resume_variants(payload)
-            variant = _resume_variant_for_identity(variants, expected_index_cache_identity)
+            variant = _resume_variant_for_identity(variants, expected_index_identity)
             if variant is None:
                 return hydrated_paths, by_qual, symbol_table, class_index
             selected_payload = variant
-    if expected_projection_cache_identity:
-        projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
-        if not _cache_identity_matches(projection_identity, expected_projection_cache_identity):
+    if expected_projection_identity is not None:
+        projection_identity = _CacheIdentity.from_boundary(
+            selected_payload.get("projection_cache_identity")
+        )
+        if projection_identity != expected_projection_identity:
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,
@@ -16536,14 +17407,17 @@ def _normalize_transparent_decorators(
 
 @contextmanager
 def _analysis_deadline_scope(args: argparse.Namespace):
-    timeout_ticks = int(args.analysis_timeout_ticks)
-    timeout_tick_ns = int(args.analysis_timeout_tick_ns)
-    if timeout_ticks <= 0:
-        never("invalid analysis timeout ticks", analysis_timeout_ticks=timeout_ticks)
-    if timeout_tick_ns <= 0:
-        never("invalid analysis timeout tick_ns", analysis_timeout_tick_ns=timeout_tick_ns)
+    timeout_carrier = TimeoutTickCarrier.from_ingress(
+        ticks=args.analysis_timeout_ticks,
+        tick_ns=args.analysis_timeout_tick_ns,
+    )
+    if timeout_carrier.ticks == 0:
+        never(
+            "invalid analysis timeout ticks",
+            analysis_timeout_ticks=timeout_carrier.ticks,
+        )
     tick_limit_value = args.analysis_tick_limit
-    logical_limit = timeout_ticks
+    logical_limit = timeout_carrier.ticks
     if tick_limit_value is not None:
         tick_limit = int(tick_limit_value)
         if tick_limit <= 0:
@@ -16552,7 +17426,7 @@ def _analysis_deadline_scope(args: argparse.Namespace):
     with ExitStack() as stack:
         stack.enter_context(forest_scope(Forest()))
         stack.enter_context(
-            deadline_scope(Deadline.from_timeout_ticks(timeout_ticks, timeout_tick_ns))
+            deadline_scope(Deadline.from_timeout_ticks(timeout_carrier))
         )
         stack.enter_context(deadline_clock_scope(GasMeter(limit=logical_limit)))
         yield
@@ -16696,6 +17570,12 @@ def _run_impl(
         merged.get("transparent_decorators")
     )
     deadline_roots = set(dataflow_deadline_roots(merged))
+    adapter_payload = dataflow_adapter_payload(merged)
+    required_analysis_surfaces = {
+        str(item)
+        for item in dataflow_required_surfaces(merged)
+        if type(item) is str and str(item)
+    }
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
@@ -16715,6 +17595,8 @@ def _run_impl(
         fingerprint_synth_min_occurrences=synth_min_occurrences,
         fingerprint_synth_version=synth_version,
         fingerprint_synth_registry=synth_registry,
+        adapter_contract=normalize_adapter_contract(adapter_payload),
+        required_analysis_surfaces=required_analysis_surfaces,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

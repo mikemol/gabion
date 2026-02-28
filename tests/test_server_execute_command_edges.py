@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import runpy
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -174,6 +175,42 @@ def _execute_with_deps(
 ) -> dict:
     deps = server._default_execute_command_deps().with_overrides(**overrides)
     return server.execute_command_with_deps(ls, payload, deps=deps)
+
+
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"language": "javascript"},
+        {"ingest_profile": "unknown-profile"},
+        {"aux_operation": "invalid"},
+        {"aux_operation": {"domain": "unknown", "action": "state"}},
+        {"aux_operation": {"domain": "ambiguity", "action": "delta"}},
+    ],
+)
+def test_invalid_ingress_payload_rejected_before_analysis(
+    tmp_path: Path,
+    payload: dict[str, object],
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    called = False
+
+    def _never_called(*_args: object, **_kwargs: object) -> server.AnalysisResult:
+        nonlocal called
+        called = True
+        raise AssertionError("core analyzer should not be called for invalid ingress")
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], **payload}),
+        analyze_paths_fn=_never_called,
+    )
+
+    _assert_invariant_failure(result)
+    assert called is False
 
 
 def _progress_values(ls: _DummyNotifyingServer) -> list[dict[str, object]]:
@@ -3993,16 +4030,21 @@ def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
     assert result.get("changes")
 
 
-# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows::server.py::gabion.server._lint_entries_from_lines::server.py::gabion.server._normalize_dataflow_response::server.py::gabion.server._parse_lint_line
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows::server.py::gabion.server._normalize_dataflow_response::server.py::gabion.server._parse_lint_line::server.py::gabion.server._parse_lint_line_as_payload
 def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
     assert server._parse_lint_line("not a lint row") is None
     assert server._parse_lint_line("pkg/mod.py:1:2:   ") is None
-    entries = server._lint_entries_from_lines(
-        [
-            "pkg/mod.py:1:2: DF001 bad",
-            "invalid row",
-        ]
-    )
+    entries = [
+        entry
+        for entry in (
+            server._parse_lint_line_as_payload(line)
+            for line in [
+                "pkg/mod.py:1:2: DF001 bad",
+                "invalid row",
+            ]
+        )
+        if entry is not None
+    ]
     assert entries == [
         {
             "path": "pkg/mod.py",
@@ -4050,11 +4092,68 @@ def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
                 "trace_id": "aspf-trace:abc123",
                 "opportunities": [],
             },
+            "selected_adapter": "python:default",
+            "supported_analysis_surfaces": ["rewrite_plans", "decision_surfaces"],
+            "disabled_surface_reasons": {
+                "type_ambiguities": "disabled by ingest profile syntax-only"
+            },
         }
     )
     assert normalized["aspf_trace"]["trace_id"] == "aspf-trace:abc123"
     assert normalized["aspf_equivalence"]["verdict"] == "non_drift"
     assert normalized["aspf_opportunities"]["opportunities"] == []
+    assert normalized["selected_adapter"] == "python:default"
+    assert normalized["supported_analysis_surfaces"] == [
+        "decision_surfaces",
+        "rewrite_plans",
+    ]
+    assert normalized["disabled_surface_reasons"] == {
+        "type_ambiguities": "disabled by ingest profile syntax-only"
+    }
+
+
+def test_server_normalize_dataflow_response_updates_nested_payload_capabilities() -> None:
+    normalized = server._normalize_dataflow_response(
+        {
+            "exit_code": 0,
+            "payload": {"legacy": True},
+            "selected_adapter": "python:default",
+            "supported_analysis_surfaces": ["rewrite_plans"],
+            "disabled_surface_reasons": {"type_flow": "disabled"},
+        }
+    )
+    payload = normalized["payload"]
+    assert payload["legacy"] is True
+    assert payload["selected_adapter"] == "python:default"
+    assert payload["supported_analysis_surfaces"] == ["rewrite_plans"]
+    assert payload["disabled_surface_reasons"] == {"type_flow": "disabled"}
+
+
+def test_diagnostics_for_path_uses_fallback_range_when_param_span_missing(tmp_path: Path) -> None:
+    module_path = tmp_path / "module.py"
+    module_path.write_text("def f(a):\n    return a\n", encoding="utf-8")
+
+    def _analyze_paths(*_args, **_kwargs):
+        return server.AnalysisResult(
+            groups_by_path={module_path: {"f": [set(["a"])]}},
+            param_spans_by_path={module_path: {"f": {}}},
+            bundle_sites_by_path={},
+            type_suggestions=[],
+            type_ambiguities=[],
+            type_callsite_evidence=[],
+            constant_smells=[],
+            unused_arg_smells=[],
+            forest=server.Forest(),
+        )
+
+    diagnostics = server._diagnostics_for_path(
+        str(module_path),
+        tmp_path,
+        analyze_paths_fn=_analyze_paths,
+    )
+    assert diagnostics
+    assert diagnostics[0].range.start.line == 0
+    assert diagnostics[0].range.end.character == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_strictness::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4068,6 +4167,23 @@ def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
                 "root": str(tmp_path),
                 "paths": [str(module)],
                 "strictness": "invalid",
+            }
+        ),
+    )
+    _assert_invariant_failure(result)
+
+
+def test_execute_command_rejects_unsupported_dataflow_ingest_profile(tmp_path: Path) -> None:
+    module = tmp_path / "sample.py"
+    _write_bundle_module(module)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module)],
+                "language": "python",
+                "ingest_profile": "not-supported",
             }
         ),
     )
@@ -4128,6 +4244,7 @@ def test_impact_change_normalization_and_diff_range_edges() -> None:
         start_line=3,
         end_line=9,
     )
+    assert server._normalize_impact_change_entry("   ") is None
 
     diff_spans = server._parse_impact_diff_ranges(
         "+++ /dev/null\n"
@@ -4653,12 +4770,10 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
                 "emit_test_evidence_suggestions": True,
                 "emit_call_clusters": True,
                 "emit_call_cluster_consolidation": True,
-                "emit_test_annotation_drift": True,
                 "emit_semantic_coverage_map": True,
-                "write_test_annotation_drift_baseline": True,
-                "emit_test_obsolescence": True,
-                "write_test_obsolescence_baseline": True,
-                "write_ambiguity_baseline": True,
+                "obsolescence_mode": {"kind": "baseline-write", "state_path": None},
+                "annotation_drift_mode": {"kind": "baseline-write", "state_path": None},
+                "ambiguity_mode": {"kind": "baseline-write", "state_path": None},
                 "fingerprint_synth_json": str(synth_registry_path),
                 "fingerprint_provenance_json": str(provenance_path),
                 "fingerprint_deadness_json": str(deadness_path),
@@ -4688,8 +4803,6 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert (tmp_path / "out" / "call_cluster_consolidation.md").exists()
     assert (tmp_path / "artifacts" / "out" / "semantic_coverage_map.json").exists()
     assert (tmp_path / "artifacts" / "audit_reports" / "semantic_coverage_map.md").exists()
-    assert (tmp_path / "artifacts" / "out" / "test_obsolescence_report.json").exists()
-    assert (tmp_path / "out" / "test_obsolescence_report.md").exists()
     assert (tmp_path / "baselines" / "test_obsolescence_baseline.json").exists()
     assert (tmp_path / "baselines" / "test_annotation_drift_baseline.json").exists()
     assert (tmp_path / "baselines" / "ambiguity_baseline.json").exists()
@@ -4911,3 +5024,101 @@ def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
     rewrite_plans = result.get("rewrite_plans", [])
     assert rewrite_plans
     assert rewrite_plans[0].get("kind") == "AMBIENT_REWRITE"
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_normalize_impact_payload_and_edge_buckets::server.py::gabion.server._normalize_impact_payload::server.py::gabion.server._normalize_impact_edge_buckets
+def test_normalize_impact_payload_and_edge_buckets() -> None:
+    options = server._normalize_impact_payload(
+        {
+            "root": ".",
+            "changes": [{"path": "src\\mod.py", "start_line": "2", "end_line": "1"}],
+            "confidence_threshold": 4,
+        },
+        workspace_root=".",
+    )
+    assert options.changes == (server.ImpactSpan(path="src/mod.py", start_line=1, end_line=2),)
+    assert options.confidence_threshold == 1.0
+
+    fn = server.ImpactFunction(
+        path="src/mod.py",
+        qual="mod.fn",
+        name="fn",
+        start_line=1,
+        end_line=2,
+        is_test=False,
+    )
+    buckets = server._normalize_impact_edge_buckets(
+        edges=[
+            server.ImpactEdge(caller="mod.fn", callee="mod.fn", confidence=1.0, inferred=False),
+            server.ImpactEdge(caller="missing", callee="mod.fn", confidence=1.0, inferred=False),
+        ],
+        functions_by_qual={"mod.fn": fn},
+    )
+    assert "mod.fn" in buckets.reverse_edges
+    assert buckets.unresolved_edges == (
+        {"caller": "missing", "callee": "mod.fn", "reason": "unresolvable_function_id"},
+    )
+
+
+def test_probe_direct_executor_wraps_exceptions_and_passthrough_never() -> None:
+    ls = _DummyServer(".")
+    with pytest.raises(server.DirectProbeExecutionError):
+        server._probe_direct_executor(
+            lambda _ls, _payload: (_ for _ in ()).throw(RuntimeError("boom")),
+            ls=ls,  # type: ignore[arg-type]
+            command="check",
+            probe_payload={},
+        )
+    with pytest.raises(NeverThrown):
+        server._probe_direct_executor(
+            lambda _ls, _payload: (_ for _ in ()).throw(NeverThrown("invariant")),
+            ls=ls,  # type: ignore[arg-type]
+            command="check",
+            probe_payload={},
+        )
+
+
+def test_execute_impact_total_rejects_reverse_edge_with_missing_caller(tmp_path: Path) -> None:
+    module_path = tmp_path / "mod.py"
+    module_path.write_text("def seed():\n    return 1\n", encoding="utf-8")
+    ls = _DummyServer(str(tmp_path))
+
+    original_normalize_edges = server._normalize_impact_edge_buckets
+    try:
+        server._normalize_impact_edge_buckets = lambda **_kwargs: server.ImpactEdgeBuckets(
+            reverse_edges={
+                "seed": [
+                    server.ImpactEdge(
+                        caller="missing.caller",
+                        callee="seed",
+                        inferred=False,
+                        confidence=1.0,
+                    )
+                ]
+            },
+            unresolved_edges=(),
+        )
+        with pytest.raises(NeverThrown):
+            server._execute_impact_total(
+                ls,  # type: ignore[arg-type]
+                _with_timeout(
+                    {
+                        "root": str(tmp_path),
+                        "changes": [
+                            {"path": "mod.py", "start_line": 1, "end_line": 1}
+                        ],
+                    }
+                ),
+            )
+    finally:
+        server._normalize_impact_edge_buckets = original_normalize_edges
+
+
+def test_server_module_entrypoint_executes_start_guard() -> None:
+    from pygls.lsp.server import LanguageServer
+
+    original_start_io = LanguageServer.start_io
+    LanguageServer.start_io = lambda self: None
+    try:
+        runpy.run_module("gabion.server", run_name="__main__")
+    finally:
+        LanguageServer.start_io = original_start_io

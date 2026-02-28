@@ -20,12 +20,18 @@ from gabion.refactor.engine import (
     _module_name,
     _rewrite_call_sites,
     _rewrite_call_sites_in_project,
+    _validated_module_identifier,
 )
 from gabion.refactor.model import (
     CompatibilityShimConfig,
     FieldSpec,
+    RefactorPlanOutcome,
     RefactorRequest,
 )
+
+
+def _target_module(module_name: str):
+    return _validated_module_identifier(module_name).identifier
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
@@ -72,6 +78,31 @@ def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None
     assert "class Proto(Protocol)" in plan_protocol.edits[0].replacement
 
 
+def test_plan_protocol_extraction_without_project_root_skips_project_rewrite(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "mod.py"
+    target.write_text(
+        "def f(a, b):\n"
+        "    return f(a, b)\n",
+        encoding="utf-8",
+    )
+    request = RefactorRequest(
+        protocol_name="Bundle",
+        bundle=["a", "b"],
+        target_path="mod.py",
+        target_functions=["f"],
+    )
+    cwd = Path.cwd()
+    os.chdir(tmp_path)
+    try:
+        plan = RefactorEngine(project_root=None).plan_protocol_extraction(request)
+    finally:
+        os.chdir(cwd)
+    assert plan.errors == []
+    assert plan.edits
+
+
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::stale_7287d9dfaf67
 def test_module_name_handles_value_error(tmp_path: Path) -> None:
     assert _module_name(Path("mod.py"), tmp_path / "other") == "mod"
@@ -100,7 +131,7 @@ def test_rewrite_call_sites_uses_protocol_alias(tmp_path: Path) -> None:
         module,
         file_path=tmp_path / "consumer.py",
         target_path=tmp_path / "target.py",
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target"},
@@ -140,7 +171,7 @@ def test_collect_import_context_skips_nonmatching() -> None:
         ]
     )
     module_aliases, imported_targets, protocol_alias = _collect_import_context(
-        module, target_module="pkg.mod", protocol_name="Protocol"
+        module, target_module=_target_module("pkg.mod"), protocol_name="Protocol"
     )
     assert module_aliases == {}
     assert imported_targets == {}
@@ -162,7 +193,7 @@ def test_collect_import_context_skips_import_star_matching_module() -> None:
         ]
     )
     module_aliases, imported_targets, protocol_alias = _collect_import_context(
-        module, target_module="pkg", protocol_name="Protocol"
+        module, target_module=_target_module("pkg"), protocol_name="Protocol"
     )
     assert module_aliases == {}
     assert imported_targets == {}
@@ -176,7 +207,7 @@ def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
         module,
         file_path=tmp_path / "a.py",
         target_path=tmp_path / "a.py",
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Bundle",
         bundle_fields=["a"],
         targets=set(),
@@ -203,7 +234,7 @@ def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> No
         module,
         file_path=tmp_path / "consumer.py",
         target_path=tmp_path / "target.py",
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target", "C.m"},
@@ -227,7 +258,7 @@ def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
     edits, warnings = _rewrite_call_sites_in_project(
         project_root=tmp_path,
         target_path=target,
-        target_module="target",
+        target_module=_target_module("target"),
         protocol_name="Bundle",
         bundle_fields=["a", "b"],
         targets={"target"},
@@ -384,7 +415,7 @@ def test_engine_helper_negative_branches() -> None:
     context_module = cst.parse_module("value = 1\n")
     aliases, imported, proto = _collect_import_context(
         context_module,
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Protocol",
     )
     assert aliases == {}
@@ -404,7 +435,7 @@ def test_engine_helper_negative_branches() -> None:
     )
     aliases, imported, proto = _collect_import_context(
         context_module,
-        target_module="pkg.mod",
+        target_module=_target_module("pkg.mod"),
         protocol_name="Protocol",
     )
     assert aliases == {}
@@ -541,3 +572,69 @@ def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None
     assert "def _target_bundle(bundle: Bundle):" in transformed
     assert "target(Bundle(a = a, b = b))" in transformed
     assert "@overload" not in transformed
+
+
+def test_validated_module_identifier_rejects_empty_string() -> None:
+    result = _validated_module_identifier("")
+    assert result.status.value == "invalid"
+    assert result.identifier.value == ""
+
+
+def test_plan_protocol_extraction_applies_protocol_when_targets_do_not_match(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "mod.py"
+    target.write_text(
+        "from typing import Protocol\n\n"
+        "class BundleProtocol(Protocol):\n"
+        "    a: object\n\n"
+        "def f(a):\n"
+        "    return a\n",
+        encoding="utf-8",
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(
+        RefactorRequest(
+            protocol_name="BundleProtocol",
+            bundle=["a"],
+            target_path=str(target),
+            target_functions=["missing"],
+        )
+    )
+    assert plan.outcome is RefactorPlanOutcome.APPLIED
+    assert plan.edits
+    assert "class BundleProtocol(Protocol):" in plan.edits[0].replacement
+
+
+def test_plan_protocol_extraction_invalid_module_identifier_errors(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "bad-name.py"
+    target.write_text(
+        "def f(a, b):\n"
+        "    return a + b\n",
+        encoding="utf-8",
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(
+        RefactorRequest(
+            protocol_name="BundleProtocol",
+            bundle=["a", "b"],
+            target_path=str(target),
+            target_functions=["f"],
+        )
+    )
+    assert plan.outcome is RefactorPlanOutcome.ERROR
+    assert plan.errors
+    assert "Invalid target module identifier" in plan.errors[0]
+
+
+def test_refactor_transformer_async_stack_edges() -> None:
+    transformer = _RefactorTransformer(
+        targets={"x"},
+        bundle_fields=["a"],
+        protocol_hint="Proto",
+    )
+    module = cst.parse_module("async def run():\n    pass\n")
+    async_fn = module.body[0]
+    assert transformer.visit_AsyncFunctionDef(async_fn) is True
+    assert transformer.leave_AsyncFunctionDef(async_fn, async_fn) is async_fn
+    assert transformer.leave_AsyncFunctionDef(async_fn, async_fn) is async_fn

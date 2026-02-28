@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 52
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -19,21 +19,21 @@ doc_requires:
   - docs/publishing_practices.md#publishing_practices
   - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
   glossary.md#contract: 1
   docs/publishing_practices.md#publishing_practices: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  AGENTS.md#agent_obligations: "Agent obligations updated to forbid mechanical review stamping."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
-  policy_seed: 1
+  policy_seed: 2
   change_protocol: 2
 doc_section_requires:
   policy_seed:
@@ -46,33 +46,33 @@ doc_section_requires:
 doc_section_reviews:
   policy_seed:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Repo contract reviewed; policy semantics unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Contributor workflow review confirmed; no policy changes needed."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations aligned; policy unchanged."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; policy semantics stable."
     docs/publishing_practices.md#publishing_practices:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Publishing guidance reviewed; policy unaffected."
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Coverage semantics reviewed; policy unaffected."
 doc_commutes_with:
@@ -536,6 +536,31 @@ Any of the above patterns discovered in semantic core changes MUST be treated as
 a policy violation unless accompanied by boundary-level reification that removes
 the ambiguity before core-flow execution.
 
+Compatibility-layer policy (normative):
+
+* A **compatibility layer** is any wrapper, dual-shape bridge, sentinel fallback,
+  or legacy-path branch retained only to preserve pre-reification behavior.
+* Hard default: semantic core modules MUST NOT introduce or preserve compatibility
+  layers as the implementation strategy.
+* Narrow exception: temporary compatibility adapters are permitted only at explicit
+  ingress/boundary layers, and only when paired with an explicit Decision Protocol
+  plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`,
+  `rollback_condition`, `evidence_links`).
+* Existing compatibility layers are remediation debt and MUST carry dated removal
+  commitments; net-new semantic-core compatibility debt is disallowed.
+* Forward remediation MUST collapse dual paths into one deterministic contract;
+  preserving dual-path compatibility in semantic core is non-compliant.
+
+Forward-remediation order (normative):
+
+1. Treat ACP/branchless/defensive-fallback findings as transition signals for
+   boundary reification.
+2. Attempt forward remediation first via boundary normalization and explicit
+   Protocol/Decision-Protocol carriers, removing compatibility layers instead
+   of preserving dual paths.
+3. Rollback is allowed only when forward remediation cannot preserve behavior
+   or cannot converge.
+
 ### 4.9 Sort-Disclosure Ratchet
 
 When canonical ordering is enforced, this repository treats sorting as semantic
@@ -618,6 +643,9 @@ Failures must be **mapped, understood, and surfaced**, not suppressed.
   determine whether the fault is environment, dependency, or code.
 * **Durable logs.** Test failures MUST be recorded in `artifacts/` (e.g.
   `artifacts/test_runs/...`) so regressions can be reviewed without re‑running.
+* **Remote failure bundles.** When `scripts/ci_watch.py` detects a watched-run
+  failure, it SHOULD collect deterministic metadata/log/artifact bundles under
+  `artifacts/out/ci_watch/run_<run_id>/` for triage.
 
 ### 5.5 Coverage Semantics (Evidence)
 
@@ -629,7 +657,14 @@ not as a standalone numeric target.
 * Grammar/AST feature coverage is required when introducing new language
   feature handling.
 * Convergence/commutation coverage is required for semantic stability claims.
-* Execution coverage (line/branch %) is advisory and may be ratcheted.
+* Execution coverage (line/branch %) is enforced by CI at the active threshold
+  (currently `100%` line and branch for repo-local and CI gates).
+* `# pragma: no cover` is permitted only when the branch is guarded by
+  `never(...)` after ingress validation.
+* Enum exhaustiveness fallback branches should pair explicit `never(...)` with
+  `# pragma: no cover` on the dead post-invariant path.
+* Any execution-coverage threshold change MUST be explicit, ratchet-governed,
+  and applied in both policy text and enforcing workflows/scripts in one change-set.
 
 The coverage semantics policy is defined in `docs/coverage_semantics.md#coverage_semantics`.
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 108
+doc_revision: 112
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,23 +17,23 @@ doc_requires:
   - glossary.md#contract
   - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
-  POLICY_SEED.md#policy_seed: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
+  POLICY_SEED.md#policy_seed: 2
+  docs/normative_clause_index.md#normative_clause_index: 2
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with contributor scope."
-  CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
-  AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  docs/normative_clause_index.md#normative_clause_index: "Canonical clause IDs adopted for repeated obligations and cross-linked to the machine-readable enforcement ledger."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
-  contributing_contract: 1
+  contributing_contract: 2
 doc_section_requires:
   contributing_contract:
     - README.md#repo_contract
@@ -45,33 +45,33 @@ doc_section_requires:
 doc_section_reviews:
   contributing_contract:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Repo contract reviewed; contributor contract unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations reviewed; contributor contract unchanged."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed reviewed; contributor contract unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Clause IDs reviewed; contributing guidance now links canonical obligations."
+      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; contributor contract unchanged."
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Coverage semantics reviewed; contributor contract unchanged."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -116,7 +116,7 @@ valid.
   once the workflow has bootstrapped pinned dependencies (for reproducible hermetic runs).
 - **Override lifecycle source-of-truth:** override record schema/validation semantics are enforced by `src/gabion/tooling/override_record.py` and consumed by both runtime transport policy and CI override emit/gates.
 - **Command transport decision surface:** CLI and tooling paths must use `src/gabion/commands/transport_policy.py` so direct-vs-LSP enforcement remains maturity/parity aligned.
-- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `scripts/policy_check.py --normative-map` green when governance mappings change.
+- **Normative completeness ledger:** use `docs/normative_enforcement_map.yaml` as the canonical clause-to-enforcement map, and keep `python -m scripts.policy_check --normative-map` green when governance mappings change.
 
 ## Optional governance framing
 See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
@@ -155,14 +155,23 @@ sequence in order:
    Core flows must consume deterministic contract types, not repeated ambiguity
    guards.
 5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the
-   change did not add new ambiguous unions, sentinel branches, or fallback-only
-   control paths.
+   change did not add new ambiguous unions, sentinel branches, fallback-only
+   control paths, or compatibility-layer bridges in semantic core modules.
+6. **Step F — remediate forward by default.** Treat ACP/branchless/defensive-fallback
+   findings as transition signals for boundary reification; rollback is reserved
+   for cases where forward remediation cannot preserve behavior or cannot converge.
+7. **Step G — collapse compatibility layers.** Remove dual-path compatibility in
+   semantic core and converge on one deterministic contract; temporary adapters
+   are boundary-only and must include lifecycle metadata (`actor`, `rationale`,
+   `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
 
 ## Construction-first callback and decode seams (normative)
 - Test seams must be DI-based; avoid runtime patch mutation and callable-probe fallback logic.
 - Normalize optional boundary inputs once; internal decode/analysis paths should consume validated shapes.
 - Do not use sentinel parse outcomes for control decisions in core flows.
 - If an internal state is impossible after ingress validation, enforce it with `never()`.
+- `# pragma: no cover` is permitted only on branches protected by `never(...)`.
+- For enum exhaustiveness, prefer an explicit `never(...)` fallback with `# pragma: no cover` on the dead path so drift is immediately attributable.
 
 ## Sortedness Disclosure Ratchet (normative)
 When sortedness is enforced, it must be treated as part of semantic behavior.
@@ -186,6 +195,9 @@ When sortedness is enforced, it must be treated as part of semantic behavior.
 ## Pull request checklist (normative)
 - [ ] Describe where ambiguity was discharged and what deterministic contract
       replaced it (Protocol, Decision Protocol, or equivalent typed boundary).
+- [ ] State whether compatibility-layer code was removed; if a temporary
+      boundary adapter remains, include lifecycle metadata and explicit removal
+      correction unit.
 - [ ] For each new/modified ordered surface, describe the sort key/function (or
       comparator), whether it is lexical/non-lexical, and why that ordering is
       semantically required.
@@ -217,12 +229,36 @@ Recommended loop:
 
 1. Run local repro tooling and status-check monitoring in parallel whenever both are available.
 2. Act on the first actionable failure signal from either lane; avoid serialized waiting once one lane is actionable.
-3. Package a bounded correction unit (one blocking signal or tightly coupled set), validate locally, then stage/commit/push.
-4. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
+3. Stage A (pre-signal): bounded dependency-cluster publication is allowed before actionable failures exist.
+4. Stage B (post-signal): once an actionable failure exists, package one blocking-surface correction unit per push.
+5. Validate locally with the correction-unit stack, then stage/commit/push immediately.
+6. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
 
 Interoperability/tolerance expectation:
 
 - Contributors should tolerate in-flight correction pushes from this loop and should not treat that cadence as process failure on its own.
+
+Correction-unit validation stack (recommended interoperability baseline):
+
+```bash
+mise exec -- python -m scripts.policy_check --workflows
+mise exec -- python -m scripts.policy_check --ambiguity-contract
+mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
+mise exec -- python -m pytest -q <targeted-tests>
+mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+git diff --exit-code out/test_evidence.json
+```
+
+Adapter-ingestion corrections must include golden fixture evidence for each
+added adapter path under `tests/fixtures/ingest_adapter/`, plus parity
+assertions that equivalent adapter payloads preserve overlapping
+bundle/decision surfaces.
+
+When semantic-core modules or policy-check-critical files are touched, also run the strict coverage gate:
+
+```bash
+mise exec -- python -m pytest -q --cov=src/gabion --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=100
+```
 
 ## Workflow authoring (normative)
 Workflow logic lives in `scripts/`. YAML files should only orchestrate steps
@@ -249,13 +285,13 @@ like `SPPF: GH-17` or `Closes #17`.
 Non-mutating lifecycle validation can run locally and in CI:
 
 ```
-mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+mise exec -- python -m scripts.sppf_sync --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
 ```
 
 Mutating operations remain local-only. Use them explicitly when needed:
 
 ```
-mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
+mise exec -- python -m scripts.sppf_sync --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
 ```
 
 Use `--close` when you want to close the issue on `stage`, or keep it open
@@ -272,10 +308,10 @@ comments + lifecycle labels when `GABION_SPPF_SYNC` is set).
 git commit -m "Implement X" -m "SPPF: GH-123"
 
 # 2) run non-mutating validation
-mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+mise exec -- python -m scripts.sppf_sync --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
 
 # 3) apply lifecycle labels locally (mutating)
-mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
+mise exec -- python -m scripts.sppf_sync --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
 
 # 4) push stage
 git push origin stage
@@ -388,7 +424,7 @@ Default artifacts:
 
 Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
 `docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
-trailers or run `scripts/sppf_sync.py --comment` after adding references.
+trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
@@ -437,7 +473,7 @@ Gabion LSP server over stdio. It is a thin wrapper only.
 
 Run the LSP smoke test (optional):
 ```
-mise exec -- python scripts/lsp_smoke_test.py --root .
+mise exec -- python -m scripts.lsp_smoke_test --root .
 ```
 
 ## Testing
@@ -534,10 +570,10 @@ scripts/checks.sh --list
 Baseline refresh helpers:
 
 ```
-mise exec -- python scripts/refresh_baselines.py --obsolescence
-mise exec -- python scripts/refresh_baselines.py --annotation-drift
-mise exec -- python scripts/refresh_baselines.py --ambiguity
-mise exec -- python scripts/refresh_baselines.py --all
+mise exec -- python -m scripts.refresh_baselines --obsolescence
+mise exec -- python -m scripts.refresh_baselines --annotation-drift
+mise exec -- python -m scripts.refresh_baselines --ambiguity
+mise exec -- python -m scripts.refresh_baselines --all
 ```
 
 Baseline refresh guardrail (normative):
@@ -553,7 +589,7 @@ mise exec -- python scripts/ci_cycle.py --push --watch
 CI watch helper:
 
 ```
-mise exec -- python scripts/ci_watch.py --branch stage --workflow ci
+mise exec -- python -m scripts.ci_watch --branch stage --workflow ci
 ```
 
 On a failed watched run, `ci_watch` collects a failure bundle under:
@@ -574,7 +610,7 @@ Default bundle files:
 To restrict download to specific artifact names and override output root:
 
 ```
-mise exec -- python scripts/ci_watch.py \
+mise exec -- python -m scripts.ci_watch \
   --branch stage \
   --workflow ci \
   --artifact-name test-runs \
@@ -586,7 +622,7 @@ By default this prefers active runs (in-progress/queued). If you want the most
 recent run regardless of status, pass:
 
 ```
-mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
+mise exec -- python -m scripts.ci_watch --branch stage --no-prefer-active
 ```
 
 When the watched run fails and collection encounters mandatory command failures,
@@ -629,7 +665,7 @@ Pull requests also run `.github/workflows/pr-dataflow-grammar.yml`, which
 uploads a dataflow report artifact and comments on same-repo PRs.
 
 If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
-(`scripts/policy_check.py --posture`) on pushes.
+(`python -m scripts.policy_check --posture`) on pushes.
 
 ## Policy guardrails
 - Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md#policy_seed`.
@@ -637,20 +673,20 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 - Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - Self-hosted jobs must use the required labels and actor guard.
 Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by
-`scripts/policy_check.py`.
+`python -m scripts.policy_check`.
 
-Workflow policy checks live in `scripts/policy_check.py` (requires `pyyaml`).
+Workflow policy checks live in `python -m scripts.policy_check` (requires `pyyaml`).
 Run:
 ```
 mise exec -- python -m pip install pyyaml
-mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
 mise exec -- python scripts/ci_finalize_dataflow_outcome.py --terminal-exit 0
 mise exec -- python scripts/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```
-mise exec -- python scripts/policy_check.py --posture
+mise exec -- python -m scripts.policy_check --posture
 ```
 
 ## Doc front-matter

@@ -21,17 +21,9 @@ def _artifact_flags() -> check_contract.CheckArtifactFlags:
 
 def _delta_options() -> check_contract.CheckDeltaOptions:
     return check_contract.CheckDeltaOptions(
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
+        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
+        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
     )
 
 
@@ -135,3 +127,59 @@ def test_build_check_payload_includes_aspf_controls() -> None:
         "artifacts/out/aspf_state/session/0000_prev.json"
     ]
     assert payload["aspf_semantic_surface"] == ["groups_by_path", "violation_summary"]
+
+
+# gabion:evidence E:function_site::tests/test_check_contract.py::test_lint_entries_decision_protocol_trichotomy
+def test_lint_entries_decision_protocol_trichotomy() -> None:
+    provided = check_contract.LintEntriesDecision.from_response(
+        {"lint_entries": [{"path": "a.py", "line": 1, "col": 1, "code": "X", "message": "m"}], "lint_lines": ["ignored"]}
+    )
+    assert provided.kind == "provided_entries"
+    assert len(provided.normalize_entries(parse_lint_entry_fn=lambda _line: None)) == 1
+
+    derived = check_contract.LintEntriesDecision.from_response(
+        {"lint_lines": ["a.py:1:2: X detail", "invalid"]}
+    )
+    parsed = derived.normalize_entries(
+        parse_lint_entry_fn=(
+            lambda line: {"line": line} if line.startswith("a.py:") else None
+        )
+    )
+    assert derived.kind == "derive_from_lines"
+    assert parsed == [{"line": "a.py:1:2: X detail"}]
+
+    empty = check_contract.LintEntriesDecision.from_response({})
+    assert empty.kind == "empty"
+    assert empty.normalize_entries(parse_lint_entry_fn=lambda _line: {"unused": True}) == []
+
+
+def test_check_aux_mode_validate_and_delta_option_properties_cover_edges() -> None:
+    with pytest.raises(typer.BadParameter):
+        check_contract.CheckAuxMode(kind="report").validate(
+            domain="ambiguity",
+            allow_report=False,
+        )
+
+    options = check_contract.CheckDeltaOptions(
+        obsolescence_mode=check_contract.CheckAuxMode(
+            kind="baseline-write",
+            state_path=Path("obsolescence_state.json"),
+        ),
+        annotation_drift_mode=check_contract.CheckAuxMode(
+            kind="baseline-write",
+            state_path=Path("annotation_state.json"),
+        ),
+        ambiguity_mode=check_contract.CheckAuxMode(
+            kind="baseline-write",
+            state_path=Path("ambiguity_state.json"),
+        ),
+    )
+    assert options.obsolescence_mode.emit_report is False
+    assert options.obsolescence_mode.write_baseline is True
+    assert options.emit_test_obsolescence_state is False
+    assert options.test_obsolescence_state == Path("obsolescence_state.json")
+    assert options.write_test_obsolescence_baseline is True
+    assert options.test_annotation_drift_state == Path("annotation_state.json")
+    assert options.write_test_annotation_drift_baseline is True
+    assert options.ambiguity_state == Path("ambiguity_state.json")
+    assert options.write_ambiguity_baseline is True

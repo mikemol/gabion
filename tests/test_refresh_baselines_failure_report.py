@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from scripts import refresh_baselines
-from tests.env_helpers import env_scope as _env_scope
 
 
 @contextmanager
@@ -51,33 +50,32 @@ def test_refresh_baselines_writes_failure_artifact_on_check_failure(
         )
 
     with _cwd(tmp_path):
-        with _env_scope({"GABION_LSP_TIMEOUT_SECONDS": "17"}):
-            with pytest.raises(refresh_baselines.RefreshBaselinesSubprocessFailure) as failure_info:
-                refresh_baselines.main(
-                    ["--docflow"],
-                    deadline_scope_factory=lambda: refresh_baselines.deadline_scope_from_lsp_env(
-                        default_budget=refresh_baselines.DeadlineBudget(
-                            ticks=10,
-                            tick_ns=1_000_000,
-                        )
-                    ),
-                    guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-                    guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-                    guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
-                    guard_docflow_delta_fn=_guard_docflow_failure,
-                )
+        with pytest.raises(refresh_baselines.RefreshBaselinesSubprocessFailure) as failure_info:
+            refresh_baselines.main(
+                ["--docflow"],
+                deadline_scope_factory=lambda: refresh_baselines.deadline_scope_from_lsp_env(
+                    default_budget=refresh_baselines.DeadlineBudget(
+                        ticks=10,
+                        tick_ns=1_000_000,
+                    )
+                ),
+                guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
+                guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
+                guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+                guard_docflow_delta_fn=_guard_docflow_failure,
+            )
 
-            artifact_path = refresh_baselines._write_failure_artifact(failure_info.value)
-            payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact_path = refresh_baselines._write_failure_artifact(failure_info.value)
+        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
 
-            assert artifact_path == refresh_baselines.FAILURE_ARTIFACT_PATH
-            assert payload["attempted_command"] == failing_command
-            assert payload["attempted_flags"] == ["--timeout"]
-            assert payload["exit_code"] == 9
-            assert payload["timeout_settings"]["cli_timeout_seconds"] is None
-            assert payload["timeout_settings"]["env"]["GABION_LSP_TIMEOUT_SECONDS"] == "17"
-            assert payload["expected_artifacts"][str(refresh_baselines.DOCFLOW_DELTA_PATH)] is False
-            assert payload["expected_artifacts"][str(refresh_baselines.DOCFLOW_CURRENT_PATH)] is False
+        assert artifact_path == refresh_baselines.FAILURE_ARTIFACT_PATH
+        assert payload["attempted_command"] == failing_command
+        assert payload["attempted_flags"] == ["--timeout"]
+        assert payload["exit_code"] == 9
+        assert payload["timeout_settings"]["cli_timeout_seconds"] is None
+        assert payload["timeout_settings"]["env"] == {}
+        assert payload["expected_artifacts"][str(refresh_baselines.DOCFLOW_DELTA_PATH)] is False
+        assert payload["expected_artifacts"][str(refresh_baselines.DOCFLOW_CURRENT_PATH)] is False
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines_failure_report.py::test_refresh_baselines_clears_stale_failure_artifact::refresh_baselines.py::scripts.refresh_baselines.main::test_refresh_baselines_failure_report.py::tests.test_refresh_baselines_failure_report._cwd

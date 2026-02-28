@@ -136,6 +136,7 @@ if $run_dataflow; then
     "checks.check.run" \
     mise exec -- python -m gabion check run \
     "${baseline_arg[@]}"
+  mise exec -- python -m gabion delta-advisory-telemetry
 fi
 if $run_docflow; then
   docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")
@@ -143,7 +144,7 @@ if $run_docflow; then
     echo "WARNING: running docflow in advisory GH-reference mode (local debugging only)." >&2
   fi
   mise exec -- python -m gabion docflow "${docflow_args[@]}"
-  mise exec -- python scripts/sppf_status_audit.py --root .
+  mise exec -- python -m scripts.sppf_status_audit --root .
 fi
 if $run_tests; then
   test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"

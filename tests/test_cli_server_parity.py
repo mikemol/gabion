@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from gabion import cli, server
+from gabion.commands import check_contract
 
 
 def _has_pygls() -> bool:
@@ -20,8 +21,6 @@ def _cli_env() -> dict[str, str]:
     return {
         **os.environ,
         "GABION_DIRECT_RUN": "1",
-        "GABION_LSP_TIMEOUT_TICKS": "5000",
-        "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
     }
 
 
@@ -36,6 +35,14 @@ def _with_timeout(payload: dict[str, object]) -> dict[str, object]:
         "analysis_timeout_ticks": int(ticks),
         "analysis_timeout_tick_ns": int(tick_ns),
     }
+
+
+def _default_delta_options() -> cli.CheckDeltaOptions:
+    return cli.CheckDeltaOptions(
+        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
+        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
+        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_synthesis_plan_cli_matches_server::server.py::gabion.server.execute_synthesis::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
@@ -199,19 +206,7 @@ def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path
         emit_call_cluster_consolidation=False,
         emit_test_annotation_drift=False,
     )
-    delta_options = cli.CheckDeltaOptions(
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
-    )
+    delta_options = _default_delta_options()
 
     cli_result = cli.run_check(
         paths=[module],
@@ -293,19 +288,7 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=artifact_flags,
-        delta_options=cli.CheckDeltaOptions(
-            emit_test_obsolescence_state=False,
-            test_obsolescence_state=None,
-            emit_test_obsolescence_delta=False,
-            test_annotation_drift_state=None,
-            emit_test_annotation_drift_delta=False,
-            write_test_annotation_drift_baseline=False,
-            write_test_obsolescence_baseline=False,
-            emit_ambiguity_delta=False,
-            emit_ambiguity_state=False,
-            ambiguity_state=None,
-            write_ambiguity_baseline=False,
-        ),
+        delta_options=_default_delta_options(),
         exclude=None,
         filter_bundle=cli.DataflowFilterBundle(None, None),
         allow_external=None,
@@ -322,19 +305,7 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=artifact_flags,
-        delta_options=cli.CheckDeltaOptions(
-            emit_test_obsolescence_state=False,
-            test_obsolescence_state=None,
-            emit_test_obsolescence_delta=False,
-            test_annotation_drift_state=None,
-            emit_test_annotation_drift_delta=False,
-            write_test_annotation_drift_baseline=False,
-            write_test_obsolescence_baseline=False,
-            emit_ambiguity_delta=False,
-            emit_ambiguity_state=False,
-            ambiguity_state=None,
-            write_ambiguity_baseline=False,
-        ),
+        delta_options=_default_delta_options(),
         exclude=None,
         filter_bundle=cli.DataflowFilterBundle(None, None),
         allow_external=None,

@@ -2,7 +2,8 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import cast
 
@@ -12,6 +13,7 @@ from gabion.refactor.model import (
     CompatibilityShimConfig,
     FieldSpec,
     RefactorPlan,
+    RefactorPlanOutcome,
     RefactorRequest,
     RewritePlanEntry,
     TextEdit,
@@ -33,14 +35,14 @@ class RefactorEngine:
         try:
             source = path.read_text()
         except Exception as exc:
-            return RefactorPlan(errors=[f"Failed to read {path}: {exc}"])
+            return RefactorPlan(outcome=RefactorPlanOutcome.ERROR, errors=[f"Failed to read {path}: {exc}"])
         try:
             module = cst.parse_module(source)
         except Exception as exc:
-            return RefactorPlan(errors=[f"LibCST parse failed for {path}: {exc}"])
+            return RefactorPlan(outcome=RefactorPlanOutcome.ERROR, errors=[f"LibCST parse failed for {path}: {exc}"])
         protocol = (request.protocol_name or "").strip()
         if not protocol:
-            return RefactorPlan(errors=["Protocol name is required for extraction."])
+            return RefactorPlan(outcome=RefactorPlanOutcome.ERROR, errors=["Protocol name is required for extraction."])
         bundle = [name.strip() for name in request.bundle or [] if name.strip()]
         field_specs: list[FieldSpec] = []
         seen_fields: set[str] = set()
@@ -61,7 +63,7 @@ class RefactorEngine:
         elif field_specs:
             bundle = [spec.name for spec in field_specs]
         if not bundle:
-            return RefactorPlan(errors=["Bundle fields are required for extraction."])
+            return RefactorPlan(outcome=RefactorPlanOutcome.ERROR, errors=["Bundle fields are required for extraction."])
 
         body = list(module.body)
 
@@ -163,13 +165,22 @@ class RefactorEngine:
                 new_module = new_module.visit(transformer)
                 warnings.extend(transformer.warnings)
 
+        project_callsite_edits: list[TextEdit] = []
+        project_callsite_warnings: list[str] = []
         if targets and not request.ambient_rewrite:
             target_module = _module_name(path, self.project_root)
+            module_validation = _validated_module_identifier(target_module)
+            if module_validation.status is _ModuleIdentifierValidationStatus.INVALID:
+                return RefactorPlan(
+                    outcome=RefactorPlanOutcome.ERROR,
+                    errors=[f"Invalid target module identifier: {target_module}"],
+                )
+            validated_target_module_identifier = module_validation.identifier
             call_warnings, call_edits = _rewrite_call_sites(
                 new_module,
                 file_path=path,
                 target_path=path,
-                target_module=target_module,
+                target_module=validated_target_module_identifier,
                 protocol_name=protocol,
                 bundle_fields=bundle_fields,
                 targets=targets,
@@ -180,11 +191,17 @@ class RefactorEngine:
             else:
                 new_module = call_edits
                 new_source = new_module.code
+            if self.project_root:
+                project_callsite_edits, project_callsite_warnings = _rewrite_call_sites_in_project(
+                    project_root=self.project_root,
+                    target_path=path,
+                    target_module=validated_target_module_identifier,
+                    protocol_name=protocol,
+                    bundle_fields=bundle_fields,
+                    targets=targets,
+                )
         else:
             new_source = new_module.code
-        if new_source == source:  # pragma: no cover
-            warnings.append("No changes generated for protocol extraction.")  # pragma: no cover
-            return RefactorPlan(warnings=warnings)  # pragma: no cover
         end_line = len(source.splitlines())
         edits = [
             TextEdit(
@@ -194,19 +211,53 @@ class RefactorEngine:
                 replacement=new_source,
             )
         ]
-
-        if targets and self.project_root and not request.ambient_rewrite:
-            extra_edits, extra_warnings = _rewrite_call_sites_in_project(
-                project_root=self.project_root,
-                target_path=path,
-                target_module=_module_name(path, self.project_root),
-                protocol_name=protocol,
-                bundle_fields=bundle_fields,
-                targets=targets,
-            )
-            edits.extend(extra_edits)
-            warnings.extend(extra_warnings)
+        edits.extend(project_callsite_edits)
+        warnings.extend(project_callsite_warnings)
         return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
+
+
+@dataclass(frozen=True)
+class _ValidatedModuleIdentifier:
+    value: str
+    expression: cst.BaseExpression
+
+
+class _ModuleIdentifierValidationStatus(str, Enum):
+    VALID = "valid"
+    INVALID = "invalid"
+
+
+@dataclass(frozen=True)
+class _ModuleIdentifierValidation:
+    status: _ModuleIdentifierValidationStatus
+    identifier: _ValidatedModuleIdentifier
+
+
+def _validated_module_identifier(module_name: str) -> _ModuleIdentifierValidation:
+    parts = [part for part in module_name.split(".") if part]
+    if not parts:
+        return _ModuleIdentifierValidation(
+            status=_ModuleIdentifierValidationStatus.INVALID,
+            identifier=_ValidatedModuleIdentifier(
+                value=module_name,
+                expression=cst.Name("_invalid_module_identifier"),
+            ),
+        )
+    if any(not part.isidentifier() for part in parts):
+        return _ModuleIdentifierValidation(
+            status=_ModuleIdentifierValidationStatus.INVALID,
+            identifier=_ValidatedModuleIdentifier(
+                value=module_name,
+                expression=cst.Name("_invalid_module_identifier"),
+            ),
+        )
+    expression: cst.BaseExpression = cst.Name(parts[0])
+    for part in parts[1:]:
+        expression = cst.Attribute(value=expression, attr=cst.Name(part))
+    return _ModuleIdentifierValidation(
+        status=_ModuleIdentifierValidationStatus.VALID,
+        identifier=_ValidatedModuleIdentifier(value=".".join(parts), expression=expression),
+    )
 
 
 def _module_name(path: Path, project_root) -> str:
@@ -269,9 +320,9 @@ def _module_expr_to_str(expr):
             current = current_attr.value
         if type(current) is cst.Name:
             parts.append(cast(cst.Name, current).value)
-        if parts:
-            return ".".join(reversed(parts))
-    return None  # pragma: no cover
+        # `cst.Attribute` always contributes at least one attr segment.
+        return ".".join(reversed(parts))
+    return None
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
@@ -384,7 +435,7 @@ def _ensure_compat_imports(
 def _collect_import_context(
     module: cst.Module,
     *,
-    target_module: str,
+    target_module: _ValidatedModuleIdentifier,
     protocol_name: str,
 ):
     check_deadline()
@@ -405,7 +456,7 @@ def _collect_import_context(
                         if type(alias) is cst.ImportAlias:  # pragma: no branch
                             import_alias = cast(cst.ImportAlias, alias)
                             module_name = _module_expr_to_str(import_alias.name)
-                            if module_name and module_name == target_module:
+                            if module_name and module_name == target_module.value:
                                 local = (
                                     import_alias.asname.name.value
                                     if import_alias.asname
@@ -416,7 +467,7 @@ def _collect_import_context(
                     import_from = cast(cst.ImportFrom, item)
                     module_name = _module_expr_to_str(import_from.module)
                     names = import_from.names
-                    if module_name == target_module and (type(names) is list or type(names) is tuple):
+                    if module_name == target_module.value and (type(names) is list or type(names) is tuple):
                         for alias in names:
                             check_deadline()
                             if type(alias) is cst.ImportAlias:
@@ -439,7 +490,7 @@ def _rewrite_call_sites(
     *,
     file_path: Path,
     target_path: Path,
-    target_module: str,
+    target_module: _ValidatedModuleIdentifier,
     protocol_name: str,
     bundle_fields: list[str],
     targets: set[str],
@@ -462,7 +513,7 @@ def _rewrite_call_sites(
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
     protocol_alias = None
-    if not file_is_target and target_module:
+    if not file_is_target:
         module_aliases, imported_targets, protocol_alias = _collect_import_context(
             module, target_module=target_module, protocol_name=protocol_name
         )
@@ -500,19 +551,13 @@ def _rewrite_call_sites(
     if not transformer.changed:
         return warnings, None
 
-    if not file_is_target and needs_import and target_module:
+    if not file_is_target and needs_import:
         body = list(new_module.body)
         insert_idx = _find_import_insert_index(body)
-        try:
-            module_expr = cst.parse_expression(target_module)
-        except Exception:  # pragma: no cover
-            module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
-        if type(module_expr) is not cst.Name and type(module_expr) is not cst.Attribute:
-            module_expr = cst.Name(target_module.split(".")[0])  # pragma: no cover
         import_stmt = cst.SimpleStatementLine(
             [
                 cst.ImportFrom(
-                    module=module_expr,
+                    module=target_module.expression,
                     names=[cst.ImportAlias(name=cst.Name(protocol_name))],
                 )
             ]
@@ -526,7 +571,7 @@ def _rewrite_call_sites_in_project(
     *,
     project_root: Path,
     target_path: Path,
-    target_module: str,
+    target_module: _ValidatedModuleIdentifier,
     protocol_name: str,
     bundle_fields: list[str],
     targets: set[str],
@@ -567,16 +612,15 @@ def _rewrite_call_sites_in_project(
         warnings.extend(call_warnings)
         if updated_module is not None:
             new_source = updated_module.code
-            if new_source != source:  # pragma: no cover
-                end_line = len(source.splitlines())
-                edits.append(
-                    TextEdit(
-                        path=str(path),
-                        start=(0, 0),
-                        end=(end_line, 0),
-                        replacement=new_source,
-                    )
+            end_line = len(source.splitlines())
+            edits.append(
+                TextEdit(
+                    path=str(path),
+                    start=(0, 0),
+                    end=(end_line, 0),
+                    replacement=new_source,
                 )
+            )
     return edits, warnings
 
 
@@ -812,13 +856,12 @@ else:
             updated_block = cast(cst.IndentedBlock, updated_body)
             existing = list(updated_block.body)
             insert_at = 0
-            if existing:
-                first = existing[0]
-                if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
-                    first_line = cast(cst.SimpleStatementLine, first)
-                    expr = first_line.body[0]
-                    if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
-                        insert_at = 1
+            first = existing[0]
+            if type(first) is cst.SimpleStatementLine and cast(cst.SimpleStatementLine, first).body:
+                first_line = cast(cst.SimpleStatementLine, first)
+                expr = first_line.body[0]
+                if type(expr) is cst.Expr and type(cast(cst.Expr, expr).value) is cst.SimpleString:
+                    insert_at = 1
             updated_body = updated_block.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
 
         updated_params: list[cst.Param] = []
@@ -893,17 +936,17 @@ class _RefactorTransformer(cst.CSTTransformer):
             self._stack.pop()
         return updated
 
-    def visit_AsyncFunctionDef(self, node: cst.AsyncFunctionDef) -> bool:  # pragma: no cover
-        self._stack.append(node.name.value)  # pragma: no cover
-        return True  # pragma: no cover
+    def visit_AsyncFunctionDef(self, node: cst.AsyncFunctionDef) -> bool:
+        self._stack.append(node.name.value)
+        return True
 
-    def leave_AsyncFunctionDef(  # pragma: no cover
+    def leave_AsyncFunctionDef(
         self, original_node: cst.AsyncFunctionDef, updated_node: cst.AsyncFunctionDef
     ) -> cst.CSTNode:
-        updated = self._maybe_rewrite_function(original_node, updated_node)  # pragma: no cover
-        if self._stack:  # pragma: no cover
-            self._stack.pop()  # pragma: no cover
-        return updated  # pragma: no cover
+        updated = self._maybe_rewrite_function(original_node, updated_node)
+        if self._stack:
+            self._stack.pop()
+        return updated
 
     def _maybe_rewrite_function(
         self,

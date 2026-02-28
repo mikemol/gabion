@@ -335,9 +335,9 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     call = da.CallArgs(
         callee="callee",
         pos_map={"0": "p0", "2": "p2"},
-        kw_map={"opt": "popt", "extra": "pextra"},
-        const_pos={"1": "None", "3": "7"},
-        const_kw={"opt": "3", "other": "None"},
+        kw_map={"extra": "pextra"},
+        const_pos={"1": "None", "3": "7", "6": "11"},
+        const_kw={"opt": "3", "other": "None", "aux": "3"},
         non_const_pos={"4"},
         non_const_kw={"opt2"},
         star_pos=[(5, "star")],
@@ -348,7 +348,24 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     info = da._fallback_deadline_arg_info(call, callee, strictness="high")
     assert info["a"].kind == "param"
     assert info["b"].kind == "none"
+    assert info["opt"].kind == "const"
     assert "kwargs" in info
+
+    kw_only_call = da.CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={"opt": "popt"},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    kw_only_info = da._fallback_deadline_arg_info(kw_only_call, callee, strictness="high")
+    assert kw_only_info["opt"].kind == "param"
 
     call_low = da.CallArgs(
         callee="callee",
@@ -879,7 +896,12 @@ def test_deadline_summary_materializes_spec_facets() -> None:
     entries = [
         {
             "deadline_id": "deadline:mod.py:f:missing",
-            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "site": {
+                "path": "mod.py",
+                "function": "f",
+                "bundle": [],
+                "suite_kind": "loop",
+            },
             "status": "VIOLATION",
             "kind": "missing",
             "detail": "oops",
@@ -896,105 +918,6 @@ def test_deadline_summary_materializes_spec_facets() -> None:
     assert spec_sites
     assert any(alt.kind == "SpecFacet" for alt in forest.alts)
 
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_spec_materializes_spec_facets::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_suite_order_spec::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_spec_materializes_spec_facets() -> None:
-    da = _load()
-    forest = da.Forest()
-    forest.add_suite_site("mod.py", "mod.fn", "loop", span=(0, 0, 0, 1))
-    da._materialize_suite_order_spec(forest=forest)
-    spec_sites = [
-        node
-        for node in forest.nodes.values()
-        if node.kind == "SuiteSite"
-        and node.meta.get("suite_kind") == "spec"
-        and node.meta.get("spec_name") == "suite_order"
-    ]
-    assert spec_sites
-    spec_facets = [alt for alt in forest.alts if alt.kind == "SpecFacet"]
-    assert spec_facets
-    assert any("order_key" in alt.evidence for alt in spec_facets)
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_relation_skips_spec_sites::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_relation_skips_spec_sites() -> None:
-    da = _load()
-    forest = da.Forest()
-    forest.add_spec_site(
-        spec_hash="spec",
-        spec_name="suite_order",
-        spec_domain="suite_order",
-        spec_version=1,
-    )
-    relation, suite_index = da._suite_order_relation(forest)
-    assert relation == []
-    assert suite_index == {}
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_relation_requires_path_and_qual::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_relation_requires_path_and_qual() -> None:
-    da = _load()
-    from gabion.exceptions import NeverThrown
-
-    forest = da.Forest()
-    forest.add_node(
-        "SuiteSite",
-        ("missing",),
-        {"suite_kind": "loop", "span": [0, 0, 0, 1]},
-    )
-    with pytest.raises(NeverThrown):
-        da._suite_order_relation(forest)
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_relation_requires_span::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_relation_requires_span() -> None:
-    da = _load()
-    from gabion.exceptions import NeverThrown
-
-    forest = da.Forest()
-    forest.add_node(
-        "SuiteSite",
-        ("missing-span",),
-        {"suite_kind": "loop", "path": "mod.py", "qual": "mod.fn"},
-    )
-    with pytest.raises(NeverThrown):
-        da._suite_order_relation(forest)
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_relation_requires_int_span_fields::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_relation::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_relation_requires_int_span_fields() -> None:
-    da = _load()
-    from gabion.exceptions import NeverThrown
-
-    forest = da.Forest()
-    forest.add_node(
-        "SuiteSite",
-        ("bad-span",),
-        {"suite_kind": "loop", "path": "mod.py", "qual": "mod.fn", "span": ["x", 0, 0, 1]},
-    )
-    with pytest.raises(NeverThrown):
-        da._suite_order_relation(forest)
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_row_to_site_rejects_missing_fields::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_row_to_site::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_row_to_site_rejects_missing_fields() -> None:
-    da = _load()
-    suite_index = {}
-    assert da._suite_order_row_to_site(
-        {"suite_path": "", "suite_qual": "q", "suite_kind": "loop"},
-        suite_index,
-    ) is None
-
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_suite_order_row_to_site_rejects_invalid_span::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_order_row_to_site::test_deadline_coverage.py::tests.test_deadline_coverage._load
-def test_suite_order_row_to_site_rejects_invalid_span() -> None:
-    da = _load()
-    suite_index = {}
-    assert da._suite_order_row_to_site(
-        {
-            "suite_path": "mod.py",
-            "suite_qual": "mod.fn",
-            "suite_kind": "loop",
-            "span_line": "x",
-            "span_col": 0,
-            "span_end_line": 0,
-            "span_end_col": 1,
-        },
-        suite_index,
-    ) is None
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_spec_row_span_handles_invalid_and_valid::dataflow_audit.py::gabion.analysis.dataflow_audit._spec_row_span::test_deadline_coverage.py::tests.test_deadline_coverage._load
 def test_spec_row_span_handles_invalid_and_valid() -> None:

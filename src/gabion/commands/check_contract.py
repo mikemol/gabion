@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal, Mapping
 
 import typer
 
@@ -11,6 +11,13 @@ from gabion.json_types import JSONObject
 
 SplitCsvEntriesFn = Callable[[list[str]], list[str]]
 SplitCsvFn = Callable[[str], list[str]]
+ParseLintEntryFn = Callable[[str], object | None]
+
+LintResolutionKind = Literal[
+    "provided_entries",
+    "derive_from_lines",
+    "empty",
+]
 
 
 def split_csv_entries(entries: list[str]) -> list[str]:
@@ -114,68 +121,171 @@ class DataflowFilterBundle:
 
 
 @dataclass(frozen=True)
+class LintEntriesDecision:
+    """Decision-protocol surface for lint-entry trichotomy normalization."""
+
+    kind: LintResolutionKind
+    lint_lines: tuple[str, ...]
+    lint_entries_payload: tuple[object, ...]
+
+    @classmethod
+    def from_response(cls, response: Mapping[str, object]) -> "LintEntriesDecision":
+        lint_lines_raw = response.get("lint_lines")
+        lint_lines = (
+            tuple(str(line) for line in lint_lines_raw)
+            if isinstance(lint_lines_raw, list)
+            else ()
+        )
+        lint_entries_raw = response.get("lint_entries")
+        if isinstance(lint_entries_raw, list):
+            return cls(
+                kind="provided_entries",
+                lint_lines=lint_lines,
+                lint_entries_payload=tuple(lint_entries_raw),
+            )
+        if lint_lines:
+            return cls(
+                kind="derive_from_lines",
+                lint_lines=lint_lines,
+                lint_entries_payload=(),
+            )
+        return cls(
+            kind="empty",
+            lint_lines=(),
+            lint_entries_payload=(),
+        )
+
+    def normalize_entries(self, *, parse_lint_entry_fn: ParseLintEntryFn) -> list[object]:
+        if self.kind == "provided_entries":
+            return list(self.lint_entries_payload)
+        if self.kind == "derive_from_lines":
+            entries: list[object] = []
+            for line in self.lint_lines:
+                parsed = parse_lint_entry_fn(line)
+                if parsed is not None:
+                    entries.append(parsed)
+            return entries
+        return []
+
+
+@dataclass(frozen=True)
+class CheckAuxMode:
+    kind: Literal["off", "report", "state", "delta", "baseline-write"]
+    state_path: Path | None = None
+
+    def validate(self, *, domain: str, allow_report: bool) -> None:
+        allowed = {"off", "state", "delta", "baseline-write"}
+        if allow_report:
+            allowed.add("report")
+        if self.kind not in allowed:
+            raise typer.BadParameter(
+                f"{domain} mode must be one of: {', '.join(sorted(allowed))}."
+            )
+        if self.kind == "state" and self.state_path is not None:
+            raise typer.BadParameter(
+                f"{domain} state mode does not accept a state path override."
+            )
+
+    @property
+    def emit_report(self) -> bool:
+        return self.kind == "report"
+
+    @property
+    def emit_state(self) -> bool:
+        return self.kind in {"state", "delta"}
+
+    @property
+    def emit_delta(self) -> bool:
+        return self.kind == "delta"
+
+    @property
+    def write_baseline(self) -> bool:
+        return self.kind == "baseline-write"
+
+
+@dataclass(frozen=True)
 class CheckDeltaOptions:
-    emit_test_obsolescence_state: bool
-    test_obsolescence_state: Path | None
-    emit_test_obsolescence_delta: bool
-    test_annotation_drift_state: Path | None
-    emit_test_annotation_drift_delta: bool
-    write_test_annotation_drift_baseline: bool
-    write_test_obsolescence_baseline: bool
-    emit_ambiguity_delta: bool
-    emit_ambiguity_state: bool
-    ambiguity_state: Path | None
-    write_ambiguity_baseline: bool
+    obsolescence_mode: CheckAuxMode
+    annotation_drift_mode: CheckAuxMode
+    ambiguity_mode: CheckAuxMode
     semantic_coverage_mapping: Path | None = None
 
     def validate(self) -> None:
-        if self.emit_test_obsolescence_delta and self.write_test_obsolescence_baseline:
-            raise typer.BadParameter(
-                "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
-            )
-        if self.emit_test_obsolescence_state and self.test_obsolescence_state is not None:
-            raise typer.BadParameter(
-                "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
-            )
-        if (
-            self.emit_test_annotation_drift_delta
-            and self.write_test_annotation_drift_baseline
-        ):
-            raise typer.BadParameter(
-                "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
-            )
-        if self.emit_ambiguity_delta and self.write_ambiguity_baseline:
-            raise typer.BadParameter(
-                "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
-            )
-        if self.emit_ambiguity_state and self.ambiguity_state is not None:
-            raise typer.BadParameter(
-                "Use --emit-ambiguity-state or --ambiguity-state, not both."
-            )
+        self.obsolescence_mode.validate(domain="obsolescence", allow_report=True)
+        self.annotation_drift_mode.validate(
+            domain="annotation-drift", allow_report=True
+        )
+        self.ambiguity_mode.validate(domain="ambiguity", allow_report=False)
+        return
 
     def to_payload(self) -> JSONObject:
         return {
-            "emit_test_obsolescence_state": self.emit_test_obsolescence_state,
-            "test_obsolescence_state": str(self.test_obsolescence_state)
-            if self.test_obsolescence_state is not None
-            else None,
-            "emit_test_obsolescence_delta": self.emit_test_obsolescence_delta,
-            "test_annotation_drift_state": str(self.test_annotation_drift_state)
-            if self.test_annotation_drift_state is not None
-            else None,
-            "emit_test_annotation_drift_delta": self.emit_test_annotation_drift_delta,
-            "write_test_annotation_drift_baseline": self.write_test_annotation_drift_baseline,
+            "obsolescence_mode": {
+                "kind": self.obsolescence_mode.kind,
+                "state_path": str(self.obsolescence_mode.state_path)
+                if self.obsolescence_mode.state_path is not None
+                else None,
+            },
+            "annotation_drift_mode": {
+                "kind": self.annotation_drift_mode.kind,
+                "state_path": str(self.annotation_drift_mode.state_path)
+                if self.annotation_drift_mode.state_path is not None
+                else None,
+            },
             "semantic_coverage_mapping": str(self.semantic_coverage_mapping)
             if self.semantic_coverage_mapping is not None
             else None,
-            "write_test_obsolescence_baseline": self.write_test_obsolescence_baseline,
-            "emit_ambiguity_delta": self.emit_ambiguity_delta,
-            "emit_ambiguity_state": self.emit_ambiguity_state,
-            "ambiguity_state": str(self.ambiguity_state)
-            if self.ambiguity_state is not None
-            else None,
-            "write_ambiguity_baseline": self.write_ambiguity_baseline,
+            "ambiguity_mode": {
+                "kind": self.ambiguity_mode.kind,
+                "state_path": str(self.ambiguity_mode.state_path)
+                if self.ambiguity_mode.state_path is not None
+                else None,
+            },
         }
+
+    @property
+    def emit_test_obsolescence_state(self) -> bool:
+        return self.obsolescence_mode.emit_state
+
+    @property
+    def test_obsolescence_state(self) -> Path | None:
+        return self.obsolescence_mode.state_path
+
+    @property
+    def emit_test_obsolescence_delta(self) -> bool:
+        return self.obsolescence_mode.emit_delta
+
+    @property
+    def write_test_obsolescence_baseline(self) -> bool:
+        return self.obsolescence_mode.write_baseline
+
+    @property
+    def test_annotation_drift_state(self) -> Path | None:
+        return self.annotation_drift_mode.state_path
+
+    @property
+    def emit_test_annotation_drift_delta(self) -> bool:
+        return self.annotation_drift_mode.emit_delta
+
+    @property
+    def write_test_annotation_drift_baseline(self) -> bool:
+        return self.annotation_drift_mode.write_baseline
+
+    @property
+    def emit_ambiguity_delta(self) -> bool:
+        return self.ambiguity_mode.emit_delta
+
+    @property
+    def emit_ambiguity_state(self) -> bool:
+        return self.ambiguity_mode.emit_state
+
+    @property
+    def ambiguity_state(self) -> Path | None:
+        return self.ambiguity_mode.state_path
+
+    @property
+    def write_ambiguity_baseline(self) -> bool:
+        return self.ambiguity_mode.write_baseline
 
 
 @dataclass(frozen=True)
@@ -194,6 +304,8 @@ class DataflowPayloadCommonOptions:
     allow_external: bool | None
     strictness: str | None
     lint: bool
+    language: str | None = None
+    ingest_profile: str | None = None
     deadline_profile: bool = True
     aspf_trace_json: Path | None = None
     aspf_import_trace: list[Path] | None = None
@@ -218,17 +330,9 @@ def delta_bundle_artifact_flags() -> CheckArtifactFlags:
 
 def delta_bundle_delta_options() -> CheckDeltaOptions:
     return CheckDeltaOptions(
-        emit_test_obsolescence_state=True,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=True,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=True,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=True,
-        emit_ambiguity_state=True,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        obsolescence_mode=CheckAuxMode(kind="delta"),
+        annotation_drift_mode=CheckAuxMode(kind="delta"),
+        ambiguity_mode=CheckAuxMode(kind="delta"),
         semantic_coverage_mapping=None,
     )
 
@@ -265,6 +369,8 @@ def build_dataflow_payload_common(
         "allow_external": options.allow_external,
         "strictness": options.strictness,
         "lint": options.lint,
+        "language": options.language,
+        "ingest_profile": options.ingest_profile,
         "deadline_profile": bool(options.deadline_profile),
         "aspf_trace_json": str(options.aspf_trace_json)
         if options.aspf_trace_json is not None

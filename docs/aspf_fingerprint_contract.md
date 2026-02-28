@@ -12,9 +12,9 @@ doc_requires:
   - glossary.md#contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  docs/normative_clause_index.md#normative_clause_index: 2
 doc_change_protocol: POLICY_SEED.md#change_protocol
 ---
 

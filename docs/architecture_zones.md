@@ -15,12 +15,12 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed LSP-first repo contract; this note scopes boundaries for enforcement."
-  POLICY_SEED.md#policy_seed: "Reviewed dataflow grammar and execution invariants; boundary note must not weaken them."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed tier semantics; handoff contract uses Tier-1 reification at core ingress."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
@@ -33,15 +33,15 @@ doc_section_requires:
 doc_section_reviews:
   architecture_zones:
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Architecture zoning stays aligned with LSP-first repository contract."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "No policy weakening; this note is a scoping aid."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1

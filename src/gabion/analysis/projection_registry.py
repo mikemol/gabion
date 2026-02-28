@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
-import os
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from typing import Iterable, Mapping
 
 from gabion.analysis.projection_normalize import (
@@ -27,17 +29,19 @@ from gabion.json_types import JSONValue
 _PROJECTION_REGISTRY_GAS_LIMIT_DEFAULT = 1_000_000
 
 
+@dataclass(frozen=True)
+class ProjectionRegistryRuntimeConfig:
+    gas_limit: int = _PROJECTION_REGISTRY_GAS_LIMIT_DEFAULT
+
+
+_PROJECTION_REGISTRY_RUNTIME_CONFIG: ContextVar[ProjectionRegistryRuntimeConfig] = ContextVar(
+    "gabion_projection_registry_runtime_config",
+    default=ProjectionRegistryRuntimeConfig(),
+)
+
+
 def _projection_registry_gas_limit() -> int:
-    raw = os.getenv("GABION_PROJECTION_REGISTRY_GAS_LIMIT", "").strip()
-    if not raw:
-        return _PROJECTION_REGISTRY_GAS_LIMIT_DEFAULT
-    try:
-        value = int(raw)
-    except ValueError:
-        never(
-            "invalid projection registry gas limit",
-            value=raw,
-        )
+    value = int(_PROJECTION_REGISTRY_RUNTIME_CONFIG.get().gas_limit)
     if value <= 0:
         never(
             "invalid projection registry gas limit",
@@ -179,6 +183,11 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "fields": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
                     "kind",
                     "phase",
                 ]
@@ -190,6 +199,11 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "fields": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
                     "kind",
                     "phase",
                 ]
@@ -201,6 +215,9 @@ AMBIGUITY_SUITE_AGG_SPEC = ProjectionSpec(
                 "by": [
                     "suite_path",
                     "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
                     "kind",
                     "phase",
                 ]
@@ -588,3 +605,25 @@ def build_registered_specs() -> dict[str, ProjectionSpec]:
 
 
 REGISTERED_SPECS = build_registered_specs()
+
+
+def set_projection_registry_runtime_config(
+    config: ProjectionRegistryRuntimeConfig,
+) -> Token[ProjectionRegistryRuntimeConfig]:
+    return _PROJECTION_REGISTRY_RUNTIME_CONFIG.set(config)
+
+
+def reset_projection_registry_runtime_config(
+    token: Token[ProjectionRegistryRuntimeConfig],
+) -> None:
+    _PROJECTION_REGISTRY_RUNTIME_CONFIG.reset(token)
+
+
+@contextmanager
+def projection_registry_runtime_config_scope(config: ProjectionRegistryRuntimeConfig):
+    token = set_projection_registry_runtime_config(config)
+    try:
+        yield
+    finally:
+        reset_projection_registry_runtime_config(token)
+

@@ -12,10 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 from gabion.tooling import aspf_handoff
 from gabion.tooling.governance_rules import load_governance_rules
@@ -44,14 +41,6 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
 
-_TIMEOUT_ENV_FLAGS = [
-    "GABION_LSP_TIMEOUT_TICKS",
-    "GABION_LSP_TIMEOUT_TICK_NS",
-    "GABION_LSP_TIMEOUT_MS",
-    "GABION_LSP_TIMEOUT_SECONDS",
-]
-
-
 @dataclass
 class RefreshBaselinesSubprocessFailure(RuntimeError):
     command: list[str]
@@ -61,7 +50,7 @@ class RefreshBaselinesSubprocessFailure(RuntimeError):
 
 
 def _timeout_env_settings() -> dict[str, str | None]:
-    return {name: os.getenv(name) for name in _TIMEOUT_ENV_FLAGS}
+    return {}
 
 
 def _raise_subprocess_failure(
@@ -492,7 +481,7 @@ def main(
             type=int,
             default=None,
             help=(
-                "Override subprocess GABION_LSP_TIMEOUT_TICKS for refresh only "
+                "Override refresh subprocess timeout ticks "
                 f"(default: {_DEFAULT_TIMEOUT_TICKS})."
             ),
         )
@@ -501,7 +490,7 @@ def main(
             type=int,
             default=None,
             help=(
-                "Override subprocess GABION_LSP_TIMEOUT_TICK_NS for refresh only "
+                "Override refresh subprocess timeout tick duration (ns) "
                 f"(default: {_DEFAULT_TIMEOUT_TICK_NS})."
             ),
         )

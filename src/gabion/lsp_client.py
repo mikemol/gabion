@@ -22,6 +22,7 @@ from gabion.commands import (
 from gabion import server
 from gabion.analysis.timeout_context import (
     Deadline,
+    TimeoutTickCarrier,
     check_deadline,
     deadline_clock_scope,
     deadline_scope,
@@ -29,7 +30,6 @@ from gabion.analysis.timeout_context import (
 from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
 from gabion.json_types import JSONObject
-from gabion.runtime import env_policy
 
 
 class LspClientError(RuntimeError):
@@ -50,14 +50,6 @@ def _normalized_command_payload(
         arguments=request.arguments,
     )
     return list(envelope.command_args), envelope.payload
-
-
-def _has_env_timeout() -> bool:
-    return env_policy.lsp_timeout_env_present()
-
-
-def _env_timeout_ticks() -> tuple[int, int]:
-    return env_policy.timeout_ticks_from_env()
 
 
 def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
@@ -194,8 +186,6 @@ def run_command(
     remaining_deadline_ns_fn: Callable[[int], int] | None = None,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
-    if _has_env_timeout():
-        timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
     if timeout_ticks is None:
         timeout_ticks = 100
     ticks_value = int(timeout_ticks)
@@ -218,7 +208,7 @@ def run_command(
     lsp_total_ns = max(base_total_ns, analysis_target_ns + slack_ns)
     lsp_ticks = max(1, (lsp_total_ns + tick_ns_value - 1) // tick_ns_value)
 
-    deadline = Deadline.from_timeout_ticks(lsp_ticks, tick_ns_value)
+    deadline = Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=lsp_ticks, tick_ns=tick_ns_value))
     deadline_ns = deadline.deadline_ns
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],

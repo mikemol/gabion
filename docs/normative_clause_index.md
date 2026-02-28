@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -16,19 +16,19 @@ doc_requires:
   - AGENTS.md#agent_obligations
   - glossary.md#contract
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
+  POLICY_SEED.md#policy_seed: 2
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
   glossary.md#contract: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Clause index derived from policy invariants to reduce duplicated prose drift."
-  README.md#repo_contract: "README obligation references consolidated to stable clause IDs."
-  CONTRIBUTING.md#contributing_contract: "Contributor-facing obligations consolidated behind stable clause IDs and linked to the enforcement completeness ledger."
-  AGENTS.md#agent_obligations: "Agent obligations mapped to canonical clause anchors."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
 doc_sections:
-  normative_clause_index: 1
+  normative_clause_index: 2
 doc_section_requires:
   normative_clause_index:
     - POLICY_SEED.md#policy_seed
@@ -39,28 +39,28 @@ doc_section_requires:
 doc_section_reviews:
   normative_clause_index:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy clauses indexed without changing normative meaning."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "README summary references verified against canonical clause IDs."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Contributor obligations reduced to clause references."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations reduced to clause references."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Dataflow tier clauses stay glossary-aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -109,6 +109,13 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Ambiguity must be classified at ingress and discharged before semantic-core execution.
 - Reify ambiguity as explicit Protocol/Decision Protocol surfaces at boundaries.
 - Semantic core modules must not add ad-hoc branch/sentinel/type-alternation shortcuts as first response.
+- Semantic core modules must not introduce or preserve compatibility-layer wrappers, dual-shape bridges, or legacy fallback paths as steady-state behavior.
+- Temporary compatibility is permitted only at boundary ingress with an explicit Decision Protocol plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
+- Existing compatibility layers are remediation debt and must carry dated removal commitments.
+- ACP/branchless/defensive-fallback violations discovered during simplification are transition signals for forward boundary reification.
+- Rollback-first is disallowed by default; rollback is permitted only when forward remediation cannot preserve behavior or cannot converge.
+- `# pragma: no cover` is allowed only when the branch is protected by a `never()` invariant.
+- Enum exhaustiveness fallbacks should pair `never(...)` with `# pragma: no cover` so drift is explicit and correction is local.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.
 
 <a id="clause-baseline-ratchet"></a>
@@ -122,6 +129,7 @@ link to clause IDs instead of duplicating long-form normative prose.
 ### `NCI-DEADLINE-TIMEOUT-PROPAGATION` — Deadline carrier propagation
 - Timeout/deadline tokens must propagate across CLI dispatch, LSP transport, and CI wrappers.
 - Timeout recovery state must be emitted as deterministic machine-readable artifacts.
+- Helper-level script functions that perform iterative parsing or subprocess orchestration are deadline-carrier surfaces and must check/propagate deadlines.
 - Canonical sources: `POLICY_SEED.md#policy_seed`, `CONTRIBUTING.md#contributing_contract`.
 
 <a id="clause-controller-adaptation-law"></a>
@@ -154,8 +162,12 @@ link to clause IDs instead of duplicating long-form normative prose.
 ### `NCI-DUAL-SENSOR-CORRECTION-LOOP` — Temporal dual-sensor correction loop
 - Agents must run local repro tooling and GitHub status-check monitoring concurrently when both are available.
 - Agents must act on the first actionable failure signal and avoid serialized waiting when one sensor already produced actionable information.
+- First actionable remote failure may preempt an in-progress local lane; agents must not wait for local completion once the remote signal is actionable.
+- Bounded dependency-cluster publication is allowed before actionable signals exist; once actionable signals exist, agents must use one blocking-surface correction unit per push.
+- Correction-unit validation stack must include workflow policy check, ambiguity-contract check, targeted pytest, and evidence-carrier drift refresh/check when tests or semantic surfaces changed.
 - A correction unit is one failing signal (or a tightly coupled set) targeting one blocking surface; after local validation, stage/commit/push immediately.
 - Multiple CI runs in flight are expected; fallout is handled by subsequent detect/correct/push iterations.
+- Watcher-based failure forensics should collect deterministic bundles under `artifacts/out/ci_watch/run_<run_id>/`.
 - If one sensor is unavailable, proceed with the available sensor and restore dual-sensor operation when possible.
 - Applicability: mandatory for agents; recommended interoperability posture for contributors.
 - Canonical sources: `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`, `docs/user_workflows.md#user_workflows`.
@@ -167,7 +179,7 @@ Machine-readable clause-to-enforcement traceability is maintained in `docs/norma
 The map is exhaustive: every canonical clause listed above must appear as a top-level clause key,
 including entries that are currently `partial` or `document-only`.
 Policy checks validate canonical-clause completeness plus CI/workflow anchor integrity via
-`scripts/policy_check.py --normative-map`.
+`python -m scripts.policy_check --normative-map`.
 
 ## Usage rule
 

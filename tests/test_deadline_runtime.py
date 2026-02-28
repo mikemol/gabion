@@ -8,55 +8,33 @@ from gabion.analysis.timeout_context import (
     get_deadline_clock,
 )
 from gabion.exceptions import NeverThrown
-from tests.env_helpers import env_scope as _env_scope
+from gabion.runtime import env_policy
 
 def _load_deadline_runtime():
     from scripts import deadline_runtime
 
     return deadline_runtime
 
-# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_defaults::env_helpers.py::tests.env_helpers.env_scope::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_defaults::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
 def test_timeout_ticks_from_lsp_env_uses_defaults() -> None:
     dr = _load_deadline_runtime()
-    with _env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
-    ):
-        budget = dr.timeout_budget_from_lsp_env(
-            default_budget=dr.DeadlineBudget(ticks=7, tick_ns=9),
-        )
+    budget = dr.timeout_budget_from_lsp_env(
+        default_budget=dr.DeadlineBudget(ticks=7, tick_ns=9),
+    )
     assert budget.ticks == 7
     assert budget.tick_ns == 9
 
-# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid::env_helpers.py::tests.env_helpers.env_scope::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
-def test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid() -> None:
+# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_runtime_override::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+def test_timeout_ticks_from_lsp_env_uses_runtime_override() -> None:
     dr = _load_deadline_runtime()
-    with _env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "11",
-            "GABION_LSP_TIMEOUT_TICK_NS": "13",
-        }
+    with env_policy.lsp_timeout_override_scope(
+        env_policy.LspTimeoutConfig(ticks=11, tick_ns=13)
     ):
         budget = dr.timeout_budget_from_lsp_env(
             default_budget=dr.DeadlineBudget(ticks=1, tick_ns=1),
         )
-        assert budget.ticks == 11
-        assert budget.tick_ns == 13
-
-    with _env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": "",
-            "GABION_LSP_TIMEOUT_TICK_NS": "13",
-        }
-    ):
-        with pytest.raises(NeverThrown):
-            dr.timeout_budget_from_lsp_env(
-                default_budget=dr.DeadlineBudget(ticks=1, tick_ns=1),
-            )
+    assert budget.ticks == 11
+    assert budget.tick_ns == 13
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_budget_rejects_non_positive_fields::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
 def test_deadline_budget_rejects_non_positive_fields() -> None:
@@ -106,21 +84,13 @@ def test_deadline_scope_from_ticks_unwinds_on_inner_exception() -> None:
         ):
             raise RuntimeError("boom")
 
-# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline
 def test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit() -> None:
     dr = _load_deadline_runtime()
-    with _env_scope(
-        {
-            "GABION_LSP_TIMEOUT_TICKS": None,
-            "GABION_LSP_TIMEOUT_TICK_NS": None,
-            "GABION_LSP_TIMEOUT_MS": None,
-            "GABION_LSP_TIMEOUT_SECONDS": None,
-        }
+    with dr.deadline_scope_from_lsp_env(
+        default_budget=dr.DeadlineBudget(ticks=4, tick_ns=1_000_000_000),
+        gas_limit=2,
     ):
-        with dr.deadline_scope_from_lsp_env(
-            default_budget=dr.DeadlineBudget(ticks=4, tick_ns=1_000_000_000),
-            gas_limit=2,
-        ):
+        check_deadline()
+        with pytest.raises(TimeoutExceeded):
             check_deadline()
-            with pytest.raises(TimeoutExceeded):
-                check_deadline()

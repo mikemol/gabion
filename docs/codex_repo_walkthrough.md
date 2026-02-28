@@ -17,16 +17,16 @@ doc_requires:
   - docs/coverage_semantics.md#coverage_semantics
   - docs/sppf_checklist.md#sppf_checklist
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
   docs/sppf_checklist.md#sppf_checklist: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed branch model, execution entry points, and quick-start check commands for this walkthrough."
-  CONTRIBUTING.md#contributing_contract: "Reviewed contributor workflow constraints and quality gates used by Codex during repo study."
-  POLICY_SEED.md#policy_seed: "Reviewed normative execution/security policy and change protocol expectations."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed semantic contract and commutation obligations used as analysis truth source."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed evidence-oriented coverage model and ratchet expectations."
   docs/sppf_checklist.md#sppf_checklist: "Reviewed convergence checklist usage for planning and debt burn-down tracking."

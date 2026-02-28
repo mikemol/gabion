@@ -5,9 +5,9 @@ doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
   - POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed policy seed execution constraints (mechanized governance, explicit review-discipline invariant, and mise-based tooling expectations); scoped in/ delta remains consistent.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage wording); scoped in/ deltas remain consistent.
 doc_id: in_agents
 doc_role: agent
 doc_scope:
@@ -23,10 +23,10 @@ doc_section_requires:
 doc_section_reviews:
   in_agents:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: Re-reviewed policy seed anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
+      note: Re-reviewed policy seed rev2 anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
 ---
 
 <a id="in_agents"></a>
@@ -37,7 +37,7 @@ This repository is governed by `POLICY_SEED.md#policy_seed`. Treat it as authori
 
 ## Required behavior
 - [delta] Read root `AGENTS.md#agent_obligations` and apply canonical directives before any in-scope changes.
-- [delta] Run `mise exec -- python scripts/policy_check.py --workflows` for workflow edits touching `in/` support tooling.
+- [delta] Run `mise exec -- python -m scripts.policy_check --workflows` for workflow edits touching `in/` support tooling.
 - [delta] When adding scoped obligations, mark them with `[delta]` and avoid repeating canonical directives verbatim.
 
 ## Local guardrails

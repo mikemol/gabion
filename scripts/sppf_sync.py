@@ -10,10 +10,7 @@ import sys
 from dataclasses import dataclass
 from typing import Callable
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
 from gabion.analysis.timeout_context import check_deadline
 from gabion.cli import run_sppf_sync_compat
@@ -251,7 +248,7 @@ def _validate_issue_lifecycle(
                     [
                         f"GH-{issue_id}: missing required label(s): {', '.join(missing)}.",
                         "Remediation: run locally:",
-                        f"scripts/sppf_sync.py --range <rev-range> {add_labels}",
+                        f"python -m scripts.sppf_sync --range <rev-range> {add_labels}",
                     ]
                 )
             )

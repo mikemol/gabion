@@ -15,17 +15,17 @@ doc_requires:
   - README.md#repo_contract
   - CONTRIBUTING.md#contributing_contract
 doc_reviewed_as_of:
-  AGENTS.md#agent_obligations: 19
-  POLICY_SEED.md#policy_seed: 39
+  AGENTS.md#agent_obligations: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
 doc_review_notes:
-  AGENTS.md#agent_obligations: "Aligned to required behavior and in/ corpus indexing expectations for refactor pre-prompts."
-  POLICY_SEED.md#policy_seed: "Aligned to policy-seed authority, refusal behavior, and execution constraints."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Aligned to semantic typing + commutation obligations in refactor discovery workflow."
-  README.md#repo_contract: "Aligned to repo scope and entry points."
-  CONTRIBUTING.md#contributing_contract: "Aligned to workflow and validation guardrails."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---

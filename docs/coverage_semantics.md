@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -25,7 +25,7 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - AGENTS.md#agent_obligations
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
   glossary.md#rule_of_polysemy: 1
   glossary.md#bundle: 1
@@ -34,11 +34,11 @@ doc_reviewed_as_of:
   glossary.md#decision_bundle: 1
   glossary.md#decision_protocol: 1
   glossary.md#evidence_surface: 1
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  AGENTS.md#agent_obligations: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  AGENTS.md#agent_obligations: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); glossary-lifted dependencies."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   glossary.md#rule_of_polysemy: "Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation obligations)."
   glossary.md#bundle: "Reviewed glossary.md#bundle rev1 (bundle identity + alias invariance)."
@@ -47,9 +47,9 @@ doc_review_notes:
   glossary.md#decision_bundle: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
   glossary.md#decision_protocol: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
   glossary.md#evidence_surface: "Reviewed glossary.md#evidence_surface rev1 (evidence surfaces bind carriers to documented obligations); glossary-lifted dependencies."
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); glossary-lifted dependencies."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); glossary-lifted dependencies."
-  AGENTS.md#agent_obligations: "Agent review discipline consistent with coverage obligations."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
 doc_sections:
   coverage_semantics: 1
 doc_section_requires:
@@ -69,10 +69,10 @@ doc_section_requires:
 doc_section_reviews:
   coverage_semantics:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); glossary-lifted dependencies."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
@@ -114,20 +114,20 @@ doc_section_reviews:
       outcome: no_change
       note: "Reviewed glossary.md#evidence_surface rev1 (evidence surfaces bind carriers to documented obligations); glossary-lifted dependencies."
     README.md#repo_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); glossary-lifted dependencies."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); glossary-lifted dependencies."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 1
+      dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent review discipline consistent with coverage obligations."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - coverage_is_evidence
@@ -181,6 +181,10 @@ kind of assurance.
 Line/branch coverage shows what code executed, but **does not** guarantee
 semantic correctness. This repository still requires full execution coverage as
 an enforceable gate for regression control.
+
+`# pragma: no cover` is permitted only when the covered branch is protected by
+`never(...)` after ingress validation. Enum exhaustiveness fallbacks should use
+this paired pattern so invariant drift faults at one obvious correction point.
 
 ### 1.2 Rule coverage (required)
 Each normative rule or invariant must be exercised by tests that include:

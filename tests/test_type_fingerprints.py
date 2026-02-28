@@ -152,8 +152,11 @@ def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
     registry = tf.PrimeRegistry()
     int_prime = registry.get_or_assign("int")
     fingerprint = int_prime * 97
+    reverse_index = tf.build_reverse_prime_index(registry)
     keys, remaining = tf.fingerprint_to_type_keys_with_remainder(
-        fingerprint, registry
+        fingerprint,
+        registry,
+        reverse_index,
     )
     assert keys == ["int"]
     assert remaining == 97
@@ -415,6 +418,34 @@ def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     ctor_registry = tf.TypeConstructorRegistry(registry)
     fingerprint = tf.bundle_fingerprint_with_constructors([" ", "int"], registry, ctor_registry)
     assert fingerprint == registry.get_or_assign("int")
+
+
+def test_bundle_fingerprint_with_constructors_canonicalizes_once_per_hint() -> None:
+    tf = _load()
+
+    class _CountingCtorRegistry(tf.TypeConstructorRegistry):
+        def __init__(self, registry: tf.PrimeRegistry) -> None:
+            super().__init__(registry)
+            self.calls = 0
+
+        def get_or_assign(self, constructor: str) -> int:
+            self.calls += 1
+            return super().get_or_assign(constructor)
+
+    registry = tf.PrimeRegistry()
+    ctor_registry = _CountingCtorRegistry(registry)
+    hints = ["list[int]", "dict[str, list[int]]", " "]
+
+    fingerprint = tf.bundle_fingerprint_with_constructors(hints, registry, ctor_registry)
+
+    expected = (
+        registry.get_or_assign("list[int]")
+        * registry.get_or_assign("dict[str, list[int]]")
+    )
+    assert fingerprint == expected
+    # list[int] contributes one constructor and dict[str, list[int]] contributes
+    # two constructor nodes (dict + nested list); blank hint contributes none.
+    assert ctor_registry.calls == 3
 
 # gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask::stale_b10ed4e48522
 def test_fingerprint_bitmask_skips_empty_keys() -> None:
@@ -871,3 +902,36 @@ def test_registry_assignment_policy_roundtrips_and_stays_deterministic() -> None
     assert registry_b.assignment_origin["int"] == "seeded"
     assert registry_b.assignment_origin["str"] == "seeded"
     assert registry_b.assignment_origin["bool"] == "learned"
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_reverse_prime_index_preserves_decode_identity_across_reruns::test_type_fingerprints.py::tests.test_type_fingerprints._load
+def test_reverse_prime_index_preserves_decode_identity_across_reruns() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    fingerprint = tf.bundle_fingerprint(["int", "str", "int"], registry)
+
+    reverse_index = tf.build_reverse_prime_index(registry)
+    keys_a, remainder_a = tf.fingerprint_to_type_keys_with_remainder(
+        fingerprint,
+        registry,
+        reverse_index=reverse_index,
+    )
+    keys_b, remainder_b = tf.fingerprint_to_type_keys_with_remainder(
+        fingerprint,
+        registry,
+        reverse_index=tf.build_reverse_prime_index(registry),
+    )
+
+    assert remainder_a == 1
+    assert remainder_b == 1
+    assert keys_a == ["int", "int", "str"]
+    assert keys_a == keys_b
+
+
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_fingerprint_stage_cache_identity_normalizes_equivalent_seed_text::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_stage_cache_identity
+def test_fingerprint_stage_cache_identity_normalizes_equivalent_seed_text() -> None:
+    tf = _load()
+    first = tf.fingerprint_stage_cache_identity(" seed@v1 ")
+    second = tf.fingerprint_stage_cache_identity("seed@v1")
+    assert first == second
+    assert first.startswith("aspf:sha1:")

@@ -145,6 +145,9 @@ VALUE_DECISION_RE = re.compile(
     r"^(?P<path>[^:]+):(?P<qual>\S+) value-encoded decision params: (?P<params>.+) \((?P<meta>[^)]+)\)$"
 )
 FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
+FOREST_FALLBACK_WARNING_CLASS = "consolidation.forest_fallback"
+CONSOLIDATION_SOURCE_FOREST_NATIVE = "forest-native"
+CONSOLIDATION_SOURCE_FALLBACK_DERIVED = "fallback-derived"
 
 
 @dataclass(frozen=True)
@@ -180,7 +183,7 @@ class ConsolidationConfig:
     min_functions: int = 3
     min_files: int = 2
     max_examples: int = 5
-    require_forest: bool = False
+    require_forest: bool = True
 
 
 @dataclass(frozen=True)
@@ -278,7 +281,7 @@ def _load_consolidation_config(root: Path) -> ConsolidationConfig:
         min_functions=_coerce_int("min_functions", 3),
         min_files=_coerce_int("min_files", 2),
         max_examples=_coerce_int("max_examples", 5),
-        require_forest=_coerce_bool("require_forest", False),
+        require_forest=_coerce_bool("require_forest", True),
     )
 
 
@@ -4338,6 +4341,7 @@ def _write_consolidation_report(
     value_surfaces: list[DecisionSurface],
     lint_entries: list[LintEntry],
     config: ConsolidationConfig,
+    source_mode: str,
     fallback_notes: list[str] | None = None,
 ) -> None:
     boundary_surfaces = [s for s in decision_surfaces if s.is_boundary]
@@ -4368,6 +4372,7 @@ def _write_consolidation_report(
         f"min_files={config.min_files}, max_examples={config.max_examples}"
     )
     lines.append(f"- Forest required: {config.require_forest}")
+    lines.append(f"- Consolidation source mode: {source_mode}")
     if fallback_notes:
         lines.append(
             f"- {FOREST_FALLBACK_MARKER}: " + "; ".join(_sorted(set(fallback_notes)))
@@ -4668,13 +4673,17 @@ def _consolidation_command(args: argparse.Namespace) -> int:
         fallback_notes.append("missing forest payload")
 
     if not forest_used:
-        if config.require_forest:
+        if config.require_forest and not args.allow_fallback:
             raise SystemExit(
                 "forest-only mode enabled but decision snapshot forest is missing/incomplete; "
-                "rerun gabion audit with --emit-decision-snapshot or set require_forest=false"
+                "rerun gabion audit with --emit-decision-snapshot or set require_forest=false "
+                "or pass --allow-fallback"
             )
         decision_surfaces = _parse_surfaces(decision_lines, value_encoded=False)
         value_surfaces = _parse_surfaces(value_lines, value_encoded=True)
+    source_mode = (
+        CONSOLIDATION_SOURCE_FOREST_NATIVE if forest_used else CONSOLIDATION_SOURCE_FALLBACK_DERIVED
+    )
     lint_entries = _parse_lint_entries(lint_path.read_text().splitlines())
 
     _write_consolidation_report(
@@ -4683,10 +4692,27 @@ def _consolidation_command(args: argparse.Namespace) -> int:
         value_surfaces,
         lint_entries,
         config,
+        source_mode=source_mode,
         fallback_notes=fallback_notes if not forest_used else None,
     )
+    if not forest_used:
+        print(
+            json.dumps(
+                {
+                    "warning_class": FOREST_FALLBACK_WARNING_CLASS,
+                    "source_mode": source_mode,
+                    "notes": _sorted(set(fallback_notes)),
+                },
+                sort_keys=True,
+            )
+        )
     if args.json_output is not None:
         suggestions = _build_suggestions(decision_surfaces, value_surfaces, config)
+        suggestions["report_metadata"] = {
+            "source_mode": source_mode,
+            "forest_required": config.require_forest,
+            "fallback_used": not forest_used,
+        }
         args.json_output.write_text(json.dumps(suggestions, indent=2, sort_keys=True))
     print(f"Wrote {output_path}")
     return 0
@@ -4874,6 +4900,11 @@ def _add_consolidation_args(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=None,
         help="Optional JSON output path for consolidation suggestions.",
+    )
+    parser.add_argument(
+        "--allow-fallback",
+        action="store_true",
+        help="Allow explicit fallback parsing when forest data is missing/incomplete.",
     )
     parser.set_defaults(func=_consolidation_command)
 

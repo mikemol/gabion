@@ -8,7 +8,6 @@ import os
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import re
 from typing import Sequence
-import warnings
 
 from gabion.invariants import never
 
@@ -22,7 +21,6 @@ LSP_TIMEOUT_ENV_KEYS: tuple[str, ...] = (
     "GABION_LSP_TIMEOUT_SECONDS",
 )
 
-_LEGACY_TIMEOUT_ENV_WARNED = False
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DURATION_TOKEN_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)(?P<unit>ns|us|ms|s|m|h)")
 _DURATION_UNIT_NS: dict[str, Decimal] = {
@@ -66,9 +64,7 @@ def has_any_non_empty_env(keys: Sequence[str]) -> bool:
 
 
 def lsp_timeout_env_present() -> bool:
-    if _LSP_TIMEOUT_OVERRIDE.get() is not None:
-        return True
-    return has_any_non_empty_env(LSP_TIMEOUT_ENV_KEYS)
+    return _LSP_TIMEOUT_OVERRIDE.get() is not None
 
 
 def lsp_timeout_override() -> LspTimeoutConfig | None:
@@ -217,21 +213,6 @@ def apply_cli_timeout_flags(
     )
 
 
-def _warn_legacy_timeout_env_usage() -> None:
-    global _LEGACY_TIMEOUT_ENV_WARNED
-    if _LEGACY_TIMEOUT_ENV_WARNED:
-        return
-    _LEGACY_TIMEOUT_ENV_WARNED = True
-    warnings.warn(
-        (
-            "Legacy GABION_LSP_TIMEOUT_* env overrides are deprecated. "
-            "Use CLI flag (--timeout) instead."
-        ),
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
 def env_enabled_default_true(name: str, *, value: str | None = None) -> bool:
     text = value.strip().lower() if isinstance(value, str) else os.getenv(name)
     if text is None:
@@ -267,37 +248,13 @@ def timeout_ticks_from_env(
     ms_key: str = "GABION_LSP_TIMEOUT_MS",
     seconds_key: str = "GABION_LSP_TIMEOUT_SECONDS",
 ) -> tuple[int, int]:
+    del ticks_key, tick_ns_key, ms_key, seconds_key
     override = lsp_timeout_override()
     if override is not None:
         return (int(override.ticks), int(override.tick_ns))
-    raw_ticks = env_text(ticks_key)
-    raw_tick_ns = env_text(tick_ns_key)
-    if raw_ticks:
-        _warn_legacy_timeout_env_usage()
-        ticks = parse_positive_int_text(raw_ticks, field="ticks")
-        if not raw_tick_ns:
-            never("missing env timeout tick_ns", ticks=raw_ticks)
-        tick_ns = parse_positive_int_text(raw_tick_ns, field="tick_ns")
-        return ticks, tick_ns
-
-    raw_ms = env_text(ms_key)
-    if raw_ms:
-        _warn_legacy_timeout_env_usage()
-        ms_value = parse_positive_int_text(raw_ms, field="ms")
-        return ms_value, 1_000_000
-
-    raw_seconds = env_text(seconds_key)
-    if raw_seconds:
-        _warn_legacy_timeout_env_usage()
-        try:
-            seconds_value = Decimal(raw_seconds)
-        except (InvalidOperation, ValueError):
-            never("invalid env timeout seconds", seconds=raw_seconds)
-        if seconds_value <= 0:
-            never("invalid env timeout seconds", seconds=raw_seconds)
-        millis = int(seconds_value * Decimal(1000))
-        if millis <= 0:
-            never("invalid env timeout seconds", seconds=raw_seconds)
-        return millis, 1_000_000
-
-    never("missing env timeout configuration")
+    if has_any_non_empty_env(LSP_TIMEOUT_ENV_KEYS):
+        never(
+            "legacy timeout env overrides removed; use --timeout or runtime override scope",
+            keys=LSP_TIMEOUT_ENV_KEYS,
+        )
+    never("missing timeout override configuration")

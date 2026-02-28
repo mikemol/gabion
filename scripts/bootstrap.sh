@@ -20,6 +20,6 @@ ensure_mise_trust
 mise exec -- python -m pip install -e .
 mise exec -- python -m pip install pytest
 
-if ! mise exec -- python scripts/lsp_smoke_test.py --root .; then
+if ! mise exec -- python -m scripts.lsp_smoke_test --root .; then
   echo "LSP smoke test failed (pygls may be missing). Continuing." >&2
 fi

@@ -16,15 +16,15 @@ doc_requires:
   - glossary.md#contract
   - docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
-  AGENTS.md#agent_obligations: 1
-  CONTRIBUTING.md#contributing_contract: 1
+  POLICY_SEED.md#policy_seed: 2
+  AGENTS.md#agent_obligations: 2
+  CONTRIBUTING.md#contributing_contract: 2
   glossary.md#contract: 1
   docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet: 4
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed execution/CI and deadline policy constraints for this audit roadmap."
-  AGENTS.md#agent_obligations: "Reviewed LSP-first and boundary-normalization obligations for refactor scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed workflow/test expectations for ratchet-style refactors."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#contract: "Reviewed bundle/tier/protocol semantics to keep functional-core extraction terminology aligned."
   docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet: "Reviewed traceable rule matrix for operational checks referenced by this audit."
 doc_sections:
@@ -196,7 +196,7 @@ mise exec -- python -m compileall -q src/gabion
 mise exec -- python scripts/order_lifetime_check.py --root .
 mise exec -- python scripts/complexity_audit.py --root . --fail-on-regression
 mise exec -- python scripts/structural_hash_policy_check.py --root .
-mise exec -- python scripts/policy_check.py --workflows
+mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
 mise exec -- python -m coverage report --show-missing --fail-under=100

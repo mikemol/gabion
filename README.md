@@ -1,5 +1,5 @@
 ---
-doc_revision: 80
+doc_revision: 82
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -15,19 +15,19 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 1
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  AGENTS.md#agent_obligations: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  AGENTS.md#agent_obligations: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  docs/normative_clause_index.md#normative_clause_index: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
-  AGENTS.md#agent_obligations: "Agent obligations updated; README references remain valid."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  docs/normative_clause_index.md#normative_clause_index: "Clause IDs adopted as canonical obligation references to reduce duplicated prose drift."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
 doc_sections:
-  repo_contract: 1
+  repo_contract: 2
 doc_section_requires:
   repo_contract:
     - POLICY_SEED.md#policy_seed
@@ -38,30 +38,30 @@ doc_section_requires:
 doc_section_reviews:
   repo_contract:
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed reviewed; repo contract unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; repo contract semantics unchanged."
     AGENTS.md#agent_obligations:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations aligned with repo contract."
+      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Contributor contract reviewed; repo contract unchanged."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Clause index reviewed; summary links remain aligned with canonical obligations."
+      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -129,7 +129,8 @@ scoped-delta validation, and precedence/conflict checks.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
-- Public-API compatibility shims for refactors are not yet implemented.
+- Semantic-core compatibility layers are disallowed; temporary compatibility is
+  boundary-only and must carry explicit lifecycle metadata and removal deadlines.
 - Multi-language support is out of scope (Python-first).
 
 ## Quick start
@@ -176,9 +177,7 @@ substrate:
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
-  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md
+  --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl
 ```
 
 ### ASPF Cross-Execution Equivalence + Cross-Script Handoff (phase 1)
@@ -187,15 +186,12 @@ Phase-1 supports both:
 - trace/equivalence/opportunity artifacts (`--aspf-trace-json`, `--aspf-import-trace`)
 - serialized ASPF state objects for cross-script reuse (`--aspf-state-json`, `--aspf-import-state`)
 - append-only mutation ledgers (`--aspf-delta-jsonl`)
-- ranked cleanup plans (`--aspf-action-plan-json`, `--aspf-action-plan-md`)
 
 Capture a baseline lane as a first-class state object:
 ```bash
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0001_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0001_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0001_check-run.action_plan.md \
   --aspf-semantic-surface groups_by_path \
   --aspf-semantic-surface decision_surfaces \
   --aspf-semantic-surface rewrite_plans \
@@ -207,8 +203,6 @@ Run another lane and import prior state for glued equivalence reasoning:
 mise exec -- python -m gabion check run \
   --aspf-state-json artifacts/out/aspf_state/session-a/0002_check-run.snapshot.json \
   --aspf-delta-jsonl artifacts/out/aspf_state/session-a/0002_check-run.delta.jsonl \
-  --aspf-action-plan-json artifacts/out/aspf_state/session-a/0002_check-run.action_plan.json \
-  --aspf-action-plan-md artifacts/out/aspf_state/session-a/0002_check-run.action_plan.md \
   --aspf-import-state artifacts/out/aspf_state/session-a/0001_check-run.snapshot.json \
   --aspf-opportunities-json artifacts/out/aspf_opportunities.json
 ```
@@ -216,7 +210,7 @@ mise exec -- python -m gabion check run \
 For script orchestration, use `scripts/aspf_handoff.py` to reserve state paths
 and cumulative imports through `artifacts/out/aspf_handoff_manifest.json`.
 The repo scripts `scripts/checks.sh`, `scripts/ci_local_repro.sh`,
-`scripts/refresh_baselines.py`, and `scripts/audit_snapshot.sh` now enable this
+`python -m scripts.refresh_baselines`, and `scripts/audit_snapshot.sh` now enable this
 handoff loop by default (disable with `--no-aspf-handoff`).
 
 Phase-1 ASPF outputs:
@@ -225,14 +219,12 @@ Phase-1 ASPF outputs:
 - `artifacts/out/aspf_opportunities.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.snapshot.json`
 - `artifacts/out/aspf_state/<session>/<seq>_<step>.delta.jsonl`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.json`
-- `artifacts/out/aspf_state/<session>/<seq>_<step>.action_plan.md`
 - `artifacts/out/aspf_handoff_manifest.json`
 
 See `docs/aspf_execution_fibration.md` for surface/witness/handoff details.
 
 Legacy timeout/resume checkpoint flags were removed from `gabion check run`.
-Use ASPF state import (`--aspf-import-state`) plus per-run delta/action-plan
+Use ASPF state import (`--aspf-import-state`) plus per-run snapshot/delta
 artifacts for continuation and progress tracking.
 
 Run the dataflow grammar audit in raw profile mode (prototype):

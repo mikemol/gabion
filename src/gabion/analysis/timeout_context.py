@@ -70,10 +70,64 @@ class TimeoutContext:
 class _FileSite:
     path: str
 
+    def __post_init__(self) -> None:
+        if not self.path:
+            never("file site path missing")
+
     def as_payload(self) -> dict[str, JSONValue]:
         # Keep canonical key order ("key" then "kind") so caller-order checks
         # can hold without fallback sorting.
         return {"key": [self.path], "kind": "FileSite"}
+
+    @classmethod
+    def decode_payload(cls, payload: Mapping[str, object]) -> "_FileSite":
+        kind = str(payload.get("kind", "") or "")
+        key_payload = payload.get("key")
+        match (kind, key_payload):
+            case ("FileSite", [str() as path]):
+                return cls(path=path)
+            case _:
+                never("invalid file site payload", payload_kind=kind)
+                return cls(path="")  # pragma: no cover - never() raises
+
+
+@dataclass(frozen=True)
+class _FunctionSiteIdentity:
+    path: str
+    qual: str
+    span: tuple[int, int, int, int] = (0, 0, 0, 0)
+    has_span: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.path or not self.qual:
+            never("site identity missing path/qual", path=self.path, qual=self.qual)
+        if len(self.span) != 4 or any(type(part) is not int for part in self.span):
+            never("invalid function site span", span=self.span)
+
+    def key(self) -> tuple[object, ...]:
+        key: list[object] = [_FileSite(self.path), self.qual]
+        if self.has_span:
+            key.extend(self.span)
+        return tuple(key)
+
+    @classmethod
+    def decode_payload(cls, site: Mapping[str, object]) -> "_FunctionSiteIdentity":
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        raw_span = site.get("span")
+        span = (0, 0, 0, 0)
+        has_span = False
+        if raw_span is not None:
+            match raw_span:
+                case [a, b, c, d]:
+                    try:
+                        span = (int(a), int(b), int(c), int(d))
+                    except (TypeError, ValueError):
+                        never("invalid function site span payload", span=raw_span)
+                case _:
+                    never("invalid function site span payload", span=raw_span)
+            has_span = True
+        return cls(path=path, qual=qual, span=span, has_span=has_span)
 
 
 @dataclass(frozen=True)
@@ -97,6 +151,65 @@ class _InternedCallSite:
     site: _CallSite
 
 
+@dataclass(frozen=True)
+class _DeadlineProfileSiteRow:
+    path: str
+    qual: str
+    check_count: int
+    elapsed_between_checks_ns: int
+    max_gap_ns: int
+
+
+@dataclass(frozen=True)
+class _DeadlineProfileEdgeRow:
+    from_path: str
+    from_qual: str
+    to_path: str
+    to_qual: str
+    transition_count: int
+    elapsed_ns: int
+    max_gap_ns: int
+
+
+@dataclass(frozen=True)
+class _DeadlineProfileIoRow:
+    name: str
+    event_count: int
+    elapsed_ns: int
+    max_event_ns: int
+    bytes_total: int
+
+
+@dataclass(frozen=True)
+class _DecodedDeadlineProfile:
+    checks_total: int
+    total_elapsed_ns: int
+    wall_total_elapsed_ns: int
+    unattributed_elapsed_ns: int
+    ticks_consumed: object
+    ticks_per_ns: object
+    sites: tuple[_DeadlineProfileSiteRow, ...]
+    edges: tuple[_DeadlineProfileEdgeRow, ...]
+    io: tuple[_DeadlineProfileIoRow, ...]
+    sites_total: int
+    edges_total: int
+    io_total: int
+
+@dataclass(frozen=True)
+class TimeoutTickCarrier:
+    ticks: int
+    tick_ns: int
+
+    @classmethod
+    def from_ingress(cls, *, ticks: object, tick_ns: object) -> "TimeoutTickCarrier":
+        ticks_value = int(ticks)
+        tick_ns_value = int(tick_ns)
+        if ticks_value < 0:
+            never("invalid timeout ticks", ticks=ticks)
+        if tick_ns_value <= 0:
+            never("invalid timeout tick_ns", tick_ns=tick_ns)
+        return cls(ticks=ticks_value, tick_ns=tick_ns_value)
+
 class TimeoutExceeded(TimeoutError):
     def __init__(self, context: TimeoutContext) -> None:
         super().__init__("Analysis timed out.")
@@ -112,19 +225,13 @@ class Deadline:
 
     @classmethod
     # dataflow-bundle: tick_ns, ticks
-    def from_timeout_ticks(cls, ticks: int, tick_ns: int) -> "Deadline":
-        ticks_value = int(ticks)
-        tick_ns_value = int(tick_ns)
-        if ticks_value < 0:
-            never("invalid timeout ticks", ticks=ticks)
-        if tick_ns_value <= 0:
-            never("invalid timeout tick_ns", tick_ns=tick_ns)
-        total_ns = ticks_value * tick_ns_value
+    def from_timeout_ticks(cls, carrier: TimeoutTickCarrier) -> "Deadline":
+        total_ns = carrier.ticks * carrier.tick_ns
         return cls(deadline_ns=_SYSTEM_CLOCK.get_mark() + total_ns)
 
     @classmethod
     def from_timeout_ms(cls, milliseconds: int) -> "Deadline":
-        return cls.from_timeout_ticks(milliseconds, 1_000_000)
+        return cls.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=milliseconds, tick_ns=1_000_000))
 
     @classmethod
     def from_timeout(cls, seconds: float) -> "Deadline":
@@ -534,31 +641,14 @@ def _timeout_progress_snapshot(
     forest: Forest,
     deadline_profile,
 ) -> dict[str, JSONValue]:
+    decoded_profile = _decode_deadline_profile_payload(deadline_profile)
     checks_total = 0
     site_count = 0
-    match deadline_profile:
-        case Mapping() as profile_map:
-            checks_total = int(profile_map.get("checks_total", 0) or 0)
-            match profile_map.get("sites"):
-                case list() as site_rows:
-                    site_count = len(site_rows)
-                case _:
-                    pass
-        case _:
-            pass
+    checks_total = decoded_profile.checks_total
+    site_count = len(decoded_profile.sites)
     forest_nodes = len(forest.nodes)
     forest_alts = len(forest.alts)
-    ticks_per_ns = None
-    match deadline_profile:
-        case Mapping() as profile_map:
-            profile_ticks_per_ns = profile_map.get("ticks_per_ns")
-            match profile_ticks_per_ns:
-                case int() | float():
-                    ticks_per_ns = float(profile_ticks_per_ns)
-                case _:
-                    pass
-        case _:
-            pass
+    ticks_per_ns = decoded_profile.ticks_per_ns
     progressed = (
         (forest_nodes + forest_alts) > 0
         or checks_total >= _TIMEOUT_PROGRESS_CHECKS_FLOOR
@@ -594,18 +684,114 @@ def _timeout_progress_snapshot(
     }
 
 
+# gabion:ambiguity_boundary
+def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile:
+    if not isinstance(profile, Mapping):
+        return _DecodedDeadlineProfile(
+            checks_total=0,
+            total_elapsed_ns=0,
+            wall_total_elapsed_ns=0,
+            unattributed_elapsed_ns=0,
+            ticks_consumed=None,
+            ticks_per_ns=None,
+            sites=(),
+            edges=(),
+            io=(),
+            sites_total=0,
+            edges_total=0,
+            io_total=0,
+        )
+
+    ticks_consumed_raw = profile.get("ticks_consumed")
+    ticks_consumed = int(ticks_consumed_raw) if ticks_consumed_raw is not None else None
+    sites_raw = profile.get("sites")
+    edges_raw = profile.get("edges")
+    io_raw = profile.get("io")
+    ticks_per_ns_raw = profile.get("ticks_per_ns")
+    ticks_per_ns = (
+        float(ticks_per_ns_raw)
+        if isinstance(ticks_per_ns_raw, int | float)
+        else None
+    )
+    return _DecodedDeadlineProfile(
+        checks_total=int(profile.get("checks_total", 0) or 0),
+        total_elapsed_ns=int(profile.get("total_elapsed_ns", 0) or 0),
+        wall_total_elapsed_ns=int(profile.get("wall_total_elapsed_ns", 0) or 0),
+        unattributed_elapsed_ns=int(profile.get("unattributed_elapsed_ns", 0) or 0),
+        ticks_consumed=ticks_consumed,
+        ticks_per_ns=ticks_per_ns,
+        sites=tuple(_decode_deadline_profile_site_rows(sites_raw)),
+        edges=tuple(_decode_deadline_profile_edge_rows(edges_raw)),
+        io=tuple(_decode_deadline_profile_io_rows(io_raw)),
+        sites_total=len(sites_raw) if isinstance(sites_raw, list) else 0,
+        edges_total=len(edges_raw) if isinstance(edges_raw, list) else 0,
+        io_total=len(io_raw) if isinstance(io_raw, list) else 0,
+    )
+
+
+# gabion:ambiguity_boundary
+def _decode_deadline_profile_site_rows(rows: object) -> Iterator[_DeadlineProfileSiteRow]:
+    if not isinstance(rows, list):
+        return
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        yield _DeadlineProfileSiteRow(
+            path=str(row.get("path", "") or ""),
+            qual=str(row.get("qual", "") or ""),
+            check_count=int(row.get("check_count", 0) or 0),
+            elapsed_between_checks_ns=int(row.get("elapsed_between_checks_ns", 0) or 0),
+            max_gap_ns=int(row.get("max_gap_ns", 0) or 0),
+        )
+
+
+# gabion:ambiguity_boundary
+def _decode_deadline_profile_edge_rows(rows: object) -> Iterator[_DeadlineProfileEdgeRow]:
+    if not isinstance(rows, list):
+        return
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        yield _DeadlineProfileEdgeRow(
+            from_path=str(row.get("from_path", "") or ""),
+            from_qual=str(row.get("from_qual", "") or ""),
+            to_path=str(row.get("to_path", "") or ""),
+            to_qual=str(row.get("to_qual", "") or ""),
+            transition_count=int(row.get("transition_count", 0) or 0),
+            elapsed_ns=int(row.get("elapsed_ns", 0) or 0),
+            max_gap_ns=int(row.get("max_gap_ns", 0) or 0),
+        )
+
+
+# gabion:ambiguity_boundary
+def _decode_deadline_profile_io_rows(rows: object) -> Iterator[_DeadlineProfileIoRow]:
+    if not isinstance(rows, list):
+        return
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        yield _DeadlineProfileIoRow(
+            name=str(row.get("name", "") or ""),
+            event_count=int(row.get("event_count", 0) or 0),
+            elapsed_ns=int(row.get("elapsed_ns", 0) or 0),
+            max_event_ns=int(row.get("max_event_ns", 0) or 0),
+            bytes_total=int(row.get("bytes_total", 0) or 0),
+        )
+
+
 def render_deadline_profile_markdown(
     profile: Mapping[str, JSONValue],
     *,
     max_rows: int = 25,
 ) -> str:
+    decoded_profile = _decode_deadline_profile_payload(profile)
     lines: list[str] = ["# Deadline Profile Heat", ""]
-    checks_total = int(profile.get("checks_total", 0) or 0)
-    total_elapsed_ns = int(profile.get("total_elapsed_ns", 0) or 0)
-    wall_total_elapsed_ns = int(profile.get("wall_total_elapsed_ns", 0) or 0)
-    ticks_consumed = profile.get("ticks_consumed")
-    ticks_per_ns = profile.get("ticks_per_ns")
-    unattributed_ns = int(profile.get("unattributed_elapsed_ns", 0) or 0)
+    checks_total = decoded_profile.checks_total
+    total_elapsed_ns = decoded_profile.total_elapsed_ns
+    wall_total_elapsed_ns = decoded_profile.wall_total_elapsed_ns
+    ticks_consumed = decoded_profile.ticks_consumed
+    ticks_per_ns = decoded_profile.ticks_per_ns
+    unattributed_ns = decoded_profile.unattributed_elapsed_ns
     lines.append(f"- checks_total: `{checks_total}`")
     lines.append(f"- total_elapsed_ns: `{total_elapsed_ns}`")
     lines.append(f"- wall_total_elapsed_ns: `{wall_total_elapsed_ns}`")
@@ -622,81 +808,52 @@ def render_deadline_profile_markdown(
     lines.append("")
     lines.append("| path | qual | checks | elapsed_ns | max_gap_ns |")
     lines.append("| --- | --- | ---: | ---: | ---: |")
-    sites = profile.get("sites", [])
-    match sites:
-        case list() as site_rows:
-            for row in site_rows[:max_rows]:
-                match row:
-                    case Mapping() as row_map:
-                        lines.append(
-                            "| {path} | {qual} | {checks} | {elapsed} | {gap} |".format(
-                                path=str(row_map.get("path", "") or ""),
-                                qual=str(row_map.get("qual", "") or ""),
-                                checks=int(row_map.get("check_count", 0) or 0),
-                                elapsed=int(
-                                    row_map.get("elapsed_between_checks_ns", 0) or 0
-                                ),
-                                gap=int(row_map.get("max_gap_ns", 0) or 0),
-                            )
-                        )
-                    case _:
-                        pass
-            if len(site_rows) > max_rows:
-                lines.append("| ... | ... | ... | ... | ... |")
-        case _:
-            pass
+    for row in decoded_profile.sites[:max_rows]:
+        lines.append(
+            "| {path} | {qual} | {checks} | {elapsed} | {gap} |".format(
+                path=row.path,
+                qual=row.qual,
+                checks=row.check_count,
+                elapsed=row.elapsed_between_checks_ns,
+                gap=row.max_gap_ns,
+            )
+        )
+    if decoded_profile.sites_total > max_rows:
+        lines.append("| ... | ... | ... | ... | ... |")
     lines.append("")
     lines.append("## Transition Heat")
     lines.append("")
     lines.append("| from | to | transitions | elapsed_ns | max_gap_ns |")
     lines.append("| --- | --- | ---: | ---: | ---: |")
-    edges = profile.get("edges", [])
-    match edges:
-        case list() as edge_rows:
-            for row in edge_rows[:max_rows]:
-                match row:
-                    case Mapping() as row_map:
-                        lines.append(
-                            "| {source} | {target} | {count} | {elapsed} | {gap} |".format(
-                                source=f"{str(row_map.get('from_path', '') or '')}:{str(row_map.get('from_qual', '') or '')}",
-                                target=f"{str(row_map.get('to_path', '') or '')}:{str(row_map.get('to_qual', '') or '')}",
-                                count=int(row_map.get("transition_count", 0) or 0),
-                                elapsed=int(row_map.get("elapsed_ns", 0) or 0),
-                                gap=int(row_map.get("max_gap_ns", 0) or 0),
-                            )
-                        )
-                    case _:
-                        pass
-            if len(edge_rows) > max_rows:
-                lines.append("| ... | ... | ... | ... | ... |")
-        case _:
-            pass
+    for row in decoded_profile.edges[:max_rows]:
+        lines.append(
+            "| {source} | {target} | {count} | {elapsed} | {gap} |".format(
+                source=f"{row.from_path}:{row.from_qual}",
+                target=f"{row.to_path}:{row.to_qual}",
+                count=row.transition_count,
+                elapsed=row.elapsed_ns,
+                gap=row.max_gap_ns,
+            )
+        )
+    if decoded_profile.edges_total > max_rows:
+        lines.append("| ... | ... | ... | ... | ... |")
     lines.append("")
     lines.append("## I/O Heat")
     lines.append("")
     lines.append("| io | events | elapsed_ns | max_event_ns | bytes_total |")
     lines.append("| --- | ---: | ---: | ---: | ---: |")
-    io_rows = profile.get("io", [])
-    match io_rows:
-        case list() as deadline_io_rows:
-            for row in deadline_io_rows[:max_rows]:
-                match row:
-                    case Mapping() as row_map:
-                        lines.append(
-                            "| {name} | {events} | {elapsed} | {max_event} | {bytes_total} |".format(
-                                name=str(row_map.get("name", "") or ""),
-                                events=int(row_map.get("event_count", 0) or 0),
-                                elapsed=int(row_map.get("elapsed_ns", 0) or 0),
-                                max_event=int(row_map.get("max_event_ns", 0) or 0),
-                                bytes_total=int(row_map.get("bytes_total", 0) or 0),
-                            )
-                        )
-                    case _:
-                        pass
-            if len(deadline_io_rows) > max_rows:
-                lines.append("| ... | ... | ... | ... | ... |")
-        case _:
-            pass
+    for row in decoded_profile.io[:max_rows]:
+        lines.append(
+            "| {name} | {events} | {elapsed} | {max_event} | {bytes_total} |".format(
+                name=row.name,
+                events=row.event_count,
+                elapsed=row.elapsed_ns,
+                max_event=row.max_event_ns,
+                bytes_total=row.bytes_total,
+            )
+        )
+    if decoded_profile.io_total > max_rows:
+        lines.append("| ... | ... | ... | ... | ... |")
     lines.append("")
     return "\n".join(lines)
 
@@ -820,10 +977,14 @@ def _site_key(
     qual: str,
     span = None,
 ) -> tuple[object, ...]:
-    key: list[object] = [_FileSite(path), qual]
-    if span and len(span) == 4:
-        key.extend(span)
-    return tuple(key)
+    has_span = bool(span and len(span) == 4)
+    identity = _FunctionSiteIdentity(
+        path=path,
+        qual=qual,
+        span=tuple(int(part) for part in span) if has_span else (0, 0, 0, 0),
+        has_span=has_span,
+    )
+    return identity.key()
 
 
 def _function_site(
@@ -836,25 +997,36 @@ def _function_site(
 
 
 def _site_part_from_payload(value: object) -> object:
+    decoded = _decode_site_part_payload(value)
+    return decoded
+
+
+# gabion:ambiguity_boundary
+def _decode_site_part_payload(value: object) -> object:
     match value:
         case _FileSite():
             return value
         case Mapping() as mapping_value:
-            kind = str(mapping_value.get("kind", "") or "")
-            key_payload = mapping_value.get("key")
-            match (kind, key_payload):
-                case ("FileSite", [str() as path]):
-                    return _FileSite(path)
-                case _:
-                    never("invalid site key mapping payload", payload_kind=kind)
-                    return mapping_value  # pragma: no cover - never() raises
+            return _decode_site_mapping_payload(mapping_value)
         case list() as payload_list:
-            return tuple(_site_part_from_payload(part) for part in payload_list)
+            return tuple(_decode_site_part_payload(part) for part in payload_list)
         case None | str() | int() | float() | bool():
             return value
         case _:
             never("invalid site key payload value", value_type=type(value).__name__)
             return value  # pragma: no cover - never() raises
+
+
+# gabion:ambiguity_boundary
+def _decode_site_mapping_payload(mapping_value: Mapping[object, object]) -> _FileSite:
+    kind = str(mapping_value.get("kind", "") or "")
+    key_payload = mapping_value.get("key")
+    match (kind, key_payload):
+        case ("FileSite", [str() as path]):
+            return _FileSite(path)
+        case _:
+            never("invalid site key mapping payload", payload_kind=kind)
+            return _FileSite(path="")  # pragma: no cover - never() raises
 
 
 def _site_part_to_payload(value: object) -> JSONValue:
@@ -898,14 +1070,7 @@ def build_site_index(
 def pack_call_stack(
     sites,
 ) -> PackedCallStack:
-    normalized: list[_CallSite] = []
-    for site in sites:
-        match site:
-            case _CallSite() as payload:
-                pass
-            case _:
-                payload = _normalize_site_payload(site)
-        normalized.append(payload)
+    normalized = _decode_call_stack_sites(sites)
     unique: dict[tuple[str, tuple[object, ...]], _InternedCallSite] = {}
     for entry in normalized:
         key = (entry.kind, entry.frozen_key())
@@ -932,9 +1097,28 @@ def pack_call_stack(
     )
 
 
+# gabion:ambiguity_boundary
+def _decode_call_stack_sites(sites: Iterable[object]) -> list[_CallSite]:
+    normalized: list[_CallSite] = []
+    for site in sites:
+        match site:
+            case _CallSite() as payload:
+                normalized.append(payload)
+            case Mapping() as payload_map:
+                normalized.append(_decode_site_payload(payload_map))
+            case _:
+                never("invalid call stack site payload", payload_type=type(site).__name__)
+    return normalized
+
+
 def _normalize_site_payload(
     site: Mapping[str, object],
 ) -> _CallSite:
+    return _decode_site_payload(site)
+
+
+# gabion:ambiguity_boundary
+def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
     match key_payload:
@@ -954,17 +1138,12 @@ def _normalize_site_payload(
             )
         case _:
             pass
-    path = str(site.get("path", "") or "")
-    qual = str(site.get("qual", "") or "")
-    if not path or not qual:
-        never("site payload missing path/qual", site=dict(site))
-    span = site.get("span")
-    match span:
-        case list() as span_values:
-            span_list = list(span_values)
-        case _:
-            span_list = None
-    return _function_site(path=path, qual=qual, span=span_list)
+    identity = _FunctionSiteIdentity.decode_payload(site)
+    return _function_site(
+        path=identity.path,
+        qual=identity.qual,
+        span=list(identity.span) if identity.has_span else None,
+    )
 
 
 def _freeze_value(value: object) -> object:

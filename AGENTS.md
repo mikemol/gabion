@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -15,19 +15,19 @@ doc_requires:
   - glossary.md#contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  README.md#repo_contract: 1
-  CONTRIBUTING.md#contributing_contract: 1
-  POLICY_SEED.md#policy_seed: 1
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 1
+  docs/normative_clause_index.md#normative_clause_index: 2
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
-  docs/normative_clause_index.md#normative_clause_index: "Agent obligations now reference canonical clause IDs for repeated policy language."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
 doc_sections:
-  agent_obligations: 1
+  agent_obligations: 2
 doc_section_requires:
   agent_obligations:
     - README.md#repo_contract
@@ -38,30 +38,30 @@ doc_section_requires:
 doc_section_reviews:
   agent_obligations:
     README.md#repo_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Repo contract reviewed; agent obligations unchanged."
+      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Contributor contract reviewed; agent obligations unchanged."
+      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed reviewed; agent obligations unchanged."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; agent obligations unchanged."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Clause index reviewed; AGENTS links remain aligned with canonical obligations."
+      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
@@ -103,12 +103,20 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
+- Per-correction-unit validation stack must include `scripts/policy_check.py --workflows`, `scripts/policy_check.py --ambiguity-contract`, targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
+- Ambiguity-policy regressions encountered during simplification are forward-remediation signals; prefer boundary normalization/protocol reification over rollback-first.
+- Reject semantic-core compatibility-layer additions (wrappers, dual-shape bridges, legacy fallbacks) unless they are temporary boundary adapters with explicit Decision Protocol plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
+- When using `scripts/ci_watch.py`, treat collected failure bundles under `artifacts/out/ci_watch/run_<run_id>/` as the triage source of truth for remote-first actionable failures.
 - Use `mise exec -- python` for repo-local tooling to ensure the pinned
   interpreter and dependencies are used. In CI, `.venv/bin/python` is acceptable
   after workflow bootstrap has installed the pinned toolchain and locked
   dependencies.
 - Prefer impossible-by-construction contracts over sentinel parse outcomes;
   after ingress validation, invalid states must be discharged via `never()`.
+- `# pragma: no cover` is permitted only when the corresponding branch is
+  discharged by `never(...)`.
+- Enum exhaustiveness fallbacks should pair explicit `never(...)` with
+  `# pragma: no cover` on the dead post-invariant path.
 - Treat docflow as repo-local convenience only; do not project it as a
   general Gabion feature without explicit policy change.
 - Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit
@@ -119,10 +127,11 @@ Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.
 
 1. Start local repro tooling and GitHub status-check monitoring concurrently whenever both are available.
 2. Act on the first actionable failure signal from either sensor; do not serialize waiting for the other sensor once one signal is actionable.
-3. Form one correction unit (one failing signal or tightly coupled set for one blocking surface).
-4. Validate the correction unit locally.
-5. Stage, commit, and push the correction unit immediately after local validation.
-6. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
+3. Stage A (pre-signal): bounded dependency-cluster publication is allowed before actionable failures exist.
+4. Stage B (post-signal): once an actionable signal exists, form one correction unit per push (one blocking surface, or tightly coupled set for one blocking surface).
+5. Validate the correction unit locally with the required policy/ambiguity/targeted-test/evidence-drift stack.
+6. Stage, commit, and push the correction unit immediately after local validation.
+7. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
 
 If only one sensor is available, proceed with that sensor and restore dual-sensor operation when available.
 
@@ -146,6 +155,7 @@ Use these as hard generation constraints when editing core semantics (`src/gabio
 1. **When blocked, do not add dynamic alternation in core; instead create boundary normalization + Protocol.**
 2. **Every new branch in core must correspond to an explicit Decision Protocol.**
 3. **No sentinel returns for control decisions; encode outcomes structurally.**
+4. **Do not preserve compatibility layers in semantic core; collapse to one deterministic contract and keep any temporary compatibility adapter at boundary ingress only with lifecycle evidence.**
 
 ### Concrete before/after idioms (from this repo)
 

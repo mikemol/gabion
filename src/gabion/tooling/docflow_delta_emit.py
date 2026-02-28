@@ -38,19 +38,11 @@ def _run_docflow_audit(
     run_fn: Callable[..., subprocess.CompletedProcess[str] | None] = subprocess.run,
 ) -> None:
     command: list[str] = [sys.executable, "-m", "gabion"]
-    if not transport_policy.transport_override_present():
-        command.extend(["--carrier", "direct"])
     override = transport_policy.transport_override()
-    if (
-        override is not None
-        and override.direct_requested is not None
-    ):
-        command.extend(
-            [
-                "--carrier",
-                "direct" if override.direct_requested else "lsp",
-            ]
-        )
+    carrier = "direct"
+    if override is not None and override.direct_requested is not None:
+        carrier = "direct" if override.direct_requested else "lsp"
+    command.extend(["--carrier", carrier])
     timeout_override = env_policy.lsp_timeout_override()
     if timeout_override is not None:
         command.extend(

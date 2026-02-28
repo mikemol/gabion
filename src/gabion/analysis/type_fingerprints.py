@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Iterable, cast
+import hashlib
 import math
 
 from gabion.analysis.aspf_core import (
@@ -32,6 +33,7 @@ from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none, str_
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
+from gabion.runtime import stable_encode
 
 TYPE_BASE_NAMESPACE = "type_base"
 TYPE_CTOR_NAMESPACE = "type_ctor"
@@ -402,8 +404,13 @@ class FingerprintDimension:
     ) -> tuple[list[str], int]:
         """Decode this dimension, preferring the sparse exponent sidecar."""
         check_deadline()
+        reverse_index = build_reverse_prime_index(registry)
         if not self.exponents:
-            return fingerprint_to_type_keys_with_remainder(self.product, registry)
+            return fingerprint_to_type_keys_with_remainder(
+                self.product,
+                registry,
+                reverse_index,
+            )
         keys: list[str] = []
         for key, exponent in self.exponents:
             check_deadline()
@@ -416,11 +423,19 @@ class FingerprintDimension:
             prime = registry.prime_for(key)
             if prime is None:
                 # Incomplete registry basis: preserve soundness by falling back.
-                return fingerprint_to_type_keys_with_remainder(self.product, registry)
+                return fingerprint_to_type_keys_with_remainder(
+                    self.product,
+                    registry,
+                    reverse_index,
+                )
             sidecar_product *= prime
         if sidecar_product != self.product:
             # Product remains source-of-truth; sidecar is an optimization.
-            return fingerprint_to_type_keys_with_remainder(self.product, registry)
+            return fingerprint_to_type_keys_with_remainder(
+                self.product,
+                registry,
+                reverse_index,
+            )
         return keys, 1
 
 
@@ -556,6 +571,17 @@ def fingerprint_identity_payload(
     if cofibration.entries:
         payload["cofibration_witness"] = cofibration.as_dict()
     return payload
+
+
+def fingerprint_stage_cache_identity(
+    fingerprint_seed_revision: object,
+) -> str:
+    text = str(fingerprint_seed_revision or "").strip()
+    if not text:
+        return ""
+    canonical_text = stable_encode.stable_compact_text({"fingerprint_seed_revision": text})
+    digest = hashlib.sha1(canonical_text.encode("utf-8")).hexdigest()
+    return f"aspf:sha1:{digest}"
 
 
 def _fingerprint_sort_key(fingerprint: Fingerprint) -> tuple[int, int, int, int, int, int, int, int]:
@@ -931,6 +957,7 @@ def synth_registry_payload(
 ) -> JSONObject:
     check_deadline()
     entries: list[JSONObject] = []
+    reverse_index = build_reverse_prime_index(registry)
     for prime, tail in sort_once(
         synth_registry.tails.items(),
         source="synth_registry_payload.tails",
@@ -938,10 +965,14 @@ def synth_registry_payload(
     ):
         check_deadline()
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-            tail.base.product, registry
+            tail.base.product,
+            registry,
+            reverse_index,
         )
         ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-            tail.ctor.product, registry
+            tail.ctor.product,
+            registry,
+            reverse_index,
         )
         ctor_keys = [
             key[len("ctor:") :] if key.startswith("ctor:") else key
@@ -1208,10 +1239,10 @@ def bundle_fingerprint_with_constructors(
     product = 1
     for hint in types:
         check_deadline()
-        key = canonical_type_key_with_constructor(hint, ctor_registry)
-        if not key:
+        canonical_key = canonical_type_key_with_constructor(hint, ctor_registry)
+        if not canonical_key:
             continue
-        product *= registry.get_or_assign(key)
+        product *= registry.get_or_assign(canonical_key)
     return product
 
 
@@ -1290,22 +1321,43 @@ def build_fingerprint_registry(
     return registry, index
 
 
+@dataclass(frozen=True)
+class ReversePrimeIndex:
+    prime_to_key: dict[int, str]
+    ordered_primes: tuple[int, ...]
+
+
+def build_reverse_prime_index(registry: PrimeRegistry) -> ReversePrimeIndex:
+    check_deadline()
+    ordered = tuple(
+        prime
+        for _key, prime in sort_once(
+            registry.primes.items(),
+            source="build_reverse_prime_index.registry.primes",
+            key=lambda item: item[1],
+            policy=OrderPolicy.SORT,
+        )
+    )
+    prime_to_key: dict[int, str] = {}
+    for key, prime in registry.primes.items():
+        check_deadline()
+        prime_to_key[int(prime)] = key
+    return ReversePrimeIndex(prime_to_key=prime_to_key, ordered_primes=ordered)
+
+
 def fingerprint_to_type_keys_with_remainder(
     fingerprint: int,
     registry: PrimeRegistry,
+    reverse_index: ReversePrimeIndex,
 ) -> tuple[list[str], int]:
     check_deadline()
     remaining = fingerprint
     keys: list[str] = []
     if remaining <= 1:
         return keys, remaining
-    for key, prime in sort_once(
-        registry.primes.items(),
-        source="fingerprint_to_type_keys_with_remainder.registry.primes",
-        key=lambda item: item[1],
-        policy=OrderPolicy.SORT,
-    ):
+    for prime in reverse_index.ordered_primes:
         check_deadline()
+        key = reverse_index.prime_to_key[prime]
         while remaining % prime == 0:
             check_deadline()
             keys.append(key)
@@ -1322,7 +1374,9 @@ def fingerprint_to_type_keys(
     strict: bool = False,
 ) -> list[str]:
     keys, remaining = fingerprint_to_type_keys_with_remainder(
-        fingerprint, registry
+        fingerprint,
+        registry,
+        build_reverse_prime_index(registry),
     )
     if strict and remaining not in (0, 1):
         raise ValueError(
