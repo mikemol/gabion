@@ -298,6 +298,7 @@ def test_decision_surface_metafactory_parity(tmp_path: Path) -> None:
     assert value_repo == value_helper
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._never_marker_keyword
 def test_never_marker_keyword_and_kind_helper_paths() -> None:
     da = _load()
     call = ast.parse(

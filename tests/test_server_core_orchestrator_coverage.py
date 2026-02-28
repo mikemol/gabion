@@ -182,6 +182,7 @@ def test_select_auxiliary_mode_selection_ambiguity_domain_branch() -> None:
     assert selection.annotation_drift.kind == "off"
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._select_auxiliary_mode_selection
 def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None:
     _bind()
     selection = orchestrator._select_auxiliary_mode_selection(
@@ -198,6 +199,7 @@ def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None
     assert selection.ambiguity.kind == "off"
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_ambiguity_witness
 def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
     _bind()
     assert orchestrator._taint_marker_row_from_ambiguity_witness("bad") is None
@@ -213,6 +215,7 @@ def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
     assert "span" not in row["site"]
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_type_ambiguity
 def test_taint_marker_row_from_type_ambiguity_edge_inputs() -> None:
     _bind()
     assert orchestrator._taint_marker_row_from_type_ambiguity("") is None
@@ -249,6 +252,7 @@ def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analys
     assert isinstance(outcome.analysis, AnalysisResult)
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_taint_outputs
 def test_emit_taint_outputs_rejects_missing_or_invalid_state_payload(
     tmp_path: Path,
 ) -> None:

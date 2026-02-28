@@ -178,6 +178,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     )
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_status_watch_requires_status_watch_flag() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -197,6 +198,7 @@ def test_check_run_status_watch_requires_status_watch_flag() -> None:
     )
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_status_watch_executes_after_local_success(tmp_path: Path) -> None:
     runner = CliRunner()
     captured: list[dict[str, object]] = []
@@ -241,6 +243,7 @@ def test_check_run_status_watch_executes_after_local_success(tmp_path: Path) -> 
     assert f"summary={summary_json}" in normalized
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_failed_local_check_skips_status_watch() -> None:
     runner = CliRunner()
     status_watch_calls: list[object] = []
@@ -269,6 +272,7 @@ def test_check_run_failed_local_check_skips_status_watch() -> None:
     assert status_watch_calls == []
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_status_watch_propagates_collection_failure_exit_code() -> None:
     runner = CliRunner()
 
@@ -311,6 +315,7 @@ def test_check_run_status_watch_propagates_collection_failure_exit_code() -> Non
     )
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_status_watch_system_exit_string_maps_to_exit_one() -> None:
     runner = CliRunner()
 
@@ -333,6 +338,7 @@ def test_check_run_status_watch_system_exit_string_maps_to_exit_one() -> None:
     assert "watch failed" in _normalize_output(result.output)
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.check_run
 def test_check_run_status_watch_system_exit_int_propagates() -> None:
     runner = CliRunner()
 

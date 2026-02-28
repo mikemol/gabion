@@ -9,6 +9,7 @@ from gabion.commands import aux_operation_contract
 from gabion.exceptions import NeverThrown
 
 
+# gabion:evidence E:function_site::aux_operation_contract.py::gabion.commands.aux_operation_contract.evaluate_aux_operation
 def test_evaluate_aux_operation_normalizes_domain_and_action() -> None:
     decision = aux_operation_contract.evaluate_aux_operation(
         domain="  Obsolescence ",
@@ -20,6 +21,7 @@ def test_evaluate_aux_operation_normalizes_domain_and_action() -> None:
     assert decision.baseline_path_required is False
 
 
+# gabion:evidence E:function_site::aux_operation_contract.py::gabion.commands.aux_operation_contract.validate_aux_operation_for_typer
 @pytest.mark.parametrize(
     ("domain", "action", "baseline_path"),
     [
@@ -42,6 +44,7 @@ def test_validate_aux_operation_for_typer_rejects_invalid_combinations(
         )
 
 
+# gabion:evidence E:function_site::aux_operation_contract.py::gabion.commands.aux_operation_contract.validate_aux_operation_or_never
 @pytest.mark.parametrize(
     ("domain", "action", "baseline_path"),
     [
@@ -63,6 +66,7 @@ def test_validate_aux_operation_or_never_rejects_invalid_combinations(
         )
 
 
+# gabion:evidence E:function_site::aux_operation_contract.py::gabion.commands.aux_operation_contract.AuxOperationContractError.as_never_details
 def test_aux_operation_contract_error_never_details_optional_fields() -> None:
     error = aux_operation_contract.AuxOperationContractError(
         kind="invalid_domain",

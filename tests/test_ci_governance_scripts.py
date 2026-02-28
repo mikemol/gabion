@@ -408,6 +408,7 @@ def semantic(value: object) -> object:
     assert violations
 
 
+# gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
 def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
     original_changed = policy_check._changed_repo_paths
     try:
@@ -417,6 +418,7 @@ def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
         policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]
 
 
+# gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
 def test_policy_check_aspf_crosswalk_requires_ack_file(tmp_path: Path) -> None:
     map_path = tmp_path / "aspf_taint_isomorphism_map.yaml"
     map_path.write_text(
@@ -510,6 +512,7 @@ entries:
         policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]
 
 
+# gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
 def test_policy_check_aspf_crosswalk_accepts_valid_no_change(tmp_path: Path) -> None:
     map_path = tmp_path / "aspf_taint_isomorphism_map.yaml"
     map_path.write_text(

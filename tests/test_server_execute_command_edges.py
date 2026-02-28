@@ -4820,6 +4820,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert isinstance(result.get("semantic_coverage_map_summary"), dict)
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.execute_command_total
 def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
     tmp_path: Path,
 ) -> None:

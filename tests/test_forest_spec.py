@@ -128,6 +128,7 @@ def test_forest_spec_includes_wl_refinement_collector() -> None:
     assert "NeverInvariantSink" in spec.declared_outputs
 
 
+# gabion:evidence E:function_site::forest_spec.py::gabion.analysis.forest_spec.default_forest_spec
 def test_forest_spec_includes_taint_projection_collector() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,

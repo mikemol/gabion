@@ -322,6 +322,7 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
     assert deps.run_ci_watch_fn is _run_ci_watch
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._run_ci_watch_wrapper
 def test_run_ci_watch_wrapper_calls_tooling_runner(
 ) -> None:
     seen: list[cli.tooling_ci_watch.StatusWatchOptions] = []

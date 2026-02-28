@@ -294,6 +294,7 @@ def test_ci_watch_collection_failures_return_strict_nonzero(tmp_path: Path) -> N
     ]
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._collect_failure_artifacts
 def test_collection_status_mandatory_failures_respects_log_toggle() -> None:
     status = tooling_ci_watch.CollectionStatus(
         run_view_json_rc=1,
@@ -314,6 +315,7 @@ def test_collection_status_mandatory_failures_respects_log_toggle() -> None:
     ]
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.StatusWatchOptions.to_argv
 def test_status_watch_options_to_argv_and_summary_without_collection(
     tmp_path: Path,
 ) -> None:
@@ -367,6 +369,7 @@ def test_status_watch_options_to_argv_and_summary_without_collection(
     assert "--workflow" not in argv_no_workflow
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._decode_json_dict
 def test_decode_and_failure_extractors_handle_invalid_payload_shapes() -> None:
     assert tooling_ci_watch._decode_json_dict("{not-json") == {}
     assert tooling_ci_watch._decode_json_dict("[]") == {}
@@ -420,6 +423,7 @@ def test_decode_and_failure_extractors_handle_invalid_payload_shapes() -> None:
     assert tooling_ci_watch._failed_steps({"jobs": "bad"}) == []
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._find_run_id
 def test_find_run_id_and_no_result_path() -> None:
     stderr_messages: list[str] = []
     commands: list[list[str]] = []
@@ -450,6 +454,7 @@ def test_find_run_id_and_no_result_path() -> None:
     assert any("--workflow" in command for command in commands)
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
 def test_run_watch_uses_prefer_active_then_fallback_lookup() -> None:
     stderr_messages: list[str] = []
     statuses_queried: list[str] = []
@@ -499,6 +504,7 @@ def test_run_watch_uses_prefer_active_then_fallback_lookup() -> None:
     ]
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
 def test_run_watch_raises_when_no_runs_found() -> None:
     stderr_messages: list[str] = []
 
@@ -525,6 +531,7 @@ def test_run_watch_raises_when_no_runs_found() -> None:
         )
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
 def test_run_watch_can_skip_prefer_active_and_use_fallback_status() -> None:
     stderr_messages: list[str] = []
     statuses_queried: list[str] = []
@@ -565,6 +572,7 @@ def test_run_watch_can_skip_prefer_active_and_use_fallback_status() -> None:
     assert statuses_queried == ["completed"]
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._collect_failure_artifacts
 def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
     run_id = "1001"
     stderr_messages: list[str] = []
@@ -595,6 +603,7 @@ def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
     assert (result.run_root / "failed.log").read_text(encoding="utf-8") == ""
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_deps
 def test_run_watch_uses_default_deps() -> None:
     def _fake_run(
         cmd: list[str],
@@ -621,12 +630,14 @@ def test_run_watch_uses_default_deps() -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_print_err
 def test_default_print_err_writes_stderr(capsys: Any) -> None:
     tooling_ci_watch._default_print_err("error-line")
     captured = capsys.readouterr()
     assert "error-line" in captured.err
 
 
+# gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.main
 def test_ci_watch_module_entrypoint_executes() -> None:
     original_argv = list(sys.argv)
 

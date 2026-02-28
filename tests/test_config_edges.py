@@ -87,6 +87,7 @@ def test_dataflow_adapter_payload_normalizes_invalid_shapes() -> None:
     }
 
 
+# gabion:evidence E:function_site::config.py::gabion.config.taint_profile
 def test_exception_and_taint_config_edge_paths() -> None:
     assert config.exception_marker_families(None) == {}
     assert config.exception_marker_families("bad") == {}

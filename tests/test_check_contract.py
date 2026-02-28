@@ -86,6 +86,7 @@ def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
     assert check_payload["aux_operation"] == payload
 
 
+# gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
 def test_check_aux_operation_accepts_taint_lifecycle_without_baseline() -> None:
     aux = check_contract.CheckAuxOperation(
         domain="taint",

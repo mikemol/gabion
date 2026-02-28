@@ -48,6 +48,7 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
     assert invariants.boundary_normalization(_sample) is _sample
 
 
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.never
 def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         invariants.never(
