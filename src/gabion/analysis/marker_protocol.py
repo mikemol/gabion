@@ -96,7 +96,7 @@ def normalize_marker_payload(
     lifecycle_state: MarkerLifecycleState = MarkerLifecycleState.ACTIVE,
     links: Sequence[Mapping[str, str]] = _EMPTY_LINKS,
 ) -> MarkerPayload:
-    normalized_reason = (reason or "never() invariant reached").strip()
+    normalized_reason = str(reason or "never() invariant reached").strip()
     env_payload = {str(key): value for key, value in env.items()}
     return MarkerPayload(
         marker_kind=marker_kind,
