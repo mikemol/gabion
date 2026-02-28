@@ -77,6 +77,7 @@ def test_project_taint_ledgers_applies_witness_status_and_boundary_rules() -> No
     assert len(observe_witnesses) == 1
     assert any(row["status"] == "resolved" for row in observe_records)
     assert any(row["status"] == "expired_exemption" for row in observe_records)
+    assert all("diagnostic_codes" in row for row in observe_records)
 
     contain_records, _ = taint_projection.project_taint_ledgers(
         marker_rows=marker_rows,
@@ -89,6 +90,112 @@ def test_project_taint_ledgers_applies_witness_status_and_boundary_rules() -> No
     summary = taint_projection.build_taint_summary(contain_records)
     assert summary["total"] == 2
     assert summary["strict_unresolved"] >= 1
+    diagnostics = summary.get("diagnostics")
+    assert isinstance(diagnostics, dict)
+    assert diagnostics["records_with_diagnostics"] >= 1
+
+
+def test_project_taint_ledgers_unknown_taint_tag_is_strict_blocking() -> None:
+    records, _ = taint_projection.project_taint_ledgers(
+        marker_rows=[
+            {
+                "marker_kind": "todo",
+                "marker_id": "todo:unknown",
+                "site": {"path": "sample.py", "function": "f", "suite_id": "suite:sample"},
+                "links": [
+                    {"kind": "policy_id", "value": "NCI-LSP-FIRST"},
+                    {"kind": "object_id", "value": "justification_code:J1"},
+                    {"kind": "object_id", "value": "taint_kind:not-a-kind"},
+                    {"kind": "object_id", "value": "boundary_id:boundary-main"},
+                ],
+            }
+        ],
+        boundary_registry=taint_projection.parse_taint_boundary_registry(
+            [
+                {
+                    "boundary_id": "boundary-main",
+                    "suite_id": "suite:sample",
+                    "allowed_taint_kinds": ["control_ambiguity"],
+                }
+            ]
+        ),
+        profile=taint_projection.TaintProfile.CONTAIN,
+    )
+    assert len(records) == 1
+    assert records[0]["status"] == "unresolved"
+    assert "unknown_taint_kind_tag" in records[0]["diagnostic_codes"]
+
+
+def test_project_taint_ledgers_missing_witness_fields_are_diagnostic() -> None:
+    records, _ = taint_projection.project_taint_ledgers(
+        marker_rows=[
+            {
+                "marker_kind": "todo",
+                "marker_id": "todo:missing",
+                "site": {"path": "sample.py", "function": "f", "suite_id": "suite:sample"},
+                "links": [
+                    {"kind": "object_id", "value": "taint_kind:control_ambiguity"},
+                    {"kind": "object_id", "value": "boundary_id:boundary-main"},
+                ],
+            }
+        ],
+        boundary_registry=taint_projection.parse_taint_boundary_registry(
+            [
+                {
+                    "boundary_id": "boundary-main",
+                    "suite_id": "suite:sample",
+                    "allowed_taint_kinds": ["control_ambiguity"],
+                }
+            ]
+        ),
+        profile=taint_projection.TaintProfile.CONTAIN,
+    )
+    assert len(records) == 1
+    assert records[0]["status"] == "missing_witness"
+    assert "missing_witness_field:policy_basis" in records[0]["diagnostic_codes"]
+    assert "missing_witness_field:justification_code" in records[0]["diagnostic_codes"]
+
+
+def test_project_taint_ledgers_deterministic_ids_and_order_across_reruns() -> None:
+    marker_rows = [
+        {
+            "marker_kind": "todo",
+            "marker_id": "todo:1",
+            "site": {"path": "a.py", "function": "f", "suite_id": "suite:a"},
+            "links": [
+                {"kind": "policy_id", "value": "NCI-LSP-FIRST"},
+                {"kind": "object_id", "value": "justification_code:J1"},
+                {"kind": "object_id", "value": "boundary_id:boundary-a"},
+            ],
+        },
+        {
+            "marker_kind": "deprecated",
+            "marker_id": "deprecated:2",
+            "site": {"path": "b.py", "function": "g", "suite_id": "suite:b"},
+            "links": [],
+        },
+    ]
+    boundaries = taint_projection.parse_taint_boundary_registry(
+        [
+            {
+                "boundary_id": "boundary-a",
+                "suite_id": "suite:a",
+                "allowed_taint_kinds": ["control_ambiguity"],
+            }
+        ]
+    )
+    records_a, witnesses_a = taint_projection.project_taint_ledgers(
+        marker_rows=marker_rows,
+        boundary_registry=boundaries,
+        profile="contain",
+    )
+    records_b, witnesses_b = taint_projection.project_taint_ledgers(
+        marker_rows=marker_rows,
+        boundary_registry=boundaries,
+        profile="contain",
+    )
+    assert records_a == records_b
+    assert witnesses_a == witnesses_b
 
 
 def test_normalize_taint_profile_aliases_and_boundary_payloads() -> None:
