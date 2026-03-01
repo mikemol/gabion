@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
+from typing import cast
 
 import pytest
 
@@ -256,6 +257,91 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
         and "work_total" in value
         for value in progress_values
     )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_terminal_latching_emits_single_active_complete_and_heartbeat_keepalive::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_terminal_latching_emits_single_active_complete_and_heartbeat_keepalive(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _analyze_with_terminal_replay(
+        *_args: object,
+        **kwargs: object,
+    ) -> server.AnalysisResult:
+        on_phase_progress = kwargs.get("on_phase_progress")
+        assert callable(on_phase_progress)
+
+        def _emit_post_marker(marker: str, done: int, total: int) -> None:
+            carrier = server.ReportCarrier(forest=server.Forest())
+            carrier.progress_marker = marker
+            carrier.phase_progress_v2 = {
+                "primary_unit": "post_tasks",
+                "primary_done": done,
+                "primary_total": total,
+                "dimensions": {"post_tasks": {"done": done, "total": total}},
+            }
+            on_phase_progress("post", {}, carrier, done, total)
+
+        _emit_post_marker("fingerprint:rewrite_plans", 5, 6)
+        _emit_post_marker("fingerprint:done", 6, 6)
+        _emit_post_marker("complete", 6, 6)
+        _emit_post_marker("complete", 6, 6)
+        time.sleep(6.2)
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "progress_heartbeat_seconds": 5,
+            }
+        ),
+        analyze_paths_fn=_analyze_with_terminal_replay,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls)
+    complete_terminal_values = []
+    complete_heartbeat_values = []
+    complete_progress_values = []
+    for value in progress_values:
+        transition = value.get("progress_transition_v1")
+        if not isinstance(transition, dict):
+            continue
+        child = transition.get("child")
+        if not isinstance(child, dict):
+            continue
+        if child.get("marker_text") != "complete":
+            continue
+        event_kind = value.get("event_kind")
+        if event_kind == "terminal":
+            complete_terminal_values.append(value)
+        if event_kind == "heartbeat":
+            complete_heartbeat_values.append(value)
+        if event_kind == "progress":
+            complete_progress_values.append(value)
+
+    assert len(complete_terminal_values) == 1
+    transition_payload = complete_terminal_values[0].get("progress_transition_v1")
+    assert isinstance(transition_payload, dict)
+    assert transition_payload.get("reason") == "terminal_transition"
+    transition_payload_v2 = complete_terminal_values[0].get("progress_transition_v2")
+    assert isinstance(transition_payload_v2, dict)
+    assert transition_payload_v2.get("format_version") == 2
+    assert complete_heartbeat_values
+    assert all(
+        isinstance(value.get("progress_transition_v1"), dict)
+        and cast(dict[str, object], value["progress_transition_v1"]).get("reason")
+        == "terminal_keepalive"
+        for value in complete_heartbeat_values
+    )
+    assert complete_progress_values == []
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._reject_removed_legacy_payload_keys
@@ -556,8 +642,16 @@ def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> 
 
     assert result["timeout"] is True
     progress_values = _progress_values(ls)
+    cleanup_markers = [
+        value
+        for value in progress_values
+        if value.get("progress_marker") == "cleanup:finalize_response"
+    ]
+    assert cleanup_markers
+    assert cleanup_markers[-1].get("event_kind") == "progress"
     terminal_value = progress_values[-1]
     assert terminal_value.get("done") is True
+    assert terminal_value.get("event_kind") == "terminal"
     analysis_state = str(terminal_value.get("analysis_state", ""))
     assert analysis_state.startswith("timed_out_")
     timeout_progress = (result.get("timeout_context") or {}).get("progress")

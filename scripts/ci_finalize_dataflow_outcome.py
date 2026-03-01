@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from gabion.tooling import terminal_outcome_projector
 
 def _emit(path: Path, label: str) -> None:
     if not path.exists():
@@ -19,25 +20,31 @@ def main() -> int:
     parser.add_argument("--terminal-stage", default="none")
     parser.add_argument("--terminal-status", default="unknown")
     parser.add_argument("--attempts-run", default="0")
+    parser.add_argument(
+        "--terminal-outcome-json",
+        default="artifacts/audit_reports/dataflow_terminal_outcome.json",
+    )
     args = parser.parse_args()
 
-    terminal_status = args.terminal_status
-    if terminal_status == "unknown":
-        if args.terminal_exit == "0":
-            terminal_status = "success"
-        elif args.terminal_state == "timed_out_progress_resume":
-            terminal_status = "timeout_resume"
-        else:
-            terminal_status = "hard_failure"
+    outcome_path = Path(args.terminal_outcome_json)
+    outcome = terminal_outcome_projector.read_terminal_outcome_artifact(outcome_path)
+    if outcome is None:
+        outcome = terminal_outcome_projector.project_terminal_outcome(
+            terminal_outcome_projector.TerminalOutcomeInput(
+                terminal_exit=int(args.terminal_exit),
+                terminal_state=str(args.terminal_state or "none"),
+                terminal_stage=str(args.terminal_stage or "none"),
+                terminal_status=str(args.terminal_status or "unknown"),
+                attempts_run=int(args.attempts_run),
+            )
+        )
     print(
-        "terminal_stage="
-        f"{args.terminal_stage} attempts={args.attempts_run} "
-        f"exit_code={args.terminal_exit} analysis_state={args.terminal_state} status={terminal_status}"
+        terminal_outcome_projector.render_terminal_outcome_line(outcome)
     )
-    if terminal_status == "success":
+    if outcome.terminal_status == "success":
         return 0
     _emit(Path("artifacts/audit_reports/dataflow_report.md"), "dataflow report")
-    if terminal_status == "timeout_resume":
+    if outcome.terminal_status == "timeout_resume":
         print("Dataflow audit invocation timed out with resumable progress.")
         return 1
     print("Dataflow audit failed for a non-timeout reason.")

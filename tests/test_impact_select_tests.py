@@ -454,3 +454,26 @@ def test_impact_select_inner_evidence_loop_break_then_continues_outer_entries() 
     )
     assert impacted == ["tests/test_app.py::test_match"]
     assert confidence > 0.0
+
+
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_handles_diff_evidence_builder_runtime_error_without_override::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+def test_main_handles_diff_evidence_builder_runtime_error_without_override(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    out_path = root / "artifacts/audit_reports/impact_selection.json"
+    exit_code = impact_select_tests.main(
+        [
+            "--root",
+            str(root),
+            "--index",
+            "out/test_evidence.json",
+            "--out",
+            str(out_path.relative_to(root)),
+            "--no-refresh",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(out_path.read_text(encoding="utf-8"))
+    assert payload["mode"] == "full"
+    assert "diff_unavailable" in payload["fallback_reasons"]

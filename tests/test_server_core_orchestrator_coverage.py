@@ -224,6 +224,208 @@ def test_taint_marker_row_from_type_ambiguity_edge_inputs() -> None:
     assert function == "only-function"
 
 
+def _progress_transition_state(
+    *,
+    done: int,
+    marker: str,
+    event_kind: orchestrator._ProgressEventKind = "progress",
+    analysis_state: str = "analysis_post_in_progress",
+    total: int = 6,
+) -> orchestrator._ProgressTransitionState:
+    _bind()
+    return orchestrator._normalize_progress_transition_state(
+        phase="post",
+        analysis_state=analysis_state,
+        event_kind=event_kind,
+        primary_unit="post_tasks",
+        primary_done=done,
+        primary_total=total,
+        progress_marker=marker,
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_allows_table_driven_valid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+@pytest.mark.parametrize(
+    ("previous_kwargs", "current_kwargs", "expected_reason", "expected_event_kind"),
+    [
+        (
+            {"done": 5, "marker": "fingerprint:normalize"},
+            {"done": 5, "marker": "fingerprint:warnings"},
+            "parent_held",
+            "progress",
+        ),
+        (
+            {"done": 5, "marker": "fingerprint:rewrite_plans"},
+            {"done": 6, "marker": "fingerprint:done"},
+            "parent_advanced",
+            "progress",
+        ),
+        (
+            {"done": 6, "marker": "fingerprint:done"},
+            {"done": 6, "marker": "complete"},
+            "terminal_transition",
+            "terminal",
+        ),
+    ],
+)
+def test_progress_transition_validator_allows_table_driven_valid_sequences(
+    previous_kwargs: dict[str, object],
+    current_kwargs: dict[str, object],
+    expected_reason: str,
+    expected_event_kind: str,
+) -> None:
+    previous = _progress_transition_state(**previous_kwargs)
+    current = _progress_transition_state(**current_kwargs)
+    decision = orchestrator._validate_progress_transition_or_never(
+        previous=previous,
+        current=current,
+    )
+    assert decision.valid is True
+    assert decision.suppress_emit is False
+    assert decision.reason == expected_reason
+    assert decision.effective_event_kind == expected_event_kind
+
+
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_table_driven_invalid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+@pytest.mark.parametrize(
+    ("previous_kwargs", "current_kwargs"),
+    [
+        (
+            {"done": 5, "marker": "fingerprint:normalize"},
+            {"done": 6, "marker": "fingerprint:normalize"},
+        ),
+        (
+            {"done": 5, "marker": "fingerprint:normalize"},
+            {"done": 6, "marker": "fingerprint:warnings"},
+        ),
+        (
+            {"done": 5, "marker": "fingerprint:normalize"},
+            {"done": 5, "marker": "fingerprint:warnings", "analysis_state": "analysis_edge_in_progress"},
+        ),
+        (
+            {"done": 5, "marker": "fingerprint:done"},
+            {"done": 6, "marker": "complete"},
+        ),
+        (
+            {"done": 6, "marker": "complete", "event_kind": "terminal"},
+            {"done": 6, "marker": "fingerprint:done", "event_kind": "heartbeat"},
+        ),
+    ],
+)
+def test_progress_transition_validator_rejects_table_driven_invalid_sequences(
+    previous_kwargs: dict[str, object],
+    current_kwargs: dict[str, object],
+) -> None:
+    previous = _progress_transition_state(**previous_kwargs)
+    current = _progress_transition_state(**current_kwargs)
+    with pytest.raises(NeverThrown):
+        orchestrator._validate_progress_transition_or_never(
+            previous=previous,
+            current=current,
+        )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_complete_marker_before_parent_completion::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+def test_progress_transition_validator_rejects_complete_marker_before_parent_completion() -> None:
+    with pytest.raises(NeverThrown):
+        orchestrator._validate_progress_transition_or_never(
+            previous=None,
+            current=_progress_transition_state(done=5, marker="complete"),
+        )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_normalizes_terminal_and_suppresses_replay::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+def test_progress_transition_validator_normalizes_terminal_and_suppresses_replay() -> None:
+    previous = _progress_transition_state(done=6, marker="fingerprint:done")
+    terminal = _progress_transition_state(done=6, marker="complete")
+    first_decision = orchestrator._validate_progress_transition_or_never(
+        previous=previous,
+        current=terminal,
+    )
+    assert first_decision.effective_event_kind == "terminal"
+    assert first_decision.reason == "terminal_transition"
+    replay_decision = orchestrator._validate_progress_transition_or_never(
+        previous=terminal,
+        current=terminal,
+    )
+    assert replay_decision.suppress_emit is True
+    assert replay_decision.reason == "terminal_replay_suppressed"
+
+    heartbeat_terminal = _progress_transition_state(
+        done=6,
+        marker="complete",
+        event_kind="heartbeat",
+    )
+    heartbeat_decision = orchestrator._validate_progress_transition_or_never(
+        previous=terminal,
+        current=heartbeat_terminal,
+    )
+    assert heartbeat_decision.reason == "terminal_keepalive"
+    assert heartbeat_decision.suppress_emit is False
+
+
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_create_progress_emitter_emits_non_complete_terminal_without_terminal_latch::command_orchestrator.py::gabion.server_core.command_orchestrator._create_progress_emitter
+def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_latch(
+    tmp_path: Path,
+) -> None:
+    notifications: list[tuple[str, object]] = []
+
+    def _send_notification(method: str, params: object) -> None:
+        notifications.append((method, params))
+
+    emitter = orchestrator._create_progress_emitter(
+        notification_runtime=orchestrator._NotificationRuntime(
+            send_notification_fn=_send_notification,
+            emit_phase_progress_events=False,
+        ),
+        phase_timeline_markdown_path=tmp_path / "timeline.md",
+        phase_timeline_jsonl_path=tmp_path / "timeline.jsonl",
+        progress_heartbeat_seconds=1.0,
+        profiling_stage_ns={},
+        profiling_counters={},
+    )
+    assert callable(emitter.emit)
+    emitter.emit(
+        phase="post",
+        collection_progress={
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": 1,
+            "total_files": 1,
+        },
+        semantic_progress=None,
+        work_done=5,
+        work_total=6,
+        include_timing=False,
+        done=False,
+        analysis_state="analysis_post_in_progress",
+        classification="active",
+        phase_progress_v2={
+            "primary_unit": "post_tasks",
+            "primary_done": 5,
+            "primary_total": 6,
+            "dimensions": {"post_tasks": {"done": 5, "total": 6}},
+        },
+        progress_marker="fingerprint:done",
+        event_kind="terminal",
+    )
+    emitter.stop()
+
+    assert len(notifications) == 1
+    _, params = notifications[0]
+    assert isinstance(params, dict)
+    value = params.get("value")
+    assert isinstance(value, dict)
+    assert value.get("event_kind") == "terminal"
+    transition_v2 = value.get("progress_transition_v2")
+    assert isinstance(transition_v2, dict)
+    assert transition_v2.get("format_version") == 2
+    transition = value.get("progress_transition_v1")
+    assert isinstance(transition, dict)
+    assert transition.get("terminal_complete") is False
+    assert transition.get("reason") == "initial_transition"
+
+
 def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analysis(
     tmp_path: Path,
 ) -> None:

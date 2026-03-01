@@ -15,6 +15,9 @@ _HANDOFF_FORMAT_VERSION = 1
 _DEFAULT_MANIFEST_PATH = Path("artifacts/out/aspf_handoff_manifest.json")
 _DEFAULT_STATE_ROOT = Path("artifacts/out/aspf_state")
 _JOURNAL_SUFFIX = ".journal.jsonl"
+_RESUMABLE_TIMEOUT_ANALYSIS_STATE = "timed_out_progress_resume"
+
+ResumeImportPolicy = Literal["success_only", "success_or_resumable_timeout"]
 
 
 @dataclass(frozen=True)
@@ -109,6 +112,7 @@ def prepare_step(
     manifest_path: Path | None = None,
     state_root: Path | None = None,
     write_manifest_projection: bool = True,
+    resume_import_policy: ResumeImportPolicy = "success_only",
 ) -> PreparedHandoffStep:
     resolved_root = root.resolve()
     resolved_manifest_path = _resolve_under_root(
@@ -130,7 +134,13 @@ def prepare_step(
         root=resolved_root,
     )
     entries = _manifest_entries(manifest)
-    import_state_paths = tuple(_successful_state_paths(entries, root=resolved_root))
+    import_state_paths = tuple(
+        _import_state_paths_for_policy(
+            entries,
+            root=resolved_root,
+            resume_import_policy=resume_import_policy,
+        )
+    )
     sequence = len(entries) + 1
 
     safe_step_id = _step_slug(step_id)
@@ -256,12 +266,40 @@ def _project_manifest_payload(payload: Mapping[str, object]) -> JSONObject:
 
 # gabion:decision_protocol gabion:boundary_normalization
 def _successful_state_paths(entries: list[object], *, root: Path) -> list[Path]:
+    return _import_state_paths_for_policy(
+        entries,
+        root=root,
+        resume_import_policy="success_only",
+    )
+
+
+def _import_state_paths_for_policy(
+    entries: list[object],
+    *,
+    root: Path,
+    resume_import_policy: ResumeImportPolicy,
+) -> list[Path]:
+    allowed_policies = {"success_only", "success_or_resumable_timeout"}
+    if resume_import_policy not in allowed_policies:
+        raise ValueError(
+            f"unsupported resume import policy: {resume_import_policy}"
+        )
     paths: list[Path] = []
     for raw_entry in entries:
         status = str(raw_entry.get("status", "")).strip().lower()
-        if status != "success":
+        analysis_state = str(raw_entry.get("analysis_state", "")).strip()
+        include = status == "success"
+        if (
+            not include
+            and resume_import_policy == "success_or_resumable_timeout"
+            and analysis_state == _RESUMABLE_TIMEOUT_ANALYSIS_STATE
+        ):
+            include = True
+        if not include:
             continue
-        state_path = str(raw_entry["state_path"]).strip()
+        state_path = str(raw_entry.get("state_path", "")).strip()
+        if not state_path:
+            continue
         resolved_state_path = _path_from_manifest_ref(state_path, root=root)
         if not resolved_state_path.exists():
             continue

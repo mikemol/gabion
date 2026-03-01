@@ -4,11 +4,137 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from gabion.commands.progress_transition import (
+    normalize_progress_transition_from_phase_progress,
+    transition_reason_from_phase_progress,
+)
 from gabion.order_contract import sort_once
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
 DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS = 1.0
+
+_PHASE_TIMELINE_COLUMNS: tuple[str, ...] = (
+    "ts_utc",
+    "event_seq",
+    "event_kind",
+    "phase",
+    "analysis_state",
+    "classification",
+    "progress_marker",
+    "primary",
+    "files",
+    "stale_for_s",
+    "dimensions",
+    "progress_path",
+    "active_primary",
+    "active_depth",
+    "transition_reason",
+    "root_identity",
+    "active_identity",
+    "marker_family",
+    "marker_step",
+    "active_children",
+)
+
+
+def _normalize_transition(
+    phase_progress: Mapping[str, object],
+):
+    return normalize_progress_transition_from_phase_progress(phase_progress)
+
+
+def _progress_marker_from_transition(
+    phase_progress: Mapping[str, object],
+    *,
+    transition=None,
+) -> str:
+    if transition is None:
+        transition = _normalize_transition(phase_progress)
+    if transition is not None and transition.marker.marker_text:
+        return transition.marker.marker_text
+    return str(phase_progress.get("progress_marker", "") or "")
+
+
+def _primary_from_transition(
+    phase_progress: Mapping[str, object],
+    *,
+    transition=None,
+) -> tuple[str, int | None, int | None]:
+    if transition is None:
+        transition = _normalize_transition(phase_progress)
+    if transition is None:
+        return "", None, None
+    return transition.primary_unit, transition.primary_done, transition.primary_total
+
+
+def _path_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    return " > ".join(transition.active_path)
+
+
+def _active_primary_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    active = transition.active_node
+    value = f"{active.done}/{active.total}"
+    if active.unit:
+        value = f"{value} {active.unit}"
+    return value
+
+
+def _active_depth_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    return str(max(len(transition.active_path) - 1, 0))
+
+
+def _root_identity_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    return transition.root.identity
+
+
+def _active_identity_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    return transition.active_node.identity
+
+
+def _marker_family_step_from_text(marker_text: str) -> tuple[str, str]:
+    if ":" not in marker_text:
+        if marker_text == "complete":
+            return "complete", ""
+        return marker_text, ""
+    marker_family, marker_step = marker_text.split(":", 1)
+    return marker_family, marker_step
+
+
+def _active_marker_family_from_transition(
+    *,
+    transition,
+    marker_text: str,
+) -> str:
+    _ = transition
+    marker_family, _ = _marker_family_step_from_text(marker_text)
+    return marker_family
+
+
+def _active_marker_step_from_transition(
+    *,
+    transition,
+    marker_text: str,
+) -> str:
+    _ = transition
+    _, marker_step = _marker_family_step_from_text(marker_text)
+    return marker_step
+
+
+def _active_children_from_transition(*, transition) -> str:
+    if transition is None:
+        return ""
+    return str(len(transition.active_node.children))
 
 
 def _progress_value_from_notification(
@@ -31,19 +157,7 @@ def _progress_value_from_notification(
 
 
 def phase_timeline_header_columns() -> list[str]:
-    return [
-        "ts_utc",
-        "event_seq",
-        "event_kind",
-        "phase",
-        "analysis_state",
-        "classification",
-        "progress_marker",
-        "primary",
-        "files",
-        "stale_for_s",
-        "dimensions",
-    ]
+    return list(_PHASE_TIMELINE_COLUMNS)
 
 
 def phase_timeline_header_block() -> str:
@@ -89,25 +203,41 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
     ts_utc = str(phase_progress.get("ts_utc", "") or "")
     event_seq = phase_progress.get("event_seq")
     event_kind = str(phase_progress.get("event_kind", "") or "")
+    transition = _normalize_transition(phase_progress)
+    if transition is not None:
+        event_kind = transition.event_kind
     phase = str(phase_progress.get("phase", "") or "")
     analysis_state = str(phase_progress.get("analysis_state", "") or "")
     classification = str(phase_progress.get("classification", "") or "")
-    progress_marker = str(phase_progress.get("progress_marker", "") or "")
+    progress_marker = _progress_marker_from_transition(
+        phase_progress,
+        transition=transition,
+    )
     phase_progress_v2 = (
         phase_progress.get("phase_progress_v2")
         if isinstance(phase_progress.get("phase_progress_v2"), Mapping)
         else None
     )
-    primary_unit = ""
-    primary_done: int | None = None
-    primary_total: int | None = None
+    primary_unit, primary_done, primary_total = _primary_from_transition(
+        phase_progress,
+        transition=transition,
+    )
     if isinstance(phase_progress_v2, Mapping):
-        primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
+        if not primary_unit:
+            primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
         raw_primary_done = phase_progress_v2.get("primary_done")
         raw_primary_total = phase_progress_v2.get("primary_total")
-        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool):
+        if (
+            primary_done is None
+            and isinstance(raw_primary_done, int)
+            and not isinstance(raw_primary_done, bool)
+        ):
             primary_done = max(int(raw_primary_done), 0)
-        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool):
+        if (
+            primary_total is None
+            and isinstance(raw_primary_total, int)
+            and not isinstance(raw_primary_total, bool)
+        ):
             primary_total = max(int(raw_primary_total), 0)
         if (
             primary_done is not None
@@ -150,6 +280,21 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
     dimensions = phase_progress_dimensions_summary(
         phase_progress_v2 if isinstance(phase_progress_v2, Mapping) else None
     )
+    progress_path = _path_from_transition(transition=transition)
+    active_primary = _active_primary_from_transition(transition=transition)
+    active_depth = _active_depth_from_transition(transition=transition)
+    transition_reason = transition_reason_from_phase_progress(phase_progress) or ""
+    root_identity = _root_identity_from_transition(transition=transition)
+    active_identity = _active_identity_from_transition(transition=transition)
+    marker_family = _active_marker_family_from_transition(
+        transition=transition,
+        marker_text=progress_marker,
+    )
+    marker_step = _active_marker_step_from_transition(
+        transition=transition,
+        marker_text=progress_marker,
+    )
+    active_children = _active_children_from_transition(transition=transition)
     row = [
         ts_utc,
         event_seq if isinstance(event_seq, int) else "",
@@ -162,6 +307,15 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
         files,
         stale_for_s,
         dimensions,
+        progress_path,
+        active_primary,
+        active_depth,
+        transition_reason,
+        root_identity,
+        active_identity,
+        marker_family,
+        marker_step,
+        active_children,
     ]
     return "| " + " | ".join(str(cell).replace("|", "\\|") for cell in row) + " |"
 
@@ -227,10 +381,54 @@ def phase_progress_from_progress_notification(
         if isinstance(phase_progress_v2, Mapping)
         else None
     )
+    progress_transition_v2 = value.get("progress_transition_v2")
+    normalized_progress_transition_v2 = (
+        {str(key): progress_transition_v2[key] for key in progress_transition_v2}
+        if isinstance(progress_transition_v2, Mapping)
+        else None
+    )
+    progress_transition_v1 = value.get("progress_transition_v1")
+    normalized_progress_transition_v1 = (
+        {str(key): progress_transition_v1[key] for key in progress_transition_v1}
+        if isinstance(progress_transition_v1, Mapping)
+        else None
+    )
+    transition_progress_marker = progress_marker
+    transition_done: int | None = None
+    transition_total: int | None = None
+    transition_event_kind = event_kind
+    if isinstance(normalized_progress_transition_v1, Mapping) or isinstance(
+        normalized_progress_transition_v2, Mapping
+    ):
+        transition_phase_progress: dict[str, object] = {
+            "phase": phase,
+            "analysis_state": analysis_state,
+            "event_kind": event_kind,
+            "progress_marker": progress_marker,
+            "phase_progress_v2": normalized_phase_progress_v2,
+            "work_done": work_done,
+            "work_total": work_total,
+        }
+        if isinstance(normalized_progress_transition_v2, Mapping):
+            transition_phase_progress["progress_transition_v2"] = normalized_progress_transition_v2
+        if isinstance(normalized_progress_transition_v1, Mapping):
+            transition_phase_progress["progress_transition_v1"] = normalized_progress_transition_v1
+        normalized_transition = normalize_progress_transition_from_phase_progress(
+            transition_phase_progress
+        )
+        if normalized_transition is not None:
+            transition_progress_marker = normalized_transition.marker.marker_text
+            transition_done = normalized_transition.primary_done
+            transition_total = normalized_transition.primary_total
+            transition_event_kind = normalized_transition.event_kind
+    if transition_done is not None:
+        work_done = transition_done
+    if transition_total is not None:
+        work_total = transition_total
     phase_timeline_header = value.get("phase_timeline_header")
     phase_timeline_row = value.get("phase_timeline_row")
     done = bool(value.get("done", False))
-    return {
+    normalized: dict[str, object] = {
         "phase": phase,
         "work_done": work_done,
         "work_total": work_total,
@@ -239,12 +437,12 @@ def phase_progress_from_progress_notification(
         "total_files": total_files,
         "analysis_state": analysis_state,
         "classification": classification,
-        "event_kind": event_kind,
+        "event_kind": transition_event_kind,
         "event_seq": event_seq,
         "ts_utc": str(value.get("ts_utc", "") or ""),
         "stale_for_s": stale_for_s,
         "phase_progress_v2": normalized_phase_progress_v2,
-        "progress_marker": progress_marker,
+        "progress_marker": transition_progress_marker,
         "phase_timeline_header": (
             phase_timeline_header if isinstance(phase_timeline_header, str) else ""
         ),
@@ -253,9 +451,30 @@ def phase_progress_from_progress_notification(
         ),
         "done": done,
     }
+    if isinstance(normalized_progress_transition_v2, Mapping):
+        normalized["progress_transition_v2"] = normalized_progress_transition_v2
+    if isinstance(normalized_progress_transition_v1, Mapping):
+        normalized["progress_transition_v1"] = normalized_progress_transition_v1
+    return normalized
 
 
 def phase_progress_signature(phase_progress: Mapping[str, object]) -> tuple[object, ...]:
+    transition_reason = transition_reason_from_phase_progress(phase_progress)
+    transition_marker = _progress_marker_from_transition(phase_progress)
+    transition_unit, transition_done, transition_total = _primary_from_transition(
+        phase_progress
+    )
+    transition = _normalize_transition(phase_progress)
+    transition_active_path: tuple[str, ...] = ()
+    transition_root_identity: str | None = None
+    transition_active_identity: str | None = None
+    transition_marker_family, transition_marker_step = _marker_family_step_from_text(
+        transition_marker
+    )
+    if transition is not None:
+        transition_active_path = transition.active_path
+        transition_root_identity = transition.root.identity
+        transition_active_identity = transition.active_node.identity
     return (
         phase_progress.get("phase"),
         phase_progress.get("analysis_state"),
@@ -268,7 +487,16 @@ def phase_progress_signature(phase_progress: Mapping[str, object]) -> tuple[obje
         phase_progress.get("remaining_files"),
         phase_progress.get("total_files"),
         phase_progress.get("stale_for_s"),
-        phase_progress.get("progress_marker"),
+        transition_marker,
+        transition_marker_family,
+        transition_marker_step,
+        transition_root_identity,
+        transition_active_identity,
+        transition_active_path,
+        transition_unit,
+        transition_done,
+        transition_total,
+        transition_reason,
         phase_progress.get("done"),
     )
 

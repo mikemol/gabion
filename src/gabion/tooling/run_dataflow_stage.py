@@ -22,7 +22,10 @@ from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.commands import transport_policy
 from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
-from gabion.tooling import aspf_handoff
+from gabion.tooling import aspf_lifecycle
+from gabion.tooling import dataflow_invocation_runner
+from gabion.tooling import execution_envelope
+from gabion.tooling import terminal_outcome_projector
 from gabion.tooling import tool_specs
 from gabion.tooling.deadline_runtime import deadline_scope_from_lsp_env
 
@@ -51,11 +54,15 @@ class StageResult:
 
     @property
     def terminal_status(self) -> str:
-        if self.exit_code == 0:
-            return "success"
-        if self.analysis_state == "timed_out_progress_resume":
-            return "timeout_resume"
-        return "hard_failure"
+        return terminal_outcome_projector.project_terminal_outcome(
+            terminal_outcome_projector.TerminalOutcomeInput(
+                terminal_exit=self.exit_code,
+                terminal_state=self.analysis_state,
+                terminal_stage=self.stage_id,
+                terminal_status="unknown",
+                attempts_run=1,
+            )
+        ).terminal_status
 
 
 @dataclass(frozen=True)
@@ -334,6 +341,10 @@ def _phase_timeline_jsonl_path(report_path: Path) -> Path:
     return report_path.parent / "dataflow_phase_timeline.jsonl"
 
 
+def _terminal_outcome_artifact_path(report_path: Path) -> Path:
+    return report_path.parent / "dataflow_terminal_outcome.json"
+
+
 def _markdown_timeline_row_count(path: Path) -> int:
     if not path.exists():
         return 0
@@ -381,6 +392,62 @@ def _command_preview(command: Sequence[str], *, max_chars: int = 240) -> str:
     if len(text) <= max_chars:
         return text
     return f"{text[: max_chars - 3]}..."
+
+
+def _parse_stage_command_envelope(
+    command: Sequence[str],
+) -> execution_envelope.ExecutionEnvelope | None:
+    tokens = [str(token) for token in command]
+    if not tokens:
+        return None
+    try:
+        check_index = tokens.index("check")
+    except ValueError:
+        return None
+    if check_index + 1 >= len(tokens):
+        return None
+    subcommand = tokens[check_index + 1]
+    if subcommand != "delta-bundle":
+        return None
+    option_tokens = tokens[check_index + 2 :]
+    option_values: dict[str, str] = {}
+    aspf_state_json: Path | None = None
+    aspf_delta_jsonl: Path | None = None
+    aspf_import_state: list[Path] = []
+    idx = 0
+    while idx < len(option_tokens):
+        check_deadline()
+        token = option_tokens[idx]
+        if token in {"--report", "--strictness", "--aspf-state-json", "--aspf-delta-jsonl", "--aspf-import-state"}:
+            if idx + 1 >= len(option_tokens):
+                break
+            value = option_tokens[idx + 1]
+            if token == "--aspf-import-state":
+                aspf_import_state.append(Path(value))
+            else:
+                option_values[token] = value
+            if token == "--aspf-delta-jsonl":
+                aspf_delta_jsonl = Path(value)
+            idx += 2
+            continue
+        idx += 1
+    report_value = option_values.get("--report")
+    report_path = Path(report_value) if report_value is not None else None
+    strictness = option_values.get("--strictness")
+    state_value = option_values.get("--aspf-state-json")
+    if state_value is not None:
+        aspf_state_json = Path(state_value)
+    if report_path is None:
+        return None
+    return execution_envelope.ExecutionEnvelope.for_delta_bundle(
+        root=Path("."),
+        report_path=report_path,
+        strictness=strictness,
+        allow_external=None,
+        aspf_state_json=aspf_state_json,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_import_state=tuple(aspf_import_state),
+    )
 
 
 def _unlink_if_exists(path: Path) -> None:
@@ -618,36 +685,30 @@ def run_stage(
     )
     exit_code = 0
     last_state_path: Path | None = None
-    for command_index, stage_command in enumerate(deadline_loop_iter(stage_commands)):
-        command_to_run = list(stage_command)
-        prepared_handoff: aspf_handoff.PreparedHandoffStep | None = None
-        if aspf_handoff_config is not None and aspf_handoff_config.enabled:
-            prepared_handoff = aspf_handoff.prepare_step(
-                root=aspf_handoff_config.root,
-                session_id=aspf_handoff_config.session_id,
-                step_id=_aspf_step_id(stage_id, stage_command, command_index),
-                command_profile="run-dataflow-stage.check",
-                manifest_path=aspf_handoff_config.manifest_path,
-                state_root=aspf_handoff_config.state_root,
-            )
-            command_to_run.extend(aspf_handoff.aspf_cli_args(prepared_handoff))
-        exit_code = int(run_command_fn(command_to_run))
-        if prepared_handoff is not None:
-            last_state_path = prepared_handoff.state_path
-        recorded_state = (
-            _analysis_state_from_aspf_state(last_state_path)
-            if last_state_path is not None
-            else "none"
+    lifecycle_config = (
+        aspf_lifecycle.AspfLifecycleConfig(
+            enabled=aspf_handoff_config.enabled,
+            root=aspf_handoff_config.root,
+            session_id=aspf_handoff_config.session_id,
+            manifest_path=aspf_handoff_config.manifest_path,
+            state_root=aspf_handoff_config.state_root,
+            resume_import_policy="success_or_resumable_timeout",
         )
-        if prepared_handoff is not None:
-            aspf_handoff.record_step(
-                manifest_path=prepared_handoff.manifest_path,
-                session_id=prepared_handoff.session_id,
-                sequence=prepared_handoff.sequence,
-                status="success" if exit_code == 0 else "failed",
-                exit_code=exit_code,
-                analysis_state=recorded_state,
-            )
+        if aspf_handoff_config is not None
+        else None
+    )
+    for command_index, stage_command in enumerate(deadline_loop_iter(stage_commands)):
+        lifecycle_result = aspf_lifecycle.run_with_aspf_lifecycle(
+            config=lifecycle_config,
+            step_id=_aspf_step_id(stage_id, stage_command, command_index),
+            command_profile="run-dataflow-stage.check",
+            command=stage_command,
+            run_command_fn=run_command_fn,
+            analysis_state_from_state_path_fn=_analysis_state_from_aspf_state,
+        )
+        exit_code = lifecycle_result.exit_code
+        if lifecycle_result.state_path is not None:
+            last_state_path = lifecycle_result.state_path
         if exit_code != 0:
             break
     analysis_state = (
@@ -768,6 +829,15 @@ def _emit_stage_outputs(
     if not results:
         return
     terminal = results[-1]
+    terminal_outcome = terminal_outcome_projector.project_terminal_outcome(
+        terminal_outcome_projector.TerminalOutcomeInput(
+            terminal_exit=terminal.exit_code,
+            terminal_state=terminal.analysis_state,
+            terminal_stage=terminal.stage_id,
+            terminal_status="unknown",
+            attempts_run=len(results),
+        )
+    )
     lines: list[str] = []
     for result in deadline_loop_iter(results):
         prefix = f"stage_{result.stage_id}"
@@ -779,14 +849,7 @@ def _emit_stage_outputs(
             ]
         )
     lines.extend(
-        [
-            f"attempts_run={len(results)}",
-            f"terminal_stage={terminal.stage_id.upper()}",
-            f"terminal_status={terminal.terminal_status}",
-            f"exit_code={terminal.exit_code}",
-            f"analysis_state={terminal.analysis_state}",
-            f"stage_metrics={terminal.metrics_line}",
-        ]
+        terminal_outcome.to_output_lines(stage_metrics=terminal.metrics_line)
     )
     _append_lines(output_path, lines)
 
@@ -1083,6 +1146,9 @@ def main(
             step_summary_path = Path(summary_env_text)
 
     stage_ids = _stage_ids(args.stage_id, int(args.max_attempts))
+    if not stage_ids:
+        print("No stage ids selected; max-attempts must resolve to at least one stage.", flush=True)
+        return 2
     paths = StagePaths(
         report_path=args.report,
         deadline_profile_json_path=args.deadline_profile_json,
@@ -1115,6 +1181,7 @@ def main(
     )
     debug_state_lock = threading.Lock()
     debug_interval_seconds = max(0, int(args.debug_dump_interval_seconds))
+    invocation_runner = dataflow_invocation_runner.DataflowInvocationRunner()
 
     def _emit_dump(reason: str) -> None:
         with debug_state_lock:
@@ -1139,7 +1206,10 @@ def main(
 
     restore_signal_handler = install_signal_debug_dump_handler_fn(emit_dump_fn=_emit_dump)
 
-    def _run_subprocess_with_debug(command: Sequence[str]) -> int:
+    def _run_command_with_debug(command: Sequence[str]) -> int:
+        envelope = _parse_stage_command_envelope(command)
+        if envelope is not None:
+            return int(invocation_runner.run_delta_bundle(envelope).exit_code)
         return run_subprocess_fn(
             command,
             heartbeat_interval_seconds=debug_interval_seconds,
@@ -1171,7 +1241,7 @@ def main(
                 stage_ids=stage_ids,
                 paths=paths,
                 step_summary_path=step_summary_path,
-                run_command_fn=_run_subprocess_with_debug,
+                run_command_fn=_run_command_with_debug,
                 strictness_by_stage=strictness_by_stage,
                 max_wall_seconds=(
                     int(args.max_wall_seconds)
@@ -1186,6 +1256,21 @@ def main(
             trace_payload = write_obligation_trace_fn(paths.obligation_trace_json_path, results)
             append_markdown_summary_fn(paths.deadline_profile_md_path, trace_payload)
             append_lines_fn(step_summary_path, _obligation_trace_summary_lines(trace_payload))
+            terminal_outcome = terminal_outcome_projector.terminal_outcome_from_stage_results(
+                [
+                    {
+                        "stage_id": result.stage_id,
+                        "exit_code": result.exit_code,
+                        "analysis_state": result.analysis_state,
+                    }
+                    for result in results
+                ]
+            )
+            if terminal_outcome is not None:
+                terminal_outcome_projector.write_terminal_outcome_artifact(
+                    _terminal_outcome_artifact_path(paths.report_path),
+                    terminal_outcome,
+                )
             emit_stage_outputs_fn(github_output_path, results)
         finally:
             restore_signal_handler()

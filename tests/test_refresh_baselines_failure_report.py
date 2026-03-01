@@ -21,6 +21,21 @@ def _cwd(path: Path):
         os.chdir(previous)
 
 
+def _guard_bundle(
+    *,
+    obsolescence,
+    annotation_drift,
+    ambiguity,
+    docflow,
+):
+    return refresh_baselines._RefreshGuardBundle(
+        obsolescence_delta=obsolescence,
+        annotation_drift_delta=annotation_drift,
+        ambiguity_delta=ambiguity,
+        docflow_delta=docflow,
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines_failure_report.py::test_refresh_baselines_writes_failure_artifact_on_check_failure::env_helpers.py::tests.env_helpers.env_scope::refresh_baselines.py::scripts.refresh_baselines._run_docflow_delta_emit::refresh_baselines.py::scripts.refresh_baselines._write_failure_artifact::refresh_baselines.py::scripts.refresh_baselines.main::test_refresh_baselines_failure_report.py::tests.test_refresh_baselines_failure_report._cwd
 def test_refresh_baselines_writes_failure_artifact_on_check_failure(
     tmp_path: Path,
@@ -59,10 +74,12 @@ def test_refresh_baselines_writes_failure_artifact_on_check_failure(
                         tick_ns=1_000_000,
                     )
                 ),
-                guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-                guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-                guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
-                guard_docflow_delta_fn=_guard_docflow_failure,
+                guard_bundle=_guard_bundle(
+                    obsolescence=lambda *args, **kwargs: None,
+                    annotation_drift=lambda *args, **kwargs: None,
+                    ambiguity=lambda *args, **kwargs: None,
+                    docflow=_guard_docflow_failure,
+                ),
             )
 
         artifact_path = refresh_baselines._write_failure_artifact(failure_info.value)
@@ -103,10 +120,12 @@ def test_refresh_baselines_clears_stale_failure_artifact(
                     tick_ns=1_000_000,
                 )
             ),
-            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
-            guard_docflow_delta_fn=_guard_docflow_with_current,
+            guard_bundle=_guard_bundle(
+                obsolescence=lambda *args, **kwargs: None,
+                annotation_drift=lambda *args, **kwargs: None,
+                ambiguity=lambda *args, **kwargs: None,
+                docflow=_guard_docflow_with_current,
+            ),
         )
 
         assert exit_code == 0

@@ -101,3 +101,72 @@ def test_script_record_returns_nonzero_when_entry_missing(
     assert exit_code == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload == {"ok": False}
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_reads_top_level_without_canonicalization
+def test_analysis_state_from_state_path_reads_top_level_without_canonicalization(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "z_key": {"nested": [3, 1, 2]},
+                "analysis_state": "timed_out_progress_resume",
+                "a_key": [{"k": "v"}, {"k": "w"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        aspf_handoff_script._analysis_state_from_state_path(state_path)
+        == "timed_out_progress_resume"
+    )
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_uses_resume_projection
+def test_analysis_state_from_state_path_uses_resume_projection(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "resume_projection": {
+                    "analysis_state": "timed_out_progress_resume",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        aspf_handoff_script._analysis_state_from_state_path(state_path)
+        == "timed_out_progress_resume"
+    )
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_returns_none_on_invalid_json
+def test_analysis_state_from_state_path_returns_none_on_invalid_json(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text("{invalid", encoding="utf-8")
+    assert aspf_handoff_script._analysis_state_from_state_path(state_path) == "none"
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_command_timeout_text_supports_split_and_equals_forms
+def test_command_timeout_text_supports_split_and_equals_forms() -> None:
+    assert (
+        aspf_handoff_script._command_timeout_text(
+            ["python", "-m", "gabion", "--timeout", "130000000000000ns", "check"]
+        )
+        == "130000000000000ns"
+    )
+    assert (
+        aspf_handoff_script._command_timeout_text(
+            ["python", "-m", "gabion", "--timeout=2m", "check"]
+        )
+        == "2m"
+    )
+    assert (
+        aspf_handoff_script._command_timeout_text(["python", "-m", "gabion", "check"])
+        is None
+    )

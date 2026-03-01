@@ -187,12 +187,8 @@ jobs:
         run: |
           .venv/bin/python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
-      - name: Policy check (no monkeypatch)
-        run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .
-      - name: Policy check (branchless)
-        run: .venv/bin/python scripts/branchless_policy_check.py --root .
-      - name: Policy check (defensive fallback)
-        run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
+      - name: Policy scanner suite
+        run: .venv/bin/python scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
       - name: Restore controller drift gate history
         continue-on-error: true
         env:
@@ -285,4 +281,5 @@ jobs:
             artifacts/out/governance_telemetry.json
             artifacts/out/governance_telemetry_history.json
             artifacts/out/controller_drift_gate_history.json
+            artifacts/out/policy_suite_results.json
             artifacts/audit_reports/governance_telemetry.md

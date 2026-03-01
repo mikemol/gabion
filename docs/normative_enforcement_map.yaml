@@ -53,16 +53,13 @@ clauses:
   NCI-SHIFT-AMBIGUITY-LEFT:
     status: partial
     enforcing_modules:
-      - scripts/branchless_policy_check.py
-      - scripts/defensive_fallback_policy_check.py
+      - scripts/policy_scanner_suite.py
+      - src/gabion/tooling/policy_scanner_suite.py
       - src/gabion/tooling/ambiguity_contract_policy_check.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
-        step: Policy check (branchless)
-      - workflow: .github/workflows/ci.yml
-        job: checks
-        step: Policy check (defensive fallback)
+        step: Policy scanner suite
       - workflow: .github/workflows/ci.yml
         job: checks
         step: Policy check (ambiguity contract)
