@@ -8,6 +8,7 @@ from gabion.exceptions import NeverThrown
 from gabion.tooling.execution_envelope import ExecutionEnvelope
 
 
+# gabion:evidence E:call_footprint::tests/test_execution_envelope.py::test_execution_envelope_for_delta_bundle_and_raw::execution_envelope.py::gabion.tooling.execution_envelope.ExecutionEnvelope.validate
 def test_execution_envelope_for_delta_bundle_and_raw() -> None:
     delta = ExecutionEnvelope.for_delta_bundle(
         root=Path("."),
@@ -31,6 +32,7 @@ def test_execution_envelope_for_delta_bundle_and_raw() -> None:
     assert raw.report_path is None
 
 
+# gabion:evidence E:call_footprint::tests/test_execution_envelope.py::test_execution_envelope_validate_rejects_invalid_shapes::execution_envelope.py::gabion.tooling.execution_envelope.ExecutionEnvelope.validate
 def test_execution_envelope_validate_rejects_invalid_shapes() -> None:
     with pytest.raises(NeverThrown):
         ExecutionEnvelope(

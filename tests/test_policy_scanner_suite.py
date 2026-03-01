@@ -11,6 +11,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_and_cache::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -48,6 +49,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert second.rule_set_hash == first.rule_set_hash
 
 
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     tmp_path: Path,
 ) -> None:
@@ -85,6 +87,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert invalidated.inventory_hash != baseline.inventory_hash
 
 
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_cache_and_payload_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 def test_policy_scanner_suite_private_cache_and_payload_branches(
     tmp_path: Path,
 ) -> None:
@@ -111,6 +114,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["no_monkeypatch"] == []
 
 
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Path) -> None:
     root = tmp_path
     external_file = root / "external.py"

@@ -270,6 +270,7 @@ def test_phase_progress_from_notification_prefers_transition_v2_event_kind() -> 
     assert phase_progress["event_kind"] == "terminal"
 
 
+# gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_emits_transition_detail_columns::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
 def test_phase_timeline_row_emits_transition_detail_columns() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {

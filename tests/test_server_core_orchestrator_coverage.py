@@ -244,6 +244,7 @@ def _progress_transition_state(
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_allows_table_driven_valid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
 @pytest.mark.parametrize(
     ("previous_kwargs", "current_kwargs", "expected_reason", "expected_event_kind"),
     [
@@ -285,6 +286,7 @@ def test_progress_transition_validator_allows_table_driven_valid_sequences(
     assert decision.effective_event_kind == expected_event_kind
 
 
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_table_driven_invalid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
 @pytest.mark.parametrize(
     ("previous_kwargs", "current_kwargs"),
     [
@@ -323,6 +325,7 @@ def test_progress_transition_validator_rejects_table_driven_invalid_sequences(
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_complete_marker_before_parent_completion::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
 def test_progress_transition_validator_rejects_complete_marker_before_parent_completion() -> None:
     with pytest.raises(NeverThrown):
         orchestrator._validate_progress_transition_or_never(
@@ -331,6 +334,7 @@ def test_progress_transition_validator_rejects_complete_marker_before_parent_com
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_normalizes_terminal_and_suppresses_replay::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
 def test_progress_transition_validator_normalizes_terminal_and_suppresses_replay() -> None:
     previous = _progress_transition_state(done=6, marker="fingerprint:done")
     terminal = _progress_transition_state(done=6, marker="complete")

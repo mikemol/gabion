@@ -10,6 +10,7 @@ from gabion.tooling.dataflow_invocation_runner import DataflowInvocationRunner
 from gabion.tooling.execution_envelope import ExecutionEnvelope
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check() -> None:
     captured: dict[str, object] = {}
 
@@ -34,6 +35,7 @@ def test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check() -> No
     assert captured["aspf_import_state"] == [Path("out/import.json").resolve()]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope() -> None:
     runner = DataflowInvocationRunner(run_check_fn=lambda **_kwargs: {})
     envelope = ExecutionEnvelope.for_raw(
@@ -45,6 +47,7 @@ def test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope() -> None:
         runner.run_delta_bundle(envelope)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch() -> None:
     dispatched: dict[str, object] = {}
 
@@ -77,6 +80,7 @@ def test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch() -> None:
     assert payload["aspf_import_state"] == [str(Path("out/import.json").resolve())]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> None:
     fake_cli = SimpleNamespace(
         run_check=lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"},
@@ -91,6 +95,7 @@ def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> No
     assert getattr(cli_module, "__name__", "") == "gabion.cli"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_ensures_repo_root_importable::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(parents=True, exist_ok=True)
@@ -107,6 +112,7 @@ def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path)
         sys.path = original_path
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> None:
     dispatched: dict[str, object] = {}
     fake_cli = SimpleNamespace(
@@ -133,6 +139,7 @@ def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> No
     assert "aspf_state_json" not in payload
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_rejects_delta_envelope::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_raw_rejects_delta_envelope() -> None:
     fake_cli = SimpleNamespace(
         parse_dataflow_args_or_exit=lambda _args: SimpleNamespace(root="."),

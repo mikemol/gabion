@@ -8,6 +8,7 @@ from gabion.exceptions import NeverThrown
 from gabion.tooling import terminal_outcome_projector
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_project_terminal_outcome_normalizes_status_matrix::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_project_terminal_outcome_normalizes_status_matrix() -> None:
     cases = [
         (
@@ -58,6 +59,7 @@ def test_project_terminal_outcome_normalizes_status_matrix() -> None:
         assert projected.terminal_stage == payload.terminal_stage.upper()
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_project_terminal_outcome_invalid_status_raises::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_project_terminal_outcome_invalid_status_raises() -> None:
     with pytest.raises(NeverThrown):
         terminal_outcome_projector.project_terminal_outcome(
@@ -71,6 +73,7 @@ def test_project_terminal_outcome_invalid_status_raises() -> None:
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_terminal_outcome_from_stage_results_and_roundtrip::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_terminal_outcome_from_stage_results_and_roundtrip(tmp_path: Path) -> None:
     assert terminal_outcome_projector.terminal_outcome_from_stage_results([]) is None
 
@@ -88,12 +91,14 @@ def test_terminal_outcome_from_stage_results_and_roundtrip(tmp_path: Path) -> No
     assert loaded == outcome
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_terminal_outcome_read_non_mapping_returns_none::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_terminal_outcome_read_non_mapping_returns_none(tmp_path: Path) -> None:
     path = tmp_path / "terminal.json"
     path.write_text("[]\n", encoding="utf-8")
     assert terminal_outcome_projector.read_terminal_outcome_artifact(path) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_terminal_outcome_read_missing_path_returns_none::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_terminal_outcome_read_missing_path_returns_none(tmp_path: Path) -> None:
     assert (
         terminal_outcome_projector.read_terminal_outcome_artifact(
@@ -103,6 +108,7 @@ def test_terminal_outcome_read_missing_path_returns_none(tmp_path: Path) -> None
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_terminal_outcome_projector.py::test_terminal_outcome_render_line::terminal_outcome_projector.py::gabion.tooling.terminal_outcome_projector.project_terminal_outcome
 def test_terminal_outcome_render_line() -> None:
     outcome = terminal_outcome_projector.project_terminal_outcome(
         terminal_outcome_projector.TerminalOutcomeInput(

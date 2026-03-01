@@ -9,6 +9,7 @@ import pytest
 from gabion.tooling import diff_evidence_index
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_parse_changed_lines_and_dev_null_branch::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_parse_changed_lines_and_dev_null_branch() -> None:
     diff = """diff --git a/src/a.py b/src/a.py
 --- a/src/a.py
@@ -29,6 +30,7 @@ diff --git a/src/b.py b/src/b.py
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_diff_evidence_json_load_and_refresh_failure::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_diff_evidence_json_load_and_refresh_failure(tmp_path: Path) -> None:
     broken_json = tmp_path / "broken.json"
     broken_json.write_text("{bad", encoding="utf-8")
@@ -41,6 +43,7 @@ def test_diff_evidence_json_load_and_refresh_failure(tmp_path: Path) -> None:
     assert refreshed is False
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_diff_evidence_key_fallback_tree_hash::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_diff_evidence_key_fallback_tree_hash(tmp_path: Path) -> None:
     key = diff_evidence_index.diff_evidence_key(
         root=tmp_path,
@@ -53,6 +56,7 @@ def test_diff_evidence_key_fallback_tree_hash(tmp_path: Path) -> None:
     assert key["tree_hash"]
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_write_diff_evidence_artifacts::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_write_diff_evidence_artifacts(tmp_path: Path) -> None:
     changed = [diff_evidence_index.ChangedLine(path="src/app.py", line=7)]
     changed_path = tmp_path / "artifacts/out/changed_lines.json"
@@ -72,6 +76,7 @@ def test_write_diff_evidence_artifacts(tmp_path: Path) -> None:
     assert meta_payload["changed_paths"] == ["src/app.py"]
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_build_diff_evidence_index_on_git_repo::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_build_diff_evidence_index_on_git_repo(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir(parents=True, exist_ok=True)
@@ -113,6 +118,7 @@ def test_build_diff_evidence_index_on_git_repo(tmp_path: Path) -> None:
     assert result.index_payload is not None
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_build_diff_evidence_index_missing_index_triggers_refresh_attempt::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_build_diff_evidence_index_missing_index_triggers_refresh_attempt(
     tmp_path: Path,
 ) -> None:
@@ -153,6 +159,7 @@ def test_build_diff_evidence_index_missing_index_triggers_refresh_attempt(
     assert result.index_payload is None
 
 
+# gabion:evidence E:call_footprint::tests/test_diff_evidence_index.py::test_git_diff_changed_lines_raises_on_bad_ref::diff_evidence_index.py::gabion.tooling.diff_evidence_index.build_diff_evidence_index
 def test_git_diff_changed_lines_raises_on_bad_ref(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):
         diff_evidence_index.git_diff_changed_lines(

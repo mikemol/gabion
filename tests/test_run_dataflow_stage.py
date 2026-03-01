@@ -1383,6 +1383,7 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
     assert summary_paths == [None]
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_command_envelope_branch_matrix::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
 def test_parse_stage_command_envelope_branch_matrix() -> None:
     assert run_dataflow_stage._parse_stage_command_envelope([]) is None
     assert run_dataflow_stage._parse_stage_command_envelope(["python", "-m", "gabion"]) is None
@@ -1450,6 +1451,7 @@ def test_parse_stage_command_envelope_branch_matrix() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_main_prefers_in_process_delta_runner_and_handles_empty_results::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main
 def test_main_prefers_in_process_delta_runner_and_handles_empty_results(
     tmp_path: Path,
 ) -> None:

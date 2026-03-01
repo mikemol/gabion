@@ -433,6 +433,7 @@ def test_event_from_payload_returns_none_for_unknown_kind() -> None:
     assert aspf_handoff._event_from_payload({"event": "legacy"}) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_import_state_paths_policy_edges::aspf_handoff.py::scripts.aspf_handoff.import_state_paths_for_step
 def test_import_state_paths_policy_edges(tmp_path: Path) -> None:
     resume_path = tmp_path / "state" / "resume.json"
     resume_path.parent.mkdir(parents=True, exist_ok=True)
