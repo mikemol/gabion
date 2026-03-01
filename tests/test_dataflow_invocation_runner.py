@@ -91,19 +91,20 @@ def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> No
     assert getattr(cli_module, "__name__", "") == "gabion.cli"
 
 
-def test_dataflow_invocation_runner_ensures_repo_root_importable(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
+def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(parents=True, exist_ok=True)
     root_text = str(repo_root)
-    monkeypatch.setattr(sys, "path", [entry for entry in sys.path if entry != root_text])
-    runner = DataflowInvocationRunner()
-    runner._ensure_repo_root_importable(repo_root)
-    assert sys.path[0] == root_text
-    runner._ensure_repo_root_importable(repo_root)
-    assert sys.path.count(root_text) == 1
+    original_path = list(sys.path)
+    try:
+        sys.path = [entry for entry in original_path if entry != root_text]
+        runner = DataflowInvocationRunner()
+        runner._ensure_repo_root_importable(repo_root)
+        assert sys.path[0] == root_text
+        runner._ensure_repo_root_importable(repo_root)
+        assert sys.path.count(root_text) == 1
+    finally:
+        sys.path = original_path
 
 
 def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> None:
