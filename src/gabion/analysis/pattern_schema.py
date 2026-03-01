@@ -62,24 +62,10 @@ def execution_signature(
     )
 
 
-def legacy_pattern_schema_id(*, axis: PatternAxis, kind: str, signature: Mapping[str, JSONValue]) -> str:
-    check_deadline()
-    normalized = normalize_signature(signature)
-    identity_contract = build_identity_contract(
-        axis=IdentityAxis.SCHEMA,
-        kind=kind,
-        payload={
-            "axis": axis.value,
-            "signature": normalized,
-        },
-    )
-    return f"{axis.value}:{kind}:{identity_contract.digest}"
-
 
 @dataclass(frozen=True)
 class PatternSchema:
     schema_id: str
-    legacy_schema_id: str
     schema_contract: str
     axis: PatternAxis
     kind: str
@@ -100,11 +86,6 @@ class PatternSchema:
         normalized_signature = normalize_signature(signature)
         return cls(
             schema_id=pattern_schema_id(kind=kind, signature=normalized_signature),
-            legacy_schema_id=legacy_pattern_schema_id(
-                axis=axis,
-                kind=kind,
-                signature=normalized_signature,
-            ),
             schema_contract=PATTERN_SCHEMA_CONTRACT_VERSION,
             axis=axis,
             kind=kind,
