@@ -762,6 +762,7 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-anchor: CD-008 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/defensive_fallback_policy_check.py | severity: high`
 - `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/check_pr_governance_template.py | severity: high`
 - `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_telemetry_emit.py | severity: high`
+- `controller-anchor: CD-011 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy_scanner_suite.py | severity: high`
 
 **Audited normative-doc set (single source of truth):**
 - `controller-normative-doc: POLICY_SEED.md`
