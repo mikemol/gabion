@@ -4057,7 +4057,6 @@ def _pattern_schema_snapshot_entries(
             {
                     "schema": {
                         "schema_id": instance.schema.schema_id,
-                        "legacy_schema_id": instance.schema.legacy_schema_id,
                         "schema_contract": instance.schema.schema_contract,
                         "axis": instance.schema.axis.value,
                         "kind": instance.schema.kind,

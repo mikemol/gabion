@@ -1379,7 +1379,7 @@ def test_pattern_schema_id_is_shared_across_axes_for_identical_shape() -> None:
     )
 
     assert dataflow_schema.schema_id == execution_schema.schema_id
-    assert dataflow_schema.legacy_schema_id != execution_schema.legacy_schema_id
+    assert dataflow_schema.axis != execution_schema.axis
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_helpers.py::test_pattern_schema_identity_is_stable_for_permuted_fixtures::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::test_dataflow_audit_helpers.py::tests.test_dataflow_audit_helpers._load
 def test_pattern_schema_identity_is_stable_for_permuted_fixtures() -> None:
