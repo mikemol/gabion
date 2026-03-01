@@ -145,11 +145,11 @@ Each loop entry must define:
 - **sensor:** docflow compliance emitters in `src/gabion/tooling/governance_audit.py` and `gabion docflow`.
 - **state artifact:** `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`, and `artifacts/audit_reports/docflow_compliance.md`.
 - **target predicate:** normative docs satisfy frontmatter/review invariants, contradiction delta remains zero, and every required loop domain is declared.
-- **error signal:** docflow violations or positive contradiction delta.
+- **error signal:** docflow warnings/violations or positive contradiction delta.
 - **actuator:** update governance docs, references, review pins, and loop declarations.
 - **max correction step:** one coherent doc revision cycle.
 - **verification command:** `mise exec -- python -m gabion docflow --fail-on-violations`.
-- **escalation threshold:** repeated docflow violation after one coherent cycle.
+- **escalation threshold:** repeated blocking docflow finding after one coherent cycle.
 
 ### 3) LSP architecture
 

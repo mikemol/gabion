@@ -1,5 +1,5 @@
 ---
-doc_revision: 52
+doc_revision: 53
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -31,7 +31,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
 doc_sections:
-  influence_index: 2
+  influence_index: 3
 doc_section_requires:
   influence_index:
     - POLICY_SEED.md#policy_seed
@@ -44,32 +44,32 @@ doc_section_reviews:
   influence_index:
     POLICY_SEED.md#policy_seed:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
     glossary.md#handledness_witness:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -136,3 +136,16 @@ Status legend:
 - in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
 - in/in-37.md — [**adopted**](docs/sppf_checklist.md#in-37-dynamic-dispatch-uncertainty) (callee resolution now distinguishes `unresolved_dynamic` from unresolved internal/external states and emits a dedicated `unresolved_dynamic_callee` obligation kind.)
 - in/in-38.md — **partial** (formalized ASPF mutation log-structured persistence design with partial implementation now landed: protobuf payload records, protobuf-defined filesystem envelope projection, and tar-packaged archive transport with migration compatibility behavior; checklist tracks remaining completion work; SPPF/GH-196.)
+- in/in-46.md — **queued** (fiber-coloring model proposal for taint-permitted versus strict regions and explicit crossing laws.)
+- in/in-47.md — **queued** (erasure morphism witness schema proposal with deterministic witness identity contract.)
+- in/in-48.md — **queued** (boundary registry proposal defining legal erasure loci and expiry-managed temporary boundaries.)
+- in/in-49.md — **queued** (unified taint ledger proposal across state, baseline, and delta carriers.)
+- in/in-50.md — **queued** (boolean ambiguity taint/erasure proposal for strict-core ingress control.)
+- in/in-51.md — **queued** (type ambiguity erasure proposal for ingress normalization into strict contracts.)
+- in/in-52.md — **queued** (control ambiguity budget and essential-branch justification proposal with ratchet framing.)
+- in/in-53.md — **queued** (promotion protocol proposal for experimental to boundary to strict-core readiness.)
+- in/in-54.md — **queued** (quotiented scenario algebra contract for profile-indexed test optimization.)
+- in/in-55.md — **queued** (corpus projection and quotient migration protocol for deterministic class assignment.)
+- in/in-56.md — **queued** (graded execution strategy for quotient classes with deterministic routing and budgets.)
+- in/in-57.md — **queued** (governance ratchets for quotient integrity, assignment debt, and routing quality floors.)
+- in/in-58.md — **queued** (convergence and promotion lifecycle protocol for quotient plus graded optimization rollout.)
