@@ -159,6 +159,41 @@ def test_run_with_aspf_lifecycle_enabled_missing_state_defaults_to_exit_status()
     assert result.analysis_state == "succeeded"
 
 
+# gabion:evidence E:function_site::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_missing_state_uses_analysis_state_hint
+def test_run_with_aspf_lifecycle_missing_state_uses_analysis_state_hint() -> None:
+    state_path = Path("/tmp/nonexistent.snapshot.json")
+    prepared = _Prepared(
+        sequence=1,
+        session_id="session-1",
+        step_id="step",
+        command_profile="profile",
+        state_path=state_path,
+        delta_path=Path("/tmp/nonexistent.delta.jsonl"),
+        import_state_paths=(),
+        manifest_path=Path("/tmp/aspf_manifest.json"),
+        started_at_utc="2026-01-01T00:00:00Z",
+    )
+    config = aspf_lifecycle.AspfLifecycleConfig(
+        enabled=True,
+        root=Path("."),
+        session_id="session-1",
+        manifest_path=Path("manifest.json"),
+        state_root=Path("state"),
+    )
+    result = aspf_lifecycle.run_with_aspf_lifecycle(
+        config=config,
+        step_id="step",
+        command_profile="profile",
+        command=["python", "-m", "gabion", "check", "delta-bundle"],
+        run_command_fn=lambda _command: 2,
+        analysis_state_from_state_path_fn=lambda _path: "timed_out_progress_resume",
+        prepare_step_fn=lambda **_kwargs: prepared,
+        aspf_cli_args_fn=lambda _step: [],
+        record_step_fn=lambda **_kwargs: True,
+    )
+    assert result.analysis_state == "timed_out_progress_resume"
+
+
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_record_failure_raises::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
 def test_run_with_aspf_lifecycle_record_failure_raises() -> None:
     prepared = _Prepared(
