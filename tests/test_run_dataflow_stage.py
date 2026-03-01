@@ -1381,3 +1381,189 @@ def test_run_dataflow_stage_remaining_branch_edges_for_progress_resume_and_main_
         )
     assert output_paths == [None]
     assert summary_paths == [None]
+
+
+def test_parse_stage_command_envelope_branch_matrix() -> None:
+    assert run_dataflow_stage._parse_stage_command_envelope([]) is None
+    assert run_dataflow_stage._parse_stage_command_envelope(["python", "-m", "gabion"]) is None
+    assert (
+        run_dataflow_stage._parse_stage_command_envelope(
+            ["python", "-m", "gabion", "check"]
+        )
+        is None
+    )
+    assert (
+        run_dataflow_stage._parse_stage_command_envelope(
+            ["python", "-m", "gabion", "check", "raw"]
+        )
+        is None
+    )
+    assert (
+        run_dataflow_stage._parse_stage_command_envelope(
+            ["python", "-m", "gabion", "check", "delta-bundle", "--report"]
+        )
+        is None
+    )
+    envelope = run_dataflow_stage._parse_stage_command_envelope(
+        [
+            "python",
+            "-m",
+            "gabion",
+            "check",
+            "delta-bundle",
+            "--report",
+            "artifacts/audit_reports/dataflow_report.md",
+            "--strictness",
+            "low",
+            "--aspf-state-json",
+            "artifacts/out/state.json",
+            "--aspf-delta-jsonl",
+            "artifacts/out/delta.jsonl",
+            "--aspf-import-state",
+            "artifacts/out/import1.json",
+            "--aspf-import-state",
+            "artifacts/out/import2.json",
+        ]
+    )
+    assert envelope is not None
+    assert envelope.operation == "delta_bundle"
+    assert envelope.strictness == "low"
+    assert len(envelope.aspf_import_state) == 2
+    envelope_with_unknown = run_dataflow_stage._parse_stage_command_envelope(
+        [
+            "python",
+            "-m",
+            "gabion",
+            "check",
+            "delta-bundle",
+            "--report",
+            "artifacts/audit_reports/dataflow_report.md",
+            "--unknown-option",
+            "value",
+            "--aspf-import-state",
+            "artifacts/out/import3.json",
+        ]
+    )
+    assert envelope_with_unknown is not None
+    assert envelope_with_unknown.aspf_import_state == (
+        Path("artifacts/out/import3.json").resolve(),
+    )
+
+
+def test_main_prefers_in_process_delta_runner_and_handles_empty_results(
+    tmp_path: Path,
+) -> None:
+    paths = _base_paths(tmp_path)
+    _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
+
+    class _RunnerStub:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def run_delta_bundle(self, envelope):
+            _ = envelope
+            self.calls += 1
+
+            class _Result:
+                exit_code = 7
+
+            return _Result()
+
+    runner_stub = _RunnerStub()
+    original_runner_cls = run_dataflow_stage.dataflow_invocation_runner.DataflowInvocationRunner
+    original_stage_ids_fn = run_dataflow_stage._stage_ids
+    try:
+        run_dataflow_stage.dataflow_invocation_runner.DataflowInvocationRunner = lambda: runner_stub  # type: ignore[assignment]
+
+        def _run_staged_fn(**kwargs):
+            run_command_fn = kwargs["run_command_fn"]
+            exit_code = run_command_fn(
+                [
+                    sys.executable,
+                    "-m",
+                    "gabion",
+                    "check",
+                    "delta-bundle",
+                    "--report",
+                    str(paths["report"]),
+                ]
+            )
+            assert exit_code == 7
+            return []
+
+        exit_code = run_dataflow_stage.main(
+            [
+                "--stage-id",
+                "run",
+                "--max-attempts",
+                "1",
+                "--report",
+                str(paths["report"]),
+                "--baseline",
+                str(paths["baseline"]),
+                "--deadline-profile-json",
+                str(paths["deadline_json"]),
+                "--deadline-profile-md",
+                str(paths["deadline_md"]),
+                "--obligation-trace-json",
+                str(_obligation_trace_path(paths)),
+            ],
+            run_staged_fn=_run_staged_fn,
+            write_obligation_trace_fn=lambda _path, _results: {
+                "summary": {
+                    "total": 0,
+                    "satisfied": 0,
+                    "unsatisfied": 0,
+                    "skipped_by_policy": 0,
+                },
+                "complete": True,
+                "incompleteness_markers": [],
+            },
+            append_markdown_summary_fn=lambda _path, _payload: None,
+            append_lines_fn=lambda _path, _lines: None,
+            emit_stage_outputs_fn=lambda _path, _results: None,
+            reset_run_observability_artifacts_fn=lambda _paths: None,
+            install_signal_debug_dump_handler_fn=lambda **_kwargs: (lambda: None),
+            run_subprocess_fn=lambda _command, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("subprocess fallback should not run")
+            ),
+            deadline_scope_factory=_noop_scope,
+        )
+        assert exit_code == 0
+        assert runner_stub.calls == 1
+
+        run_dataflow_stage._stage_ids = lambda _stage_id, _max_attempts: []  # type: ignore[assignment]
+        assert (
+            run_dataflow_stage.main(
+                [
+                    "--stage-id",
+                    "run",
+                    "--max-attempts",
+                    "1",
+                    "--report",
+                    str(paths["report"]),
+                ],
+                run_staged_fn=lambda **_kwargs: [],
+                write_obligation_trace_fn=lambda _path, _results: {
+                    "summary": {
+                        "total": 0,
+                        "satisfied": 0,
+                        "unsatisfied": 0,
+                        "skipped_by_policy": 0,
+                    },
+                    "complete": True,
+                    "incompleteness_markers": [],
+                },
+                append_markdown_summary_fn=lambda _path, _payload: None,
+                append_lines_fn=lambda _path, _lines: None,
+                emit_stage_outputs_fn=lambda _path, _results: None,
+                reset_run_observability_artifacts_fn=lambda _paths: None,
+                install_signal_debug_dump_handler_fn=lambda **_kwargs: (lambda: None),
+                run_subprocess_fn=lambda _command, **_kwargs: 0,
+                deadline_scope_factory=_noop_scope,
+            )
+            == 2
+        )
+    finally:
+        run_dataflow_stage.dataflow_invocation_runner.DataflowInvocationRunner = original_runner_cls
+        run_dataflow_stage._stage_ids = original_stage_ids_fn

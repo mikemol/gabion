@@ -6,101 +6,34 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
-import subprocess
-import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
 from gabion.order_contract import sort_once
+from gabion.tooling import diff_evidence_index
 
-_HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
-
-
-@dataclass(frozen=True)
-class ChangedLine:
-    path: str
-    line: int
+ChangedLine = diff_evidence_index.ChangedLine
 
 
 def _parse_changed_lines(diff_text: str) -> list[ChangedLine]:
-    changed: list[ChangedLine] = []
-    current_path: str | None = None
-    for raw_line in diff_text.splitlines():
-        if raw_line.startswith("+++ "):
-            path_token = raw_line[4:].strip()
-            if path_token == "/dev/null":
-                current_path = None
-                continue
-            if path_token.startswith("b/"):
-                path_token = path_token[2:]
-            current_path = path_token
-            continue
-        if current_path is None:
-            continue
-        match = _HUNK_RE.match(raw_line)
-        if match is None:
-            continue
-        start = int(match.group("start"))
-        count = int(match.group("count") or "1")
-        if count <= 0:
-            continue
-        changed.extend(ChangedLine(path=current_path, line=start + offset) for offset in range(count))
-    return changed
+    return diff_evidence_index.parse_changed_lines(diff_text)
 
 
 def _git_diff_changed_lines(root: Path, *, base: str | None, head: str | None) -> list[ChangedLine]:
-    if base and head:
-        diff_range = f"{base}...{head}"
-        cmd = ["git", "diff", "--unified=0", diff_range]
-    elif base:
-        cmd = ["git", "diff", "--unified=0", base]
-    else:
-        cmd = ["git", "diff", "--unified=0"]
-    proc = subprocess.run(
-        cmd,
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        message = proc.stderr.strip() or proc.stdout.strip() or "git diff failed"
-        raise RuntimeError(message)
-    return _parse_changed_lines(proc.stdout)
+    return diff_evidence_index.git_diff_changed_lines(root, base=base, head=head)
 
 
 def _load_json(path: Path) -> Mapping[str, object] | None:
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return payload if isinstance(payload, Mapping) else None
+    return diff_evidence_index.load_json(path)
 
 
 def _refresh_index(root: Path, index_path: Path, tests_root: str) -> bool:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "scripts.extract_test_evidence",
-            "--root",
-            str(root),
-            "--tests",
-            tests_root,
-            "--out",
-            str(index_path),
-        ],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
+    return diff_evidence_index.refresh_test_evidence_index(
+        root,
+        index_path=index_path,
+        tests_root=tests_root,
     )
-    return proc.returncode == 0
 
 
 def _site_matches_changed_lines(site: Mapping[str, object], lines_by_path: dict[str, set[int]]) -> bool:
@@ -236,6 +169,14 @@ def main(
     parser.add_argument("--index", default="out/test_evidence.json")
     parser.add_argument("--tests-root", default="tests")
     parser.add_argument("--out", default="artifacts/audit_reports/impact_selection.json")
+    parser.add_argument(
+        "--changed-lines-artifact",
+        default="artifacts/out/changed_lines.json",
+    )
+    parser.add_argument(
+        "--evidence-meta-artifact",
+        default="artifacts/out/evidence_index_meta.json",
+    )
     parser.add_argument("--confidence-threshold", type=float, default=0.6)
     parser.add_argument("--stale-seconds", type=int, default=86_400)
     parser.add_argument("--must-run-file")
@@ -246,34 +187,79 @@ def main(
     root = Path(args.root).resolve()
     index_path = root / args.index
     output_path = root / args.out
+    changed_lines_artifact_path = root / args.changed_lines_artifact
+    evidence_meta_artifact_path = root / args.evidence_meta_artifact
 
     diff_error: str | None = None
-    try:
-        if git_diff_changed_lines_fn is None:
-            changed_lines = _git_diff_changed_lines(root, base=args.diff_base, head=args.diff_head)
+    changed_lines: list[ChangedLine]
+    changed_paths: list[str]
+    index_payload: Mapping[str, object] | None
+    stale: bool
+    refreshed: bool
+    index_key = diff_evidence_index.diff_evidence_key(
+        root=root,
+        base=args.diff_base,
+        head=args.diff_head,
+        index_path=index_path,
+    )
+    if git_diff_changed_lines_fn is None:
+        try:
+            diff_index_result = diff_evidence_index.build_diff_evidence_index(
+                root=root,
+                base=args.diff_base,
+                head=args.diff_head,
+                index_path=index_path,
+                tests_root=args.tests_root,
+                stale_seconds=args.stale_seconds,
+                no_refresh=bool(args.no_refresh),
+            )
+        except RuntimeError as exc:
+            diff_error = str(exc) or "git diff failed"
+            changed_lines = []
+            changed_paths = []
+            index_payload = diff_evidence_index.load_json(index_path)
+            stale = index_payload is None
+            refreshed = False
         else:
+            changed_lines = diff_index_result.changed_lines
+            changed_paths = diff_index_result.changed_paths
+            index_payload = diff_index_result.index_payload
+            stale = diff_index_result.stale
+            refreshed = diff_index_result.refreshed
+            index_key = dict(diff_index_result.key)
+    else:
+        try:
             changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
-    except RuntimeError as exc:
-        diff_error = str(exc) or "git diff failed"
-        changed_lines = []
-    changed_count = len(changed_lines)
-    changed_paths = sort_once(
-        {item.path for item in changed_lines},
-        source="main.changed_paths",
+        except RuntimeError as exc:
+            diff_error = str(exc) or "git diff failed"
+            changed_lines = []
+        changed_paths = sort_once(
+            {item.path for item in changed_lines},
+            source="main.changed_paths",
+        )
+        index_payload = _load_json(index_path)
+        stale = False
+        refreshed = False
+        if index_payload is None:
+            stale = True
+        elif args.stale_seconds >= 0:
+            age_seconds = time.time() - index_path.stat().st_mtime
+            stale = age_seconds > args.stale_seconds
+        if (index_payload is None or stale) and not args.no_refresh:
+            refreshed = _refresh_index(root, index_path, args.tests_root)
+            index_payload = _load_json(index_path)
+
+    diff_evidence_index.write_diff_evidence_artifacts(
+        changed_lines_path=changed_lines_artifact_path,
+        meta_path=evidence_meta_artifact_path,
+        changed_lines=changed_lines,
+        key=index_key,
+        stale=stale,
+        refreshed=refreshed,
+        index_path=index_path,
     )
 
-    index_payload = _load_json(index_path)
-    stale = False
-    refreshed = False
-    if index_payload is None:
-        stale = True
-    elif args.stale_seconds >= 0:
-        age_seconds = time.time() - index_path.stat().st_mtime
-        stale = age_seconds > args.stale_seconds
-
-    if (index_payload is None or stale) and not args.no_refresh:
-        refreshed = _refresh_index(root, index_path, args.tests_root)
-        index_payload = _load_json(index_path)
+    changed_count = len(changed_lines)
 
     must_run_tests = _read_must_run_tests(
         Path(args.must_run_file) if args.must_run_file else None,
@@ -351,4 +337,3 @@ def main(
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     print(f"wrote {output_path}")
     return 0
-

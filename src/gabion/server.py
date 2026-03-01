@@ -36,7 +36,13 @@ from lsprotocol.types import (
 )
 
 from gabion.json_types import JSONObject, JSONValue
-from gabion.commands import boundary_order, command_ids, direct_dispatch, payload_codec
+from gabion.commands import (
+    boundary_order,
+    command_ids,
+    direct_dispatch,
+    payload_codec,
+    progress_contract as progress_timeline,
+)
 from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
     ExecutionPlan,
@@ -1795,34 +1801,6 @@ def _phase_progress_dimensions_summary(
     return "; ".join(fragments)
 
 
-def _phase_progress_primary_summary(
-    phase_progress_v2: Mapping[str, JSONValue] | None,
-) -> tuple[str, int | None, int | None]:
-    if not isinstance(phase_progress_v2, Mapping):
-        return "", None, None
-    primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
-    raw_done = phase_progress_v2.get("primary_done")
-    raw_total = phase_progress_v2.get("primary_total")
-    primary_done = (
-        max(int(raw_done), 0)
-        if isinstance(raw_done, int) and not isinstance(raw_done, bool)
-        else None
-    )
-    primary_total = (
-        max(int(raw_total), 0)
-        if isinstance(raw_total, int) and not isinstance(raw_total, bool)
-        else None
-    )
-    if (
-        primary_done is not None
-        and primary_total is not None
-        and primary_total > 0
-        and primary_done > primary_total
-    ):
-        primary_done = primary_total
-    return primary_unit, primary_done, primary_total
-
-
 def _append_phase_timeline_event(
     *,
     markdown_path: Path,
@@ -1832,66 +1810,9 @@ def _append_phase_timeline_event(
     header = _phase_timeline_header_columns()
     header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
     separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
-    ts_utc = str(progress_value.get("ts_utc", "") or "")
-    event_seq = progress_value.get("event_seq")
-    event_kind = str(progress_value.get("event_kind", "") or "")
-    phase = str(progress_value.get("phase", "") or "")
-    analysis_state = str(progress_value.get("analysis_state", "") or "")
-    classification = str(progress_value.get("classification", "") or "")
-    progress_marker = str(progress_value.get("progress_marker", "") or "")
-    primary_unit, primary_done, primary_total = _phase_progress_primary_summary(
-        progress_value.get("phase_progress_v2")
-        if isinstance(progress_value.get("phase_progress_v2"), Mapping)
-        else None
-    )
-    if primary_done is not None and primary_total is not None:
-        primary = f"{primary_done}/{primary_total}"
-        if primary_unit:
-            primary = f"{primary} {primary_unit}"
-    elif primary_unit:
-        primary = primary_unit
-    else:
-        primary = ""
-    completed_files = progress_value.get("completed_files")
-    remaining_files = progress_value.get("remaining_files")
-    total_files = progress_value.get("total_files")
-    files = ""
-    if (
-        isinstance(completed_files, int)
-        and not isinstance(completed_files, bool)
-        and isinstance(remaining_files, int)
-        and not isinstance(remaining_files, bool)
-        and isinstance(total_files, int)
-        and not isinstance(total_files, bool)
-    ):
-        files = f"{completed_files}/{total_files} rem={remaining_files}"
-    raw_stale_for_s = progress_value.get("stale_for_s")
-    stale_for_s = (
-        f"{float(raw_stale_for_s):.1f}"
-        if isinstance(raw_stale_for_s, (int, float))
-        else ""
-    )
-    dimensions_summary = _phase_progress_dimensions_summary(
-        progress_value.get("phase_progress_v2")
-        if isinstance(progress_value.get("phase_progress_v2"), Mapping)
-        else None
-    )
-    row = [
-        ts_utc,
-        event_seq if isinstance(event_seq, int) else "",
-        event_kind,
-        phase,
-        analysis_state,
-        classification,
-        progress_marker,
-        primary,
-        files,
-        stale_for_s,
-        dimensions_summary,
-    ]
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
     jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-    row_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |"
+    row_line = progress_timeline.phase_timeline_row_from_phase_progress(progress_value)
     header_block: str | None = None
     if not markdown_path.exists():
         with markdown_path.open("w", encoding="utf-8") as handle:
@@ -1907,26 +1828,11 @@ def _append_phase_timeline_event(
 
 
 def _phase_timeline_header_columns() -> list[str]:
-    return [
-        "ts_utc",
-        "event_seq",
-        "event_kind",
-        "phase",
-        "analysis_state",
-        "classification",
-        "progress_marker",
-        "primary",
-        "files",
-        "stale_for_s",
-        "dimensions",
-    ]
+    return progress_timeline.phase_timeline_header_columns()
 
 
 def _phase_timeline_header_block() -> str:
-    header = _phase_timeline_header_columns()
-    header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
-    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
-    return header_line + "\n" + separator_line
+    return progress_timeline.phase_timeline_header_block()
 
 
 def _collection_progress_intro_lines(

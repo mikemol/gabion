@@ -279,6 +279,96 @@ timed_observed() {
   fi
 }
 
+delta_bundle_attempt_meta_from_aspf() {
+  local manifest_path="$1"
+  local session_id="$2"
+  local step_id="$3"
+  ASPF_MANIFEST_PATH="$manifest_path" \
+  ASPF_SESSION_ID="$session_id" \
+  ASPF_STEP_ID="$step_id" \
+  "$PYTHON_BIN" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+manifest_path = Path(os.environ["ASPF_MANIFEST_PATH"])
+session_id = os.environ["ASPF_SESSION_ID"]
+step_id = os.environ["ASPF_STEP_ID"]
+if not manifest_path.exists():
+    print("none|none|none")
+    raise SystemExit(0)
+
+payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+if str(payload.get("session_id", "")) != session_id:
+    print("none|none|none")
+    raise SystemExit(0)
+
+entries = payload.get("entries")
+if not isinstance(entries, list):
+    print("none|none|none")
+    raise SystemExit(0)
+
+match = None
+for raw_entry in entries:
+    if not isinstance(raw_entry, dict):
+        continue
+    if str(raw_entry.get("step_id", "")) != step_id:
+        continue
+    match = raw_entry
+if not isinstance(match, dict):
+    print("none|none|none")
+    raise SystemExit(0)
+
+analysis_state = match.get("analysis_state")
+if not isinstance(analysis_state, str) or not analysis_state:
+    analysis_state = "none"
+
+status = match.get("status")
+if not isinstance(status, str) or not status:
+    status = "none"
+
+state_path_out = "none"
+state_ref = str(match.get("state_path", "")).strip()
+if state_ref:
+    manifest_root = Path(str(payload.get("root", "."))).resolve()
+    state_path = (
+        Path(state_ref)
+        if Path(state_ref).is_absolute()
+        else (manifest_root / state_ref)
+    ).resolve()
+    if state_path.exists():
+        state_path_out = str(state_path)
+        if analysis_state == "none":
+            state_payload = json.loads(state_path.read_text(encoding="utf-8"))
+            state_analysis_state = state_payload.get("analysis_state")
+            if isinstance(state_analysis_state, str) and state_analysis_state:
+                analysis_state = state_analysis_state
+            else:
+                resume_projection = state_payload.get("resume_projection")
+                if isinstance(resume_projection, dict):
+                    projection_state = resume_projection.get("analysis_state")
+                    if isinstance(projection_state, str) and projection_state:
+                        analysis_state = projection_state
+
+if not isinstance(analysis_state, str) or not analysis_state:
+    analysis_state = "none"
+print(f"{analysis_state}|{state_path_out}|{status}")
+PY
+}
+
+delta_bundle_analysis_state_from_report() {
+  local report_path="artifacts/audit_reports/dataflow_report.md"
+  if [ ! -f "$report_path" ]; then
+    echo "none"
+    return 0
+  fi
+  if rg -q 'analysis_state`: `timed_out_progress_resume`' "$report_path"; then
+    echo "timed_out_progress_resume"
+    return 0
+  fi
+  echo "none"
+}
+
 aspf_handoff_enabled_now() {
   [ "$aspf_handoff_enabled" != "0" ]
 }
@@ -475,14 +565,14 @@ while True:
     if match is None:
         if time.time() > deadline:
             raise SystemExit(f"Stage CI has not run for {sha}.")
-        time.sleep(15)
+        time.sleep(60)
         continue
 
     status = match.get("status")
     if status != "completed":
         if time.time() > deadline:
             raise SystemExit(f"Stage CI for {sha} not complete (status={status}).")
-        time.sleep(15)
+        time.sleep(60)
         continue
 
     conclusion = match.get("conclusion")
@@ -537,14 +627,14 @@ while True:
     if match is None:
         if time.time() > deadline:
             raise SystemExit(f"Stage CI has not run for {sha}.")
-        time.sleep(15)
+        time.sleep(60)
         continue
 
     status = match.get("status")
     if status != "completed":
         if time.time() > deadline:
             raise SystemExit(f"Stage CI for {sha} not complete (status={status}).")
-        time.sleep(15)
+        time.sleep(60)
         continue
 
     conclusion = match.get("conclusion")
@@ -622,14 +712,8 @@ run_checks_job() {
   step "checks: evidence drift diff (strict)"
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
 
-  step "checks: policy check (no monkeypatch)"
-  observed checks_no_monkeypatch_policy "$PYTHON_BIN" scripts/no_monkeypatch_policy_check.py --root .
-
-  step "checks: policy check (branchless)"
-  observed checks_branchless_policy "$PYTHON_BIN" scripts/branchless_policy_check.py --root .
-
-  step "checks: policy check (defensive fallback)"
-  observed checks_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
+  step "checks: policy scanner suite"
+  observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
 
   step "checks: controller drift audit (advisory, ratchet-ready)"
   local controller_args=(--out artifacts/out/controller_drift.json)
@@ -653,25 +737,76 @@ run_checks_job() {
 
   step "checks: check delta-bundle"
   local delta_timeout_ns="${GABION_DELTA_BUNDLE_TIMEOUT_NS:-130000000000000ns}"
-  if aspf_handoff_enabled_now; then
-    ensure_aspf_handoff_session
-    timed_observed checks_delta_bundle "$PYTHON_BIN" scripts/aspf_handoff.py run \
-      --root . \
-      --session-id "$aspf_handoff_session" \
-      --step-id "ci-local.checks.delta-bundle" \
-      --command-profile "ci-local.checks.delta-bundle" \
-      --manifest "$aspf_handoff_manifest" \
-      --state-root "$aspf_state_root" \
-      -- \
-      "$PYTHON_BIN" -m gabion \
-      --carrier direct \
-      --timeout "$delta_timeout_ns" \
-      check delta-bundle
-  else
-    timed_observed checks_delta_bundle "$PYTHON_BIN" -m gabion \
-      --carrier direct \
-      --timeout "$delta_timeout_ns" \
-      check delta-bundle
+  local delta_bundle_max_attempts="${GABION_DELTA_BUNDLE_MAX_ATTEMPTS:-3}"
+  local delta_bundle_attempt=1
+  local delta_bundle_exit=1
+  local delta_resume_import_path=""
+  while [ "$delta_bundle_attempt" -le "$delta_bundle_max_attempts" ]; do
+    local delta_step_id="ci-local.checks.delta-bundle.attempt-${delta_bundle_attempt}"
+    local delta_import_args=()
+    if [ -n "$delta_resume_import_path" ] && [ -f "$delta_resume_import_path" ]; then
+      delta_import_args=(--aspf-import-state "$delta_resume_import_path")
+    fi
+    set +e
+    if aspf_handoff_enabled_now; then
+      ensure_aspf_handoff_session
+      timed_observed "checks_delta_bundle_attempt_${delta_bundle_attempt}" "$PYTHON_BIN" scripts/aspf_handoff.py run \
+        --root . \
+        --session-id "$aspf_handoff_session" \
+        --step-id "$delta_step_id" \
+        --command-profile "ci-local.checks.delta-bundle" \
+        --manifest "$aspf_handoff_manifest" \
+        --state-root "$aspf_state_root" \
+        -- \
+        "$PYTHON_BIN" -m gabion \
+        --carrier direct \
+        --timeout "$delta_timeout_ns" \
+        check delta-bundle \
+        "${delta_import_args[@]}"
+      delta_bundle_exit=$?
+    else
+      timed_observed "checks_delta_bundle_attempt_${delta_bundle_attempt}" "$PYTHON_BIN" -m gabion \
+        --carrier direct \
+        --timeout "$delta_timeout_ns" \
+        check delta-bundle \
+        "${delta_import_args[@]}"
+      delta_bundle_exit=$?
+    fi
+    set -e
+    if [ "$delta_bundle_exit" -eq 0 ]; then
+      break
+    fi
+    local delta_analysis_state="none"
+    local delta_state_path="none"
+    local delta_state_status="none"
+    if aspf_handoff_enabled_now; then
+      local delta_attempt_meta
+      delta_attempt_meta="$(
+        delta_bundle_attempt_meta_from_aspf \
+          "$aspf_handoff_manifest" \
+          "$aspf_handoff_session" \
+          "$delta_step_id" \
+          || true
+      )"
+      IFS='|' read -r delta_analysis_state delta_state_path delta_state_status <<EOF
+$delta_attempt_meta
+EOF
+    fi
+    if [ "$delta_analysis_state" = "none" ] && ! aspf_handoff_enabled_now; then
+      delta_analysis_state="$(delta_bundle_analysis_state_from_report)"
+    fi
+    if [ "$delta_analysis_state" = "timed_out_progress_resume" ] && [ "$delta_bundle_attempt" -lt "$delta_bundle_max_attempts" ]; then
+      if [ "$delta_state_path" != "none" ] && [ -f "$delta_state_path" ]; then
+        delta_resume_import_path="$delta_state_path"
+      fi
+      echo "delta-bundle timed out with resumable progress on attempt ${delta_bundle_attempt}/${delta_bundle_max_attempts}; retrying."
+      delta_bundle_attempt=$((delta_bundle_attempt + 1))
+      continue
+    fi
+    return "$delta_bundle_exit"
+  done
+  if [ "$delta_bundle_exit" -ne 0 ]; then
+    return "$delta_bundle_exit"
   fi
 
   step "checks: check delta-gates"
@@ -828,14 +963,8 @@ run_pr_dataflow_job() {
     step "pr-dataflow: stage CI verification skipped (enable with --verify-pr-stage-ci)"
   fi
 
-  step "pr-dataflow: policy check (no monkeypatch)"
-  observed pr_dataflow_no_monkeypatch_policy "$PYTHON_BIN" scripts/no_monkeypatch_policy_check.py --root .
-
-  step "pr-dataflow: policy check (branchless)"
-  observed pr_dataflow_branchless_policy "$PYTHON_BIN" scripts/branchless_policy_check.py --root .
-
-  step "pr-dataflow: policy check (defensive fallback)"
-  observed pr_dataflow_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
+  step "pr-dataflow: policy scanner suite"
+  observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
 
   step "pr-dataflow: governance PR template fields"
   local pr_template_body_file
@@ -863,6 +992,8 @@ run_pr_dataflow_job() {
     --root . \
     --diff-base "$pr_base" \
     --diff-head "$pr_head" \
+    --changed-lines-artifact artifacts/out/changed_lines.json \
+    --evidence-meta-artifact artifacts/out/evidence_index_meta.json \
     --out artifacts/audit_reports/impact_selection.json \
     --confidence-threshold 0.6
 

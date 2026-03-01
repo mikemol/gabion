@@ -893,6 +893,7 @@ def _check_ci_script_entrypoints(doc, path, errors):
         "scripts/ci_finalize_dataflow_outcome.py",
         "scripts/ci_controller_drift_gate.py",
         "scripts/ci_override_record_emit.py",
+        "scripts/policy_scanner_suite.py",
         "scripts/aspf_handoff.py run",
         "check delta-bundle",
         "check delta-gates",
@@ -909,6 +910,96 @@ def _check_ci_script_entrypoints(doc, path, errors):
         check_deadline()
         if not _step_run_contains_any(steps, {token}):
             errors.append(f"{path}: ci workflow must invoke {token}")
+
+
+def _check_policy_scanner_suite_entrypoints(doc, path, errors):
+    check_deadline()
+    if path.name not in {"ci.yml", "pr-dataflow-grammar.yml"}:
+        return
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    steps = []
+    for job in jobs.values():
+        check_deadline()
+        if not isinstance(job, dict):
+            continue
+        raw_steps = job.get("steps", [])
+        if isinstance(raw_steps, list):
+            steps.extend(raw_steps)
+    if not _step_run_contains_any(steps, {"scripts/policy_scanner_suite.py"}):
+        errors.append(f"{path}: workflow must invoke scripts/policy_scanner_suite.py")
+    deprecated_scanner_tokens = {
+        "scripts/no_monkeypatch_policy_check.py",
+        "scripts/branchless_policy_check.py",
+        "scripts/defensive_fallback_policy_check.py",
+    }
+    for token in sorted(deprecated_scanner_tokens):
+        check_deadline()
+        if _step_run_contains_any(steps, {token}):
+            errors.append(
+                f"{path}: workflow must not invoke legacy scanner entrypoint {token}; "
+                "use scripts/policy_scanner_suite.py"
+            )
+
+
+def _check_pr_stage_ci_poll_cadence(doc, path, errors):
+    check_deadline()
+    if path.name != "pr-dataflow-grammar.yml":
+        return
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    steps = []
+    for job in jobs.values():
+        check_deadline()
+        if not isinstance(job, dict):
+            continue
+        raw_steps = job.get("steps", [])
+        if isinstance(raw_steps, list):
+            steps.extend(raw_steps)
+    if not _step_run_contains_any(steps, {"time.sleep(60)"}):
+        errors.append(
+            f"{path}: stage CI verification polling cadence must be at least one request per minute"
+        )
+
+
+def _check_dense_core_lock_in(errors):
+    check_deadline()
+    run_dataflow_stage_path = REPO_ROOT / "src/gabion/tooling/run_dataflow_stage.py"
+    finalize_path = REPO_ROOT / "scripts/ci_finalize_dataflow_outcome.py"
+    try:
+        run_dataflow_stage_source = run_dataflow_stage_path.read_text(encoding="utf-8")
+    except OSError:
+        errors.append(f"{run_dataflow_stage_path}: unable to read lock-in source")
+        return
+    try:
+        finalize_source = finalize_path.read_text(encoding="utf-8")
+    except OSError:
+        errors.append(f"{finalize_path}: unable to read lock-in source")
+        return
+
+    required_stage_tokens = {
+        "_parse_stage_command_envelope(command)",
+        "invocation_runner.run_delta_bundle(envelope).exit_code",
+    }
+    for token in sorted(required_stage_tokens):
+        check_deadline()
+        if token not in run_dataflow_stage_source:
+            errors.append(
+                f"{run_dataflow_stage_path}: dense-core lock-in missing token {token!r}"
+            )
+
+    required_terminal_tokens = {
+        "terminal_outcome_projector.read_terminal_outcome_artifact",
+        "terminal_outcome_projector.project_terminal_outcome",
+    }
+    for token in sorted(required_terminal_tokens):
+        check_deadline()
+        if token not in finalize_source:
+            errors.append(
+                f"{finalize_path}: terminal projector lock-in missing token {token!r}"
+            )
 
 def _check_release_testpypi_workflow(doc, path, errors):
     on_block = doc.get("on")
@@ -1207,6 +1298,8 @@ def check_workflows():
             _check_id_token_scoping(doc, path, errors)
         _check_workflow_dispatch_guards(doc, path, errors)
         _check_ci_script_entrypoints(doc, path, errors)
+        _check_policy_scanner_suite_entrypoints(doc, path, errors)
+        _check_pr_stage_ci_poll_cadence(doc, path, errors)
         _check_permissions(
             doc,
             path,
@@ -1235,6 +1328,7 @@ def check_workflows():
                     require_actions_read=require_actions_read,
                 )
                 _check_actions(job, job_ctx, errors, allowed_actions)
+    _check_dense_core_lock_in(errors)
     if errors:
         _fail(errors)
 

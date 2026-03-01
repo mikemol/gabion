@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from gabion.tooling import aspf_handoff
 
 
@@ -429,3 +431,27 @@ def test_events_from_manifest_payload_requires_session_id() -> None:
 
 def test_event_from_payload_returns_none_for_unknown_kind() -> None:
     assert aspf_handoff._event_from_payload({"event": "legacy"}) is None
+
+
+def test_import_state_paths_policy_edges(tmp_path: Path) -> None:
+    resume_path = tmp_path / "state" / "resume.json"
+    resume_path.parent.mkdir(parents=True, exist_ok=True)
+    resume_path.write_text("{}", encoding="utf-8")
+
+    entries = [
+        {"status": "success", "state_path": ""},
+        {"status": "failed", "analysis_state": "timed_out_progress_resume", "state_path": "state/missing.json"},
+        {"status": "failed", "analysis_state": "timed_out_progress_resume", "state_path": "state/resume.json"},
+    ]
+    assert aspf_handoff._successful_state_paths(entries, root=tmp_path) == []
+    assert aspf_handoff._import_state_paths_for_policy(
+        entries,
+        root=tmp_path,
+        resume_import_policy="success_or_resumable_timeout",
+    ) == [resume_path.resolve()]
+    with pytest.raises(ValueError):
+        aspf_handoff._import_state_paths_for_policy(
+            entries,
+            root=tmp_path,
+            resume_import_policy="invalid-policy",  # type: ignore[arg-type]
+        )

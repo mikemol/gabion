@@ -6,10 +6,19 @@ from itertools import zip_longest
 from dataclasses import dataclass, field
 from hashlib import sha1
 import json
-from typing import TYPE_CHECKING, Mapping, cast
+from typing import TYPE_CHECKING, Literal, Mapping, cast
 import dataclasses
 
 from gabion.commands import aux_operation_contract
+from gabion.commands.progress_transition import (
+    NormalizedProgressTransition,
+    ProgressEventKind,
+    ProgressTransitionDecision,
+    normalize_progress_transition_boundary,
+    progress_transition_v1_payload,
+    progress_transition_v2_payload,
+    validate_progress_transition,
+)
 from gabion.order_contract import OrderPolicy
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
@@ -125,6 +134,93 @@ class _CommandPayloadIngressCarrier:
     dataflow_capabilities: _DataflowCapabilityAnnotations
     timeout: _TimeoutIngressCarrier
     aux_operation: _AuxOperationIngressCarrier | None
+
+
+_ProgressEventKind = ProgressEventKind
+_ProgressTransitionState = NormalizedProgressTransition
+_ProgressTransitionDecision = ProgressTransitionDecision
+
+_PROGRESS_TRANSITION_INVALID_MESSAGES: dict[str, str] = {
+    "invalid_active_path": "progress transition active path is not rooted in transition tree",
+    "invalid_duplicate_sibling_identity": (
+        "progress transition tree contains duplicate sibling identities"
+    ),
+    "invalid_empty_node_identity": "progress transition tree contains empty node identity",
+    "invalid_node_done_exceeds_total": (
+        "progress transition tree has node done that exceeds total"
+    ),
+    "invalid_node_done_regressed": "progress transition regressed node completion",
+    "invalid_node_identity_drift": "progress transition changed node identity unexpectedly",
+    "invalid_node_total_regressed": "progress transition regressed node total",
+    "invalid_previous_active_path": (
+        "previous progress transition active path is not rooted in transition tree"
+    ),
+    "invalid_previous_transition_state": (
+        "previous progress transition tree failed structural validation"
+    ),
+    "invalid_post_complete_without_parent_completion": (
+        "post complete marker requires parent completion boundary"
+    ),
+    "invalid_post_parent_identity_changed_without_index": (
+        "progress parent identity changed without parent index transition"
+    ),
+    "invalid_post_parent_index_changed_without_child_change": (
+        "progress parent index changed without child marker transition"
+    ),
+    "invalid_post_parent_index_changed_without_done_boundary": (
+        "progress parent index changed without done boundary child marker"
+    ),
+    "invalid_terminal_keepalive_without_terminal_state": (
+        "terminal keepalive must preserve terminal completion state"
+    ),
+    "invalid_terminal_replay_mutated_state": (
+        "terminal replay attempted with mutated transition state"
+    ),
+}
+
+
+def _normalize_progress_transition_state(
+    *,
+    phase: str,
+    analysis_state: str | None,
+    event_kind: _ProgressEventKind,
+    primary_unit: str,
+    primary_done: int,
+    primary_total: int,
+    progress_marker: str | None,
+) -> _ProgressTransitionState:
+    return normalize_progress_transition_boundary(
+        phase=phase,
+        analysis_state=analysis_state,
+        event_kind=event_kind,
+        primary_unit=primary_unit,
+        primary_done=primary_done,
+        primary_total=primary_total,
+        progress_marker=progress_marker,
+    )
+
+
+def _validate_progress_transition_or_never(
+    *,
+    previous: _ProgressTransitionState | None,
+    current: _ProgressTransitionState,
+) -> _ProgressTransitionDecision:
+    decision = validate_progress_transition(previous=previous, current=current)
+    if decision.valid:
+        return decision
+    never(
+        _PROGRESS_TRANSITION_INVALID_MESSAGES.get(
+            decision.reason, "invalid progress transition"
+        ),
+        decision_reason=decision.reason,
+        previous=dataclasses.asdict(previous) if previous is not None else None,
+        current=dataclasses.asdict(current),
+    )
+    return _ProgressTransitionDecision(
+        valid=False,
+        reason=decision.reason,
+        effective_event_kind=decision.effective_event_kind,
+    )  # pragma: no cover - never() raises
 
 
 def _normalize_command_payload_ingress(
@@ -2000,11 +2096,14 @@ def _create_progress_emitter(
     progress_event_seq = 0
     progress_state_lock = threading.Lock()
     last_progress_template: dict[str, object] | None = None
+    last_terminal_template: dict[str, object] | None = None
     last_progress_change_ns = 0
+    last_terminal_change_ns = 0
     last_progress_notification_ns = 0
     phase_timeline_header_emitted = False
     heartbeat_stop_event = threading.Event()
     heartbeat_thread: threading.Thread | None = None
+    previous_transition_state: _ProgressTransitionState | None = None
     send_notification = notification_runtime.send_notification_fn
     emit_phase_progress_events = notification_runtime.emit_phase_progress_events
 
@@ -2021,16 +2120,19 @@ def _create_progress_emitter(
         classification: str | None = None,
         phase_progress_v2: Mapping[str, JSONValue] | None = None,
         progress_marker: str | None = None,
-        event_kind: Literal["progress", "heartbeat", "terminal", "checkpoint"] = "progress",
+        event_kind: _ProgressEventKind = "progress",
         stale_for_s: float | None = None,
         record_for_heartbeat: bool = True,
         update_notification_clock: bool = True,
     ) -> None:
         nonlocal progress_event_seq
         nonlocal last_progress_template
+        nonlocal last_terminal_template
         nonlocal last_progress_change_ns
+        nonlocal last_terminal_change_ns
         nonlocal last_progress_notification_ns
         nonlocal phase_timeline_header_emitted
+        nonlocal previous_transition_state
         semantic_payload: JSONObject = {}
         if isinstance(semantic_progress, Mapping):
             for raw_key, raw_value in semantic_progress.items():
@@ -2063,6 +2165,7 @@ def _create_progress_emitter(
         progress_value["phase_progress_v2"] = normalized_phase_progress_v2
         progress_value["work_done"] = primary_done
         progress_value["work_total"] = primary_total
+        primary_unit = str(normalized_phase_progress_v2.get("primary_unit", "") or "")
         progress_value["telemetry_semantics_version"] = 2
         progress_value["event_kind"] = event_kind
         progress_value["ts_utc"] = datetime.now(timezone.utc).isoformat(
@@ -2088,6 +2191,32 @@ def _create_progress_emitter(
             progress_value["classification"] = classification
         now_ns = time.monotonic_ns()
         with progress_state_lock:
+            normalized_transition_state = _normalize_progress_transition_state(
+                phase=phase,
+                analysis_state=analysis_state,
+                event_kind=event_kind,
+                primary_unit=primary_unit,
+                primary_done=primary_done,
+                primary_total=primary_total,
+                progress_marker=progress_marker,
+            )
+            transition_decision = _validate_progress_transition_or_never(
+                previous=previous_transition_state,
+                current=normalized_transition_state,
+            )
+            if transition_decision.suppress_emit:
+                return
+            progress_value["event_kind"] = transition_decision.effective_event_kind
+            progress_value["progress_transition_v2"] = progress_transition_v2_payload(
+                transition=normalized_transition_state,
+                reason=transition_decision.reason,
+                effective_event_kind=transition_decision.effective_event_kind,
+            )
+            progress_value["progress_transition_v1"] = progress_transition_v1_payload(
+                transition=normalized_transition_state,
+                reason=transition_decision.reason,
+                effective_event_kind=transition_decision.effective_event_kind,
+            )
             progress_event_seq += 1
             progress_value["event_seq"] = progress_event_seq
             phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
@@ -2117,33 +2246,51 @@ def _create_progress_emitter(
                     "value": ordered_progress_value,
                 },
             )
+
+            heartbeat_template: dict[str, object] = {
+                "phase": phase,
+                "collection_progress": {
+                    str(key): collection_progress[key] for key in collection_progress
+                },
+                "semantic_progress": (
+                    {str(key): semantic_progress[key] for key in semantic_progress}
+                    if isinstance(semantic_progress, Mapping)
+                    else None
+                ),
+                "work_done": primary_done,
+                "work_total": primary_total,
+                "include_timing": include_timing,
+                "analysis_state": analysis_state,
+                "classification": classification,
+                "phase_progress_v2": {
+                    str(key): normalized_phase_progress_v2[key]
+                    for key in normalized_phase_progress_v2
+                },
+                "progress_marker": progress_marker,
+            }
             if update_notification_clock:
                 last_progress_notification_ns = now_ns
             if done:
                 last_progress_template = None
-            elif record_for_heartbeat and event_kind != "heartbeat":
-                last_progress_template = {
-                    "phase": phase,
-                    "collection_progress": {
-                        str(key): collection_progress[key] for key in collection_progress
-                    },
-                    "semantic_progress": (
-                        {str(key): semantic_progress[key] for key in semantic_progress}
-                        if isinstance(semantic_progress, Mapping)
-                        else None
-                    ),
-                    "work_done": primary_done,
-                    "work_total": primary_total,
-                    "include_timing": include_timing,
-                    "analysis_state": analysis_state,
-                    "classification": classification,
-                    "phase_progress_v2": {
-                        str(key): normalized_phase_progress_v2[key]
-                        for key in normalized_phase_progress_v2
-                    },
-                    "progress_marker": progress_marker,
-                }
+                last_terminal_template = None
+                last_terminal_change_ns = 0
+            elif record_for_heartbeat and transition_decision.effective_event_kind not in {
+                "heartbeat",
+                "terminal",
+            }:
+                last_progress_template = heartbeat_template
+                last_terminal_template = None
                 last_progress_change_ns = now_ns
+                last_terminal_change_ns = 0
+            elif transition_decision.effective_event_kind == "terminal":
+                last_progress_template = None
+                last_progress_change_ns = now_ns
+                last_terminal_template = None
+                last_terminal_change_ns = 0
+                if normalized_transition_state.terminal_complete:
+                    last_terminal_template = heartbeat_template
+                    last_terminal_change_ns = now_ns
+            previous_transition_state = normalized_transition_state
 
     def _progress_heartbeat_loop() -> None:
         heartbeat_interval_ns = int(progress_heartbeat_seconds * 1_000_000_000)
@@ -2159,23 +2306,37 @@ def _create_progress_emitter(
         last_heartbeat_emit_ns = 0
         while not heartbeat_stop_event.wait(_PROGRESS_HEARTBEAT_POLL_SECONDS):
             with progress_state_lock:
-                template = (
+                progress_template = (
                     dict(last_progress_template)
                     if isinstance(last_progress_template, dict)
                     else {}
                 )
+                terminal_template = (
+                    dict(last_terminal_template)
+                    if isinstance(last_terminal_template, dict)
+                    else {}
+                )
                 notification_ns = int(last_progress_notification_ns)
-                change_ns = int(last_progress_change_ns)
+                progress_change_ns = int(last_progress_change_ns)
+                terminal_change_ns = int(last_terminal_change_ns)
             now_ns = time.monotonic_ns()
-            progress_ready = bool(template) & (notification_ns > 0) & (change_ns > 0)
-            stale_notification_ns = now_ns - notification_ns if progress_ready else 0
+            progress_ready = bool(progress_template) & (notification_ns > 0) & (
+                progress_change_ns > 0
+            )
+            terminal_ready = bool(terminal_template) & (notification_ns > 0) & (
+                terminal_change_ns > 0
+            )
+            template = progress_template if progress_ready else terminal_template
+            change_ns = progress_change_ns if progress_ready else terminal_change_ns
+            heartbeat_ready = progress_ready or terminal_ready
+            stale_notification_ns = now_ns - notification_ns if heartbeat_ready else 0
             stale_seconds = (
                 max(0.0, (now_ns - change_ns) / 1_000_000_000.0)
-                if progress_ready
+                if heartbeat_ready
                 else 0.0
             )
             heartbeat_due = bool(
-                progress_ready
+                heartbeat_ready
                 & (heartbeat_interval_ns > 0)
                 & (stale_notification_ns >= heartbeat_interval_ns)
                 & (now_ns - last_heartbeat_emit_ns >= heartbeat_interval_ns)
@@ -2934,19 +3095,21 @@ def _handle_timeout_cleanup(
             progress_payload["cleanup_truncated"] = True
             progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
         timeout_classification = progress_payload.get("classification")
+        timeout_classification_value = (
+            timeout_classification
+            if isinstance(timeout_classification, str)
+            else "timed_out_no_progress"
+        )
         emit_lsp_progress(
             phase="post",
             collection_progress=context.latest_collection_progress,
             semantic_progress=context.semantic_progress_cumulative,
             include_timing=True,
-            done=True,
+            done=False,
             analysis_state=analysis_state,
-            classification=(
-                timeout_classification
-                if isinstance(timeout_classification, str)
-                else "timed_out_no_progress"
-            ),
-            event_kind="terminal",
+            classification=timeout_classification_value,
+            progress_marker="cleanup:finalize_response",
+            event_kind="progress",
         )
         _record_trace_1cell(
             execute_deps=context.execute_deps,
@@ -3006,6 +3169,16 @@ def _handle_timeout_cleanup(
         _emit_trace_artifacts_payloads(
             response=timeout_response,
             trace_artifacts=trace_artifacts,
+        )
+        emit_lsp_progress(
+            phase="post",
+            collection_progress=context.latest_collection_progress,
+            semantic_progress=context.semantic_progress_cumulative,
+            include_timing=True,
+            done=True,
+            analysis_state=analysis_state,
+            classification=timeout_classification_value,
+            event_kind="terminal",
         )
         return _normalize_dataflow_response(timeout_response)
     finally:

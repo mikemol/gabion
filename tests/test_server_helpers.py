@@ -216,7 +216,7 @@ def test_progress_heartbeat_seconds_parsing_edges() -> None:
     assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": "0"}) == 0.0
 
 
-# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_summary_helpers_cover_invalid_inputs::server.py::gabion.server._phase_progress_dimensions_summary::server.py::gabion.server._phase_progress_primary_summary
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_summary_helpers_cover_invalid_inputs::server.py::gabion.server._phase_progress_dimensions_summary
 def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
     server = _load()
     assert server._phase_progress_dimensions_summary(None) == ""
@@ -232,14 +232,7 @@ def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
         }
     )
     assert summary == "good=5/5"
-
-    assert server._phase_progress_primary_summary(None) == ("", None, None)
-    primary_unit, primary_done, primary_total = server._phase_progress_primary_summary(
-        {"primary_unit": "forest_mutable_steps", "primary_done": 8, "primary_total": 3}
-    )
-    assert primary_unit == "forest_mutable_steps"
-    assert primary_done == 3
-    assert primary_total == 3
+    assert not hasattr(server, "_phase_progress_primary_summary")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_resume_checkpoint_descriptor_formats_known_and_unknown_counts::server.py::gabion.server._resume_checkpoint_descriptor_from_progress_value

@@ -79,7 +79,7 @@ jobs:
                       raise SystemExit(
                           f"Stage CI has not run for {sha}. Push to stage and wait for CI."
                       )
-                  time.sleep(15)
+                  time.sleep(60)
                   continue
 
               status = match.get("status")
@@ -88,7 +88,7 @@ jobs:
                       raise SystemExit(
                           f"Stage CI for {sha} not complete (status={status})."
                       )
-                  time.sleep(15)
+                  time.sleep(60)
                   continue
 
               conclusion = match.get("conclusion")
@@ -99,12 +99,8 @@ jobs:
               print(f"Stage CI OK for {sha}.")
               break
           PY
-      - name: Policy check (no monkeypatch)
-        run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .
-      - name: Policy check (branchless)
-        run: .venv/bin/python scripts/branchless_policy_check.py --root .
-      - name: Policy check (defensive fallback)
-        run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
+      - name: Policy scanner suite
+        run: .venv/bin/python scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
       - name: Governance PR template fields
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -123,6 +119,8 @@ jobs:
             --root . \
             --diff-base "$GITHUB_BASE_SHA" \
             --diff-head "$GITHUB_HEAD_SHA" \
+            --changed-lines-artifact artifacts/out/changed_lines.json \
+            --evidence-meta-artifact artifacts/out/evidence_index_meta.json \
             --out artifacts/audit_reports/impact_selection.json \
             --confidence-threshold 0.6
       - name: Run impacted tests first (fallback to full)
@@ -210,7 +208,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: impact-selection
-          path: artifacts/audit_reports/impact_selection.json
+          path: |
+            artifacts/audit_reports/impact_selection.json
+            artifacts/out/changed_lines.json
+            artifacts/out/evidence_index_meta.json
+            artifacts/out/policy_suite_results.json
       - name: Comment on PR with impact selection
         if: github.event.pull_request.head.repo.full_name == github.repository
         env:
