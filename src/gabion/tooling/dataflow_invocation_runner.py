@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import importlib
 from pathlib import Path
+import sys
 from typing import Any, Callable, Sequence
 
 from gabion.analysis.timeout_context import check_deadline
@@ -43,6 +44,11 @@ class DataflowInvocationRunner:
         cli_module = self._resolve_cli_module()
         return getattr(cli_module, "dispatch_command")
 
+    def _ensure_repo_root_importable(self, root: Path) -> None:
+        root_text = str(root.resolve())
+        if root_text not in sys.path:
+            sys.path.insert(0, root_text)
+
     # gabion:decision_protocol
     def run_delta_bundle(
         self,
@@ -51,6 +57,7 @@ class DataflowInvocationRunner:
         checked = envelope.validate()
         if checked.operation != "delta_bundle":
             raise ValueError("execution envelope operation must be 'delta_bundle'")
+        self._ensure_repo_root_importable(checked.root)
         run_check = self._resolve_run_check()
         payload = run_check(
             paths=None,
@@ -99,6 +106,7 @@ class DataflowInvocationRunner:
         checked = envelope.validate()
         if checked.operation != "raw":
             raise ValueError("execution envelope operation must be 'raw'")
+        self._ensure_repo_root_importable(checked.root)
         cli_module = self._resolve_cli_module()
         parse_dataflow_args_or_exit = getattr(cli_module, "parse_dataflow_args_or_exit")
         build_dataflow_payload = getattr(cli_module, "build_dataflow_payload")

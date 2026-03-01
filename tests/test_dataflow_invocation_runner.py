@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -88,6 +89,21 @@ def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> No
     default_runner = DataflowInvocationRunner()
     cli_module = default_runner._resolve_cli_module()
     assert getattr(cli_module, "__name__", "") == "gabion.cli"
+
+
+def test_dataflow_invocation_runner_ensures_repo_root_importable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo_root = (tmp_path / "repo").resolve()
+    repo_root.mkdir(parents=True, exist_ok=True)
+    root_text = str(repo_root)
+    monkeypatch.setattr(sys, "path", [entry for entry in sys.path if entry != root_text])
+    runner = DataflowInvocationRunner()
+    runner._ensure_repo_root_importable(repo_root)
+    assert sys.path[0] == root_text
+    runner._ensure_repo_root_importable(repo_root)
+    assert sys.path.count(root_text) == 1
 
 
 def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> None:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-import inspect
 import json
 import os
 import shutil
@@ -10,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Protocol, Sequence
 
 from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
@@ -105,6 +104,45 @@ def _write_failure_artifact(
 class _RefreshLspTimeoutEnv:
     ticks: int
     tick_ns: int
+
+
+class _RunCheckFn(Protocol):
+    def __call__(
+        self,
+        subcommand: list[str],
+        timeout: int | None,
+        timeout_env: _RefreshLspTimeoutEnv,
+        *,
+        report_path: Path = ...,
+        extra: list[str] | None = ...,
+        run_fn: Callable[..., object] = ...,
+    ) -> None: ...
+
+
+class _DeltaGuardFn(Protocol):
+    def __call__(
+        self,
+        timeout: int | None,
+        timeout_env: _RefreshLspTimeoutEnv,
+        *,
+        run_check_fn: _RunCheckFn = ...,
+    ) -> None: ...
+
+
+class _DocflowGuardFn(Protocol):
+    def __call__(
+        self,
+        timeout: int | None,
+        timeout_env: _RefreshLspTimeoutEnv,
+    ) -> None: ...
+
+
+@dataclass(frozen=True)
+class _RefreshGuardBundle:
+    obsolescence_delta: _DeltaGuardFn
+    annotation_drift_delta: _DeltaGuardFn
+    ambiguity_delta: _DeltaGuardFn
+    docflow_delta: _DocflowGuardFn
 
 
 # dataflow-bundle: timeout_tick_ns, timeout_ticks
@@ -430,15 +468,20 @@ def _guard_docflow_delta(
         )
 
 
+_DEFAULT_GUARD_BUNDLE = _RefreshGuardBundle(
+    obsolescence_delta=_guard_obsolescence_delta,
+    annotation_drift_delta=_guard_annotation_drift_delta,
+    ambiguity_delta=_guard_ambiguity_delta,
+    docflow_delta=_guard_docflow_delta,
+)
+
+
 def main(
     argv: list[str] | None = None,
     *,
     deadline_scope_factory=_deadline_scope,
     run_check_fn=_run_check,
-    guard_obsolescence_delta_fn=_guard_obsolescence_delta,
-    guard_annotation_drift_delta_fn=_guard_annotation_drift_delta,
-    guard_ambiguity_delta_fn=_guard_ambiguity_delta,
-    guard_docflow_delta_fn=_guard_docflow_delta,
+    guard_bundle: _RefreshGuardBundle | None = None,
 ) -> int:
     with deadline_scope_factory():
         _clear_failure_artifact()
@@ -531,6 +574,7 @@ def main(
         handoff_manifest_path = Path(str(args.aspf_handoff_manifest))
         handoff_state_root = Path(str(args.aspf_state_root))
         raw_run_check_fn = run_check_fn
+        guards = _DEFAULT_GUARD_BUNDLE if guard_bundle is None else guard_bundle
 
         def _run_check_with_handoff(
             subcommand: list[str],
@@ -664,15 +708,6 @@ def main(
                     expected_artifacts=[DEFAULT_DEADLINE_PROFILE_PATH, report_path],
                 )
 
-        def _invoke_guard_with_optional_handoff(guard_fn, *args, **kwargs):
-            try:
-                params = inspect.signature(guard_fn).parameters
-            except (TypeError, ValueError):
-                params = {}
-            if "run_check_fn" in params:
-                return guard_fn(*args, **kwargs, run_check_fn=_run_check_with_handoff)
-            return guard_fn(*args, **kwargs)
-
         if not (
             args.obsolescence
             or args.annotation_drift
@@ -683,10 +718,10 @@ def main(
             args.all = True
 
         if args.all or args.obsolescence:
-            _invoke_guard_with_optional_handoff(
-                guard_obsolescence_delta_fn,
+            guards.obsolescence_delta(
                 args.timeout,
                 timeout_env,
+                run_check_fn=_run_check_with_handoff,
             )
             _run_check_with_handoff(
                 [
@@ -700,10 +735,10 @@ def main(
                 extra=_state_args(OBSOLESCENCE_STATE_PATH, "--state-in"),
             )
         if args.all or args.annotation_drift:
-            _invoke_guard_with_optional_handoff(
-                guard_annotation_drift_delta_fn,
+            guards.annotation_drift_delta(
                 args.timeout,
                 timeout_env,
+                run_check_fn=_run_check_with_handoff,
             )
             _run_check_with_handoff(
                 [
@@ -719,10 +754,10 @@ def main(
                 ),
             )
         if args.all or args.ambiguity:
-            _invoke_guard_with_optional_handoff(
-                guard_ambiguity_delta_fn,
+            guards.ambiguity_delta(
                 args.timeout,
                 timeout_env,
+                run_check_fn=_run_check_with_handoff,
             )
             _run_check_with_handoff(
                 [
@@ -736,7 +771,7 @@ def main(
                 extra=_state_args(AMBIGUITY_STATE_PATH, "--state-in"),
             )
         if args.all or args.docflow:
-            guard_docflow_delta_fn(args.timeout, timeout_env)
+            guards.docflow_delta(args.timeout, timeout_env)
             if not DOCFLOW_CURRENT_PATH.exists():
                 raise FileNotFoundError(
                     f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"

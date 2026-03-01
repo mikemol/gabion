@@ -25,6 +25,24 @@ def _cwd(path: Path):
         os.chdir(previous)
 
 
+def _guard_bundle(
+    module,
+    *,
+    obsolescence=None,
+    annotation_drift=None,
+    ambiguity=None,
+    docflow=None,
+):
+    return module._RefreshGuardBundle(
+        obsolescence_delta=module._guard_obsolescence_delta if obsolescence is None else obsolescence,
+        annotation_drift_delta=module._guard_annotation_drift_delta
+        if annotation_drift is None
+        else annotation_drift,
+        ambiguity_delta=module._guard_ambiguity_delta if ambiguity is None else ambiguity,
+        docflow_delta=module._guard_docflow_delta if docflow is None else docflow,
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_preserves_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
 def test_refresh_subprocess_env_preserves_process_env(
 ) -> None:
@@ -115,7 +133,10 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
             default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
         ),
         run_check_fn=_capture_run_check,
-        guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
+        guard_bundle=_guard_bundle(
+            module,
+            obsolescence=lambda *args, **kwargs: None,
+        ),
     )
 
     assert exit_code == 0
@@ -188,9 +209,12 @@ def test_main_enables_default_aspf_handoff_and_writes_manifest(tmp_path: Path) -
                 default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
             ),
             run_check_fn=_capture_run_check,
-            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+            guard_bundle=_guard_bundle(
+                module,
+                obsolescence=lambda *args, **kwargs: None,
+                annotation_drift=lambda *args, **kwargs: None,
+                ambiguity=lambda *args, **kwargs: None,
+            ),
         )
 
     assert exit_code == 0
@@ -250,9 +274,12 @@ def test_main_aspf_handoff_imports_prior_successful_state(tmp_path: Path) -> Non
                 default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
             ),
             run_check_fn=_capture_run_check,
-            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+            guard_bundle=_guard_bundle(
+                module,
+                obsolescence=lambda *args, **kwargs: None,
+                annotation_drift=lambda *args, **kwargs: None,
+                ambiguity=lambda *args, **kwargs: None,
+            ),
         )
         first_extra = captures.pop()
         first_state_path = first_extra[first_extra.index("--aspf-state-json") + 1]
@@ -262,9 +289,12 @@ def test_main_aspf_handoff_imports_prior_successful_state(tmp_path: Path) -> Non
                 default_budget=module.DeadlineBudget(ticks=10, tick_ns=1_000_000)
             ),
             run_check_fn=_capture_run_check,
-            guard_obsolescence_delta_fn=lambda *args, **kwargs: None,
-            guard_annotation_drift_delta_fn=lambda *args, **kwargs: None,
-            guard_ambiguity_delta_fn=lambda *args, **kwargs: None,
+            guard_bundle=_guard_bundle(
+                module,
+                obsolescence=lambda *args, **kwargs: None,
+                annotation_drift=lambda *args, **kwargs: None,
+                ambiguity=lambda *args, **kwargs: None,
+            ),
         )
         second_extra = captures.pop()
 
