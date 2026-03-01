@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.runtime import env_policy
+from gabion.tooling import dataflow_invocation_runner
 from scripts import aspf_handoff as aspf_handoff_script
 
 
@@ -150,3 +152,99 @@ def test_analysis_state_from_state_path_returns_none_on_invalid_json(
     state_path = tmp_path / "state.json"
     state_path.write_text("{invalid", encoding="utf-8")
     assert aspf_handoff_script._analysis_state_from_state_path(state_path) == "none"
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_command_timeout_text_supports_split_and_equals_forms
+def test_command_timeout_text_supports_split_and_equals_forms() -> None:
+    assert (
+        aspf_handoff_script._command_timeout_text(
+            ["python", "-m", "gabion", "--timeout", "130000000000000ns", "check"]
+        )
+        == "130000000000000ns"
+    )
+    assert (
+        aspf_handoff_script._command_timeout_text(
+            ["python", "-m", "gabion", "--timeout=2m", "check"]
+        )
+        == "2m"
+    )
+    assert (
+        aspf_handoff_script._command_timeout_text(["python", "-m", "gabion", "check"])
+        is None
+    )
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_run_preserves_timeout_override_and_runner_analysis_state_hint
+def test_run_preserves_timeout_override_and_runner_analysis_state_hint(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    captured_timeout = {"ticks": 0, "tick_ns": 0}
+
+    class _FakeRunner:
+        def run_delta_bundle(self, _envelope):
+            raise AssertionError("delta-bundle path should not be selected")
+
+        def run_raw(self, _envelope, _raw_args):
+            override = env_policy.lsp_timeout_override()
+            assert override is not None
+            captured_timeout["ticks"] = int(override.ticks)
+            captured_timeout["tick_ns"] = int(override.tick_ns)
+            return dataflow_invocation_runner.DataflowInvocationResult(
+                exit_code=2,
+                analysis_state="timed_out_progress_resume",
+                payload={"exit_code": 2, "analysis_state": "timed_out_progress_resume"},
+            )
+
+    monkeypatch.setattr(
+        aspf_handoff_script.dataflow_invocation_runner,
+        "DataflowInvocationRunner",
+        _FakeRunner,
+    )
+
+    manifest = tmp_path / "artifacts/out/aspf_handoff_manifest.json"
+    state_root = tmp_path / "artifacts/out/aspf_state"
+    report = tmp_path / "artifacts/dataflow_grammar/report.md"
+    dot = tmp_path / "artifacts/dataflow_grammar/graph.dot"
+
+    exit_code = aspf_handoff_script.main(
+        [
+            "run",
+            "--root",
+            str(tmp_path),
+            "--session-id",
+            "session-timeout-hint",
+            "--step-id",
+            "pr-dataflow.render-check.raw",
+            "--command-profile",
+            "pr-dataflow.check.raw",
+            "--manifest",
+            str(manifest),
+            "--state-root",
+            str(state_root),
+            "--",
+            ".venv/bin/python",
+            "-m",
+            "gabion",
+            "--timeout",
+            "130000000000000ns",
+            "check",
+            "raw",
+            "--",
+            ".",
+            "--root",
+            ".",
+            "--report",
+            str(report),
+            "--dot",
+            str(dot),
+            "--type-audit-report",
+            "--baseline",
+            "baselines/dataflow_baseline.txt",
+        ]
+    )
+    assert exit_code == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["analysis_state"] == "timed_out_progress_resume"
+    assert captured_timeout == {"ticks": 130000000, "tick_ns": 1000000}

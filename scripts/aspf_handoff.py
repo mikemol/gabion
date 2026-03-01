@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import json
 from pathlib import Path
 import subprocess
 from typing import Sequence
 
+from gabion.runtime import env_policy
 from gabion.tooling import aspf_lifecycle
 from gabion.tooling import aspf_handoff
 from gabion.tooling import dataflow_invocation_runner
@@ -102,24 +104,44 @@ def _run(args: argparse.Namespace) -> int:
         resume_import_policy="success_or_resumable_timeout",
     )
     invocation_runner = dataflow_invocation_runner.DataflowInvocationRunner()
+    analysis_state_hint = "none"
+
+    def _analysis_state_from_state_or_hint(path: Path) -> str:
+        state = _analysis_state_from_state_path(path)
+        if state != "none":
+            return state
+        return analysis_state_hint
 
     def _run_with_best_path(command: Sequence[str]) -> int:
-        envelope = _parse_delta_bundle_envelope(command)
-        if envelope is not None:
-            return int(invocation_runner.run_delta_bundle(envelope).exit_code)
-        raw_check = _parse_raw_check_args(command)
-        if raw_check is not None:
-            envelope_raw = execution_envelope.ExecutionEnvelope.for_raw(
-                root=Path(args.root),
-                aspf_state_json=raw_check.aspf_state_json,
-                aspf_delta_jsonl=raw_check.aspf_delta_jsonl,
-                aspf_import_state=tuple(raw_check.aspf_import_state),
+        nonlocal analysis_state_hint
+        timeout_text = _command_timeout_text(command)
+        timeout_scope = (
+            env_policy.lsp_timeout_override_scope(
+                env_policy.timeout_config_from_duration(timeout_text)
             )
-            return int(
-                invocation_runner.run_raw(envelope_raw, raw_check.raw_args).exit_code
-            )
-        completed = subprocess.run(list(command), check=False)
-        return int(completed.returncode)
+            if timeout_text is not None
+            else nullcontext()
+        )
+        with timeout_scope:
+            envelope = _parse_delta_bundle_envelope(command)
+            if envelope is not None:
+                result = invocation_runner.run_delta_bundle(envelope)
+                analysis_state_hint = _normalized_analysis_state(result.analysis_state)
+                return int(result.exit_code)
+            raw_check = _parse_raw_check_args(command)
+            if raw_check is not None:
+                envelope_raw = execution_envelope.ExecutionEnvelope.for_raw(
+                    root=Path(args.root),
+                    aspf_state_json=raw_check.aspf_state_json,
+                    aspf_delta_jsonl=raw_check.aspf_delta_jsonl,
+                    aspf_import_state=tuple(raw_check.aspf_import_state),
+                )
+                result = invocation_runner.run_raw(envelope_raw, raw_check.raw_args)
+                analysis_state_hint = _normalized_analysis_state(result.analysis_state)
+                return int(result.exit_code)
+            completed = subprocess.run(list(command), check=False)
+            analysis_state_hint = "succeeded" if completed.returncode == 0 else "failed"
+            return int(completed.returncode)
 
     lifecycle_result = aspf_lifecycle.run_with_aspf_lifecycle(
         config=lifecycle,
@@ -127,7 +149,7 @@ def _run(args: argparse.Namespace) -> int:
         command_profile=str(args.command_profile),
         command=raw_command,
         run_command_fn=_run_with_best_path,
-        analysis_state_from_state_path_fn=_analysis_state_from_state_path,
+        analysis_state_from_state_path_fn=_analysis_state_from_state_or_hint,
     )
     payload = {
         "ok": True,
@@ -172,6 +194,25 @@ def _option_value(command: Sequence[str], option: str) -> str | None:
         if idx + 1 >= len(tokens):
             return None
         return str(tokens[idx + 1])
+    return None
+
+
+def _normalized_analysis_state(state: object) -> str:
+    text = str(state or "").strip()
+    return text if text else "none"
+
+
+def _command_timeout_text(command: Sequence[str]) -> str | None:
+    tokens = [str(token) for token in command]
+    for idx, token in enumerate(tokens):
+        if token == "--timeout":
+            if idx + 1 >= len(tokens):
+                return None
+            timeout_text = str(tokens[idx + 1]).strip()
+            return timeout_text or None
+        if token.startswith("--timeout="):
+            timeout_text = token.split("=", 1)[1].strip()
+            return timeout_text or None
     return None
 
 

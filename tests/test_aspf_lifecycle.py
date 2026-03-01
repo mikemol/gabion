@@ -151,7 +151,7 @@ def test_run_with_aspf_lifecycle_enabled_missing_state_defaults_to_exit_status()
         command_profile="profile",
         command=["python", "-m", "gabion", "check", "delta-bundle"],
         run_command_fn=lambda _command: 0,
-        analysis_state_from_state_path_fn=lambda _path: "ignored",
+        analysis_state_from_state_path_fn=lambda _path: "none",
         prepare_step_fn=lambda **_kwargs: prepared,
         aspf_cli_args_fn=lambda _step: [],
         record_step_fn=lambda **_kwargs: True,

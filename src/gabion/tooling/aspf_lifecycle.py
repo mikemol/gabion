@@ -94,11 +94,9 @@ def run_with_aspf_lifecycle(
     ])
     exit_code = int(run_command_fn(command_with_aspf))
     status = "success" if exit_code == 0 else "failed"
-    analysis_state = (
-        analysis_state_from_state_path_fn(prepared.state_path)
-        if prepared.state_path.exists()
-        else ("succeeded" if exit_code == 0 else "failed")
-    )
+    analysis_state = str(analysis_state_from_state_path_fn(prepared.state_path) or "").strip()
+    if not analysis_state or analysis_state == "none":
+        analysis_state = "succeeded" if exit_code == 0 else "failed"
     recorded = record_step_fn(
         manifest_path=prepared.manifest_path,
         session_id=prepared.session_id,
