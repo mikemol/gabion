@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 30
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -124,6 +124,13 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
   general Gabion feature without explicit policy change.
 - Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit
   `doc_review_notes` based on a real content review.
+
+## Operational toggle visibility (informational)
+This index is visibility-only; it keeps repo-local operational toggles explicit
+for agent instruction drift audits.
+
+- CLI/git/workflow toggles: `--force-with-lease`, `--close`, `--synthesis-plan`, `--synthesis-report`, `--synthesis-protocols`, `--refactor-plan`, `--refactor-plan-json`, `--pr-base-sha`, `--pr-head-sha`, `--skip-sppf-sync`, `--run-sppf-sync`
+- Environment and signal toggles: `GABION_SPPF_SYNC`, `GH_TOKEN`, `GITHUB_TOKEN`, `SIGUSR1`, `POLICY_GITHUB_TOKEN`
 
 ## Agent actioning loop (normative)
 Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).

@@ -61,42 +61,42 @@ doc_section_reviews:
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage).
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     in/in-24.md#in_in_24:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed in/in-24.md rev8 (deadness matrix acceptance checks align with artifact schema requirements).
     in/in-25.md#in_in_25:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed in/in-25.md rev8 (coherence matrix acceptance mapping remains consistent with evidence artifacts).
     in/in-26.md#in_in_26:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed in/in-26.md rev8 (rewrite-plan verification predicates match matrix obligations).
     in/in-27.md#in_in_27:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 3
       outcome: no_change
       note: Reviewed in/in-27.md rev6 (exception obligation mapping aligns with handledness/deadness requirements).
 doc_change_protocol: POLICY_SEED.md#change_protocol

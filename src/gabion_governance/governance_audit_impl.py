@@ -4565,7 +4565,7 @@ def _docflow_command(args: argparse.Namespace) -> int:
     if not warnings and not violations:
         print("No issues detected.")
 
-    if violations and args.fail_on_violations:
+    if (warnings or violations) and args.fail_on_violations:
         return 1
     return 0
 
@@ -4760,7 +4760,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--fail-on-violations",
         action="store_true",
-        help="Exit non-zero if violations are detected",
+        help="Exit non-zero if warnings or violations are detected",
     )
     parser.add_argument(
         "--sppf-gh-ref-mode",
