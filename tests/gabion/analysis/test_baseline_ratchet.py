@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+from pathlib import Path
+from tests.path_helpers import REPO_ROOT
+
+def _load():
+    repo_root = REPO_ROOT
+    from gabion.analysis import apply_baseline, load_baseline, resolve_baseline_path, write_baseline
+
+    return apply_baseline, load_baseline, resolve_baseline_path, write_baseline
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::stale_67f60bf78261
+def test_baseline_write_and_apply(tmp_path: Path) -> None:
+    apply_baseline, load_baseline, resolve_baseline_path, write_baseline = _load()
+    baseline_path = resolve_baseline_path("baseline.txt", tmp_path)
+    assert baseline_path == tmp_path / "baseline.txt"
+    violations = ["violation-a", "violation-b"]
+    write_baseline(baseline_path, violations)
+    loaded = load_baseline(baseline_path)
+    assert loaded == {"violation-a", "violation-b"}
+    new, suppressed = apply_baseline(
+        ["violation-a", "violation-c", "violation-b"], loaded
+    )
+    assert new == ["violation-c"]
+    assert set(suppressed) == {"violation-a", "violation-b"}
