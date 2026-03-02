@@ -5,7 +5,7 @@ import json
 import pytest
 
 from gabion.analysis.aspf import Forest, NodeId
-from gabion.analysis.dataflow_audit import AuditConfig, analyze_paths
+from gabion.analysis import AuditConfig, analyze_paths
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.projection_registry import WL_REFINEMENT_SPEC
 from gabion.analysis.wl_refinement import (
@@ -88,7 +88,7 @@ def test_wl_refinement_proof_mode_emits_sink_and_raises() -> None:
     assert any(alt.kind == "NeverInvariantSink" for alt in forest.alts)
 
 
-# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_structured_suite_contains::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths
+# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_structured_suite_contains::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths
 def test_analyze_paths_emits_structured_suite_contains(tmp_path) -> None:
     source = (
         "def fn(x):\n"
@@ -152,7 +152,7 @@ def test_analyze_paths_emits_structured_suite_contains(tmp_path) -> None:
     assert any(alt.kind == "SuiteContains" for alt in forest.alts)
 
 
-# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_wl_facets_when_enabled::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths
+# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_wl_facets_when_enabled::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths
 def test_analyze_paths_emits_wl_facets_when_enabled(tmp_path) -> None:
     path = tmp_path / "mod.py"
     path.write_text(

@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_ambiguity_helpers import _populate_bundle_forest
+from gabion.analysis.dataflow_snapshot_io import compute_structure_metrics
 
 def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
+    return SimpleNamespace(
+        Forest=Forest,
+        _populate_bundle_forest=_populate_bundle_forest,
+        compute_structure_metrics=compute_structure_metrics,
+    )
 
-    return da
-
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::stale_b4e89f848e9e
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::stale_b4e89f848e9e
 def test_compute_structure_metrics_counts(tmp_path: Path) -> None:
     da = _load()
     path_a = tmp_path / "a.py"

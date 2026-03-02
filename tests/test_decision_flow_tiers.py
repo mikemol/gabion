@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
-from gabion.analysis import dataflow_audit as da
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_snapshot_contracts import DecisionSnapshotSurfaces
+from gabion.analysis.dataflow_snapshot_io import render_decision_snapshot
 from gabion.analysis.decision_flow import (
     build_decision_tables,
     detect_repeated_guard_bundles,
     enforce_decision_protocol_contracts,
+)
+
+da = SimpleNamespace(
+    DecisionSnapshotSurfaces=DecisionSnapshotSurfaces,
+    Forest=Forest,
+    render_decision_snapshot=render_decision_snapshot,
 )
 
 
@@ -96,7 +105,7 @@ def test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checkl
     assert "DECISION_PROTOCOL_MISSING_CHECKLIST_LINK" in codes
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot
 def test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts() -> None:
     forest = da.Forest()
     site_id = forest.add_site("mod.py", "f")

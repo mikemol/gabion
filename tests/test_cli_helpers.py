@@ -244,8 +244,8 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     assert "Removed legacy check modality flags." in normalized_output
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_nonzero_exit_reports_explicit_causes::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_nonzero_exit_reports_explicit_causes(capsys: pytest.CaptureFixture[str]) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_nonzero_exit_reports_explicit_causes::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_nonzero_exit_reports_explicit_causes(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 1, "analysis_state": "succeeded", "violations": 2}
@@ -256,8 +256,8 @@ def test_dataflow_audit_nonzero_exit_reports_explicit_causes(capsys: pytest.Capt
     assert "Non-zero exit (1) cause(s):" in capsys.readouterr().err
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_nonzero_exit_fallback_is_explicit::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_nonzero_exit_fallback_is_explicit(capsys: pytest.CaptureFixture[str]) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_nonzero_exit_fallback_is_explicit::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_nonzero_exit_fallback_is_explicit(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 1, "analysis_state": "succeeded"}
@@ -683,7 +683,7 @@ def test_run_docflow_audit_nonzero_short_circuits_sppf(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_5b469ca25d0a
-def test_dataflow_audit_skips_type_audit_output() -> None:
+def test_legacy_dataflow_monolith_skips_type_audit_output() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0}
@@ -694,7 +694,7 @@ def test_dataflow_audit_skips_type_audit_output() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f562194a2932
-def test_dataflow_audit_type_audit_empty_findings() -> None:
+def test_legacy_dataflow_monolith_type_audit_empty_findings() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0, "type_suggestions": [], "type_ambiguities": []}
@@ -708,7 +708,7 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_b1d435f0c525
-def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
+def test_legacy_dataflow_monolith_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -737,8 +737,8 @@ def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     assert sarif_path.exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_writes_deadline_profile::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_writes_deadline_profile::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -778,8 +778,8 @@ def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> No
     assert not (tmp_path / "artifacts" / "out" / "deadline_profile.json").exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_exits_without_builtin_retry::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_timeout_exits_without_builtin_retry(tmp_path: Path) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_exits_without_builtin_retry::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_timeout_exits_without_builtin_retry(tmp_path: Path) -> None:
     calls = {"count": 0}
 
     def runner(*_args, **_kwargs):
@@ -929,8 +929,8 @@ def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() ->
     assert "`ticks_per_ns`: `0.125000000`" in rendered
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_without_retry_raises_exit::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_without_retry_raises_exit::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         return {
             "exit_code": 2,
@@ -953,8 +953,8 @@ def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> Non
     assert exc.value.exit_code == 2
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_resume_is_single_attempt::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_dataflow_audit_timeout_progress_resume_is_single_attempt(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_progress_resume_is_single_attempt::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_legacy_dataflow_monolith_timeout_progress_resume_is_single_attempt(
     tmp_path: Path,
 ) -> None:
     calls = {"count": 0}
@@ -984,8 +984,8 @@ def test_dataflow_audit_timeout_progress_resume_is_single_attempt(
     assert calls["count"] == 1
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_uses_single_attempt_budget::cli.py::gabion.cli._run_dataflow_raw_argv::timeout_context.py::gabion.analysis.timeout_context.check_deadline
-def test_dataflow_audit_timeout_uses_single_attempt_budget(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_uses_single_attempt_budget::cli.py::gabion.cli._run_dataflow_raw_argv::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+def test_legacy_dataflow_monolith_timeout_uses_single_attempt_budget(
     tmp_path: Path,
 ) -> None:
     calls = {"count": 0}
@@ -1708,7 +1708,7 @@ def test_render_timeout_progress_markdown_includes_incremental_obligations() -> 
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_09ceb3645a45
-def test_dataflow_audit_emits_structure_tree(capsys) -> None:
+def test_legacy_dataflow_monolith_emits_structure_tree(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1727,7 +1727,7 @@ def test_dataflow_audit_emits_structure_tree(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_3ee3d4401f7c
-def test_dataflow_audit_emits_structure_tree_dev_stdout(capsys) -> None:
+def test_legacy_dataflow_monolith_emits_structure_tree_dev_stdout(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1746,7 +1746,7 @@ def test_dataflow_audit_emits_structure_tree_dev_stdout(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_c3f2f0d13aec
-def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
+def test_legacy_dataflow_monolith_emits_structure_metrics(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1772,7 +1772,7 @@ def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_ca75522a5338_2081cc39
-def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
+def test_legacy_dataflow_monolith_emits_decision_snapshot(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1797,7 +1797,7 @@ def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f9a3416893cb
-def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
+def test_legacy_dataflow_monolith_emits_fingerprint_outputs(capsys) -> None:
     def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
         # dataflow-bundle: _args, _kwargs
         return {

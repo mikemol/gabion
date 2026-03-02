@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from gabion.analysis.dataflow_audit import AuditConfig
+from gabion.analysis.dataflow_contracts import AuditConfig
 from gabion.exceptions import NeverThrown
 from gabion import ingest
 from gabion.ingest.python_adapter import PythonAdapter

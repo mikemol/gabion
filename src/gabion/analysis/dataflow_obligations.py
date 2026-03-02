@@ -2,21 +2,47 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+import ast
+import time
+from collections import defaultdict
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import cast
 
-_BOUND = False
+from gabion.analysis.aspf import Forest, NodeId
+from gabion.analysis.dataflow_contracts import AuditConfig, CallArgs, FunctionInfo
+from gabion.analysis.dataflow_deadline_helpers import (
+    _CalleeResolutionOutcome,
+    _DEADLINE_EXEMPT_PREFIXES,
+    _DEADLINE_HELPER_QUALS,
+    _DeadlineArgInfo,
+    _DeadlineFunctionFacts,
+    _build_analysis_index,
+    _caller_param_bindings_for_call,
+    _collect_call_edges_from_forest,
+    _collect_call_nodes_by_path,
+    _collect_call_resolution_obligation_details_from_forest,
+    _collect_call_resolution_obligations_from_forest,
+    _collect_deadline_function_facts,
+    _collect_recursive_nodes,
+    _deadline_arg_info_map,
+    _deadline_loop_forwarded_params,
+    _function_suite_id,
+    _function_suite_key,
+    _is_deadline_param,
+    _materialize_call_candidates,
+    _normalize_snapshot_path,
+    _reachable_from_roots,
+    _resolve_callee_outcome,
+)
+from gabion.analysis.dataflow_evidence_helpers import _is_test_path
+from gabion.analysis.json_types import JSONObject
+from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import require_not_none
+from gabion.order_contract import sort_once
 
-
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
+_PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -979,7 +1005,6 @@ def collect_deadline_obligations(
     resolve_callee_outcome_fn = None,
     on_progress = None,
 ) -> list[JSONObject]:
-    _bind_audit_symbols()
     check_deadline()
     parse_failure_witnesses_payload = parse_failure_witnesses
     collection_fns = _resolve_deadline_collection_fns(

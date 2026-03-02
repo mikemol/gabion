@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
+from gabion.analysis import dataflow_indexed_file_scan as da
 
-def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
-
-    return da
-
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_bundle_evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._parse_lint_location
 def test_lint_location_parser_and_bundle_lines() -> None:
-    da = _load()
     parsed = da._parse_lint_location("mod.py:10:4-10:6: f -> g forwards a,b")
     assert parsed is not None
     path, lineno, col, remainder = parsed
@@ -25,9 +18,8 @@ def test_lint_location_parser_and_bundle_lines() -> None:
     assert da._parse_lint_location("bad line") is None
     assert da._parse_lint_location("mod.py:x:y: nope") is None
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_exception_path_id
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_protocol_lint_lines E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_type_evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._parse_exception_path_id
 def test_lint_lines_from_type_and_exception_evidence() -> None:
-    da = _load()
     type_lines = da._lint_lines_from_type_evidence(
         ["mod.py:5:2: f.a -> g.b expects int"]
     )
@@ -47,9 +39,8 @@ def test_lint_lines_from_type_and_exception_evidence() -> None:
         "mod.py:3:1: GABION_EXC_NEVER never-throw exception NeverRaise (status=FORBIDDEN)"
     ]
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_constant_smells E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_unused_arg_smells
 def test_lint_lines_from_constant_and_unused_smells() -> None:
-    da = _load()
     constant_smell = (
         "mod.py:f.a only observed constant 1 across 2 non-test call(s) "
         "(e.g. mod.py:10:4:f)"

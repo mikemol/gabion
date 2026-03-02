@@ -1,21 +1,61 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+import os
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
-_BOUND = False
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_contracts import ReportCarrier
+from gabion.analysis.dataflow_report_rendering import (
+    render_unsupported_by_adapter_section as _report_render_unsupported_section,
+)
+from gabion.analysis.dataflow_reporting_helpers import (
+    bundle_projection_from_forest as _bundle_projection_from_forest,
+    bundle_site_index as _bundle_site_index,
+    connected_components as _connected_components,
+    exception_protocol_evidence as _exception_protocol_evidence,
+    exception_protocol_warnings as _exception_protocol_warnings,
+    format_invariant_propositions as _format_invariant_propositions,
+    has_bundles as _has_bundles,
+    parse_failure_violation_lines as _parse_failure_violation_lines,
+    parse_witness_contract_violations as _parse_witness_contract_violations,
+    project_report_section_lines as _project_report_section_lines,
+    raw_sorted_contract_violations as _raw_sorted_contract_violations,
+    render_component_callsite_evidence as _render_component_callsite_evidence,
+    render_mermaid_component as _render_mermaid_component,
+    render_type_mermaid as _render_type_mermaid,
+    report_section_marker as _report_section_marker,
+    runtime_obligation_violation_lines as _runtime_obligation_violation_lines,
+    summarize_call_ambiguities as _summarize_call_ambiguities,
+    summarize_coherence_witnesses as _summarize_coherence_witnesses,
+    summarize_deadline_obligations as _summarize_deadline_obligations,
+    summarize_deadness_witnesses as _summarize_deadness_witnesses,
+    summarize_exception_obligations as _summarize_exception_obligations,
+    summarize_fingerprint_provenance as _summarize_fingerprint_provenance,
+    summarize_handledness_witnesses as _summarize_handledness_witnesses,
+    summarize_never_invariants as _summarize_never_invariants,
+    summarize_parse_failure_witnesses as _summarize_parse_failure_witnesses,
+    summarize_rewrite_plans as _summarize_rewrite_plans,
+    summarize_runtime_obligations as _summarize_runtime_obligations,
+)
+from gabion.analysis.json_types import JSONObject
+from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import sort_once
 
+from .pattern_schema_projection import (
+    pattern_schema_matches as _pattern_schema_matches,
+    pattern_schema_residue_entries as _pattern_schema_residue_entries,
+    pattern_schema_residue_lines as _pattern_schema_residue_lines,
+    pattern_schema_suggestions_from_instances as _pattern_schema_suggestions_from_instances,
+)
 
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
+@dataclass(frozen=True)
+class _ReportSectionKey:
+    run_id: str
+    section: str
 
 
 @dataclass
@@ -25,7 +65,6 @@ class _ReportEmitState:
 
 
 def _default_parse_witness_contract_violations() -> list[str]:
-    _bind_audit_symbols()
     return _parse_witness_contract_violations()
 
 
@@ -361,7 +400,6 @@ def emit_report(
     execution_pattern_suggestions: tuple[str, ...] = (),
     parse_witness_contract_violations_fn: Callable[[], list[str]] = _default_parse_witness_contract_violations,
 ) -> tuple[str, list[str]]:
-    _bind_audit_symbols()
     check_deadline()
     forest = report.forest
     bundle_sites_by_path = report.bundle_sites_by_path
@@ -527,3 +565,33 @@ def emit_report(
         start_section=_start_section,
     )
     return "\n".join(state.lines), state.violations
+
+
+def render_report(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    max_components: int,
+    *,
+    report: ReportCarrier,
+) -> tuple[str, list[str]]:
+    return emit_report(
+        groups_by_path,
+        max_components,
+        report=report,
+    )
+
+
+def compute_violations(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    max_components: int,
+    *,
+    report: ReportCarrier,
+) -> list[str]:
+    _, violations = emit_report(
+        groups_by_path,
+        max_components,
+        report=report,
+    )
+    return sort_once(
+        set(violations),
+        source="src/gabion/analysis/dataflow_reporting.py:compute_violations",
+    )

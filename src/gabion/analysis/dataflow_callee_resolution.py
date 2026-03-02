@@ -5,19 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Mapping
 
-_BOUND = False
-
-
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
+from gabion.analysis.dataflow_contracts import FunctionInfo
+from gabion.analysis.dataflow_evidence_helpers import (
+    _callee_key,
+    _resolve_class_candidates,
+    _resolve_method_in_hierarchy,
+)
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass(frozen=True)
@@ -267,7 +261,7 @@ def _resolve_class_hierarchy(
             )
         for class_qual in class_candidates:
             check_deadline()
-            resolved = _resolve_method_in_hierarchy(
+            resolution = _resolve_method_in_hierarchy(
                 class_qual,
                 method,
                 class_index=class_index,
@@ -275,9 +269,9 @@ def _resolve_class_hierarchy(
                 symbol_table=symbol_table,
                 seen=set(),
             )
-            if resolved is not None:
+            if getattr(resolution, "kind", "") == "found":
                 state.phase = "class_hierarchy_resolution"
-                return resolved
+                return resolution.resolved
     return None
 
 
@@ -337,6 +331,5 @@ def collect_callee_resolution_effects(
 def resolve_callee_with_effects(
     context: CalleeResolutionContext,
 ) -> CalleeResolutionOutcome:
-    _bind_audit_symbols()
     ops = plan_callee_resolution(context)
     return apply_callee_resolution_ops(context, ops)

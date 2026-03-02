@@ -4,14 +4,18 @@ from pathlib import Path
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import (
-        CallArgs,
-        Forest,
-        FunctionInfo,
+    from gabion.analysis import (
         ReportCarrier,
+        render_report,
+    )
+    from gabion.analysis.aspf import Forest
+    from gabion.analysis.dataflow_contracts import (
+        CallArgs,
+        FunctionInfo,
+    )
+    from gabion.analysis.dataflow_indexed_file_scan import (
         _format_type_flow_site,
         analyze_type_flow_repo_with_evidence,
-        render_report,
     )
 
     return (
@@ -24,7 +28,7 @@ def _load():
         render_report,
     )
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._format_type_flow_site::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._format_type_flow_site::call E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root
 def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
     CallArgs, _, FunctionInfo, _, _format_type_flow_site, _, _ = _load()
     caller = FunctionInfo(
@@ -73,7 +77,7 @@ def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
     )
     assert rendered.startswith("mod.py:caller:")
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_type_flow::strictness
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_type_flow::strictness
 def test_type_flow_evidence_in_report(tmp_path: Path) -> None:
     (
         _,

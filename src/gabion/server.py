@@ -153,7 +153,7 @@ from gabion.refactor import (
 )
 from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
-    DataflowAuditResponseDTO,
+    LegacyDataflowMonolithResponseDTO,
     DecisionDiffResponseDTO,
     LspParityGateResponseDTO,
     LintEntryDTO,
@@ -2399,7 +2399,7 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         if isinstance(disabled_surface_reasons_raw, Mapping)
         else {}
     )
-    base = DataflowAuditResponseDTO(
+    base = LegacyDataflowMonolithResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
         analysis_state=(str(response.get("analysis_state")) if response.get("analysis_state") is not None else None),

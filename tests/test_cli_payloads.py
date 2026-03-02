@@ -321,7 +321,7 @@ def test_build_check_execution_plan_request_sets_read_baseline_mode() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_613d9e303867_0c617420
-def test_dataflow_audit_payload_parsing() -> None:
+def test_legacy_dataflow_monolith_payload_parsing() -> None:
     opts = cli.parse_dataflow_args_or_exit(
         [
             ".",

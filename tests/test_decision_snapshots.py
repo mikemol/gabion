@@ -1,16 +1,30 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_snapshot_contracts import DecisionSnapshotSurfaces
+from gabion.analysis.dataflow_snapshot_io import (
+    diff_decision_snapshots,
+    render_decision_snapshot,
+)
+from gabion.analysis.pattern_schema_projection import (
+    pattern_schema_matches as _pattern_schema_matches,
+)
 
 
 def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
+    return SimpleNamespace(
+        DecisionSnapshotSurfaces=DecisionSnapshotSurfaces,
+        Forest=Forest,
+        _pattern_schema_matches=_pattern_schema_matches,
+        diff_decision_snapshots=diff_decision_snapshots,
+        render_decision_snapshot=render_decision_snapshot,
+    )
 
-    return da
 
-
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::stale_33ce2d4f668a
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::stale_33ce2d4f668a
 def test_render_and_diff_decision_snapshots() -> None:
     da = _load()
     forest = da.Forest()
@@ -51,7 +65,7 @@ def test_render_and_diff_decision_snapshots() -> None:
     assert "current_forest_signature" in diff
 
 
-# gabion:evidence E:call_footprint::tests/test_decision_snapshots.py::test_render_decision_snapshot_includes_pattern_schema_residue::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::test_decision_snapshots.py::tests.test_decision_snapshots._load
+# gabion:evidence E:call_footprint::tests/test_decision_snapshots.py::test_render_decision_snapshot_includes_pattern_schema_residue::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._pattern_schema_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::test_decision_snapshots.py::tests.test_decision_snapshots._load
 def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
     da = _load()
     forest = da.Forest()

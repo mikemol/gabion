@@ -70,6 +70,9 @@ from .aspf_visitors import (
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
     "groups_by_path",
     "decision_surfaces",
+    "value_decision_surfaces",
+    "pattern_schema_instances",
+    "pattern_schema_residue",
     "rewrite_plans",
     "synthesis_plan",
     "delta_state",

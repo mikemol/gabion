@@ -12,24 +12,26 @@ from typing import Callable, Iterable, Mapping, Sequence
 from gabion.analysis import evidence_keys
 from gabion.analysis.baseline_io import load_json, parse_version
 from gabion.analysis.aspf import Alt, Forest, NodeId
-from gabion.analysis.json_types import JSONObject
-from gabion.analysis.dataflow_audit import (
+from gabion.analysis.dataflow_contracts import (
     AuditConfig,
     ClassInfo,
     FunctionInfo,
-    ParentAnnotator,
     SymbolTable,
+)
+from gabion.analysis.dataflow_evidence_helpers import (
+    ParentAnnotator,
     _alt_input,
     _build_function_index,
     _build_symbol_table,
     _collect_class_index,
     _enclosing_scopes,
     _is_test_path,
-    _iter_paths,
     _module_name,
     _paramset_key,
     _resolve_callee,
 )
+from gabion.analysis.dataflow_ingest_helpers import _iter_paths
+from gabion.analysis.json_types import JSONObject
 from gabion.invariants import require_not_none
 from gabion.analysis.report_doc import ReportDoc
 from gabion.order_contract import sort_once

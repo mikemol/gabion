@@ -7,7 +7,7 @@ from typing import Callable, Hashable, TYPE_CHECKING, cast
 from gabion.analysis.timeout_context import check_deadline
 
 if TYPE_CHECKING:
-    from gabion.analysis.dataflow_audit import CallArgs, ParamUse
+    from gabion.analysis.dataflow_contracts import CallArgs, ParamUse
 
 
 def _is_ast(node: object, node_type: type[ast.AST]) -> bool:

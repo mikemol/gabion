@@ -41,7 +41,6 @@ class _FakeForest:
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_obligations_edges.py::test_deadline_obligation_builder_skips_suite_id_when_meta_not_nonempty_string::dataflow_obligations.py::gabion.analysis.dataflow_obligations._DeadlineObligationBuilder.add_obligation
 def test_deadline_obligation_builder_skips_suite_id_when_meta_not_nonempty_string() -> None:
-    dataflow_obligations._bind_audit_symbols()
     forest = _FakeForest(suite_id_meta=0)
     builder = dataflow_obligations._DeadlineObligationBuilder(
         by_qual={},

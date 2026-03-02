@@ -2,9 +2,88 @@ from __future__ import annotations
 # gabion:decision_protocol_module
 # gabion:boundary_normalization_module
 
-from collections.abc import Mapping
+import time
+from collections import Counter
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
+
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_contracts import (
+    AnalysisResult,
+    AuditConfig,
+    InvariantProposition,
+    ReportCarrier,
+)
+from gabion.analysis.dataflow_ingest_helpers import resolve_analysis_paths
+from gabion.analysis.forest_spec import build_forest_spec, forest_spec_metadata
+from gabion.analysis.json_types import JSONObject
+from gabion.analysis.projection_registry import WL_REFINEMENT_SPEC
+from gabion.analysis.timeout_context import (
+    TimeoutExceeded,
+    check_deadline,
+    reset_forest,
+    set_forest,
+)
+from gabion.analysis.type_fingerprints import (
+    TypeConstructorRegistry,
+    build_fingerprint_registry,
+)
+from gabion.analysis.wl_refinement import emit_wl_refinement_facets
+from gabion.invariants import never
+from gabion.order_contract import sort_once
+
+from .dataflow_analysis_index import (
+    AnalysisIndex,
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+    _analysis_collection_resume_path_key,
+    _analyze_file_internal,
+    _build_analysis_collection_resume_payload,
+    _build_analysis_index,
+    _iter_monotonic_paths,
+    _load_analysis_collection_resume_payload,
+    _phase_work_progress,
+    _profiling_v1_payload,
+)
+from .dataflow_ambiguity_helpers import (
+    _collect_call_ambiguities,
+    _emit_call_ambiguities,
+    _materialize_ambiguity_suite_agg_spec,
+    _materialize_ambiguity_virtual_set_spec,
+    _materialize_suite_order_spec,
+    _populate_bundle_forest,
+)
+from .dataflow_fingerprint_helpers import (
+    _collect_fingerprint_atom_keys,
+    _compute_fingerprint_coherence,
+    _compute_fingerprint_matches,
+    _compute_fingerprint_provenance,
+    _compute_fingerprint_rewrite_plans,
+    _compute_fingerprint_synth,
+    _compute_fingerprint_warnings,
+)
+from .dataflow_indexed_file_scan import (
+    _collect_constant_flow_details,
+    _collect_exception_obligations,
+    _collect_handledness_witnesses,
+    _collect_invariant_propositions,
+    _collect_never_invariants,
+    _param_annotations_by_path,
+    analyze_decision_surfaces_repo,
+    analyze_type_flow_repo_with_evidence,
+    analyze_unused_arg_flow_repo,
+    analyze_value_encoded_decisions_repo,
+)
+from .dataflow_lint_helpers import (
+    _compute_lint_lines,
+    _constant_smells_from_details,
+    _deadness_witnesses_from_constant_details,
+    _internal_broad_type_lint_lines,
+)
+from .dataflow_obligations import (
+    collect_deadline_obligations as _collect_deadline_obligations,
+)
 
 _SURFACE_BUNDLE_INFERENCE = "bundle-inference"
 _SURFACE_DECISION_SURFACES = "decision-surfaces"
@@ -41,20 +120,6 @@ def _unsupported_surface_diagnostic(
         "adapter": adapter_name,
         "required_by_policy": required,
     }
-
-_BOUND = False
-
-
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
 
 
 @dataclass(frozen=True)
@@ -894,7 +959,6 @@ def analyze_paths(
     on_collection_progress: object = None,
     on_phase_progress: object = None,
 ) -> AnalysisResult:
-    _bind_audit_symbols()
     check_deadline()
     forest_token = set_forest(forest)
 

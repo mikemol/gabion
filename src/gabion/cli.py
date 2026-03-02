@@ -73,7 +73,7 @@ from gabion.json_types import JSONObject
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import (
-    DataflowAuditResponseDTO,
+    LegacyDataflowMonolithResponseDTO,
     DecisionDiffResponseDTO,
     RefactorProtocolResponseDTO,
     LspParityGateResponseDTO,
@@ -1614,7 +1614,7 @@ def _run_with_timeout_retries(
 
 def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) -> None:
     with _cli_deadline_scope():
-        normalized_result = DataflowAuditResponseDTO.model_validate(
+        normalized_result = LegacyDataflowMonolithResponseDTO.model_validate(
             {
                 "exit_code": int(result.get("exit_code", 0) or 0),
                 "timeout": bool(result.get("timeout", False)),

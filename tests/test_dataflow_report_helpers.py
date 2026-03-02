@@ -6,7 +6,7 @@ from tests.order_helpers import contract_sorted
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
+    from gabion.analysis import dataflow_indexed_file_scan as da
 
     return da
 
@@ -26,7 +26,7 @@ def _forest_for_groups(
     )
     return forest
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::stale_f8548f01a2a9
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::stale_f8548f01a2a9
 def test_emit_report_empty_groups() -> None:
     da = _load()
     report, violations = da._emit_report(
@@ -35,7 +35,7 @@ def test_emit_report_empty_groups() -> None:
     assert "No bundle components detected." in report
     assert violations == []
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_parse_failure_witnesses() -> None:
     da = _load()
     report, violations = da._emit_report(
@@ -59,7 +59,7 @@ def test_emit_report_parse_failure_witnesses() -> None:
         "bad.py parse_failure stage=function_index SyntaxError: invalid syntax"
     ]
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_raw_sorted_contract_violations::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_raw_sorted_contract_violations::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -73,7 +73,7 @@ def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None
     assert "Order contract violations" in report
     assert any("raw_sorted introduced" in line for line in violations)
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_raw_sorted_strict_forbid_env::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::env_helpers.py::tests.env_helpers.env_scope::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_raw_sorted_strict_forbid_env::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::env_helpers.py::tests.env_helpers.env_scope::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -87,7 +87,7 @@ def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
         )
     assert any("raw sorted() forbidden" in line for line in violations)
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_execution_pattern_suggestions_are_non_blocking::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_execution_pattern_suggestions_are_non_blocking::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     da = _load()
     report, violations = da._emit_report(
@@ -102,7 +102,7 @@ def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     assert "indexed_pass_ingress" in report
     assert all("execution_pattern" not in line for line in violations)
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_dataflow_pattern_schema_suggestions::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_dataflow_pattern_schema_suggestions::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_dataflow_pattern_schema_suggestions(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -119,7 +119,7 @@ def test_emit_report_adds_dataflow_pattern_schema_suggestions(tmp_path: Path) ->
     assert "bundle=a,b" in report
     assert all("pattern_schema" not in line for line in violations)
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_pattern_schema_residue_non_blocking::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_pattern_schema_residue_non_blocking::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_pattern_schema_residue_non_blocking(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -136,7 +136,7 @@ def test_emit_report_adds_pattern_schema_residue_non_blocking(tmp_path: Path) ->
     assert "reason=unreified_protocol" in report
     assert all("unreified_protocol" not in line for line in violations)
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::stale_3bd0067073ce
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::stale_3bd0067073ce
 def test_emit_report_component_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -195,7 +195,7 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
     assert "Contextvar/ambient rewrite suggestions" in report
     assert any("tier-3" in line for line in violations)
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_fingerprint_provenance_summary::stale_5c06bf891f12
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_fingerprint_provenance_summary::stale_5c06bf891f12
 def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -239,7 +239,7 @@ def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
     assert "glossary=user_context" in report
     assert "base=['float'] ctor=['list']" in report
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::stale_ed011055a00b
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::stale_ed011055a00b
 def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -269,7 +269,7 @@ def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     assert "Fingerprint synthesis" in report
     assert "Invariant propositions" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_deadness_summary::stale_37f9d3f5014a
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_deadness_summary::stale_37f9d3f5014a
 def test_emit_report_deadness_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -297,7 +297,7 @@ def test_emit_report_deadness_summary(tmp_path: Path) -> None:
     assert "Deadness evidence" in report
     assert "UNREACHABLE" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_coherence_summary::stale_611c2394ced9
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_coherence_summary::stale_611c2394ced9
 def test_emit_report_coherence_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -322,7 +322,7 @@ def test_emit_report_coherence_summary(tmp_path: Path) -> None:
     assert "Coherence evidence" in report
     assert "glossary-ambiguity" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_rewrite_plan_summary::stale_ca07b88a33d1
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_rewrite_plan_summary::stale_ca07b88a33d1
 def test_emit_report_rewrite_plan_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -347,7 +347,7 @@ def test_emit_report_rewrite_plan_summary(tmp_path: Path) -> None:
     assert "Rewrite plans" in report
     assert "BUNDLE_ALIGN" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_exception_obligation_summary::stale_328ee70afddf
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_exception_obligation_summary::stale_328ee70afddf
 def test_emit_report_exception_obligation_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -372,7 +372,7 @@ def test_emit_report_exception_obligation_summary(tmp_path: Path) -> None:
     assert "Exception obligations" in report
     assert "UNKNOWN" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_handledness_summary::stale_ab17c08df8f2
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_handledness_summary::stale_ab17c08df8f2
 def test_emit_report_handledness_summary(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -403,7 +403,7 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
     assert "except Exception" in report
     assert "except TypeError" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_anonymous_schema_surfaces::stale_f9a0c8a98ff8_fc229433
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_anonymous_schema_surfaces::stale_f9a0c8a98ff8_fc229433
 def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -422,7 +422,7 @@ def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
     assert "Anonymous schema surfaces" in report
     assert "dict[str, Any]" in report
 
-# gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_anonymous_schema_surfaces_truncates_long_list::stale_ec057d340de5
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write E:decision_surface/direct::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers.test_emit_report_anonymous_schema_surfaces_truncates_long_list::stale_ec057d340de5
 def test_emit_report_anonymous_schema_surfaces_truncates_long_list(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -436,7 +436,7 @@ def test_emit_report_anonymous_schema_surfaces_truncates_long_list(tmp_path: Pat
     assert "Anonymous schema surfaces" in report
     assert "... 1 more" in report
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::stale_84c439898263
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._bundle_projection_from_forest::stale_84c439898263
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -448,7 +448,7 @@ def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     )
     assert "Showing top 0 components" in report
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::stale_004df63aa412
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._render_mermaid_component::stale_004df63aa412
 def test_render_mermaid_component_declared_none_documented(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -479,7 +479,7 @@ def test_render_mermaid_component_declared_none_documented(tmp_path: Path) -> No
     assert "Documented bundles" in summary
     assert "(tier-2, documented)" in summary
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::stale_abb142a389b4
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._merge_counts_by_knobs::stale_abb142a389b4
 def test_merge_counts_by_knobs_merges_subset() -> None:
     da = _load()
     counts = {("a", "b"): 1, ("a", "b", "k"): 2}
@@ -487,7 +487,7 @@ def test_merge_counts_by_knobs_merges_subset() -> None:
     assert merged == {("a", "b", "k"): 3}
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._topologically_order_report_projection_specs
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._topologically_order_report_projection_specs
 def test_report_projection_topological_order_is_stable_for_shuffled_dep_order() -> None:
     da = _load()
     spec_a = da._report_section_spec(section_id="a", phase="collection")
@@ -514,7 +514,6 @@ def test_report_projection_topological_order_is_stable_for_shuffled_dep_order() 
 def test_emit_report_tail_skips_empty_pattern_sections_and_non_mapping_adapter_rows() -> None:
     from gabion.analysis import dataflow_reporting
 
-    dataflow_reporting._bind_audit_symbols()
     original_matches = dataflow_reporting._pattern_schema_matches
     original_suggestions = dataflow_reporting._pattern_schema_suggestions_from_instances
     original_residue = dataflow_reporting._pattern_schema_residue_entries

@@ -1,42 +1,55 @@
 """Static analysis subpackage for Gabion."""
 
-from .dataflow_audit import (
+from .dataflow_contracts import (
     AnalysisResult,
     AuditConfig,
     InvariantProposition,
     ReportCarrier,
-    analyze_paths,
+)
+from .dataflow_baseline_gates import (
     apply_baseline,
+    load_baseline,
+    resolve_baseline_path,
+    write_baseline,
+)
+from .dataflow_graph_rendering import render_dot
+from .dataflow_ingest_helpers import resolve_analysis_paths
+from .dataflow_pipeline import analyze_paths
+from .dataflow_projection_helpers import (
+    report_projection_phase_rank,
+    report_projection_spec_rows,
+    report_projection_specs,
+)
+from .dataflow_report_rendering import render_synthesis_section
+from .dataflow_refactor_planning import (
     build_refactor_plan,
+    render_refactor_plan,
+    render_reuse_lemma_stubs,
+)
+from .dataflow_reporting import compute_violations, render_report
+from .dataflow_structure_reuse import (
     build_analysis_collection_resume_seed,
-    build_synthesis_plan,
     compute_structure_reuse,
-    compute_structure_metrics,
-    compute_violations,
-    diff_decision_snapshots,
-    diff_structure_snapshot_files,
+    project_report_sections,
+)
+from .dataflow_synthesis import (
+    build_synthesis_plan,
+    render_protocol_stubs,
+)
+from .dataflow_snapshot_contracts import (
     DecisionSnapshotSurfaces,
     StructureSnapshotDiffRequest,
+)
+from .dataflow_snapshot_io import (
+    compute_structure_metrics,
+    diff_decision_snapshots,
+    diff_structure_snapshot_files,
     diff_structure_snapshots,
     extract_report_sections,
     load_decision_snapshot,
     load_structure_snapshot,
-    load_baseline,
-    project_report_sections,
-    report_projection_phase_rank,
-    report_projection_spec_rows,
-    report_projection_specs,
-    render_dot,
-    render_structure_snapshot,
-    render_refactor_plan,
-    render_report,
     render_decision_snapshot,
-    render_protocol_stubs,
-    render_reuse_lemma_stubs,
-    render_synthesis_section,
-    resolve_analysis_paths,
-    resolve_baseline_path,
-    write_baseline,
+    render_structure_snapshot,
 )
 from .type_fingerprints import (
     Fingerprint,

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from gabion.analysis import dataflow_audit as da
+from gabion.analysis import dataflow_indexed_file_scan as da
 from gabion.exceptions import NeverThrown
 
 
@@ -21,7 +21,7 @@ def _make_function(path: Path, qual: str) -> da.FunctionInfo:
     )
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities::stale_584c89f239e5_d202bfed
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities::stale_584c89f239e5_d202bfed
 def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text(
@@ -47,7 +47,7 @@ def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
     assert ambiguities == []
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities::stale_e9001418057f
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities::stale_e9001418057f
 def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
     tmp_path: Path,
 ) -> None:
@@ -77,7 +77,7 @@ def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
     assert ambiguities == []
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities
 def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = _make_function(tmp_path / "mod.py", "mod.target")
@@ -139,7 +139,7 @@ def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     assert any("... " in line for line in summary)
 
 
-# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_uses_call_suite::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
+# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_uses_call_suite::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
 def test_emit_call_ambiguities_uses_call_suite(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = _make_function(tmp_path / "mod.py", "mod.target")
@@ -191,7 +191,7 @@ def test_emit_call_ambiguities_uses_call_suite(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_requires_candidate_function_span::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
+# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_requires_candidate_function_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
 def test_emit_call_ambiguities_requires_candidate_function_span(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = da.FunctionInfo(
@@ -233,7 +233,7 @@ def test_emit_call_ambiguities_requires_candidate_function_span(tmp_path: Path) 
         )
 
 
-# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_suite_agg_materializes_spec_facets::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_ambiguity_suite_agg_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
+# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_suite_agg_materializes_spec_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_ambiguity_suite_agg_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
 def test_ambiguity_suite_agg_materializes_spec_facets(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = _make_function(tmp_path / "mod.py", "mod.target")
@@ -275,7 +275,7 @@ def test_ambiguity_suite_agg_materializes_spec_facets(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_requires_multiple_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_ambiguity_virtual_set_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
+# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_requires_multiple_candidates::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_ambiguity_virtual_set_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
 def test_ambiguity_virtual_set_spec_requires_multiple_candidates(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = _make_function(tmp_path / "mod.py", "mod.target")
@@ -314,7 +314,7 @@ def test_ambiguity_virtual_set_spec_requires_multiple_candidates(tmp_path: Path)
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_materializes_suite_facets::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_ambiguity_virtual_set_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
+# gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_materializes_suite_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_ambiguity_virtual_set_spec::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function
 def test_ambiguity_virtual_set_spec_materializes_suite_facets(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate_a = _make_function(tmp_path / "mod.py", "mod.target_a")
@@ -357,7 +357,7 @@ def test_ambiguity_virtual_set_spec_materializes_suite_facets(tmp_path: Path) ->
     )
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_call_ambiguities
 def test_summarize_call_ambiguities_handles_empty_and_invalid_entries() -> None:
     assert da._summarize_call_ambiguities([]) == []
     summary = da._summarize_call_ambiguities(
@@ -373,7 +373,7 @@ def test_summarize_call_ambiguities_handles_empty_and_invalid_entries() -> None:
     assert any("Counts by witness kind" in line for line in summary)
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_report
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_report
 def test_render_report_includes_ambiguities() -> None:
     report, _ = da.render_report(
         {},

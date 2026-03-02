@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 from gabion.analysis.aspf import Forest
-from gabion.analysis.dataflow_audit import AuditConfig, analyze_paths
+from gabion.analysis import AuditConfig, analyze_paths
 from tests.order_helpers import contract_sorted
 
 _DEADLINE_SYMBOLS = {"check_deadline", "deadline_scope", "deadline_loop_iter"}
@@ -39,7 +39,7 @@ def _deadline_roots(script_paths: list[Path], repo_root: Path) -> set[str]:
     return roots
 
 
-# gabion:evidence E:call_footprint::tests/test_script_deadline_contracts.py::test_scripts_using_deadlines_require_clock_and_forest_scope::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::order_helpers.py::tests.order_helpers.contract_sorted::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._deadline_roots::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._script_deadline_paths
+# gabion:evidence E:call_footprint::tests/test_script_deadline_contracts.py::test_scripts_using_deadlines_require_clock_and_forest_scope::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::order_helpers.py::tests.order_helpers.contract_sorted::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._deadline_roots::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._script_deadline_paths
 def test_scripts_using_deadlines_require_clock_and_forest_scope() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     script_paths = _script_deadline_paths(repo_root)

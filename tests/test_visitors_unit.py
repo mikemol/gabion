@@ -7,9 +7,11 @@ import pytest
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import (
+    from gabion.analysis.dataflow_contracts import (
         CallArgs,
         ParamUse,
+    )
+    from gabion.analysis.dataflow_indexed_file_scan import (
         _call_context,
         _callee_name,
         _const_repr,
@@ -216,10 +218,10 @@ def test_bind_sequence_mismatch_marks_non_forward() -> None:
     assert use_map["a"].non_forward is False
     assert use_map["b"].non_forward is False
 
-# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_audit.py::gabion.analysis.dataflow_audit.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
 def test_import_visitor_basic_and_relative() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import SymbolTable
+    from gabion.analysis.dataflow_contracts import SymbolTable
     from gabion.analysis.visitors import ImportVisitor
 
     table = SymbolTable()

@@ -9,7 +9,7 @@ from gabion.exceptions import NeverThrown
 
 
 def _bind() -> None:
-    dataflow_pipeline._bind_audit_symbols()
+    return None
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_normalized_dimension_payload_filters_invalid_entries::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._normalized_dimension_payload
@@ -101,7 +101,7 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
 
 
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._bind_audit_symbols
+# gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._collect_fingerprint_atom_keys
 def test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant() -> None:
     _bind()
     first = Path("pkg/a.py")

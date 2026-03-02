@@ -7,7 +7,7 @@ import pytest
 
 from gabion import server
 from gabion.analysis.aspf import Forest
-from gabion.analysis.dataflow_audit import AnalysisResult
+from gabion.analysis.dataflow_contracts import AnalysisResult
 from gabion.exceptions import NeverThrown
 from gabion.server_core import command_orchestrator as orchestrator
 

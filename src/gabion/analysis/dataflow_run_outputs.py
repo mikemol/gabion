@@ -2,24 +2,43 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass, replace
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
+from gabion.analysis.dataflow_baseline_gates import (
+    _apply_baseline,
+    _load_baseline,
+    _write_baseline,
+)
+from gabion.analysis.dataflow_contracts import AnalysisResult, AuditConfig, ReportCarrier
+from gabion.analysis.dataflow_graph_rendering import emit_dot as _emit_dot
+from gabion.analysis.dataflow_output_emitters import (
+    emit_sidecar_outputs as _emit_sidecar_outputs,
+    has_followup_actions as _has_followup_actions,
+    write_json_or_stdout as _write_json_or_stdout,
+    write_text_or_stdout as _write_text_or_stdout,
+)
+from gabion.analysis.dataflow_refactor_planning import (
+    build_refactor_plan,
+    render_refactor_plan,
+)
+from gabion.analysis.dataflow_report_rendering import render_synthesis_section
+from gabion.analysis.dataflow_snapshot_contracts import DecisionSnapshotSurfaces
+from gabion.analysis.dataflow_snapshot_io import (
+    compute_structure_metrics,
+    render_decision_snapshot,
+    render_structure_snapshot,
+)
+from gabion.analysis.dataflow_synthesis import (
+    build_synthesis_plan,
+    render_protocol_stubs,
+)
 from gabion.analysis.json_types import JSONObject, JSONValue
-
-_BOUND = False
-
-
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
+from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
+from gabion.order_contract import sort_once
 
 
 @dataclass(frozen=True)
@@ -144,7 +163,6 @@ def finalize_run_outputs(
     emit_report_fn: Callable[..., tuple[str, list[str]]],
     compute_violations_fn: Callable[..., list[str]],
 ) -> DataflowRunOutputOutcome:
-    _bind_audit_symbols()
     ops = plan_run_output_ops(context)
     return apply_run_output_ops(
         context=context,
@@ -368,7 +386,10 @@ def emit_report_output(
         if synthesis_plan and (
             args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
         ):
-            report = report + render_synthesis_section(synthesis_plan)
+            report = report + render_synthesis_section(
+                synthesis_plan,
+                check_deadline=check_deadline,
+            )
         if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
             report = report + render_refactor_plan(refactor_plan)
         _write_text_or_stdout(report_target, report)

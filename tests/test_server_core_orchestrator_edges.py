@@ -8,7 +8,7 @@ import pytest
 
 from gabion import server
 from gabion.analysis.aspf import Forest
-from gabion.analysis.dataflow_audit import AnalysisResult
+from gabion.analysis.dataflow_contracts import AnalysisResult
 from gabion.exceptions import NeverThrown
 from gabion.execution_plan import ExecutionPlan
 from gabion.server_core import command_orchestrator as orchestrator
@@ -166,11 +166,12 @@ def test_emit_primary_outputs_synthesis_report_without_plan_path(
     response: dict[str, object] = {}
     artifacts = orchestrator._emit_primary_outputs(
         response=response,
-        context=orchestrator._PrimaryOutputContext(
-            analysis=_empty_analysis_result(),
-            root=str(tmp_path),
-            paths=[],
-            payload={},
+            context=orchestrator._PrimaryOutputContext(
+                analysis=_empty_analysis_result(),
+                pattern_schema_instances=[],
+                root=str(tmp_path),
+                paths=[],
+                payload={},
             config=orchestrator.AuditConfig(project_root=tmp_path),
             synthesis_plan_path=None,
             synthesis_report=True,
@@ -196,10 +197,11 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
 ) -> None:
     orchestrator._bind_server_symbols()
     outcome = orchestrator._finalize_report_and_violations(
-        context=orchestrator._ReportFinalizationContext(
-            analysis=_empty_analysis_result(),
-            root=str(tmp_path),
-            max_components=1,
+            context=orchestrator._ReportFinalizationContext(
+                analysis=_empty_analysis_result(),
+                pattern_schema_instances=[],
+                root=str(tmp_path),
+                max_components=1,
             report_path=True,
             report_output_path=None,
             projection_rows=[],
@@ -284,6 +286,7 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
     baseline_path.write_text("sample violation\n", encoding="utf-8")
     context = orchestrator._ReportFinalizationContext(
         analysis=_empty_analysis_result(),
+        pattern_schema_instances=[],
         root=str(tmp_path),
         max_components=1,
         report_path=False,
@@ -503,11 +506,12 @@ def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
     response: dict[str, object] = {}
     artifacts = orchestrator._emit_primary_outputs(
         response=response,
-        context=orchestrator._PrimaryOutputContext(
-            analysis=_empty_analysis_result(),
-            root=str(tmp_path),
-            paths=[],
-            payload={},
+            context=orchestrator._PrimaryOutputContext(
+                analysis=_empty_analysis_result(),
+                pattern_schema_instances=[],
+                root=str(tmp_path),
+                paths=[],
+                payload={},
             config=orchestrator.AuditConfig(project_root=tmp_path),
             synthesis_plan_path=None,
             synthesis_report=True,

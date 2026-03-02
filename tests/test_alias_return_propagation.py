@@ -6,12 +6,15 @@ import textwrap
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import _analyze_function, _collect_return_aliases
+    from gabion.analysis.dataflow_indexed_file_scan import (
+        _analyze_function,
+        _collect_return_aliases,
+    )
     from gabion.analysis.visitors import ParentAnnotator
 
     return _analyze_function, _collect_return_aliases, ParentAnnotator
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_callee::class_name,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_callee::class_name,name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._param_names::fn,ignore_params
 def test_alias_propagation_via_return() -> None:
     _analyze_function, _collect_return_aliases, ParentAnnotator = _load()
     source = textwrap.dedent(

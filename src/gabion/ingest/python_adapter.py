@@ -4,7 +4,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from gabion.analysis.dataflow_audit import AuditConfig, _collect_functions, resolve_analysis_paths
+from gabion.analysis.dataflow_contracts import AuditConfig
+from gabion.analysis.dataflow_ingest_helpers import (
+    _collect_functions,
+    resolve_analysis_paths,
+)
 from gabion.ingest.adapter_contract import (
     LanguageAdapter,
     NormalizedIngestBundle,

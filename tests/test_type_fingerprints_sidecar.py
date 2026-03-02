@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from gabion.analysis.dataflow_audit import (
+from gabion.analysis.dataflow_fingerprint_helpers import (
     _collect_fingerprint_atom_keys,
     _compute_fingerprint_matches,
     _compute_fingerprint_provenance,
@@ -137,7 +137,7 @@ def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_reporting_parity_with_legacy_decode::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar._legacy_decode::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_reporting_parity_with_legacy_decode::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar._legacy_decode::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint
 def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -259,7 +259,7 @@ def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> No
     ]["representative"]
 
 
-# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_collect_fingerprint_atom_keys_is_order_invariant::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_fingerprint_atom_keys
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_collect_fingerprint_atom_keys_is_order_invariant::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_fingerprint_atom_keys
 def test_collect_fingerprint_atom_keys_is_order_invariant() -> None:
     first = Path("pkg/a.py")
     second = Path("pkg/b.py")

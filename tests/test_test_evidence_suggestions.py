@@ -7,7 +7,7 @@ import pytest
 
 from gabion.analysis import test_evidence, test_evidence_suggestions
 from gabion.analysis.aspf import Forest
-from gabion.analysis.dataflow_audit import AuditConfig
+from gabion.analysis.dataflow_contracts import AuditConfig
 
 
 def _entries_from_payload(payload: dict[str, object]) -> list[test_evidence_suggestions.TestEvidenceEntry]:

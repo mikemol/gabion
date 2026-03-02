@@ -219,7 +219,7 @@ def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> No
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_fe77309ae8a6_eaff81bd
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
-def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
+def test_cli_check_and_legacy_dataflow_monolith(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text(
         "def callee_int(x: int):\n"
@@ -394,7 +394,7 @@ def test_cli_docflow() -> None:
     assert result.exit_code == 0
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths::cli.py::gabion.cli.app
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_legacy_dataflow_monolith_requires_paths::cli.py::gabion.cli.app
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_sppf_graph_and_status_consistency::cli.py::gabion.cli.app
@@ -432,8 +432,8 @@ def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
     assert status_json.exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_command_is_removed::test_cli_commands.py::tests.test_cli_commands._invoke
-def test_cli_dataflow_audit_command_is_removed() -> None:
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_legacy_dataflow_monolith_command_is_removed::test_cli_commands.py::tests.test_cli_commands._invoke
+def test_cli_legacy_dataflow_monolith_command_is_removed() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["dataflow-audit", "--help"])
     assert result.exit_code != 0

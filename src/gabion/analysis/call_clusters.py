@@ -14,7 +14,7 @@ from gabion.analysis.call_cluster_shared import (
     render_string_codeblock,
     sorted_unique_strings,
 )
-from gabion.analysis.dataflow_audit import AuditConfig
+from gabion.analysis.dataflow_contracts import AuditConfig
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
+from gabion.analysis import compute_structure_reuse, render_reuse_lemma_stubs
 
 
 
@@ -10,12 +13,12 @@ def _parse_stub_payload(stubs: str) -> dict[str, object]:
     return json.loads(stubs[start:])
 
 def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
+    return SimpleNamespace(
+        compute_structure_reuse=compute_structure_reuse,
+        render_reuse_lemma_stubs=render_reuse_lemma_stubs,
+    )
 
-    return da
-
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::stale_647c5a38c22b_2e7dfa65
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_647c5a38c22b_2e7dfa65
 def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     da = _load()
     snapshot = {
@@ -61,7 +64,7 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     replacement_map = reuse.get("replacement_map", {})
     assert any(location.startswith("a.py::f") for location in replacement_map)
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs::stale_fb5b482d5857_c1880e7c
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs::stale_fb5b482d5857_c1880e7c
 def test_render_reuse_lemma_stubs_includes_names() -> None:
     da = _load()
     reuse = {
@@ -83,7 +86,7 @@ def test_render_reuse_lemma_stubs_includes_names() -> None:
     assert payload.get("artifact_kind") == "reuse_rewrite_plan_bundle"
     assert payload.get("plans") == []
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::stale_001c41908b1c
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_001c41908b1c
 def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

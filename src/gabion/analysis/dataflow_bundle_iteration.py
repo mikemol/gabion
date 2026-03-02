@@ -3,27 +3,24 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal, cast
 
+from gabion.analysis.dataflow_contracts import SymbolTable
+from gabion.analysis.dataflow_evidence_helpers import _module_name
+from gabion.analysis.dataflow_parse_helpers import (
+    _ParseModuleFailure,
+    _ParseModuleStage,
+    _ParseModuleSuccess,
+    _forbid_adhoc_bundle_discovery,
+    _parse_module_tree,
+)
 from gabion.analysis.json_types import JSONObject
+from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
-
-_BOUND = False
-
-
-def _bind_audit_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion.analysis import dataflow_audit as _audit
-
-    module_globals = globals()
-    for name, value in _audit.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
-
 
 @dataclass(frozen=True)
 class BundleIterationContext:
@@ -337,7 +334,6 @@ def _apply_constructor_plan(
     fields: Sequence[str],
     plan: _ConstructorPlan,
 ) -> ConstructorProjectionResult:
-    _bind_audit_symbols()
     witness_effects = list(plan.witness_effects)
     if plan.terminal_status != "apply":
         return _ConstructorProjectionRejected(
@@ -401,17 +397,19 @@ def iter_dataclass_call_bundle_effects(
     dataclass_registry: object = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> BundleIterationOutcome:
-    _bind_audit_symbols()
     check_deadline()
     _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
 
-    tree = _parse_module_tree(
+    parse_outcome = _parse_module_tree(
         path,
         stage=_ParseModuleStage.DATACLASS_CALL_BUNDLES,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    if tree is None:
-        return BundleIterationOutcome(bundles=frozenset(), witness_effects=())
+    match parse_outcome:
+        case _ParseModuleSuccess(kind="parsed", tree=tree):
+            pass
+        case _ParseModuleFailure(kind="parse_failure"):
+            return BundleIterationOutcome(bundles=frozenset(), witness_effects=())
 
     module = _module_identifier(_module_name(path, project_root))
     local_dataclasses = _collect_local_dataclasses(tree)

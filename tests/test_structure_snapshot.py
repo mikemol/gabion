@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+
+from gabion.analysis.aspf import Forest
+from gabion.analysis.dataflow_ambiguity_helpers import _populate_bundle_forest
+from gabion.analysis.dataflow_snapshot_io import render_structure_snapshot
 
 def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
+    return SimpleNamespace(
+        Forest=Forest,
+        _populate_bundle_forest=_populate_bundle_forest,
+        render_structure_snapshot=render_structure_snapshot,
+    )
 
-    return da
-
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::stale_0aac8650094d
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::stale_0aac8650094d
 def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     da = _load()
     path_a = tmp_path / "a.py"
@@ -47,7 +53,7 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     assert fn_entry["bundles"][0] == ["a"]
     assert fn_entry["bundles"][1] == ["c", "d"]
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::stale_7b78ac9c9e2e
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::stale_7b78ac9c9e2e
 def test_render_structure_snapshot_handles_outside_root(tmp_path: Path) -> None:
     da = _load()
     root = tmp_path / "root"

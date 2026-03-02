@@ -7,9 +7,11 @@ import pytest
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import (
+    from gabion.analysis.dataflow_contracts import (
         CallArgs,
         ParamUse,
+    )
+    from gabion.analysis.dataflow_indexed_file_scan import (
         _callee_name,
         _call_context,
         _const_repr,

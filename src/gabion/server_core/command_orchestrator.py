@@ -20,6 +20,7 @@ from gabion.commands.progress_transition import (
     validate_progress_transition,
 )
 from gabion.order_contract import OrderPolicy
+from gabion.analysis.pattern_schema_projection import pattern_schema_surface_payloads
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
@@ -279,6 +280,8 @@ def _normalize_dataflow_format_controls(
         "value_decision_surfaces": "Value-encoded decision-surface extraction.",
         "type_ambiguities": "Type-ambiguity detection and reporting.",
         "rewrite_plans": "Fingerprint rewrite-plan analysis and projection.",
+        "pattern_schema_instances": "PatternSchema instance projection.",
+        "pattern_schema_residue": "PatternSchema residue projection.",
     }
     profile_matrix: dict[str, tuple[list[str], dict[str, str]]] = {
         "default": (
@@ -287,6 +290,8 @@ def _normalize_dataflow_format_controls(
                 "value_decision_surfaces",
                 "type_ambiguities",
                 "rewrite_plans",
+                "pattern_schema_instances",
+                "pattern_schema_residue",
             ],
             {},
         ),
@@ -1184,6 +1189,7 @@ def _apply_auxiliary_artifact_outputs(
 @dataclass(frozen=True)
 class _PrimaryOutputContext:
     analysis: AnalysisResult
+    pattern_schema_instances: list[object]
     root: str
     paths: list[Path]
     payload: dict[str, object]
@@ -1212,6 +1218,7 @@ class _PrimaryOutputArtifacts:
 @dataclass(frozen=True)
 class _ReportFinalizationContext:
     analysis: AnalysisResult
+    pattern_schema_instances: list[object]
     root: str
     max_components: int
     report_path: object
@@ -1288,6 +1295,8 @@ class _TimeoutCleanupContext:
                 "value_decision_surfaces",
                 "type_ambiguities",
                 "rewrite_plans",
+                "pattern_schema_instances",
+                "pattern_schema_residue",
             ],
             disabled_surface_reasons={},
         )
@@ -2500,6 +2509,7 @@ def _emit_primary_outputs(
             forest=context.analysis.forest,
             project_root=Path(context.root),
             groups_by_path=context.analysis.groups_by_path,
+            pattern_schema_instances=context.pattern_schema_instances,
         )
         _write_json_output_or_response(
             response=response,
@@ -2680,6 +2690,7 @@ def _finalize_report_and_violations(
                 forest=context.analysis.forest,
                 project_root=Path(context.root),
                 groups_by_path=context.analysis.groups_by_path,
+                pattern_schema_instances=context.pattern_schema_instances,
             )
             report = report + "\n" + json.dumps(
                 decision_payload, indent=2, sort_keys=False
@@ -2706,7 +2717,10 @@ def _finalize_report_and_violations(
             or context.synthesis_plan_path
             or context.synthesis_protocols_path
         ):
-            report = report + render_synthesis_section(context.synthesis_plan)
+            report = report + render_synthesis_section(
+                context.synthesis_plan,
+                check_deadline=check_deadline,
+            )
         if context.refactor_plan and (
             context.refactor_plan or context.refactor_plan_json
         ):
@@ -3141,6 +3155,9 @@ def _handle_timeout_cleanup(
             semantic_surface_payloads={
                 "groups_by_path": {},
                 "decision_surfaces": [],
+                "value_decision_surfaces": [],
+                "pattern_schema_instances": [],
+                "pattern_schema_residue": [],
                 "rewrite_plans": [],
                 "synthesis_plan": [],
                 "delta_state": progress_payload,
@@ -3719,10 +3736,20 @@ def _build_success_response(
     if context.options.lint:
         response["lint_lines"] = analysis.lint_lines
 
+    (
+        pattern_schema_instances,
+        pattern_schema_snapshot_instances,
+        pattern_schema_snapshot_residue,
+    ) = pattern_schema_surface_payloads(
+        groups_by_path=analysis.groups_by_path,
+        include_execution=True,
+    )
+
     primary_outputs = _emit_primary_outputs(
         response=response,
         context=_PrimaryOutputContext(
             analysis=analysis,
+            pattern_schema_instances=pattern_schema_instances,
             root=context.root,
             paths=context.paths,
             payload=context.payload,
@@ -3860,6 +3887,7 @@ def _build_success_response(
     report_outcome = _finalize_report_and_violations(
         context=_ReportFinalizationContext(
             analysis=analysis,
+            pattern_schema_instances=pattern_schema_instances,
             root=context.root,
             max_components=context.options.max_components,
             report_path=context.report_path,
@@ -3938,6 +3966,9 @@ def _build_success_response(
         semantic_surface_payloads={
             "groups_by_path": analysis.groups_by_path,
             "decision_surfaces": analysis.decision_surfaces,
+            "value_decision_surfaces": analysis.value_decision_surfaces,
+            "pattern_schema_instances": pattern_schema_snapshot_instances,
+            "pattern_schema_residue": pattern_schema_snapshot_residue,
             "rewrite_plans": analysis.rewrite_plans,
             "synthesis_plan": synthesis_plan if synthesis_plan is not None else [],
             "delta_state": {

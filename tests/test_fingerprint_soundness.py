@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis import dataflow_audit as da
-    from gabion.analysis import type_fingerprints as tf
+from gabion.analysis import dataflow_indexed_file_scan as da
+from gabion.analysis import type_fingerprints as tf
 
+def _load():
     return da, tf
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_81ea454a69a5
@@ -54,7 +53,7 @@ def _normalize_provenance(entries: list[dict[str, object]]) -> list[dict[str, ob
     return sorted(entries, key=lambda entry: str(entry.get("provenance_id", "")))
 
 
-# gabion:evidence E:call_footprint::tests/test_fingerprint_soundness.py::test_fingerprint_phase_outputs_are_stable_under_permuted_input_order::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_fingerprint_atom_keys::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth
+# gabion:evidence E:call_footprint::tests/test_fingerprint_soundness.py::test_fingerprint_phase_outputs_are_stable_under_permuted_input_order::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_fingerprint_atom_keys::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_warnings::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_synth
 def test_fingerprint_phase_outputs_are_stable_under_permuted_input_order() -> None:
     da, tf = _load()
 

@@ -1,12 +1,13 @@
 # gabion:boundary_normalization_module
 # gabion:decision_protocol_module
-"""Exception-obligation helpers extracted from ``dataflow_audit``."""
+"""Exception-obligation helpers extracted from ``legacy_dataflow_monolith``."""
 
 from __future__ import annotations
 
 import ast
 import builtins
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from enum import StrEnum
 
 from gabion.order_contract import sort_once
 
@@ -16,6 +17,12 @@ _AST_UNPARSE_ERROR_TYPES = (
     ValueError,
     RecursionError,
 )
+
+
+class _EvalDecision(StrEnum):
+    TRUE = "true"
+    FALSE = "false"
+    UNKNOWN = "unknown"
 
 
 def exception_param_names(

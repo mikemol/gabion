@@ -66,7 +66,6 @@ def _run_output_context(root: Path) -> dataflow_run_outputs.DataflowRunOutputCon
 def test_apply_run_output_ops_skips_unknown_op_and_reaches_terminal_console_step(
     tmp_path: Path,
 ) -> None:
-    dataflow_run_outputs._bind_audit_symbols()
     context = _run_output_context(tmp_path)
     outcome = dataflow_run_outputs.apply_run_output_ops(
         context=context,

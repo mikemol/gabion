@@ -11,7 +11,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable
 
-from gabion.analysis.dataflow_audit import report_projection_spec_rows
+from gabion.analysis.dataflow_projection_helpers import report_projection_spec_rows
 from gabion.analysis.projection_registry import REGISTERED_SPECS
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once

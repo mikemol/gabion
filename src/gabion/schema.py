@@ -232,7 +232,7 @@ class AspfStateDTO(BaseModel):
     analysis_state: Optional[str] = None
 
 
-class DataflowAuditResponseDTO(BaseModel):
+class LegacyDataflowMonolithResponseDTO(BaseModel):
     exit_code: int = 0
     timeout: bool = False
     analysis_state: Optional[str] = None

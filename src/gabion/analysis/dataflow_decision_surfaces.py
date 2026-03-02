@@ -1,10 +1,10 @@
 # gabion:boundary_normalization_module
 # gabion:decision_protocol_module
-"""Decision-surface helpers extracted from ``dataflow_audit``.
+"""Decision-surface helpers extracted from ``legacy_dataflow_monolith``.
 
 These helpers are intentionally dependency-light and receive runtime hooks
 (deadline checks, sorting, and payload conversion) from the caller so
-``dataflow_audit`` can keep stable public façades while internal call sites
+``legacy_dataflow_monolith`` can keep stable public façades while internal call sites
 migrate incrementally.
 """
 

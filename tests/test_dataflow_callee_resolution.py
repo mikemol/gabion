@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gabion.analysis.dataflow_contracts import FunctionInfo
+from gabion.analysis.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis import dataflow_callee_resolution as resolution
 
 def _load():
-    from gabion.analysis import dataflow_audit as da
-    from gabion.analysis import dataflow_callee_resolution as resolution
-
-    return da, resolution
+    return resolution
 
 
-def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
-    return da.FunctionInfo(
+def _fn(*, name: str, qual: str, path: Path, class_name: str | None = None):
+    return FunctionInfo(
         name=name,
         qual=qual,
         path=path,
@@ -28,12 +28,11 @@ def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
 
 # gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.plan_callee_resolution
 def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
-    da, resolution = _load()
-    resolution._bind_audit_symbols()
+    resolution = _load()
 
     path = Path("pkg/mod.py")
-    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
-    target = _fn(da, name="target", qual="pkg.mod.target", path=path)
+    caller = _fn(name="caller", qual="pkg.mod.caller", path=path)
+    target = _fn(name="target", qual="pkg.mod.target", path=path)
     context = resolution.CalleeResolutionContext(
         callee_key="target",
         caller=caller,
@@ -60,13 +59,12 @@ def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
     assert resolution.collect_callee_resolution_effects(second) == ()
 
 
-# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_callee
 def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
-    da, _ = _load()
     path = Path("pkg/mod.py")
-    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
-    bound_a = _fn(da, name="<lambda:a>", qual="pkg.mod.<lambda:a>", path=path)
-    bound_b = _fn(da, name="<lambda:b>", qual="pkg.mod.<lambda:b>", path=path)
+    caller = _fn(name="caller", qual="pkg.mod.caller", path=path)
+    bound_a = _fn(name="<lambda:a>", qual="pkg.mod.<lambda:a>", path=path)
+    bound_b = _fn(name="<lambda:b>", qual="pkg.mod.<lambda:b>", path=path)
     by_qual = {
         caller.qual: caller,
         bound_a.qual: bound_a,
@@ -78,7 +76,7 @@ def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
     def _sink(_caller, _call, candidates, phase: str, callee_key: str) -> None:
         sink_calls.append((phase, callee_key, tuple(info.qual for info in candidates)))
 
-    resolved = da._resolve_callee(
+    resolved = _resolve_callee(
         "fn",
         caller,
         {},
@@ -98,11 +96,10 @@ def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
 
 # gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.apply_callee_resolution_ops
 def test_callee_resolution_private_noop_paths_are_structural() -> None:
-    da, resolution = _load()
-    resolution._bind_audit_symbols()
+    resolution = _load()
 
     path = Path("pkg/mod.py")
-    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    caller = _fn(name="caller", qual="pkg.mod.caller", path=path)
     state = resolution._ResolutionState(candidates=[], effects=[])
     # Empty candidate sets are valid no-op effects.
     resolution._emit_ambiguity(
