@@ -1,4 +1,5 @@
 # gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Ingest/index helpers hoisted from legacy runtime for adapter consumers."""

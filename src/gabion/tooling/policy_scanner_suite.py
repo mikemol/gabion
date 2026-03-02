@@ -28,6 +28,8 @@ no_monkeypatch_policy_check = _load_script_module("no_monkeypatch_policy_check")
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
+_BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
+_DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,14 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
     inventory = files if files is not None else _inventory_files(resolved_root)
     inventory_hash = _inventory_hash(inventory, resolved_root)
     rule_set_hash = _rule_set_hash()
+    branchless_allowed = _load_rule_baseline_keys(
+        module=branchless_policy_check,
+        baseline_path=resolved_root / _BRANCHLESS_BASELINE,
+    )
+    defensive_allowed = _load_rule_baseline_keys(
+        module=defensive_fallback_policy_check,
+        baseline_path=resolved_root / _DEFENSIVE_BASELINE,
+    )
 
     violations_by_rule: dict[str, list[dict[str, object]]] = {
         "no_monkeypatch": [],
@@ -121,8 +131,12 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                     source_lines=source_lines,
                 )
                 branchless_visitor.visit(tree)
+                branchless_violations = _filter_baseline_violations(
+                    branchless_visitor.violations,
+                    allowed_keys=branchless_allowed,
+                )
                 violations_by_rule["branchless"].extend(
-                    _serialize_branchless(item) for item in branchless_visitor.violations
+                    _serialize_branchless(item) for item in branchless_violations
                 )
 
                 defensive_visitor = defensive_fallback_policy_check._DefensiveFallbackVisitor(
@@ -130,8 +144,12 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                     source_lines=source_lines,
                 )
                 defensive_visitor.visit(tree)
+                defensive_violations = _filter_baseline_violations(
+                    defensive_visitor.violations,
+                    allowed_keys=defensive_allowed,
+                )
                 violations_by_rule["defensive_fallback"].extend(
-                    _serialize_defensive(item) for item in defensive_visitor.violations
+                    _serialize_defensive(item) for item in defensive_violations
                 )
 
     for rule, items in list(violations_by_rule.items()):
@@ -230,6 +248,35 @@ def _parse_tree(source: str, *, rel_path: str):
     except SyntaxError:
         # Surface syntax failures through existing rule scripts instead of reclassifying here.
         return None
+
+
+def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
+    loader = getattr(module, "_load_baseline", None)
+    if loader is None:
+        return set()
+    try:
+        loaded = loader(baseline_path)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return set()
+    if not isinstance(loaded, set):
+        return set()
+    return {str(item) for item in loaded if isinstance(item, str)}
+
+
+def _filter_baseline_violations(
+    violations: Iterable[object],
+    *,
+    allowed_keys: set[str],
+) -> list[object]:
+    if not allowed_keys:
+        return list(violations)
+    filtered: list[object] = []
+    for violation in violations:
+        key = str(getattr(violation, "key", "") or "")
+        if key and key in allowed_keys:
+            continue
+        filtered.append(violation)
+    return filtered
 
 
 def _serialize_no_monkeypatch(violation: object) -> dict[str, object]:

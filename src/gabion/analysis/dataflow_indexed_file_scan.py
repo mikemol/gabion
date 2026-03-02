@@ -1,4 +1,5 @@
 # gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Owned indexed file-scan and helper surfaces extracted from runtime.

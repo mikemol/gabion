@@ -125,3 +125,69 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
         files=(external_file.resolve(),),
     )
     assert result.total_violations() == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_respects_branch_and_fallback_baselines::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/branch_sample.py",
+        "def branchy(flag):\n    if flag:\n        return 1\n    return 0\n",
+    )
+    _write(
+        root / "src/gabion/fallback_sample.py",
+        "def normalize(value):\n    if value is None:\n        return None\n    return value\n",
+    )
+    _write(
+        root / "baselines/branchless_policy_baseline.json",
+        json.dumps(
+            {
+                "version": 1,
+                "violations": [
+                    {
+                        "path": "src/gabion/branch_sample.py",
+                        "line": 2,
+                        "column": 5,
+                        "qualname": "branchy",
+                        "kind": "if",
+                        "message": "branch construct outside decision protocol",
+                    },
+                    {
+                        "path": "src/gabion/fallback_sample.py",
+                        "line": 2,
+                        "column": 5,
+                        "qualname": "normalize",
+                        "kind": "if",
+                        "message": "branch construct outside decision protocol",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+    )
+    _write(
+        root / "baselines/defensive_fallback_policy_baseline.json",
+        json.dumps(
+            {
+                "version": 1,
+                "violations": [
+                    {
+                        "path": "src/gabion/fallback_sample.py",
+                        "line": 2,
+                        "column": 5,
+                        "qualname": "normalize",
+                        "kind": "sentinel_return",
+                        "message": "returns sentinel fallback",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []

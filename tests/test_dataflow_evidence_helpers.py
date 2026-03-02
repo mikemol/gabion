@@ -114,18 +114,15 @@ def test_collect_module_exports_without_all_uses_locals_and_imports() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._base_identifier
-def test_base_identifier_variants_and_unparse_failure(monkeypatch) -> None:
+def test_base_identifier_variants_and_unparse_failure() -> None:
     assert helpers._base_identifier(ast.parse("name").body[0].value) == "name"
     assert helpers._base_identifier(ast.parse("pkg.Type").body[0].value) == "pkg.Type"
     assert helpers._base_identifier(ast.parse("Type[int]").body[0].value) == "Type"
     assert helpers._base_identifier(ast.parse("factory()").body[0].value) == "factory"
     assert helpers._base_identifier(ast.parse("123").body[0].value) is None
 
-    def _boom(_node: ast.AST) -> str:
-        raise ValueError("boom")
-
-    monkeypatch.setattr(ast, "unparse", _boom)
-    assert helpers._base_identifier(ast.parse("pkg.Type").body[0].value) is None
+    bad_attr = ast.Attribute(value=ast.Constant(value=1), attr=None, ctx=ast.Load())
+    assert helpers._base_identifier(bad_attr) is None
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._build_symbol_table
