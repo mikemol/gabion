@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sys
 from typing import Iterable
+import ast
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -30,6 +31,7 @@ _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
+_LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 
 
 @dataclass(frozen=True)
@@ -111,13 +113,36 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         "no_monkeypatch": [],
         "branchless": [],
         "defensive_fallback": [],
+        "no_legacy_monolith_import": [],
     }
+
+    legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
+    if legacy_module_path.exists():
+        violations_by_rule["no_legacy_monolith_import"].append(
+            _serialize_legacy_monolith(
+                _LegacyMonolithViolation(
+                    path=_LEGACY_MONOLITH_MODULE_PATH.as_posix(),
+                    line=1,
+                    column=1,
+                    kind="module_present",
+                    message="retired legacy monolith module must not be present",
+                )
+            )
+        )
+
     for path in inventory:
         rel_path = path.relative_to(resolved_root).as_posix()
         source = path.read_text(encoding="utf-8")
         source_lines = source.splitlines()
         tree = _parse_tree(source, rel_path=rel_path)
         if tree is not None:
+            if rel_path.startswith("src/") or rel_path.startswith("tests/"):
+                no_legacy_monolith = _NoLegacyMonolithVisitor(rel_path=rel_path)
+                no_legacy_monolith.visit(tree)
+                violations_by_rule["no_legacy_monolith_import"].extend(
+                    _serialize_legacy_monolith(item) for item in no_legacy_monolith.violations
+                )
+
             if rel_path.startswith("src/") or rel_path.startswith("tests/"):
                 no_mp = no_monkeypatch_policy_check._NoMonkeypatchVisitor(rel_path=rel_path)
                 no_mp.visit(tree)
@@ -196,9 +221,10 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "no_monkeypatch": [],
             "branchless": [],
             "defensive_fallback": [],
+            "no_legacy_monolith_import": [],
         }
     normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback"):
+    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import"):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -235,19 +261,96 @@ def _rule_set_hash() -> str:
             "no_monkeypatch:v1",
             "branchless:v1",
             "defensive_fallback:v1",
+            "no_legacy_monolith_import:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _parse_tree(source: str, *, rel_path: str):
-    import ast
-
     try:
         return ast.parse(source)
     except SyntaxError:
         # Surface syntax failures through existing rule scripts instead of reclassifying here.
         return None
+
+
+@dataclass(frozen=True)
+class _LegacyMonolithViolation:
+    path: str
+    line: int
+    column: int
+    kind: str
+    message: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.path}:{self.line}:{self.column}:{self.kind}:{self.message}"
+
+    def render(self) -> str:
+        return f"{self.path}:{self.line}:{self.column}: {self.kind}: {self.message}"
+
+
+class _NoLegacyMonolithVisitor(ast.NodeVisitor):
+    def __init__(self, *, rel_path: str) -> None:
+        self._path = rel_path
+        self.violations: list[_LegacyMonolithViolation] = []
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            module_name = alias.name
+            if module_name == "gabion.analysis.legacy_dataflow_monolith":
+                self._record(
+                    node,
+                    kind="import",
+                    message="legacy_dataflow_monolith import is retired; use owned modules only",
+                )
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        module_name = node.module or ""
+        if module_name == "gabion.analysis.legacy_dataflow_monolith":
+            self._record(
+                node,
+                kind="import_from",
+                message="legacy_dataflow_monolith import is retired; use owned modules only",
+            )
+        elif module_name == "gabion.analysis":
+            for alias in node.names:
+                if alias.name == "legacy_dataflow_monolith":
+                    self._record(
+                        node,
+                        kind="import_from",
+                        message="legacy_dataflow_monolith import is retired; use owned modules only",
+                    )
+                    break
+        elif node.level > 0 and module_name.endswith("legacy_dataflow_monolith"):
+            self._record(
+                node,
+                kind="import_from",
+                message="legacy_dataflow_monolith import is retired; use owned modules only",
+            )
+        elif node.level > 0 and module_name == "":
+            for alias in node.names:
+                if alias.name == "legacy_dataflow_monolith":
+                    self._record(
+                        node,
+                        kind="import_from",
+                        message="legacy_dataflow_monolith import is retired; use owned modules only",
+                    )
+                    break
+        self.generic_visit(node)
+
+    def _record(self, node: ast.AST, *, kind: str, message: str) -> None:
+        self.violations.append(
+            _LegacyMonolithViolation(
+                path=self._path,
+                line=int(getattr(node, "lineno", 1) or 1),
+                column=int(getattr(node, "col_offset", 0) or 0) + 1,
+                kind=kind,
+                message=message,
+            )
+        )
 
 
 def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
@@ -308,6 +411,18 @@ def _serialize_defensive(violation: object) -> dict[str, object]:
         "line": getattr(violation, "line"),
         "column": getattr(violation, "column"),
         "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_legacy_monolith(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
         "kind": getattr(violation, "kind"),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),

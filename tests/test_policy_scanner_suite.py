@@ -26,6 +26,10 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
         root / "src/gabion/fallback_sample.py",
         "def normalize(value):\n    if value is None:\n        return None\n    return value\n",
     )
+    _write(
+        root / "tests/test_legacy_import.py",
+        "from gabion.analysis import legacy_dataflow_monolith\n",
+    )
     _write(root / "src/gabion/bad_syntax.py", "def broken(:\n")
     _write(root / "src/gabion/__pycache__/ignored.py", "def ignored():\n    return 1\n")
 
@@ -39,6 +43,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
+    assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
 
     second = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
@@ -74,6 +79,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["branchless"] == []
     assert normalized.violations_by_rule["defensive_fallback"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
+    assert normalized.violations_by_rule["no_legacy_monolith_import"] == []
 
     _write(
         root / "src/gabion/new_file.py",
@@ -125,6 +131,19 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
         files=(external_file.resolve(),),
     )
     assert result.total_violations() == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_retired_monolith_module_file::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/analysis/legacy_dataflow_monolith.py",
+        "def retired():\n    return 1\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import")
+    assert violations
+    assert any(item["kind"] == "module_present" for item in violations)
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_respects_branch_and_fallback_baselines::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -191,3 +210,4 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
