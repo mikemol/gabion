@@ -3,7 +3,7 @@ entries:
     concept: crosswalk_enforcement_prevents_speculative_duplication
     existing_modules:
       - scripts/policy_check.py
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
     existing_identifiers:
       - AspfOneCell
       - AspfTwoCellWitness
@@ -44,7 +44,7 @@ entries:
       - NeverInvariantSink
       - NEVER_INVARIANTS_SPEC
     existing_artifacts_or_projections:
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
       - artifacts/audit_snapshots/LATEST
     gap_status: partial
     rationale: Marker kernel and deterministic IDs exist for never callsites with backward-compatible plain reason handling, typed semantic links (including unknown-kind filtering), and normalized payload carriage; non-never families are still new work.
@@ -54,7 +54,7 @@ entries:
     existing_modules:
       - src/gabion/invariants.py
       - src/gabion/exceptions.py
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
     existing_identifiers:
       - NeverInvariantSink
       - append_delta_record
@@ -68,7 +68,7 @@ entries:
     concept: static_normalization_before_aspf_projection
     existing_modules:
       - src/gabion/config.py
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
       - src/gabion/analysis/projection_registry.py
     existing_identifiers:
       - NEVER_INVARIANTS_SPEC
@@ -99,7 +99,7 @@ entries:
   - in_step: in-52
     concept: taint_semantics_before_lifecycle
     existing_modules:
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
       - src/gabion/analysis/marker_protocol.py
       - src/gabion/analysis/forest_spec.py
     existing_identifiers:
@@ -117,7 +117,7 @@ entries:
     existing_modules:
       - scripts/policy_check.py
       - src/gabion/analysis/marker_protocol.py
-      - src/gabion/analysis/dataflow_audit.py
+      - src/gabion/analysis/legacy_dataflow_monolith.py
     existing_identifiers:
       - NEVER_INVARIANTS_SPEC
       - NeverInvariantSink
