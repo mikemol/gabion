@@ -309,36 +309,31 @@ class _NoLegacyMonolithVisitor(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         module_name = node.module or ""
+        has_direct_legacy_alias = any(alias.name == "legacy_dataflow_monolith" for alias in node.names)
         if module_name == "gabion.analysis.legacy_dataflow_monolith":
             self._record(
                 node,
                 kind="import_from",
                 message="legacy_dataflow_monolith import is retired; use owned modules only",
             )
-        elif module_name == "gabion.analysis":
-            for alias in node.names:
-                if alias.name == "legacy_dataflow_monolith":
-                    self._record(
-                        node,
-                        kind="import_from",
-                        message="legacy_dataflow_monolith import is retired; use owned modules only",
-                    )
-                    break
+        elif module_name == "gabion.analysis" and has_direct_legacy_alias:
+            self._record(
+                node,
+                kind="import_from",
+                message="legacy_dataflow_monolith import is retired; use owned modules only",
+            )
         elif node.level > 0 and module_name.endswith("legacy_dataflow_monolith"):
             self._record(
                 node,
                 kind="import_from",
                 message="legacy_dataflow_monolith import is retired; use owned modules only",
             )
-        elif node.level > 0 and module_name == "":
-            for alias in node.names:
-                if alias.name == "legacy_dataflow_monolith":
-                    self._record(
-                        node,
-                        kind="import_from",
-                        message="legacy_dataflow_monolith import is retired; use owned modules only",
-                    )
-                    break
+        elif node.level > 0 and module_name == "" and has_direct_legacy_alias:
+            self._record(
+                node,
+                kind="import_from",
+                message="legacy_dataflow_monolith import is retired; use owned modules only",
+            )
         self.generic_visit(node)
 
     def _record(self, node: ast.AST, *, kind: str, message: str) -> None:

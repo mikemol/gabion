@@ -146,6 +146,84 @@ def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path)
     assert any(item["kind"] == "module_present" for item in violations)
 
 
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_all_legacy_monolith_import_forms::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_flags_all_legacy_monolith_import_forms(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/analysis/imports.py",
+        "\n".join(
+            [
+                "import gabion.analysis.legacy_dataflow_monolith as lm, os",
+                "from gabion.analysis.legacy_dataflow_monolith import run",
+                "from gabion.analysis import other_name, legacy_dataflow_monolith",
+                "from .legacy_dataflow_monolith import run as rel_run",
+                "from . import other_name",
+                "from . import other_name, legacy_dataflow_monolith",
+                "",
+            ]
+        ),
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import")
+    assert len(violations) >= 4
+    kinds = {str(item.get("kind", "")) for item in violations}
+    assert "import" in kinds
+    assert "import_from" in kinds
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_baseline_loader_and_filter_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite._load_rule_baseline_keys
+def test_policy_scanner_suite_private_baseline_loader_and_filter_branches(tmp_path: Path) -> None:
+    class _ModuleNoLoader:
+        pass
+
+    class _ModuleBadLoader:
+        @staticmethod
+        def _load_baseline(_path: Path):
+            raise ValueError("bad")
+
+    class _ModuleNonSetLoader:
+        @staticmethod
+        def _load_baseline(_path: Path):
+            return ["not", "a", "set"]
+
+    class _ModuleSetLoader:
+        @staticmethod
+        def _load_baseline(_path: Path):
+            return {"ok", 1}
+
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text("{}", encoding="utf-8")
+    assert policy_scanner_suite._load_rule_baseline_keys(
+        module=_ModuleNoLoader(),
+        baseline_path=baseline_path,
+    ) == set()
+    assert policy_scanner_suite._load_rule_baseline_keys(
+        module=_ModuleBadLoader(),
+        baseline_path=baseline_path,
+    ) == set()
+    assert policy_scanner_suite._load_rule_baseline_keys(
+        module=_ModuleNonSetLoader(),
+        baseline_path=baseline_path,
+    ) == set()
+    assert policy_scanner_suite._load_rule_baseline_keys(
+        module=_ModuleSetLoader(),
+        baseline_path=baseline_path,
+    ) == {"ok"}
+
+    class _Violation:
+        def __init__(self, key: str) -> None:
+            self.key = key
+
+    violations = [_Violation("allow"), _Violation("deny"), object()]
+    filtered = policy_scanner_suite._filter_baseline_violations(
+        violations,
+        allowed_keys={"allow"},
+    )
+    assert len(filtered) == 2
+    assert isinstance(filtered[0], _Violation)
+    assert getattr(filtered[0], "key", "") == "deny"
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_respects_branch_and_fallback_baselines::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: Path) -> None:
     root = tmp_path
