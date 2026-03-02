@@ -17,6 +17,44 @@ from gabion.order_contract import sort_once
 
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
+_LEGACY_TEST_ID_RE = re.compile(r"(?P<path>tests/test_[A-Za-z0-9_]+\.py)::")
+_QUALNAME_COMPAT_REWRITE = ("legacy_dataflow_monolith", "dataflow_audit")
+_LEGACY_PATH_ALIAS = {
+    "tests/gabion/analysis/dataflow_raw_runtime_edges_cases.py": "tests/test_dataflow_run_edges.py",
+    "tests/gabion/analysis/dataflow_raw_runtime_cases.py": "tests/test_dataflow_run.py",
+    "tests/gabion/analysis/dataflow_structure_reuse_cases.py": "tests/test_structure_reuse.py",
+    "tests/gabion/analysis/dataflow_structure_reuse_edges_cases.py": "tests/test_structure_reuse_edges.py",
+    "tests/gabion/analysis/evidence_suggestions_edges_cases.py": "tests/test_test_evidence_suggestions_edges.py",
+    "tests/gabion/cli/cli_payload_cases.py": "tests/test_cli_payloads.py",
+    "tests/gabion/ingest/test_adapter_contract.py": "tests/test_ingest_adapter_contract.py",
+    "tests/gabion/ingest/test_registry.py": "tests/test_ingest_registry.py",
+    "tests/gabion/refactor/engine_cases.py": "tests/test_refactor_engine.py",
+    "tests/gabion/refactor/engine_edges_cases.py": "tests/test_refactor_engine_edges.py",
+    "tests/gabion/refactor/engine_helpers_cases.py": "tests/test_refactor_engine_helpers.py",
+    "tests/gabion/refactor/engine_more_cases.py": "tests/test_refactor_engine_more.py",
+    "tests/gabion/refactor/test_engine.py": "tests/test_refactor_engine.py",
+    "tests/gabion/refactor/test_idempotency.py": "tests/test_refactor_idempotency.py",
+    "tests/gabion/refactor/test_plan.py": "tests/test_refactor_plan.py",
+    "tests/gabion/lsp_client/lsp_client_smoke_cases.py": "tests/test_lsp_smoke.py",
+    "tests/gabion/server/server_code_action_stub_cases.py": "tests/test_code_action_stub.py",
+    "tests/gabion/server_core/command_orchestrator_coverage_cases.py": "tests/test_server_core_orchestrator_coverage.py",
+    "tests/gabion/server_core/command_orchestrator_edges_cases.py": "tests/test_server_core_orchestrator_edges.py",
+    "tests/gabion/server_core/test_command_reducers.py": "tests/test_server_core_reducers.py",
+    "tests/gabion/synthesis/merge_cases.py": "tests/test_synthesis_merge.py",
+    "tests/gabion/synthesis/merge_integration_cases.py": "tests/test_synthesis_merge_integration.py",
+    "tests/gabion/synthesis/test_contextvar_emission.py": "tests/test_synthesis_contextvar_emission.py",
+    "tests/gabion/synthesis/test_control_context.py": "tests/test_synthesis_control_context.py",
+    "tests/gabion/synthesis/test_merge.py": "tests/test_synthesis_merge.py",
+    "tests/gabion/synthesis/test_naming.py": "tests/test_synthesis_naming.py",
+    "tests/gabion/synthesis/test_protocols.py": "tests/test_synthesis_protocols.py",
+    "tests/gabion/synthesis/test_schedule.py": "tests/test_synthesis_schedule.py",
+    "tests/gabion/synthesis/test_stubs.py": "tests/test_synthesis_stubs.py",
+    "tests/gabion/synthesis/test_tiers.py": "tests/test_synthesis_tiers.py",
+    "tests/gabion/synthesis/test_types.py": "tests/test_synthesis_types.py",
+    "tests/gabion/test_root_plan.py": "tests/test_plan.py",
+    "tests/gabion/tooling/test_emit_advisory_and_gates.py": "tests/test_tooling_emit_advisory_and_gates.py",
+    "tests/gabion/tooling/test_governance_rules.py": "tests/test_governance_rules_policy.py",
+}
 
 
 @dataclass(frozen=True)
@@ -164,19 +202,26 @@ def _collect_test_files(
 ) -> list[Path]:
     check_deadline()
     files: list[Path] = []
+    seen: set[Path] = set()
     for path in paths:
         if path.is_dir():
-            for candidate in sort_once(
-                path.rglob("test_*.py"),
+            candidates = sort_once(
+                [*path.rglob("test_*.py"), *path.rglob("*_cases.py")],
                 source="_collect_test_files.candidates",
                 key=lambda item: str(item),
-            ):
+            )
+            for candidate in candidates:
+                if candidate in seen:
+                    continue
                 if _should_exclude(candidate, root, exclude):
                     continue
+                seen.add(candidate)
                 files.append(candidate)
         else:
             if path.suffix == ".py" and not _should_exclude(path, root, exclude):
-                files.append(path)
+                if path not in seen:
+                    seen.add(path)
+                    files.append(path)
     return files
 
 
@@ -199,7 +244,8 @@ def _extract_file_evidence(path: Path, root: Path) -> list[TestEvidence]:
     lines = text.splitlines()
     comments = _evidence_comments(text)
     rel_path = str(path.resolve().relative_to(root))
-    collector = _TestCollector(lines, comments, rel_path)
+    canonical_rel_path = _canonical_test_rel_path(rel_path, comments)
+    collector = _TestCollector(lines, comments, canonical_rel_path)
     collector.visit(tree)
     return collector.entries
 
@@ -216,7 +262,8 @@ def _extract_file_tags(path: Path, root: Path) -> list[TestEvidenceTag]:
     lines = text.splitlines()
     comments = _evidence_comments(text)
     rel_path = str(path.resolve().relative_to(root))
-    collector = _TagCollector(lines, comments, rel_path)
+    canonical_rel_path = _canonical_test_rel_path(rel_path, comments)
+    collector = _TagCollector(lines, comments, canonical_rel_path)
     collector.visit(tree)
     return collector.entries
 
@@ -256,6 +303,56 @@ def _find_evidence_tags(
             return comment_map.get(idx, [])
         break
     return []
+
+
+def _legacy_test_paths_from_tags(tags: Iterable[str]) -> set[str]:
+    check_deadline()
+    paths: set[str] = set()
+    for tag in tags:
+        check_deadline()
+        for match in _LEGACY_TEST_ID_RE.finditer(tag):
+            check_deadline()
+            paths.add(match.group("path"))
+    return paths
+
+
+def _legacy_path_fallback(rel_path: str) -> str:
+    aliased = _LEGACY_PATH_ALIAS.get(rel_path)
+    if aliased is not None:
+        return aliased
+    if not rel_path.startswith("tests/gabion/"):
+        return rel_path
+    basename = Path(rel_path).name
+    if basename == "test_integration.py":
+        return rel_path
+    if basename.startswith("test_"):
+        return f"tests/{basename}"
+    if basename.endswith("_cases.py"):
+        stem = basename[: -len("_cases.py")]
+        return f"tests/test_{stem}.py"
+    return rel_path
+
+
+def _canonical_test_rel_path(rel_path: str, comment_map: dict[int, list[str]]) -> str:
+    check_deadline()
+    comment_tags = [tag for tags in comment_map.values() for tag in tags]
+    legacy_paths = sort_once(
+        _legacy_test_paths_from_tags(comment_tags),
+        source="test_evidence._canonical_test_rel_path.legacy_paths",
+    )
+    fallback = _legacy_path_fallback(rel_path)
+    if not legacy_paths:
+        return fallback
+    if len(legacy_paths) == 1:
+        return legacy_paths[0]
+    if fallback in legacy_paths:
+        return fallback
+    return legacy_paths[0]
+
+
+def _canonical_test_qualname(qualname: str) -> str:
+    old_token, new_token = _QUALNAME_COMPAT_REWRITE
+    return qualname.replace(old_token, new_token)
 
 
 def _normalize_evidence_items(values: Iterable[str]) -> tuple[EvidenceItem, ...]:
@@ -332,7 +429,7 @@ class _TestCollector(ast.NodeVisitor):
             start_line = getattr(node, "lineno", 1)
         evidence = _find_evidence_tags(self._lines, self._comment_map, start_line)
         items = _normalize_evidence_items(evidence)
-        qualname = "::".join([*self._class_stack, name])
+        qualname = _canonical_test_qualname("::".join([*self._class_stack, name]))
         test_id = f"{self._rel_path}::{qualname}"
         status = "mapped" if items else "unmapped"
         self.entries.append(
@@ -383,7 +480,7 @@ class _TagCollector(ast.NodeVisitor):
             start_line = getattr(node, "lineno", 1)
         raw_tags = _find_evidence_tags(self._lines, self._comment_map, start_line)
         tags = tuple(dict.fromkeys(raw_tags))
-        qualname = "::".join([*self._class_stack, name])
+        qualname = _canonical_test_qualname("::".join([*self._class_stack, name]))
         test_id = f"{self._rel_path}::{qualname}"
         self.entries.append(
             TestEvidenceTag(

@@ -1,0 +1,458 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from gabion.tooling import aspf_handoff
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_prepare_step_uses_cumulative_success_chain::aspf_handoff.py::gabion.tooling.aspf_handoff.prepare_step::aspf_handoff.py::gabion.tooling.aspf_handoff.record_step
+def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "artifacts/out/aspf_handoff_manifest.json"
+    state_root = root / "artifacts/out/aspf_state"
+    session_id = "session-test"
+
+    step1 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step1.sequence == 1
+    assert step1.import_state_paths == ()
+    step1.state_path.parent.mkdir(parents=True, exist_ok=True)
+    step1.state_path.write_text("{}", encoding="utf-8")
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step1.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    step2 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.annotation-drift.delta",
+        command_profile="check.annotation-drift.delta",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step2.sequence == 2
+    assert step2.import_state_paths == (step1.state_path,)
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step2.sequence,
+        status="failed",
+        exit_code=2,
+        analysis_state="failed",
+    )
+
+    step3 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.ambiguity.delta",
+        command_profile="check.ambiguity.delta",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step3.sequence == 3
+    assert step3.import_state_paths == (step1.state_path,)
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = manifest.get("entries")
+    assert isinstance(entries, list)
+    assert [entry.get("status") for entry in entries] == ["success", "failed", "started"]
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_skips_success_entries_with_missing_state_files
+def test_prepare_step_skips_success_entries_with_missing_state_files(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "manifest.json"
+    state_root = root / "state"
+    session_id = "session-test"
+
+    step1 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step1.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    step2 = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.next",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step2.import_state_paths == ()
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_prepare_step_resets_manifest_when_session_changes::aspf_handoff.py::gabion.tooling.aspf_handoff.prepare_step
+def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "manifest.json"
+    state_root = root / "state"
+
+    step1 = aspf_handoff.prepare_step(
+        root=root,
+        session_id="session-a",
+        step_id="one",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id="session-a",
+        sequence=step1.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    step2 = aspf_handoff.prepare_step(
+        root=root,
+        session_id="session-b",
+        step_id="two",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert step2.sequence == 1
+    assert step2.import_state_paths == ()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest.get("session_id") == "session-b"
+    entries = manifest.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_manifest_paths_are_relative_and_portable
+def test_prepare_step_manifest_paths_are_relative_and_portable(tmp_path: Path) -> None:
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    manifest_rel = Path("artifacts/out/aspf_handoff_manifest.json")
+    state_root_rel = Path("artifacts/out/aspf_state")
+    session_id = "session-portable"
+
+    step_a = aspf_handoff.prepare_step(
+        root=root_a,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_rel,
+        state_root=state_root_rel,
+    )
+    step_a.state_path.parent.mkdir(parents=True, exist_ok=True)
+    step_a.state_path.write_text("{}", encoding="utf-8")
+    assert aspf_handoff.record_step(
+        manifest_path=step_a.manifest_path,
+        session_id=session_id,
+        sequence=step_a.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    manifest_a = json.loads(step_a.manifest_path.read_text(encoding="utf-8"))
+    entries_a = manifest_a.get("entries")
+    assert isinstance(entries_a, list)
+    assert isinstance(entries_a[0], dict)
+    state_path_ref = entries_a[0].get("state_path")
+    assert isinstance(state_path_ref, str)
+    assert not Path(state_path_ref).is_absolute()
+
+    manifest_b_path = root_b / manifest_rel
+    manifest_b_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_b_path.write_text(
+        json.dumps(manifest_a, indent=2, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
+    portable_state_path = root_b / state_path_ref
+    portable_state_path.parent.mkdir(parents=True, exist_ok=True)
+    portable_state_path.write_text("{}", encoding="utf-8")
+
+    step_b = aspf_handoff.prepare_step(
+        root=root_b,
+        session_id=session_id,
+        step_id="check.next",
+        command_profile="check.run",
+        manifest_path=manifest_rel,
+        state_root=state_root_rel,
+    )
+    assert step_b.import_state_paths == (portable_state_path.resolve(),)
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_load_manifest_folds_journal_when_index_missing
+def test_load_manifest_folds_journal_when_index_missing(tmp_path: Path) -> None:
+    root = tmp_path
+    manifest_path = root / "manifest.json"
+    state_root = root / "state"
+    session_id = "session-fold"
+
+    step = aspf_handoff.prepare_step(
+        root=root,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    step.state_path.parent.mkdir(parents=True, exist_ok=True)
+    step.state_path.write_text("{}", encoding="utf-8")
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    journal_path = manifest_path.with_name("manifest.journal.jsonl")
+    assert journal_path.exists()
+    manifest_path.unlink()
+
+    rebuilt = aspf_handoff.load_manifest(manifest_path)
+    entries = rebuilt.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+    assert entries[0].get("status") == "success"
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_handoff_fold_journal_is_idempotent
+def test_handoff_fold_journal_is_idempotent(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    state_root = tmp_path / "state"
+    session_id = "session-idempotent"
+
+    step = aspf_handoff.prepare_step(
+        root=tmp_path,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+    )
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+    )
+
+    journal_path = manifest_path.with_name("manifest.journal.jsonl")
+    first = aspf_handoff._fold_journal(journal_path)
+    second = aspf_handoff._fold_journal(journal_path)
+    assert first == second
+    entries = first.get("entries")
+    assert isinstance(entries, list)
+    assert entries[0].get("status") == "success"
+
+
+# gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_record_can_skip_manifest_projection_write
+def test_prepare_record_can_skip_manifest_projection_write(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    state_root = tmp_path / "state"
+    session_id = "session-no-manifest"
+
+    step = aspf_handoff.prepare_step(
+        root=tmp_path,
+        session_id=session_id,
+        step_id="check.run",
+        command_profile="check.run",
+        manifest_path=manifest_path,
+        state_root=state_root,
+        write_manifest_projection=False,
+    )
+    assert not manifest_path.exists()
+    assert aspf_handoff.record_step(
+        manifest_path=manifest_path,
+        session_id=session_id,
+        sequence=step.sequence,
+        status="success",
+        exit_code=0,
+        analysis_state="succeeded",
+        write_manifest_projection=False,
+    )
+    assert not manifest_path.exists()
+
+    projected = aspf_handoff.load_manifest(manifest_path)
+    entries = projected.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+    assert entries[0].get("status") == "success"
+
+
+def test_handoff_event_reducer_ignores_record_for_different_session() -> None:
+    state = aspf_handoff.HandoffProjectionState(
+        manifest={
+            "session_id": "session-a",
+            "entries": [
+                {
+                    "sequence": 1,
+                    "status": "started",
+                    "state_path": "state/one.json",
+                }
+            ],
+        }
+    )
+    reduced = aspf_handoff.HandoffEventReducer.apply(
+        state,
+        aspf_handoff.RecordStepEvent(
+            event="record_step",
+            session_id="session-b",
+            sequence=1,
+            status="success",
+            exit_code=0,
+            analysis_state="succeeded",
+            completed_at_utc="2026-01-01T00:00:00Z",
+        ),
+    )
+    assert reduced.manifest == state.manifest
+
+
+def test_handoff_event_reducer_ignores_missing_sequence_record() -> None:
+    state = aspf_handoff.HandoffProjectionState(
+        manifest={
+            "session_id": "session-a",
+            "entries": [
+                {
+                    "sequence": 1,
+                    "status": "started",
+                    "state_path": "state/one.json",
+                }
+            ],
+        }
+    )
+    reduced = aspf_handoff.HandoffEventReducer.apply(
+        state,
+        aspf_handoff.RecordStepEvent(
+            event="record_step",
+            session_id="session-a",
+            sequence=2,
+            status="success",
+            exit_code=0,
+            analysis_state="succeeded",
+            completed_at_utc="2026-01-01T00:00:00Z",
+        ),
+    )
+    assert reduced.manifest == state.manifest
+
+
+def test_record_step_returns_false_when_sequence_is_missing(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "session_id": "session-a",
+                "root": str(tmp_path),
+                "entries": [
+                    {
+                        "sequence": 1,
+                        "status": "started",
+                        "state_path": "state/one.json",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        aspf_handoff.record_step(
+            manifest_path=manifest_path,
+            session_id="session-a",
+            sequence=2,
+            status="failed",
+            exit_code=1,
+            analysis_state="failed",
+        )
+        is False
+    )
+
+
+def test_fold_journal_skips_blank_and_unknown_events(tmp_path: Path) -> None:
+    journal_path = tmp_path / "manifest.journal.jsonl"
+    journal_path.write_text(
+        "\n".join(
+            [
+                "",
+                json.dumps({"event": "unknown"}),
+                json.dumps(
+                    {
+                        "event": "prepare_step",
+                        "session_id": "session-a",
+                        "root": str(tmp_path),
+                        "entry": {
+                            "sequence": 1,
+                            "status": "started",
+                            "state_path": "state/one.json",
+                        },
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    folded = aspf_handoff._fold_journal(journal_path)
+    assert folded.get("session_id") == "session-a"
+    entries = folded.get("entries")
+    assert isinstance(entries, list)
+    assert len(entries) == 1
+
+
+def test_events_from_manifest_payload_requires_session_id() -> None:
+    assert aspf_handoff._events_from_manifest_payload({"entries": []}) == []
+
+
+def test_event_from_payload_returns_none_for_unknown_kind() -> None:
+    assert aspf_handoff._event_from_payload({"event": "legacy"}) is None
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_import_state_paths_policy_edges::aspf_handoff.py::scripts.aspf_handoff.import_state_paths_for_step
+def test_import_state_paths_policy_edges(tmp_path: Path) -> None:
+    resume_path = tmp_path / "state" / "resume.json"
+    resume_path.parent.mkdir(parents=True, exist_ok=True)
+    resume_path.write_text("{}", encoding="utf-8")
+
+    entries = [
+        {"status": "success", "state_path": ""},
+        {"status": "failed", "analysis_state": "timed_out_progress_resume", "state_path": "state/missing.json"},
+        {"status": "failed", "analysis_state": "timed_out_progress_resume", "state_path": "state/resume.json"},
+    ]
+    assert aspf_handoff._successful_state_paths(entries, root=tmp_path) == []
+    assert aspf_handoff._import_state_paths_for_policy(
+        entries,
+        root=tmp_path,
+        resume_import_policy="success_or_resumable_timeout",
+    ) == [resume_path.resolve()]
+    with pytest.raises(ValueError):
+        aspf_handoff._import_state_paths_for_policy(
+            entries,
+            root=tmp_path,
+            resume_import_policy="invalid-policy",  # type: ignore[arg-type]
+        )
