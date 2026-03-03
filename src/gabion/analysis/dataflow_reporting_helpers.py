@@ -24,7 +24,9 @@ from gabion.analysis.dataflow_graph_rendering import (
 )
 from gabion.analysis.dataflow_indexed_file_scan import (
     _report_section_spec as _report_section_spec_impl,
-    _spec_row_span as _spec_row_span_impl,
+)
+from gabion.analysis.indexed_scan.report_sections import (
+    spec_row_span as _spec_row_span_impl,
 )
 from gabion.analysis.dataflow_parse_helpers import _ParseModuleStage, _parse_module_tree
 from gabion.analysis.dataflow_snapshot_io import (

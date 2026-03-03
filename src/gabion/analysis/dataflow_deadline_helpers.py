@@ -29,7 +29,6 @@ from gabion.analysis.dataflow_indexed_file_scan import (
     _collect_recursive_nodes as _indexed_collect_recursive_nodes,
     _deadline_arg_info_map as _indexed_deadline_arg_info_map,
     _deadline_loop_forwarded_params as _indexed_deadline_loop_forwarded_params,
-    _fallback_deadline_arg_info,
     _function_suite_id,
     _function_suite_key,
     _is_deadline_origin_call,
@@ -37,6 +36,9 @@ from gabion.analysis.dataflow_indexed_file_scan import (
     _normalize_snapshot_path,
     _reachable_from_roots as _indexed_reachable_from_roots,
     _resolve_callee_outcome as _indexed_resolve_callee_outcome,
+)
+from gabion.analysis.indexed_scan.deadline_fallback import (
+    fallback_deadline_arg_info as _fallback_deadline_arg_info,
 )
 from gabion.analysis.json_types import JSONObject
 

@@ -267,6 +267,17 @@ from .pattern_schema_projection import (
     pattern_schema_suggestions_from_instances as _pattern_schema_suggestions_from_instances_impl,
     tier2_unreified_residue_entries as _tier2_unreified_residue_entries_impl,
 )
+from .indexed_scan.deadline_fallback import (
+    fallback_deadline_arg_info as _fallback_deadline_arg_info_impl,
+)
+from .indexed_scan.report_sections import (
+    extract_report_sections as _extract_report_sections_impl,
+    parse_report_section_marker as _parse_report_section_marker_impl,
+    spec_row_span as _spec_row_span_impl,
+)
+from .indexed_scan.statement_materialization import (
+    materialize_statement_suite_contains as _materialize_statement_suite_contains_impl,
+)
 
 from gabion.schema import SynthesisResponse
 
@@ -4466,71 +4477,17 @@ def _fallback_deadline_arg_info(
     *,
     strictness: str,
 ) -> dict[str, _DeadlineArgInfo]:
-    check_deadline()
-    pos_params = (
-        list(callee.positional_params)
-        if callee.positional_params
-        else list(callee.params)
+    return cast(
+        dict[str, _DeadlineArgInfo],
+        _fallback_deadline_arg_info_impl(
+            call,
+            callee,
+            strictness=strictness,
+            deadline_arg_info_factory=_DeadlineArgInfo,
+            check_deadline_fn=check_deadline,
+            sort_once_fn=sort_once,
+        ),
     )
-    kwonly_params = set(callee.kwonly_params or ())
-    named_params = set(pos_params) | kwonly_params
-    mapping: dict[str, _DeadlineArgInfo] = {}
-    for idx_str, caller_param in call.pos_map.items():
-        check_deadline()
-        idx = int(idx_str)
-        if idx < len(pos_params):
-            mapping[pos_params[idx]] = _DeadlineArgInfo(kind="param", param=caller_param)
-        elif callee.vararg is not None:
-            mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind="param", param=caller_param))
-    for idx_str, const_val in call.const_pos.items():
-        check_deadline()
-        idx = int(idx_str)
-        if idx < len(pos_params):
-            kind = "none" if const_val == "None" else "const"
-            mapping[pos_params[idx]] = _DeadlineArgInfo(kind=kind, const=const_val)
-        elif callee.vararg is not None:
-            kind = "none" if const_val == "None" else "const"
-            mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind=kind, const=const_val))
-    for idx_str in call.non_const_pos:
-        check_deadline()
-        idx = int(idx_str)
-        if idx < len(pos_params):
-            mapping[pos_params[idx]] = _DeadlineArgInfo(kind="unknown")
-        elif callee.vararg is not None:
-            mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind="unknown"))
-    for kw_name, caller_param in call.kw_map.items():
-        check_deadline()
-        if kw_name in named_params:
-            mapping[kw_name] = _DeadlineArgInfo(kind="param", param=caller_param)
-        elif callee.kwarg is not None:
-            mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind="param", param=caller_param))
-    for kw_name, const_val in call.const_kw.items():
-        check_deadline()
-        if kw_name in named_params:
-            kind = "none" if const_val == "None" else "const"
-            mapping[kw_name] = _DeadlineArgInfo(kind=kind, const=const_val)
-        elif callee.kwarg is not None:
-            kind = "none" if const_val == "None" else "const"
-            mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind=kind, const=const_val))
-    for kw_name in call.non_const_kw:
-        check_deadline()
-        if kw_name in named_params:
-            mapping[kw_name] = _DeadlineArgInfo(kind="unknown")
-        elif callee.kwarg is not None:
-            mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind="unknown"))
-    if strictness == "low":
-        remaining = [p for p in sort_once(named_params, source = 'gabion.analysis.dataflow_indexed_file_scan._fallback_deadline_arg_info.site_1') if p not in mapping]
-        if len(call.star_pos) == 1:
-            _, star_param = call.star_pos[0]
-            for param in remaining:
-                check_deadline()
-                mapping.setdefault(param, _DeadlineArgInfo(kind="param", param=star_param))
-        if len(call.star_kw) == 1:
-            star_param = call.star_kw[0]
-            for param in remaining:
-                check_deadline()
-                mapping.setdefault(param, _DeadlineArgInfo(kind="param", param=star_param))
-    return mapping
 
 def _deadline_arg_info_map(
     call: CallArgs,
@@ -4624,7 +4581,7 @@ def _decode_projection_span(row: Mapping[str, JSONValue]) -> _ProjectionSpan:
     return _ProjectionSpan(line=line, col=col, end_line=end_line, end_col=end_col)
 
 def _spec_row_span(row: Mapping[str, JSONValue]):
-    return _decode_projection_span(row).as_tuple()
+    return _spec_row_span_impl(row)
 
 def _materialize_projection_spec_rows(
     *,
@@ -6371,36 +6328,6 @@ def _forbid_adhoc_bundle_discovery(reason: str) -> None:
             f"Ad-hoc bundle discovery invoked while forest-only invariant active: {reason}"
         )
 
-class _SuiteSpanStatus(StrEnum):
-    PRESENT = "present"
-    MISSING = "missing"
-
-@dataclass(frozen=True)
-class _SuiteSpanOutcome:
-    status: _SuiteSpanStatus
-    span: tuple[int, int, int, int]
-
-def _suite_span_from_statements_outcome(
-    statements: Sequence[ast.stmt],
-) -> _SuiteSpanOutcome:
-    check_deadline()
-    missing_span = (0, 0, 0, 0)
-    if not statements:
-        return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
-    first_span = _node_span(statements[0])
-    if first_span is not None:
-        last_span = first_span
-        for stmt in statements[1:]:
-            check_deadline()
-            candidate = _node_span(stmt)
-            if candidate is not None:
-                last_span = candidate
-        return _SuiteSpanOutcome(
-            _SuiteSpanStatus.PRESENT,
-            (first_span[0], first_span[1], last_span[2], last_span[3]),
-        )
-    return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
-
 def _materialize_statement_suite_contains(
     *,
     forest: Forest,
@@ -6409,158 +6336,15 @@ def _materialize_statement_suite_contains(
     statements: Sequence[ast.stmt],
     parent_suite: NodeId,
 ) -> None:
-    check_deadline()
-
-    def _emit_body_suite(
-        suite_kind: str,
-        body: Sequence[ast.stmt],
-    ):
-        check_deadline()
-        span_outcome = _suite_span_from_statements_outcome(body)
-        if span_outcome.status is _SuiteSpanStatus.PRESENT:
-            return forest.add_suite_site(
-                path_name,
-                qual,
-                suite_kind,
-                span=span_outcome.span,
-                parent=parent_suite,
-            )
-        missing_suite_ids: dict[str, NodeId] = {}
-        return missing_suite_ids.get("suite_id")
-
-    for stmt in statements:
-        check_deadline()
-        stmt_type = type(stmt)
-        if stmt_type is ast.If:
-            if_stmt = cast(ast.If, stmt)
-            if_suite = _emit_body_suite("if_body", if_stmt.body)
-            if if_suite is not None:
-                _materialize_statement_suite_contains(
-                    forest=forest,
-                    path_name=path_name,
-                    qual=qual,
-                    statements=if_stmt.body,
-                    parent_suite=if_suite,
-                )
-            if if_stmt.orelse:
-                else_suite = _emit_body_suite("if_else", if_stmt.orelse)
-                if else_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=if_stmt.orelse,
-                        parent_suite=else_suite,
-                    )
-            continue
-        if stmt_type is ast.For:
-            for_stmt = cast(ast.For, stmt)
-            for_suite = _emit_body_suite("for_body", for_stmt.body)
-            if for_suite is not None:
-                _materialize_statement_suite_contains(
-                    forest=forest,
-                    path_name=path_name,
-                    qual=qual,
-                    statements=for_stmt.body,
-                    parent_suite=for_suite,
-                )
-            if for_stmt.orelse:
-                for_else_suite = _emit_body_suite("for_else", for_stmt.orelse)
-                if for_else_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=for_stmt.orelse,
-                        parent_suite=for_else_suite,
-                    )
-            continue
-        if stmt_type is ast.AsyncFor:
-            async_for_stmt = cast(ast.AsyncFor, stmt)
-            async_for_suite = _emit_body_suite("async_for_body", async_for_stmt.body)
-            if async_for_suite is not None:
-                _materialize_statement_suite_contains(
-                    forest=forest,
-                    path_name=path_name,
-                    qual=qual,
-                    statements=async_for_stmt.body,
-                    parent_suite=async_for_suite,
-                )
-            if async_for_stmt.orelse:
-                async_for_else_suite = _emit_body_suite("async_for_else", async_for_stmt.orelse)
-                if async_for_else_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=async_for_stmt.orelse,
-                        parent_suite=async_for_else_suite,
-                    )
-            continue
-        if stmt_type is ast.While:
-            while_stmt = cast(ast.While, stmt)
-            while_suite = _emit_body_suite("while_body", while_stmt.body)
-            if while_suite is not None:
-                _materialize_statement_suite_contains(
-                    forest=forest,
-                    path_name=path_name,
-                    qual=qual,
-                    statements=while_stmt.body,
-                    parent_suite=while_suite,
-                )
-            if while_stmt.orelse:
-                while_else_suite = _emit_body_suite("while_else", while_stmt.orelse)
-                if while_else_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=while_stmt.orelse,
-                        parent_suite=while_else_suite,
-                    )
-            continue
-        if stmt_type is ast.Try:
-            try_stmt = cast(ast.Try, stmt)
-            try_body_suite = _emit_body_suite("try_body", try_stmt.body)
-            if try_body_suite is not None:
-                _materialize_statement_suite_contains(
-                    forest=forest,
-                    path_name=path_name,
-                    qual=qual,
-                    statements=try_stmt.body,
-                    parent_suite=try_body_suite,
-                )
-            for handler in try_stmt.handlers:
-                check_deadline()
-                except_suite = _emit_body_suite("except_body", handler.body)
-                if except_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=handler.body,
-                        parent_suite=except_suite,
-                    )
-            if stmt.orelse:
-                try_else_suite = _emit_body_suite("try_else", stmt.orelse)
-                if try_else_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=stmt.orelse,
-                        parent_suite=try_else_suite,
-                    )
-            if stmt.finalbody:
-                try_finally_suite = _emit_body_suite("try_finally", stmt.finalbody)
-                if try_finally_suite is not None:
-                    _materialize_statement_suite_contains(
-                        forest=forest,
-                        path_name=path_name,
-                        qual=qual,
-                        statements=stmt.finalbody,
-                        parent_suite=try_finally_suite,
-                    )
+    _materialize_statement_suite_contains_impl(
+        forest=forest,
+        path_name=path_name,
+        qual=qual,
+        statements=statements,
+        parent_suite=parent_suite,
+        node_span_fn=_node_span,
+        check_deadline_fn=check_deadline,
+    )
 
 def _materialize_structured_suite_sites_for_tree(
     *,
@@ -9543,35 +9327,11 @@ def _iter_dataclass_call_bundles(
     parse_failure_witnesses.extend(outcome.witness_effects)
     return set(outcome.bundles)
 
-_REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
-
-_REPORT_SECTION_MARKER_SUFFIX = "-->"
-
 def _parse_report_section_marker(line: str):
-    text = line.strip()
-    if not text.startswith(_REPORT_SECTION_MARKER_PREFIX):
-        return None
-    if not text.endswith(_REPORT_SECTION_MARKER_SUFFIX):
-        return None
-    section_id = text[
-        len(_REPORT_SECTION_MARKER_PREFIX) : -len(_REPORT_SECTION_MARKER_SUFFIX)
-    ].strip()
-    if not section_id:
-        return None
-    return section_id
+    return _parse_report_section_marker_impl(line)
 
 def extract_report_sections(markdown: str) -> dict[str, list[str]]:
-    sections: dict[str, list[str]] = {}
-    active_section_id: OptionalString = None
-    for raw_line in markdown.splitlines():
-        check_deadline()
-        section_id = _parse_report_section_marker(raw_line)
-        if section_id is not None:
-            active_section_id = section_id
-            sections.setdefault(section_id, [])
-        elif active_section_id is not None:
-            sections[active_section_id].append(raw_line)
-    return sections
+    return _extract_report_sections_impl(markdown, check_deadline_fn=check_deadline)
 
 def _normalize_snapshot_path(path: Path, root) -> str:
     if root is not None:
