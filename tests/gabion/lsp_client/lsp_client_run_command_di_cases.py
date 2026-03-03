@@ -9,12 +9,7 @@ from pathlib import Path
 import pytest
 
 from gabion.lsp_client import (
-    CommandRequest,
-    LspClientError,
-    run_command,
-    _analysis_timeout_slack_ns,
-    _remaining_deadline_ns,
-)
+    CommandRequest, LspClientError, run_command, _analysis_timeout_slack_ns, _remaining_deadline_ns)
 from gabion.exceptions import NeverThrown
 
 

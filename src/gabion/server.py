@@ -21,155 +21,50 @@ from urllib.parse import unquote, urlparse
 from pygls.lsp.server import LanguageServer
 from pydantic import ValidationError
 from lsprotocol.types import (
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_DID_SAVE,
-    TEXT_DOCUMENT_CODE_ACTION,
-    CodeAction,
-    CodeActionKind,
-    CodeActionParams,
-    Command,
-    Diagnostic,
-    DiagnosticSeverity,
-    Position,
-    Range,
-    WorkspaceEdit,
-)
+    TEXT_DOCUMENT_DID_OPEN, TEXT_DOCUMENT_DID_SAVE, TEXT_DOCUMENT_CODE_ACTION, CodeAction, CodeActionKind, CodeActionParams, Command, Diagnostic, DiagnosticSeverity, Position, Range, WorkspaceEdit)
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.commands import (
-    boundary_order,
-    command_ids,
-    direct_dispatch,
-    payload_codec,
-    progress_contract as progress_timeline,
-)
+    boundary_order, command_ids, direct_dispatch, payload_codec, progress_contract as progress_timeline)
 from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
-    ExecutionPlan,
-    ExecutionPlanObligations,
-    ExecutionPlanPolicyMetadata,
-    write_execution_plan_artifact,
-)
+    ExecutionPlan, ExecutionPlanObligations, ExecutionPlanPolicyMetadata, write_execution_plan_artifact)
 
 from gabion.analysis import (
-    AnalysisResult,
-    AuditConfig,
-    ReportCarrier,
-    analyze_paths,
-    apply_baseline,
-    build_analysis_collection_resume_seed,
-    compute_structure_metrics,
-    compute_structure_reuse,
-    render_reuse_lemma_stubs,
-    compute_violations,
-    build_refactor_plan,
-    build_synthesis_plan,
-    diff_structure_snapshots,
-    diff_decision_snapshots,
-    load_structure_snapshot,
-    load_decision_snapshot,
-    load_baseline,
-    extract_report_sections,
-    project_report_sections,
-    report_projection_phase_rank,
-    report_projection_spec_rows,
-    render_dot,
-    render_structure_snapshot,
-    render_decision_snapshot,
-    DecisionSnapshotSurfaces,
-    render_protocol_stubs,
-    render_refactor_plan,
-    render_report,
-    render_synthesis_section,
-    resolve_analysis_paths,
-    resolve_baseline_path,
-    write_baseline,
-)
-from gabion.analysis import aspf_execution_fibration, aspf_resume_state
-from gabion.analysis.aspf import Forest, NodeId, structural_key_atom
-from gabion.analysis import ambiguity_delta
-from gabion.analysis import ambiguity_state
-from gabion.analysis import call_cluster_consolidation
-from gabion.analysis import call_clusters
-from gabion.analysis import semantic_coverage_map
-from gabion.analysis import taint_delta
-from gabion.analysis import taint_lifecycle
-from gabion.analysis import taint_projection
-from gabion.analysis import taint_state
-from gabion.analysis import test_annotation_drift
-from gabion.analysis import test_annotation_drift_delta
-from gabion.analysis import test_obsolescence
-from gabion.analysis import test_obsolescence_delta
-from gabion.analysis import test_obsolescence_state
-from gabion.analysis import test_evidence_suggestions
-from gabion.analysis.timeout_context import (
-    Deadline,
-    GasMeter,
-    TimeoutExceeded,
-    check_deadline,
-    deadline_loop_iter,
-    get_deadline,
-    get_deadline_clock,
-    record_deadline_io,
-    reset_deadline_clock,
-    forest_scope,
-    reset_forest,
-    set_forest,
-    reset_deadline_profile,
-    reset_deadline,
-    set_deadline_profile,
-    set_deadline,
-    set_deadline_clock,
-)
+    AnalysisResult, AuditConfig, ReportCarrier, analyze_paths, apply_baseline, build_analysis_collection_resume_seed, compute_structure_metrics, compute_structure_reuse, render_reuse_lemma_stubs, compute_violations, build_refactor_plan, build_synthesis_plan, diff_structure_snapshots, diff_decision_snapshots, load_structure_snapshot, load_decision_snapshot, load_baseline, extract_report_sections, project_report_sections, report_projection_phase_rank, report_projection_spec_rows, render_dot, render_structure_snapshot, render_decision_snapshot, DecisionSnapshotSurfaces, render_protocol_stubs, render_refactor_plan, render_report, render_synthesis_section, resolve_analysis_paths, resolve_baseline_path, write_baseline)
+from gabion.analysis.aspf import aspf_execution_fibration, aspf_resume_state
+from gabion.analysis.aspf.aspf import Forest, NodeId, structural_key_atom
+from gabion.analysis.core import ambiguity_delta
+from gabion.analysis.core import ambiguity_state
+from gabion.analysis.call_cluster import call_cluster_consolidation
+from gabion.analysis.call_cluster import call_clusters
+from gabion.analysis.semantics import semantic_coverage_map
+from gabion.analysis.taint import taint_delta
+from gabion.analysis.taint import taint_lifecycle
+from gabion.analysis.taint import taint_projection
+from gabion.analysis.taint import taint_state
+from gabion.analysis.surfaces import test_annotation_drift
+from gabion.analysis.surfaces import test_annotation_drift_delta
+from gabion.analysis.surfaces import test_obsolescence
+from gabion.analysis.surfaces import test_obsolescence_delta
+from gabion.analysis.surfaces import test_obsolescence_state
+from gabion.analysis.surfaces import test_evidence_suggestions
+from gabion.analysis.foundation.timeout_context import (
+    Deadline, GasMeter, TimeoutExceeded, check_deadline, deadline_loop_iter, get_deadline, get_deadline_clock, record_deadline_io, reset_deadline_clock, forest_scope, reset_forest, set_forest, reset_deadline_profile, reset_deadline, set_deadline_profile, set_deadline, set_deadline_clock)
 from gabion.exceptions import NeverThrown
 from gabion.invariants import decision_protocol, never
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.config import (
-    dataflow_defaults,
-    dataflow_deadline_roots,
-    decision_defaults,
-    decision_ignore_list,
-    decision_require_tiers,
-    decision_tier_map,
-    exception_defaults,
-    exception_never_list,
-    fingerprint_defaults,
-    taint_boundary_registry,
-    taint_defaults,
-    taint_profile,
-    merge_payload,
-)
-from gabion.analysis.type_fingerprints import (
-    Fingerprint,
-    PrimeRegistry,
-    TypeConstructorRegistry,
-    build_fingerprint_registry,
-)
+    dataflow_defaults, dataflow_deadline_roots, decision_defaults, decision_ignore_list, decision_require_tiers, decision_tier_map, exception_defaults, exception_never_list, fingerprint_defaults, taint_boundary_registry, taint_defaults, taint_profile, merge_payload)
+from gabion.analysis.core.type_fingerprints import (
+    Fingerprint, PrimeRegistry, TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.refactor import (
-    FieldSpec,
-    RefactorEngine,
-    RefactorCompatibilityShimConfig,
-    RefactorRequest as RefactorRequestModel,
-)
+    FieldSpec, RefactorEngine, RefactorCompatibilityShimConfig, RefactorRequest as RefactorRequestModel)
 from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
-    LegacyDataflowMonolithResponseDTO,
-    DecisionDiffResponseDTO,
-    LspParityGateResponseDTO,
-    LintEntryDTO,
-    RefactorProtocolResponseDTO,
-    RefactorRequest,
-    RefactorResponse,
-    RewritePlanEntryDTO,
-    StructureDiffResponseDTO,
-    StructureReuseResponseDTO,
-    SynthesisPlanResponseDTO,
-    SynthesisResponse,
-    SynthesisRequest,
-    TextEditDTO,
-)
+    LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
-from gabion.tooling.governance_rules import GovernanceRules, load_governance_rules
+from gabion.tooling.governance.governance_rules import GovernanceRules, load_governance_rules
 
 server = LanguageServer("gabion", "0.1.0")
 CHECK_COMMAND = command_ids.CHECK_COMMAND

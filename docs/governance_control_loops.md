@@ -219,11 +219,11 @@ Clause links: [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#c
 Second-order governance closes drift between normative anchors and enforcement scripts.
 This loop governs first-order loop integrity and prevents controller drift.
 
-- **sensor:** `scripts/governance_controller_audit.py` reading controller anchors and command references.
+- **sensor:** `scripts/governance/governance_controller_audit.py` reading controller anchors and command references.
 - **state artifact:** `artifacts/out/controller_drift.json`.
 - **target predicate:** every normative controller anchor has a live enforcing check, and every enforcing check has a normative anchor.
 - **error signal:** policy clauses without checks, checks without anchors, contradictory anchors, or stale command references.
 - **actuator:** update normative anchors and workflow/script wiring together in one patchset.
 - **max correction step:** one coherent governance patchset across policy + workflow + tooling.
-- **verification command:** `mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
+- **verification command:** `mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
 - **escalation threshold:** repeated high-severity controller drift after one correction step.

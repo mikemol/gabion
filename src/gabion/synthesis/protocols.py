@@ -5,14 +5,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Mapping, Set
 
 from gabion.synthesis.model import (
-    FieldSpec,
-    NamingContext,
-    ProtocolSpec,
-    SynthesisConfig,
-    SynthesisPlan,
-)
+    FieldSpec, NamingContext, ProtocolSpec, SynthesisConfig, SynthesisPlan)
 from gabion.synthesis.naming import suggest_name
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
 _EMPTY_FIELD_TYPES: Mapping[str, str] = {}

@@ -9,12 +9,7 @@ import libcst as cst
 def _load():
     repo_root = REPO_ROOT
     from gabion.refactor.engine import (
-        RefactorEngine,
-        _find_import_insert_index,
-        _module_expr_to_str,
-        _module_name,
-        _has_typing_import,
-    )
+        RefactorEngine, _find_import_insert_index, _module_expr_to_str, _module_name, _has_typing_import)
     from gabion.refactor.model import FieldSpec, RefactorRequest
 
     return (

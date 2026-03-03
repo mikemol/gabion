@@ -5,21 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from gabion.analysis.timeout_context import Deadline, deadline_clock_scope, deadline_scope
+from gabion.analysis.foundation.timeout_context import Deadline, deadline_clock_scope, deadline_scope
 from gabion.deadline_clock import GasMeter
-from gabion.analysis.type_fingerprints import (
-    EVIDENCE_KIND_NAMESPACE,
-    SYNTH_NAMESPACE,
-    TYPE_CTOR_NAMESPACE,
-    Fingerprint,
-    FingerprintDimension,
-    PrimeRegistry,
-    TypeConstructorRegistry,
-    apply_synth_dimension,
-    build_synth_registry,
-    fingerprint_carrier_soundness,
-    synth_registry_payload,
-)
+from gabion.analysis.core.type_fingerprints import (
+    EVIDENCE_KIND_NAMESPACE, SYNTH_NAMESPACE, TYPE_CTOR_NAMESPACE, Fingerprint, FingerprintDimension, PrimeRegistry, TypeConstructorRegistry, apply_synth_dimension, build_synth_registry, fingerprint_carrier_soundness, synth_registry_payload)
 
 
 @dataclass(frozen=True)

@@ -5,9 +5,7 @@ from __future__ import annotations
 from typing import Mapping
 
 from gabion.commands.progress_transition import (
-    normalize_progress_transition_from_phase_progress,
-    transition_reason_from_phase_progress,
-)
+    normalize_progress_transition_from_phase_progress, transition_reason_from_phase_progress)
 from gabion.order_contract import sort_once
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"

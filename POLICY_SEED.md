@@ -643,7 +643,7 @@ Failures must be **mapped, understood, and surfaced**, not suppressed.
   determine whether the fault is environment, dependency, or code.
 * **Durable logs.** Test failures MUST be recorded in `artifacts/` (e.g.
   `artifacts/test_runs/...`) so regressions can be reviewed without re‑running.
-* **Remote failure bundles.** When `scripts/ci_watch.py` detects a watched-run
+* **Remote failure bundles.** When `scripts/ci/ci_watch.py` detects a watched-run
   failure, it SHOULD collect deterministic metadata/log/artifact bundles under
   `artifacts/out/ci_watch/run_<run_id>/` for triage.
 
@@ -680,15 +680,15 @@ Status classes:
 
 | Rule family (normative anchor) | Applicability class | Runtime scope | Enforcement/check cross-reference |
 | --- | --- | --- | --- |
-| Workflow structure + action pinning + allow-list (§§4.5, 5.1) | active now | All workflows under `.github/workflows/*.yml` | `scripts/policy_check.py::check_workflows()` + `_check_actions(...)`; executed in `.github/workflows/ci.yml` (`Policy check (workflows)`). |
-| Baseline permissions discipline (§4.4) | active now | All workflows/jobs | `scripts/policy_check.py::_check_permissions(...)` and `_check_job_permissions(...)`; executed in `.github/workflows/ci.yml`. |
-| Manual-dispatch guardrails (§0.3, §4.1) | active now | Any `workflow_dispatch` workflow | `scripts/policy_check.py::_check_workflow_dispatch_guards(...)`; currently applies to `.github/workflows/ci.yml` and `.github/workflows/release-tag.yml`. |
-| Trusted branch mirroring controls (§4.4) | conditional by event/branch | Push to `main` and promotion chain (`workflow_run`) | `.github/workflows/mirror-next.yml`, `.github/workflows/auto-test-tag.yml`, `.github/workflows/promote-release.yml`; validated by `scripts/policy_check.py::_check_mirror_next_workflow(...)`, `_check_auto_test_tag_workflow(...)`, `_check_promote_release_workflow(...)`. |
-| Release tagging controls (§4.4) | conditional by event/branch | `workflow_dispatch` on `next`/`release` only | `.github/workflows/release-tag.yml`; validated by `scripts/policy_check.py::_check_release_tag_workflow(...)`. |
-| TestPyPI/PyPI publish controls (§4.4) | conditional by event/branch | Tag push (`test-v*` or `v*`) and constrained `workflow_run` sources | `.github/workflows/release-testpypi.yml`, `.github/workflows/release-pypi.yml`; validated by `scripts/policy_check.py::_check_release_testpypi_workflow(...)`, `_check_release_pypi_workflow(...)`, `_check_id_token_scoping(...)`. |
-| Self-hosted trigger/runner/actor constraints (§§3.1, 4.1-4.3, 4.6) | latent (self-hosted) | Any workflow containing `runs-on` with `self-hosted` labels | `scripts/policy_check.py::_check_self_hosted_constraints(...)` (already active as detector, policy obligations become applicable when such jobs exist). |
-| Repository/org Actions posture checks (§5.2) | conditional by event/branch | CI push path with available governance token/context | `scripts/policy_check.py --posture`; wired in `.github/workflows/ci.yml` on push and skipped when required credentials are unavailable. |
-| Ambiguity contract gate (§4.8) | active now | Semantic core Python modules (`src/gabion/analysis/**`, `src/gabion/synthesis/**`, `src/gabion/refactor/**`) | `scripts/policy_check.py --ambiguity-contract` invoking `gabion ambiguity-contract-gate --root .`; executed in `.github/workflows/ci.yml` (`Policy check (ambiguity contract)`), failing on any ambiguity-contract violations. |
+| Workflow structure + action pinning + allow-list (§§4.5, 5.1) | active now | All workflows under `.github/workflows/*.yml` | `scripts/policy/policy_check.py::check_workflows()` + `_check_actions(...)`; executed in `.github/workflows/ci.yml` (`Policy check (workflows)`). |
+| Baseline permissions discipline (§4.4) | active now | All workflows/jobs | `scripts/policy/policy_check.py::_check_permissions(...)` and `_check_job_permissions(...)`; executed in `.github/workflows/ci.yml`. |
+| Manual-dispatch guardrails (§0.3, §4.1) | active now | Any `workflow_dispatch` workflow | `scripts/policy/policy_check.py::_check_workflow_dispatch_guards(...)`; currently applies to `.github/workflows/ci.yml` and `.github/workflows/release-tag.yml`. |
+| Trusted branch mirroring controls (§4.4) | conditional by event/branch | Push to `main` and promotion chain (`workflow_run`) | `.github/workflows/mirror-next.yml`, `.github/workflows/auto-test-tag.yml`, `.github/workflows/promote-release.yml`; validated by `scripts/policy/policy_check.py::_check_mirror_next_workflow(...)`, `_check_auto_test_tag_workflow(...)`, `_check_promote_release_workflow(...)`. |
+| Release tagging controls (§4.4) | conditional by event/branch | `workflow_dispatch` on `next`/`release` only | `.github/workflows/release-tag.yml`; validated by `scripts/policy/policy_check.py::_check_release_tag_workflow(...)`. |
+| TestPyPI/PyPI publish controls (§4.4) | conditional by event/branch | Tag push (`test-v*` or `v*`) and constrained `workflow_run` sources | `.github/workflows/release-testpypi.yml`, `.github/workflows/release-pypi.yml`; validated by `scripts/policy/policy_check.py::_check_release_testpypi_workflow(...)`, `_check_release_pypi_workflow(...)`, `_check_id_token_scoping(...)`. |
+| Self-hosted trigger/runner/actor constraints (§§3.1, 4.1-4.3, 4.6) | latent (self-hosted) | Any workflow containing `runs-on` with `self-hosted` labels | `scripts/policy/policy_check.py::_check_self_hosted_constraints(...)` (already active as detector, policy obligations become applicable when such jobs exist). |
+| Repository/org Actions posture checks (§5.2) | conditional by event/branch | CI push path with available governance token/context | `scripts/policy/policy_check.py --posture`; wired in `.github/workflows/ci.yml` on push and skipped when required credentials are unavailable. |
+| Ambiguity contract gate (§4.8) | active now | Semantic core Python modules (`src/gabion/analysis/**`, `src/gabion/synthesis/**`, `src/gabion/refactor/**`) | `scripts/policy/policy_check.py --ambiguity-contract` invoking `gabion ambiguity-contract-gate --root .`; executed in `.github/workflows/ci.yml` (`Policy check (ambiguity contract)`), failing on any ambiguity-contract violations. |
 
 Agents MUST preserve this classification when adding new controls: update both
 the normative anchor and the enforcing checker/workflow hook in the same
@@ -735,7 +735,7 @@ Controller drift is any mismatch between governance text and enforcement code.
 This control loop MUST continuously detect and resolve drift.
 
 **Detection cycle (normative):**
-- Run `mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
+- Run `mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
 - Emit a machine-readable report at `artifacts/out/controller_drift.json`.
 - Treat detected drift as policy-relevant evidence and surface it in CI logs.
 
@@ -752,17 +752,17 @@ This control loop MUST continuously detect and resolve drift.
 - Stale command references (e.g. renamed CLI/script entry points).
 
 **Controller registry (machine-readable markers):**
-- `controller-anchor: CD-001 | doc: POLICY_SEED.md#change_protocol | sensor: policy_clauses_without_enforcing_check | check: scripts/governance_controller_audit.py | severity: high`
-- `controller-anchor: CD-002 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_controller_audit.py | severity: high`
-- `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`
-- `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance_controller_audit.py | severity: medium`
-- `controller-anchor: CD-005 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy_check.py | severity: high`
-- `controller-anchor: CD-006 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/no_monkeypatch_policy_check.py | severity: high`
-- `controller-anchor: CD-007 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/branchless_policy_check.py | severity: high`
-- `controller-anchor: CD-008 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/defensive_fallback_policy_check.py | severity: high`
-- `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/check_pr_governance_template.py | severity: high`
-- `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_telemetry_emit.py | severity: high`
-- `controller-anchor: CD-011 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy_scanner_suite.py | severity: high`
+- `controller-anchor: CD-001 | doc: POLICY_SEED.md#change_protocol | sensor: policy_clauses_without_enforcing_check | check: scripts/governance/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-002 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance/governance_controller_audit.py | severity: medium`
+- `controller-anchor: CD-005 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/policy_check.py | severity: high`
+- `controller-anchor: CD-006 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/no_monkeypatch_policy_check.py | severity: high`
+- `controller-anchor: CD-007 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/branchless_policy_check.py | severity: high`
+- `controller-anchor: CD-008 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/defensive_fallback_policy_check.py | severity: high`
+- `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/audit/check_pr_governance_template.py | severity: high`
+- `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance/governance_telemetry_emit.py | severity: high`
+- `controller-anchor: CD-011 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/policy_scanner_suite.py | severity: high`
 
 **Audited normative-doc set (single source of truth):**
 - `controller-normative-doc: POLICY_SEED.md`
@@ -775,8 +775,8 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-normative-doc: docs/governance_loop_matrix.md`
 
 **Controller command references (machine-readable markers):**
-- `controller-command: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`
-- `controller-command: mise exec -- python scripts/check_pr_governance_template.py`
+- `controller-command: mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json`
+- `controller-command: mise exec -- python scripts/audit/check_pr_governance_template.py`
 
 **CI ratchet policy (normative):**
 - Phase A (advisory): report high-severity drift but do not fail the pipeline.

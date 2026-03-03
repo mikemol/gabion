@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from gabion.exceptions import NeverThrown
 from gabion import cli, server
-from gabion.tooling.governance_rules import CommandPolicy, ControllerDriftPolicy, GovernanceRules
+from gabion.tooling.governance.governance_rules import CommandPolicy, ControllerDriftPolicy, GovernanceRules
 
 
 def _default_controller_drift_policy() -> ControllerDriftPolicy:

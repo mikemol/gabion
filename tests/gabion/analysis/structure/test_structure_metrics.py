@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers import _populate_bundle_forest
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import compute_structure_metrics
+
+def _load():
+    return SimpleNamespace(
+        Forest=Forest,
+        _populate_bundle_forest=_populate_bundle_forest,
+        compute_structure_metrics=compute_structure_metrics,
+    )
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::stale_b4e89f848e9e
+def test_compute_structure_metrics_counts(tmp_path: Path) -> None:
+    da = _load()
+    path_a = tmp_path / "a.py"
+    path_b = tmp_path / "b.py"
+    path_a.write_text("")
+    path_b.write_text("")
+    groups_by_path = {
+        path_a: {"f": [set(["a", "b"]), set(["c"])]},
+        path_b: {"g": [set(["d"])]},
+    }
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[path_a, path_b],
+        project_root=None,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=None,
+        parse_failure_witnesses=[],
+    )
+    metrics = da.compute_structure_metrics(groups_by_path, forest=forest)
+    assert metrics["files"] == 2
+    assert metrics["functions"] == 2
+    assert metrics["bundles"] == 3
+    assert metrics["max_bundle_size"] == 2
+    assert metrics["bundle_size_histogram"] == {"1": 2, "2": 1}
+    assert "forest_signature" in metrics

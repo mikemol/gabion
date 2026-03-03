@@ -16,22 +16,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Literal, Tuple, TypeAlias
 
-from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import check_deadline
-from gabion.analysis.projection_exec import apply_spec
-from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
-from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
-from gabion.analysis import evidence_keys
-from gabion.analysis.impact_index import build_impact_index
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
+from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
+from gabion.analysis.semantics import evidence_keys
+from gabion.analysis.semantics.impact_index import build_impact_index
 from gabion.governance_paths import GOVERNANCE_PATHS
-from gabion.analysis.obligation_registry import (
-    evaluate_obligations,
-    summarize_obligations,
-)
+from gabion.analysis.semantics.obligation_registry import (
+    evaluate_obligations, summarize_obligations)
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
-from gabion.tooling.governance_rules import load_governance_rules
+from gabion.tooling.governance.governance_rules import load_governance_rules
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
@@ -3930,7 +3928,7 @@ def _resolve_sppf_gh_ref_mode(raw: str | None) -> SppfGhRefMode:
 
 def _load_sppf_sync_module():
     try:
-        from scripts import sppf_sync
+        from scripts.sppf import sppf_sync
     except ModuleNotFoundError:
         import sppf_sync
     return sppf_sync
@@ -4022,7 +4020,7 @@ def _evaluate_docflow_obligations(
     rev_range = "HEAD~1..HEAD"
     try:
         try:
-            from scripts import sppf_sync
+            from scripts.sppf import sppf_sync
         except ModuleNotFoundError:
             import sppf_sync
 
@@ -4042,7 +4040,7 @@ def _evaluate_docflow_obligations(
         gh_reference_validated = False
         try:
             try:
-                from scripts import sppf_sync
+                from scripts.sppf import sppf_sync
             except ModuleNotFoundError:
                 import sppf_sync
             commits = sppf_sync._collect_commits(rev_range)

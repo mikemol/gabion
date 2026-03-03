@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Iterable, List, Set
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
 

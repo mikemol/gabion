@@ -100,15 +100,15 @@ jobs:
               break
           PY
       - name: Policy scanner suite
-        run: .venv/bin/python scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+        run: .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
       - name: Governance PR template fields
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: .venv/bin/python scripts/check_pr_governance_template.py
+        run: .venv/bin/python scripts/audit/check_pr_governance_template.py
       - name: Controller drift audit (advisory)
-        run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+        run: .venv/bin/python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Select impacted tests
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -183,7 +183,7 @@ jobs:
         run: |
           mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
           SESSION_ID="pr-dataflow-${{ github.run_id }}-${{ github.run_attempt }}"
-          .venv/bin/python scripts/aspf_handoff.py run \
+          .venv/bin/python scripts/misc/aspf_handoff.py run \
             --root . \
             --session-id "${SESSION_ID}" \
             --step-id "pr-dataflow.render-check.raw" \

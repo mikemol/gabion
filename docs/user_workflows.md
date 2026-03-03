@@ -179,7 +179,7 @@ mise exec -- python -m gabion check run \
 
 ### Use helper-driven cumulative planning
 ```bash
-mise exec -- python scripts/aspf_handoff.py prepare \
+mise exec -- python scripts/misc/aspf_handoff.py prepare \
   --session-id session-a \
   --step-id script-a.check.run \
   --command-profile check.run

@@ -5,14 +5,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator
 
-from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import (
-    Deadline,
-    TimeoutTickCarrier,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
-)
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.foundation.timeout_context import (
+    Deadline, TimeoutTickCarrier, deadline_clock_scope, deadline_scope, forest_scope)
 from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
 from gabion.runtime import env_policy

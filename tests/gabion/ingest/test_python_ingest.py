@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from gabion.analysis import dataflow_indexed_file_scan as da
+from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
 from gabion.ingest.python_ingest import _default_deadline, ingest_python_file, iter_python_paths
 
 

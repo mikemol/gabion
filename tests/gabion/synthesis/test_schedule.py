@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from gabion.synthesis.schedule import (
-    _strongly_connected_components,
-    topological_schedule,
-)
+    _strongly_connected_components, topological_schedule)
 
 
 # gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule E:decision_surface/direct::schedule.py::gabion.synthesis.schedule.topological_schedule::stale_00571c55270f_2b9a839b

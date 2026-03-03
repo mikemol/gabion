@@ -10,16 +10,8 @@ from typing import cast
 import libcst as cst
 
 from gabion.refactor.model import (
-    CompatibilityShimConfig,
-    FieldSpec,
-    RefactorPlan,
-    RefactorPlanOutcome,
-    RefactorRequest,
-    RewritePlanEntry,
-    TextEdit,
-    normalize_compatibility_shim,
-)
-from gabion.analysis.timeout_context import check_deadline
+    CompatibilityShimConfig, FieldSpec, RefactorPlan, RefactorPlanOutcome, RefactorRequest, RewritePlanEntry, TextEdit, normalize_compatibility_shim)
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
 

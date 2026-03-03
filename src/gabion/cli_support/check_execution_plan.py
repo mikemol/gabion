@@ -7,10 +7,7 @@ from typing import Callable
 
 from gabion.commands.check_contract import CheckArtifactFlags, CheckPolicyFlags
 from gabion.plan import (
-    ExecutionPlan,
-    ExecutionPlanObligations,
-    ExecutionPlanPolicyMetadata,
-)
+    ExecutionPlan, ExecutionPlanObligations, ExecutionPlanPolicyMetadata)
 from gabion.json_types import JSONObject
 
 DerivedArtifactsFn = Callable[..., list[str]]

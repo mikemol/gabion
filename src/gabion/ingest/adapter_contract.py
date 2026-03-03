@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from gabion.analysis.dataflow_contracts import AuditConfig
+    from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
 
 
 @dataclass(frozen=True)

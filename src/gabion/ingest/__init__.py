@@ -1,11 +1,6 @@
 from gabion.ingest.adapter_contract import LanguageAdapter, NormalizedIngestBundle, ParsedFileUnit
-from .python_ingest import (
-    ParseFailureWitness,
-    PythonFileIngestCarrier,
-    PythonFunctionIngestCarrier,
-    ingest_python_file,
-    iter_python_paths,
-)
+from gabion.ingest.python_ingest import (
+    ParseFailureWitness, PythonFileIngestCarrier, PythonFunctionIngestCarrier, ingest_python_file, iter_python_paths)
 
 
 def resolve_adapter(*, paths, language_id=None, default_language_id="python"):

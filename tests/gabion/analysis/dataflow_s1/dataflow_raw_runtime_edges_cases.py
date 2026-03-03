@@ -1,0 +1,625 @@
+from __future__ import annotations
+
+from pathlib import Path
+from tests.path_helpers import REPO_ROOT
+import sys
+
+import pytest
+
+def _load():
+    repo_root = REPO_ROOT
+    from gabion.analysis.dataflow.engine import dataflow_raw_runtime as legacy_dataflow_monolith
+
+    return legacy_dataflow_monolith
+
+def _write_conflict_code(path: Path) -> None:
+    path.write_text(
+        "def callee_int(x: int):\n"
+        "    return x\n\n"
+        "def callee_str(x: str):\n"
+        "    return x\n\n"
+        "def caller(a):\n"
+        "    return callee_int(a)\n\n"
+        "def caller_conflict(b):\n"
+        "    callee_int(b)\n"
+        "    callee_str(b)\n"
+    )
+
+def _write_bundle_code(path: Path) -> None:
+    path.write_text(
+        "def callee(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller(a, b):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+
+def _write_typed_bundle_code(path: Path) -> None:
+    path.write_text(
+        "def callee(x: int):\n"
+        "    return x\n"
+        "\n"
+        "def caller_one(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+        "\n"
+        "def caller_two(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_755b5ec0387d
+def test_run_baseline_write_requires_path(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    code = legacy_dataflow_monolith.run(
+        [
+            str(tmp_path),
+            "--root",
+            str(tmp_path),
+            "--baseline-write",
+        ]
+    )
+    assert code == 2
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_8ea663f01f60
+def test_run_dot_only_returns_early(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    sample.write_text("def f(a, b):\n    return a + b\n")
+    dot_path = tmp_path / "graph.dot"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(tmp_path),
+            "--root",
+            str(tmp_path),
+            "--dot",
+            str(dot_path),
+        ]
+    )
+    assert code == 0
+    assert dot_path.exists()
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_eb6783942f34
+def test_run_fail_on_type_ambiguities_with_synthesis_plan(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "mod.py"
+    _write_conflict_code(sample)
+    plan_path = tmp_path / "plan.json"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(tmp_path),
+            "--root",
+            str(tmp_path),
+            "--synthesis-plan",
+            str(plan_path),
+            "--fail-on-type-ambiguities",
+        ]
+    )
+    assert plan_path.exists()
+    assert code == 1
+
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_c0c0c801805d
+def test_run_report_with_baseline_write(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    report_path = tmp_path / "report.md"
+    baseline_path = tmp_path / "baseline.txt"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--report",
+            str(report_path),
+            "--baseline",
+            str(baseline_path),
+            "--baseline-write",
+            "--fail-on-violations",
+        ]
+    )
+    assert code == 0
+    assert report_path.exists()
+    assert baseline_path.exists()
+
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_d157a651b458
+def test_run_report_with_baseline_apply(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    report_path = tmp_path / "report.md"
+    baseline_path = tmp_path / "baseline.txt"
+    baseline_path.write_text("preexisting\n")
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--report",
+            str(report_path),
+            "--baseline",
+            str(baseline_path),
+            "--fail-on-violations",
+        ]
+    )
+    assert report_path.exists()
+    assert code == 1
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_6884a9340f77
+def test_run_type_audit_prints_findings(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "types.py"
+    _write_conflict_code(sample)
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--type-audit",
+            "--type-audit-max",
+            "5",
+            "--transparent-decorators",
+            "wrap, deco",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "Type tightening candidates" in captured
+    assert "Type ambiguities" in captured
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_synthesis_protocols_only::stale_fed02236b188
+def test_run_synthesis_protocols_only(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    stubs_path = tmp_path / "stubs.py"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--synthesis-protocols",
+            str(stubs_path),
+            "--synthesis-merge-overlap",
+            "1.5",
+        ]
+    )
+    assert stubs_path.exists()
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_synthesis_outputs_to_stdout::stale_9412eca3289d
+def test_run_synthesis_outputs_to_stdout(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--synthesis-plan",
+            "-",
+            "--synthesis-protocols",
+            "-",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "class" in captured
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_synthesis_uses_config_overlap::stale_5cd9733388da
+def test_run_synthesis_uses_config_overlap(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text("[synthesis]\nmerge_overlap_threshold = 0.5\n")
+    plan_path = tmp_path / "plan.json"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+            "--synthesis-plan",
+            str(plan_path),
+        ]
+    )
+    assert plan_path.exists()
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_cbd774359be9
+def test_run_fingerprint_outputs_and_decision_snapshot(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        "\n"
+        "[decision]\n"
+        "tier2 = [\"a\"]\n"
+    )
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+            "--fingerprint-synth-json",
+            "-",
+            "--fingerprint-provenance-json",
+            "-",
+            "--fingerprint-deadness-json",
+            "-",
+            "--fingerprint-coherence-json",
+            "-",
+            "--fingerprint-rewrite-plans-json",
+            "-",
+            "--fingerprint-exception-obligations-json",
+            "-",
+            "--fingerprint-handledness-json",
+            "-",
+            "--emit-decision-snapshot",
+            "-",
+        ]
+    )
+    output = capsys.readouterr().out
+    assert "fingerprint" in output
+    assert "decision_surfaces" in output
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_7801e1250979
+def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_registry_path = tmp_path / "synth_registry.json"
+    synth_registry_path.write_text(
+        "{\"version\": \"synth@1\", \"min_occurrences\": 2, \"entries\": []}"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        f"synth_registry_path = \"{synth_registry_path}\"\n"
+    )
+    synth_path = tmp_path / "fingerprint_synth.json"
+    provenance_path = tmp_path / "fingerprint_provenance.json"
+    deadness_path = tmp_path / "fingerprint_deadness.json"
+    coherence_path = tmp_path / "fingerprint_coherence.json"
+    rewrite_plans_path = tmp_path / "fingerprint_rewrite_plans.json"
+    exception_obligations_path = tmp_path / "fingerprint_exception_obligations.json"
+    handledness_path = tmp_path / "fingerprint_handledness.json"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+            "--fingerprint-synth-json",
+            str(synth_path),
+            "--fingerprint-provenance-json",
+            str(provenance_path),
+            "--fingerprint-deadness-json",
+            str(deadness_path),
+            "--fingerprint-coherence-json",
+            str(coherence_path),
+            "--fingerprint-rewrite-plans-json",
+            str(rewrite_plans_path),
+            "--fingerprint-exception-obligations-json",
+            str(exception_obligations_path),
+            "--fingerprint-handledness-json",
+            str(handledness_path),
+        ]
+    )
+    assert code == 0
+    assert synth_path.exists()
+    assert provenance_path.exists()
+    assert deadness_path.exists()
+    assert coherence_path.exists()
+    assert rewrite_plans_path.exists()
+    assert exception_obligations_path.exists()
+    assert handledness_path.exists()
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_75189f9d802c
+def test_run_lint_outputs(capsys, tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "never_mod.py"
+    sample.write_text(
+        "from gabion.invariants import never\n"
+        "\n"
+        "def f(flag):\n"
+        "    if flag:\n"
+        "        never('boom')\n"
+    )
+    report_path = tmp_path / "report.md"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--report",
+            str(report_path),
+            "--lint",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "GABION_NEVER_INVARIANT" in out
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_a5a37c0d07b9
+def test_run_decision_snapshot_writes_file(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    decision_path = tmp_path / "decision.json"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--emit-decision-snapshot",
+            str(decision_path),
+        ]
+    )
+    assert code == 0
+    assert decision_path.exists()
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_5d97581e5e28
+def test_run_synth_registry_path_invalid_json(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_path = tmp_path / "synth.json"
+    synth_path.write_text("{invalid")
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = \"bad\"\n"
+        f"synth_registry_path = \"{synth_path}\"\n"
+    )
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_3c3a22e27c22
+def test_run_synth_registry_path_valid_json(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_path = tmp_path / "synth.json"
+    synth_path.write_text(
+        "{\"version\": \"synth@1\", \"min_occurrences\": 2, \"entries\": []}"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        f"synth_registry_path = \"{synth_path}\"\n"
+    )
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_refactor_plan_json_stdout::stale_a10cba9b7c50
+def test_run_refactor_plan_json_stdout(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--refactor-plan-json",
+            "-",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert captured.strip()
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_refactor_plan_without_json::stale_70a99d5acb86
+def test_run_refactor_plan_without_json(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--refactor-plan",
+            "--exclude",
+            "in, .venv",
+            "--ignore-params",
+            "x, y",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "bundle" in captured
+    assert code == 0
+
+# gabion:evidence E:call_cluster::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code E:decision_surface/direct::test_dataflow_run_edges.py::tests.test_dataflow_run_edges.test_run_dot_stdout_returns_early::stale_be0fbed24118_f36fc951
+def test_run_dot_stdout_returns_early(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--dot",
+            "-",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "digraph" in captured
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_0c16c99e6d98
+def test_run_fail_on_violations_with_baseline(tmp_path: Path, capsys) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    baseline_path = tmp_path / "baseline.txt"
+    baseline_path.write_text("preexisting\n")
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--baseline",
+            str(baseline_path),
+            "--fail-on-violations",
+        ]
+    )
+    captured = capsys.readouterr().out
+    assert "bundle" in captured
+    assert code == 1
+
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_ba1a18aa9173
+def test_run_fail_on_violations_baseline_write(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "sample.py"
+    _write_bundle_code(sample)
+    baseline_path = tmp_path / "baseline.txt"
+    code = legacy_dataflow_monolith.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--baseline",
+            str(baseline_path),
+            "--baseline-write",
+            "--fail-on-violations",
+        ]
+    )
+    assert baseline_path.exists()
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_d60e69e40e82
+@pytest.mark.parametrize(
+    "seed_registry_value",
+    [
+        pytest.param("{invalid", id="invalid_json"),
+        pytest.param("out/LATEST/fingerprint_seed.json", id="missing_latest"),
+        pytest.param(" ", id="blank"),
+    ],
+)
+def test_run_seed_registry_path_non_usable_values_are_ignored(
+    tmp_path: Path,
+    seed_registry_value: str,
+) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    if seed_registry_value == "{invalid":
+        seed_path = tmp_path / "seed.json"
+        seed_path.write_text(seed_registry_value)
+        seed_registry_value = str(seed_path)
+    config_path.write_text(
+        f"""[fingerprints]
+user_context = ["int"]
+seed_registry_path = "{seed_registry_value}"
+"""
+    )
+    code = legacy_dataflow_monolith.run([
+        str(sample),
+        "--root",
+        str(tmp_path),
+        "--config",
+        str(config_path),
+    ])
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_918b7163ac11
+@pytest.mark.parametrize(
+    "revision_setting",
+    [
+        pytest.param("registry_seed_revision = 17", id="registry_fallback"),
+        pytest.param("seed_revision = 23", id="seed_revision"),
+    ],
+)
+def test_run_seed_revision_configurations_are_applied(
+    tmp_path: Path,
+    revision_setting: str,
+) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text("[fingerprints]\n" + f"{revision_setting}\n")
+    code = legacy_dataflow_monolith.run([
+        str(sample),
+        "--root",
+        str(tmp_path),
+        "--config",
+        str(config_path),
+    ])
+    assert code == 0
+
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_dot::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_baseline::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_baseline_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_28d286fd63a8
+def test_run_synth_registry_path_missing_or_valid_configs(tmp_path: Path) -> None:
+    legacy_dataflow_monolith = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+
+    missing_latest_config = tmp_path / "gabion_missing.toml"
+    missing_latest_config.write_text(
+        """[fingerprints]
+user_context = ["int"]
+synth_registry_path = "out/LATEST/fingerprint_synth.json"
+"""
+    )
+    missing_code = legacy_dataflow_monolith.run([
+        str(sample),
+        "--root",
+        str(tmp_path),
+        "--config",
+        str(missing_latest_config),
+    ])
+
+    synth_path = tmp_path / "synth.json"
+    synth_path.write_text('{"version": "synth@1", "min_occurrences": 2, "entries": []}')
+    valid_config = tmp_path / "gabion_valid.toml"
+    valid_config.write_text(
+        f"""[fingerprints]
+user_context = ["int"]
+synth_registry_path = "{synth_path}"
+"""
+    )
+    valid_code = legacy_dataflow_monolith.run([
+        str(sample),
+        "--root",
+        str(tmp_path),
+        "--config",
+        str(valid_config),
+    ])
+
+    assert missing_code == 0
+    assert valid_code == 0

@@ -11,10 +11,11 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
-from gabion.analysis.timeout_context import Deadline, deadline_clock_scope, deadline_scope
-from gabion.analysis.timeout_context import forest_scope
-from gabion.analysis.aspf import Forest
-from gabion.analysis import evidence_keys, test_obsolescence
+from gabion.analysis.foundation.timeout_context import Deadline, deadline_clock_scope, deadline_scope
+from gabion.analysis.foundation.timeout_context import forest_scope
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.semantics import evidence_keys
+from gabion.analysis.surfaces import test_obsolescence
 from gabion.deadline_clock import GasMeter
 from tests.env_helpers import restore_env as _restore_env
 from tests.env_helpers import set_env as _set_env

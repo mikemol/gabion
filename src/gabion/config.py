@@ -6,7 +6,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import TypeAlias
 import tomllib
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline
 
 DEFAULT_CONFIG_NAME = "gabion.toml"
 

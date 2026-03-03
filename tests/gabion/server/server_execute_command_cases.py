@@ -6,12 +6,8 @@ from pathlib import Path
 import pytest
 
 from gabion import server
-from gabion.analysis.timeout_context import (
-    Deadline,
-    TimeoutExceeded,
-    check_deadline,
-    deadline_scope,
-)
+from gabion.analysis.foundation.timeout_context import (
+    Deadline, TimeoutExceeded, check_deadline, deadline_scope)
 from gabion.exceptions import NeverThrown
 
 

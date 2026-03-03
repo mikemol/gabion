@@ -5,11 +5,7 @@ from typing import Mapping, cast
 
 from gabion.invariants import never
 from gabion.order_contract import (
-    enforce_ordered,
-    is_sorted_once_carrier,
-    sort_once,
-    sorted_once_source,
-)
+    enforce_ordered, is_sorted_once_carrier, sort_once, sorted_once_source)
 from gabion.runtime import stable_encode
 
 # Sort-contract note:

@@ -15,7 +15,7 @@ clauses:
   NCI-ACTIONS-PINNED:
     status: enforced
     enforcing_modules:
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - docs/allowed_actions.txt
     ci_anchors:
       - workflow: .github/workflows/ci.yml
@@ -25,7 +25,7 @@ clauses:
   NCI-ACTIONS-ALLOWLIST:
     status: enforced
     enforcing_modules:
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - docs/allowed_actions.txt
     ci_anchors:
       - workflow: .github/workflows/ci.yml
@@ -38,7 +38,7 @@ clauses:
   NCI-DATAFLOW-BUNDLE-TIERS:
     status: enforced
     enforcing_modules:
-      - src/gabion/analysis/dataflow_bundle_iteration.py
+      - src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py
       - .github/workflows/pr-dataflow-grammar.yml
     ci_anchors:
       - workflow: .github/workflows/pr-dataflow-grammar.yml
@@ -53,9 +53,9 @@ clauses:
   NCI-SHIFT-AMBIGUITY-LEFT:
     status: partial
     enforcing_modules:
-      - scripts/policy_scanner_suite.py
-      - src/gabion/tooling/policy_scanner_suite.py
-      - src/gabion/tooling/ambiguity_contract_policy_check.py
+      - scripts/policy/policy_scanner_suite.py
+      - src/gabion/tooling/runtime/policy_scanner_suite.py
+      - src/gabion/tooling/governance/ambiguity_contract_policy_check.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -68,10 +68,10 @@ clauses:
   NCI-BASELINE-RATCHET:
     status: partial
     enforcing_modules:
-      - src/gabion/analysis/baseline_io.py
-      - src/gabion/tooling/delta_gate.py
+      - src/gabion/analysis/foundation/baseline_io.py
+      - src/gabion/tooling/delta/delta_gate.py
       - src/gabion/cli.py
-      - src/gabion/tooling/run_dataflow_stage.py
+      - src/gabion/tooling/runtime/run_dataflow_stage.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -89,9 +89,9 @@ clauses:
   NCI-DEADLINE-TIMEOUT-PROPAGATION:
     status: partial
     enforcing_modules:
-      - scripts/deadline_runtime.py
+      - scripts/deadline/deadline_runtime.py
       - src/gabion/runtime/deadline_policy.py
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -106,8 +106,8 @@ clauses:
     status: partial
     enforcing_modules:
       - docs/governance_rules.yaml
-      - scripts/governance_controller_audit.py
-      - scripts/governance_telemetry_emit.py
+      - scripts/governance/governance_controller_audit.py
+      - scripts/governance/governance_telemetry_emit.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -122,9 +122,9 @@ clauses:
   NCI-OVERRIDE-LIFECYCLE:
     status: enforced
     enforcing_modules:
-      - scripts/ci_override_record_emit.py
-      - scripts/ci_controller_drift_gate.py
-      - src/gabion/tooling/override_record.py
+      - scripts/ci/ci_override_record_emit.py
+      - scripts/ci/ci_controller_drift_gate.py
+      - src/gabion/tooling/governance/override_record.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -157,18 +157,18 @@ clauses:
       - AGENTS.md
       - CONTRIBUTING.md
       - docs/user_workflows.md
-      - scripts/ci_watch.py
-      - scripts/ci_cycle.py
+      - scripts/ci/ci_watch.py
+      - scripts/ci/ci_cycle.py
       - scripts/ci_local_repro.sh
     ci_anchors: []
     expected_artifacts: []
   NCI-CONTROLLER-DRIFT-LIFECYCLE:
     status: enforced
     enforcing_modules:
-      - scripts/governance_controller_audit.py
-      - scripts/ci_override_record_emit.py
-      - scripts/ci_controller_drift_gate.py
-      - src/gabion/tooling/override_record.py
+      - scripts/governance/governance_controller_audit.py
+      - scripts/ci/ci_override_record_emit.py
+      - scripts/ci/ci_controller_drift_gate.py
+      - src/gabion/tooling/governance/override_record.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks

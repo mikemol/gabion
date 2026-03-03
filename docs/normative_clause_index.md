@@ -150,7 +150,7 @@ link to clause IDs instead of duplicating long-form normative prose.
 ### `NCI-CONTROLLER-DRIFT-LIFECYCLE` — Controller drift enforcement and override lifecycle
 - Controller drift gates must enforce severity thresholds from governance rules and fail closed when blocking findings exceed policy and no valid override record exists.
 - Active controller-drift overrides must use non-expired machine-readable lifecycle records and emit normalized diagnostics/telemetry fields.
-- Canonical sources: `docs/governance_rules.yaml`, `scripts/ci_controller_drift_gate.py`, `POLICY_SEED.md#policy_seed`.
+- Canonical sources: `docs/governance_rules.yaml`, `scripts/ci/ci_controller_drift_gate.py`, `POLICY_SEED.md#policy_seed`.
 
 <a id="clause-command-maturity-parity"></a>
 ### `NCI-COMMAND-MATURITY-PARITY` — Command maturity, carrier, and parity governance

@@ -13,19 +13,16 @@ from typing import cast
 import pytest
 
 from gabion import server
-from gabion.analysis.timeout_context import TimeoutContext, pack_call_stack
+from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
 from gabion.exceptions import NeverThrown
-from gabion.analysis import (
-    ambiguity_delta,
-    ambiguity_state,
-    evidence_keys,
-    taint_state,
-    test_annotation_drift,
-    test_annotation_drift_delta,
-    test_obsolescence,
-    test_obsolescence_delta,
-    test_obsolescence_state,
-)
+from gabion.analysis.core import (
+    ambiguity_delta, ambiguity_state)
+from gabion.analysis.semantics import (
+    evidence_keys)
+from gabion.analysis.taint import (
+    taint_state)
+from gabion.analysis.surfaces import (
+    test_annotation_drift, test_annotation_drift_delta, test_obsolescence, test_obsolescence_delta, test_obsolescence_state)
 
 
 class _DummyWorkspace:

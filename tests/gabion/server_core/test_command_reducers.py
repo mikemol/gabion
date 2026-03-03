@@ -8,11 +8,7 @@ from gabion.server import _default_execute_command_deps
 from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
-    initial_collection_progress,
-    initial_paths_count,
-    normalize_paths,
-    normalize_timeout_total_ticks,
-)
+    initial_collection_progress, initial_paths_count, normalize_paths, normalize_timeout_total_ticks)
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks::stale_c07f84f81743

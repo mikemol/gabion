@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from gabion.tooling import docflow_delta_emit
-from scripts import refresh_baselines, sppf_sync
+from gabion.tooling.docflow import docflow_delta_emit
+from scripts.misc import refresh_baselines
+from scripts.sppf import sppf_sync
 from gabion.execution_plan import (
     BaselineFacet,
     DeadlineFacet,

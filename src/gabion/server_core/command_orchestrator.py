@@ -11,27 +11,16 @@ import dataclasses
 
 from gabion.commands import aux_operation_contract
 from gabion.commands.progress_transition import (
-    NormalizedProgressTransition,
-    ProgressEventKind,
-    ProgressTransitionDecision,
-    normalize_progress_transition_boundary,
-    progress_transition_v1_payload,
-    progress_transition_v2_payload,
-    validate_progress_transition,
-)
+    NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v1_payload, progress_transition_v2_payload, validate_progress_transition)
 from gabion.order_contract import OrderPolicy
-from gabion.analysis.pattern_schema_projection import pattern_schema_surface_payloads
+from gabion.analysis.projection.pattern_schema_projection import pattern_schema_surface_payloads
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
 from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
-    initial_collection_progress,
-    initial_paths_count,
-    normalize_paths,
-    normalize_timeout_total_ticks,
-)
+    initial_collection_progress, initial_paths_count, normalize_paths, normalize_timeout_total_ticks)
 
 if TYPE_CHECKING:
     from gabion.server import ExecuteCommandDeps

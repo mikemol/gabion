@@ -9,12 +9,7 @@ import pytest
 from gabion import server
 from gabion.commands import command_ids
 from gabion.lsp_client import (
-    CommandRequest,
-    LspClientError,
-    _analysis_timeout_total_ns,
-    _wait_readable,
-    run_command_direct,
-)
+    CommandRequest, LspClientError, _analysis_timeout_total_ns, _wait_readable, run_command_direct)
 from gabion.exceptions import NeverThrown
 
 

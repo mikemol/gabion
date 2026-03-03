@@ -236,7 +236,7 @@ observed() {
   if observability_enabled; then
     local max_gap="${GABION_OBSERVABILITY_MAX_GAP_SECONDS:-5}"
     local max_wall="${GABION_OBSERVABILITY_MAX_WALL_SECONDS:-1200}"
-    "$PYTHON_BIN" scripts/ci_observability_guard.py \
+    "$PYTHON_BIN" scripts/ci/ci_observability_guard.py \
       --label "$label" \
       --max-gap-seconds "$max_gap" \
       --max-wall-seconds "$max_wall" \
@@ -254,20 +254,20 @@ timed_observed() {
     if observability_enabled; then
       local max_gap="${GABION_OBSERVABILITY_MAX_GAP_SECONDS:-5}"
       local max_wall="${GABION_OBSERVABILITY_MAX_WALL_SECONDS:-1200}"
-      "$PYTHON_BIN" scripts/ci_step_timing_capture.py \
+      "$PYTHON_BIN" scripts/ci/ci_step_timing_capture.py \
         --label "$label" \
         --mode "$step_timing_mode" \
         --run-id "$step_timing_run_id" \
         --artifact-path "$step_timing_artifact" \
         -- \
-        "$PYTHON_BIN" scripts/ci_observability_guard.py \
+        "$PYTHON_BIN" scripts/ci/ci_observability_guard.py \
           --label "$label" \
           --max-gap-seconds "$max_gap" \
           --max-wall-seconds "$max_wall" \
           --artifact-path "artifacts/audit_reports/observability_violations.json" \
           -- "$@"
     else
-      "$PYTHON_BIN" scripts/ci_step_timing_capture.py \
+      "$PYTHON_BIN" scripts/ci/ci_step_timing_capture.py \
         --label "$label" \
         --mode "$step_timing_mode" \
         --run-id "$step_timing_run_id" \
@@ -713,14 +713,14 @@ run_checks_job() {
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
 
   step "checks: policy scanner suite"
-  observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+  observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
 
   step "checks: controller drift audit (advisory, ratchet-ready)"
   local controller_args=(--out artifacts/out/controller_drift.json)
   if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
     controller_args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
   fi
-  observed checks_controller_drift "$PYTHON_BIN" scripts/governance_controller_audit.py "${controller_args[@]}"
+  observed checks_controller_drift "$PYTHON_BIN" scripts/governance/governance_controller_audit.py "${controller_args[@]}"
 
   step "checks: pytest --cov"
   mkdir -p artifacts/test_runs
@@ -750,7 +750,7 @@ run_checks_job() {
     set +e
     if aspf_handoff_enabled_now; then
       ensure_aspf_handoff_session
-      timed_observed "checks_delta_bundle_attempt_${delta_bundle_attempt}" "$PYTHON_BIN" scripts/aspf_handoff.py run \
+      timed_observed "checks_delta_bundle_attempt_${delta_bundle_attempt}" "$PYTHON_BIN" scripts/misc/aspf_handoff.py run \
         --root . \
         --session-id "$aspf_handoff_session" \
         --step-id "$delta_step_id" \
@@ -816,7 +816,7 @@ EOF
     check delta-gates
 
   step "checks: governance telemetry emit"
-  observed checks_governance_telemetry "$PYTHON_BIN" scripts/governance_telemetry_emit.py \
+  observed checks_governance_telemetry "$PYTHON_BIN" scripts/governance/governance_telemetry_emit.py \
     --run-id "$step_timing_run_id" \
     --timings "$step_timing_artifact" \
     --history artifacts/out/governance_telemetry_history.json \
@@ -825,13 +825,13 @@ EOF
 
   if $run_extended_checks; then
     step "checks(ext): order_lifetime_check"
-    observed checks_order_lifetime "$PYTHON_BIN" scripts/order_lifetime_check.py --root .
+    observed checks_order_lifetime "$PYTHON_BIN" scripts/misc/order_lifetime_check.py --root .
 
     step "checks(ext): structural_hash_policy_check"
-    observed checks_structural_hash_policy "$PYTHON_BIN" scripts/structural_hash_policy_check.py --root .
+    observed checks_structural_hash_policy "$PYTHON_BIN" scripts/policy/structural_hash_policy_check.py --root .
 
     step "checks(ext): complexity_audit --fail-on-regression"
-    timed_observed checks_complexity_audit "$PYTHON_BIN" scripts/complexity_audit.py --root . --fail-on-regression
+    timed_observed checks_complexity_audit "$PYTHON_BIN" scripts/misc/complexity_audit.py --root . --fail-on-regression
   fi
 }
 
@@ -964,17 +964,17 @@ run_pr_dataflow_job() {
   fi
 
   step "pr-dataflow: policy scanner suite"
-  observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+  observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
 
   step "pr-dataflow: governance PR template fields"
   local pr_template_body_file
   if pr_template_body_file="$(resolve_pr_body_file)"; then
-    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/check_pr_governance_template.py \
+    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/audit/check_pr_governance_template.py \
       --base "$pr_base" \
       --head "$pr_head" \
       --body-file "$pr_template_body_file"
   else
-    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/check_pr_governance_template.py \
+    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/audit/check_pr_governance_template.py \
       --base "$pr_base" \
       --head "$pr_head"
   fi
@@ -984,7 +984,7 @@ run_pr_dataflow_job() {
   if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
     pr_controller_args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
   fi
-  observed pr_dataflow_controller_drift "$PYTHON_BIN" scripts/governance_controller_audit.py "${pr_controller_args[@]}"
+  observed pr_dataflow_controller_drift "$PYTHON_BIN" scripts/governance/governance_controller_audit.py "${pr_controller_args[@]}"
 
   step "pr-dataflow: select impacted tests"
   mkdir -p artifacts/audit_reports artifacts/test_runs
@@ -1055,7 +1055,7 @@ PY
   set +e
   if aspf_handoff_enabled_now; then
     ensure_aspf_handoff_session
-    timed_observed pr_dataflow_render_check "$PYTHON_BIN" scripts/aspf_handoff.py run \
+    timed_observed pr_dataflow_render_check "$PYTHON_BIN" scripts/misc/aspf_handoff.py run \
       --root . \
       --session-id "$aspf_handoff_session" \
       --step-id "ci-local.pr-dataflow.render-check.raw" \

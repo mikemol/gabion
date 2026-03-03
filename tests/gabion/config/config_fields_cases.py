@@ -5,7 +5,7 @@ from tests.path_helpers import REPO_ROOT
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow_indexed_file_scan import _iter_config_fields
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import _iter_config_fields
 
     return _iter_config_fields
 

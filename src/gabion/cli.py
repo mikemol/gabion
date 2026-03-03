@@ -21,67 +21,38 @@ import sys
 from click.core import ParameterSource
 import typer
 from gabion.cli_support.check_commands import (
-    register_check_delta_bundle_command as _register_check_delta_bundle_command,
-    register_check_group_callback as _register_check_group_callback,
-    register_check_run_command as _register_check_run_command,
-)
+    register_check_delta_bundle_command as _register_check_delta_bundle_command, register_check_group_callback as _register_check_group_callback, register_check_run_command as _register_check_run_command)
 from gabion.cli_support.check_command_runtime import (
-    check_raw_profile_args as _check_raw_profile_args_impl,
-    run_check_aux_operation as _run_check_aux_operation_impl,
-    run_check_command as _run_check_command_impl,
-    run_check_raw_profile as _run_check_raw_profile_impl,
-)
+    check_raw_profile_args as _check_raw_profile_args_impl, run_check_aux_operation as _run_check_aux_operation_impl, run_check_command as _run_check_command_impl, run_check_raw_profile as _run_check_raw_profile_impl)
 from gabion.cli_support.check_execution_plan import (
-    check_derived_artifacts as _check_derived_artifacts_impl,
-    build_check_execution_plan_request as _build_check_execution_plan_request_impl,
-)
+    check_derived_artifacts as _check_derived_artifacts_impl, build_check_execution_plan_request as _build_check_execution_plan_request_impl)
 from gabion.cli_support.check_runtime import run_check as _run_check_impl
 from gabion.cli_support.dispatch_runtime import (
-    dispatch_command as _dispatch_command_impl,
-)
+    dispatch_command as _dispatch_command_impl)
 from gabion.cli_support import (
-    github_artifact_restore as _github_artifact_restore,
-)
+    github_artifact_restore as _github_artifact_restore)
 from gabion.cli_support.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
 from gabion.cli_support.payload_builder import (
-    build_dataflow_payload as _build_dataflow_payload_impl,
-)
+    build_dataflow_payload as _build_dataflow_payload_impl)
 from gabion.cli_support.output_emitters import (
-    emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl,
-    write_lint_sarif as _write_lint_sarif_impl,
-)
+    emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, write_lint_sarif as _write_lint_sarif_impl)
 from gabion.cli_support.synth_runtime import run_synth as _run_synth_impl
 from gabion.cli_support.synth_commands import (
-    register_synth_command as _register_synth_command,
-)
+    register_synth_command as _register_synth_command)
 from gabion.cli_support.refactor_payload import (
-    build_refactor_payload as _build_refactor_payload_impl,
-)
+    build_refactor_payload as _build_refactor_payload_impl)
 from gabion.cli_support.refactor_runtime import (
-    run_refactor_protocol as _run_refactor_protocol_impl,
-)
+    run_refactor_protocol as _run_refactor_protocol_impl)
 from gabion.cli_support.timeout_progress import (
-    render_timeout_progress_markdown as _render_timeout_progress_markdown_impl,
-)
+    render_timeout_progress_markdown as _render_timeout_progress_markdown_impl)
 from gabion.cli_support.runtime_flags import (
-    register_runtime_flags_callback as _register_runtime_flags_callback,
-)
+    register_runtime_flags_callback as _register_runtime_flags_callback)
 from gabion.cli_support.tooling_commands import (
-    build_status_watch_options as _build_status_watch_options_impl,
-    register_ci_watch_command as _register_ci_watch_command,
-)
-from gabion.analysis.timeout_context import (
-    check_deadline,
-    deadline_loop_iter,
-    render_deadline_profile_markdown,
-)
+    build_status_watch_options as _build_status_watch_options_impl, register_ci_watch_command as _register_ci_watch_command)
+from gabion.analysis.foundation.timeout_context import (
+    check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
-    boundary_order,
-    check_contract,
-    command_ids,
-    progress_contract as progress_timeline,
-    transport_policy,
-)
+    boundary_order, check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
 from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -94,32 +65,22 @@ DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
 IMPACT_COMMAND = command_ids.IMPACT_COMMAND
 LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import (
-    CommandRequest,
-    run_command,
-    run_command_direct,
-)
-from gabion.tooling import (
-    ci_watch as tooling_ci_watch,
-    delta_advisory as tooling_delta_advisory,
-    docflow_delta_emit as tooling_docflow_delta_emit,
-    governance_audit as tooling_governance_audit,
-    impact_select_tests as tooling_impact_select_tests,
-    tool_specs,
-    run_dataflow_stage as tooling_run_dataflow_stage,
-    ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check,
-    normative_symdiff as tooling_normative_symdiff,
-)
+    CommandRequest, run_command, run_command_direct)
+from gabion.tooling.runtime import (
+    ci_watch as tooling_ci_watch, tool_specs, run_dataflow_stage as tooling_run_dataflow_stage)
+from gabion.tooling.delta import (
+    delta_advisory as tooling_delta_advisory)
+from gabion.tooling.docflow import (
+    docflow_delta_emit as tooling_docflow_delta_emit)
+from gabion.tooling.governance import (
+    governance_audit as tooling_governance_audit, ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check, normative_symdiff as tooling_normative_symdiff)
+from gabion.tooling.impact import (
+    impact_select_tests as tooling_impact_select_tests)
 from gabion.json_types import JSONObject
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import (
-    DecisionDiffResponseDTO,
-    RefactorProtocolResponseDTO,
-    LspParityGateResponseDTO,
-    StructureDiffResponseDTO,
-    StructureReuseResponseDTO,
-    SynthesisPlanResponseDTO,
-)
+    DecisionDiffResponseDTO, RefactorProtocolResponseDTO, LspParityGateResponseDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO)
 app = typer.Typer(add_completion=False)
 check_app = typer.Typer(
     add_completion=False,

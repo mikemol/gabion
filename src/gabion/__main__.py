@@ -1,7 +1,7 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from .cli import app
+from gabion.cli import app
 
 
 def main() -> None:

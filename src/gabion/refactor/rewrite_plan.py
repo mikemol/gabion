@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from gabion.analysis.json_types import JSONObject
-from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
 from gabion.order_contract import sort_once
 
 

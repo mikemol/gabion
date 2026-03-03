@@ -51,7 +51,7 @@ doc_owner: maintainer
 Generated with:
 
 ```bash
-mise exec -- python scripts/complexity_audit.py --root . --emit artifacts/audit_reports/complexity_baseline.json
+mise exec -- python scripts/misc/complexity_audit.py --root . --emit artifacts/audit_reports/complexity_baseline.json
 ```
 
 Snapshot (`artifacts/audit_reports/complexity_baseline.json`):
@@ -80,7 +80,7 @@ Top concentrated test files:
 Generated with:
 
 ```bash
-mise exec -- python scripts/complexity_audit.py --root . --emit /tmp/complexity_current.json
+mise exec -- python scripts/misc/complexity_audit.py --root . --emit /tmp/complexity_current.json
 ```
 
 Snapshot:
@@ -108,10 +108,10 @@ Snapshot:
 
 Completed in this slice:
 - added per-slice state orchestration tooling:
-  - `scripts/refactor_slice_state.py`
+  - `scripts/misc/refactor_slice_state.py`
   - `artifacts/audit_reports/refactor_slice_state.json`
 - added step-level CI timing capture tooling:
-  - `scripts/ci_step_timing_capture.py`
+  - `scripts/ci/ci_step_timing_capture.py`
   - `artifacts/audit_reports/ci_step_timings.json`
 - wired local CI reproduction step-level KPI collection for selected checks in:
   - `scripts/ci_local_repro.sh`
@@ -193,9 +193,9 @@ Run after each mutating slice:
 
 ```bash
 mise exec -- python -m compileall -q src/gabion
-mise exec -- python scripts/order_lifetime_check.py --root .
-mise exec -- python scripts/complexity_audit.py --root . --fail-on-regression
-mise exec -- python scripts/structural_hash_policy_check.py --root .
+mise exec -- python scripts/misc/order_lifetime_check.py --root .
+mise exec -- python scripts/misc/complexity_audit.py --root . --fail-on-regression
+mise exec -- python scripts/policy/structural_hash_policy_check.py --root .
 mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing

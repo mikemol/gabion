@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gabion.tooling import governance_audit as audit_tools
+from gabion.tooling.governance import governance_audit as audit_tools
 
 
 def _doc(*, revision: int, reviewed: dict[str, int], body: str) -> audit_tools.Doc:

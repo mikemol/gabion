@@ -125,11 +125,8 @@ def ordered_or_sorted(
     """
 
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.foundation.timeout_context import (
+        check_deadline, get_deadline, get_deadline_clock)
 
     deadline_clock = _deadline_clock_if_available()
     if (
@@ -288,11 +285,8 @@ def _resolve_policy(
     require_sorted: bool | None,
 ) -> OrderPolicy:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import (
-        check_deadline,
-        get_deadline,
-        get_deadline_clock,
-    )
+    from gabion.analysis.foundation.timeout_context import (
+        check_deadline, get_deadline, get_deadline_clock)
 
     deadline_clock = _deadline_clock_if_available()
     if (
@@ -322,7 +316,7 @@ def get_order_policy() -> OrderPolicy:
 
 def _deadline_clock_if_available() -> object | None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import get_deadline, get_deadline_clock
+    from gabion.analysis.foundation.timeout_context import get_deadline, get_deadline_clock
 
     try:
         get_deadline()
@@ -403,7 +397,7 @@ def _validate_canonical_sort_allowlist(
     require_sorted: bool | None,
 ) -> None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import check_deadline
+    from gabion.analysis.foundation.timeout_context import check_deadline
 
     deadline_clock = _deadline_clock_if_available()
     if (
@@ -436,7 +430,7 @@ def _explicit_sort_requested(
     require_sorted: bool | None,
 ) -> bool:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import check_deadline
+    from gabion.analysis.foundation.timeout_context import check_deadline
 
     deadline_clock = _deadline_clock_if_available()
     if (
@@ -454,7 +448,7 @@ def _explicit_sort_requested(
 
 def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import check_deadline
+    from gabion.analysis.foundation.timeout_context import check_deadline
 
     if isinstance(policy, OrderPolicy):
         return policy
@@ -484,7 +478,7 @@ def _first_order_violation(
     reverse: bool = False,
 ) -> tuple[int, int, Any, Any, str] | None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.timeout_context import check_deadline
+    from gabion.analysis.foundation.timeout_context import check_deadline
 
     deadline_clock = _deadline_clock_if_available()
     if (

@@ -7,7 +7,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from gabion.analysis.marker_protocol import MarkerPayload
+    from gabion.analysis.foundation.marker_protocol import MarkerPayload
 
 
 class NeverRaise(RuntimeError):
@@ -19,7 +19,7 @@ class NeverRaise(RuntimeError):
     """
 
     def __init__(self, message: str, *, marker_payload: MarkerPayload | None = None):
-        from gabion.analysis.marker_protocol import marker_identity, never_marker_payload
+        from gabion.analysis.foundation.marker_protocol import marker_identity, never_marker_payload
 
         super().__init__(message)
         payload = marker_payload or never_marker_payload(reason=message)

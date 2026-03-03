@@ -6,14 +6,10 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from gabion.analysis.aspf_core import AspfOneCell, AspfTwoCellWitness, BasisZeroCell
-from gabion.analysis.aspf_decision_surface import classify_drift_by_homotopy
-from gabion.analysis.aspf_morphisms import (
-    AspfPrimeBasis,
-    DomainPrimeBasis,
-    DomainToAspfCofibration,
-    DomainToAspfCofibrationEntry,
-)
+from gabion.analysis.aspf.aspf_core import AspfOneCell, AspfTwoCellWitness, BasisZeroCell
+from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotopy
+from gabion.analysis.aspf.aspf_morphisms import (
+    AspfPrimeBasis, DomainPrimeBasis, DomainToAspfCofibration, DomainToAspfCofibrationEntry)
 
 
 @dataclass(frozen=True)

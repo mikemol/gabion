@@ -6,8 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 import re
 
-from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
 

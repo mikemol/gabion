@@ -14,12 +14,12 @@ import typer
 from typer.testing import CliRunner
 
 from gabion import cli
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.commands import progress_contract as progress_timeline
 from gabion.commands import transport_policy
 from gabion.exceptions import NeverThrown
 from gabion.runtime import env_policy
-from gabion.tooling import tool_specs
+from gabion.tooling.runtime import tool_specs
 from tests.env_helpers import env_scope as _env_scope
 
 

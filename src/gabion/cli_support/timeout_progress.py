@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from gabion.analysis.timeout_context import deadline_loop_iter
+from gabion.analysis.foundation.timeout_context import deadline_loop_iter
 
 
 def render_timeout_progress_markdown(

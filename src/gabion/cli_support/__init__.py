@@ -1,22 +1,19 @@
 """CLI support extraction surfaces."""
 
-from .check_commands import (
-    register_check_delta_bundle_command,
-    register_check_group_callback,
-    register_check_run_command,
-)
-from .check_command_runtime import run_check_command
-from .check_execution_plan import build_check_execution_plan_request
-from .check_runtime import run_check
-from .dispatch_runtime import dispatch_command
-from .synth_commands import register_synth_command
-from .runtime_flags import register_runtime_flags_callback
-from .timeout_progress import render_timeout_progress_markdown
-from .tooling_commands import register_ci_watch_command
-from .output_emitters import emit_dataflow_result_outputs
-from .payload_builder import build_dataflow_payload
-from .parser_builder import dataflow_cli_parser
-from .synth_runtime import run_synth
+from gabion.cli_support.check_commands import (
+    register_check_delta_bundle_command, register_check_group_callback, register_check_run_command)
+from gabion.cli_support.check_command_runtime import run_check_command
+from gabion.cli_support.check_execution_plan import build_check_execution_plan_request
+from gabion.cli_support.check_runtime import run_check
+from gabion.cli_support.dispatch_runtime import dispatch_command
+from gabion.cli_support.synth_commands import register_synth_command
+from gabion.cli_support.runtime_flags import register_runtime_flags_callback
+from gabion.cli_support.timeout_progress import render_timeout_progress_markdown
+from gabion.cli_support.tooling_commands import register_ci_watch_command
+from gabion.cli_support.output_emitters import emit_dataflow_result_outputs
+from gabion.cli_support.payload_builder import build_dataflow_payload
+from gabion.cli_support.parser_builder import dataflow_cli_parser
+from gabion.cli_support.synth_runtime import run_synth
 
 __all__ = [
     "dispatch_command",

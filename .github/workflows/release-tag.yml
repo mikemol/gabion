@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Create and push tag
-        run: python scripts/release_tag.py --tag "${{ inputs.tag }}"
+        run: python scripts/release/release_tag.py --tag "${{ inputs.tag }}"
       - name: Write release tag artifact
         run: echo "${{ inputs.tag }}" > tag.txt
       - name: Upload release tag artifact

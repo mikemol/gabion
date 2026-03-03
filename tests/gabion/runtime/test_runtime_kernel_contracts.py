@@ -15,7 +15,9 @@ from gabion.runtime import (
     path_policy,
     stable_encode,
 )
-from gabion.tooling import delta_gate, governance_rules, tool_specs
+from gabion.tooling.delta import delta_gate
+from gabion.tooling.governance import governance_rules
+from gabion.tooling.runtime import tool_specs
 from tests.env_helpers import env_scope
 
 

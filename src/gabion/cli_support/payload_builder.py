@@ -8,9 +8,7 @@ from typing import Callable
 
 from gabion.commands import check_contract
 from gabion.commands.check_contract import (
-    DataflowFilterBundle,
-    DataflowPayloadCommonOptions,
-)
+    DataflowFilterBundle, DataflowPayloadCommonOptions)
 from gabion.json_types import JSONObject
 
 NormalizeOptionalOutputTargetFn = Callable[[object], str | None]

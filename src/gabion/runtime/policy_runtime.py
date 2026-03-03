@@ -6,11 +6,9 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from typing import Iterator
 
-from gabion.analysis.derivation_cache import DerivationCacheConfig, derivation_cache_config_scope
-from gabion.analysis.projection_registry import (
-    ProjectionRegistryRuntimeConfig,
-    projection_registry_runtime_config_scope,
-)
+from gabion.analysis.derivation.derivation_cache import DerivationCacheConfig, derivation_cache_config_scope
+from gabion.analysis.projection.projection_registry import (
+    ProjectionRegistryRuntimeConfig, projection_registry_runtime_config_scope)
 from gabion.commands.transport_policy import TransportOverrideConfig, transport_override_scope
 from gabion.invariants import ProofModeConfig, proof_mode_config_scope
 from gabion.order_contract import OrderPolicy, OrderRuntimeConfig, order_runtime_config_scope
@@ -88,8 +86,8 @@ def runtime_policy_from_env() -> RuntimePolicyConfig:
 
 
 def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
-    from gabion.analysis.derivation_cache import set_derivation_cache_config
-    from gabion.analysis.projection_registry import set_projection_registry_runtime_config
+    from gabion.analysis.derivation.derivation_cache import set_derivation_cache_config
+    from gabion.analysis.projection.projection_registry import set_projection_registry_runtime_config
     from gabion.commands.transport_policy import set_transport_override
     from gabion.invariants import set_proof_mode_config
     from gabion.order_contract import set_order_runtime_config

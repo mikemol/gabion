@@ -532,7 +532,7 @@ scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-
 `--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
 back to environment values or local branch ancestry.
 PR mode now also runs the governance template check and controller-drift audit.
-The audited normative-doc registry consumed by `scripts/governance_controller_audit.py` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
+The audited normative-doc registry consumed by `scripts/governance/governance_controller_audit.py` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
 For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
 ```
 scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
@@ -589,7 +589,7 @@ Baseline refresh guardrail (normative):
 No-op CI cycle helper:
 
 ```
-mise exec -- python scripts/ci_cycle.py --push --watch
+mise exec -- python scripts/ci/ci_cycle.py --push --watch
 ```
 
 CI watch helper:
@@ -661,7 +661,7 @@ It uses `mise` (via `gabion.toml`) to install the toolchain.
 For push-driven `dataflow-grammar`, prefer warm caches:
 - CI restores the previous same-branch `dataflow-report` artifact's resume
   checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
-- `scripts/ci_seed_dataflow_checkpoint.py` and `scripts/ci_finalize_dataflow_outcome.py` are the CI orchestration entrypoints around `gabion run-dataflow-stage`; the gabion command still emits resume metrics in logs/step-summary
+- `scripts/ci_seed_dataflow_checkpoint.py` and `scripts/ci/ci_finalize_dataflow_outcome.py` are the CI orchestration entrypoints around `gabion run-dataflow-stage`; the gabion command still emits resume metrics in logs/step-summary
   (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
   impact can be verified explicitly.
 - Keep resume identity stable (forest spec / fingerprint seed / strictness
@@ -687,8 +687,8 @@ Run:
 mise exec -- python -m pip install pyyaml
 mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
-mise exec -- python scripts/ci_finalize_dataflow_outcome.py --terminal-exit 0
-mise exec -- python scripts/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
+mise exec -- python scripts/ci/ci_finalize_dataflow_outcome.py --terminal-exit 0
+mise exec -- python scripts/ci/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```

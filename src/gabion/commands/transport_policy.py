@@ -10,9 +10,9 @@ import warnings
 
 from gabion.invariants import never
 from gabion.lsp_client import run_command, run_command_direct
-from gabion.tooling.governance_rules import CommandPolicy, load_governance_rules
+from gabion.tooling.governance.governance_rules import CommandPolicy, load_governance_rules
 from gabion.schema import TransportSelectionDTO
-from gabion.tooling.override_record import validate_override_record_json
+from gabion.tooling.governance.override_record import validate_override_record_json
 
 Runner: TypeAlias = Callable[..., Mapping[str, object]]
 

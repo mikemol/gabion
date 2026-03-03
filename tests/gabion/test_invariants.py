@@ -2,13 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from gabion.analysis.marker_protocol import (
-    MarkerKind,
-    MarkerLifecycleState,
-    MarkerPayload,
-    SemanticLinkKind,
-    SemanticReference,
-)
+from gabion.analysis.foundation.marker_protocol import (
+    MarkerKind, MarkerLifecycleState, MarkerPayload, SemanticLinkKind, SemanticReference)
 from gabion import invariants
 from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope

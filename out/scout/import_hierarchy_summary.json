@@ -1,0 +1,41 @@
+{
+  "current": {
+    "dag_edge_count": 1770,
+    "edge_count": 2075,
+    "largest_scc_size": 17,
+    "module_none_imports": 0,
+    "module_none_resolved": 0,
+    "module_none_unresolved_count": 0,
+    "node_count": 609,
+    "nontrivial_scc_count": 4,
+    "scc_count": 580
+  },
+  "delta": {
+    "dag_edge_count": 155,
+    "edge_count": 37,
+    "largest_scc_size": -8,
+    "module_none_imports": -3,
+    "module_none_resolved": -3,
+    "module_none_unresolved_count": 0,
+    "node_count": 26,
+    "nontrivial_scc_count": -1,
+    "scc_count": 35
+  },
+  "head": {
+    "dag_edge_count": 1615,
+    "edge_count": 2038,
+    "largest_scc_size": 25,
+    "module_none_imports": 3,
+    "module_none_resolved": 3,
+    "module_none_unresolved_count": 0,
+    "node_count": 583,
+    "nontrivial_scc_count": 5,
+    "scc_count": 545
+  },
+  "scan_tops": [
+    "src",
+    "tests",
+    "scripts",
+    "in"
+  ]
+}

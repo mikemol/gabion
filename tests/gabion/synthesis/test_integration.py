@@ -1,3 +1,3 @@
 from __future__ import annotations
 
-from .merge_integration_cases import *  # noqa: F401,F403
+from tests.gabion.synthesis.merge_integration_cases import *  # noqa: F401,F403

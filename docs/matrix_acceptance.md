@@ -349,7 +349,7 @@ This preserves honesty under the governance contract.
 ## 8. Governance telemetry acceptance (convergence-aware)
 
 Point-in-time checks are necessary but insufficient. Acceptance must include
-telemetry trend checks emitted by `scripts/governance_telemetry_emit.py`.
+telemetry trend checks emitted by `scripts/governance/governance_telemetry_emit.py`.
 
 Artifacts:
 - `artifacts/out/governance_telemetry.json`

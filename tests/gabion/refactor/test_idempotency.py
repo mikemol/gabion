@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from tests.path_helpers import REPO_ROOT
 import textwrap
-from gabion.analysis.aspf import Forest
+from gabion.analysis.aspf.aspf import Forest
 
 def _load():
     repo_root = REPO_ROOT

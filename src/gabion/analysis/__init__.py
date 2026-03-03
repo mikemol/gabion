@@ -1,57 +1,6 @@
 """Static analysis subpackage for Gabion."""
 
-from .dataflow_contracts import (
-    AnalysisResult,
-    AuditConfig,
-    InvariantProposition,
-    ReportCarrier,
-)
-from .dataflow_baseline_gates import (
-    apply_baseline,
-    load_baseline,
-    resolve_baseline_path,
-    write_baseline,
-)
-from .dataflow_graph_rendering import render_dot
-from .dataflow_ingest_helpers import resolve_analysis_paths
-from .dataflow_pipeline import analyze_paths
-from .dataflow_projection_helpers import (
-    report_projection_phase_rank,
-    report_projection_spec_rows,
-    report_projection_specs,
-)
-from .dataflow_report_rendering import render_synthesis_section
-from .dataflow_refactor_planning import (
-    build_refactor_plan,
-    render_refactor_plan,
-    render_reuse_lemma_stubs,
-)
-from .dataflow_reporting import compute_violations, render_report
-from .dataflow_structure_reuse import (
-    build_analysis_collection_resume_seed,
-    compute_structure_reuse,
-    project_report_sections,
-)
-from .dataflow_synthesis import (
-    build_synthesis_plan,
-    render_protocol_stubs,
-)
-from .dataflow_snapshot_contracts import (
-    DecisionSnapshotSurfaces,
-    StructureSnapshotDiffRequest,
-)
-from .dataflow_snapshot_io import (
-    compute_structure_metrics,
-    diff_decision_snapshots,
-    diff_structure_snapshot_files,
-    diff_structure_snapshots,
-    extract_report_sections,
-    load_decision_snapshot,
-    load_structure_snapshot,
-    render_decision_snapshot,
-    render_structure_snapshot,
-)
-from .type_fingerprints import (
+from gabion.analysis.core.type_fingerprints import (
     Fingerprint,
     FingerprintDimension,
     PrimeRegistry,
@@ -59,10 +8,10 @@ from .type_fingerprints import (
     TypeConstructorRegistry,
     apply_synth_dimension,
     build_fingerprint_registry,
-    build_synth_registry_from_payload,
     build_synth_registry,
-    bundle_fingerprint_dimensional,
+    build_synth_registry_from_payload,
     bundle_fingerprint,
+    bundle_fingerprint_dimensional,
     bundle_fingerprint_setlike,
     bundle_fingerprint_with_constructors,
     canonical_type_key,
@@ -74,11 +23,62 @@ from .type_fingerprints import (
     fingerprint_hybrid,
     fingerprint_lcm,
     fingerprint_symmetric_diff,
-    fingerprint_to_type_keys_with_remainder,
     fingerprint_to_type_keys,
+    fingerprint_to_type_keys_with_remainder,
     format_fingerprint,
     load_synth_registry_payload,
     synth_registry_payload,
+)
+from gabion.analysis.dataflow.engine.dataflow_contracts import (
+    AnalysisResult,
+    AuditConfig,
+    InvariantProposition,
+    ReportCarrier,
+)
+from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
+from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths
+from gabion.analysis.dataflow.io.dataflow_baseline_gates import (
+    apply_baseline,
+    load_baseline,
+    resolve_baseline_path,
+    write_baseline,
+)
+from gabion.analysis.dataflow.io.dataflow_graph_rendering import render_dot
+from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
+    report_projection_phase_rank,
+    report_projection_spec_rows,
+    report_projection_specs,
+)
+from gabion.analysis.dataflow.io.dataflow_refactor_planning import (
+    build_refactor_plan,
+    render_refactor_plan,
+    render_reuse_lemma_stubs,
+)
+from gabion.analysis.dataflow.io.dataflow_report_rendering import render_synthesis_section
+from gabion.analysis.dataflow.io.dataflow_reporting import compute_violations, render_report
+from gabion.analysis.dataflow.io.dataflow_snapshot_contracts import (
+    DecisionSnapshotSurfaces,
+    StructureSnapshotDiffRequest,
+)
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
+    compute_structure_metrics,
+    diff_decision_snapshots,
+    diff_structure_snapshot_files,
+    diff_structure_snapshots,
+    extract_report_sections,
+    load_decision_snapshot,
+    load_structure_snapshot,
+    render_decision_snapshot,
+    render_structure_snapshot,
+)
+from gabion.analysis.dataflow.io.dataflow_structure_reuse import (
+    build_analysis_collection_resume_seed,
+    compute_structure_reuse,
+    project_report_sections,
+)
+from gabion.analysis.dataflow.io.dataflow_synthesis import (
+    build_synthesis_plan,
+    render_protocol_stubs,
 )
 
 __all__ = [

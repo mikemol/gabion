@@ -60,7 +60,7 @@ jobs:
           TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
           ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
         run: |
-          .venv/bin/python scripts/ci_finalize_dataflow_outcome.py \
+          .venv/bin/python scripts/ci/ci_finalize_dataflow_outcome.py \
             --terminal-exit "${TERMINAL_EXIT:-}" \
             --terminal-state "${TERMINAL_STATE:-none}" \
             --terminal-stage "${TERMINAL_STAGE:-none}" \
@@ -188,7 +188,7 @@ jobs:
           .venv/bin/python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
       - name: Policy scanner suite
-        run: .venv/bin/python scripts/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+        run: .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
       - name: Restore controller drift gate history
         continue-on-error: true
         env:
@@ -213,12 +213,12 @@ jobs:
           gh api "$history_url" > artifacts/out/controller_drift_gate_history.zip
           python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
       - name: Controller drift audit
-        run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+        run: .venv/bin/python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Override lifecycle record emit
-        run: .venv/bin/python scripts/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
+        run: .venv/bin/python scripts/ci/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
       - name: Controller drift gate
         run: |
-          .venv/bin/python scripts/ci_controller_drift_gate.py \
+          .venv/bin/python scripts/ci/ci_controller_drift_gate.py \
             --drift-artifact artifacts/out/controller_drift.json \
             --override-record artifacts/out/governance_override_record.json \
             --history artifacts/out/controller_drift_gate_history.json
@@ -239,7 +239,7 @@ jobs:
             --log-file-level=INFO
       - name: Delta bundle
         run: |
-          .venv/bin/python scripts/aspf_handoff.py run \
+          .venv/bin/python scripts/misc/aspf_handoff.py run \
             --root . \
             --session-id "${GABION_ASPF_HANDOFF_SESSION}" \
             --step-id "ci.checks.delta-bundle" \
@@ -259,7 +259,7 @@ jobs:
             check delta-gates
       - name: Governance telemetry emit
         run: |
-          .venv/bin/python scripts/governance_telemetry_emit.py \
+          .venv/bin/python scripts/governance/governance_telemetry_emit.py \
             --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
             --timings artifacts/audit_reports/ci_step_timings.json \
             --history artifacts/out/governance_telemetry_history.json \

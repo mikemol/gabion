@@ -1,0 +1,282 @@
+{
+  "hotspots_over_threshold": [],
+  "rows": [
+    {
+      "path": "scripts",
+      "py_files": 1
+    },
+    {
+      "path": "scripts/audit",
+      "py_files": 4
+    },
+    {
+      "path": "scripts/ci",
+      "py_files": 7
+    },
+    {
+      "path": "scripts/deadline",
+      "py_files": 2
+    },
+    {
+      "path": "scripts/governance",
+      "py_files": 3
+    },
+    {
+      "path": "scripts/misc",
+      "py_files": 11
+    },
+    {
+      "path": "scripts/policy",
+      "py_files": 8
+    },
+    {
+      "path": "scripts/release",
+      "py_files": 5
+    },
+    {
+      "path": "scripts/sppf",
+      "py_files": 2
+    },
+    {
+      "path": "src/gabion/analysis",
+      "py_files": 1
+    },
+    {
+      "path": "src/gabion/analysis/aspf",
+      "py_files": 11
+    },
+    {
+      "path": "src/gabion/analysis/call_cluster",
+      "py_files": 4
+    },
+    {
+      "path": "src/gabion/analysis/core",
+      "py_files": 13
+    },
+    {
+      "path": "src/gabion/analysis/dataflow",
+      "py_files": 1
+    },
+    {
+      "path": "src/gabion/analysis/dataflow/engine",
+      "py_files": 18
+    },
+    {
+      "path": "src/gabion/analysis/dataflow/io",
+      "py_files": 17
+    },
+    {
+      "path": "src/gabion/analysis/derivation",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/analysis/foundation",
+      "py_files": 9
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan",
+      "py_files": 1
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/ast",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/calls",
+      "py_files": 8
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/deadline",
+      "py_files": 6
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/index",
+      "py_files": 6
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/obligations",
+      "py_files": 9
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/scanners",
+      "py_files": 11
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/scanners/flow",
+      "py_files": 6
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/scanners/materialization",
+      "py_files": 7
+    },
+    {
+      "path": "src/gabion/analysis/indexed_scan/state",
+      "py_files": 9
+    },
+    {
+      "path": "src/gabion/analysis/projection",
+      "py_files": 8
+    },
+    {
+      "path": "src/gabion/analysis/semantics",
+      "py_files": 10
+    },
+    {
+      "path": "src/gabion/analysis/surfaces",
+      "py_files": 8
+    },
+    {
+      "path": "src/gabion/analysis/taint",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/tooling",
+      "py_files": 1
+    },
+    {
+      "path": "src/gabion/tooling/delta",
+      "py_files": 9
+    },
+    {
+      "path": "src/gabion/tooling/docflow",
+      "py_files": 3
+    },
+    {
+      "path": "src/gabion/tooling/governance",
+      "py_files": 6
+    },
+    {
+      "path": "src/gabion/tooling/impact",
+      "py_files": 3
+    },
+    {
+      "path": "src/gabion/tooling/runtime",
+      "py_files": 13
+    },
+    {
+      "path": "tests/gabion/analysis/alias",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion/analysis/annotation_drift",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/analysis/aspf",
+      "py_files": 10
+    },
+    {
+      "path": "tests/gabion/analysis/call_cluster",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion/analysis/dataflow_s1",
+      "py_files": 14
+    },
+    {
+      "path": "tests/gabion/analysis/dataflow_s2",
+      "py_files": 14
+    },
+    {
+      "path": "tests/gabion/analysis/decision",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/analysis/evidence",
+      "py_files": 6
+    },
+    {
+      "path": "tests/gabion/analysis/forest",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion/analysis/indexed_scan",
+      "py_files": 9
+    },
+    {
+      "path": "tests/gabion/analysis/misc_s1",
+      "py_files": 18
+    },
+    {
+      "path": "tests/gabion/analysis/misc_s2",
+      "py_files": 17
+    },
+    {
+      "path": "tests/gabion/analysis/misc_s3",
+      "py_files": 17
+    },
+    {
+      "path": "tests/gabion/analysis/obsolescence",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/analysis/projection",
+      "py_files": 5
+    },
+    {
+      "path": "tests/gabion/analysis/structure",
+      "py_files": 5
+    },
+    {
+      "path": "tests/gabion/analysis/taint",
+      "py_files": 2
+    },
+    {
+      "path": "tests/gabion/analysis/timeout_deadline",
+      "py_files": 2
+    },
+    {
+      "path": "tests/gabion/analysis/type",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion/analysis/visitors",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/ci",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/deadline",
+      "py_files": 2
+    },
+    {
+      "path": "tests/gabion/tooling/delta",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/docflow",
+      "py_files": 6
+    },
+    {
+      "path": "tests/gabion/tooling/governance",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/impact",
+      "py_files": 2
+    },
+    {
+      "path": "tests/gabion/tooling/normative",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/refresh",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/tooling/runtime_policy",
+      "py_files": 14
+    },
+    {
+      "path": "tests/gabion/tooling/script_policy",
+      "py_files": 2
+    },
+    {
+      "path": "tests/gabion/tooling/sppf",
+      "py_files": 3
+    }
+  ],
+  "target_threshold": 20
+}

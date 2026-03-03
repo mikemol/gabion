@@ -4,7 +4,7 @@ from pathlib import Path
 from tests.path_helpers import REPO_ROOT
 import textwrap
 
-from gabion.analysis.aspf import Forest
+from gabion.analysis.aspf.aspf import Forest
 
 def _write(tmp_path: Path, rel: str, content: str) -> Path:
     path = tmp_path / rel
@@ -15,11 +15,7 @@ def _write(tmp_path: Path, rel: str, content: str) -> Path:
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis import (
-        AuditConfig,
-        ReportCarrier,
-        analyze_paths,
-        compute_violations,
-    )
+        AuditConfig, ReportCarrier, analyze_paths, compute_violations)
 
     return analyze_paths, compute_violations, AuditConfig, ReportCarrier
 

@@ -46,7 +46,7 @@ prepare_aspf_handoff_step() {
     return $?
   fi
   ensure_aspf_handoff_session
-  mise exec -- python scripts/aspf_handoff.py run \
+  mise exec -- python scripts/misc/aspf_handoff.py run \
     --root . \
     --session-id "$aspf_handoff_session" \
     --step-id "$step_id" \

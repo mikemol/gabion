@@ -47,7 +47,7 @@ def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
 
 
 def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn:
-    from gabion.analysis.marker_protocol import MarkerKind, never_marker_payload, normalize_marker_payload
+    from gabion.analysis.foundation.marker_protocol import MarkerKind, never_marker_payload, normalize_marker_payload
 
     owner = str(env.get("owner", ""))
     expiry = str(env.get("expiry", ""))

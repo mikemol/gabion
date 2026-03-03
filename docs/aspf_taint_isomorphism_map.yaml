@@ -2,7 +2,7 @@ entries:
   - in_step: in-46
     concept: crosswalk_enforcement_prevents_speculative_duplication
     existing_modules:
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - src/gabion/analysis/legacy_dataflow_monolith.py
     existing_identifiers:
       - AspfOneCell
@@ -21,7 +21,7 @@ entries:
   - in_step: in-47
     concept: architecture_constraint_enforcement
     existing_modules:
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - src/gabion/config.py
       - src/gabion/analysis/marker_protocol.py
     existing_identifiers:
@@ -115,7 +115,7 @@ entries:
   - in_step: in-53
     concept: lifecycle_governance_closure
     existing_modules:
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - src/gabion/analysis/marker_protocol.py
       - src/gabion/analysis/legacy_dataflow_monolith.py
     existing_identifiers:
@@ -131,7 +131,7 @@ entries:
     concept: quotient_discipline_institutionalization
     existing_modules:
       - docs/aspf_taint_isomorphism_map.yaml
-      - scripts/policy_check.py
+      - scripts/policy/policy_check.py
       - src/gabion/analysis/marker_protocol.py
     existing_identifiers:
       - AspfOneCell
