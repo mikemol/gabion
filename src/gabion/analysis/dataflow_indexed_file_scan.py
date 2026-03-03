@@ -305,6 +305,16 @@ from .indexed_scan.report_sections import (
     parse_report_section_marker as _parse_report_section_marker_impl,
     spec_row_span as _spec_row_span_impl,
 )
+from .indexed_scan.expression_eval import (
+    BoolEvalOutcome as _BoolEvalOutcome,
+    EvalDecision as _EvalDecision,
+    ValueEvalOutcome as _ValueEvalOutcome,
+    branch_reachability_under_env as _branch_reachability_under_env_impl,
+    eval_bool_expr as _eval_bool_expr_impl,
+    eval_value_expr as _eval_value_expr_impl,
+    is_reachability_false as _is_reachability_false_impl,
+    is_reachability_true as _is_reachability_true_impl,
+)
 from .indexed_scan.statement_materialization import (
     materialize_statement_suite_contains as _materialize_statement_suite_contains_impl,
 )
@@ -2595,219 +2605,42 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
             names.add(cast(ast.Name, node).id)
     return names
 
-class _EvalDecision(StrEnum):
-    TRUE = "true"
-    FALSE = "false"
-    UNKNOWN = "unknown"
-
-@dataclass(frozen=True)
-class _BoolEvalOutcome:
-    decision: _EvalDecision
-
-    def is_unknown(self) -> bool:
-        return self.decision is _EvalDecision.UNKNOWN
-
-    def as_bool(self) -> bool:
-        return self.decision is _EvalDecision.TRUE
-
-@dataclass(frozen=True)
-class _ValueEvalOutcome:
-    decision: _EvalDecision
-    value: JSONValue
-
-    def is_unknown(self) -> bool:
-        return self.decision is _EvalDecision.UNKNOWN
-
-def _bool_outcome(value: bool) -> _BoolEvalOutcome:
-    return _BoolEvalOutcome(
-        _EvalDecision.TRUE if value else _EvalDecision.FALSE
+def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
+    return _eval_value_expr_impl(
+        expr,
+        env,
+        check_deadline_fn=check_deadline,
     )
 
-def _unknown_bool_outcome() -> _BoolEvalOutcome:
-    return _BoolEvalOutcome(_EvalDecision.UNKNOWN)
-
-def _known_value_outcome(value: JSONValue) -> _ValueEvalOutcome:
-    return _ValueEvalOutcome(_EvalDecision.TRUE, value)
-
-def _unknown_value_outcome() -> _ValueEvalOutcome:
-    return _ValueEvalOutcome(_EvalDecision.UNKNOWN, False)
-
-def _constant_scalar_outcome(expr: ast.Constant) -> _ValueEvalOutcome:
-    value = expr.value
-    value_type = type(value)
-    if value is None or value_type in {str, int, float, bool}:
-        return _known_value_outcome(cast(JSONValue, value))
-    return _unknown_value_outcome()
-
-def _is_numeric_value(value: JSONValue) -> bool:
-    return issubclass(type(value), (int, float))
-
-def _unary_numeric_outcome(
-    expr: ast.UnaryOp,
-    env: dict[str, JSONValue],
-) -> _ValueEvalOutcome:
-    op_type = type(expr.op)
-    operand = _eval_value_expr(expr.operand, env)
-    if operand.is_unknown():
-        return _unknown_value_outcome()
-    value = operand.value
-    if not _is_numeric_value(value):
-        return _unknown_value_outcome()
-    if op_type is ast.USub:
-        return _known_value_outcome(-value)
-    return _known_value_outcome(value)
-
-def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
-    check_deadline()
-    expr_type = type(expr)
-    if expr_type is ast.Constant:
-        return _constant_scalar_outcome(cast(ast.Constant, expr))
-    if expr_type is ast.Name:
-        name_expr = cast(ast.Name, expr)
-        if name_expr.id in env:
-            return _known_value_outcome(env[name_expr.id])
-        return _unknown_value_outcome()
-    if expr_type is ast.UnaryOp:
-        unary_expr = cast(ast.UnaryOp, expr)
-        if type(unary_expr.op) is ast.USub or type(unary_expr.op) is ast.UAdd:
-            return _unary_numeric_outcome(unary_expr, env)
-        return _unknown_value_outcome()
-    return _unknown_value_outcome()
-
-def _eval_bool_not_expr(expr: ast.UnaryOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    inner = _eval_bool_expr(expr.operand, env)
-    if inner.is_unknown():
-        return _unknown_bool_outcome()
-    return _bool_outcome(not inner.as_bool())
-
-def _eval_bool_and_values(
-    values: Sequence[ast.expr],
-    env: dict[str, JSONValue],
-) -> _BoolEvalOutcome:
-    any_unknown = False
-    for value in values:
-        check_deadline()
-        result = _eval_bool_expr(value, env)
-        if result.decision is _EvalDecision.FALSE:
-            return _bool_outcome(False)
-        if result.is_unknown():
-            any_unknown = True
-    return _unknown_bool_outcome() if any_unknown else _bool_outcome(True)
-
-def _eval_bool_or_values(
-    values: Sequence[ast.expr],
-    env: dict[str, JSONValue],
-) -> _BoolEvalOutcome:
-    any_unknown = False
-    for value in values:
-        check_deadline()
-        result = _eval_bool_expr(value, env)
-        if result.decision is _EvalDecision.TRUE:
-            return _bool_outcome(True)
-        if result.is_unknown():
-            any_unknown = True
-    return _unknown_bool_outcome() if any_unknown else _bool_outcome(False)
-
-def _eval_bool_compare_expr(
-    expr: ast.Compare,
-    env: dict[str, JSONValue],
-) -> _BoolEvalOutcome:
-    left_outcome = _eval_value_expr(expr.left, env)
-    right_outcome = _eval_value_expr(expr.comparators[0], env)
-    if left_outcome.is_unknown() or right_outcome.is_unknown():
-        return _unknown_bool_outcome()
-    left = left_outcome.value
-    right = right_outcome.value
-    op_type = type(expr.ops[0])
-    if op_type is ast.Eq:
-        return _bool_outcome(left == right)
-    if op_type is ast.NotEq:
-        return _bool_outcome(left != right)
-    if _is_numeric_value(left) and _is_numeric_value(right):
-        if op_type is ast.Lt:
-            return _bool_outcome(left < right)
-        if op_type is ast.LtE:
-            return _bool_outcome(left <= right)
-        if op_type is ast.Gt:
-            return _bool_outcome(left > right)
-        if op_type is ast.GtE:
-            return _bool_outcome(left >= right)
-    return _unknown_bool_outcome()
-
-def _eval_bool_boolop_expr(expr: ast.BoolOp, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    op_type = type(expr.op)
-    if op_type is ast.And:
-        return _eval_bool_and_values(expr.values, env)
-    return _eval_bool_or_values(expr.values, env)
-
-def _eval_bool_name_expr(expr: ast.Name, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    if expr.id not in env:
-        return _unknown_bool_outcome()
-    return _bool_outcome(bool(env[expr.id]))
 
 def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    check_deadline()
-    expr_type = type(expr)
-    if expr_type is ast.Constant:
-        constant_expr = cast(ast.Constant, expr)
-        return _bool_outcome(bool(constant_expr.value))
-    if expr_type is ast.Name:
-        return _eval_bool_name_expr(cast(ast.Name, expr), env)
-    if expr_type is ast.UnaryOp:
-        unary_expr = cast(ast.UnaryOp, expr)
-        if type(unary_expr.op) is ast.Not:
-            return _eval_bool_not_expr(unary_expr, env)
-        return _unknown_bool_outcome()
-    if expr_type is ast.BoolOp:
-        boolop_expr = cast(ast.BoolOp, expr)
-        if type(boolop_expr.op) is ast.And or type(boolop_expr.op) is ast.Or:
-            return _eval_bool_boolop_expr(boolop_expr, env)
-        return _unknown_bool_outcome()
-    if expr_type is ast.Compare:
-        compare_expr = cast(ast.Compare, expr)
-        if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
-            return _unknown_bool_outcome()
-        return _eval_bool_compare_expr(compare_expr, env)
-    return _unknown_bool_outcome()
+    return _eval_bool_expr_impl(
+        expr,
+        env,
+        check_deadline_fn=check_deadline,
+    )
+
 
 def _branch_reachability_under_env(
     node: ast.AST,
     parents: dict[ast.AST, ast.AST],
     env: dict[str, JSONValue],
 ) -> _EvalDecision:
-    """Conservatively evaluate nested-if constraints for `node` under `env`."""
-    check_deadline()
-    constraints: list[tuple[ast.AST, bool]] = []
-    current_node: ast.AST = node
-    current = parents.get(current_node)
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.If:
-            if_node = cast(ast.If, current)
-            if _node_in_block(current_node, if_node.body):
-                constraints.append((if_node.test, True))
-            elif _node_in_block(current_node, if_node.orelse):
-                constraints.append((if_node.test, False))
-        current_node = current
-        current = parents.get(current_node)
-    if not constraints:
-        return _EvalDecision.UNKNOWN
-    any_unknown = False
-    for test, want_true in constraints:
-        check_deadline()
-        result = _eval_bool_expr(test, env)
-        if result.is_unknown():
-            any_unknown = True
-            continue
-        if result.as_bool() != want_true:
-            return _EvalDecision.FALSE
-    return _EvalDecision.UNKNOWN if any_unknown else _EvalDecision.TRUE
+    return _branch_reachability_under_env_impl(
+        node,
+        parents,
+        env,
+        check_deadline_fn=check_deadline,
+        node_in_block_fn=_node_in_block,
+    )
+
 
 def _is_reachability_false(reachability: _EvalDecision) -> bool:
-    return reachability is _EvalDecision.FALSE
+    return _is_reachability_false_impl(reachability)
+
 
 def _is_reachability_true(reachability: _EvalDecision) -> bool:
-    return reachability is _EvalDecision.TRUE
+    return _is_reachability_true_impl(reachability)
 
 def _collect_handledness_witnesses(
     paths: list[Path],

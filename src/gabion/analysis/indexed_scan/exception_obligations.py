@@ -10,9 +10,12 @@ from typing import cast
 from gabion.analysis.json_types import JSONObject, JSONValue
 
 from .ast_context import (
-    PathAstContextBuildStatus,
-    build_path_ast_context,
     enclosing_function_context,
+)
+from .context_walkers import (
+    empty_param_annotations,
+    iter_nodes_of_types,
+    iter_parsed_path_contexts,
 )
 from .obligation_decision import decide_exception_obligation
 
@@ -104,116 +107,106 @@ def collect_exception_obligations(
         mapping_or_none_fn=mapping_or_none_fn,
         literal_eval_error_types=literal_eval_error_types,
     )
-    raise_or_assert_types = {ast.Raise, ast.Assert}
+    raise_or_assert_types = (ast.Raise, ast.Assert)
 
-    def _empty_param_annotations(
-        _fn: ast.AST,
-        _ignore_params: set[str],
-    ) -> dict[str, JSONValue]:
-        return {}
-
-    for path in paths:
-        check_deadline_fn()
-        context_result = build_path_ast_context(
-            path,
-            project_root=project_root,
-            ignore_params=ignore_params,
+    for context in iter_parsed_path_contexts(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        check_deadline_fn=check_deadline_fn,
+        parent_annotator_factory=parent_annotator_factory,
+        collect_functions_fn=collect_functions_fn,
+        param_names_fn=param_names_fn,
+        normalize_snapshot_path_fn=normalize_snapshot_path_fn,
+        param_annotations_fn=empty_param_annotations,
+    ):
+        for node in iter_nodes_of_types(
+            context.tree,
+            raise_or_assert_types,
             check_deadline_fn=check_deadline_fn,
-            parent_annotator_factory=parent_annotator_factory,
-            collect_functions_fn=collect_functions_fn,
-            param_names_fn=param_names_fn,
-            normalize_snapshot_path_fn=normalize_snapshot_path_fn,
-            param_annotations_fn=_empty_param_annotations,
-        )
-        if context_result.status is PathAstContextBuildStatus.PARSED:
-            context = context_result.contexts[0]
-            for node in ast.walk(context.tree):
-                check_deadline_fn()
-                if type(node) not in raise_or_assert_types:
-                    continue
+        ):
+            raise_node = cast(ast.Raise | ast.Assert, node)
+            source_kind = "E0"
+            kind = "raise" if type(raise_node) is ast.Raise else "assert"
 
-                raise_node = cast(ast.Raise | ast.Assert, node)
-                source_kind = "E0"
-                kind = "raise" if type(raise_node) is ast.Raise else "assert"
+            function, params, _ = enclosing_function_context(
+                raise_node,
+                parents=context.parents,
+                params_by_fn=context.params_by_fn,
+                param_annotations_by_fn=context.param_annotations_by_fn,
+                enclosing_function_node_fn=enclosing_function_node_fn,
+                enclosing_scopes_fn=enclosing_scopes_fn,
+                function_key_fn=function_key_fn,
+            )
 
-                function, params, _ = enclosing_function_context(
-                    raise_node,
+            expr = (
+                cast(ast.Raise, raise_node).exc
+                if type(raise_node) is ast.Raise
+                else cast(ast.Assert, raise_node).test
+            )
+            exception_name = exception_type_name_fn(expr)
+            protocol = None
+            if (
+                exception_name
+                and never_exceptions_set
+                and decorator_matches_fn(exception_name, never_exceptions_set)
+            ):
+                protocol = "never"
+            if not is_never_marker_raise_fn(function, exception_name, never_exceptions_set):
+                bundle = exception_param_names_fn(expr, params)
+                lineno = getattr(raise_node, "lineno", 0)
+                col = getattr(raise_node, "col_offset", 0)
+                exception_id = exception_path_id_fn(
+                    path=context.path_value,
+                    function=function,
+                    source_kind=source_kind,
+                    lineno=lineno,
+                    col=col,
+                    kind=kind,
+                )
+
+                decision = decide_exception_obligation(
+                    kind=kind,
+                    handled=handled_map.get(exception_id, {}),
+                    has_handledness=exception_id in handled_map,
+                    node=raise_node,
                     parents=context.parents,
-                    params_by_fn=context.params_by_fn,
-                    param_annotations_by_fn=context.param_annotations_by_fn,
-                    enclosing_function_node_fn=enclosing_function_node_fn,
-                    enclosing_scopes_fn=enclosing_scopes_fn,
-                    function_key_fn=function_key_fn,
+                    env_entries=env_by_site.get((context.path_value, function), {}),
+                    sequence_or_none_fn=sequence_or_none_fn,
+                    branch_reachability_under_env_fn=branch_reachability_under_env_fn,
+                    is_reachability_false_fn=is_reachability_false_fn,
+                    names_in_expr_fn=names_in_expr_fn,
+                    sort_once_fn=sort_once_fn,
+                    order_policy_sort=order_policy_sort,
+                    order_policy_enforce=order_policy_enforce,
+                    check_deadline_fn=check_deadline_fn,
                 )
+                status = decision.status
+                if protocol == "never" and status != "DEAD":
+                    status = "FORBIDDEN"
 
-                expr = (
-                    cast(ast.Raise, raise_node).exc
-                    if type(raise_node) is ast.Raise
-                    else cast(ast.Assert, raise_node).test
+                obligations.append(
+                    {
+                        "exception_path_id": exception_id,
+                        "site": {
+                            "path": context.path_value,
+                            "function": function,
+                            "bundle": bundle,
+                        },
+                        "source_kind": source_kind,
+                        "status": status,
+                        "handledness_reason_code": decision.handledness_reason_code,
+                        "handledness_reason": decision.handledness_reason,
+                        "exception_type_source": decision.exception_type_source,
+                        "exception_type_candidates": decision.exception_type_candidates,
+                        "type_refinement_opportunity": decision.type_refinement_opportunity,
+                        "witness_ref": decision.witness_ref,
+                        "remainder": decision.remainder,
+                        "environment_ref": decision.environment_ref,
+                        "exception_name": exception_name,
+                        "protocol": protocol,
+                    }
                 )
-                exception_name = exception_type_name_fn(expr)
-                protocol = None
-                if (
-                    exception_name
-                    and never_exceptions_set
-                    and decorator_matches_fn(exception_name, never_exceptions_set)
-                ):
-                    protocol = "never"
-                if not is_never_marker_raise_fn(function, exception_name, never_exceptions_set):
-                    bundle = exception_param_names_fn(expr, params)
-                    lineno = getattr(raise_node, "lineno", 0)
-                    col = getattr(raise_node, "col_offset", 0)
-                    exception_id = exception_path_id_fn(
-                        path=context.path_value,
-                        function=function,
-                        source_kind=source_kind,
-                        lineno=lineno,
-                        col=col,
-                        kind=kind,
-                    )
-
-                    decision = decide_exception_obligation(
-                        kind=kind,
-                        handled=handled_map.get(exception_id, {}),
-                        has_handledness=exception_id in handled_map,
-                        node=raise_node,
-                        parents=context.parents,
-                        env_entries=env_by_site.get((context.path_value, function), {}),
-                        sequence_or_none_fn=sequence_or_none_fn,
-                        branch_reachability_under_env_fn=branch_reachability_under_env_fn,
-                        is_reachability_false_fn=is_reachability_false_fn,
-                        names_in_expr_fn=names_in_expr_fn,
-                        sort_once_fn=sort_once_fn,
-                        order_policy_sort=order_policy_sort,
-                        order_policy_enforce=order_policy_enforce,
-                        check_deadline_fn=check_deadline_fn,
-                    )
-                    status = decision.status
-                    if protocol == "never" and status != "DEAD":
-                        status = "FORBIDDEN"
-
-                    obligations.append(
-                        {
-                            "exception_path_id": exception_id,
-                            "site": {
-                                "path": context.path_value,
-                                "function": function,
-                                "bundle": bundle,
-                            },
-                            "source_kind": source_kind,
-                            "status": status,
-                            "handledness_reason_code": decision.handledness_reason_code,
-                            "handledness_reason": decision.handledness_reason,
-                            "exception_type_source": decision.exception_type_source,
-                            "exception_type_candidates": decision.exception_type_candidates,
-                            "type_refinement_opportunity": decision.type_refinement_opportunity,
-                            "witness_ref": decision.witness_ref,
-                            "remainder": decision.remainder,
-                            "environment_ref": decision.environment_ref,
-                            "exception_name": exception_name,
-                            "protocol": protocol,
-                        }
-                    )
 
     return sort_once_fn(
         obligations,
