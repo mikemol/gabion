@@ -222,6 +222,12 @@ _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
+_PHASE_PRIMARY_UNITS: Mapping[str, str] = {
+    "collection": "collection_files",
+    "forest": "forest_mutable_steps",
+    "edge": "edge_tasks",
+    "post": "post_tasks",
+}
 
 
 def _is_stdout_target(target: object) -> bool:
@@ -786,15 +792,10 @@ def _normalize_progress_work(
 
 
 def _phase_primary_unit_for_phase(phase: str) -> str:
-    if phase == "collection":
-        return "collection_files"
-    if phase == "forest":
-        return "forest_mutable_steps"
-    if phase == "edge":
-        return "edge_tasks"
-    if phase == "post":
-        return "post_tasks"
-    return "phase_work_units"
+    primary_unit = _PHASE_PRIMARY_UNITS.get(phase)
+    if primary_unit is not None:
+        return primary_unit
+    never("unknown phase for primary-unit lookup", phase=phase)
 
 
 def _build_phase_progress_v2(
@@ -829,14 +830,15 @@ def _build_phase_progress_v2(
     if normalized_work_total:
         normalized_work_done = min(normalized_work_done, normalized_work_total)
 
+    primary_unit_for_phase = _phase_primary_unit_for_phase(phase)
     normalized: JSONObject = {
         "format_version": 1,
         "schema": "gabion/phase_progress_v2",
-        "primary_unit": _phase_primary_unit_for_phase(phase),
+        "primary_unit": primary_unit_for_phase,
         "primary_done": normalized_work_done,
         "primary_total": normalized_work_total,
         "dimensions": {
-            _phase_primary_unit_for_phase(phase): {
+            primary_unit_for_phase: {
                 "done": normalized_work_done,
                 "total": normalized_work_total,
             }
@@ -849,7 +851,7 @@ def _build_phase_progress_v2(
                 normalized[key] = value
     primary_unit = str(normalized.get("primary_unit", "") or "").strip()
     if not primary_unit:
-        primary_unit = _phase_primary_unit_for_phase(phase)
+        primary_unit = primary_unit_for_phase
     raw_primary_done = normalized.get("primary_done")
     raw_primary_total = normalized.get("primary_total")
     primary_done = (

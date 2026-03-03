@@ -154,7 +154,6 @@ def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_helpers_normalize_and_clamp_payloads::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._phase_primary_unit_for_phase
 def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
     server = _load()
-    assert server._phase_primary_unit_for_phase("mystery") == "phase_work_units"
 
     normalized, primary_done, primary_total = server._build_phase_progress_v2(
         phase="collection",
@@ -194,6 +193,29 @@ def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
     assert dimensions["hydrated_paths_delta"] == {"done": 3, "total": 4}
     assert dimensions["semantic_progress_points"] == {"done": 6, "total": 7}
     assert normalized["inventory"] == {"known": 1}
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._phase_primary_unit_for_phase
+@pytest.mark.parametrize(
+    ("phase", "expected"),
+    [
+        ("collection", "collection_files"),
+        ("forest", "forest_mutable_steps"),
+        ("edge", "edge_tasks"),
+        ("post", "post_tasks"),
+    ],
+)
+def test_phase_primary_unit_for_phase_known_phases(phase: str, expected: str) -> None:
+    server = _load()
+    assert server._phase_primary_unit_for_phase(phase) == expected
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._phase_primary_unit_for_phase
+def test_phase_primary_unit_for_phase_rejects_unknown_phase() -> None:
+    server = _load()
+
+    with pytest.raises(NeverThrown):
+        server._phase_primary_unit_for_phase("mystery")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_progress_heartbeat_seconds_parsing_edges::server.py::gabion.server._progress_heartbeat_seconds
