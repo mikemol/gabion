@@ -56,7 +56,7 @@ body:
     attributes:
       label: Test plan
       description: Tests or checks to validate completion (optional).
-      placeholder: "pytest tests/test_..."
+      placeholder: "pytest tests/gabion/..."
     validations:
       required: false
   - type: input

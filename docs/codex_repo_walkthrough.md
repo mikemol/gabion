@@ -78,7 +78,7 @@ Why this order matters:
 Primary runtime architecture:
 - `src/gabion/server.py`: semantic core (LSP/server command execution)
 - `src/gabion/cli.py`: thin interface over server semantics (LSP-first invariant)
-- `src/gabion/analysis/dataflow_audit.py`: core analysis engine and projections
+- `src/gabion/analysis/legacy_dataflow_monolith.py`: core analysis engine and projections
 - `src/gabion/analysis/`: supporting analysis modules (impact index, visitors,
   pattern schema, evidence keys, type fingerprints, etc.)
 - `src/gabion/synthesis/`: synthesis planning/protocol scaffolding
@@ -177,7 +177,7 @@ Suggested sequence:
 
 2. Architecture and command surface discovery:
    - `rg -n "def execute_command|@app\.command|gabion\." src/gabion/server.py src/gabion/cli.py`
-   - `rg -n "class |def " src/gabion/analysis/dataflow_audit.py | head -n 120`
+   - `rg -n "class |def " src/gabion/analysis/legacy_dataflow_monolith.py | head -n 120`
 
 3. Test and evidence surface reconnaissance:
    - `rg --files tests | wc -l`

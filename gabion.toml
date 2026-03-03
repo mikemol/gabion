@@ -12,8 +12,8 @@ merge_overlap_threshold = 0.75
 
 [decision]
 tier1 = [
-  "src/gabion/analysis/dataflow_audit.py:862:16",
-  "src/gabion/analysis/dataflow_audit.py:3442:5",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:862:16",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:3442:5",
   "src/gabion/analysis/type_fingerprints.py:101:17",
   "src/gabion/analysis/type_fingerprints.py:565:5",
   "src/gabion/analysis/type_fingerprints.py:635:35",
@@ -32,10 +32,10 @@ tier3 = [
   "src/gabion/tooling/governance_audit.py:674:22",
   "src/gabion/tooling/governance_audit.py:700:28",
   "src/gabion/tooling/governance_audit.py:723:27",
-  "src/gabion/analysis/dataflow_audit.py:122:23",
-  "src/gabion/analysis/dataflow_audit.py:122:44",
-  "src/gabion/analysis/dataflow_audit.py:132:49",
-  "src/gabion/analysis/dataflow_audit.py:2880:17",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:122:23",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:122:44",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:132:49",
+  "src/gabion/analysis/dataflow_indexed_file_scan.py:2880:17",
   "src/gabion/analysis/schema_audit.py:143:33",
   "src/gabion/analysis/schema_audit.py:152:38",
   "src/gabion/analysis/schema_audit.py:161:25",
@@ -104,5 +104,5 @@ synth_version = "synth@1"
 synth_registry_path = "artifacts/audit_snapshots/LATEST/fingerprint_synth.json"
 cli_snapshot_diff_request = ["gabion.cli.SnapshotDiffRequest"]
 cli_dataflow_filter_bundle = ["gabion.cli.DataflowFilterBundle"]
-analysis_decision_snapshot_surfaces = ["gabion.analysis.dataflow_audit.DecisionSnapshotSurfaces"]
-analysis_structure_snapshot_diff_request = ["gabion.analysis.dataflow_audit.StructureSnapshotDiffRequest"]
+analysis_decision_snapshot_surfaces = ["gabion.analysis.dataflow_snapshot_contracts.DecisionSnapshotSurfaces"]
+analysis_structure_snapshot_diff_request = ["gabion.analysis.dataflow_snapshot_contracts.StructureSnapshotDiffRequest"]

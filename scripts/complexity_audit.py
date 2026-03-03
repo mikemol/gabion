@@ -17,7 +17,7 @@ TEST_GLOB = "tests/**/*.py"
 
 _PRIVATE_REF_PATTERNS: dict[str, re.Pattern[str]] = {
     "server": re.compile(r"\bserver\._[A-Za-z0-9_]+\b"),
-    "dataflow_audit": re.compile(r"\bdataflow_audit\._[A-Za-z0-9_]+\b"),
+    "dataflow_pipeline": re.compile(r"\bdataflow_pipeline\._[A-Za-z0-9_]+\b"),
     "cli": re.compile(r"\bcli\._[A-Za-z0-9_]+\b"),
 }
 
@@ -40,9 +40,9 @@ _BRANCH_NODE_TYPES = (
 _FOCUS_FUNCTIONS = frozenset(
     {
         "src/gabion/server.py::_execute_command_total",
-        "src/gabion/analysis/dataflow_audit.py::analyze_paths",
-        "src/gabion/analysis/dataflow_audit.py::_collect_deadline_obligations",
-        "src/gabion/analysis/dataflow_audit.py::_emit_report",
+        "src/gabion/analysis/dataflow_pipeline.py::analyze_paths",
+        "src/gabion/analysis/dataflow_obligations.py::collect_deadline_obligations",
+        "src/gabion/analysis/dataflow_reporting.py::compute_violations",
     }
 )
 

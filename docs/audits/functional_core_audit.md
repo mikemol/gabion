@@ -60,7 +60,7 @@ Snapshot (`artifacts/audit_reports/complexity_baseline.json`):
 - `top4_test_case_total`: `550`
 - private test refs:
   - `server`: `564`
-  - `dataflow_audit`: `1582`
+  - `legacy_dataflow_monolith`: `1582`
   - `cli`: `293`
 
 Top complexity hotspots:
@@ -71,9 +71,9 @@ Top complexity hotspots:
 
 Top concentrated test files:
 1. `tests/test_server_execute_command_edges.py` (`179` tests)
-2. `tests/test_dataflow_audit_helpers.py` (`147` tests)
+2. `tests/test_legacy_dataflow_monolith_helpers.py` (`147` tests)
 3. `tests/test_cli_helpers.py` (`131` tests)
-4. `tests/test_dataflow_audit_coverage_gaps.py` (`93` tests)
+4. `tests/test_legacy_dataflow_monolith_coverage_gaps.py` (`93` tests)
 
 ## Current Ratchet Snapshot (2026-02-23)
 
@@ -117,14 +117,14 @@ Completed in this slice:
   - `scripts/ci_local_repro.sh`
 - added SPPF checklist lane linkage for this roadmap:
   - `docs/sppf_checklist.md` (`Functional-core roadmap lane`)
-- decomposed `dataflow_audit` output finalization into functional helper phases:
-  - `src/gabion/analysis/dataflow_audit.py::_emit_projection_outputs`
-  - `src/gabion/analysis/dataflow_audit.py::_plan_projection_output_effects`
-  - `src/gabion/analysis/dataflow_audit.py::_emit_optional_synthesis_outputs`
-  - `src/gabion/analysis/dataflow_audit.py::_emit_optional_refactor_outputs`
-  - `src/gabion/analysis/dataflow_audit.py::_emit_report_output`
-  - `src/gabion/analysis/dataflow_audit.py::_emit_console_output_and_violation_gate`
-  - thin orchestration retained in `src/gabion/analysis/dataflow_audit.py::_finalize_run_outputs`
+- decomposed `legacy_dataflow_monolith` output finalization into functional helper phases:
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_emit_projection_outputs`
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_plan_projection_output_effects`
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_emit_optional_synthesis_outputs`
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_emit_optional_refactor_outputs`
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_emit_report_output`
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_emit_console_output_and_violation_gate`
+  - thin orchestration retained in `src/gabion/analysis/legacy_dataflow_monolith.py::_finalize_run_outputs`
 - implemented operation-plan/effect-return decomposition for dataclass call bundles:
   - new functional helper module:
     - `src/gabion/analysis/dataflow_bundle_iteration.py`
@@ -132,7 +132,7 @@ Completed in this slice:
     - `BundleIterationContext`
     - `BundleIterationOutcome`
     - constructor operation plans and projection outcomes
-  - `src/gabion/analysis/dataflow_audit.py::_iter_dataclass_call_bundles` now delegates as a thin boundary adapter:
+  - `src/gabion/analysis/legacy_dataflow_monolith.py::_iter_dataclass_call_bundles` now delegates as a thin boundary adapter:
     - core helper returns witness effects
     - adapter performs side-effect dispatch (`parse_failure_witnesses.extend(...)`) only at the boundary
   - complexity impact from this slice:
@@ -142,8 +142,8 @@ Completed in this slice:
   - new pure operation/effect module:
     - `src/gabion/analysis/dataflow_callee_resolution.py`
   - boundary adapter parity retained in:
-    - `src/gabion/analysis/dataflow_audit.py::_resolve_callee`
-    - `src/gabion/analysis/dataflow_audit.py::_resolve_callee_outcome`
+    - `src/gabion/analysis/legacy_dataflow_monolith.py::_resolve_callee`
+    - `src/gabion/analysis/legacy_dataflow_monolith.py::_resolve_callee_outcome`
   - `_resolve_callee` reduced to thin adapter shape (branch hotspot removed)
 - completed output-phase module extraction for dataflow run finalization:
   - new module:
@@ -154,8 +154,8 @@ Completed in this slice:
   - operation-sequence dispatcher added:
     - `plan_run_output_ops`
     - `apply_run_output_ops`
-  - boundary orchestration remains in `dataflow_audit` via:
-    - `src/gabion/analysis/dataflow_audit.py::_run_impl` -> `finalize_run_outputs(...).exit_code`
+  - boundary orchestration remains in `legacy_dataflow_monolith` via:
+    - `src/gabion/analysis/legacy_dataflow_monolith.py::_run_impl` -> `finalize_run_outputs(...).exit_code`
   - coverage non-regression recovered to lane cap:
     - total misses held at `60`
     - `src/gabion/analysis/dataflow_run_outputs.py` now fully covered

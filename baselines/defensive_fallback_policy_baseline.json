@@ -82,7 +82,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10663,
       "column": 9,
       "qualname": "_accumulate_class_index_for_tree",
@@ -90,7 +90,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6496,
       "column": 9,
       "qualname": "_ambiguity_suite_relation",
@@ -98,7 +98,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8021,
       "column": 17,
       "qualname": "_analysis_index_resolved_call_edges",
@@ -106,7 +106,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14115,
       "column": 13,
       "qualname": "_analysis_index_resume_variants",
@@ -114,7 +114,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14118,
       "column": 13,
       "qualname": "_analysis_index_resume_variants",
@@ -122,7 +122,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10098,
       "column": 9,
       "qualname": "_analyze_file_internal._emit_file_profile",
@@ -130,7 +130,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10070,
       "column": 9,
       "qualname": "_analyze_file_internal._emit_scan_progress",
@@ -138,7 +138,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10073,
       "column": 9,
       "qualname": "_analyze_file_internal._emit_scan_progress",
@@ -146,7 +146,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7714,
       "column": 9,
       "qualname": "_build_analysis_index._emit_index_progress",
@@ -154,7 +154,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7719,
       "column": 9,
       "qualname": "_build_analysis_index._emit_index_progress",
@@ -162,7 +162,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1633,
       "column": 9,
       "qualname": "_build_property_hook_callable_index",
@@ -170,7 +170,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1636,
       "column": 9,
       "qualname": "_build_property_hook_callable_index",
@@ -178,7 +178,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13445,
       "column": 9,
       "qualname": "_build_reuse_replacement_map",
@@ -186,7 +186,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13449,
       "column": 13,
       "qualname": "_build_reuse_replacement_map",
@@ -194,7 +194,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13178,
       "column": 9,
       "qualname": "_bundle_counts_from_snapshot",
@@ -202,7 +202,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13183,
       "column": 13,
       "qualname": "_bundle_counts_from_snapshot",
@@ -210,7 +210,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13188,
       "column": 17,
       "qualname": "_bundle_counts_from_snapshot",
@@ -218,7 +218,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12544,
       "column": 9,
       "qualname": "_bundle_projection_from_forest",
@@ -226,7 +226,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12547,
       "column": 9,
       "qualname": "_bundle_projection_from_forest",
@@ -234,7 +234,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12568,
       "column": 9,
       "qualname": "_bundle_projection_from_forest",
@@ -242,7 +242,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5541,
       "column": 9,
       "qualname": "_call_nodes_for_tree",
@@ -250,7 +250,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5544,
       "column": 9,
       "qualname": "_call_nodes_for_tree",
@@ -258,7 +258,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9939,
       "column": 9,
       "qualname": "_callsite_evidence_for_bundle",
@@ -266,7 +266,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5667,
       "column": 9,
       "qualname": "_collect_call_edges_from_forest",
@@ -274,7 +274,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5679,
       "column": 13,
       "qualname": "_collect_call_edges_from_forest",
@@ -282,7 +282,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5528,
       "column": 9,
       "qualname": "_collect_call_nodes_by_path",
@@ -290,7 +290,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5711,
       "column": 9,
       "qualname": "_collect_call_resolution_obligations_from_forest",
@@ -298,7 +298,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11081,
       "column": 9,
       "qualname": "_collect_closure_lambda_factories",
@@ -306,7 +306,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11088,
       "column": 17,
       "qualname": "_collect_closure_lambda_factories",
@@ -314,7 +314,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11868,
       "column": 17,
       "qualname": "_collect_constant_flow_details._fold",
@@ -322,7 +322,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12392,
       "column": 13,
       "qualname": "_collect_dataclass_registry",
@@ -330,7 +330,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12403,
       "column": 9,
       "qualname": "_collect_dataclass_registry",
@@ -338,7 +338,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5423,
       "column": 13,
       "qualname": "_collect_deadline_function_facts",
@@ -346,7 +346,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5438,
       "column": 9,
       "qualname": "_collect_deadline_function_facts",
@@ -354,7 +354,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5316,
       "column": 9,
       "qualname": "_collect_deadline_local_info",
@@ -362,7 +362,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4788,
       "column": 13,
       "qualname": "_collect_exception_obligations",
@@ -370,7 +370,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4566,
       "column": 13,
       "qualname": "_collect_handledness_witnesses",
@@ -378,7 +378,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4668,
       "column": 13,
       "qualname": "_collect_handledness_witnesses",
@@ -386,7 +386,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11021,
       "column": 9,
       "qualname": "_collect_lambda_bindings_by_caller",
@@ -394,7 +394,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11025,
       "column": 9,
       "qualname": "_collect_lambda_bindings_by_caller",
@@ -402,7 +402,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10959,
       "column": 9,
       "qualname": "_collect_lambda_function_infos",
@@ -410,7 +410,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10962,
       "column": 9,
       "qualname": "_collect_lambda_function_infos",
@@ -418,7 +418,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1748,
       "column": 9,
       "qualname": "_collect_local_class_bases",
@@ -426,7 +426,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4972,
       "column": 13,
       "qualname": "_collect_never_invariants",
@@ -434,7 +434,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3626,
       "column": 17,
       "qualname": "_compute_fingerprint_matches",
@@ -442,7 +442,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3725,
       "column": 17,
       "qualname": "_compute_fingerprint_provenance",
@@ -450,7 +450,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9483,
       "column": 17,
       "qualname": "_compute_fingerprint_synth",
@@ -458,7 +458,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3551,
       "column": 17,
       "qualname": "_compute_fingerprint_warnings",
@@ -466,7 +466,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12420,
       "column": 9,
       "qualname": "_dataclass_registry_for_tree",
@@ -474,7 +474,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4732,
       "column": 9,
       "qualname": "_dead_env_map",
@@ -482,7 +482,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4736,
       "column": 9,
       "qualname": "_dead_env_map",
@@ -490,7 +490,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4739,
       "column": 9,
       "qualname": "_dead_env_map",
@@ -498,7 +498,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6266,
       "column": 9,
       "qualname": "_deadline_loop_forwarded_params",
@@ -506,7 +506,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6271,
       "column": 13,
       "qualname": "_deadline_loop_forwarded_params",
@@ -514,7 +514,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7358,
       "column": 5,
       "qualname": "_decision_param_lint_line",
@@ -522,7 +522,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14391,
       "column": 9,
       "qualname": "_deserialize_bundle_sites_for_resume",
@@ -530,7 +530,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14396,
       "column": 13,
       "qualname": "_deserialize_bundle_sites_for_resume",
@@ -538,7 +538,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13793,
       "column": 5,
       "qualname": "_deserialize_call_args",
@@ -546,7 +546,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13823,
       "column": 9,
       "qualname": "_deserialize_call_args_list",
@@ -554,7 +554,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13980,
       "column": 5,
       "qualname": "_deserialize_class_info_for_resume",
@@ -562,7 +562,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13881,
       "column": 5,
       "qualname": "_deserialize_function_info_for_resume",
@@ -570,7 +570,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13888,
       "column": 5,
       "qualname": "_deserialize_function_info_for_resume",
@@ -578,7 +578,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13891,
       "column": 5,
       "qualname": "_deserialize_function_info_for_resume",
@@ -586,7 +586,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13898,
       "column": 9,
       "qualname": "_deserialize_function_info_for_resume",
@@ -594,7 +594,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13916,
       "column": 9,
       "qualname": "_deserialize_function_info_for_resume",
@@ -602,7 +602,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13932,
       "column": 9,
       "qualname": "_deserialize_function_info_for_resume",
@@ -610,7 +610,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13935,
       "column": 9,
       "qualname": "_deserialize_function_info_for_resume",
@@ -618,7 +618,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14312,
       "column": 9,
       "qualname": "_deserialize_groups_for_resume",
@@ -626,7 +626,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14317,
       "column": 13,
       "qualname": "_deserialize_groups_for_resume",
@@ -634,7 +634,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14432,
       "column": 9,
       "qualname": "_deserialize_invariants_for_resume",
@@ -642,7 +642,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14436,
       "column": 9,
       "qualname": "_deserialize_invariants_for_resume",
@@ -650,7 +650,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14345,
       "column": 9,
       "qualname": "_deserialize_param_spans_for_resume",
@@ -658,7 +658,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14350,
       "column": 13,
       "qualname": "_deserialize_param_spans_for_resume",
@@ -666,7 +666,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13716,
       "column": 9,
       "qualname": "_deserialize_param_use",
@@ -674,7 +674,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13720,
       "column": 9,
       "qualname": "_deserialize_param_use",
@@ -682,7 +682,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13726,
       "column": 13,
       "qualname": "_deserialize_param_use",
@@ -690,7 +690,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13736,
       "column": 9,
       "qualname": "_deserialize_param_use",
@@ -698,7 +698,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13765,
       "column": 9,
       "qualname": "_deserialize_param_use_map",
@@ -706,7 +706,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14051,
       "column": 13,
       "qualname": "_deserialize_symbol_table_for_resume",
@@ -714,7 +714,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14070,
       "column": 13,
       "qualname": "_deserialize_symbol_table_for_resume",
@@ -722,7 +722,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14078,
       "column": 13,
       "qualname": "_deserialize_symbol_table_for_resume",
@@ -730,7 +730,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14086,
       "column": 13,
       "qualname": "_deserialize_symbol_table_for_resume",
@@ -738,7 +738,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11140,
       "column": 9,
       "qualname": "_direct_lambda_callee_by_call_span",
@@ -746,7 +746,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 11144,
       "column": 9,
       "qualname": "_direct_lambda_callee_by_call_span",
@@ -754,7 +754,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4463,
       "column": 9,
       "qualname": "_eval_bool_expr",
@@ -762,7 +762,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 4489,
       "column": 9,
       "qualname": "_eval_bool_expr",
@@ -770,7 +770,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1417,
       "column": 5,
       "qualname": "_extract_invariant_from_expr",
@@ -778,7 +778,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1421,
       "column": 5,
       "qualname": "_extract_invariant_from_expr",
@@ -786,7 +786,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1425,
       "column": 5,
       "qualname": "_extract_invariant_from_expr",
@@ -794,7 +794,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3911,
       "column": 9,
       "qualname": "_find_provenance_entry_for_site",
@@ -802,7 +802,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 2725,
       "column": 9,
       "qualname": "_imported_helper_targets",
@@ -810,7 +810,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3058,
       "column": 9,
       "qualname": "_indexed_pass_ingress_members",
@@ -818,7 +818,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3067,
       "column": 13,
       "qualname": "_indexed_pass_ingress_members",
@@ -826,7 +826,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3069,
       "column": 13,
       "qualname": "_indexed_pass_ingress_members",
@@ -834,7 +834,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 15219,
       "column": 17,
       "qualname": "_infer_synthesis_field_types",
@@ -842,7 +842,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10338,
       "column": 5,
       "qualname": "_is_broad_internal_type",
@@ -850,7 +850,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5108,
       "column": 5,
       "qualname": "_is_deadline_origin_call",
@@ -858,7 +858,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12254,
       "column": 5,
       "qualname": "_iter_config_fields",
@@ -866,7 +866,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12259,
       "column": 9,
       "qualname": "_iter_config_fields",
@@ -874,7 +874,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5173,
       "column": 9,
       "qualname": "_iter_marks_ambient",
@@ -882,7 +882,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8496,
       "column": 9,
       "qualname": "_lint_lines_from_call_ambiguities",
@@ -890,7 +890,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8499,
       "column": 9,
       "qualname": "_lint_lines_from_call_ambiguities",
@@ -898,7 +898,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7183,
       "column": 9,
       "qualname": "_lint_relation_from_forest",
@@ -906,7 +906,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7098,
       "column": 9,
       "qualname": "_lint_rows_from_lines",
@@ -914,7 +914,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14828,
       "column": 9,
       "qualname": "_load_analysis_collection_resume_payload",
@@ -922,7 +922,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14840,
       "column": 9,
       "qualname": "_load_analysis_collection_resume_payload",
@@ -930,7 +930,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14843,
       "column": 9,
       "qualname": "_load_analysis_collection_resume_payload",
@@ -938,7 +938,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14257,
       "column": 13,
       "qualname": "_load_analysis_index_resume_payload",
@@ -946,7 +946,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14263,
       "column": 13,
       "qualname": "_load_analysis_index_resume_payload",
@@ -954,7 +954,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14273,
       "column": 13,
       "qualname": "_load_analysis_index_resume_payload",
@@ -962,7 +962,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14276,
       "column": 13,
       "qualname": "_load_analysis_index_resume_payload",
@@ -970,7 +970,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5926,
       "column": 17,
       "qualname": "_materialize_call_candidates",
@@ -978,7 +978,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6331,
       "column": 9,
       "qualname": "_materialize_projection_spec_rows",
@@ -986,7 +986,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8689,
       "column": 9,
       "qualname": "_materialize_statement_suite_contains._emit_body_suite",
@@ -994,7 +994,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8910,
       "column": 9,
       "qualname": "_materialize_structured_suite_sites",
@@ -1002,7 +1002,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8576,
       "column": 9,
       "qualname": "_never_invariant_lint_lines",
@@ -1010,7 +1010,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5619,
       "column": 5,
       "qualname": "_node_to_function_suite_id",
@@ -1018,7 +1018,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 3499,
       "column": 9,
       "qualname": "_param_annotations_by_path",
@@ -1026,7 +1026,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 2645,
       "column": 5,
       "qualname": "_parse_failure_sink",
@@ -1034,7 +1034,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9054,
       "column": 9,
       "qualname": "_populate_bundle_forest._emit_progress",
@@ -1042,7 +1042,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9057,
       "column": 9,
       "qualname": "_populate_bundle_forest._emit_progress",
@@ -1050,7 +1050,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9029,
       "column": 9,
       "qualname": "_populate_bundle_forest._notify_progress",
@@ -1058,7 +1058,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 2944,
       "column": 9,
       "qualname": "_raw_sorted_callsite_counts",
@@ -1066,7 +1066,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 2949,
       "column": 13,
       "qualname": "_raw_sorted_callsite_counts",
@@ -1074,7 +1074,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 2951,
       "column": 13,
       "qualname": "_raw_sorted_callsite_counts",
@@ -1082,7 +1082,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 5168,
       "column": 9,
       "qualname": "_record_call_span",
@@ -1090,7 +1090,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7294,
       "column": 9,
       "qualname": "_report_section_line_relation",
@@ -1098,7 +1098,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 1792,
       "column": 9,
       "qualname": "_resolve_local_method_in_hierarchy",
@@ -1106,7 +1106,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 10789,
       "column": 5,
       "qualname": "_resolve_method_in_hierarchy",
@@ -1114,7 +1114,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9642,
       "column": 9,
       "qualname": "_return_aliases",
@@ -1122,7 +1122,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 9624,
       "column": 9,
       "qualname": "_return_aliases._alias_from_expr",
@@ -1130,7 +1130,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 14374,
       "column": 13,
       "qualname": "_serialize_bundle_sites_for_resume",
@@ -1138,7 +1138,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 7506,
       "column": 5,
       "qualname": "_sorted_text",
@@ -1146,7 +1146,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 8662,
       "column": 5,
       "qualname": "_suite_span_from_statements",
@@ -1154,7 +1154,7 @@
       "message": "returns sentinel fallback"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6796,
       "column": 9,
       "qualname": "_summarize_call_ambiguities",
@@ -1162,7 +1162,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 6950,
       "column": 9,
       "qualname": "_summarize_never_invariants",
@@ -1170,7 +1170,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 15431,
       "column": 17,
       "qualname": "build_refactor_plan",
@@ -1178,7 +1178,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13312,
       "column": 9,
       "qualname": "compute_structure_reuse",
@@ -1186,7 +1186,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13315,
       "column": 9,
       "qualname": "compute_structure_reuse",
@@ -1194,7 +1194,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13321,
       "column": 13,
       "qualname": "compute_structure_reuse",
@@ -1202,7 +1202,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13324,
       "column": 13,
       "qualname": "compute_structure_reuse",
@@ -1210,7 +1210,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13330,
       "column": 17,
       "qualname": "compute_structure_reuse",
@@ -1218,7 +1218,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13390,
       "column": 9,
       "qualname": "compute_structure_reuse",
@@ -1226,7 +1226,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 12895,
       "column": 9,
       "qualname": "extract_report_sections",
@@ -1234,7 +1234,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 13479,
       "column": 9,
       "qualname": "render_reuse_lemma_stubs",
@@ -1242,7 +1242,7 @@
       "message": "continues without explicit decision outcome"
     },
     {
-      "path": "src/gabion/analysis/dataflow_audit.py",
+      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
       "line": 465,
       "column": 13,
       "qualname": "resolve_star",

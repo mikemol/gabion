@@ -299,7 +299,7 @@ These lanes are behaviorally stable for the implemented subset, but remain
 ### 6.1 in-34 callable-site lane (lambda/closure indexing)
 
 Executable anchors:
-- `src/gabion/analysis/dataflow_audit.py::_resolve_callee_outcome`
+- `src/gabion/analysis/legacy_dataflow_monolith.py::_resolve_callee_outcome`
 - `tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call`
 - `tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls`
 - `tests/test_callsite_evidence_helper.py::test_callsite_evidence_includes_callable_context`

@@ -183,10 +183,10 @@ else:
     use([])
 ```
 
-**After (preferred):** centralize alternation at the boundary via a normalizer + DTO validation (idiom used by `_normalize_dataflow_response` and `DataflowAuditResponseDTO`).
+**After (preferred):** centralize alternation at the boundary via a normalizer + DTO validation (idiom used by `_normalize_dataflow_response` and `LegacyDataflowMonolithResponseDTO`).
 ```py
 normalized = _normalize_dataflow_response(response)
-return DataflowAuditResponseDTO.model_validate(normalized)
+return LegacyDataflowMonolithResponseDTO.model_validate(normalized)
 ```
 
 #### 2) Bundle recurring parameters into a Protocol/dataclass
