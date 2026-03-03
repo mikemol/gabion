@@ -126,6 +126,54 @@ def test_auxiliary_mode_from_payload_legacy_baseline_write_branch() -> None:
     assert mode.kind == "baseline-write"
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_kind"),
+    [
+        ({"emit_test_obsolescence": True}, "report"),
+        ({"emit_test_obsolescence_state": True}, "state"),
+        ({"emit_test_obsolescence_delta": True}, "delta"),
+        ({"write_test_obsolescence_baseline": True}, "baseline-write"),
+        ({}, "off"),
+    ],
+)
+def test_auxiliary_mode_from_payload_legacy_kind_resolution_order(
+    payload: dict[str, object],
+    expected_kind: str,
+) -> None:
+    _bind()
+    mode = orchestrator._auxiliary_mode_from_payload(
+        payload=payload,
+        mode_key="obsolescence_mode",
+        state_key="test_obsolescence_state",
+        emit_state_key="emit_test_obsolescence_state",
+        emit_delta_key="emit_test_obsolescence_delta",
+        write_baseline_key="write_test_obsolescence_baseline",
+        emit_report_key="emit_test_obsolescence",
+        domain="obsolescence",
+        allow_report=True,
+    )
+    assert mode.kind == expected_kind
+
+
+def test_auxiliary_mode_from_payload_legacy_kind_resolution_conflict_still_rejected() -> None:
+    _bind()
+    with pytest.raises(NeverThrown):
+        orchestrator._auxiliary_mode_from_payload(
+            payload={
+                "emit_test_obsolescence": True,
+                "emit_test_obsolescence_state": True,
+            },
+            mode_key="obsolescence_mode",
+            state_key="test_obsolescence_state",
+            emit_state_key="emit_test_obsolescence_state",
+            emit_delta_key="emit_test_obsolescence_delta",
+            write_baseline_key="write_test_obsolescence_baseline",
+            emit_report_key="emit_test_obsolescence",
+            domain="obsolescence",
+            allow_report=True,
+        )
+
+
 def test_auxiliary_mode_from_payload_rejects_invalid_mode_kind() -> None:
     _bind()
     with pytest.raises(NeverThrown):
