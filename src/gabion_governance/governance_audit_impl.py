@@ -1975,47 +1975,84 @@ def _impact_rows(root: Path) -> list[dict[str, object]]:
     return rows
 
 
+def _format_doc_missing_frontmatter_violation(_row: Mapping[str, JSONValue], path: str) -> str:
+    return f"{path}: missing frontmatter"
+
+
+def _format_doc_required_field_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    field = row.get("field", "?")
+    return f"{path}: missing frontmatter field '{field}'"
+
+
+def _format_doc_field_type_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    field = row.get("field", "?")
+    expected = row.get("expected", "?")
+    return f"{path}: frontmatter field '{field}' must be a {expected}"
+
+
+def _format_doc_missing_governance_ref_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    missing = row.get("missing", "?")
+    return f"{path}: missing required governance references: {missing}"
+
+
+def _format_doc_requires_ref_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    req = row.get("req", "?")
+    return f"{path}: missing explicit reference to {req}"
+
+
+def _format_doc_review_pin_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    req = row.get("req", "?")
+    expected = row.get("expected")
+    seen = row.get("seen")
+    if not bool(row.get("resolved", False)):
+        return f"{path}: doc_reviewed_as_of cannot resolve {req}"
+    if not isinstance(seen, int):
+        return f"{path}: doc_reviewed_as_of[{req}] must be an integer"
+    return f"{path}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
+
+
+def _format_doc_review_note_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    req = row.get("req", "?")
+    return f"{path}: doc_review_notes[{req}] missing or empty"
+
+
+def _format_doc_commute_edge_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    other = row.get("other", "?")
+    if not bool(row.get("target_exists", False)):
+        return f"{path}: doc_commutes_with target missing: {other}"
+    return f"{path}: commutation with {other} not reciprocated"
+
+
+def _format_doc_loop_entry_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    domain = row.get("domain", "?")
+    return f"{path}: missing governance control-loop declaration for domain: {domain}"
+
+
+def _format_doc_loop_matrix_gate_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    gate_id = row.get("gate_id", "?")
+    return f"{path}: governance loop matrix drift; missing gate row for: {gate_id}"
+
+
+_DOCFLOW_VIOLATION_FORMATTERS: dict[str, Callable[[Mapping[str, JSONValue], str], str]] = {
+    "doc_missing_frontmatter": _format_doc_missing_frontmatter_violation,
+    "doc_required_field": _format_doc_required_field_violation,
+    "doc_field_type": _format_doc_field_type_violation,
+    "doc_missing_governance_ref": _format_doc_missing_governance_ref_violation,
+    "doc_requires_ref": _format_doc_requires_ref_violation,
+    "doc_review_pin": _format_doc_review_pin_violation,
+    "doc_review_note": _format_doc_review_note_violation,
+    "doc_commute_edge": _format_doc_commute_edge_violation,
+    "doc_loop_entry": _format_doc_loop_entry_violation,
+    "doc_loop_matrix_gate": _format_doc_loop_matrix_gate_violation,
+}
+
+
 def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
     path = str(row.get("path", "?") or "?")
     kind = str(row.get("row_kind", "") or "")
-    if kind == "doc_missing_frontmatter":
-        return f"{path}: missing frontmatter"
-    if kind == "doc_required_field":
-        field = row.get("field", "?")
-        return f"{path}: missing frontmatter field '{field}'"
-    if kind == "doc_field_type":
-        field = row.get("field", "?")
-        expected = row.get("expected", "?")
-        return f"{path}: frontmatter field '{field}' must be a {expected}"
-    if kind == "doc_missing_governance_ref":
-        missing = row.get("missing", "?")
-        return f"{path}: missing required governance references: {missing}"
-    if kind == "doc_requires_ref":
-        req = row.get("req", "?")
-        return f"{path}: missing explicit reference to {req}"
-    if kind == "doc_review_pin":
-        req = row.get("req", "?")
-        expected = row.get("expected")
-        seen = row.get("seen")
-        if not bool(row.get("resolved", False)):
-            return f"{path}: doc_reviewed_as_of cannot resolve {req}"
-        if not isinstance(seen, int):
-            return f"{path}: doc_reviewed_as_of[{req}] must be an integer"
-        return f"{path}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
-    if kind == "doc_review_note":
-        req = row.get("req", "?")
-        return f"{path}: doc_review_notes[{req}] missing or empty"
-    if kind == "doc_commute_edge":
-        other = row.get("other", "?")
-        if not bool(row.get("target_exists", False)):
-            return f"{path}: doc_commutes_with target missing: {other}"
-        return f"{path}: commutation with {other} not reciprocated"
-    if kind == "doc_loop_entry":
-        domain = row.get("domain", "?")
-        return f"{path}: missing governance control-loop declaration for domain: {domain}"
-    if kind == "doc_loop_matrix_gate":
-        gate_id = row.get("gate_id", "?")
-        return f"{path}: governance loop matrix drift; missing gate row for: {gate_id}"
+    formatter = _DOCFLOW_VIOLATION_FORMATTERS.get(kind)
+    if formatter is not None:
+        return formatter(row, path)
     return f"{path}: docflow invariant violation"
 
 
