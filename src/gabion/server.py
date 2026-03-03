@@ -2684,39 +2684,37 @@ def _uri_to_path(uri: str) -> Path:
     return Path(uri)
 
 
-def _normalize_transparent_decorators(value: object) -> set[str] | None:
+def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str]:
     check_deadline()
     if value is None:
-        return None
-    items: list[str] = []
+        return []
     if isinstance(value, str):
-        items = [part.strip() for part in value.split(",") if part.strip()]
-    elif isinstance(value, (list, tuple, set)):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, (list, tuple, set)):
+        items: list[str] = []
         for item in value:
             check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
+            elif strict:
+                never("name set contains non-string entry", value_type=type(item).__name__)
+        return items
+    if strict:
+        never("invalid name set payload", value_type=type(value).__name__)
+    return []
+
+
+def _normalize_transparent_decorators(value: object) -> set[str] | None:
+    items = _normalize_csv_or_iterable_names(value, strict=False)
     if not items:
         return None
     return set(items)
 
 
 def _normalize_name_set(value: object) -> set[str] | None:
-    check_deadline()
     if value is None:
         return None
-    items: list[str] = []
-    if isinstance(value, str):
-        items = [part.strip() for part in value.split(",") if part.strip()]
-    elif isinstance(value, (list, tuple, set)):
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
-            else:
-                never("name set contains non-string entry", value_type=type(item).__name__)
-    else:
-        never("invalid name set payload", value_type=type(value).__name__)
+    items = _normalize_csv_or_iterable_names(value, strict=True)
     return set(items)
 
 

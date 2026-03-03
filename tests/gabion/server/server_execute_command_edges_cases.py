@@ -2796,12 +2796,24 @@ def test_server_deadline_overhead_and_name_set_edges() -> None:
     assert server._server_deadline_overhead_ns(total_ns=1, divisor=1) == 0
     with pytest.raises(NeverThrown):
         server._server_deadline_overhead_ns(total_ns=1, divisor=0)
+
+    assert server._normalize_name_set(None) is None
     assert server._normalize_name_set(" a, b ") == {"a", "b"}
     assert server._normalize_name_set([" a ", "b,c"]) == {"a", "b", "c"}
+    assert server._normalize_name_set((" a ", "b,c")) == {"a", "b", "c"}
+    assert server._normalize_name_set({" a ", "b,c"}) == {"a", "b", "c"}
     with pytest.raises(NeverThrown):
         server._normalize_name_set(["ok", 1])  # type: ignore[list-item]
     with pytest.raises(NeverThrown):
         server._normalize_name_set(1)  # type: ignore[arg-type]
+
+    assert server._normalize_transparent_decorators(None) is None
+    assert server._normalize_transparent_decorators(" a, b ") == {"a", "b"}
+    assert server._normalize_transparent_decorators([" a ", "b,c"]) == {"a", "b", "c"}
+    assert server._normalize_transparent_decorators((" a ", "b,c")) == {"a", "b", "c"}
+    assert server._normalize_transparent_decorators({" a ", "b,c"}) == {"a", "b", "c"}
+    assert server._normalize_transparent_decorators(["ok", 1]) == {"ok"}  # type: ignore[list-item]
+    assert server._normalize_transparent_decorators(1) is None  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_edges::server.py::gabion.server._execute_structure_reuse_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
