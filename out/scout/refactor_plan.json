@@ -1,0 +1,754 @@
+{
+  "budget": 3000,
+  "budget_metric": "physical",
+  "correction_unit_backlog": [
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-2e637f92bfb820f0",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:89d8ca071f77033a",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:89d8ca071f77033a from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=38); symbol_sample=_collect_never_invariants",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-001"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-cf9b49dc9b4099e1",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:63ee5490f8b87e07",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:63ee5490f8b87e07 from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=38); symbol_sample=_analysis_index_resolved_call_edges",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-002"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-b20b0fff50c10971",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:50f9d76964d8037a",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:50f9d76964d8037a from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=38); symbol_sample=analyze_deadness_flow_repo",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-003"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-6e6625d4a10cca9f",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:e56be849d2f0b2ce",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:e56be849d2f0b2ce from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=37); symbol_sample=analyze_type_flow_repo_with_evidence",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-004"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-5feb79cf4fe4f8ef",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:9639c8887a8a0eee",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:9639c8887a8a0eee from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=37); symbol_sample=_build_analysis_index",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-005"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-ca89b81b5a4539ec",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:937ada463b77c420",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:937ada463b77c420 from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=37); symbol_sample=_run_indexed_pass",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-006"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-6b6b670914c0c26d",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:5a6f66708acf573e",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:5a6f66708acf573e from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=37); symbol_sample=analyze_constant_flow_repo",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-007"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-3304cf75a4e1d93b",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:4601faa2e50d283f",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:4601faa2e50d283f from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=36); symbol_sample=analyze_type_flow_repo_with_map",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-008"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-7280b7856bc6b026",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:43b847e84cb75943",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:43b847e84cb75943 from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=36); symbol_sample=_load_analysis_index_resume_payload",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-009"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-7d59641267c76575",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:f73ca80ab78470e5",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:f73ca80ab78470e5 from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=35); symbol_sample=_infer_type_flow",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-010"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-2bbe23c216d698b2",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:100872d79aab203f",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:100872d79aab203f from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=35); symbol_sample=_deadline_function_facts_for_tree",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-011"
+    },
+    {
+      "blocking?": "yes",
+      "debt_id": "SCOUT-7eab1d7064f69d9c",
+      "evidence_links": "out/scout/scout.json; out/scout/similarity_atoms.json; out/scout/refactor_plan.json; group=grp:ecef0fb740bb7160",
+      "expiry": "",
+      "fix_forward_action": "extract group grp:ecef0fb740bb7160 from src/gabion/analysis/dataflow_indexed_file_scan.py (estimated_removable_loc=34); symbol_sample=_decision_surface_form_entries",
+      "owner": "codex",
+      "signal_source": "paginator+sieve ranked extraction scout",
+      "status": "open",
+      "surface": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "target_cu": "SCOUT-CU-012"
+    }
+  ],
+  "focus_files": [
+    "src/gabion/analysis/dataflow_indexed_file_scan.py",
+    "src/gabion/cli.py"
+  ],
+  "max_groups_per_file": 12,
+  "metric": "jaccard",
+  "ranked_extraction_plan": [
+    {
+      "budget": 3000,
+      "budget_metric": "physical",
+      "candidate_groups": [
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:197"
+          ],
+          "estimated_removable_loc": 38,
+          "group_id": "grp:89d8ca071f77033a",
+          "group_loc": 38,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_collect_never_invariants"
+          ],
+          "member_symbols": [
+            "_collect_never_invariants"
+          ],
+          "score": 38.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:197"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:70"
+          ],
+          "estimated_removable_loc": 38,
+          "group_id": "grp:63ee5490f8b87e07",
+          "group_loc": 38,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_analysis_index_resolved_call_edges"
+          ],
+          "member_symbols": [
+            "_analysis_index_resolved_call_edges"
+          ],
+          "score": 38.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:70"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:352"
+          ],
+          "estimated_removable_loc": 38,
+          "group_id": "grp:50f9d76964d8037a",
+          "group_loc": 38,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:analyze_deadness_flow_repo"
+          ],
+          "member_symbols": [
+            "analyze_deadness_flow_repo"
+          ],
+          "score": 38.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:352"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:358"
+          ],
+          "estimated_removable_loc": 37,
+          "group_id": "grp:e56be849d2f0b2ce",
+          "group_loc": 37,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:analyze_type_flow_repo_with_evidence"
+          ],
+          "member_symbols": [
+            "analyze_type_flow_repo_with_evidence"
+          ],
+          "score": 37.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:358"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:87"
+          ],
+          "estimated_removable_loc": 37,
+          "group_id": "grp:9639c8887a8a0eee",
+          "group_loc": 37,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_build_analysis_index"
+          ],
+          "member_symbols": [
+            "_build_analysis_index"
+          ],
+          "score": 37.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:87"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:135"
+          ],
+          "estimated_removable_loc": 37,
+          "group_id": "grp:937ada463b77c420",
+          "group_loc": 37,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_run_indexed_pass"
+          ],
+          "member_symbols": [
+            "_run_indexed_pass"
+          ],
+          "score": 37.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:135"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:351"
+          ],
+          "estimated_removable_loc": 37,
+          "group_id": "grp:5a6f66708acf573e",
+          "group_loc": 37,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:analyze_constant_flow_repo"
+          ],
+          "member_symbols": [
+            "analyze_constant_flow_repo"
+          ],
+          "score": 37.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:351"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:356"
+          ],
+          "estimated_removable_loc": 36,
+          "group_id": "grp:4601faa2e50d283f",
+          "group_loc": 36,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:analyze_type_flow_repo_with_map"
+          ],
+          "member_symbols": [
+            "analyze_type_flow_repo_with_map"
+          ],
+          "score": 36.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:356"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:282"
+          ],
+          "estimated_removable_loc": 36,
+          "group_id": "grp:43b847e84cb75943",
+          "group_loc": 36,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_load_analysis_index_resume_payload"
+          ],
+          "member_symbols": [
+            "_load_analysis_index_resume_payload"
+          ],
+          "score": 36.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:282"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:260"
+          ],
+          "estimated_removable_loc": 35,
+          "group_id": "grp:f73ca80ab78470e5",
+          "group_loc": 35,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_infer_type_flow"
+          ],
+          "member_symbols": [
+            "_infer_type_flow"
+          ],
+          "score": 35.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:260"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:217"
+          ],
+          "estimated_removable_loc": 35,
+          "group_id": "grp:100872d79aab203f",
+          "group_loc": 35,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_deadline_function_facts_for_tree"
+          ],
+          "member_symbols": [
+            "_deadline_function_facts_for_tree"
+          ],
+          "score": 35.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:217"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:222"
+          ],
+          "estimated_removable_loc": 34,
+          "group_id": "grp:ecef0fb740bb7160",
+          "group_loc": 34,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/analysis/dataflow_indexed_file_scan.py:_decision_surface_form_entries"
+          ],
+          "member_symbols": [
+            "_decision_surface_form_entries"
+          ],
+          "score": 34.0,
+          "seed_cluster": "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:222"
+        }
+      ],
+      "convergence": {
+        "meets_budget": false,
+        "predicted_post_loc": 5954,
+        "selected_groups": [
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:197"
+            ],
+            "estimated_removable_loc": 38,
+            "group_id": "grp:89d8ca071f77033a",
+            "member_symbols": [
+              "_collect_never_invariants"
+            ],
+            "score": 38.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:70"
+            ],
+            "estimated_removable_loc": 38,
+            "group_id": "grp:63ee5490f8b87e07",
+            "member_symbols": [
+              "_analysis_index_resolved_call_edges"
+            ],
+            "score": 38.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:352"
+            ],
+            "estimated_removable_loc": 38,
+            "group_id": "grp:50f9d76964d8037a",
+            "member_symbols": [
+              "analyze_deadness_flow_repo"
+            ],
+            "score": 38.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:358"
+            ],
+            "estimated_removable_loc": 37,
+            "group_id": "grp:e56be849d2f0b2ce",
+            "member_symbols": [
+              "analyze_type_flow_repo_with_evidence"
+            ],
+            "score": 37.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:87"
+            ],
+            "estimated_removable_loc": 37,
+            "group_id": "grp:9639c8887a8a0eee",
+            "member_symbols": [
+              "_build_analysis_index"
+            ],
+            "score": 37.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:135"
+            ],
+            "estimated_removable_loc": 37,
+            "group_id": "grp:937ada463b77c420",
+            "member_symbols": [
+              "_run_indexed_pass"
+            ],
+            "score": 37.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:351"
+            ],
+            "estimated_removable_loc": 37,
+            "group_id": "grp:5a6f66708acf573e",
+            "member_symbols": [
+              "analyze_constant_flow_repo"
+            ],
+            "score": 37.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:356"
+            ],
+            "estimated_removable_loc": 36,
+            "group_id": "grp:4601faa2e50d283f",
+            "member_symbols": [
+              "analyze_type_flow_repo_with_map"
+            ],
+            "score": 36.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:282"
+            ],
+            "estimated_removable_loc": 36,
+            "group_id": "grp:43b847e84cb75943",
+            "member_symbols": [
+              "_load_analysis_index_resume_payload"
+            ],
+            "score": 36.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:260"
+            ],
+            "estimated_removable_loc": 35,
+            "group_id": "grp:f73ca80ab78470e5",
+            "member_symbols": [
+              "_infer_type_flow"
+            ],
+            "score": 35.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:217"
+            ],
+            "estimated_removable_loc": 35,
+            "group_id": "grp:100872d79aab203f",
+            "member_symbols": [
+              "_deadline_function_facts_for_tree"
+            ],
+            "score": 35.0
+          },
+          {
+            "clusters": [
+              "atom:src/gabion/analysis/dataflow_indexed_file_scan.py:222"
+            ],
+            "estimated_removable_loc": 34,
+            "group_id": "grp:ecef0fb740bb7160",
+            "member_symbols": [
+              "_decision_surface_form_entries"
+            ],
+            "score": 34.0
+          }
+        ],
+        "unresolved_over_by": 2954
+      },
+      "current_phys_loc": 6392,
+      "file": "src/gabion/analysis/dataflow_indexed_file_scan.py",
+      "meets_budget_now": false
+    },
+    {
+      "budget": 3000,
+      "budget_metric": "physical",
+      "candidate_groups": [
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:84"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:a3729e8f4fad5c5d",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_ambiguity_baseline_write"
+          ],
+          "member_symbols": [
+            "check_ambiguity_baseline_write"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:84"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:94"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:a0b81287dff7f423",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_obsolescence_baseline_write"
+          ],
+          "member_symbols": [
+            "check_obsolescence_baseline_write"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:94"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:85"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:4d6a5b6da780f252",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_ambiguity_delta"
+          ],
+          "member_symbols": [
+            "check_ambiguity_delta"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:85"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:88"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:3a520dc492c3362d",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_annotation_drift_baseline_write"
+          ],
+          "member_symbols": [
+            "check_annotation_drift_baseline_write"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:88"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:100"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:2b7b1c412d7abda8",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_taint_baseline_write"
+          ],
+          "member_symbols": [
+            "check_taint_baseline_write"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:100"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:101"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:2a5254763743196b",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_taint_delta"
+          ],
+          "member_symbols": [
+            "check_taint_delta"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:101"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:95"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:1b8bf7a762ecd7b1",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_obsolescence_delta"
+          ],
+          "member_symbols": [
+            "check_obsolescence_delta"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:95"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:89"
+          ],
+          "estimated_removable_loc": 45,
+          "group_id": "grp:16f87e50d2f0b84e",
+          "group_loc": 45,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_annotation_drift_delta"
+          ],
+          "member_symbols": [
+            "check_annotation_drift_delta"
+          ],
+          "score": 45.0,
+          "seed_cluster": "atom:src/gabion/cli.py:89"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:91"
+          ],
+          "estimated_removable_loc": 44,
+          "group_id": "grp:d78960d3dc2239ae",
+          "group_loc": 44,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_annotation_drift_report"
+          ],
+          "member_symbols": [
+            "check_annotation_drift_report"
+          ],
+          "score": 44.0,
+          "seed_cluster": "atom:src/gabion/cli.py:91"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:119"
+          ],
+          "estimated_removable_loc": 44,
+          "group_id": "grp:990e7fdfc405c41d",
+          "group_loc": 44,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:refactor_protocol"
+          ],
+          "member_symbols": [
+            "refactor_protocol"
+          ],
+          "score": 44.0,
+          "seed_cluster": "atom:src/gabion/cli.py:119"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:97"
+          ],
+          "estimated_removable_loc": 44,
+          "group_id": "grp:75ddadd78c37bfd9",
+          "group_loc": 44,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_obsolescence_report"
+          ],
+          "member_symbols": [
+            "check_obsolescence_report"
+          ],
+          "score": 44.0,
+          "seed_cluster": "atom:src/gabion/cli.py:97"
+        },
+        {
+          "cluster_count": 1,
+          "clusters": [
+            "atom:src/gabion/cli.py:103"
+          ],
+          "estimated_removable_loc": 43,
+          "group_id": "grp:5bc279201555e312",
+          "group_loc": 43,
+          "mean_similarity": 0.0,
+          "member_node_keys": [
+            "sym:src/gabion/cli.py:check_taint_lifecycle"
+          ],
+          "member_symbols": [
+            "check_taint_lifecycle"
+          ],
+          "score": 43.0,
+          "seed_cluster": "atom:src/gabion/cli.py:103"
+        }
+      ],
+      "convergence": {
+        "meets_budget": true,
+        "predicted_post_loc": 2969,
+        "selected_groups": [],
+        "unresolved_over_by": 0
+      },
+      "current_phys_loc": 2969,
+      "file": "src/gabion/cli.py",
+      "meets_budget_now": true
+    }
+  ],
+  "sim_threshold": 0.55
+}

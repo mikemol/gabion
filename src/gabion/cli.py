@@ -4,28 +4,72 @@ from __future__ import annotations
 
 import atexit
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from collections import OrderedDict
 from enum import Enum
+from functools import partial
 from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
-import inspect
 import io
 import json
 import os
 import re
 import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-import zipfile
 
 from click.core import ParameterSource
 import typer
+from gabion.cli_support.check_commands import (
+    register_check_delta_bundle_command as _register_check_delta_bundle_command,
+    register_check_group_callback as _register_check_group_callback,
+    register_check_run_command as _register_check_run_command,
+)
+from gabion.cli_support.check_command_runtime import (
+    check_raw_profile_args as _check_raw_profile_args_impl,
+    run_check_aux_operation as _run_check_aux_operation_impl,
+    run_check_command as _run_check_command_impl,
+    run_check_raw_profile as _run_check_raw_profile_impl,
+)
+from gabion.cli_support.check_execution_plan import (
+    check_derived_artifacts as _check_derived_artifacts_impl,
+    build_check_execution_plan_request as _build_check_execution_plan_request_impl,
+)
+from gabion.cli_support.check_runtime import run_check as _run_check_impl
+from gabion.cli_support.dispatch_runtime import (
+    dispatch_command as _dispatch_command_impl,
+)
+from gabion.cli_support import (
+    github_artifact_restore as _github_artifact_restore,
+)
 from gabion.cli_support.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
+from gabion.cli_support.payload_builder import (
+    build_dataflow_payload as _build_dataflow_payload_impl,
+)
+from gabion.cli_support.output_emitters import (
+    emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl,
+    write_lint_sarif as _write_lint_sarif_impl,
+)
+from gabion.cli_support.synth_runtime import run_synth as _run_synth_impl
+from gabion.cli_support.synth_commands import (
+    register_synth_command as _register_synth_command,
+)
+from gabion.cli_support.refactor_payload import (
+    build_refactor_payload as _build_refactor_payload_impl,
+)
+from gabion.cli_support.refactor_runtime import (
+    run_refactor_protocol as _run_refactor_protocol_impl,
+)
+from gabion.cli_support.timeout_progress import (
+    render_timeout_progress_markdown as _render_timeout_progress_markdown_impl,
+)
+from gabion.cli_support.runtime_flags import (
+    register_runtime_flags_callback as _register_runtime_flags_callback,
+)
+from gabion.cli_support.tooling_commands import (
+    build_status_watch_options as _build_status_watch_options_impl,
+    register_ci_watch_command as _register_ci_watch_command,
+)
 from gabion.analysis.timeout_context import (
     check_deadline,
     deadline_loop_iter,
@@ -54,11 +98,6 @@ from gabion.lsp_client import (
     run_command,
     run_command_direct,
 )
-from gabion.plan import (
-    ExecutionPlan,
-    ExecutionPlanObligations,
-    ExecutionPlanPolicyMetadata,
-)
 from gabion.tooling import (
     ci_watch as tooling_ci_watch,
     delta_advisory as tooling_delta_advisory,
@@ -74,7 +113,6 @@ from gabion.json_types import JSONObject
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import (
-    LegacyDataflowMonolithResponseDTO,
     DecisionDiffResponseDTO,
     RefactorProtocolResponseDTO,
     LspParityGateResponseDTO,
@@ -263,90 +301,13 @@ def _context_cli_deps(ctx: typer.Context) -> CliDeps:
     )
 
 
-@app.callback()
-def configure_runtime_flags(
-    timeout: Optional[str] = typer.Option(
-        None,
-        "--timeout",
-        help="Runtime timeout duration (for example: 750ms, 2s, 1m30s).",
-    ),
-    carrier: Optional[CliTransportMode] = typer.Option(
-        None,
-        "--carrier",
-        help="Command transport carrier override.",
-    ),
-    carrier_override_record: Optional[Path] = typer.Option(
-        None,
-        "--carrier-override-record",
-        help="Path to override lifecycle record for direct carrier on governed commands.",
-    ),
-    removed_lsp_timeout_ticks: Optional[int] = typer.Option(
-        None,
-        "--lsp-timeout-ticks",
-        hidden=True,
-    ),
-    removed_lsp_timeout_tick_ns: Optional[int] = typer.Option(
-        None,
-        "--lsp-timeout-tick-ns",
-        hidden=True,
-    ),
-    removed_lsp_timeout_ms: Optional[int] = typer.Option(
-        None,
-        "--lsp-timeout-ms",
-        hidden=True,
-    ),
-    removed_lsp_timeout_seconds: Optional[float] = typer.Option(
-        None,
-        "--lsp-timeout-seconds",
-        hidden=True,
-    ),
-    removed_transport: Optional[str] = typer.Option(
-        None,
-        "--transport",
-        hidden=True,
-    ),
-    removed_direct_run_override_evidence: Optional[str] = typer.Option(
-        None,
-        "--direct-run-override-evidence",
-        hidden=True,
-    ),
-    removed_override_record_json: Optional[str] = typer.Option(
-        None,
-        "--override-record-json",
-        hidden=True,
-    ),
-) -> None:
-    if (
-        removed_lsp_timeout_ticks is not None
-        or removed_lsp_timeout_tick_ns is not None
-        or removed_lsp_timeout_ms is not None
-        or removed_lsp_timeout_seconds is not None
-    ):
-        raise typer.BadParameter(
-            "Removed timeout flags (--lsp-timeout-*). Use --timeout <duration>."
-        )
-    if (
-        removed_transport is not None
-        or removed_direct_run_override_evidence is not None
-        or removed_override_record_json is not None
-    ):
-        raise typer.BadParameter(
-            "Removed transport flags (--transport/--direct-run-override-evidence/--override-record-json). "
-            "Use --carrier and --carrier-override-record."
-        )
-    policy_runtime.apply_runtime_policy_from_env()
-    env_policy.apply_cli_timeout_flag(timeout=timeout)
-    if carrier is not None or carrier_override_record is not None:
-        carrier_text = None if carrier is None else str(carrier.value)
-        carrier_override_record_text = (
-            None
-            if carrier_override_record is None
-            else str(carrier_override_record)
-        )
-        transport_policy.apply_cli_transport_flags(
-            carrier=carrier_text,
-            override_record_path=carrier_override_record_text,
-        )
+configure_runtime_flags = _register_runtime_flags_callback(
+    app=app,
+    cli_transport_mode=CliTransportMode,
+    apply_runtime_policy_from_env_fn=policy_runtime.apply_runtime_policy_from_env,
+    apply_cli_timeout_flag_fn=env_policy.apply_cli_timeout_flag,
+    apply_cli_transport_flags_fn=transport_policy.apply_cli_transport_flags,
+)
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -753,61 +714,15 @@ def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
     )
 
 
-def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
-    check_deadline()
-    rules: dict[str, dict[str, object]] = {}
-    rule_counts: dict[str, int] = {}
-    results: list[dict[str, object]] = []
-    for entry in entries:
-        check_deadline()
-        code = str(entry.get("code") or "GABION")
-        message = str(entry.get("message") or "").strip()
-        path = str(entry.get("path") or "")
-        line = int(entry.get("line") or 1)
-        col = int(entry.get("col") or 1)
-        rule_counts[code] = int(rule_counts.get(code, 0)) + 1
-        rules[code] = {
-            "id": code,
-            "name": code,
-            "shortDescription": {"text": code},
-        }
-        results.append(
-            {
-                "ruleId": code,
-                "level": "warning",
-                "message": {"text": message or code},
-                "locations": [
-                    {
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": path},
-                            "region": {
-                                "startLine": line,
-                                "startColumn": col,
-                            },
-                        }
-                    }
-                ],
-            }
-        )
-    duplicate_codes = sort_once(
-        (code for code, count in rule_counts.items() if int(count) > 1),
-        source="gabion.cli._emit_lint_sarif.duplicate_codes",
-    )
-    if duplicate_codes:
-        joined = ", ".join(duplicate_codes)
-        raise ValueError(f"duplicate SARIF rule code(s): {joined}")
-    sarif = {
-        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {"driver": {"name": "gabion", "rules": list(rules.values())}},
-                "results": results,
-            }
-        ],
-    }
-    payload = json.dumps(sarif, indent=2, sort_keys=False)
-    _write_text_to_target(target, payload, ensure_trailing_newline=True)
+_write_lint_sarif = cast(
+    Callable[[str, list[dict[str, object]]], None],
+    partial(
+        _write_lint_sarif_impl,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+        write_text_to_target_fn=_write_text_to_target,
+    ),
+)
 
 
 def _emit_lint_outputs(
@@ -855,84 +770,7 @@ def _emit_timeout_profile_artifacts(
     typer.echo(f"Wrote deadline profile markdown: {profile_md_path}")
 
 
-def _render_timeout_progress_markdown(
-    *,
-    analysis_state: str | None,
-    progress: Mapping[str, object],
-    deadline_profile: Mapping[str, object] | None = None,
-) -> str:
-    lines = ["# Timeout Progress", ""]
-    if analysis_state:
-        lines.append(f"- `analysis_state`: `{analysis_state}`")
-    classification = progress.get("classification")
-    if isinstance(classification, str):
-        lines.append(f"- `classification`: `{classification}`")
-    retry_recommended = progress.get("retry_recommended")
-    if isinstance(retry_recommended, bool):
-        lines.append(f"- `retry_recommended`: `{retry_recommended}`")
-    resume_supported = progress.get("resume_supported")
-    if isinstance(resume_supported, bool):
-        lines.append(f"- `resume_supported`: `{resume_supported}`")
-    ticks_consumed = progress.get("ticks_consumed")
-    if isinstance(ticks_consumed, int):
-        lines.append(f"- `ticks_consumed`: `{ticks_consumed}`")
-    tick_limit = progress.get("tick_limit")
-    if isinstance(tick_limit, int):
-        lines.append(f"- `tick_limit`: `{tick_limit}`")
-    ticks_remaining = progress.get("ticks_remaining")
-    if isinstance(ticks_remaining, int):
-        lines.append(f"- `ticks_remaining`: `{ticks_remaining}`")
-    progress_ticks_per_ns = progress.get("ticks_per_ns")
-    resolved_ticks_per_ns = (
-        progress_ticks_per_ns
-        if isinstance(progress_ticks_per_ns, (int, float))
-        else (
-            deadline_profile.get("ticks_per_ns")
-            if isinstance(deadline_profile, Mapping)
-            else None
-        )
-    )
-    if isinstance(resolved_ticks_per_ns, (int, float)):
-        lines.append(f"- `ticks_per_ns`: `{float(resolved_ticks_per_ns):.9f}`")
-    resume = progress.get("resume")
-    if isinstance(resume, Mapping):
-        token = resume.get("resume_token")
-        if isinstance(token, Mapping):
-            lines.append("")
-            lines.append("## Resume Token")
-            lines.append("")
-            for key in deadline_loop_iter(
-                (
-                    "phase",
-                    "checkpoint_path",
-                    "completed_files",
-                    "remaining_files",
-                    "total_files",
-                    "witness_digest",
-                )
-            ):
-                value = token.get(key)
-                if value is None:
-                    continue
-                lines.append(f"- `{key}`: `{value}`")
-    obligations = progress.get("incremental_obligations")
-    if isinstance(obligations, list) and obligations:
-        lines.append("")
-        lines.append("## Incremental Obligations")
-        lines.append("")
-        for entry in deadline_loop_iter(obligations):
-            if not isinstance(entry, Mapping):
-                continue
-            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-            contract = str(entry.get("contract", "") or "")
-            kind = str(entry.get("kind", "") or "")
-            detail = str(entry.get("detail", "") or "")
-            section_id = str(entry.get("section_id", "") or "")
-            section_suffix = f" section={section_id}" if section_id else ""
-            lines.append(
-                f"- `{status}` `{contract}` `{kind}`{section_suffix}: {detail}"
-            )
-    return "\n".join(lines)
+_render_timeout_progress_markdown = _render_timeout_progress_markdown_impl
 
 
 def _build_dataflow_payload_common(
@@ -944,222 +782,24 @@ def _build_dataflow_payload_common(
     return check_contract.build_dataflow_payload_common(options=options)
 
 
-def build_check_payload(
-    *,
-    paths: Optional[List[Path]],
-    report: Optional[Path],
-    fail_on_violations: bool,
-    root: Path,
-    config: Optional[Path],
-    baseline: Path | None,
-    baseline_write: bool,
-    decision_snapshot: Path | None,
-    artifact_flags: CheckArtifactFlags,
-    delta_options: CheckDeltaOptions,
-    exclude: Optional[List[str]],
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: Optional[bool],
-    strictness: Optional[str],
-    fail_on_type_ambiguities: bool,
-    lint: bool,
-    analysis_tick_limit: int | None = None,
-    aux_operation: CheckAuxOperation | None = None,
-    aspf_trace_json: Path | None = None,
-    aspf_import_trace: Optional[List[Path]] = None,
-    aspf_equivalence_against: Optional[List[Path]] = None,
-    aspf_opportunities_json: Path | None = None,
-    aspf_state_json: Path | None = None,
-    aspf_import_state: Optional[List[Path]] = None,
-    aspf_delta_jsonl: Path | None = None,
-    aspf_semantic_surface: Optional[List[str]] = None,
-) -> JSONObject:
-    return check_contract.build_check_payload(
-        paths=paths,
-        report=report,
-        fail_on_violations=fail_on_violations,
-        root=root,
-        config=config,
-        baseline=baseline,
-        baseline_write=baseline_write,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=artifact_flags,
-        delta_options=delta_options,
-        exclude=exclude,
-        filter_bundle=filter_bundle,
-        allow_external=allow_external,
-        strictness=strictness,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint,
-        analysis_tick_limit=analysis_tick_limit,
-        aux_operation=aux_operation,
-        aspf_trace_json=aspf_trace_json,
-        aspf_import_trace=aspf_import_trace,
-        aspf_equivalence_against=aspf_equivalence_against,
-        aspf_opportunities_json=aspf_opportunities_json,
-        aspf_state_json=aspf_state_json,
-        aspf_import_state=aspf_import_state,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_semantic_surface=aspf_semantic_surface,
-    )
+build_check_payload = check_contract.build_check_payload
 
 
 
 
-def _check_derived_artifacts(
-    *,
-    report: Path,
-    decision_snapshot: Path | None,
-    artifact_flags: CheckArtifactFlags,
-    emit_test_obsolescence_state: bool,
-    emit_test_obsolescence_delta: bool,
-    emit_test_annotation_drift_delta: bool,
-    emit_ambiguity_delta: bool,
-    emit_ambiguity_state: bool,
-    aspf_trace_json: Path | None,
-    aspf_opportunities_json: Path | None,
-    aspf_state_json: Path | None,
-    aspf_delta_jsonl: Path | None,
-    aspf_equivalence_enabled: bool,
-) -> list[str]:
-    derived = [str(report), "artifacts/out/execution_plan.json"]
-    if decision_snapshot is not None:
-        derived.append(str(decision_snapshot))
-    if artifact_flags.emit_test_obsolescence:
-        derived.append("artifacts/out/test_obsolescence_report.json")
-    if emit_test_obsolescence_state:
-        derived.append("artifacts/out/test_obsolescence_state.json")
-    if emit_test_obsolescence_delta:
-        derived.append("artifacts/out/test_obsolescence_delta.json")
-    if artifact_flags.emit_test_evidence_suggestions:
-        derived.append("artifacts/out/test_evidence_suggestions.json")
-    if artifact_flags.emit_call_clusters:
-        derived.append("artifacts/out/call_clusters.json")
-    if artifact_flags.emit_call_cluster_consolidation:
-        derived.append("artifacts/out/call_cluster_consolidation.json")
-    if artifact_flags.emit_test_annotation_drift:
-        derived.append("artifacts/out/test_annotation_drift.json")
-    if artifact_flags.emit_semantic_coverage_map:
-        derived.append("artifacts/out/semantic_coverage_map.json")
-    if emit_test_annotation_drift_delta:
-        derived.append("artifacts/out/test_annotation_drift_delta.json")
-    if emit_ambiguity_delta:
-        derived.append("artifacts/out/ambiguity_delta.json")
-    if emit_ambiguity_state:
-        derived.append("artifacts/out/ambiguity_state.json")
-    aspf_enabled = (
-        aspf_trace_json is not None
-        or aspf_opportunities_json is not None
-        or aspf_state_json is not None
-        or aspf_equivalence_enabled
-    )
-    if aspf_enabled:
-        derived.append(
-            str(aspf_trace_json)
-            if aspf_trace_json is not None
-            else "artifacts/out/aspf_trace.json"
-        )
-        derived.append("artifacts/out/aspf_equivalence.json")
-        derived.append(
-            str(aspf_opportunities_json)
-            if aspf_opportunities_json is not None
-            else "artifacts/out/aspf_opportunities.json"
-        )
-        derived.append(
-            str(aspf_state_json)
-            if aspf_state_json is not None
-            else "artifacts/out/aspf_state.json"
-        )
-        derived.append(
-            str(aspf_delta_jsonl)
-            if aspf_delta_jsonl is not None
-            else "artifacts/out/aspf_delta.jsonl"
-        )
-    return derived
+_check_derived_artifacts = _check_derived_artifacts_impl
 
 
-def build_check_execution_plan_request(
-    *,
-    payload: JSONObject,
-    report: Path,
-    decision_snapshot: Path | None,
-    baseline: Path | None,
-    baseline_write: bool,
-    policy: CheckPolicyFlags,
-    profile: str,
-    artifact_flags: CheckArtifactFlags,
-    emit_test_obsolescence_state: bool,
-    emit_test_obsolescence_delta: bool,
-    emit_test_annotation_drift_delta: bool,
-    emit_ambiguity_delta: bool,
-    emit_ambiguity_state: bool,
-    aspf_trace_json: Path | None = None,
-    aspf_opportunities_json: Path | None = None,
-    aspf_state_json: Path | None = None,
-    aspf_delta_jsonl: Path | None = None,
-    aspf_equivalence_enabled: bool = False,
-) -> ExecutionPlanRequest:
-    operations = [DATAFLOW_COMMAND, CHECK_COMMAND]
-    obligations = ExecutionPlanObligations(
-        preconditions=[
-            "input paths resolve under root",
-            "analysis timeout budget is configured",
-        ],
-        postconditions=[
-            "exit_code reflects policy gates",
-            "execution plan artifact is emitted",
-        ],
-    )
-    baseline_mode = "read"
-    if baseline is None:
-        baseline_mode = "none"
-    elif baseline_write:
-        baseline_mode = "write"
-    policy_metadata = ExecutionPlanPolicyMetadata(
-        deadline={
-            "analysis_timeout_ticks": int(payload.get("analysis_timeout_ticks") or 0),
-            "analysis_timeout_tick_ns": int(payload.get("analysis_timeout_tick_ns") or 0),
-        },
-        baseline_mode=baseline_mode,
-        docflow_mode="disabled",
-    )
-    plan = ExecutionPlan(
-        requested_operations=operations,
-        inputs=dict(payload),
-        derived_artifacts=_check_derived_artifacts(
-            report=report,
-            decision_snapshot=decision_snapshot,
-            artifact_flags=artifact_flags,
-            emit_test_obsolescence_state=emit_test_obsolescence_state,
-            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-            emit_ambiguity_delta=emit_ambiguity_delta,
-            emit_ambiguity_state=emit_ambiguity_state,
-            aspf_trace_json=aspf_trace_json,
-            aspf_opportunities_json=aspf_opportunities_json,
-            aspf_state_json=aspf_state_json,
-            aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_equivalence_enabled=aspf_equivalence_enabled,
-        ),
-        obligations=obligations,
-        policy_metadata=policy_metadata,
-    )
-    plan_payload = plan.as_json_dict()
-    plan_payload["policy_metadata"] = dict(plan_payload["policy_metadata"])
-    plan_payload["policy_metadata"]["check_profile"] = profile
-    plan_payload["policy_metadata"]["fail_on_violations"] = bool(
-        policy.fail_on_violations
-    )
-    plan_payload["policy_metadata"]["fail_on_type_ambiguities"] = bool(
-        policy.fail_on_type_ambiguities
-    )
-    plan_payload["policy_metadata"]["lint"] = bool(policy.lint)
-    return ExecutionPlanRequest(
-        requested_operations=list(plan_payload["requested_operations"]),
-        inputs=dict(plan_payload["inputs"]),
-        derived_artifacts=list(plan_payload["derived_artifacts"]),
-        obligations=dict(plan_payload["obligations"]),
-        policy_metadata=dict(plan_payload["policy_metadata"]),
-    )
+build_check_execution_plan_request = cast(
+    Callable[..., ExecutionPlanRequest],
+    partial(
+        _build_check_execution_plan_request_impl,
+        check_derived_artifacts_fn=_check_derived_artifacts,
+        execution_plan_request_ctor=ExecutionPlanRequest,
+        dataflow_command=DATAFLOW_COMMAND,
+        check_command=CHECK_COMMAND,
+    ),
+)
 def parse_dataflow_args_or_exit(
     argv: list[str],
     *,
@@ -1176,200 +816,20 @@ def parse_dataflow_args_or_exit(
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    report_target = _normalize_optional_output_target(opts.report)
-    decision_snapshot_target = _normalize_optional_output_target(
-        opts.emit_decision_snapshot
+    return _build_dataflow_payload_impl(
+        opts,
+        normalize_optional_output_target_fn=_normalize_optional_output_target,
+        build_dataflow_payload_common_fn=_build_dataflow_payload_common,
     )
-    dot_target = _normalize_optional_output_target(opts.dot)
-    synthesis_plan_target = _normalize_optional_output_target(opts.synthesis_plan)
-    synthesis_protocols_target = _normalize_optional_output_target(
-        opts.synthesis_protocols
-    )
-    refactor_plan_json_target = _normalize_optional_output_target(opts.refactor_plan_json)
-    fingerprint_synth_json_target = _normalize_optional_output_target(
-        opts.fingerprint_synth_json
-    )
-    fingerprint_provenance_json_target = _normalize_optional_output_target(
-        opts.fingerprint_provenance_json
-    )
-    fingerprint_deadness_json_target = _normalize_optional_output_target(
-        opts.fingerprint_deadness_json
-    )
-    fingerprint_coherence_json_target = _normalize_optional_output_target(
-        opts.fingerprint_coherence_json
-    )
-    fingerprint_rewrite_plans_json_target = _normalize_optional_output_target(
-        opts.fingerprint_rewrite_plans_json
-    )
-    fingerprint_exception_obligations_json_target = _normalize_optional_output_target(
-        opts.fingerprint_exception_obligations_json
-    )
-    fingerprint_handledness_json_target = _normalize_optional_output_target(
-        opts.fingerprint_handledness_json
-    )
-    aspf_trace_json_target = _normalize_optional_output_target(opts.aspf_trace_json)
-    aspf_opportunities_json_target = _normalize_optional_output_target(
-        opts.aspf_opportunities_json
-    )
-    aspf_state_json_target = _normalize_optional_output_target(opts.aspf_state_json)
-    aspf_delta_jsonl_target = _normalize_optional_output_target(opts.aspf_delta_jsonl)
-    structure_tree_target = _normalize_optional_output_target(opts.emit_structure_tree)
-    structure_metrics_target = _normalize_optional_output_target(
-        opts.emit_structure_metrics
-    )
-    aspf_import_trace = (
-        check_contract.split_csv_entries(opts.aspf_import_trace)
-        if opts.aspf_import_trace
-        else []
-    )
-    aspf_equivalence_against = (
-        check_contract.split_csv_entries(opts.aspf_equivalence_against)
-        if opts.aspf_equivalence_against
-        else []
-    )
-    aspf_import_state = (
-        check_contract.split_csv_entries(opts.aspf_import_state)
-        if opts.aspf_import_state
-        else []
-    )
-    aspf_semantic_surface = (
-        check_contract.split_csv_entries(opts.aspf_semantic_surface)
-        if opts.aspf_semantic_surface
-        else []
-    )
-    payload = _build_dataflow_payload_common(
-        options=DataflowPayloadCommonOptions(
-            paths=opts.paths,
-            root=Path(opts.root),
-            config=Path(opts.config) if opts.config is not None else None,
-            report=Path(report_target) if report_target else None,
-            fail_on_violations=opts.fail_on_violations,
-            fail_on_type_ambiguities=opts.fail_on_type_ambiguities,
-            baseline=Path(opts.baseline) if opts.baseline else None,
-            baseline_write=opts.baseline_write if opts.baseline else None,
-            decision_snapshot=Path(decision_snapshot_target)
-            if decision_snapshot_target
-            else None,
-            exclude=opts.exclude,
-            filter_bundle=DataflowFilterBundle(
-                ignore_params_csv=opts.ignore_params,
-                transparent_decorators_csv=opts.transparent_decorators,
-            ),
-            allow_external=opts.allow_external,
-            strictness=opts.strictness,
-            lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
-            language=opts.language,
-            ingest_profile=opts.ingest_profile,
-            aspf_trace_json=Path(aspf_trace_json_target)
-            if aspf_trace_json_target
-            else None,
-            aspf_import_trace=[Path(path) for path in aspf_import_trace],
-            aspf_equivalence_against=[Path(path) for path in aspf_equivalence_against],
-            aspf_opportunities_json=Path(aspf_opportunities_json_target)
-            if aspf_opportunities_json_target
-            else None,
-            aspf_state_json=Path(aspf_state_json_target)
-            if aspf_state_json_target
-            else None,
-            aspf_import_state=[Path(path) for path in aspf_import_state],
-            aspf_delta_jsonl=Path(aspf_delta_jsonl_target)
-            if aspf_delta_jsonl_target
-            else None,
-            aspf_semantic_surface=list(aspf_semantic_surface),
-        )
-    )
-    payload.update(
-        {
-        "dot": dot_target,
-        "no_recursive": opts.no_recursive,
-        "max_components": opts.max_components,
-        "type_audit": opts.type_audit,
-        "type_audit_report": opts.type_audit_report,
-        "type_audit_max": opts.type_audit_max,
-        "synthesis_plan": synthesis_plan_target,
-        "synthesis_report": opts.synthesis_report,
-        "synthesis_max_tier": opts.synthesis_max_tier,
-        "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
-        "synthesis_allow_singletons": opts.synthesis_allow_singletons,
-        "synthesis_protocols": synthesis_protocols_target,
-        "synthesis_protocols_kind": opts.synthesis_protocols_kind,
-        "refactor_plan": opts.refactor_plan,
-        "refactor_plan_json": refactor_plan_json_target,
-        "fingerprint_synth_json": fingerprint_synth_json_target,
-        "fingerprint_provenance_json": fingerprint_provenance_json_target,
-        "fingerprint_deadness_json": fingerprint_deadness_json_target,
-        "fingerprint_coherence_json": fingerprint_coherence_json_target,
-        "fingerprint_rewrite_plans_json": fingerprint_rewrite_plans_json_target,
-        "fingerprint_exception_obligations_json": (
-            fingerprint_exception_obligations_json_target
-        ),
-        "fingerprint_handledness_json": fingerprint_handledness_json_target,
-        "synthesis_merge_overlap": opts.synthesis_merge_overlap,
-        "structure_tree": structure_tree_target,
-        "structure_metrics": structure_metrics_target,
-        "proof_mode": getattr(opts, "proof_mode", None),
-        "order_policy": getattr(opts, "order_policy", None),
-        "order_telemetry": getattr(opts, "order_telemetry", None),
-        "order_enforce_canonical_allowlist": getattr(opts, "order_enforce_canonical_allowlist", None),
-        "order_deadline_probe": getattr(opts, "order_deadline_probe", None),
-        "derivation_cache_max_entries": getattr(opts, "derivation_cache_max_entries", None),
-        "projection_registry_gas_limit": getattr(opts, "projection_registry_gas_limit", None),
-        }
-    )
-    return payload
 
 
-def build_refactor_payload(
-    *,
-    input_payload: Optional[JSONObject] = None,
-    protocol_name: Optional[str],
-    bundle: Optional[List[str]],
-    field: Optional[List[str]],
-    target_path: Optional[Path],
-    target_functions: Optional[List[str]],
-    compatibility_shim: bool,
-    compatibility_shim_warnings: bool,
-    compatibility_shim_overloads: bool,
-    ambient_rewrite: bool,
-    rationale: Optional[str],
-) -> JSONObject:
-    check_deadline()
-    if input_payload is not None:
-        return input_payload
-    if protocol_name is None or target_path is None:
-        raise typer.BadParameter(
-            "Provide --protocol-name and --target-path or use --input."
-        )
-    field_specs: list[dict[str, str | None]] = []
-    for spec in field or []:
-        check_deadline()
-        name, _, hint = spec.partition(":")
-        name = name.strip()
-        if not name:
-            continue
-        type_hint = hint.strip() or None
-        field_specs.append({"name": name, "type_hint": type_hint})
-    if not bundle and field_specs:
-        bundle = [spec["name"] for spec in field_specs]
-    compatibility_shim_payload: bool | dict[str, bool]
-    if compatibility_shim:
-        compatibility_shim_payload = {
-            "enabled": True,
-            "emit_deprecation_warning": compatibility_shim_warnings,
-            "emit_overload_stubs": compatibility_shim_overloads,
-        }
-    else:
-        compatibility_shim_payload = False
-    return {
-        "protocol_name": protocol_name,
-        "bundle": bundle or [],
-        "fields": field_specs,
-        "target_path": str(target_path),
-        "target_functions": target_functions or [],
-        "compatibility_shim": compatibility_shim_payload,
-        "ambient_rewrite": ambient_rewrite,
-        "rationale": rationale,
-    }
+build_refactor_payload = cast(
+    Callable[..., JSONObject],
+    partial(
+        _build_refactor_payload_impl,
+        check_deadline_fn=check_deadline,
+    ),
+)
 
 
 def dispatch_command(
@@ -1382,220 +842,38 @@ def dispatch_command(
     execution_plan_request: ExecutionPlanRequest | None = None,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
-    def _ordered_result(
-        value: Mapping[str, object],
-    ) -> JSONObject:
-        return boundary_order.normalize_boundary_mapping_once(
-            value,
-            source=f"cli.dispatch_command.{command}.result",
-        )
-
-    ticks, tick_ns = _cli_timeout_ticks()
-    payload = boundary_order.normalize_boundary_mapping_once(
-        payload,
-        source=f"cli.dispatch_command.{command}.payload_in",
-    )
-    if (
-        "analysis_timeout_ticks" not in payload
-        and "analysis_timeout_ms" not in payload
-        and "analysis_timeout_seconds" not in payload
-    ):
-        payload = boundary_order.apply_boundary_updates_once(
-            payload,
-            {
-                "analysis_timeout_ticks": int(ticks),
-                "analysis_timeout_tick_ns": int(tick_ns),
-            },
-            source=f"cli.dispatch_command.{command}.payload_timeout_defaults",
-        )
-    if execution_plan_request is not None:
-        execution_plan_payload = execution_plan_request.to_payload()
-        execution_plan_inputs = execution_plan_payload.get("inputs")
-        if isinstance(execution_plan_inputs, Mapping):
-            merged_inputs = boundary_order.apply_boundary_updates_once(
-                execution_plan_inputs,
-                payload,
-                source=f"cli.dispatch_command.{command}.execution_plan_inputs",
-            )
-            execution_plan_payload["inputs"] = merged_inputs
-        deadline_metadata = execution_plan_payload.get("policy_metadata")
-        if isinstance(deadline_metadata, Mapping):
-            policy_metadata = dict(deadline_metadata)
-            deadline = policy_metadata.get("deadline")
-            deadline_payload = dict(deadline) if isinstance(deadline, Mapping) else {}
-            deadline_payload = boundary_order.apply_boundary_updates_once(
-                deadline_payload,
-                {
-                    "analysis_timeout_ticks": int(
-                        payload.get("analysis_timeout_ticks") or 0
-                    ),
-                    "analysis_timeout_tick_ns": int(
-                        payload.get("analysis_timeout_tick_ns") or 0
-                    ),
-                },
-                source=f"cli.dispatch_command.{command}.execution_plan_deadline",
-            )
-            policy_metadata["deadline"] = deadline_payload
-            execution_plan_payload["policy_metadata"] = policy_metadata
-        execution_plan_payload = boundary_order.normalize_boundary_mapping_once(
-            execution_plan_payload,
-            source=f"cli.dispatch_command.{command}.execution_plan_payload",
-        )
-        payload = boundary_order.apply_boundary_updates_once(
-            payload,
-            {"execution_plan_request": execution_plan_payload},
-            source=f"cli.dispatch_command.{command}.payload_execution_plan",
-        )
-    payload = boundary_order.enforce_boundary_mapping_ordered(
-        payload,
-        source=f"cli.dispatch_command.{command}.payload_out",
-    )
-    request = CommandRequest(command, [payload])
-    transport = transport_policy.resolve_command_transport(command=command, runner=runner)
-    resolved = transport.runner
-    if resolved is run_command:
-        factory = process_factory or subprocess.Popen
-        raw = resolved(
-            request,
-            root=root,
-            timeout_ticks=ticks,
-            timeout_tick_ns=tick_ns,
-            process_factory=factory,
-            notification_callback=notification_callback,
-        )
-    elif resolved is run_command_direct:
-        raw = resolved(
-            request,
-            root=root,
-            notification_callback=notification_callback,
-        )
-    else:
-        if notification_callback is not None:
-            try:
-                params = inspect.signature(resolved).parameters
-            except (TypeError, ValueError):
-                params = {}
-            if "notification_callback" in params or any(
-                parameter.kind is inspect.Parameter.VAR_KEYWORD
-                for parameter in params.values()
-            ):
-                raw = resolved(
-                    request,
-                    root=root,
-                    notification_callback=notification_callback,
-                )
-            else:
-                raw = resolved(request, root=root)
-        else:
-            raw = resolved(request, root=root)
-    if not isinstance(raw, Mapping):
-        never(
-            "command returned non-mapping payload",
-            command=command,
-            result_type=type(raw).__name__,
-        )
-    return _ordered_result(raw)
-
-
-def run_check(
-    *,
-    paths: Optional[List[Path]],
-    report: Optional[Path],
-    policy: CheckPolicyFlags,
-    root: Path,
-    config: Optional[Path],
-    baseline: Path | None,
-    baseline_write: bool,
-    decision_snapshot: Path | None,
-    artifact_flags: CheckArtifactFlags,
-    delta_options: CheckDeltaOptions,
-    exclude: Optional[List[str]],
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: Optional[bool],
-    strictness: Optional[str],
-    analysis_tick_limit: int | None = None,
-    aux_operation: CheckAuxOperation | None = None,
-    aspf_trace_json: Path | None = None,
-    aspf_import_trace: Optional[List[Path]] = None,
-    aspf_equivalence_against: Optional[List[Path]] = None,
-    aspf_opportunities_json: Path | None = None,
-    aspf_state_json: Path | None = None,
-    aspf_import_state: Optional[List[Path]] = None,
-    aspf_delta_jsonl: Path | None = None,
-    aspf_semantic_surface: Optional[List[str]] = None,
-    runner: Runner = run_command,
-    notification_callback: Callable[[JSONObject], None] | None = None,
-) -> JSONObject:
-    if filter_bundle is None:
-        filter_bundle = DataflowFilterBundle(None, None)
-    # dataflow-bundle: filter_bundle
-    resolved_report = _resolve_check_report_path(report, root=root)
-    resolved_report.parent.mkdir(parents=True, exist_ok=True)
-    payload = build_check_payload(
-        paths=paths,
-        report=resolved_report,
-        fail_on_violations=policy.fail_on_violations,
-        root=root,
-        config=config,
-        baseline=baseline,
-        baseline_write=baseline_write if baseline is not None else False,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=artifact_flags,
-        delta_options=delta_options,
-        exclude=exclude,
-        filter_bundle=filter_bundle,
-        allow_external=allow_external,
-        strictness=strictness,
-        fail_on_type_ambiguities=policy.fail_on_type_ambiguities,
-        lint=policy.lint,
-        analysis_tick_limit=analysis_tick_limit,
-        aux_operation=aux_operation,
-        aspf_trace_json=aspf_trace_json,
-        aspf_import_trace=aspf_import_trace,
-        aspf_equivalence_against=aspf_equivalence_against,
-        aspf_opportunities_json=aspf_opportunities_json,
-        aspf_state_json=aspf_state_json,
-        aspf_import_state=aspf_import_state,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_semantic_surface=aspf_semantic_surface,
-    )
-    execution_plan_request = build_check_execution_plan_request(
-        payload=payload,
-        report=resolved_report,
-        decision_snapshot=decision_snapshot,
-        baseline=baseline,
-        baseline_write=baseline_write,
-        policy=policy,
-        profile="strict",
-        artifact_flags=artifact_flags,
-        emit_test_obsolescence_state=delta_options.emit_test_obsolescence_state,
-        emit_test_obsolescence_delta=delta_options.emit_test_obsolescence_delta,
-        emit_test_annotation_drift_delta=delta_options.emit_test_annotation_drift_delta,
-        emit_ambiguity_delta=delta_options.emit_ambiguity_delta,
-        emit_ambiguity_state=delta_options.emit_ambiguity_state,
-        aspf_trace_json=aspf_trace_json,
-        aspf_opportunities_json=aspf_opportunities_json,
-        aspf_state_json=aspf_state_json,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_equivalence_enabled=bool(
-            aspf_trace_json
-            or aspf_import_trace
-            or aspf_equivalence_against
-            or aspf_opportunities_json
-            or aspf_state_json
-            or aspf_import_state
-            or aspf_delta_jsonl
-            or aspf_semantic_surface
-        ),
-    )
-    return dispatch_command(
-        command=DATAFLOW_COMMAND,
+    return _dispatch_command_impl(
+        command=command,
         payload=payload,
         root=root,
         runner=runner,
+        process_factory=process_factory,
         execution_plan_request=execution_plan_request,
         notification_callback=notification_callback,
+        cli_timeout_ticks_fn=_cli_timeout_ticks,
+        normalize_boundary_mapping_once_fn=boundary_order.normalize_boundary_mapping_once,
+        apply_boundary_updates_once_fn=boundary_order.apply_boundary_updates_once,
+        enforce_boundary_mapping_ordered_fn=boundary_order.enforce_boundary_mapping_ordered,
+        command_request_ctor=CommandRequest,
+        resolve_command_transport_fn=transport_policy.resolve_command_transport,
+        default_lsp_runner=run_command,
+        direct_runner=run_command_direct,
+        never_fn=never,
     )
+
+
+run_check = cast(
+    Callable[..., JSONObject],
+    partial(
+        _run_check_impl,
+        runner=run_command,
+        resolve_check_report_path_fn=_resolve_check_report_path,
+        build_check_payload_fn=build_check_payload,
+        build_check_execution_plan_request_fn=build_check_execution_plan_request,
+        dispatch_command_fn=dispatch_command,
+        dataflow_command=DATAFLOW_COMMAND,
+    ),
+)
 
 
 def _run_with_timeout_retries(
@@ -1614,134 +892,17 @@ def _run_with_timeout_retries(
 
 
 def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) -> None:
-    with _cli_deadline_scope():
-        normalized_result = LegacyDataflowMonolithResponseDTO.model_validate(
-            {
-                "exit_code": int(result.get("exit_code", 0) or 0),
-                "timeout": bool(result.get("timeout", False)),
-                "analysis_state": result.get("analysis_state"),
-                "errors": result.get("errors") or [],
-                "lint_lines": result.get("lint_lines") or [],
-                "lint_entries": result.get("lint_entries") or [],
-                "payload": result,
-            }
-        ).model_dump()
-        lint_lines = normalized_result.get("lint_lines", []) or []
-        lint_entries_raw = normalized_result.get("lint_entries")
-        lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else None
-        _emit_lint_outputs(
-            lint_lines,
-            lint=opts.lint,
-            lint_jsonl=opts.lint_jsonl,
-            lint_sarif=opts.lint_sarif,
-            lint_entries=lint_entries,
-        )
-        if opts.type_audit:
-            suggestions = result.get("type_suggestions", [])
-            ambiguities = result.get("type_ambiguities", [])
-            if suggestions:
-                typer.echo("Type tightening candidates:")
-                for line in suggestions[: opts.type_audit_max]:
-                    check_deadline()
-                    typer.echo(f"- {line}")
-            if ambiguities:
-                typer.echo("Type ambiguities (conflicting downstream expectations):")
-                for line in ambiguities[: opts.type_audit_max]:
-                    check_deadline()
-                    typer.echo(f"- {line}")
-        if _is_stdout_target(opts.dot) and "dot" in result:
-            _write_text_to_target(_STDOUT_PATH, str(result["dot"]), ensure_trailing_newline=True)
-        if _is_stdout_target(opts.synthesis_plan) and "synthesis_plan" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["synthesis_plan"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.synthesis_protocols) and "synthesis_protocols" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                str(result["synthesis_protocols"]),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.refactor_plan_json) and "refactor_plan" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["refactor_plan"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.fingerprint_synth_json)
-            and "fingerprint_synth_registry" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_synth_registry"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.fingerprint_provenance_json)
-            and "fingerprint_provenance" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_provenance"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.fingerprint_deadness_json) and "fingerprint_deadness" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_deadness"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if _is_stdout_target(opts.fingerprint_coherence_json) and "fingerprint_coherence" in result:
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_coherence"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.fingerprint_rewrite_plans_json)
-            and "fingerprint_rewrite_plans" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_rewrite_plans"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.fingerprint_exception_obligations_json)
-            and "fingerprint_exception_obligations" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(
-                    result["fingerprint_exception_obligations"],
-                    indent=2,
-                    sort_keys=False,
-                ),
-                ensure_trailing_newline=True,
-            )
-        if (
-            _is_stdout_target(opts.fingerprint_handledness_json)
-            and "fingerprint_handledness" in result
-        ):
-            _write_text_to_target(
-                _STDOUT_PATH,
-                json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=False),
-                ensure_trailing_newline=True,
-            )
-        stdout_json_targets = (
-            (opts.emit_structure_tree, "structure_tree"),
-            (opts.emit_structure_metrics, "structure_metrics"),
-            (opts.emit_decision_snapshot, "decision_snapshot"),
-            (opts.aspf_trace_json, "aspf_trace"),
-            (opts.aspf_trace_json, "aspf_equivalence"),
-            (opts.aspf_opportunities_json, "aspf_opportunities"),
-            (opts.aspf_state_json, "aspf_state"),
-        )
-        for output_target, result_key in stdout_json_targets:
-            if result_key in result and _is_stdout_target(output_target):
-                _emit_result_json_to_stdout(payload=result[result_key])
+    return _emit_dataflow_result_outputs_impl(
+        result,
+        opts,
+        cli_deadline_scope_factory=_cli_deadline_scope,
+        emit_lint_outputs_fn=_emit_lint_outputs,
+        is_stdout_target_fn=_is_stdout_target,
+        write_text_to_target_fn=_write_text_to_target,
+        emit_result_json_to_stdout_fn=_emit_result_json_to_stdout,
+        stdout_path=_STDOUT_PATH,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
@@ -1777,119 +938,26 @@ def _raw_profile_unsupported_flags(ctx: typer.Context) -> list[str]:
     ]
 
 
-def _check_raw_profile_args(
-    *,
-    ctx: typer.Context,
-    paths: Optional[List[Path]],
-    report: Optional[Path],
-    fail_on_violations: bool,
-    root: Path,
-    config: Optional[Path],
-    decision_snapshot: Optional[Path],
-    baseline: Optional[Path],
-    baseline_write: bool,
-    exclude: Optional[List[str]],
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: Optional[bool],
-    strictness: Optional[str],
-    fail_on_type_ambiguities: bool,
-    lint: bool,
-    lint_jsonl: Optional[Path],
-    lint_sarif: Optional[Path],
-) -> list[str]:
-    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
-    argv = [str(path) for path in (paths or [])]
-    if _param_is_command_line(ctx, "root"):
-        argv.extend(["--root", str(root)])
-    if _param_is_command_line(ctx, "config") and config is not None:
-        argv.extend(["--config", str(config)])
-    if _param_is_command_line(ctx, "report") and report is not None:
-        argv.extend(["--report", str(report)])
-    if _param_is_command_line(ctx, "decision_snapshot") and decision_snapshot is not None:
-        argv.extend(["--emit-decision-snapshot", str(decision_snapshot)])
-    if _param_is_command_line(ctx, "baseline") and baseline is not None:
-        argv.extend(["--baseline", str(baseline)])
-    if _param_is_command_line(ctx, "baseline_write") and baseline_write:
-        argv.append("--baseline-write")
-    if _param_is_command_line(ctx, "exclude"):
-        for entry in deadline_loop_iter(exclude or []):
-            argv.extend(["--exclude", entry])
-    if (
-        _param_is_command_line(ctx, "ignore_params_csv")
-        and resolved_filter_bundle.ignore_params_csv is not None
-    ):
-        argv.extend(["--ignore-params", resolved_filter_bundle.ignore_params_csv])
-    if (
-        _param_is_command_line(ctx, "transparent_decorators_csv")
-        and resolved_filter_bundle.transparent_decorators_csv is not None
-    ):
-        argv.extend(["--transparent-decorators", resolved_filter_bundle.transparent_decorators_csv])
-    if _param_is_command_line(ctx, "allow_external") and allow_external is not None:
-        argv.append("--allow-external" if allow_external else "--no-allow-external")
-    if _param_is_command_line(ctx, "strictness") and strictness is not None:
-        argv.extend(["--strictness", strictness])
-    if _param_is_command_line(ctx, "fail_on_violations") and fail_on_violations:
-        argv.append("--fail-on-violations")
-    if _param_is_command_line(ctx, "fail_on_type_ambiguities") and fail_on_type_ambiguities:
-        argv.append("--fail-on-type-ambiguities")
-    if _param_is_command_line(ctx, "lint") and lint:
-        argv.append("--lint")
-    if _param_is_command_line(ctx, "lint_jsonl") and lint_jsonl is not None:
-        argv.extend(["--lint-jsonl", str(lint_jsonl)])
-    if _param_is_command_line(ctx, "lint_sarif") and lint_sarif is not None:
-        argv.extend(["--lint-sarif", str(lint_sarif)])
-    return argv
+_check_raw_profile_args = cast(
+    Callable[..., list[str]],
+    partial(
+        _check_raw_profile_args_impl,
+        param_is_command_line_fn=_param_is_command_line,
+        deadline_loop_iter_fn=deadline_loop_iter,
+        dataflow_filter_bundle_ctor=DataflowFilterBundle,
+    ),
+)
 
 
-def _run_check_raw_profile(
-    *,
-    ctx: typer.Context,
-    paths: Optional[List[Path]],
-    report: Optional[Path],
-    fail_on_violations: bool,
-    root: Path,
-    config: Optional[Path],
-    decision_snapshot: Optional[Path],
-    baseline: Optional[Path],
-    baseline_write: bool,
-    exclude: Optional[List[str]],
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: Optional[bool],
-    strictness: Optional[str],
-    fail_on_type_ambiguities: bool,
-    lint: bool,
-    lint_jsonl: Optional[Path],
-    lint_sarif: Optional[Path],
-    run_dataflow_raw_argv_fn: Callable[[list[str]], None] | None = None,
-) -> None:
-    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
-    unsupported = _raw_profile_unsupported_flags(ctx)
-    if unsupported:
-        rendered = ", ".join(unsupported)
-        raise typer.BadParameter(
-            f"--profile raw does not support check-only options: {rendered}"
-        )
-    raw_args = _check_raw_profile_args(
-        ctx=ctx,
-        paths=paths,
-        report=report,
-        fail_on_violations=fail_on_violations,
-        root=root,
-        config=config,
-        decision_snapshot=decision_snapshot,
-        baseline=baseline,
-        baseline_write=baseline_write,
-        exclude=exclude,
-        filter_bundle=filter_bundle,
-        allow_external=allow_external,
-        strictness=strictness,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint,
-        lint_jsonl=lint_jsonl,
-        lint_sarif=lint_sarif,
-    )
-    resolved_run = run_dataflow_raw_argv_fn or _run_dataflow_raw_argv
-    resolved_run(raw_args + list(ctx.args))
+_run_check_raw_profile = cast(
+    Callable[..., None],
+    partial(
+        _run_check_raw_profile_impl,
+        raw_profile_unsupported_flags_fn=_raw_profile_unsupported_flags,
+        check_raw_profile_args_fn=_check_raw_profile_args,
+        default_run_dataflow_raw_argv_fn=lambda argv: _run_dataflow_raw_argv(argv),
+    ),
+)
 
 
 def _nonzero_exit_causes(result: JSONObject) -> list[str]:
@@ -2191,58 +1259,14 @@ def _check_lint_mode(
     return lint_enabled, line_enabled
 
 
-def _build_status_watch_options(
-    *,
-    status_watch: bool,
-    run_id: str | None,
-    branch: str | None,
-    workflow: str | None,
-    status: str | None,
-    prefer_active: bool | None,
-    download_artifacts_on_failure: bool | None,
-    artifact_output_root: Path | None,
-    artifact_name: list[str] | None,
-    collect_failed_logs: bool | None,
-    summary_json: Path | None,
-) -> tooling_ci_watch.StatusWatchOptions | None:
-    has_prefixed_options = any(
-        (
-            run_id is not None,
-            branch is not None,
-            workflow is not None,
-            status is not None,
-            prefer_active is not None,
-            download_artifacts_on_failure is not None,
-            artifact_output_root is not None,
-            bool(artifact_name),
-            collect_failed_logs is not None,
-            summary_json is not None,
-        )
-    )
-    if not status_watch:
-        if has_prefixed_options:
-            raise typer.BadParameter(
-                "--status-watch-* options require --status-watch."
-            )
-        return None
-    return tooling_ci_watch.StatusWatchOptions(
-        branch=str(branch or "stage"),
-        run_id=str(run_id) if run_id else None,
-        status=str(status) if status else None,
-        workflow=str(workflow) if workflow else None,
-        prefer_active=True if prefer_active is None else bool(prefer_active),
-        download_artifacts_on_failure=(
-            True
-            if download_artifacts_on_failure is None
-            else bool(download_artifacts_on_failure)
-        ),
-        artifact_output_root=artifact_output_root or _DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
-        artifact_names=tuple(str(name) for name in (artifact_name or [])),
-        collect_failed_logs=(
-            True if collect_failed_logs is None else bool(collect_failed_logs)
-        ),
-        summary_json=summary_json,
-    )
+_build_status_watch_options = cast(
+    Callable[..., tooling_ci_watch.StatusWatchOptions | None],
+    partial(
+        _build_status_watch_options_impl,
+        default_status_watch_artifact_root=_DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
+        status_watch_options_ctor=tooling_ci_watch.StatusWatchOptions,
+    ),
+)
 
 
 def _emit_status_watch_outcome(
@@ -2288,227 +1312,39 @@ def _run_ci_watch(
     return tooling_ci_watch.run_watch(options=options)
 
 
-def _run_check_command(
-    *,
-    ctx: typer.Context,
-    paths: list[Path] | None,
-    report: Path | None,
-    root: Path,
-    config: Path | None,
-    baseline: Path | None,
-    baseline_write: bool,
-    decision_snapshot: Path | None,
-    artifact_flags: CheckArtifactFlags,
-    delta_options: CheckDeltaOptions,
-    exclude: list[str] | None,
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: bool | None,
-    strictness: str | None,
-    analysis_budget_checks: int | None,
-    gate: CheckGateMode,
-    lint_mode: CheckLintMode,
-    lint_jsonl_out: Path | None,
-    lint_sarif_out: Path | None,
-    aspf_trace_json: Path | None,
-    aspf_import_trace: list[Path] | None,
-    aspf_equivalence_against: list[Path] | None,
-    aspf_opportunities_json: Path | None,
-    aspf_state_json: Path | None,
-    aspf_import_state: list[Path] | None,
-    aspf_delta_jsonl: Path | None = None,
-    aspf_semantic_surface: list[str] | None = None,
-    aux_operation: CheckAuxOperation | None = None,
-    status_watch_options: tooling_ci_watch.StatusWatchOptions | None = None,
-) -> None:
-    fail_on_violations, fail_on_type_ambiguities = _check_gate_policy(gate)
-    lint_enabled, lint_line = _check_lint_mode(
-        lint_mode=lint_mode,
-        lint_jsonl_out=lint_jsonl_out,
-        lint_sarif_out=lint_sarif_out,
-    )
-    deps = _context_cli_deps(ctx)
-    timeline_header_emitted = False
-    last_phase_progress_signature: tuple[object, ...] | None = None
-    last_phase_event_seq: int | None = None
-
-    def _on_notification(notification: JSONObject) -> None:
-        nonlocal timeline_header_emitted
-        nonlocal last_phase_progress_signature
-        nonlocal last_phase_event_seq
-        phase_progress = _phase_progress_from_progress_notification(notification)
-        if not isinstance(phase_progress, Mapping):
-            return
-        event_seq = phase_progress.get("event_seq")
-        if isinstance(event_seq, int):
-            if last_phase_event_seq == event_seq:
-                return
-            last_phase_event_seq = event_seq
-        signature = progress_timeline.phase_progress_signature(phase_progress)
-        if signature == last_phase_progress_signature:
-            return
-        last_phase_progress_signature = signature
-        timeline_update = progress_timeline.phase_timeline_from_phase_progress(
-            phase_progress
-        )
-        row = str(timeline_update.get("row") or "")
-        header_value = timeline_update.get("header")
-        header = (
-            header_value
-            if not timeline_header_emitted
-            and isinstance(header_value, str)
-            and header_value
-            else None
-        )
-        _emit_phase_timeline_progress(header=header, row=row)
-        if header is not None:
-            timeline_header_emitted = True
-
-    result = _run_with_timeout_retries(
-        run_once=lambda: deps.run_check_fn(
-            paths=paths,
-            report=report,
-            policy=CheckPolicyFlags(
-                fail_on_violations=fail_on_violations,
-                fail_on_type_ambiguities=fail_on_type_ambiguities,
-                lint=lint_enabled,
-            ),
-            root=root,
-            config=config,
-            baseline=baseline,
-            baseline_write=baseline_write,
-            decision_snapshot=decision_snapshot,
-            artifact_flags=artifact_flags,
-            delta_options=delta_options,
-            exclude=exclude,
-            filter_bundle=filter_bundle,
-            allow_external=allow_external,
-            strictness=strictness,
-            analysis_tick_limit=analysis_budget_checks,
-            aspf_trace_json=aspf_trace_json,
-            aspf_import_trace=aspf_import_trace,
-            aspf_equivalence_against=aspf_equivalence_against,
-            aspf_opportunities_json=aspf_opportunities_json,
-            aspf_state_json=aspf_state_json,
-            aspf_import_state=aspf_import_state,
-            aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_semantic_surface=aspf_semantic_surface,
-            aux_operation=aux_operation,
-            notification_callback=_on_notification,
-        ),
-        root=Path(root),
-    )
-    with _cli_deadline_scope():
-        lint_lines = result.get("lint_lines", []) or []
-        _emit_lint_outputs(
-            lint_lines,
-            lint=lint_line,
-            lint_jsonl=lint_jsonl_out,
-            lint_sarif=lint_sarif_out,
-        )
-    _emit_analysis_resume_summary(result)
-    _emit_nonzero_exit_causes(result)
-    local_exit_code = int(result.get("exit_code", 0))
-    if local_exit_code != 0:
-        raise typer.Exit(code=local_exit_code)
-    if status_watch_options is None:
-        raise typer.Exit(code=local_exit_code)
-    try:
-        watch_result = deps.run_ci_watch_fn(status_watch_options)
-    except SystemExit as exc:
-        if isinstance(exc.code, str) and exc.code:
-            typer.secho(str(exc.code), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=int(exc.code) if isinstance(exc.code, int) else 1) from None
-    _emit_status_watch_outcome(result=watch_result, options=status_watch_options)
-    raise typer.Exit(code=watch_result.exit_code)
+_run_check_command = cast(
+    Callable[..., None],
+    partial(
+        _run_check_command_impl,
+        check_gate_policy_fn=_check_gate_policy,
+        check_lint_mode_fn=_check_lint_mode,
+        context_cli_deps_fn=_context_cli_deps,
+        phase_progress_from_progress_notification_fn=_phase_progress_from_progress_notification,
+        phase_progress_signature_fn=progress_timeline.phase_progress_signature,
+        phase_timeline_from_phase_progress_fn=progress_timeline.phase_timeline_from_phase_progress,
+        emit_phase_timeline_progress_fn=_emit_phase_timeline_progress,
+        run_with_timeout_retries_fn=_run_with_timeout_retries,
+        cli_deadline_scope_factory=_cli_deadline_scope,
+        emit_lint_outputs_fn=_emit_lint_outputs,
+        emit_analysis_resume_summary_fn=_emit_analysis_resume_summary,
+        emit_nonzero_exit_causes_fn=_emit_nonzero_exit_causes,
+        emit_status_watch_outcome_fn=_emit_status_watch_outcome,
+        check_policy_flags_ctor=CheckPolicyFlags,
+        path_ctor=Path,
+    ),
+)
 
 
-@check_app.command("delta-bundle")
-def check_delta_bundle(
-    ctx: typer.Context,
-    paths: List[Path] = typer.Argument(None),
-    root: Path = typer.Option(Path("."), "--root"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    report: Optional[Path] = typer.Option(None, "--report"),
-    strictness: CheckStrictnessMode = typer.Option(
-        CheckStrictnessMode.high, "--strictness"
-    ),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    decision_snapshot: Optional[Path] = typer.Option(
-        None,
-        "--decision-snapshot",
-    ),
-    analysis_budget_checks: Optional[int] = typer.Option(
-        None,
-        "--analysis-budget-checks",
-        min=1,
-    ),
-    aspf_trace_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-trace-json",
-    ),
-    aspf_import_trace: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-trace",
-    ),
-    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-equivalence-against",
-    ),
-    aspf_opportunities_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-opportunities-json",
-    ),
-    aspf_state_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-state-json",
-    ),
-    aspf_delta_jsonl: Optional[Path] = typer.Option(
-        None,
-        "--aspf-delta-jsonl",
-    ),
-    aspf_import_state: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-state",
-    ),
-    aspf_semantic_surface: Optional[List[str]] = typer.Option(
-        None,
-        "--aspf-semantic-surface",
-    ),
-) -> None:
-    _run_check_command(
-        ctx=ctx,
-        paths=paths,
-        report=report,
-        root=root,
-        config=config,
-        baseline=None,
-        baseline_write=False,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=check_contract.delta_bundle_artifact_flags(),
-        delta_options=check_contract.delta_bundle_delta_options(),
-        exclude=None,
-        filter_bundle=DataflowFilterBundle(
-            ignore_params_csv=None,
-            transparent_decorators_csv=None,
-        ),
-        allow_external=allow_external,
-        strictness=str(strictness.value),
-        analysis_budget_checks=analysis_budget_checks,
-        gate=CheckGateMode.none,
-        lint_mode=CheckLintMode.none,
-        lint_jsonl_out=None,
-        lint_sarif_out=None,
-        aspf_trace_json=aspf_trace_json,
-        aspf_import_trace=aspf_import_trace,
-        aspf_equivalence_against=aspf_equivalence_against,
-        aspf_opportunities_json=aspf_opportunities_json,
-        aspf_state_json=aspf_state_json,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_import_state=aspf_import_state,
-        aspf_semantic_surface=aspf_semantic_surface,
-    )
+check_delta_bundle = _register_check_delta_bundle_command(
+    check_app=check_app,
+    check_strictness_mode=CheckStrictnessMode,
+    check_gate_mode=CheckGateMode,
+    check_lint_mode=CheckLintMode,
+    run_check_command_fn=_run_check_command,
+    dataflow_filter_bundle_ctor=DataflowFilterBundle,
+    delta_bundle_artifact_flags_fn=check_contract.delta_bundle_artifact_flags,
+    delta_bundle_delta_options_fn=check_contract.delta_bundle_delta_options,
+)
 
 
 @check_app.command("delta-gates")
@@ -2517,163 +1353,24 @@ def check_delta_gates(ctx: typer.Context) -> None:
     raise typer.Exit(code=deps.run_check_delta_gates_fn())
 
 
-def _run_check_aux_operation(
-    *,
-    ctx: typer.Context,
-    domain: str,
-    action: str,
-    paths: list[Path] | None,
-    root: Path,
-    config: Path | None,
-    strictness: CheckStrictnessMode,
-    allow_external: bool | None,
-    baseline: Path | None,
-    state_in: Path | None,
-    out_json: Path | None,
-    out_md: Path | None,
-    report: Path | None,
-    decision_snapshot: Path | None,
-    analysis_budget_checks: int | None,
-    aspf_state_json: Path | None,
-    aspf_import_state: list[Path] | None,
-    aspf_delta_jsonl: Path | None = None,
-) -> None:
-    aux_operation = CheckAuxOperation(
-        domain=domain,
-        action=action,
-        baseline_path=baseline,
-        state_in_path=state_in,
-        out_json=out_json,
-        out_md=out_md,
-    )
-    _run_check_command(
-        ctx=ctx,
-        paths=paths,
-        report=report,
-        root=root,
-        config=config,
-        baseline=None,
-        baseline_write=False,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=_default_check_artifact_flags(),
-        delta_options=_default_check_delta_options(),
-        exclude=None,
-        filter_bundle=DataflowFilterBundle(
-            ignore_params_csv=None,
-            transparent_decorators_csv=None,
-        ),
-        allow_external=allow_external,
-        strictness=str(strictness.value),
-        analysis_budget_checks=analysis_budget_checks,
-        gate=CheckGateMode.none,
-        lint_mode=CheckLintMode.none,
-        lint_jsonl_out=None,
-        lint_sarif_out=None,
-        aspf_trace_json=None,
-        aspf_import_trace=None,
-        aspf_equivalence_against=None,
-        aspf_opportunities_json=None,
-        aspf_state_json=aspf_state_json,
-        aspf_import_state=aspf_import_state,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_semantic_surface=None,
-        aux_operation=aux_operation,
-    )
+_run_check_aux_operation = cast(
+    Callable[..., None],
+    partial(
+        _run_check_aux_operation_impl,
+        run_check_command_fn=_run_check_command,
+        default_check_artifact_flags_fn=_default_check_artifact_flags,
+        default_check_delta_options_fn=_default_check_delta_options,
+        dataflow_filter_bundle_ctor=DataflowFilterBundle,
+        gate_none=CheckGateMode.none,
+        lint_mode_none=CheckLintMode.none,
+    ),
+)
 
 
-@check_app.callback()
-def check_group(
-    ctx: typer.Context,
-    removed_profile: Optional[str] = typer.Option(None, "--profile", hidden=True),
-    removed_emit_test_obsolescence: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence",
-        hidden=True,
-    ),
-    removed_emit_test_obsolescence_state: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence-state",
-        hidden=True,
-    ),
-    removed_emit_test_obsolescence_delta: bool = typer.Option(
-        False,
-        "--emit-test-obsolescence-delta",
-        hidden=True,
-    ),
-    removed_test_obsolescence_state: Optional[Path] = typer.Option(
-        None,
-        "--test-obsolescence-state",
-        hidden=True,
-    ),
-    removed_emit_test_annotation_drift: bool = typer.Option(
-        False,
-        "--emit-test-annotation-drift",
-        hidden=True,
-    ),
-    removed_emit_test_annotation_drift_delta: bool = typer.Option(
-        False,
-        "--emit-test-annotation-drift-delta",
-        hidden=True,
-    ),
-    removed_write_test_annotation_drift_baseline: bool = typer.Option(
-        False,
-        "--write-test-annotation-drift-baseline",
-        hidden=True,
-    ),
-    removed_test_annotation_drift_state: Optional[Path] = typer.Option(
-        None,
-        "--test-annotation-drift-state",
-        hidden=True,
-    ),
-    removed_emit_ambiguity_delta: bool = typer.Option(
-        False,
-        "--emit-ambiguity-delta",
-        hidden=True,
-    ),
-    removed_emit_ambiguity_state: bool = typer.Option(
-        False,
-        "--emit-ambiguity-state",
-        hidden=True,
-    ),
-    removed_ambiguity_state: Optional[Path] = typer.Option(
-        None,
-        "--ambiguity-state",
-        hidden=True,
-    ),
-    removed_write_ambiguity_baseline: bool = typer.Option(
-        False,
-        "--write-ambiguity-baseline",
-        hidden=True,
-    ),
-    removed_write_test_obsolescence_baseline: bool = typer.Option(
-        False,
-        "--write-test-obsolescence-baseline",
-        hidden=True,
-    ),
-) -> None:
-    if removed_profile is not None:
-        raise typer.BadParameter(
-            "Removed --profile flag. Use `gabion check run` or `gabion check raw -- ...`."
-        )
-    if (
-        removed_emit_test_obsolescence
-        or removed_emit_test_obsolescence_state
-        or removed_emit_test_obsolescence_delta
-        or removed_test_obsolescence_state is not None
-        or removed_emit_test_annotation_drift
-        or removed_emit_test_annotation_drift_delta
-        or removed_write_test_annotation_drift_baseline
-        or removed_test_annotation_drift_state is not None
-        or removed_emit_ambiguity_delta
-        or removed_emit_ambiguity_state
-        or removed_ambiguity_state is not None
-        or removed_write_ambiguity_baseline
-        or removed_write_test_obsolescence_baseline
-    ):
-        raise typer.BadParameter(
-            "Removed legacy check modality flags. Use `gabion check obsolescence|annotation-drift|ambiguity|taint` subcommands."
-        )
-    _check_help_or_exit(ctx)
+check_group = _register_check_group_callback(
+    check_app=check_app,
+    check_help_or_exit_fn=_check_help_or_exit,
+)
 
 
 @check_obsolescence_app.callback()
@@ -2707,194 +1404,18 @@ def check_raw(ctx: typer.Context) -> None:
     run_raw(raw_args)
 
 
-@check_app.command("run")
-def check_run(
-    ctx: typer.Context,
-    paths: List[Path] = typer.Argument(None),
-    root: Path = typer.Option(Path("."), "--root"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    report: Optional[Path] = typer.Option(None, "--report"),
-    strictness: CheckStrictnessMode = typer.Option(CheckStrictnessMode.high, "--strictness"),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    baseline: Optional[Path] = typer.Option(None, "--baseline"),
-    baseline_mode: CheckBaselineMode = typer.Option(
-        CheckBaselineMode.off,
-        "--baseline-mode",
-    ),
-    gate: CheckGateMode = typer.Option(CheckGateMode.all, "--gate"),
-    analysis_budget_checks: Optional[int] = typer.Option(
-        None,
-        "--analysis-budget-checks",
-        min=1,
-    ),
-    removed_analysis_tick_limit: Optional[int] = typer.Option(
-        None,
-        "--analysis-tick-limit",
-        hidden=True,
-    ),
-    decision_snapshot: Optional[Path] = typer.Option(
-        None,
-        "--decision-snapshot",
-    ),
-    lint: CheckLintMode = typer.Option(CheckLintMode.none, "--lint"),
-    lint_jsonl_out: Optional[Path] = typer.Option(
-        None,
-        "--lint-jsonl-out",
-    ),
-    lint_sarif_out: Optional[Path] = typer.Option(
-        None,
-        "--lint-sarif-out",
-    ),
-    aspf_trace_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-trace-json",
-    ),
-    aspf_import_trace: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-trace",
-    ),
-    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-equivalence-against",
-    ),
-    aspf_opportunities_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-opportunities-json",
-    ),
-    aspf_state_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-state-json",
-    ),
-    aspf_delta_jsonl: Optional[Path] = typer.Option(
-        None,
-        "--aspf-delta-jsonl",
-    ),
-    aspf_import_state: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-state",
-    ),
-    aspf_semantic_surface: Optional[List[str]] = typer.Option(
-        None,
-        "--aspf-semantic-surface",
-    ),
-    status_watch: bool = typer.Option(
-        False,
-        "--status-watch/--no-status-watch",
-        help="Watch GitHub status checks after a successful local check run.",
-    ),
-    status_watch_run_id: Optional[str] = typer.Option(
-        None,
-        "--status-watch-run-id",
-        help="Specific run id to watch (skips lookup).",
-    ),
-    status_watch_branch: Optional[str] = typer.Option(
-        None,
-        "--status-watch-branch",
-        help="Branch to watch (default: stage).",
-    ),
-    status_watch_workflow: Optional[str] = typer.Option(
-        None,
-        "--status-watch-workflow",
-        help="Optional workflow name or file filter.",
-    ),
-    status_watch_status: Optional[str] = typer.Option(
-        None,
-        "--status-watch-status",
-        help="Optional status filter for fallback run lookup.",
-    ),
-    status_watch_prefer_active: Optional[bool] = typer.Option(
-        None,
-        "--status-watch-prefer-active/--no-status-watch-prefer-active",
-        help="Prefer queued/in-progress runs when selecting run id.",
-    ),
-    status_watch_download_artifacts_on_failure: Optional[bool] = typer.Option(
-        None,
-        "--status-watch-download-artifacts-on-failure/--no-status-watch-download-artifacts-on-failure",
-        help="Collect failed-run logs/artifacts when watch fails.",
-    ),
-    status_watch_artifact_output_root: Optional[Path] = typer.Option(
-        None,
-        "--status-watch-artifact-output-root",
-        help="Output root for failure bundle collection.",
-    ),
-    status_watch_artifact_name: Optional[List[str]] = typer.Option(
-        None,
-        "--status-watch-artifact-name",
-        help="Artifact name filter for failure downloads (repeatable).",
-    ),
-    status_watch_collect_failed_logs: Optional[bool] = typer.Option(
-        None,
-        "--status-watch-collect-failed-logs/--no-status-watch-collect-failed-logs",
-        help="Collect `gh run view --log-failed` output.",
-    ),
-    status_watch_summary_json: Optional[Path] = typer.Option(
-        None,
-        "--status-watch-summary-json",
-        help="Write status-watch summary JSON to this path.",
-    ),
-) -> None:
-    if removed_analysis_tick_limit is not None:
-        raise typer.BadParameter(
-            "Removed --analysis-tick-limit. Use --analysis-budget-checks."
-        )
-    if baseline_mode in {CheckBaselineMode.enforce, CheckBaselineMode.write} and baseline is None:
-        raise typer.BadParameter(
-            "--baseline is required when --baseline-mode is enforce or write."
-        )
-    if baseline_mode is CheckBaselineMode.off and baseline is not None:
-        raise typer.BadParameter(
-            "--baseline is only valid when --baseline-mode is enforce or write."
-        )
-    baseline_path = baseline if baseline_mode is not CheckBaselineMode.off else None
-    baseline_write = baseline_mode is CheckBaselineMode.write
-    status_watch_options = _build_status_watch_options(
-        status_watch=status_watch,
-        run_id=status_watch_run_id,
-        branch=status_watch_branch,
-        workflow=status_watch_workflow,
-        status=status_watch_status,
-        prefer_active=status_watch_prefer_active,
-        download_artifacts_on_failure=status_watch_download_artifacts_on_failure,
-        artifact_output_root=status_watch_artifact_output_root,
-        artifact_name=status_watch_artifact_name,
-        collect_failed_logs=status_watch_collect_failed_logs,
-        summary_json=status_watch_summary_json,
-    )
-    _run_check_command(
-        ctx=ctx,
-        paths=paths,
-        report=report,
-        root=root,
-        config=config,
-        baseline=baseline_path,
-        baseline_write=baseline_write,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=_default_check_artifact_flags(),
-        delta_options=_default_check_delta_options(),
-        exclude=None,
-        filter_bundle=DataflowFilterBundle(
-            ignore_params_csv=None,
-            transparent_decorators_csv=None,
-        ),
-        allow_external=allow_external,
-        strictness=str(strictness.value),
-        analysis_budget_checks=analysis_budget_checks,
-        gate=gate,
-        lint_mode=lint,
-        lint_jsonl_out=lint_jsonl_out,
-        lint_sarif_out=lint_sarif_out,
-        aspf_trace_json=aspf_trace_json,
-        aspf_import_trace=aspf_import_trace,
-        aspf_equivalence_against=aspf_equivalence_against,
-        aspf_opportunities_json=aspf_opportunities_json,
-        aspf_state_json=aspf_state_json,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_import_state=aspf_import_state,
-        aspf_semantic_surface=aspf_semantic_surface,
-        status_watch_options=status_watch_options,
-    )
+check_run = _register_check_run_command(
+    check_app=check_app,
+    check_strictness_mode=CheckStrictnessMode,
+    check_baseline_mode=CheckBaselineMode,
+    check_gate_mode=CheckGateMode,
+    check_lint_mode=CheckLintMode,
+    dataflow_filter_bundle_ctor=DataflowFilterBundle,
+    build_status_watch_options_fn=_build_status_watch_options,
+    run_check_command_fn=_run_check_command,
+    default_check_artifact_flags_fn=_default_check_artifact_flags,
+    default_check_delta_options_fn=_default_check_delta_options,
+)
 
 
 @check_obsolescence_app.command("report")
@@ -3622,202 +2143,12 @@ def _run_governance_runner(
         return 1
 
 
-def _restore_aspf_state_from_github_artifacts(
-    *,
-    token: str,
-    repo: str,
-    output_dir: Path,
-    ref_name: str = "",
-    current_run_id: str = "",
-    artifact_name: str = "dataflow-report",
-    state_name: str = "aspf_state_ci.json",
-    per_page: int = 100,
-    urlopen_fn: Callable[..., object] = urllib.request.urlopen,
-    no_redirect_open_fn: Callable[..., object] | None = None,
-    follow_redirect_open_fn: Callable[..., object] | None = None,
-) -> int:
-    token = token.strip()
-    repo = repo.strip()
-    ref_name = ref_name.strip()
-    current_run_id = current_run_id.strip()
-    artifact_name = artifact_name.strip() or "dataflow-report"
-    state_name = state_name.strip() or "aspf_state_ci.json"
-    if not token or not repo:
-        typer.echo("GitHub token/repository unavailable; skipping ASPF state restore.")
-        return 0
-
-    api_url = (
-        f"https://api.github.com/repos/{repo}/actions/artifacts"
-        f"?name={artifact_name}&per_page={max(1, int(per_page))}"
-    )
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {token}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    try:
-        req = urllib.request.Request(api_url, headers=headers)
-        with urlopen_fn(req, timeout=20) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        typer.echo(f"Unable to query prior artifacts ({exc}); skipping ASPF state restore.")
-        return 0
-
-    artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
-
-    def _artifact_is_candidate(item: object) -> bool:
-        if not isinstance(item, dict):
-            return False
-        download_url = str(item.get("archive_download_url", "") or "")
-        if item.get("expired", True) or not download_url:
-            return False
-        workflow_run = item.get("workflow_run")
-        if not isinstance(workflow_run, dict):
-            return False
-        if current_run_id and str(workflow_run.get("id", "")) == current_run_id:
-            return False
-        if ref_name and str(workflow_run.get("head_branch", "")) != ref_name:
-            return False
-        event_name = str(workflow_run.get("event", "")).strip()
-        if event_name and event_name not in {"push", "workflow_dispatch"}:
-            return False
-        return True
-
-    artifact_candidates = [
-        item for item in artifacts if _artifact_is_candidate(item)
-    ]
-    if not artifact_candidates:
-        typer.echo(
-            "No reusable same-branch dataflow-report artifact found; continuing without checkpoint."
-        )
-        return 0
-    chunk_prefix = f"{state_name}.chunks/"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    last_error: Exception | None = None
-    for artifact in artifact_candidates:
-        download_url = str(artifact.get("archive_download_url", "") or "")
-        try:
-            archive_bytes = _download_artifact_archive_bytes(
-                download_url=download_url,
-                headers=headers,
-                urlopen_fn=urlopen_fn,
-                no_redirect_open_fn=no_redirect_open_fn,
-                follow_redirect_open_fn=follow_redirect_open_fn,
-            )
-            checkpoint_member: str | None = None
-            chunk_members: list[str] = []
-            with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
-                names = [name for name in zf.namelist() if not name.endswith("/")]
-                for name in names:
-                    base = name.split("/", 1)[-1]
-                    if base == state_name:
-                        checkpoint_member = name
-                    elif base.startswith(chunk_prefix):
-                        chunk_members.append(name)
-                if checkpoint_member is None:
-                    continue
-                checkpoint_bytes = zf.read(checkpoint_member)
-                if _state_requires_chunk_artifacts(
-                    checkpoint_bytes=checkpoint_bytes
-                ) and not chunk_members:
-                    continue
-                checkpoint_output = output_dir / state_name
-                chunk_output_dir = output_dir / f"{state_name}.chunks"
-                if checkpoint_output.exists():
-                    checkpoint_output.unlink()
-                if chunk_output_dir.exists():
-                    for existing in chunk_output_dir.glob("*"):
-                        if existing.is_file():
-                            existing.unlink()
-                checkpoint_output.parent.mkdir(parents=True, exist_ok=True)
-                checkpoint_output.write_bytes(checkpoint_bytes)
-                restored = 1
-                for name in chunk_members:
-                    base = name.split("/", 1)[-1]
-                    destination = output_dir / base
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    destination.write_bytes(zf.read(name))
-                    restored += 1
-                typer.echo(
-                    f"Restored {restored} ASPF state artifact file(s) from prior run."
-                )
-                return 0
-        except Exception as exc:
-            last_error = exc
-            continue
-    if last_error is not None:
-        typer.echo(
-            f"Unable to restore ASPF state from prior artifacts ({last_error}); continuing without checkpoint."
-        )
-        return 0
-    typer.echo(
-        "Prior artifacts did not include usable ASPF state files; continuing without restore."
-    )
-    return 0
-
-
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(
-        self,
-        req: urllib.request.Request,
-        fp: object,
-        code: int,
-        msg: str,
-        headers: object,
-        newurl: str,
-    ) -> None:
-        _ = (req, fp, code, msg, headers, newurl)
-        return None
-
-
-def _download_artifact_archive_bytes(
-    *,
-    download_url: str,
-    headers: Mapping[str, str],
-    urlopen_fn: Callable[..., object] = urllib.request.urlopen,
-    no_redirect_open_fn: Callable[..., object] | None = None,
-    follow_redirect_open_fn: Callable[..., object] | None = None,
-) -> bytes:
-    req_zip = urllib.request.Request(download_url, headers=dict(headers))
-    if urlopen_fn is not urllib.request.urlopen:
-        with urlopen_fn(req_zip, timeout=60) as response:
-            return response.read()
-    if no_redirect_open_fn is None:
-        no_redirect_open_fn = urllib.request.build_opener(_NoRedirectHandler()).open
-    if follow_redirect_open_fn is None:
-        follow_redirect_open_fn = urllib.request.urlopen
-    try:
-        with no_redirect_open_fn(req_zip, timeout=60) as response:
-            return response.read()
-    except urllib.error.HTTPError as exc:
-        redirect_url = str(exc.headers.get("Location", "") or "")
-        if not redirect_url:
-            raise
-        follow_headers: dict[str, str] = {}
-        redirect_host = (urllib.parse.urlparse(redirect_url).hostname or "").lower()
-        if redirect_host.endswith("github.com"):
-            follow_headers = dict(headers)
-        follow_req = urllib.request.Request(redirect_url, headers=follow_headers)
-        with follow_redirect_open_fn(follow_req, timeout=60) as response:
-            return response.read()
-
-
-def _state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
-    try:
-        payload = json.loads(checkpoint_bytes.decode("utf-8"))
-    except Exception:
-        return False
-    if not isinstance(payload, Mapping):
-        return False
-    collection_resume = payload.get("collection_resume")
-    if not isinstance(collection_resume, Mapping):
-        return False
-    analysis_index_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(analysis_index_resume, Mapping):
-        return False
-    state_ref = analysis_index_resume.get("state_ref")
-    return isinstance(state_ref, str) and bool(state_ref.strip())
+_restore_aspf_state_from_github_artifacts = (
+    _github_artifact_restore._restore_aspf_state_from_github_artifacts
+)
+_NoRedirectHandler = _github_artifact_restore._NoRedirectHandler
+_download_artifact_archive_bytes = _github_artifact_restore._download_artifact_archive_bytes
+_state_requires_chunk_artifacts = _github_artifact_restore._state_requires_chunk_artifacts
 
 
 def _run_docflow_audit(
@@ -4035,254 +2366,15 @@ def lint_summary(
     raise typer.Exit(code=exit_code)
 
 
-def _run_synth(
-    *,
-    paths: List[Path] | None,
-    root: Path,
-    out_dir: Path,
-    no_timestamp: bool,
-    config: Optional[Path],
-    exclude: Optional[List[str]],
-    filter_bundle: DataflowFilterBundle | None,
-    allow_external: Optional[bool],
-    strictness: Optional[str],
-    no_recursive: bool,
-    max_components: int,
-    type_audit_report: bool,
-    type_audit_max: int,
-    synthesis_max_tier: int,
-    synthesis_min_bundle_size: int,
-    synthesis_allow_singletons: bool,
-    synthesis_protocols_kind: str,
-    refactor_plan: bool,
-    fail_on_violations: bool,
-    aspf_trace_json: Path | None = None,
-    aspf_import_trace: list[Path] | None = None,
-    aspf_equivalence_against: list[Path] | None = None,
-    aspf_opportunities_json: Path | None = None,
-    aspf_state_json: Path | None = None,
-    aspf_import_state: list[Path] | None = None,
-    aspf_delta_jsonl: Path | None = None,
-    aspf_semantic_surface: list[str] | None = None,
-    runner: Runner = run_command,
-) -> tuple[JSONObject, dict[str, Path], Path | None]:
-    check_deadline()
-    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
-    if not paths:
-        paths = [Path(".")]
-    exclude_dirs: list[str] | None = None
-    if exclude is not None:
-        exclude_dirs = []
-        for entry in exclude:
-            check_deadline()
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list, transparent_list = resolved_filter_bundle.to_payload_lists()
-    if strictness is not None and strictness not in {"high", "low"}:
-        raise typer.BadParameter("strictness must be 'high' or 'low'")
-    if synthesis_protocols_kind not in {"dataclass", "protocol", "contextvar"}:
-        raise typer.BadParameter(
-            "synthesis-protocols-kind must be 'dataclass', 'protocol', or 'contextvar'"
-        )
-
-    output_root = out_dir
-    timestamp = None
-    if not no_timestamp:
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        output_root = out_dir / timestamp
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "LATEST.txt").write_text(timestamp)
-    output_root.mkdir(parents=True, exist_ok=True)
-
-    report_path = output_root / "dataflow_report.md"
-    dot_path = output_root / "dataflow_graph.dot"
-    plan_path = output_root / "synthesis_plan.json"
-    protocol_path = output_root / "protocol_stubs.py"
-    refactor_plan_path = output_root / "refactor_plan.json"
-    fingerprint_synth_path = output_root / "fingerprint_synth.json"
-    fingerprint_provenance_path = output_root / "fingerprint_provenance.json"
-    fingerprint_coherence_path = output_root / "fingerprint_coherence.json"
-    fingerprint_rewrite_plans_path = output_root / "fingerprint_rewrite_plans.json"
-    fingerprint_exception_obligations_path = (
-        output_root / "fingerprint_exception_obligations.json"
-    )
-    fingerprint_handledness_path = output_root / "fingerprint_handledness.json"
-
-    payload: JSONObject = {
-        "paths": [str(p) for p in paths],
-        "root": str(root),
-        "config": str(config) if config is not None else None,
-        "report": str(report_path),
-        "dot": str(dot_path),
-        "fail_on_violations": fail_on_violations,
-        "no_recursive": no_recursive,
-        "max_components": max_components,
-        "type_audit_report": type_audit_report,
-        "type_audit_max": type_audit_max,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": allow_external,
-        "strictness": strictness,
-        "synthesis_plan": str(plan_path),
-        "synthesis_report": True,
-        "synthesis_protocols": str(protocol_path),
-        "synthesis_protocols_kind": synthesis_protocols_kind,
-        "synthesis_max_tier": synthesis_max_tier,
-        "synthesis_min_bundle_size": synthesis_min_bundle_size,
-        "synthesis_allow_singletons": synthesis_allow_singletons,
-        "refactor_plan": refactor_plan,
-        "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
-        "fingerprint_synth_json": str(fingerprint_synth_path),
-        "fingerprint_provenance_json": str(fingerprint_provenance_path),
-        "fingerprint_coherence_json": str(fingerprint_coherence_path),
-        "fingerprint_rewrite_plans_json": str(fingerprint_rewrite_plans_path),
-        "fingerprint_exception_obligations_json": str(
-            fingerprint_exception_obligations_path
-        ),
-        "fingerprint_handledness_json": str(fingerprint_handledness_path),
-        "aspf_trace_json": str(aspf_trace_json) if aspf_trace_json is not None else None,
-        "aspf_import_trace": [str(path) for path in (aspf_import_trace or [])],
-        "aspf_equivalence_against": [
-            str(path) for path in (aspf_equivalence_against or [])
-        ],
-        "aspf_opportunities_json": (
-            str(aspf_opportunities_json) if aspf_opportunities_json is not None else None
-        ),
-        "aspf_state_json": str(aspf_state_json) if aspf_state_json is not None else None,
-        "aspf_import_state": [str(path) for path in (aspf_import_state or [])],
-        "aspf_delta_jsonl": str(aspf_delta_jsonl) if aspf_delta_jsonl is not None else None,
-        "aspf_semantic_surface": [
-            str(surface) for surface in (aspf_semantic_surface or [])
-        ],
-    }
-    result = dispatch_command(
-        command=DATAFLOW_COMMAND,
-        payload=payload,
-        root=root,
-        runner=runner,
-    )
-    paths_out = {
-        "report": report_path,
-        "dot": dot_path,
-        "plan": plan_path,
-        "protocol": protocol_path,
-        "refactor": refactor_plan_path,
-        "fingerprint_synth": fingerprint_synth_path,
-        "fingerprint_provenance": fingerprint_provenance_path,
-        "fingerprint_coherence": fingerprint_coherence_path,
-        "fingerprint_rewrite_plans": fingerprint_rewrite_plans_path,
-        "fingerprint_exception_obligations": fingerprint_exception_obligations_path,
-        "fingerprint_handledness": fingerprint_handledness_path,
-        "output_root": output_root,
-    }
-    return result, paths_out, timestamp
-
-
-@app.command("synth")
-def synth(
-    paths: List[Path] = typer.Argument(None),
-    root: Path = typer.Option(Path("."), "--root"),
-    out_dir: Path = typer.Option(Path("artifacts/synthesis"), "--out-dir"),
-    no_timestamp: bool = typer.Option(False, "--no-timestamp"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators_csv: Optional[str] = typer.Option(
-        None, "--transparent-decorators"
+_run_synth = cast(
+    Callable[..., tuple[JSONObject, dict[str, Path], Path | None]],
+    partial(
+        _run_synth_impl,
+        dispatch_command_fn=dispatch_command,
+        check_deadline_fn=check_deadline,
+        dataflow_command=DATAFLOW_COMMAND,
     ),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    strictness: Optional[str] = typer.Option(None, "--strictness"),
-    no_recursive: bool = typer.Option(False, "--no-recursive"),
-    max_components: int = typer.Option(10, "--max-components"),
-    type_audit_report: bool = typer.Option(
-        True, "--type-audit-report/--no-type-audit-report"
-    ),
-    type_audit_max: int = typer.Option(50, "--type-audit-max"),
-    synthesis_max_tier: int = typer.Option(2, "--synthesis-max-tier"),
-    synthesis_min_bundle_size: int = typer.Option(2, "--synthesis-min-bundle-size"),
-    synthesis_allow_singletons: bool = typer.Option(
-        False, "--synthesis-allow-singletons"
-    ),
-    synthesis_protocols_kind: str = typer.Option(
-        "dataclass", "--synthesis-protocols-kind"
-    ),
-    refactor_plan: bool = typer.Option(True, "--refactor-plan/--no-refactor-plan"),
-    fail_on_violations: bool = typer.Option(
-        False, "--fail-on-violations/--no-fail-on-violations"
-    ),
-    aspf_trace_json: Optional[Path] = typer.Option(None, "--aspf-trace-json"),
-    aspf_import_trace: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-trace",
-    ),
-    aspf_equivalence_against: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-equivalence-against",
-    ),
-    aspf_opportunities_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-opportunities-json",
-    ),
-    aspf_state_json: Optional[Path] = typer.Option(
-        None,
-        "--aspf-state-json",
-    ),
-    aspf_delta_jsonl: Optional[Path] = typer.Option(
-        None,
-        "--aspf-delta-jsonl",
-    ),
-    aspf_import_state: Optional[List[Path]] = typer.Option(
-        None,
-        "--aspf-import-state",
-    ),
-    aspf_semantic_surface: Optional[List[str]] = typer.Option(
-        None,
-        "--aspf-semantic-surface",
-    ),
-) -> None:
-    """Run the dataflow audit and emit synthesis outputs (prototype)."""
-    with _cli_deadline_scope():
-        filter_bundle = DataflowFilterBundle(
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
-        )
-        result, paths_out, timestamp = _run_synth(
-            paths=paths,
-            root=root,
-            out_dir=out_dir,
-            no_timestamp=no_timestamp,
-            config=config,
-            exclude=exclude,
-            filter_bundle=filter_bundle,
-            allow_external=allow_external,
-            strictness=strictness,
-            no_recursive=no_recursive,
-            max_components=max_components,
-            type_audit_report=type_audit_report,
-            type_audit_max=type_audit_max,
-            synthesis_max_tier=synthesis_max_tier,
-            synthesis_min_bundle_size=synthesis_min_bundle_size,
-            synthesis_allow_singletons=synthesis_allow_singletons,
-            synthesis_protocols_kind=synthesis_protocols_kind,
-            refactor_plan=refactor_plan,
-            fail_on_violations=fail_on_violations,
-            aspf_trace_json=aspf_trace_json,
-            aspf_import_trace=aspf_import_trace,
-            aspf_equivalence_against=aspf_equivalence_against,
-            aspf_opportunities_json=aspf_opportunities_json,
-            aspf_state_json=aspf_state_json,
-            aspf_import_state=aspf_import_state,
-            aspf_delta_jsonl=aspf_delta_jsonl,
-            aspf_semantic_surface=aspf_semantic_surface,
-        )
-        _emit_synth_outputs(
-            paths_out=paths_out,
-            timestamp=timestamp,
-            refactor_plan=refactor_plan,
-        )
-        raise typer.Exit(code=int(result.get("exit_code", 0)))
+)
 
 
 @app.command("synthesis-plan")
@@ -4355,6 +2447,15 @@ def _emit_synth_outputs(
         typer.echo(f"- {paths_out['fingerprint_handledness']}")
     if refactor_plan:
         typer.echo(f"- {paths_out['refactor']}")
+
+
+synth = _register_synth_command(
+    app=app,
+    dataflow_filter_bundle_ctor=DataflowFilterBundle,
+    cli_deadline_scope_factory=_cli_deadline_scope,
+    run_synth_fn=_run_synth,
+    emit_synth_outputs_fn=_emit_synth_outputs,
+)
 
 
 def _run_snapshot_diff_command(
@@ -4603,72 +2704,12 @@ def docflow_delta_emit() -> None:
     raise typer.Exit(code=_run_tooling_no_arg("docflow-delta-emit"))
 
 
-@app.command("ci-watch")
-def ci_watch(
-    run_id: Optional[str] = typer.Option(
-        None,
-        "--run-id",
-        help="Specific run id to watch (skips lookup).",
-    ),
-    branch: str = typer.Option(
-        "stage",
-        "--branch",
-        help="Branch to watch (default: stage).",
-    ),
-    workflow: Optional[str] = typer.Option(
-        None,
-        "--workflow",
-        help="Optional workflow name or file filter.",
-    ),
-    status: Optional[str] = typer.Option(
-        None,
-        "--status",
-        help="Optional status filter for fallback run lookup.",
-    ),
-    prefer_active: bool = typer.Option(
-        True,
-        "--prefer-active/--no-prefer-active",
-        help="Prefer in-progress/queued runs during run lookup.",
-    ),
-    download_artifacts_on_failure: bool = typer.Option(
-        True,
-        "--download-artifacts-on-failure/--no-download-artifacts-on-failure",
-        help="Collect failure metadata/logs/artifacts when watched run fails.",
-    ),
-    artifact_output_root: Path = typer.Option(
-        _DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
-        "--artifact-output-root",
-        help="Root path for failure bundle collection.",
-    ),
-    artifact_name: Optional[List[str]] = typer.Option(
-        None,
-        "--artifact-name",
-        help="Artifact name filter (repeatable).",
-    ),
-    collect_failed_logs: bool = typer.Option(
-        True,
-        "--collect-failed-logs/--no-collect-failed-logs",
-        help="Collect `gh run view --log-failed` output on failure.",
-    ),
-    summary_json: Optional[Path] = typer.Option(
-        None,
-        "--summary-json",
-        help="Write watch/collection summary JSON to this path.",
-    ),
-) -> None:
-    options = tooling_ci_watch.StatusWatchOptions(
-        branch=branch,
-        run_id=run_id,
-        status=status,
-        workflow=workflow,
-        prefer_active=prefer_active,
-        download_artifacts_on_failure=download_artifacts_on_failure,
-        artifact_output_root=artifact_output_root,
-        artifact_names=tuple(artifact_name or []),
-        collect_failed_logs=collect_failed_logs,
-        summary_json=summary_json,
-    )
-    raise typer.Exit(code=_run_tooling_with_argv("ci-watch", options.to_argv()))
+ci_watch = _register_ci_watch_command(
+    app=app,
+    default_status_watch_artifact_root=_DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
+    status_watch_options_ctor=tooling_ci_watch.StatusWatchOptions,
+    run_tooling_with_argv_fn=_run_tooling_with_argv,
+)
 
 
 @app.command(
@@ -4915,54 +2956,14 @@ def refactor_protocol(
         )
 
 
-def _run_refactor_protocol(
-    *,
-    input_path: Optional[Path],
-    output_path: Optional[Path],
-    protocol_name: Optional[str],
-    bundle: Optional[List[str]],
-    field: Optional[List[str]],
-    target_path: Optional[Path],
-    target_functions: Optional[List[str]],
-    compatibility_shim: bool,
-    compatibility_shim_warnings: bool,
-    compatibility_shim_overloads: bool,
-    ambient_rewrite: bool,
-    rationale: Optional[str],
-    runner: Runner = run_command,
-) -> None:
-    """Generate protocol refactor edits from a JSON payload (prototype)."""
-    input_payload: JSONObject | None = None
-    if input_path is not None:
-        try:
-            loaded = json.loads(input_path.read_text())
-        except json.JSONDecodeError as exc:
-            raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-        if not isinstance(loaded, dict):
-            raise typer.BadParameter("Refactor payload must be a JSON object.")
-        input_payload = loaded
-    payload = build_refactor_payload(
-        input_payload=input_payload,
-        protocol_name=protocol_name,
-        bundle=bundle,
-        field=field,
-        target_path=target_path,
-        target_functions=target_functions,
-        compatibility_shim=compatibility_shim,
-        compatibility_shim_warnings=compatibility_shim_warnings,
-        compatibility_shim_overloads=compatibility_shim_overloads,
-        ambient_rewrite=ambient_rewrite,
-        rationale=rationale,
-    )
-    result = dispatch_command(
-        command=REFACTOR_COMMAND,
-        payload=payload,
-        root=None,
-        runner=runner,
-    )
-    normalized = RefactorProtocolResponseDTO.model_validate(result).model_dump()
-    output = json.dumps(normalized, indent=2, sort_keys=False)
-    if output_path is None:
-        typer.echo(output)
-    else:
-        _write_text_to_target(output_path, output)
+_run_refactor_protocol = cast(
+    Callable[..., None],
+    partial(
+        _run_refactor_protocol_impl,
+        build_refactor_payload_fn=build_refactor_payload,
+        dispatch_command_fn=dispatch_command,
+        refactor_command=REFACTOR_COMMAND,
+        response_model_validate_fn=RefactorProtocolResponseDTO.model_validate,
+        write_text_to_target_fn=_write_text_to_target,
+    ),
+)

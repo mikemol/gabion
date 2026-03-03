@@ -221,7 +221,51 @@ def collect_exception_obligations(
     )
 
 
+def collect_exception_obligations_from_runtime_module(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    handledness_witnesses=None,
+    deadness_witnesses=None,
+    never_exceptions=None,
+    runtime_module,
+) -> list[JSONObject]:
+    return collect_exception_obligations(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        handledness_witnesses=handledness_witnesses,
+        deadness_witnesses=deadness_witnesses,
+        never_exceptions=never_exceptions,
+        check_deadline_fn=runtime_module.check_deadline,
+        parent_annotator_factory=runtime_module.ParentAnnotator,
+        collect_functions_fn=runtime_module._collect_functions,
+        param_names_fn=runtime_module._param_names,
+        normalize_snapshot_path_fn=runtime_module._normalize_snapshot_path,
+        enclosing_function_node_fn=runtime_module._enclosing_function_node,
+        enclosing_scopes_fn=runtime_module._enclosing_scopes,
+        function_key_fn=runtime_module._function_key,
+        exception_type_name_fn=runtime_module._exception_type_name,
+        decorator_matches_fn=runtime_module._decorator_matches,
+        is_never_marker_raise_fn=runtime_module._is_never_marker_raise,
+        exception_param_names_fn=runtime_module._exception_param_names,
+        exception_path_id_fn=runtime_module._exception_path_id,
+        sequence_or_none_fn=runtime_module.sequence_or_none,
+        branch_reachability_under_env_fn=runtime_module._branch_reachability_under_env,
+        is_reachability_false_fn=runtime_module._is_reachability_false,
+        is_reachability_true_fn=runtime_module._is_reachability_true,
+        names_in_expr_fn=runtime_module._names_in_expr,
+        sort_once_fn=runtime_module.sort_once,
+        order_policy_sort=runtime_module.OrderPolicy.SORT,
+        order_policy_enforce=runtime_module.OrderPolicy.ENFORCE,
+        mapping_or_none_fn=runtime_module.mapping_or_none,
+        literal_eval_error_types=runtime_module._LITERAL_EVAL_ERROR_TYPES,
+    )
+
+
 __all__ = [
     "collect_exception_obligations",
+    "collect_exception_obligations_from_runtime_module",
     "dead_env_map",
 ]

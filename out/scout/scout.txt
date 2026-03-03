@@ -1,0 +1,41 @@
+Budget (physical LOC): 3000
+Python files scanned: 259
+Offenders (> budget): 4
+
+Top files by physical LOC:
+    6392 budgetLOC    5746 codeLOC    6392 physLOC  atoms=367  largest_atom=    38  src/gabion/analysis/dataflow_indexed_file_scan.py !!
+    5138 budgetLOC    4668 codeLOC    5138 physLOC  atoms=143  largest_atom=   351  src/gabion_governance/governance_audit_impl.py !!
+    4651 budgetLOC    4451 codeLOC    4651 physLOC  atoms= 63  largest_atom=   583  src/gabion/server_core/command_orchestrator.py !!
+    4048 budgetLOC    3728 codeLOC    4048 physLOC  atoms=133  largest_atom=   181  src/gabion/server.py !!
+    2969 budgetLOC    2632 codeLOC    2969 physLOC  atoms=132  largest_atom=    45  src/gabion/cli.py
+    1508 budgetLOC    1436 codeLOC    1508 physLOC  atoms= 11  largest_atom=   435  src/gabion/analysis/dataflow_pipeline.py
+    1408 budgetLOC    1263 codeLOC    1408 physLOC  atoms= 55  largest_atom=   102  src/gabion/analysis/type_fingerprints.py
+    1338 budgetLOC    1221 codeLOC    1338 physLOC  atoms= 28  largest_atom=    77  src/gabion/refactor/engine.py
+    1319 budgetLOC    1187 codeLOC    1319 physLOC  atoms= 58  largest_atom=   121  src/gabion/analysis/aspf_execution_fibration.py
+    1302 budgetLOC    1193 codeLOC    1302 physLOC  atoms= 35  largest_atom=   337  src/gabion/tooling/normative_symdiff.py
+    1277 budgetLOC    1154 codeLOC    1277 physLOC  atoms= 48  largest_atom=   120  src/gabion/tooling/run_dataflow_stage.py
+    1248 budgetLOC    1147 codeLOC    1248 physLOC  atoms= 41  largest_atom=   118  src/gabion/analysis/test_evidence_suggestions.py
+    1203 budgetLOC    1037 codeLOC    1203 physLOC  atoms= 63  largest_atom=    93  src/gabion/analysis/timeout_context.py
+    1195 budgetLOC    1135 codeLOC    1195 physLOC  atoms= 17  largest_atom=   187  src/gabion/analysis/dataflow_obligations.py
+    1074 budgetLOC    1000 codeLOC    1074 physLOC  atoms= 25  largest_atom=   141  src/gabion/analysis/dataflow_fingerprint_helpers.py
+    1031 budgetLOC     923 codeLOC    1031 physLOC  atoms= 39  largest_atom=   102  src/gabion/analysis/impact_index.py
+    1028 budgetLOC     888 codeLOC    1028 physLOC  atoms= 39  largest_atom=   151  src/gabion/analysis/aspf_visitors.py
+    1014 budgetLOC     945 codeLOC    1014 physLOC  atoms= 28  largest_atom=   139  src/gabion/analysis/pattern_schema_projection.py
+     826 budgetLOC     740 codeLOC     826 physLOC  atoms= 39  largest_atom=    43  src/gabion/analysis/dataflow_reporting_helpers.py
+     796 budgetLOC     722 codeLOC     796 physLOC  atoms= 32  largest_atom=   144  src/gabion/commands/progress_transition.py
+     790 budgetLOC     703 codeLOC     790 physLOC  atoms= 35  largest_atom=    69  src/gabion/analysis/dataflow_lint_helpers.py
+     744 budgetLOC     653 codeLOC     744 physLOC  atoms= 29  largest_atom=   116  src/gabion/analysis/test_obsolescence_delta.py
+     733 budgetLOC     650 codeLOC     733 physLOC  atoms= 35  largest_atom=   108  src/gabion/analysis/taint_projection.py
+     676 budgetLOC     593 codeLOC     676 physLOC  atoms= 10  largest_atom=    29  src/gabion/analysis/projection_registry.py
+     672 budgetLOC     639 codeLOC     672 physLOC  atoms= 11  largest_atom=   255  src/gabion/analysis/dataflow_raw_runtime.py
+     660 budgetLOC     608 codeLOC     660 physLOC  atoms= 17  largest_atom=   207  src/gabion/analysis/test_obsolescence.py
+     619 budgetLOC     582 codeLOC     619 physLOC  atoms= 11  largest_atom=   231  src/gabion/analysis/dataflow_decision_surfaces.py
+     619 budgetLOC     560 codeLOC     619 physLOC  atoms= 25  largest_atom=    93  src/gabion/analysis/indexed_scan/deadline_runtime.py
+     611 budgetLOC     566 codeLOC     611 physLOC  atoms= 15  largest_atom=    80  src/gabion/analysis/dataflow_synthesis.py
+     600 budgetLOC     553 codeLOC     600 physLOC  atoms=  6  largest_atom=     3  src/gabion/analysis/visitors.py
+
+Offenders (over budget):
+    6392 budgetLOC  over_by=  3392    5746 codeLOC    6392 physLOC  atoms=367  largest_atom=    38  src/gabion/analysis/dataflow_indexed_file_scan.py
+    5138 budgetLOC  over_by=  2138    4668 codeLOC    5138 physLOC  atoms=143  largest_atom=   351  src/gabion_governance/governance_audit_impl.py
+    4651 budgetLOC  over_by=  1651    4451 codeLOC    4651 physLOC  atoms= 63  largest_atom=   583  src/gabion/server_core/command_orchestrator.py
+    4048 budgetLOC  over_by=  1048    3728 codeLOC    4048 physLOC  atoms=133  largest_atom=   181  src/gabion/server.py
