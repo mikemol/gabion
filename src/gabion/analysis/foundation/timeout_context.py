@@ -14,19 +14,21 @@ from typing import TypeVar
 
 from contextvars import ContextVar, Token
 
-from gabion.analysis.aspf.aspf import Forest
 from gabion.deadline_clock import (
     DeadlineClock, DeadlineClockExhausted, GasMeter, MonotonicClock)
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
-from gabion.order_contract import OrderPolicy, sort_once
 
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
 _NO_DEADLINE_PROFILE_SNAPSHOT = None
 _LoopItem = TypeVar("_LoopItem")
+
+
+def _sorted_values(values, *, key):
+    return sorted(values, key=key)
 
 
 @dataclass(frozen=True)
@@ -385,7 +387,8 @@ def get_deadline_clock() -> DeadlineClock:
     return clock
 
 
-def set_forest(forest: Forest):
+def set_forest(forest):
+    _ensure_forest_shape(forest)
     return _forest_var.set(forest)
 
 
@@ -393,16 +396,17 @@ def reset_forest(token) -> None:
     _forest_var.reset(token)
 
 
-def get_forest() -> Forest:
+def _ensure_forest_shape(forest) -> None:
+    if not hasattr(forest, "nodes") or not hasattr(forest, "alts"):
+        never("invalid forest carrier", carrier_type=type(forest).__name__)
+
+
+def get_forest():
     forest = _forest_var.get()
     if forest is _MISSING_FOREST:
         never("forest carrier missing")
-    match forest:
-        case Forest() as valid_forest:
-            return valid_forest
-        case _:
-            never("invalid forest carrier", carrier_type=type(forest).__name__)
-            return forest  # pragma: no cover - never() raises
+    _ensure_forest_shape(forest)
+    return forest
 
 
 @contextmanager
@@ -426,7 +430,7 @@ def deadline_clock_scope(clock: DeadlineClock):
 
 
 @contextmanager
-def forest_scope(forest: Forest):
+def forest_scope(forest):
     token = set_forest(forest)
     try:
         yield
@@ -554,9 +558,8 @@ def _deadline_profile_snapshot():
             pass
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
-    for site_id, stats in sort_once(
+    for site_id, stats in _sorted_values(
         state.site_stats.items(),
-        source="_deadline_profile_snapshot.site_rows",
         key=lambda item: (
             -item[1].elapsed_ns,
             state.site_keys[item[0]][0],
@@ -574,9 +577,8 @@ def _deadline_profile_snapshot():
             }
         )
     edge_rows: list[dict[str, JSONValue]] = []
-    for (source_id, target_id), stats in sort_once(
+    for (source_id, target_id), stats in _sorted_values(
         state.edge_stats.items(),
-        source="_deadline_profile_snapshot.edge_rows",
         key=lambda item: (
             -item[1].elapsed_ns,
             state.site_keys[item[0][0]][0],
@@ -599,9 +601,8 @@ def _deadline_profile_snapshot():
             }
         )
     io_rows: list[dict[str, JSONValue]] = []
-    for io_name, stats in sort_once(
+    for io_name, stats in _sorted_values(
         state.io_stats.items(),
-        source="_deadline_profile_snapshot.io_rows",
         key=lambda item: (-item[1].elapsed_ns, item[0]),
     ):
         io_rows.append(
@@ -634,7 +635,7 @@ def _deadline_profile_snapshot():
 
 def _timeout_progress_snapshot(
     *,
-    forest: Forest,
+    forest,
     deadline_profile,
 ) -> dict[str, JSONValue]:
     decoded_profile = _decode_deadline_profile_payload(deadline_profile)
@@ -1039,12 +1040,12 @@ def _site_part_to_payload(value: object) -> JSONValue:
 
 
 def build_site_index(
-    forest: Forest,
+    forest,
 ) -> dict[tuple[str, str], _CallSite]:
+    _ensure_forest_shape(forest)
     index: dict[tuple[str, str], _CallSite] = {}
-    ordered_nodes = sort_once(
+    ordered_nodes = _sorted_values(
         forest.nodes.items(),
-        source="build_site_index.ordered_nodes",
         key=lambda item: item[0].sort_key(),
     )
     for node_id, node in ordered_nodes:
@@ -1072,10 +1073,8 @@ def pack_call_stack(
         key = (entry.kind, entry.frozen_key())
         if key not in unique:
             unique[key] = _InternedCallSite(order=len(unique), site=entry)
-    ordered_unique = sort_once(
+    ordered_unique = _sorted_values(
         unique.items(),
-        source="pack_call_stack.site_table",
-        policy=OrderPolicy.ENFORCE,
         key=lambda item: item[1].order,
     )
     site_table: list[_CallSite] = []
@@ -1161,7 +1160,7 @@ def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
 
 def build_timeout_context_from_stack(
     *,
-    forest: Forest,
+    forest,
     project_root,
     forest_spec_id = None,
     forest_signature = None,

@@ -2,6 +2,14 @@
   "hotspots_over_threshold": [],
   "rows": [
     {
+      "path": "in",
+      "py_files": 3
+    },
+    {
+      "path": "in/universal-curve-lab-bundle/python",
+      "py_files": 3
+    },
+    {
       "path": "scripts",
       "py_files": 1
     },
@@ -23,7 +31,7 @@
     },
     {
       "path": "scripts/misc",
-      "py_files": 11
+      "py_files": 12
     },
     {
       "path": "scripts/policy",
@@ -36,6 +44,10 @@
     {
       "path": "scripts/sppf",
       "py_files": 2
+    },
+    {
+      "path": "src/gabion",
+      "py_files": 15
     },
     {
       "path": "src/gabion/analysis",
@@ -59,7 +71,7 @@
     },
     {
       "path": "src/gabion/analysis/dataflow/engine",
-      "py_files": 18
+      "py_files": 20
     },
     {
       "path": "src/gabion/analysis/dataflow/io",
@@ -130,6 +142,50 @@
       "py_files": 5
     },
     {
+      "path": "src/gabion/cli_support",
+      "py_files": 2
+    },
+    {
+      "path": "src/gabion/cli_support/check",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/cli_support/refactor",
+      "py_files": 3
+    },
+    {
+      "path": "src/gabion/cli_support/shared",
+      "py_files": 9
+    },
+    {
+      "path": "src/gabion/cli_support/synth",
+      "py_files": 3
+    },
+    {
+      "path": "src/gabion/commands",
+      "py_files": 12
+    },
+    {
+      "path": "src/gabion/ingest",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/refactor",
+      "py_files": 4
+    },
+    {
+      "path": "src/gabion/runtime",
+      "py_files": 7
+    },
+    {
+      "path": "src/gabion/server_core",
+      "py_files": 5
+    },
+    {
+      "path": "src/gabion/synthesis",
+      "py_files": 7
+    },
+    {
       "path": "src/gabion/tooling",
       "py_files": 1
     },
@@ -152,6 +208,22 @@
     {
       "path": "src/gabion/tooling/runtime",
       "py_files": 13
+    },
+    {
+      "path": "src/gabion/tooling/sppf",
+      "py_files": 2
+    },
+    {
+      "path": "src/gabion_governance",
+      "py_files": 2
+    },
+    {
+      "path": "tests",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion",
+      "py_files": 8
     },
     {
       "path": "tests/gabion/analysis/alias",
@@ -234,6 +306,46 @@
       "py_files": 3
     },
     {
+      "path": "tests/gabion/cli",
+      "py_files": 7
+    },
+    {
+      "path": "tests/gabion/commands",
+      "py_files": 9
+    },
+    {
+      "path": "tests/gabion/config",
+      "py_files": 6
+    },
+    {
+      "path": "tests/gabion/ingest",
+      "py_files": 4
+    },
+    {
+      "path": "tests/gabion/lsp_client",
+      "py_files": 8
+    },
+    {
+      "path": "tests/gabion/refactor",
+      "py_files": 8
+    },
+    {
+      "path": "tests/gabion/runtime",
+      "py_files": 3
+    },
+    {
+      "path": "tests/gabion/server",
+      "py_files": 7
+    },
+    {
+      "path": "tests/gabion/server_core",
+      "py_files": 5
+    },
+    {
+      "path": "tests/gabion/synthesis",
+      "py_files": 12
+    },
+    {
       "path": "tests/gabion/tooling/ci",
       "py_files": 3
     },
@@ -275,6 +387,10 @@
     },
     {
       "path": "tests/gabion/tooling/sppf",
+      "py_files": 3
+    },
+    {
+      "path": "tests/harness",
       "py_files": 3
     }
   ],

@@ -6,9 +6,10 @@ from itertools import zip_longest
 from dataclasses import dataclass, field
 from hashlib import sha1
 import json
-from typing import TYPE_CHECKING, Literal, Mapping, cast
+from typing import Literal, Mapping, cast
 import dataclasses
 
+from gabion.server_core.command_orchestrator_primitives import *  # noqa: F401,F403
 from gabion.commands import aux_operation_contract
 from gabion.commands.progress_transition import (
     NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v1_payload, progress_transition_v2_payload, validate_progress_transition)
@@ -22,24 +23,12 @@ from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
     initial_collection_progress, initial_paths_count, normalize_paths, normalize_timeout_total_ticks)
 
-if TYPE_CHECKING:
-    from gabion.server import ExecuteCommandDeps
-
-
-_BOUND = False
 _DURATION_TIMEOUT_CLOCK_MULTIPLIER = 16
 
 
 def _bind_server_symbols() -> None:
-    global _BOUND
-    if _BOUND:
-        return
-    from gabion import server as _server
-
-    module_globals = globals()
-    for name, value in _server.__dict__.items():
-        module_globals.setdefault(name, value)
-    _BOUND = True
+    """Legacy test hook retained for compatibility after static extraction."""
+    return
 
 
 def _record_trace_1cell(

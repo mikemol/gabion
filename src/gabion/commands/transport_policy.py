@@ -1,15 +1,20 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal, Mapping, TypeAlias
 import warnings
 
 from gabion.invariants import never
-from gabion.lsp_client import run_command, run_command_direct
+from gabion.commands.transport_override import (
+    TransportOverrideConfig,
+    reset_transport_override,
+    set_transport_override,
+    transport_override,
+    transport_override_present,
+    transport_override_scope,
+)
 from gabion.tooling.governance.governance_rules import CommandPolicy, load_governance_rules
 from gabion.schema import TransportSelectionDTO
 from gabion.tooling.governance.override_record import validate_override_record_json
@@ -20,19 +25,6 @@ DIRECT_RUN_ENV = "GABION_DIRECT_RUN"
 DIRECT_RUN_OVERRIDE_EVIDENCE_ENV = "GABION_DIRECT_RUN_OVERRIDE_EVIDENCE"
 OVERRIDE_RECORD_JSON_ENV = "GABION_OVERRIDE_RECORD_JSON"
 _LEGACY_TRANSPORT_ENV_WARNED = False
-
-
-@dataclass(frozen=True)
-class TransportOverrideConfig:
-    direct_requested: bool | None = None
-    override_record_path: str | None = None
-    override_record_json: str | None = None
-
-
-_TRANSPORT_OVERRIDE: ContextVar[TransportOverrideConfig | None] = ContextVar(
-    "gabion_transport_override",
-    default=None,
-)
 
 
 @dataclass(frozen=True)
@@ -64,35 +56,6 @@ class TransportCarrierDecision:
         if self.mode == "auto":
             return None
         return self.mode == "direct"
-
-
-def transport_override() -> TransportOverrideConfig | None:
-    return _TRANSPORT_OVERRIDE.get()
-
-
-def transport_override_present() -> bool:
-    return transport_override() is not None
-
-
-def set_transport_override(
-    override: TransportOverrideConfig | None,
-) -> Token[TransportOverrideConfig | None]:
-    return _TRANSPORT_OVERRIDE.set(override)
-
-
-def reset_transport_override(
-    token: Token[TransportOverrideConfig | None],
-) -> None:
-    _TRANSPORT_OVERRIDE.reset(token)
-
-
-@contextmanager
-def transport_override_scope(override: TransportOverrideConfig | None):
-    token = set_transport_override(override)
-    try:
-        yield
-    finally:
-        reset_transport_override(token)
 
 
 def apply_cli_transport_flags(
@@ -169,11 +132,17 @@ def _resolve_transport_controls() -> tuple[bool, str | None]:
 
 
 # gabion:decision_protocol
-def resolve_command_transport(*, command: str, runner: Runner) -> CommandTransportDecision:
+def resolve_command_transport(
+    *,
+    command: str,
+    runner: Runner,
+    default_lsp_runner: Runner,
+    direct_runner: Runner,
+) -> CommandTransportDecision:
     direct_requested, override_record_json = (
         _resolve_transport_controls()
     )
-    if runner is not run_command:
+    if runner is not default_lsp_runner:
         return CommandTransportDecision(
             runner=runner,
             direct_requested=direct_requested,
@@ -202,7 +171,7 @@ def resolve_command_transport(*, command: str, runner: Runner) -> CommandTranspo
                 **override_record.telemetry(source="command_transport"),
             )
         override_telemetry = override_record.telemetry(source="command_transport")
-    resolved_runner = run_command_direct if direct_requested else run_command
+    resolved_runner = direct_runner if direct_requested else default_lsp_runner
     return CommandTransportDecision(
         runner=resolved_runner,
         direct_requested=direct_requested,

@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from tests.path_helpers import REPO_ROOT
 
+from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
+
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
@@ -70,7 +72,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     assert warnings == []
     assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
-    analysis = da.analyze_paths(
+    analysis = _analyze_paths(
         forest=da.Forest(),
         paths=[path],
         recursive=True,
@@ -187,7 +189,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
     assert warnings == []
     assert lint_lines == []
 
-    analysis = da.analyze_paths(
+    analysis = _analyze_paths(
         forest=da.Forest(),
         paths=[path],
         recursive=True,

@@ -1,6 +1,6 @@
 {
-  "dag_edge_count": 1770,
-  "edge_count": 2075,
+  "dag_edge_count": 2127,
+  "edge_count": 2127,
   "edges": [
     [
       "in/universal-curve-lab-bundle/python/aspf_adapter.py",
@@ -244,23 +244,11 @@
     ],
     [
       "scripts/sppf/sppf_sync.py",
-      "scripts/deadline/deadline_runtime.py"
+      "src/gabion/tooling/sppf/__init__.py"
     ],
     [
       "scripts/sppf/sppf_sync.py",
-      "src/gabion/analysis/foundation/timeout_context.py"
-    ],
-    [
-      "scripts/sppf/sppf_sync.py",
-      "src/gabion/cli.py"
-    ],
-    [
-      "scripts/sppf/sppf_sync.py",
-      "src/gabion/execution_plan.py"
-    ],
-    [
-      "scripts/sppf/sppf_sync.py",
-      "src/gabion/order_contract.py"
+      "src/gabion/tooling/sppf/sync_core.py"
     ],
     [
       "src/gabion/__init__.py",
@@ -883,15 +871,31 @@
       "src/gabion/order_contract.py"
     ],
     [
+      "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py",
+      "src/gabion/analysis/foundation/timeout_context.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py",
+      "src/gabion/order_contract.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution_support.py"
+    ],
+    [
       "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
       "src/gabion/analysis/dataflow/engine/dataflow_contracts.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py"
+      "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
-      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution_support.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_contracts.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution_support.py",
       "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
@@ -980,6 +984,10 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution_support.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
       "src/gabion/analysis/dataflow/engine/dataflow_contracts.py"
     ],
     [
@@ -1052,11 +1060,15 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+      "src/gabion/analysis/dataflow/io/dataflow_parse_helpers.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
       "src/gabion/analysis/foundation/json_types.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
@@ -1104,6 +1116,10 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
       "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py"
     ],
     [
@@ -1132,14 +1148,6 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_obligations.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
       "src/gabion/analysis/dataflow/io/dataflow_projection_helpers.py"
     ],
     [
@@ -1156,15 +1164,7 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
-      "src/gabion/analysis/dataflow/io/dataflow_run_outputs.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
       "src/gabion/analysis/dataflow/io/dataflow_snapshot_contracts.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
-      "src/gabion/analysis/dataflow/io/dataflow_synthesis.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
@@ -1504,7 +1504,7 @@
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py"
+      "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
@@ -1521,10 +1521,6 @@
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
       "src/gabion/analysis/dataflow/io/dataflow_snapshot_io.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
-      "src/gabion/analysis/dataflow/io/dataflow_synthesis.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
@@ -1549,6 +1545,10 @@
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
       "src/gabion/analysis/projection/projection_spec.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "src/gabion/invariants.py"
     ],
     [
       "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
@@ -1872,10 +1872,6 @@
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
       "src/gabion/analysis/dataflow/io/dataflow_graph_rendering.py"
     ],
     [
@@ -1909,10 +1905,6 @@
     [
       "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
       "src/gabion/analysis/projection/projection_registry.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
-      "src/gabion/analysis/projection/projection_spec.py"
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
@@ -2040,10 +2032,6 @@
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
       "src/gabion/analysis/dataflow/io/dataflow_parse_helpers.py"
     ],
     [
@@ -2092,15 +2080,15 @@
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py"
+    ],
+    [
+      "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
       "src/gabion/analysis/dataflow/engine/dataflow_contracts.py"
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
       "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
     ],
     [
       "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
@@ -2264,10 +2252,6 @@
     ],
     [
       "src/gabion/analysis/foundation/timeout_context.py",
-      "src/gabion/analysis/aspf/aspf.py"
-    ],
-    [
-      "src/gabion/analysis/foundation/timeout_context.py",
       "src/gabion/deadline_clock.py"
     ],
     [
@@ -2281,10 +2265,6 @@
     [
       "src/gabion/analysis/foundation/timeout_context.py",
       "src/gabion/json_types.py"
-    ],
-    [
-      "src/gabion/analysis/foundation/timeout_context.py",
-      "src/gabion/order_contract.py"
     ],
     [
       "src/gabion/analysis/indexed_scan/__init__.py",
@@ -3228,67 +3208,71 @@
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/__init__.py"
+      "src/gabion/cli_support/check/check_command_runtime.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/check_command_runtime.py"
+      "src/gabion/cli_support/check/check_commands.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/check_commands.py"
+      "src/gabion/cli_support/check/check_execution_plan.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/check_execution_plan.py"
+      "src/gabion/cli_support/check/check_runtime.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/check_runtime.py"
+      "src/gabion/cli_support/refactor/refactor_payload.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/dispatch_runtime.py"
+      "src/gabion/cli_support/refactor/refactor_runtime.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/github_artifact_restore.py"
+      "src/gabion/cli_support/shared/__init__.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/output_emitters.py"
+      "src/gabion/cli_support/shared/dispatch_runtime.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/parser_builder.py"
+      "src/gabion/cli_support/shared/github_artifact_restore.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/payload_builder.py"
+      "src/gabion/cli_support/shared/output_emitters.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/refactor_payload.py"
+      "src/gabion/cli_support/shared/parser_builder.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/refactor_runtime.py"
+      "src/gabion/cli_support/shared/payload_builder.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/runtime_flags.py"
+      "src/gabion/cli_support/shared/raw_argparse.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/synth_commands.py"
+      "src/gabion/cli_support/shared/runtime_flags.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/synth_runtime.py"
+      "src/gabion/cli_support/shared/timeout_progress.py"
     ],
     [
       "src/gabion/cli.py",
-      "src/gabion/cli_support/timeout_progress.py"
+      "src/gabion/cli_support/synth/synth_commands.py"
+    ],
+    [
+      "src/gabion/cli.py",
+      "src/gabion/cli_support/synth/synth_runtime.py"
     ],
     [
       "src/gabion/cli.py",
@@ -3416,147 +3400,151 @@
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/check_command_runtime.py"
+      "src/gabion/cli_support/check/check_command_runtime.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/check_commands.py"
+      "src/gabion/cli_support/check/check_commands.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/check_execution_plan.py"
+      "src/gabion/cli_support/check/check_execution_plan.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/check_runtime.py"
+      "src/gabion/cli_support/check/check_runtime.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/dispatch_runtime.py"
+      "src/gabion/cli_support/shared/dispatch_runtime.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/output_emitters.py"
+      "src/gabion/cli_support/shared/output_emitters.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/parser_builder.py"
+      "src/gabion/cli_support/shared/parser_builder.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/payload_builder.py"
+      "src/gabion/cli_support/shared/payload_builder.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/runtime_flags.py"
+      "src/gabion/cli_support/shared/runtime_flags.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/synth_commands.py"
+      "src/gabion/cli_support/shared/timeout_progress.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/synth_runtime.py"
+      "src/gabion/cli_support/synth/synth_commands.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
-      "src/gabion/cli_support/timeout_progress.py"
+      "src/gabion/cli_support/synth/synth_runtime.py"
     ],
     [
       "src/gabion/cli_support/__init__.py",
       "src/gabion/cli_support/tooling_commands.py"
     ],
     [
-      "src/gabion/cli_support/check_command_runtime.py",
+      "src/gabion/cli_support/check/check_command_runtime.py",
       "src/gabion/commands/__init__.py"
     ],
     [
-      "src/gabion/cli_support/check_command_runtime.py",
+      "src/gabion/cli_support/check/check_command_runtime.py",
       "src/gabion/commands/check_contract.py"
     ],
     [
-      "src/gabion/cli_support/check_command_runtime.py",
+      "src/gabion/cli_support/check/check_command_runtime.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/check_execution_plan.py",
+      "src/gabion/cli_support/check/check_execution_plan.py",
       "src/gabion/commands/check_contract.py"
     ],
     [
-      "src/gabion/cli_support/check_execution_plan.py",
+      "src/gabion/cli_support/check/check_execution_plan.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/check_execution_plan.py",
+      "src/gabion/cli_support/check/check_execution_plan.py",
       "src/gabion/plan.py"
     ],
     [
-      "src/gabion/cli_support/check_runtime.py",
+      "src/gabion/cli_support/check/check_runtime.py",
       "src/gabion/commands/__init__.py"
     ],
     [
-      "src/gabion/cli_support/check_runtime.py",
+      "src/gabion/cli_support/check/check_runtime.py",
       "src/gabion/commands/check_contract.py"
     ],
     [
-      "src/gabion/cli_support/check_runtime.py",
+      "src/gabion/cli_support/check/check_runtime.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/dispatch_runtime.py",
+      "src/gabion/cli_support/refactor/refactor_payload.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/output_emitters.py",
+      "src/gabion/cli_support/refactor/refactor_runtime.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/output_emitters.py",
+      "src/gabion/cli_support/refactor/refactor_runtime.py",
+      "src/gabion/lsp_client.py"
+    ],
+    [
+      "src/gabion/cli_support/shared/dispatch_runtime.py",
+      "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/cli_support/shared/output_emitters.py",
+      "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/cli_support/shared/output_emitters.py",
       "src/gabion/schema.py"
     ],
     [
-      "src/gabion/cli_support/payload_builder.py",
+      "src/gabion/cli_support/shared/payload_builder.py",
       "src/gabion/commands/__init__.py"
     ],
     [
-      "src/gabion/cli_support/payload_builder.py",
+      "src/gabion/cli_support/shared/payload_builder.py",
       "src/gabion/commands/check_contract.py"
     ],
     [
-      "src/gabion/cli_support/payload_builder.py",
+      "src/gabion/cli_support/shared/payload_builder.py",
       "src/gabion/json_types.py"
     ],
     [
-      "src/gabion/cli_support/refactor_payload.py",
-      "src/gabion/json_types.py"
+      "src/gabion/cli_support/shared/raw_argparse.py",
+      "src/gabion/cli_support/shared/parser_builder.py"
     ],
     [
-      "src/gabion/cli_support/refactor_runtime.py",
-      "src/gabion/json_types.py"
-    ],
-    [
-      "src/gabion/cli_support/refactor_runtime.py",
-      "src/gabion/lsp_client.py"
-    ],
-    [
-      "src/gabion/cli_support/synth_commands.py",
-      "src/gabion/json_types.py"
-    ],
-    [
-      "src/gabion/cli_support/synth_runtime.py",
-      "src/gabion/commands/check_contract.py"
-    ],
-    [
-      "src/gabion/cli_support/synth_runtime.py",
-      "src/gabion/json_types.py"
-    ],
-    [
-      "src/gabion/cli_support/synth_runtime.py",
-      "src/gabion/lsp_client.py"
-    ],
-    [
-      "src/gabion/cli_support/timeout_progress.py",
+      "src/gabion/cli_support/shared/timeout_progress.py",
       "src/gabion/analysis/foundation/timeout_context.py"
+    ],
+    [
+      "src/gabion/cli_support/synth/synth_commands.py",
+      "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/cli_support/synth/synth_runtime.py",
+      "src/gabion/commands/check_contract.py"
+    ],
+    [
+      "src/gabion/cli_support/synth/synth_runtime.py",
+      "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/cli_support/synth/synth_runtime.py",
+      "src/gabion/lsp_client.py"
     ],
     [
       "src/gabion/commands/aux_operation_contract.py",
@@ -3644,11 +3632,11 @@
     ],
     [
       "src/gabion/commands/transport_policy.py",
-      "src/gabion/invariants.py"
+      "src/gabion/commands/transport_override.py"
     ],
     [
       "src/gabion/commands/transport_policy.py",
-      "src/gabion/lsp_client.py"
+      "src/gabion/invariants.py"
     ],
     [
       "src/gabion/commands/transport_policy.py",
@@ -3728,10 +3716,6 @@
     ],
     [
       "src/gabion/lsp_client.py",
-      "src/gabion/__init__.py"
-    ],
-    [
-      "src/gabion/lsp_client.py",
       "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
@@ -3769,10 +3753,6 @@
     [
       "src/gabion/lsp_client.py",
       "src/gabion/json_types.py"
-    ],
-    [
-      "src/gabion/lsp_client.py",
-      "src/gabion/server.py"
     ],
     [
       "src/gabion/order_contract.py",
@@ -3868,7 +3848,7 @@
     ],
     [
       "src/gabion/runtime/policy_runtime.py",
-      "src/gabion/commands/transport_policy.py"
+      "src/gabion/commands/transport_override.py"
     ],
     [
       "src/gabion/runtime/policy_runtime.py",
@@ -4008,10 +3988,6 @@
     ],
     [
       "src/gabion/server.py",
-      "src/gabion/commands/direct_dispatch.py"
-    ],
-    [
-      "src/gabion/server.py",
       "src/gabion/commands/payload_codec.py"
     ],
     [
@@ -4068,10 +4044,6 @@
     ],
     [
       "src/gabion/server_core/command_orchestrator.py",
-      "src/gabion/__init__.py"
-    ],
-    [
-      "src/gabion/server_core/command_orchestrator.py",
       "src/gabion/analysis/projection/pattern_schema_projection.py"
     ],
     [
@@ -4108,10 +4080,6 @@
     ],
     [
       "src/gabion/server_core/command_orchestrator.py",
-      "src/gabion/server.py"
-    ],
-    [
-      "src/gabion/server_core/command_orchestrator.py",
       "src/gabion/server_core/command_contract.py"
     ],
     [
@@ -4120,7 +4088,167 @@
     ],
     [
       "src/gabion/server_core/command_orchestrator.py",
+      "src/gabion/server_core/command_orchestrator_primitives.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator.py",
       "src/gabion/server_core/command_reducers.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/aspf/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/aspf/aspf.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/aspf/aspf_execution_fibration.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/aspf/aspf_resume_state.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/call_cluster/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/call_cluster/call_cluster_consolidation.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/call_cluster/call_clusters.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/core/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/core/ambiguity_delta.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/core/ambiguity_state.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/core/type_fingerprints.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/foundation/timeout_context.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/semantics/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/semantics/semantic_coverage_map.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_annotation_drift.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_annotation_drift_delta.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_evidence_suggestions.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_obsolescence.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_obsolescence_delta.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/surfaces/test_obsolescence_state.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/taint/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/taint/taint_delta.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/taint/taint_lifecycle.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/analysis/taint/taint_state.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/__init__.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/boundary_order.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/check_contract.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/command_ids.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/payload_codec.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/commands/progress_contract.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/config.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/invariants.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/order_contract.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/plan.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/refactor/rewrite_plan.py"
+    ],
+    [
+      "src/gabion/server_core/command_orchestrator_primitives.py",
+      "src/gabion/schema.py"
     ],
     [
       "src/gabion/synthesis/__init__.py",
@@ -4540,11 +4668,31 @@
     ],
     [
       "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
-      "src/gabion/analysis/foundation/timeout_context.py"
+      "src/gabion/cli_support/check/check_execution_plan.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/cli_support/check/check_runtime.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/cli_support/shared/dispatch_runtime.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/cli_support/shared/payload_builder.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/cli_support/shared/raw_argparse.py"
     ],
     [
       "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
       "src/gabion/commands/__init__.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/commands/boundary_order.py"
     ],
     [
       "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
@@ -4556,7 +4704,31 @@
     ],
     [
       "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/commands/transport_policy.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/invariants.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
       "src/gabion/json_types.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/lsp_client.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/runtime/__init__.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/runtime/deadline_policy.py"
+    ],
+    [
+      "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+      "src/gabion/runtime/path_policy.py"
     ],
     [
       "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
@@ -4687,12 +4859,20 @@
       "src/gabion/tooling/runtime/annotation_drift_orphaned_gate.py"
     ],
     [
-      "src/gabion_governance/governance_audit_impl.py",
-      "scripts/__init__.py"
+      "src/gabion/tooling/sppf/sync_core.py",
+      "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
-      "src/gabion_governance/governance_audit_impl.py",
-      "scripts/sppf/sppf_sync.py"
+      "src/gabion/tooling/sppf/sync_core.py",
+      "src/gabion/execution_plan.py"
+    ],
+    [
+      "src/gabion/tooling/sppf/sync_core.py",
+      "src/gabion/order_contract.py"
+    ],
+    [
+      "src/gabion/tooling/sppf/sync_core.py",
+      "src/gabion/tooling/runtime/deadline_runtime.py"
     ],
     [
       "src/gabion_governance/governance_audit_impl.py",
@@ -4749,6 +4929,14 @@
     [
       "src/gabion_governance/governance_audit_impl.py",
       "src/gabion/tooling/runtime/deadline_runtime.py"
+    ],
+    [
+      "src/gabion_governance/governance_audit_impl.py",
+      "src/gabion/tooling/sppf/__init__.py"
+    ],
+    [
+      "src/gabion_governance/governance_audit_impl.py",
+      "src/gabion/tooling/sppf/sync_core.py"
     ],
     [
       "tests/conftest.py",
@@ -5404,6 +5592,10 @@
     ],
     [
       "tests/gabion/analysis/decision/test_decision_surfaces.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py"
+    ],
+    [
+      "tests/gabion/analysis/decision/test_decision_surfaces.py",
       "tests/path_helpers.py"
     ],
     [
@@ -5764,6 +5956,10 @@
     ],
     [
       "tests/gabion/analysis/misc_s1/test_matrix_acceptance_artifacts.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_raw_runtime.py"
+    ],
+    [
+      "tests/gabion/analysis/misc_s1/test_matrix_acceptance_artifacts.py",
       "tests/path_helpers.py"
     ],
     [
@@ -6068,6 +6264,10 @@
     ],
     [
       "tests/gabion/analysis/misc_s3/test_broad_type_lint.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py"
+    ],
+    [
+      "tests/gabion/analysis/misc_s3/test_broad_type_lint.py",
       "src/gabion/analysis/foundation/timeout_context.py"
     ],
     [
@@ -6319,6 +6519,10 @@
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
     ],
     [
+      "tests/gabion/analysis/projection/suite_site_projection_parity_cases.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py"
+    ],
+    [
       "tests/gabion/analysis/projection/test_projection_exec_edges.py",
       "src/gabion/analysis/projection/projection_exec.py"
     ],
@@ -6457,6 +6661,10 @@
     [
       "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
       "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    ],
+    [
+      "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
+      "src/gabion/analysis/dataflow/engine/dataflow_obligations.py"
     ],
     [
       "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
@@ -8303,12 +8511,12 @@
       "src/gabion/order_contract.py"
     ]
   ],
-  "largest_scc_size": 17,
+  "largest_scc_size": 1,
   "module_none_imports": 0,
   "module_none_resolved": 0,
   "module_none_unresolved": [],
   "module_none_unresolved_count": 0,
-  "node_count": 609,
+  "node_count": 621,
   "nodes": [
     "in/paginator.py",
     "in/policy_check.py",
@@ -8338,6 +8546,7 @@
     "scripts/misc/complexity_audit.py",
     "scripts/misc/deprecated_substrate_extract.py",
     "scripts/misc/extract_test_evidence.py",
+    "scripts/misc/import_hierarchy_audit.py",
     "scripts/misc/legacy_monolith_retirement_ledger.py",
     "scripts/misc/lsp_smoke_test.py",
     "scripts/misc/normalize_legacy_monolith_provenance_ids.py",
@@ -8395,7 +8604,9 @@
     "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
     "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
     "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+    "src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py",
     "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+    "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution_support.py",
     "src/gabion/analysis/dataflow/engine/dataflow_contracts.py",
     "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
     "src/gabion/analysis/dataflow/engine/dataflow_decision_surfaces.py",
@@ -8541,21 +8752,26 @@
     "src/gabion/analysis/taint/taint_state.py",
     "src/gabion/cli.py",
     "src/gabion/cli_support/__init__.py",
-    "src/gabion/cli_support/check_command_runtime.py",
-    "src/gabion/cli_support/check_commands.py",
-    "src/gabion/cli_support/check_execution_plan.py",
-    "src/gabion/cli_support/check_runtime.py",
-    "src/gabion/cli_support/dispatch_runtime.py",
-    "src/gabion/cli_support/github_artifact_restore.py",
-    "src/gabion/cli_support/output_emitters.py",
-    "src/gabion/cli_support/parser_builder.py",
-    "src/gabion/cli_support/payload_builder.py",
-    "src/gabion/cli_support/refactor_payload.py",
-    "src/gabion/cli_support/refactor_runtime.py",
-    "src/gabion/cli_support/runtime_flags.py",
-    "src/gabion/cli_support/synth_commands.py",
-    "src/gabion/cli_support/synth_runtime.py",
-    "src/gabion/cli_support/timeout_progress.py",
+    "src/gabion/cli_support/check/__init__.py",
+    "src/gabion/cli_support/check/check_command_runtime.py",
+    "src/gabion/cli_support/check/check_commands.py",
+    "src/gabion/cli_support/check/check_execution_plan.py",
+    "src/gabion/cli_support/check/check_runtime.py",
+    "src/gabion/cli_support/refactor/__init__.py",
+    "src/gabion/cli_support/refactor/refactor_payload.py",
+    "src/gabion/cli_support/refactor/refactor_runtime.py",
+    "src/gabion/cli_support/shared/__init__.py",
+    "src/gabion/cli_support/shared/dispatch_runtime.py",
+    "src/gabion/cli_support/shared/github_artifact_restore.py",
+    "src/gabion/cli_support/shared/output_emitters.py",
+    "src/gabion/cli_support/shared/parser_builder.py",
+    "src/gabion/cli_support/shared/payload_builder.py",
+    "src/gabion/cli_support/shared/raw_argparse.py",
+    "src/gabion/cli_support/shared/runtime_flags.py",
+    "src/gabion/cli_support/shared/timeout_progress.py",
+    "src/gabion/cli_support/synth/__init__.py",
+    "src/gabion/cli_support/synth/synth_commands.py",
+    "src/gabion/cli_support/synth/synth_runtime.py",
     "src/gabion/cli_support/tooling_commands.py",
     "src/gabion/commands/__init__.py",
     "src/gabion/commands/aux_operation_contract.py",
@@ -8567,6 +8783,7 @@
     "src/gabion/commands/payload_codec.py",
     "src/gabion/commands/progress_contract.py",
     "src/gabion/commands/progress_transition.py",
+    "src/gabion/commands/transport_override.py",
     "src/gabion/commands/transport_policy.py",
     "src/gabion/config.py",
     "src/gabion/deadline_clock.py",
@@ -8599,6 +8816,7 @@
     "src/gabion/server_core/command_contract.py",
     "src/gabion/server_core/command_effects.py",
     "src/gabion/server_core/command_orchestrator.py",
+    "src/gabion/server_core/command_orchestrator_primitives.py",
     "src/gabion/server_core/command_reducers.py",
     "src/gabion/synthesis/__init__.py",
     "src/gabion/synthesis/emission.py",
@@ -8642,6 +8860,8 @@
     "src/gabion/tooling/runtime/run_dataflow_stage.py",
     "src/gabion/tooling/runtime/terminal_outcome_projector.py",
     "src/gabion/tooling/runtime/tool_specs.py",
+    "src/gabion/tooling/sppf/__init__.py",
+    "src/gabion/tooling/sppf/sync_core.py",
     "src/gabion_governance/__init__.py",
     "src/gabion_governance/governance_audit_impl.py",
     "tests/conftest.py",
@@ -8920,49 +9140,7 @@
     "tests/order_helpers.py",
     "tests/path_helpers.py"
   ],
-  "nontrivial_scc_count": 4,
-  "scc_count": 580,
-  "scc_samples": [
-    [
-      "src/gabion/analysis/aspf/aspf.py",
-      "src/gabion/analysis/aspf/aspf_evidence.py",
-      "src/gabion/analysis/foundation/timeout_context.py",
-      "src/gabion/order_contract.py",
-      "src/gabion/runtime/stable_encode.py"
-    ],
-    [
-      "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
-      "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
-      "src/gabion/analysis/dataflow/io/dataflow_refactor_planning.py",
-      "src/gabion/analysis/dataflow/io/dataflow_reporting.py",
-      "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
-      "src/gabion/analysis/dataflow/io/dataflow_run_outputs.py",
-      "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
-      "src/gabion/analysis/dataflow/io/dataflow_synthesis_runtime_bridge.py"
-    ],
-    [
-      "src/gabion/commands/direct_dispatch.py",
-      "src/gabion/commands/transport_policy.py",
-      "src/gabion/lsp_client.py",
-      "src/gabion/runtime/policy_runtime.py",
-      "src/gabion/server.py",
-      "src/gabion/server_core/command_orchestrator.py"
-    ],
-    [
-      "scripts/sppf/sppf_sync.py",
-      "src/gabion/cli.py",
-      "src/gabion/tooling/governance/governance_audit.py",
-      "src/gabion/tooling/governance/normative_symdiff.py",
-      "src/gabion_governance/governance_audit_impl.py"
-    ]
-  ]
+  "nontrivial_scc_count": 0,
+  "scc_count": 621,
+  "scc_samples": []
 }

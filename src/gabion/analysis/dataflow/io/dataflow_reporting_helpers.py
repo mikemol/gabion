@@ -13,8 +13,6 @@ from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
 from gabion.analysis.dataflow.io.dataflow_graph_rendering import (
     bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence, render_mermaid_component as _render_mermaid_component)
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-    _report_section_spec as _report_section_spec_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     spec_row_span as _spec_row_span_impl)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage, _parse_module_tree
@@ -24,7 +22,6 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_SPEC
-from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -804,11 +801,6 @@ def render_type_mermaid(
             lines.append(f"  {src} -.-> {dst}")
     lines.append("```")
     return "\n".join(lines)
-
-
-def _report_section_spec(*, section: str, run_id: str) -> ProjectionSpec:
-    return _report_section_spec_impl(section=section, run_id=run_id)
-
 
 def _spec_row_span(row: Mapping[str, JSONValue]):
     return _spec_row_span_impl(row)

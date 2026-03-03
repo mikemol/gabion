@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
+
 
 def _load():
     from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
@@ -21,7 +23,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
     )
 
     forest = da.Forest()
-    analysis = da.analyze_paths(
+    analysis = _analyze_paths(
         forest=forest,
         paths=[path],
         recursive=True,
@@ -63,7 +65,7 @@ def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: P
     )
 
     forest = da.Forest()
-    analysis = da.analyze_paths(
+    analysis = _analyze_paths(
         forest=forest,
         paths=[path],
         recursive=True,

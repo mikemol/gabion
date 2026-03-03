@@ -257,7 +257,12 @@ def run_delta_emit(
     flush_thread.start()
 
     request = CommandRequest(server.DATAFLOW_COMMAND, [dict(payload)])
-    transport = resolve_command_transport(command=server.DATAFLOW_COMMAND, runner=run_command_fn)
+    transport = resolve_command_transport(
+        command=server.DATAFLOW_COMMAND,
+        runner=run_command_fn,
+        default_lsp_runner=run_command,
+        direct_runner=run_command_direct,
+    )
     resolved_runner = (
         run_command_direct if transport.runner is run_command and not transport.direct_requested else transport.runner
     )

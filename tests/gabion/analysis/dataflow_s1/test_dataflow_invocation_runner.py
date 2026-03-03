@@ -47,22 +47,19 @@ def test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope() -> None:
         runner.run_delta_bundle(envelope)
 
 
-# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
-def test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch() -> None:
+# gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_uses_injected_helpers_and_dispatch::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+def test_dataflow_invocation_runner_raw_uses_injected_helpers_and_dispatch() -> None:
     dispatched: dict[str, object] = {}
 
     def _dispatch(**kwargs):
         dispatched.update(kwargs)
         return {"exit_code": 3, "analysis_state": "failed"}
 
-    fake_cli = SimpleNamespace(
-        parse_dataflow_args_or_exit=lambda _args: SimpleNamespace(root="."),
-        build_dataflow_payload=lambda _opts: {"seed": "payload"},
-        run_command=lambda **_kwargs: {},
-    )
     runner = DataflowInvocationRunner(
         dispatch_command_fn=_dispatch,
-        cli_module_loader=lambda: fake_cli,
+        parse_dataflow_args_fn=lambda _args: SimpleNamespace(root="."),
+        build_dataflow_payload_fn=lambda _opts: {"seed": "payload"},
+        run_command_fn=lambda **_kwargs: {},
     )
     envelope = ExecutionEnvelope.for_raw(
         root=Path("."),
@@ -82,17 +79,28 @@ def test_dataflow_invocation_runner_raw_uses_cli_loader_and_dispatch() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> None:
-    fake_cli = SimpleNamespace(
-        run_check=lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"},
-        dispatch_command=lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"},
+    run_check_fn = lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"}
+    dispatch_command_fn = lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"}
+    parse_dataflow_args_fn = lambda _args: SimpleNamespace(root=".")
+    build_dataflow_payload_fn = lambda _opts: {"seed": "payload"}
+    run_command_fn = lambda **_kwargs: {}
+    runner = DataflowInvocationRunner(
+        run_check_fn=run_check_fn,
+        dispatch_command_fn=dispatch_command_fn,
+        parse_dataflow_args_fn=parse_dataflow_args_fn,
+        build_dataflow_payload_fn=build_dataflow_payload_fn,
+        run_command_fn=run_command_fn,
     )
-    runner = DataflowInvocationRunner(cli_module_loader=lambda: fake_cli)
-    assert runner._resolve_run_check() is fake_cli.run_check
-    assert runner._resolve_dispatch_command() is fake_cli.dispatch_command
+    assert runner._resolve_run_check() is run_check_fn
+    assert runner._resolve_dispatch_command() is dispatch_command_fn
+    assert runner._resolve_parse_dataflow_args() is parse_dataflow_args_fn
+    assert runner._resolve_build_dataflow_payload() is build_dataflow_payload_fn
+    assert runner._resolve_run_command() is run_command_fn
 
     default_runner = DataflowInvocationRunner()
-    cli_module = default_runner._resolve_cli_module()
-    assert getattr(cli_module, "__name__", "") == "gabion.cli"
+    assert callable(default_runner._resolve_parse_dataflow_args())
+    assert callable(default_runner._resolve_build_dataflow_payload())
+    assert callable(default_runner._resolve_run_command())
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_ensures_repo_root_importable::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
@@ -115,17 +123,14 @@ def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path)
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> None:
     dispatched: dict[str, object] = {}
-    fake_cli = SimpleNamespace(
-        parse_dataflow_args_or_exit=lambda _args: SimpleNamespace(root="."),
-        build_dataflow_payload=lambda _opts: {"seed": "payload"},
-        run_command=lambda **_kwargs: {},
-    )
     runner = DataflowInvocationRunner(
         dispatch_command_fn=lambda **kwargs: (
             dispatched.update(kwargs)
             or {"exit_code": 0, "analysis_state": "succeeded"}
         ),
-        cli_module_loader=lambda: fake_cli,
+        parse_dataflow_args_fn=lambda _args: SimpleNamespace(root="."),
+        build_dataflow_payload_fn=lambda _opts: {"seed": "payload"},
+        run_command_fn=lambda **_kwargs: {},
     )
     envelope = ExecutionEnvelope.for_raw(
         root=Path("."),
@@ -141,14 +146,11 @@ def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> No
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_rejects_delta_envelope::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
 def test_dataflow_invocation_runner_raw_rejects_delta_envelope() -> None:
-    fake_cli = SimpleNamespace(
-        parse_dataflow_args_or_exit=lambda _args: SimpleNamespace(root="."),
-        build_dataflow_payload=lambda _opts: {},
-        run_command=lambda **_kwargs: {},
-    )
     runner = DataflowInvocationRunner(
         dispatch_command_fn=lambda **_kwargs: {},
-        cli_module_loader=lambda: fake_cli,
+        parse_dataflow_args_fn=lambda _args: SimpleNamespace(root="."),
+        build_dataflow_payload_fn=lambda _opts: {},
+        run_command_fn=lambda **_kwargs: {},
     )
     envelope = ExecutionEnvelope.for_delta_bundle(
         root=Path("."),

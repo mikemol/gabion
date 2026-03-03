@@ -20,32 +20,34 @@ import sys
 
 from click.core import ParameterSource
 import typer
-from gabion.cli_support.check_commands import (
+from gabion.cli_support.check.check_commands import (
     register_check_delta_bundle_command as _register_check_delta_bundle_command, register_check_group_callback as _register_check_group_callback, register_check_run_command as _register_check_run_command)
-from gabion.cli_support.check_command_runtime import (
+from gabion.cli_support.check.check_command_runtime import (
     check_raw_profile_args as _check_raw_profile_args_impl, run_check_aux_operation as _run_check_aux_operation_impl, run_check_command as _run_check_command_impl, run_check_raw_profile as _run_check_raw_profile_impl)
-from gabion.cli_support.check_execution_plan import (
+from gabion.cli_support.check.check_execution_plan import (
     check_derived_artifacts as _check_derived_artifacts_impl, build_check_execution_plan_request as _build_check_execution_plan_request_impl)
-from gabion.cli_support.check_runtime import run_check as _run_check_impl
-from gabion.cli_support.dispatch_runtime import (
+from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
+from gabion.cli_support.shared.dispatch_runtime import (
     dispatch_command as _dispatch_command_impl)
-from gabion.cli_support import (
+from gabion.cli_support.shared import (
     github_artifact_restore as _github_artifact_restore)
-from gabion.cli_support.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
-from gabion.cli_support.payload_builder import (
+from gabion.cli_support.shared.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
+from gabion.cli_support.shared.raw_argparse import (
+    parse_dataflow_args_or_exit as _parse_dataflow_args_or_exit_impl)
+from gabion.cli_support.shared.payload_builder import (
     build_dataflow_payload as _build_dataflow_payload_impl)
-from gabion.cli_support.output_emitters import (
+from gabion.cli_support.shared.output_emitters import (
     emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, write_lint_sarif as _write_lint_sarif_impl)
-from gabion.cli_support.synth_runtime import run_synth as _run_synth_impl
-from gabion.cli_support.synth_commands import (
+from gabion.cli_support.synth.synth_runtime import run_synth as _run_synth_impl
+from gabion.cli_support.synth.synth_commands import (
     register_synth_command as _register_synth_command)
-from gabion.cli_support.refactor_payload import (
+from gabion.cli_support.refactor.refactor_payload import (
     build_refactor_payload as _build_refactor_payload_impl)
-from gabion.cli_support.refactor_runtime import (
+from gabion.cli_support.refactor.refactor_runtime import (
     run_refactor_protocol as _run_refactor_protocol_impl)
-from gabion.cli_support.timeout_progress import (
+from gabion.cli_support.shared.timeout_progress import (
     render_timeout_progress_markdown as _render_timeout_progress_markdown_impl)
-from gabion.cli_support.runtime_flags import (
+from gabion.cli_support.shared.runtime_flags import (
     register_runtime_flags_callback as _register_runtime_flags_callback)
 from gabion.cli_support.tooling_commands import (
     build_status_watch_options as _build_status_watch_options_impl, register_ci_watch_command as _register_ci_watch_command)
@@ -766,14 +768,7 @@ def parse_dataflow_args_or_exit(
     *,
     parser_fn: Callable[[], argparse.ArgumentParser] | None = None,
 ) -> argparse.Namespace:
-    parser = (parser_fn or dataflow_cli_parser)()
-    if any(arg in {"-h", "--help"} for arg in argv):
-        parser.print_help()
-        raise typer.Exit(code=0)
-    try:
-        return parser.parse_args(argv)
-    except SystemExit as exc:
-        raise typer.Exit(code=int(exc.code))
+    return _parse_dataflow_args_or_exit_impl(argv, parser_fn=parser_fn)
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:

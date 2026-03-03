@@ -6,6 +6,7 @@ import textwrap
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
 from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
+from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
 from gabion.analysis.foundation.timeout_context import Deadline, TimeoutTickCarrier, deadline_scope
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._internal_broad_type_lint_lines::annot
@@ -26,7 +27,7 @@ def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
     )
     config = AuditConfig(project_root=tmp_path)
     with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
-        analysis = da.analyze_paths(
+        analysis = _analyze_paths(
             [target],
             forest=Forest(),
             recursive=True,
@@ -70,7 +71,7 @@ def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
     )
     config = AuditConfig(project_root=tmp_path)
     with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
-        analysis = da.analyze_paths(
+        analysis = _analyze_paths(
             [target],
             forest=Forest(),
             recursive=True,
@@ -116,7 +117,7 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
     )
     config = AuditConfig(project_root=tmp_path)
     with deadline_scope(Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=10_000, tick_ns=1_000_000))):
-        analysis = da.analyze_paths(
+        analysis = _analyze_paths(
             [target],
             forest=Forest(),
             recursive=True,

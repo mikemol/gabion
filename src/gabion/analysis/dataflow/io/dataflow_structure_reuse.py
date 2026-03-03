@@ -8,14 +8,16 @@ from typing import Callable, cast
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_collection_resume_payload
 from gabion.analysis.dataflow.engine.dataflow_contracts import ReportCarrier
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import _collect_dataclass_registry
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     report_projection_phase_rank, report_projection_specs)
 from gabion.analysis.dataflow.io.dataflow_projection_preview_bridge import preview_section_lines
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import extract_report_sections
-from gabion.analysis.dataflow.io.dataflow_synthesis_runtime_bridge import _collect_config_bundles
+from gabion.analysis.dataflow.io.dataflow_synthesis_runtime_bridge import (
+    _collect_config_bundles,
+    _collect_dataclass_registry,
+)
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload

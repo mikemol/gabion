@@ -18,7 +18,12 @@ def test_transport_policy_denies_direct_for_governed_without_override() -> None:
         transport_policy.TransportOverrideConfig(direct_requested=True)
     ):
         with pytest.raises(NeverThrown):
-            transport_policy.resolve_command_transport(command=command_ids.CHECK_COMMAND, runner=run_command)
+            transport_policy.resolve_command_transport(
+                command=command_ids.CHECK_COMMAND,
+                runner=run_command,
+                default_lsp_runner=run_command,
+                direct_runner=run_command_direct,
+            )
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_allows_direct_for_governed_with_valid_override
@@ -39,7 +44,12 @@ def test_transport_policy_allows_direct_for_governed_with_valid_override() -> No
             ),
         )
     ):
-        decision = transport_policy.resolve_command_transport(command=command_ids.CHECK_COMMAND, runner=run_command)
+        decision = transport_policy.resolve_command_transport(
+            command=command_ids.CHECK_COMMAND,
+            runner=run_command,
+            default_lsp_runner=run_command,
+            direct_runner=run_command_direct,
+        )
     assert decision.runner is run_command_direct
     assert decision.direct_override_telemetry is not None
 
@@ -52,6 +62,8 @@ def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
         decision = transport_policy.resolve_command_transport(
             command=command_ids.LSP_PARITY_GATE_COMMAND,
             runner=run_command,
+            default_lsp_runner=run_command,
+            direct_runner=run_command_direct,
         )
     assert decision.runner is run_command_direct
 
@@ -62,6 +74,8 @@ def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> Non
         decision = transport_policy.resolve_command_transport(
             command="gabion.unknown-command",
             runner=run_command,
+            default_lsp_runner=run_command,
+            direct_runner=run_command_direct,
         )
     assert decision.policy is None
     assert decision.direct_requested is False

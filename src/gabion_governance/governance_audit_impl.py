@@ -3927,11 +3927,8 @@ def _resolve_sppf_gh_ref_mode(raw: str | None) -> SppfGhRefMode:
 
 
 def _load_sppf_sync_module():
-    try:
-        from scripts.sppf import sppf_sync
-    except ModuleNotFoundError:
-        import sppf_sync
-    return sppf_sync
+    from gabion.tooling.sppf import sync_core
+    return sync_core
 
 
 def _sppf_sync_check(
@@ -4019,12 +4016,8 @@ def _evaluate_docflow_obligations(
 ) -> DocflowObligationResult:
     rev_range = "HEAD~1..HEAD"
     try:
-        try:
-            from scripts.sppf import sppf_sync
-        except ModuleNotFoundError:
-            import sppf_sync
-
-        rev_range = sppf_sync._default_range()
+        from gabion.tooling.sppf import sync_core
+        rev_range = sync_core._default_range()
     except Exception:
         pass
 
@@ -4039,12 +4032,9 @@ def _evaluate_docflow_obligations(
     if sppf_relevant_changed:
         gh_reference_validated = False
         try:
-            try:
-                from scripts.sppf import sppf_sync
-            except ModuleNotFoundError:
-                import sppf_sync
-            commits = sppf_sync._collect_commits(rev_range)
-            issue_ids = sppf_sync._issue_ids_from_commits(commits)
+            from gabion.tooling.sppf import sync_core
+            commits = sync_core._collect_commits(rev_range)
+            issue_ids = sync_core._issue_ids_from_commits(commits)
             gh_reference_validated = bool(issue_ids)
         except Exception:
             gh_reference_validated = False

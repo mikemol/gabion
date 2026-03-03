@@ -255,6 +255,19 @@ mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --ou
 git diff --exit-code out/test_evidence.json
 ```
 
+Import-hierarchy DAG audit (for refactor planning and SCC tracking):
+
+```bash
+mise exec -- python -m scripts.misc.import_hierarchy_audit
+```
+
+This regenerates:
+- `out/scout/import_hierarchy_current.json`
+- `out/scout/import_hierarchy_head.json`
+- `out/scout/import_hierarchy_summary.json`
+- `out/scout/folder_py_counts.json`
+- `out/scout/import_hierarchy_scc_linkages.json` (per-SCC symbol/function linkages with topological orderings)
+
 Adapter-ingestion corrections must include golden fixture evidence for each
 added adapter path under `tests/fixtures/ingest_adapter/`, plus parity
 assertions that equivalent adapter payloads preserve overlapping

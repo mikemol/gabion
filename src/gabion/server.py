@@ -25,7 +25,7 @@ from lsprotocol.types import (
 
 from gabion.json_types import JSONObject, JSONValue
 from gabion.commands import (
-    boundary_order, command_ids, direct_dispatch, payload_codec, progress_contract as progress_timeline)
+    boundary_order, command_ids, payload_codec, progress_contract as progress_timeline)
 from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
     ExecutionPlan, ExecutionPlanObligations, ExecutionPlanPolicyMetadata, write_execution_plan_artifact)
@@ -3583,6 +3583,23 @@ def _lsp_command_executor(command: str) -> Callable[[LanguageServer, dict[str, o
     return mapping.get(command)
 
 
+def _direct_command_executor(
+    command: str,
+) -> Callable[[LanguageServer, dict[str, object] | None], dict] | None:
+    mapping: dict[str, Callable[[LanguageServer, dict[str, object] | None], dict]] = {
+        CHECK_COMMAND: execute_command,
+        DATAFLOW_COMMAND: execute_command,
+        STRUCTURE_DIFF_COMMAND: execute_structure_diff,
+        STRUCTURE_REUSE_COMMAND: execute_structure_reuse,
+        DECISION_DIFF_COMMAND: execute_decision_diff,
+        SYNTHESIS_COMMAND: execute_synthesis,
+        REFACTOR_COMMAND: execute_refactor,
+        IMPACT_COMMAND: execute_impact,
+        LSP_PARITY_GATE_COMMAND: execute_lsp_parity_gate,
+    }
+    return mapping.get(command)
+
+
 def _strip_parity_ignored_keys(
     payload: Mapping[str, object],
     *,
@@ -3644,7 +3661,7 @@ def _execute_lsp_parity_gate_total(
         else lsp_executor_for_command
     )
     resolved_direct_executor_for_command = (
-        direct_dispatch.direct_executor
+        _direct_command_executor
         if direct_executor_for_command is None
         else direct_executor_for_command
     )

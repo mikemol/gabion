@@ -6,6 +6,10 @@ from tests.path_helpers import REPO_ROOT
 import textwrap
 import pytest
 
+from gabion.analysis.dataflow.engine.dataflow_obligations import (
+    collect_deadline_obligations,
+)
+
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
@@ -635,7 +639,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
         ],
     }
     extra_deadline_params = {"tests.test_mod.test_loop": {"deadline"}}
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target, test_target],
         project_root=tmp_path,
         config=config,
@@ -726,7 +730,7 @@ def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path
         (suite_id,),
         evidence={"callee": "mod.missing", "phase": "unresolved"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -784,7 +788,7 @@ def test_call_resolution_obligation_is_discharged_by_call_candidate(
         evidence={"resolution": "resolved", "phase": "resolved", "callee": "mod.callee"},
     )
 
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -851,7 +855,7 @@ def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> 
         deadline_roots={"mod.root"},
     )
     forest = da.Forest()
-    da._collect_deadline_obligations(
+    collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1053,7 +1057,7 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
             ),
         )
     }
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1143,7 +1147,7 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
         )
     }
     with pytest.raises(NeverThrown):
-        da._collect_deadline_obligations(
+        collect_deadline_obligations(
             [target],
             project_root=tmp_path,
             config=config,
@@ -1178,7 +1182,7 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         strictness="low",
         deadline_roots={"mod.caller"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1211,7 +1215,7 @@ def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
         deadline_roots={"mod.loop_missing_check"},
     )
     forest = da.Forest()
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1245,7 +1249,7 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1285,7 +1289,7 @@ def test_deadline_loop_missing_carrier_status_is_root_gated(tmp_path: Path) -> N
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1342,7 +1346,7 @@ def test_deadline_loop_unchecked_status_is_root_gated(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1388,7 +1392,7 @@ def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1421,7 +1425,7 @@ def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1454,7 +1458,7 @@ def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1485,7 +1489,7 @@ def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,
@@ -1524,7 +1528,7 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [dummy],
         project_root=tmp_path,
         config=config,
@@ -1558,7 +1562,7 @@ def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
         strictness="high",
         deadline_roots={"mod.root"},
     )
-    obligations = da._collect_deadline_obligations(
+    obligations = collect_deadline_obligations(
         [target],
         project_root=tmp_path,
         config=config,

@@ -10,15 +10,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, cast
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _build_call_graph, _iter_monotonic_paths)
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location)
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _is_test_path
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    _is_test_path,
+    _resolve_callee,
+)
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot_path
-from gabion.analysis.dataflow.io.dataflow_synthesis import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
+from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
@@ -26,9 +27,106 @@ from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import (
     int_tuple4_or_none, mapping_or_empty, mapping_or_none, sequence_or_none)
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
+
+
+def _analysis_collection_resume_path_key(path: Path) -> str:
+    return str(path)
+
+
+def _iter_monotonic_paths(
+    paths: Iterable[Path],
+    *,
+    source: str,
+) -> list[Path]:
+    ordered: list[Path] = []
+    previous_path_key = ""
+    has_previous_path_key = False
+    for path in paths:
+        check_deadline()
+        path_key = _analysis_collection_resume_path_key(path)
+        if has_previous_path_key and previous_path_key > path_key:
+            never(
+                "path order regression",
+                source=source,
+                previous_path=previous_path_key,
+                current_path=path_key,
+            )
+        previous_path_key = path_key
+        has_previous_path_key = True
+        ordered.append(path)
+    return ordered
+
+
+def _collect_transitive_callers(
+    callers_by_qual: dict[str, set[str]],
+    by_qual: dict[str, object],
+) -> dict[str, set[str]]:
+    check_deadline()
+    transitive: dict[str, set[str]] = {}
+    for qual in by_qual:
+        check_deadline()
+        seen: set[str] = set()
+        stack = list(callers_by_qual.get(qual, set()))
+        while stack:
+            check_deadline()
+            caller = stack.pop()
+            if caller in seen:
+                continue
+            seen.add(caller)
+            stack.extend(callers_by_qual.get(caller, set()))
+        transitive[qual] = seen
+    return transitive
+
+
+def _analysis_index_by_qual_and_transitive_callers(
+    *,
+    analysis_index: object,
+    project_root,
+) -> tuple[dict[str, object], dict[str, set[str]]]:
+    if analysis_index is None:
+        never(
+            "analysis index required for broad-type lint",
+            source="dataflow_lint_helpers._analysis_index_by_qual_and_transitive_callers",
+        )
+    by_qual = cast(dict[str, object], getattr(analysis_index, "by_qual", {}))
+    cached_transitive = cast(
+        dict[str, set[str]] | None,
+        getattr(analysis_index, "transitive_callers", None),
+    )
+    if cached_transitive is not None:
+        return by_qual, cached_transitive
+
+    by_name = cast(dict[str, list[object]], getattr(analysis_index, "by_name", {}))
+    symbol_table = getattr(analysis_index, "symbol_table", None)
+    class_index = getattr(analysis_index, "class_index", None)
+    callers_by_qual: dict[str, set[str]] = {}
+    for infos in by_name.values():
+        check_deadline()
+        for info in infos:
+            check_deadline()
+            for call in getattr(info, "calls", []):
+                check_deadline()
+                if getattr(call, "is_test", False):
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is not None:
+                    callers_by_qual.setdefault(callee.qual, set()).add(info.qual)
+    transitive = _collect_transitive_callers(callers_by_qual, by_qual)
+    if hasattr(analysis_index, "transitive_callers"):
+        analysis_index.transitive_callers = transitive
+    return by_qual, transitive
 
 
 @dataclass(frozen=True)
@@ -504,15 +602,9 @@ def _decision_param_lint_line(
 
 
 def _internal_broad_type_lint_lines_indexed(context: _BroadTypeLintContext) -> list[str]:
-    _, by_qual, transitive_callers = _build_call_graph(
-        context.paths,
-        project_root=context.project_root,
-        ignore_params=context.ignore_params,
-        strictness=context.strictness,
-        external_filter=context.external_filter,
-        transparent_decorators=context.transparent_decorators,
-        parse_failure_witnesses=context.parse_failure_witnesses,
+    by_qual, transitive_callers = _analysis_index_by_qual_and_transitive_callers(
         analysis_index=context.analysis_index,
+        project_root=context.project_root,
     )
     lines: list[str] = []
     for info in by_qual.values():

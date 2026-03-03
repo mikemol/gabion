@@ -116,6 +116,9 @@ from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotop
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
+from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
+    _merge_counts_by_knobs as _merge_counts_by_knobs_shared,
+)
 
 from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
     exception_handler_compatibility as _exc_exception_handler_compatibility, exception_param_names as _exc_exception_param_names, handler_type_names as _exc_handler_type_names, exception_type_name as _exc_exception_type_name, handler_is_broad as _exc_handler_is_broad, handler_label as _exc_handler_label, node_in_try_body as _exc_node_in_try_body, _builtin_exception_class as _exc_builtin_exception_class)
@@ -161,7 +164,7 @@ from gabion.analysis.indexed_scan.scanners.materialization.statement_materializa
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
-    analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl, run_impl_from_runtime_module as _run_entry_impl_runtime)
+    analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
 from gabion.analysis.indexed_scan.state.resume_state import (
     analysis_collection_resume_path_key as _analysis_collection_resume_path_key_impl, build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_impl, deserialize_bundle_sites_for_resume as _deserialize_bundle_sites_for_resume_impl, deserialize_groups_for_resume as _deserialize_groups_for_resume_impl, deserialize_invariants_for_resume as _deserialize_invariants_for_resume_impl, deserialize_param_spans_for_resume as _deserialize_param_spans_for_resume_impl, empty_analysis_collection_resume_payload as _empty_analysis_collection_resume_payload_impl, load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_impl, serialize_bundle_sites_for_resume as _serialize_bundle_sites_for_resume_impl, serialize_groups_for_resume as _serialize_groups_for_resume_impl, serialize_invariants_for_resume as _serialize_invariants_for_resume_impl, serialize_param_spans_for_resume as _serialize_param_spans_for_resume_impl)
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
@@ -623,24 +626,6 @@ def _resolve_callee_with_effects_impl(*args, **kwargs):
     return resolve_callee_with_effects(*args, **kwargs)
 
 
-def _RunImplOutputContextCore(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_run_outputs import DataflowRunOutputContext
-
-    return DataflowRunOutputContext(*args, **kwargs)
-
-
-def _finalize_run_outputs_impl(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_run_outputs import finalize_run_outputs
-
-    return finalize_run_outputs(*args, **kwargs)
-
-
-def analyze_paths(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
-
-    return _analyze_paths(*args, **kwargs)
-
-
 def _emit_report(*args, **kwargs):
     from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
 
@@ -770,9 +755,7 @@ def verify_rewrite_plans(*args, **kwargs):
 
 
 def _merge_counts_by_knobs(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_synthesis import _merge_counts_by_knobs as _impl
-
-    return _impl(*args, **kwargs)
+    return _merge_counts_by_knobs_shared(*args, **kwargs)
 
 
 def _render_mermaid_component(*args, **kwargs):
@@ -837,12 +820,6 @@ def _collect_fingerprint_atom_keys(*args, **kwargs):
 
 def render_report(*args, **kwargs):
     from gabion.analysis.dataflow.io.dataflow_reporting import render_report as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _collect_deadline_obligations(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_obligations import collect_deadline_obligations as _impl
 
     return _impl(*args, **kwargs)
 
@@ -6101,25 +6078,3 @@ def _normalize_transparent_decorators(
 def _analysis_deadline_scope(args: argparse.Namespace):
     with _analysis_deadline_scope_impl(args):
         yield
-
-def _run_impl(
-    args: argparse.Namespace,
-    *,
-    analyze_paths_fn: Callable[..., AnalysisResult] = analyze_paths,
-    emit_report_fn: Callable[..., tuple[str, list[str]]] = _emit_report,
-    compute_violations_fn: Callable[..., list[str]] = _compute_violations,
-) -> int:
-    return _run_entry_impl_runtime(
-        args,
-        runtime_module=sys.modules[__name__],
-        analyze_paths_fn=analyze_paths_fn,
-        emit_report_fn=emit_report_fn,
-        compute_violations_fn=compute_violations_fn,
-    )
-
-def run(argv = None) -> int:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-    with _analysis_deadline_scope(args):
-        check_deadline()
-        return _run_impl(args)

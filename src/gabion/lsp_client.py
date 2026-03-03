@@ -14,7 +14,6 @@ from typing import Callable, Mapping
 
 from gabion.commands import (
     boundary_order, command_envelope, command_ids, direct_dispatch, payload_codec)
-from gabion import server
 from gabion.analysis.foundation.timeout_context import (
     Deadline, TimeoutTickCarrier, check_deadline, deadline_clock_scope, deadline_scope)
 from gabion.deadline_clock import GasMeter

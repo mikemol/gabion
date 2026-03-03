@@ -5,9 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Mapping
 
+from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
+    _callee_key,
+    _resolve_class_candidates,
+    _resolve_method_in_hierarchy,
+)
 from gabion.analysis.dataflow.engine.dataflow_contracts import FunctionInfo
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
-    _callee_key, _resolve_class_candidates, _resolve_method_in_hierarchy)
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 

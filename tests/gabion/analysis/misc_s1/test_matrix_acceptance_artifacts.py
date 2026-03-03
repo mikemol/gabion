@@ -6,9 +6,10 @@ import json
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as legacy_dataflow_monolith
+    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan
+    from gabion.analysis.dataflow.engine import dataflow_raw_runtime
 
-    return legacy_dataflow_monolith
+    return dataflow_indexed_file_scan, dataflow_raw_runtime
 
 def _write_sample_module(path: Path) -> None:
     path.write_text(
@@ -64,7 +65,7 @@ def _write_config(path: Path) -> None:
     )
 
 def _run_with_artifacts(
-    legacy_dataflow_monolith,
+    dataflow_runtime,
     *,
     module_path: Path,
     root: Path,
@@ -106,14 +107,14 @@ def _run_with_artifacts(
         "--fingerprint-handledness-json",
         str(paths["handledness"]),
     ]
-    assert legacy_dataflow_monolith.run(argv) == 0
+    assert dataflow_runtime.run(argv) == 0
     for path in paths.values():
         assert path.exists()
     return paths
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_ea97bcb5a37a_8aa7f2de
 def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: Path) -> None:
-    legacy_dataflow_monolith = _load()
+    dataflow_indexed_file_scan, dataflow_runtime = _load()
     module_path = tmp_path / "sample.py"
     _write_sample_module(module_path)
     config_path = tmp_path / "gabion.toml"
@@ -122,14 +123,14 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     out_a = tmp_path / "run_a"
     out_b = tmp_path / "run_b"
     paths_a = _run_with_artifacts(
-        legacy_dataflow_monolith,
+        dataflow_runtime,
         module_path=module_path,
         root=tmp_path,
         config_path=config_path,
         out_dir=out_a,
     )
     paths_b = _run_with_artifacts(
-        legacy_dataflow_monolith,
+        dataflow_runtime,
         module_path=module_path,
         root=tmp_path,
         config_path=config_path,
@@ -228,7 +229,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     # Rewrite-plan verification predicates must be executable and must fail on
     # known counterexamples (in this fixture, ambiguity remains until a rewrite
     # or glossary change occurs).
-    verification = legacy_dataflow_monolith.verify_rewrite_plan(
+    verification = dataflow_indexed_file_scan.verify_rewrite_plan(
         rewrite_plans[0],
         post_provenance=provenance,
         post_exception_obligations=exception_obligations,
@@ -238,7 +239,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
 
     # A synthetic "post" provenance state that resolves ambiguity should pass.
     post_provenance = [dict(provenance[0], glossary_matches=[rewrite_plans[0]["rewrite"]["parameters"]["candidates"][0]])]
-    verification = legacy_dataflow_monolith.verify_rewrite_plan(
+    verification = dataflow_indexed_file_scan.verify_rewrite_plan(
         rewrite_plans[0],
         post_provenance=post_provenance,
         post_exception_obligations=exception_obligations,
