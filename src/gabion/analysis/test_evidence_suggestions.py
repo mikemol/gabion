@@ -961,28 +961,29 @@ def _evidence_for_alt(
     path, qual = _site_parts(site_id, forest)
     if not path or not qual:
         return _NO_RESULT
-    if prefix == "decision_surface/direct":
-        key = evidence_keys.make_decision_surface_key(
+    dispatch: Mapping[str, Callable[[str, str, str], dict[str, object]]] = {
+        "decision_surface/direct": lambda node_path, node_qual, node_param: evidence_keys.make_decision_surface_key(
             mode="direct",
-            path=path,
-            qual=qual,
-            param=paramset_key,
-        )
-    elif prefix == "decision_surface/value_encoded":
-        key = evidence_keys.make_decision_surface_key(
+            path=node_path,
+            qual=node_qual,
+            param=node_param,
+        ),
+        "decision_surface/value_encoded": lambda node_path, node_qual, node_param: evidence_keys.make_decision_surface_key(
             mode="value_encoded",
-            path=path,
-            qual=qual,
-            param=paramset_key,
-        )
-    elif prefix == "never/sink":
-        key = evidence_keys.make_never_sink_key(
-            path=path,
-            qual=qual,
-            param=paramset_key,
-        )
-    else:
+            path=node_path,
+            qual=node_qual,
+            param=node_param,
+        ),
+        "never/sink": lambda node_path, node_qual, node_param: evidence_keys.make_never_sink_key(
+            path=node_path,
+            qual=node_qual,
+            param=node_param,
+        ),
+    }
+    builder = dispatch.get(prefix)
+    if builder is None:
         return _NO_RESULT
+    key = builder(path, qual, paramset_key)
     display = evidence_keys.render_display(key)
     return EvidenceSuggestion(key=key, display=display)
 
