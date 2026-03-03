@@ -3824,10 +3824,9 @@ def _materialize_ambiguity_virtual_set_spec(
     )
 
 def _span_line_col(span):
-    parsed = int_tuple4_or_none(span)
-    if parsed is None:
-        return None, None
-    return parsed[0] + 1, parsed[1] + 1
+    from .dataflow_lint_helpers import _span_line_col as _impl
+
+    return _impl(span)
 
 def _summarize_call_ambiguities(
     entries: list[JSONObject],
@@ -3955,13 +3954,15 @@ def _decision_param_lint_line(
     code: str,
     message: str,
 ):
-    span = info.param_spans.get(param)
-    if span is not None:
-        path = _normalize_snapshot_path(info.path, project_root)
-        line, col, _, _ = span
-        return _lint_line(path, line + 1, col + 1, code, message)
-    missing_lines: dict[str, str] = {}
-    return missing_lines.get("lint_line")
+    from .dataflow_lint_helpers import _decision_param_lint_line as _impl
+
+    return _impl(
+        info,
+        param,
+        project_root=project_root,
+        code=code,
+        message=message,
+    )
 
 def _decision_tier_for(
     info: "FunctionInfo",
@@ -5253,30 +5254,9 @@ def _emit_call_ambiguities(
     return entries
 
 def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
-    check_deadline()
-    lines: list[str] = []
-    for entry in entries:
-        check_deadline()
-        if type(entry) is not dict:
-            continue
-        entry_payload = cast(Mapping[str, JSONValue], entry)
-        site = entry_payload.get("site", {})
-        if type(site) is not dict:
-            continue
-        site_mapping = cast(Mapping[str, JSONValue], site)
-        path = str(site_mapping.get("path", "") or "")
-        if not path:
-            continue
-        lineno, col = _span_line_col(site_mapping.get("span"))
-        candidate_count = entry_payload.get("candidate_count")
-        try:
-            count_value = int(candidate_count) if candidate_count is not None else 0
-        except (TypeError, ValueError):
-            count_value = 0
-        kind = str(entry_payload.get("kind", "") or "ambiguity")
-        message = f"{kind} candidates={count_value}"
-        lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
-    return lines
+    from .dataflow_lint_helpers import _lint_lines_from_call_ambiguities as _impl
+
+    return _impl(entries)
 
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:
     if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
@@ -6273,44 +6253,14 @@ def _is_broad_type(annot) -> bool:
 _NONE_TYPES = {"None", "NoneType", "type(None)"}
 
 def _split_top_level(value: str, sep: str) -> list[str]:
-    check_deadline()
-    parts: list[str] = []
-    buf: list[str] = []
-    depth = 0
-    for ch in value:
-        check_deadline()
-        if ch in "[({":
-            depth += 1
-        elif ch in "])}":
-            depth = max(depth - 1, 0)
-        if ch == sep and depth == 0:
-            part = "".join(buf).strip()
-            if part:
-                parts.append(part)
-            buf = []
-            continue
-        buf.append(ch)
-    tail = "".join(buf).strip()
-    if tail:
-        parts.append(tail)
-    return parts
+    from .dataflow_lint_helpers import _split_top_level as _impl
+
+    return _impl(value, sep)
 
 def _expand_type_hint(hint: str) -> set[str]:
-    hint = hint.strip()
-    if not hint:
-        return set()
-    if hint.startswith("Optional[") and hint.endswith("]"):
-        inner = hint[len("Optional[") : -1]
-        return {_strip_type(t) for t in _split_top_level(inner, ",")} | {"None"}
-    if hint.startswith("Union[") and hint.endswith("]"):
-        inner = hint[len("Union[") : -1]
-        return {_strip_type(t) for t in _split_top_level(inner, ",")}
-    if "|" in hint:
-        return {_strip_type(t) for t in _split_top_level(hint, "|")}
-    return {hint}
+    from .dataflow_lint_helpers import _expand_type_hint as _impl
 
-def _strip_type(value: str) -> str:
-    return value.strip()
+    return _impl(hint)
 
 def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     check_deadline()
@@ -7559,61 +7509,18 @@ class ConstantFlowDetail:
 def _constant_smells_from_details(
     details: Iterable[ConstantFlowDetail],
 ) -> list[str]:
-    check_deadline()
-    smells: list[str] = []
-    for detail in details:
-        check_deadline()
-        path_name = detail.path.name
-        site_suffix = ""
-        if detail.sites:
-            sample = ", ".join(detail.sites[:3])
-            site_suffix = f" (e.g. {sample})"
-        smells.append(
-            f"{path_name}:{detail.name}.{detail.param} only observed constant {detail.value} across {detail.count} non-test call(s){site_suffix}"
-        )
-    return sort_once(smells, source = 'gabion.analysis.dataflow_indexed_file_scan._constant_smells_from_details.site_1')
+    from .dataflow_lint_helpers import _constant_smells_from_details as _impl
+
+    return _impl(details)
 
 def _deadness_witnesses_from_constant_details(
     details: Iterable[ConstantFlowDetail],
     *,
     project_root,
 ) -> list[JSONObject]:
-    check_deadline()
-    witnesses: list[JSONObject] = []
-    for detail in details:
-        check_deadline()
-        path_value = _normalize_snapshot_path(detail.path, project_root)
-        predicate = f"{detail.param} != {detail.value}"
-        core = [
-            f"observed constant {detail.value} across {detail.count} non-test call(s)"
-        ]
-        deadness_id = f"deadness:{path_value}:{detail.name}:{detail.param}:{detail.value}"
-        witnesses.append(
-            {
-                "deadness_id": deadness_id,
-                "path": path_value,
-                "function": detail.name,
-                "bundle": [detail.param],
-                "environment": {detail.param: detail.value},
-                "predicate": predicate,
-                "core": core,
-                "result": "UNREACHABLE",
-                "call_sites": list(detail.sites[:10]),
-                "projection": (
-                    f"{detail.name}.{detail.param} constant {detail.value} across "
-                    f"{detail.count} non-test call(s)"
-                ),
-            }
-        )
-    return sort_once(
-        witnesses,
-        key=lambda entry: (
-            str(entry.get("path", "")),
-            str(entry.get("function", "")),
-            ",".join(entry.get("bundle", [])),
-            str(entry.get("predicate", "")),
-        ),
-    source = 'gabion.analysis.dataflow_indexed_file_scan._deadness_witnesses_from_constant_details.site_1')
+    from .dataflow_lint_helpers import _deadness_witnesses_from_constant_details as _impl
+
+    return _impl(details, project_root=project_root)
 
 def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
     """Render a stable, human-friendly call site identifier.
