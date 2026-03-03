@@ -3546,25 +3546,9 @@ def _materialize_projection_spec_rows(
     forest: Forest,
     row_to_site: Callable[[Mapping[str, JSONValue]], NodeIdOrNone],
 ) -> None:
-    spec_identity = projection_spec_hash(spec)
-    spec_site = forest.add_spec_site(
-        spec_hash=spec_identity,
-        spec_name=str(spec.name),
-        spec_domain=str(spec.domain),
-        spec_version=int(spec.spec_version) if spec.spec_version else None,
-    )
-    for row in projected:
-        check_deadline()
-        site_id = row_to_site(row)
-        if site_id is not None:
-            evidence: dict[str, object] = {
-                "spec_name": str(spec.name),
-                "spec_hash": spec_identity,
-            }
-            for key, value in row.items():
-                check_deadline()
-                evidence[str(key)] = value
-            forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
+    from .dataflow_reporting_helpers import _materialize_projection_spec_rows as _impl
+
+    _impl(spec=spec, projected=projected, forest=forest, row_to_site=row_to_site)
 
 def _suite_order_depth(suite_kind: str) -> int:
     if suite_kind in {"function", "spec"}:
@@ -3914,25 +3898,9 @@ def _format_span_fields(
     end_line: object,
     end_col: object,
 ) -> str:
-    # dataflow-bundle: col, end_col, end_line, line
-    try:
-        line_value = int(line)
-        col_value = int(col)
-        end_line_value = int(end_line)
-        end_col_value = int(end_col)
-    except (TypeError, ValueError):
-        return ""
-    if (
-        line_value < 0
-        or col_value < 0
-        or end_line_value < 0
-        or end_col_value < 0
-    ):
-        return ""
-    return (
-        f"{line_value + 1}:{col_value + 1}-"
-        f"{end_line_value + 1}:{end_col_value + 1}"
-    )
+    from .dataflow_reporting_helpers import _format_span_fields as _impl
+
+    return _impl(line, col, end_line, end_col)
 
 def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
     return f"{path}:{line}:{col}: {code} {message}".strip()
