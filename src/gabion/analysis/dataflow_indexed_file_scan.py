@@ -263,8 +263,29 @@ from .pattern_schema_projection import (
     pattern_schema_suggestions_from_instances as _pattern_schema_suggestions_from_instances_impl,
     tier2_unreified_residue_entries as _tier2_unreified_residue_entries_impl,
 )
-from .indexed_scan.deadline_fallback import (
-    fallback_deadline_arg_info as _fallback_deadline_arg_info_impl,
+from .indexed_scan.deadline_runtime import (
+    DeadlineArgInfo as _DeadlineArgInfoRuntime,
+    FunctionSuiteKey as _FunctionSuiteKeyRuntime,
+    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime,
+    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime,
+    bind_call_args as _bind_call_args_impl,
+    call_candidate_target_site as _call_candidate_target_site_impl,
+    caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
+    classify_deadline_expr as _classify_deadline_expr_impl,
+    collect_call_edges_from_forest as _collect_call_edges_from_forest_impl,
+    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl,
+    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl,
+    deadline_arg_info_map as _deadline_arg_info_map_impl,
+    deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl,
+    fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl,
+    function_suite_id as _function_suite_id_impl,
+    function_suite_key as _function_suite_key_impl,
+    is_deadline_origin_call as _is_deadline_origin_call_impl,
+    materialize_call_candidates as _materialize_call_candidates_impl,
+    node_to_function_suite_id as _node_to_function_suite_id_impl,
+    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl,
+    obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl,
+    suite_caller_function_id as _suite_caller_function_id_impl,
 )
 from .indexed_scan.exception_obligations import (
     collect_exception_obligations as _collect_exception_obligations_impl,
@@ -424,11 +445,7 @@ def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgre
         normalized_done = min(normalized_done, normalized_total)
     return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
 
-@dataclass(frozen=True)
-class _FunctionSuiteKey:
-    # dataflow-bundle: path, qual
-    path: str
-    qual: str
+_FunctionSuiteKey = _FunctionSuiteKeyRuntime
 
 @dataclass
 class ParamUse:
@@ -2943,28 +2960,7 @@ def _is_deadline_param(name: str, annot) -> bool:
     return False
 
 def _is_deadline_origin_call(expr: ast.AST) -> bool:
-    if type(expr) is not ast.Call:
-        return False
-    call_expr = cast(ast.Call, expr)
-    try:
-        name = ast.unparse(call_expr.func)
-    except _AST_UNPARSE_ERROR_TYPES:
-        return False
-    if name == "Deadline" or name.endswith(".Deadline"):
-        return True
-    if name in {
-        "Deadline.from_timeout",
-        "Deadline.from_timeout_ms",
-        "Deadline.from_timeout_ticks",
-    }:
-        return True
-    if name.endswith(".Deadline.from_timeout"):
-        return True
-    if name.endswith(".Deadline.from_timeout_ms"):
-        return True
-    if name.endswith(".Deadline.from_timeout_ticks"):
-        return True
-    return False
+    return _is_deadline_origin_call_impl(expr)
 
 def _target_names(target: ast.AST) -> set[str]:
     check_deadline()
@@ -3417,229 +3413,64 @@ def _collect_call_edges(
     return edges
 
 def _function_suite_key(path: str, qual: str) -> _FunctionSuiteKey:
-    return _FunctionSuiteKey(path=path, qual=qual)
+    return cast(_FunctionSuiteKey, _function_suite_key_impl(path, qual))
 
 def _function_suite_id(key: _FunctionSuiteKey) -> NodeId:
-    return NodeId("SuiteSite", (key.path, key.qual, "function"))
+    return _function_suite_id_impl(cast(_FunctionSuiteKeyRuntime, key))
 
-class _FunctionSuiteLookupStatus(StrEnum):
-    RESOLVED = "resolved"
-    NODE_MISSING = "node_missing"
-    SUITE_KIND_UNSUPPORTED = "suite_kind_unsupported"
-
-@dataclass(frozen=True)
-class _FunctionSuiteLookupOutcome:
-    status: _FunctionSuiteLookupStatus
-    suite_id: NodeId
+_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatusRuntime
+_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcomeRuntime
 
 def _node_to_function_suite_lookup_outcome(
     forest: Forest,
     node_id: NodeId,
 ) -> _FunctionSuiteLookupOutcome:
-    missing_suite_id = NodeId("MissingSuiteSite", ("", "", ""))
-    node = forest.nodes.get(node_id)
-    if node is None:
-        return _FunctionSuiteLookupOutcome(
-            _FunctionSuiteLookupStatus.NODE_MISSING,
-            missing_suite_id,
-        )
-    if node.kind == "FunctionSite":
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            never("function site missing identity", path=path, qual=qual)
-        return _FunctionSuiteLookupOutcome(
-            _FunctionSuiteLookupStatus.RESOLVED,
-            _function_suite_id(_function_suite_key(path, qual)),
-        )
-    if node.kind == "SuiteSite":
-        suite_kind = str(node.meta.get("suite_kind", "") or "")
-        if suite_kind in {"function", "function_body"}:
-            path = str(node.meta.get("path", "") or "")
-            qual = str(node.meta.get("qual", "") or "")
-            if not path or not qual:
-                never("function suite missing identity", path=path, qual=qual)
-            return _FunctionSuiteLookupOutcome(
-                _FunctionSuiteLookupStatus.RESOLVED,
-                _function_suite_id(_function_suite_key(path, qual)),
-            )
-    return _FunctionSuiteLookupOutcome(
-        _FunctionSuiteLookupStatus.SUITE_KIND_UNSUPPORTED,
-        missing_suite_id,
+    return cast(
+        _FunctionSuiteLookupOutcome,
+        _node_to_function_suite_lookup_outcome_impl(forest, node_id),
     )
 
 def _suite_caller_function_id(
     suite_node: Node,
 ) -> NodeId:
-    path = str(suite_node.meta.get("path", "") or "")
-    qual = str(suite_node.meta.get("qual", "") or "")
-    if not path or not qual:
-        never(
-            "suite site missing caller identity",
-            suite_kind=str(suite_node.meta.get("suite_kind", "") or ""),
-            path=path,
-            qual=qual,
-        )
-    return _function_suite_id(_function_suite_key(path, qual))
+    return _suite_caller_function_id_impl(suite_node)
 
 def _node_to_function_suite_id(
     forest: Forest,
     node_id: NodeId,
 ):
-    outcome = _node_to_function_suite_lookup_outcome(forest, node_id)
-    if outcome.status is _FunctionSuiteLookupStatus.RESOLVED:
-        return outcome.suite_id
-    unresolved: dict[str, NodeId] = {}
-    return unresolved.get("suite_id")
+    return _node_to_function_suite_id_impl(forest, node_id)
 
 def _obligation_candidate_suite_ids(
     *,
     by_name: dict[str, list[FunctionInfo]],
     callee_key: str,
 ) -> set[NodeId]:
-    key = _callee_key(callee_key)
-    candidates: set[NodeId] = set()
-    for info in by_name.get(key, []):
-        check_deadline()
-        if _is_test_path(info.path):
-            continue
-        candidates.add(_function_suite_id(_function_suite_key(info.path.name, info.qual)))
-    return candidates
+    return _obligation_candidate_suite_ids_impl(by_name=by_name, callee_key=callee_key)
 
 def _collect_call_edges_from_forest(
     forest: Forest,
     *,
     by_name: dict[str, list[FunctionInfo]],
 ) -> dict[NodeId, set[NodeId]]:
-    check_deadline()
-    edges: dict[NodeId, set[NodeId]] = defaultdict(set)
-    for alt in forest.alts:
-        check_deadline()
-        if not alt.inputs:
-            continue
-        suite_id = alt.inputs[0]
-        suite_node = forest.nodes.get(suite_id)
-        if suite_node is not None and suite_node.kind == "SuiteSite":
-            suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-            if suite_kind == "call":
-                caller_id = _suite_caller_function_id(suite_node)
-                if alt.kind == "CallCandidate":
-                    if len(alt.inputs) >= 2:
-                        candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
-                        if candidate_id is not None:
-                            edges[caller_id].add(candidate_id)
-                elif alt.kind == "CallResolutionObligation":
-                    callee_key = str(alt.evidence.get("callee", "") or "")
-                    if callee_key:
-                        for candidate_id in _obligation_candidate_suite_ids(
-                            by_name=by_name,
-                            callee_key=callee_key,
-                        ):
-                            check_deadline()
-                            edges[caller_id].add(candidate_id)
-    return edges
+    return _collect_call_edges_from_forest_impl(forest, by_name=by_name)
 
 def _collect_call_resolution_obligations_from_forest(
     forest: Forest,
 ) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]:
-    check_deadline()
-    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = []
-    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int], str]] = set()
-    for alt in forest.alts:
-        check_deadline()
-        if alt.kind != "CallResolutionObligation":
-            continue
-        if not alt.inputs:
-            continue
-        suite_id = alt.inputs[0]
-        suite_node = forest.nodes.get(suite_id)
-        suite_kind = suite_node.kind if suite_node is not None else ""
-        if suite_kind != "SuiteSite":
-            continue
-        node_suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-        if node_suite_kind != "call":
-            continue
-        caller_id = _suite_caller_function_id(suite_node)
-        raw_span = suite_node.meta.get("span")
-        span = (0, 0, 0, 0)
-        span_valid = False
-        if type(raw_span) is list and len(raw_span) == 4:
-            coerced: list[int] = []
-            valid = True
-            for value in raw_span:
-                check_deadline()
-                if type(value) is not int:
-                    valid = False
-                    break
-                coerced.append(cast(int, value))
-            if valid:
-                span = (coerced[0], coerced[1], coerced[2], coerced[3])
-                span_valid = True
-        if not span_valid:
-            caller_path = str(suite_node.meta.get("path", "") or "")
-            caller_qual = str(suite_node.meta.get("qual", "") or "")
-            never(
-                "call resolution obligation requires span",
-                path=caller_path,
-                qual=caller_qual,
-            )
-        callee_key = str(alt.evidence.get("callee", "") or "")
-        if not callee_key:
-            continue
-        record = (caller_id, suite_id, span, callee_key)
-        if record in seen:
-            continue
-        seen.add(record)
-        obligations.append(record)
-    return obligations
+    return _collect_call_resolution_obligations_from_forest_impl(forest)
 
 def _collect_call_resolution_obligation_details_from_forest(
     forest: Forest,
 ) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]]:
-    evidence_by_key: dict[tuple[NodeId, str], JSONObject] = {}
-    for alt in forest.alts:
-        check_deadline()
-        if alt.kind != "CallResolutionObligation" or not alt.inputs:
-            continue
-        suite_id = alt.inputs[0]
-        callee_value = alt.evidence.get("callee")
-        callee_key = str(callee_value or "")
-        if not callee_key:
-            continue
-        key = (suite_id, callee_key)
-        if key not in evidence_by_key:
-            evidence_by_key[key] = alt.evidence
-
-    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]] = []
-    for caller_id, suite_id, span, callee_key in _collect_call_resolution_obligations_from_forest(
-        forest
-    ):
-        check_deadline()
-        evidence = evidence_by_key.get((suite_id, callee_key), {})
-        obligation_kind = str(evidence.get("kind", "") or "")
-        if not obligation_kind:
-            obligation_kind = "unresolved_internal_callee"
-        records.append((caller_id, suite_id, span, callee_key, obligation_kind))
-    return records
+    return _collect_call_resolution_obligation_details_from_forest_impl(forest)
 
 def _call_candidate_target_site(
     *,
     forest: Forest,
     candidate: FunctionInfo,
 ) -> NodeId:
-    check_deadline()
-    if candidate.function_span is None:
-        never(
-            "call candidate target requires function span",
-            path=candidate.path.name,
-            qual=candidate.qual,
-        )
-    return forest.add_suite_site(
-        candidate.path.name,
-        candidate.qual,
-        "function",
-        span=candidate.function_span,
-    )
+    return _call_candidate_target_site_impl(forest=forest, candidate=candidate)
 
 def _materialize_call_candidates(
     *,
@@ -3651,93 +3482,18 @@ def _materialize_call_candidates(
     class_index: dict[str, ClassInfo],
     resolve_callee_outcome_fn = None,
 ) -> None:
-    check_deadline()
     if resolve_callee_outcome_fn is None:
         resolve_callee_outcome_fn = _resolve_callee_outcome
-    seen: set[tuple[NodeId, NodeId]] = set()
-    obligation_seen: set[NodeId] = set()
-    seen_loop_checked = False
-    for alt in forest.alts:
-        if not seen_loop_checked:
-            check_deadline()
-            seen_loop_checked = True
-        if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
-            if alt.kind == "CallResolutionObligation" and alt.inputs:
-                obligation_seen.add(alt.inputs[0])
-            continue
-        seen.add((alt.inputs[0], alt.inputs[1]))
-    for infos in by_name.values():
-        check_deadline()
-        for info in infos:
-            check_deadline()
-            if _is_test_path(info.path):
-                continue
-            for call in info.calls:
-                check_deadline()
-                if call.is_test:
-                    continue
-                resolution = resolve_callee_outcome_fn(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table=symbol_table,
-                    project_root=project_root,
-                    class_index=class_index,
-                    call=call,
-                )
-                if call.span is None:
-                    if resolution.status != "unresolved_external":
-                        never(
-                            "call candidate requires span",
-                            path=_normalize_snapshot_path(info.path, project_root),
-                            qual=info.qual,
-                            callee=call.callee,
-                        )
-                    continue
-                suite_id = forest.add_suite_site(
-                    info.path.name,
-                    info.qual,
-                    "call",
-                    span=call.span,
-                )
-                if resolution.status in {"resolved", "ambiguous"}:
-                    for candidate in resolution.candidates:
-                        check_deadline()
-                        candidate_id = _call_candidate_target_site(
-                            forest=forest,
-                            candidate=candidate,
-                        )
-                        key = (suite_id, candidate_id)
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        forest.add_alt(
-                            "CallCandidate",
-                            (suite_id, candidate_id),
-                            evidence={
-                                "resolution": resolution.status,
-                                "phase": resolution.phase,
-                                "callee": resolution.callee_key,
-                            },
-                        )
-                    continue
-                obligation_kind_by_status = {
-                    "unresolved_internal": "unresolved_internal_callee",
-                    "unresolved_dynamic": "unresolved_dynamic_callee",
-                }
-                obligation_kind = obligation_kind_by_status.get(resolution.status)
-                if obligation_kind is not None and suite_id not in obligation_seen:
-                    obligation_seen.add(suite_id)
-                    forest.add_alt(
-                        "CallResolutionObligation",
-                        (suite_id,),
-                        evidence={
-                            "phase": resolution.phase,
-                            "callee": call.callee,
-                            "kind": obligation_kind,
-                        },
-                    )
+    _materialize_call_candidates_impl(
+        forest=forest,
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=cast(dict[str, object], class_index),
+        resolve_callee_outcome_fn=resolve_callee_outcome_fn,
+        normalize_snapshot_path_fn=_normalize_snapshot_path,
+    )
 
 _GraphNode = TypeVar("_GraphNode", bound=Hashable)
 
@@ -3818,11 +3574,7 @@ def _reachable_from_roots(
                 queue.append(succ)
     return reachable
 
-@dataclass(frozen=True)
-class _DeadlineArgInfo:
-    kind: str
-    param: OptionalString = None
-    const: OptionalString = None
+_DeadlineArgInfo = _DeadlineArgInfoRuntime
 
 def _bind_call_args(
     call_node: ast.Call,
@@ -3830,46 +3582,7 @@ def _bind_call_args(
     *,
     strictness: str,
 ) -> dict[str, ast.AST]:
-    check_deadline()
-    pos_params = (
-        list(callee.positional_params)
-        if callee.positional_params
-        else list(callee.params)
-    )
-    kwonly_params = set(callee.kwonly_params or ())
-    named_params = set(pos_params) | kwonly_params
-    mapping: dict[str, ast.AST] = {}
-    star_args: list[ast.AST] = []
-    star_kwargs: list[ast.AST] = []
-    for idx, arg in enumerate(call_node.args):
-        check_deadline()
-        if type(arg) is ast.Starred:
-            star_args.append(cast(ast.Starred, arg).value)
-            continue
-        if idx < len(pos_params):
-            mapping[pos_params[idx]] = arg
-        elif callee.vararg is not None:
-            mapping.setdefault(callee.vararg, arg)
-    for kw in call_node.keywords:
-        check_deadline()
-        if kw.arg is None:
-            star_kwargs.append(kw.value)
-            continue
-        if kw.arg in named_params:
-            mapping[kw.arg] = kw.value
-        elif callee.kwarg is not None:
-            mapping.setdefault(callee.kwarg, kw.value)
-    if strictness == "low":
-        remaining = [p for p in sort_once(named_params, source = 'gabion.analysis.dataflow_indexed_file_scan._bind_call_args.site_1') if p not in mapping]
-        if len(star_args) == 1 and type(star_args[0]) is ast.Name:
-            for param in remaining:
-                check_deadline()
-                mapping.setdefault(param, star_args[0])
-        if len(star_kwargs) == 1 and type(star_kwargs[0]) is ast.Name:
-            for param in remaining:
-                check_deadline()
-                mapping.setdefault(param, star_kwargs[0])
-    return mapping
+    return _bind_call_args_impl(call_node, callee, strictness=strictness)
 
 def _caller_param_bindings_for_call(
     call: CallArgs,
@@ -3877,52 +3590,7 @@ def _caller_param_bindings_for_call(
     *,
     strictness: str,
 ) -> dict[str, set[str]]:
-    check_deadline()
-    pos_params = (
-        list(callee.positional_params)
-        if callee.positional_params
-        else list(callee.params)
-    )
-    kwonly_params = set(callee.kwonly_params or ())
-    named_params = set(pos_params) | kwonly_params
-    mapping: dict[str, set[str]] = defaultdict(set)
-    mapped_params: set[str] = set()
-    call_mapping = call.argument_mapping()
-    for pos_idx, caller_param in call_mapping.positional.items():
-        check_deadline()
-        if pos_idx < len(pos_params):
-            callee_param = pos_params[pos_idx]
-        elif callee.vararg is not None:
-            callee_param = callee.vararg
-        else:
-            continue
-        mapped_params.add(callee_param)
-        mapping[callee_param].add(caller_param.value)
-    for kw_name, caller_param in call_mapping.keywords.items():
-        check_deadline()
-        if kw_name in named_params:
-            mapped_params.add(kw_name)
-            mapping[kw_name].add(caller_param.value)
-        elif callee.kwarg is not None:
-            mapped_params.add(callee.kwarg)
-            mapping[callee.kwarg].add(caller_param.value)
-    if strictness == "low":
-        remaining = [p for p in sort_once(named_params, source = 'gabion.analysis.dataflow_indexed_file_scan._caller_param_bindings_for_call.site_1') if p not in mapped_params]
-        if callee.vararg is not None and callee.vararg not in mapped_params:
-            remaining.append(callee.vararg)
-        if callee.kwarg is not None and callee.kwarg not in mapped_params:
-            remaining.append(callee.kwarg)
-        if len(call_mapping.star_positional) == 1:
-            _, star_param = call_mapping.star_positional[0]
-            for param in remaining:
-                check_deadline()
-                mapping[param].add(star_param.value)
-        if len(call_mapping.star_keywords) == 1:
-            star_param = call_mapping.star_keywords[0]
-            for param in remaining:
-                check_deadline()
-                mapping[param].add(star_param.value)
-    return mapping
+    return _caller_param_bindings_for_call_impl(call, callee, strictness=strictness)
 
 def _classify_deadline_expr(
     expr: ast.AST,
@@ -3930,21 +3598,14 @@ def _classify_deadline_expr(
     alias_to_param: Mapping[str, str],
     origin_vars: set[str],
 ) -> _DeadlineArgInfo:
-    expr_type = type(expr)
-    if expr_type is ast.Name:
-        name = cast(ast.Name, expr).id
-        if name in alias_to_param:
-            return _DeadlineArgInfo(kind="param", param=alias_to_param[name])
-        if name in origin_vars:
-            return _DeadlineArgInfo(kind="origin", param=name)
-    if _is_deadline_origin_call(expr):
-        return _DeadlineArgInfo(kind="origin")
-    if expr_type is ast.Constant:
-        constant_value = cast(ast.Constant, expr).value
-        if constant_value is None:
-            return _DeadlineArgInfo(kind="none")
-        return _DeadlineArgInfo(kind="const", const=repr(constant_value))
-    return _DeadlineArgInfo(kind="unknown")
+    return cast(
+        _DeadlineArgInfo,
+        _classify_deadline_expr_impl(
+            expr,
+            alias_to_param=alias_to_param,
+            origin_vars=origin_vars,
+        ),
+    )
 
 def _fallback_deadline_arg_info(
     call: CallArgs,
@@ -3954,14 +3615,7 @@ def _fallback_deadline_arg_info(
 ) -> dict[str, _DeadlineArgInfo]:
     return cast(
         dict[str, _DeadlineArgInfo],
-        _fallback_deadline_arg_info_impl(
-            call,
-            callee,
-            strictness=strictness,
-            deadline_arg_info_factory=_DeadlineArgInfo,
-            check_deadline_fn=check_deadline,
-            sort_once_fn=sort_once,
-        ),
+        _fallback_deadline_arg_info_runtime_impl(call, callee, strictness=strictness),
     )
 
 def _deadline_arg_info_map(
@@ -3973,19 +3627,17 @@ def _deadline_arg_info_map(
     origin_vars: set[str],
     strictness: str,
 ) -> dict[str, _DeadlineArgInfo]:
-    check_deadline()
-    if call_node is None:
-        return _fallback_deadline_arg_info(call, callee, strictness=strictness)
-    expr_map = _bind_call_args(call_node, callee, strictness=strictness)
-    info_map: dict[str, _DeadlineArgInfo] = {}
-    for param, expr in expr_map.items():
-        check_deadline()
-        info_map[param] = _classify_deadline_expr(
-            expr,
+    return cast(
+        dict[str, _DeadlineArgInfo],
+        _deadline_arg_info_map_impl(
+            call,
+            callee,
+            call_node=call_node,
             alias_to_param=alias_to_param,
             origin_vars=origin_vars,
-        )
-    return info_map
+            strictness=strictness,
+        ),
+    )
 
 def _deadline_loop_forwarded_params(
     *,
@@ -3994,19 +3646,15 @@ def _deadline_loop_forwarded_params(
     deadline_params: Mapping[str, set[str]],
     call_infos: Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]],
 ) -> set[str]:
-    forwarded: set[str] = set()
-    caller_params = deadline_params.get(qual, set())
-    if not caller_params:
-        return forwarded
-    for call, callee, arg_info in call_infos.get(qual, []):
-        check_deadline()
-        if call.span is not None and call.span in loop_fact.call_spans:
-            for callee_param in deadline_params.get(callee.qual, set()):
-                check_deadline()
-                info = arg_info.get(callee_param)
-                if info is not None and info.kind == "param" and info.param in caller_params:
-                    forwarded.add(info.param)
-    return forwarded
+    return _deadline_loop_forwarded_params_impl(
+        qual=qual,
+        loop_fact=loop_fact,
+        deadline_params=deadline_params,
+        call_infos=cast(
+            Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfoRuntime]]]],
+            call_infos,
+        ),
+    )
 
 @dataclass(frozen=True)
 class _ProjectionSpan:

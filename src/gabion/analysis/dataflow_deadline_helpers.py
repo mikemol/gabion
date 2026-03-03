@@ -11,31 +11,33 @@ from gabion.analysis.aspf import Forest, NodeId
 from gabion.analysis.dataflow_contracts import CallArgs, FunctionInfo, OptionalSpan4
 from gabion.analysis.dataflow_indexed_file_scan import (
     _CalleeResolutionOutcome,
-    _DeadlineArgInfo,
     _DeadlineFunctionCollector,
     _DeadlineFunctionFacts,
     _DeadlineLoopFacts,
     _build_analysis_index as _indexed_build_analysis_index,
-    _caller_param_bindings_for_call as _indexed_caller_param_bindings_for_call,
-    _classify_deadline_expr,
     _collect_call_edges as _collect_call_edges,
-    _collect_call_edges_from_forest as _indexed_collect_call_edges_from_forest,
     _collect_call_nodes_by_path as _indexed_collect_call_nodes_by_path,
-    _collect_call_resolution_obligation_details_from_forest as _indexed_collect_call_resolution_obligation_details_from_forest,
-    _collect_call_resolution_obligations_from_forest as _indexed_collect_call_resolution_obligations_from_forest,
     _collect_deadline_function_facts as _indexed_collect_deadline_function_facts,
     _collect_deadline_local_info,
     _collect_recursive_functions,
     _collect_recursive_nodes as _indexed_collect_recursive_nodes,
-    _deadline_arg_info_map as _indexed_deadline_arg_info_map,
-    _deadline_loop_forwarded_params as _indexed_deadline_loop_forwarded_params,
-    _function_suite_id,
-    _function_suite_key,
-    _is_deadline_origin_call,
-    _materialize_call_candidates as _indexed_materialize_call_candidates,
     _normalize_snapshot_path,
     _reachable_from_roots as _indexed_reachable_from_roots,
     _resolve_callee_outcome as _indexed_resolve_callee_outcome,
+)
+from gabion.analysis.indexed_scan.deadline_runtime import (
+    DeadlineArgInfo as _DeadlineArgInfo,
+    caller_param_bindings_for_call as _indexed_caller_param_bindings_for_call,
+    classify_deadline_expr as _classify_deadline_expr,
+    collect_call_edges_from_forest as _indexed_collect_call_edges_from_forest,
+    collect_call_resolution_obligation_details_from_forest as _indexed_collect_call_resolution_obligation_details_from_forest,
+    collect_call_resolution_obligations_from_forest as _indexed_collect_call_resolution_obligations_from_forest,
+    deadline_arg_info_map as _indexed_deadline_arg_info_map,
+    deadline_loop_forwarded_params as _indexed_deadline_loop_forwarded_params,
+    function_suite_id as _function_suite_id,
+    function_suite_key as _function_suite_key,
+    is_deadline_origin_call as _is_deadline_origin_call,
+    materialize_call_candidates as _indexed_materialize_call_candidates,
 )
 from gabion.analysis.indexed_scan.deadline_fallback import (
     fallback_deadline_arg_info as _fallback_deadline_arg_info,
@@ -201,6 +203,8 @@ def _materialize_call_candidates(
     class_index,
     resolve_callee_outcome_fn=None,
 ) -> None:
+    if resolve_callee_outcome_fn is None:
+        resolve_callee_outcome_fn = _indexed_resolve_callee_outcome
     _indexed_materialize_call_candidates(
         forest=forest,
         by_name=by_name,
@@ -209,6 +213,7 @@ def _materialize_call_candidates(
         project_root=project_root,
         class_index=class_index,
         resolve_callee_outcome_fn=resolve_callee_outcome_fn,
+        normalize_snapshot_path_fn=_normalize_snapshot_path,
     )
 
 
