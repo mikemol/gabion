@@ -287,6 +287,28 @@ from .indexed_scan.report_sections import (
 from .indexed_scan.statement_materialization import (
     materialize_statement_suite_contains as _materialize_statement_suite_contains_impl,
 )
+from .indexed_scan.run_entry import (
+    RunImplDeps as _RunImplDeps,
+    analysis_deadline_scope as _analysis_deadline_scope_impl,
+    normalize_transparent_decorators as _normalize_transparent_decorators_impl,
+    resolve_baseline_path as _resolve_baseline_path_impl,
+    resolve_synth_registry_path as _resolve_synth_registry_path_impl,
+    run_impl as _run_entry_impl,
+)
+from .indexed_scan.resume_state import (
+    analysis_collection_resume_path_key as _analysis_collection_resume_path_key_impl,
+    build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_impl,
+    deserialize_bundle_sites_for_resume as _deserialize_bundle_sites_for_resume_impl,
+    deserialize_groups_for_resume as _deserialize_groups_for_resume_impl,
+    deserialize_invariants_for_resume as _deserialize_invariants_for_resume_impl,
+    deserialize_param_spans_for_resume as _deserialize_param_spans_for_resume_impl,
+    empty_analysis_collection_resume_payload as _empty_analysis_collection_resume_payload_impl,
+    load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_impl,
+    serialize_bundle_sites_for_resume as _serialize_bundle_sites_for_resume_impl,
+    serialize_groups_for_resume as _serialize_groups_for_resume_impl,
+    serialize_invariants_for_resume as _serialize_invariants_for_resume_impl,
+    serialize_param_spans_for_resume as _serialize_param_spans_for_resume_impl,
+)
 
 from gabion.schema import SynthesisResponse
 
@@ -8801,7 +8823,7 @@ _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
 def _analysis_collection_resume_path_key(path: Path) -> str:
-    return str(path)
+    return _analysis_collection_resume_path_key_impl(path)
 
 def _iter_monotonic_paths(
     paths: Iterable[Path],
@@ -9412,190 +9434,79 @@ def _load_analysis_index_resume_payload(
 def _serialize_groups_for_resume(
     groups: dict[str, list[set[str]]],
 ) -> dict[str, list[list[str]]]:
-    payload: dict[str, list[list[str]]] = {}
-    for fn_name in sort_once(groups, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_groups_for_resume.site_1'):
-        check_deadline()
-        bundles = groups[fn_name]
-        normalized = [
-            sort_once(
-                (str(param) for param in bundle),
-                source="gabion.analysis.dataflow_indexed_file_scan._serialize_groups_for_resume.site_2",
-            )
-            for bundle in bundles
-        ]
-        normalized = sort_once(
-            normalized,
-            source="_serialize_groups_for_resume.normalized",
-            # Primary by bundle length then lexicalized bundle tuple.
-            key=lambda bundle: (len(bundle), bundle),
-        )
-        payload[fn_name] = normalized
-    return payload
+    return _serialize_groups_for_resume_impl(
+        groups,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+    )
 
 def _deserialize_groups_for_resume(
     payload: Mapping[str, JSONValue],
 ) -> dict[str, list[set[str]]]:
-    groups: dict[str, list[set[str]]] = {}
-    for fn_name, bundles in payload.items():
-        check_deadline()
-        bundle_entries = sequence_or_none(bundles)
-        if type(fn_name) is str and bundle_entries is not None:
-            normalized: list[set[str]] = []
-            for bundle in bundle_entries:
-                check_deadline()
-                bundle_params = sequence_or_none(bundle)
-                if bundle_params is not None:
-                    normalized.append({str(param) for param in bundle_params})
-            groups[fn_name] = normalized
-    return groups
+    return _deserialize_groups_for_resume_impl(
+        payload,
+        check_deadline_fn=check_deadline,
+        sequence_or_none_fn=sequence_or_none,
+    )
 
 def _serialize_param_spans_for_resume(
     spans: dict[str, dict[str, tuple[int, int, int, int]]],
 ) -> dict[str, dict[str, list[int]]]:
-    payload: dict[str, dict[str, list[int]]] = {}
-    for fn_name in sort_once(spans, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_spans_for_resume.site_1'):
-        check_deadline()
-        param_spans = spans[fn_name]
-        payload[fn_name] = {}
-        for param_name in sort_once(param_spans, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_spans_for_resume.site_2'):
-            check_deadline()
-            span = param_spans[param_name]
-            payload[fn_name][param_name] = [int(part) for part in span]
-    return payload
+    return _serialize_param_spans_for_resume_impl(
+        spans,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+    )
 
 def _deserialize_param_spans_for_resume(
     payload: Mapping[str, JSONValue],
 ) -> dict[str, dict[str, tuple[int, int, int, int]]]:
-    spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
-    for fn_name, raw_map in payload.items():
-        check_deadline()
-        param_map = mapping_or_none(raw_map)
-        if type(fn_name) is str and param_map is not None:
-            fn_spans: dict[str, tuple[int, int, int, int]] = {}
-            for param_name, raw_span in param_map.items():
-                check_deadline()
-                span_parts = sequence_or_none(raw_span)
-                if type(param_name) is str and span_parts is not None and len(span_parts) == 4:
-                    try:
-                        span = tuple(int(part) for part in span_parts)
-                    except (TypeError, ValueError):
-                        span = None
-                    if span is not None:
-                        fn_spans[param_name] = cast(tuple[int, int, int, int], span)
-            spans[fn_name] = fn_spans
-    return spans
+    return _deserialize_param_spans_for_resume_impl(
+        payload,
+        check_deadline_fn=check_deadline,
+        sequence_or_none_fn=sequence_or_none,
+    )
 
 def _serialize_bundle_sites_for_resume(
     bundle_sites: dict[str, list[list[JSONObject]]],
 ) -> dict[str, list[list[JSONObject]]]:
-    payload: dict[str, list[list[JSONObject]]] = {}
-    for fn_name in sort_once(bundle_sites, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_bundle_sites_for_resume.site_1'):
-        check_deadline()
-        fn_sites = bundle_sites[fn_name]
-        encoded_fn_sites: list[list[JSONObject]] = []
-        for bundle in fn_sites:
-            check_deadline()
-            encoded_bundle: list[JSONObject] = []
-            bundle_entries = sequence_or_none(cast(JSONValue, bundle))
-            if bundle_entries is not None:
-                for site in bundle_entries:
-                    check_deadline()
-                    site_mapping = mapping_or_none(site)
-                    if site_mapping is not None:
-                        encoded_bundle.append(
-                            {str(key): site_mapping[key] for key in site_mapping}
-                        )
-                encoded_fn_sites.append(encoded_bundle)
-        payload[fn_name] = encoded_fn_sites
-    return payload
+    return _serialize_bundle_sites_for_resume_impl(
+        bundle_sites,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+        sequence_or_none_fn=sequence_or_none,
+        mapping_or_none_fn=mapping_or_none,
+    )
 
 def _deserialize_bundle_sites_for_resume(
     payload: Mapping[str, JSONValue],
 ) -> dict[str, list[list[JSONObject]]]:
-    bundle_sites: dict[str, list[list[JSONObject]]] = {}
-    for fn_name, raw_sites in payload.items():
-        check_deadline()
-        site_groups = sequence_or_none(raw_sites)
-        if type(fn_name) is str and site_groups is not None:
-            fn_sites: list[list[JSONObject]] = []
-            for raw_bundle in site_groups:
-                check_deadline()
-                bundle_entries = sequence_or_none(raw_bundle)
-                if bundle_entries is not None:
-                    bundle: list[JSONObject] = []
-                    for site in bundle_entries:
-                        check_deadline()
-                        site_mapping = mapping_or_none(site)
-                        if site_mapping is not None:
-                            bundle.append({str(key): site_mapping[key] for key in site_mapping})
-                    fn_sites.append(bundle)
-            bundle_sites[fn_name] = fn_sites
-    return bundle_sites
+    return _deserialize_bundle_sites_for_resume_impl(
+        payload,
+        check_deadline_fn=check_deadline,
+        sequence_or_none_fn=sequence_or_none,
+        mapping_or_none_fn=mapping_or_none,
+    )
 
 def _serialize_invariants_for_resume(
     invariants: Sequence[InvariantProposition],
 ) -> list[JSONObject]:
-    payload: list[JSONObject] = []
-    for proposition in sort_once(
+    return _serialize_invariants_for_resume_impl(
         invariants,
-        key=lambda proposition: (
-            proposition.form,
-            proposition.terms,
-            proposition.scope or "",
-            proposition.source or "",
-        ),
-    source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_invariants_for_resume.site_1'):
-        check_deadline()
-        payload.append(proposition.as_dict())
-    return payload
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+    )
 
 def _deserialize_invariants_for_resume(
     payload: Sequence[JSONValue],
 ) -> list[InvariantProposition]:
-    invariants: list[InvariantProposition] = []
-    for entry in payload:
-        check_deadline()
-        entry_mapping = mapping_or_none(entry)
-        if entry_mapping is not None:
-            form = entry_mapping.get("form")
-            terms = sequence_or_none(entry_mapping.get("terms"))
-            if type(form) is str and terms is not None:
-                normalized_terms: list[str] = []
-                for term in terms:
-                    check_deadline()
-                    if type(term) is str:
-                        normalized_terms.append(term)
-                scope = entry_mapping.get("scope")
-                source = entry_mapping.get("source")
-                invariant_id = entry_mapping.get("invariant_id")
-                confidence_raw = entry_mapping.get("confidence")
-                confidence = (
-                    float(confidence_raw)
-                    if type(confidence_raw) in {int, float}
-                    else None
-                )
-                raw_evidence = entry_mapping.get("evidence_keys")
-                evidence_keys: tuple[str, ...] = ()
-                evidence_sequence = sequence_or_none(raw_evidence)
-                if evidence_sequence is not None:
-                    evidence_keys = tuple(
-                        str(item) for item in evidence_sequence if str(item).strip()
-                    )
-                normalized = _normalize_invariant_proposition(
-                    InvariantProposition(
-                        form=form,
-                        terms=tuple(normalized_terms),
-                        scope=scope if type(scope) is str else None,
-                        source=source if type(source) is str else None,
-                        invariant_id=invariant_id if type(invariant_id) is str else None,
-                        confidence=confidence,
-                        evidence_keys=evidence_keys,
-                    ),
-                    default_scope=scope if type(scope) is str else "",
-                    default_source=source if type(source) is str else "resume",
-                )
-                invariants.append(normalized)
-    return invariants
+    return _deserialize_invariants_for_resume_impl(
+        payload,
+        normalize_invariant_proposition_fn=_normalize_invariant_proposition,
+        check_deadline_fn=check_deadline,
+        mapping_or_none_fn=mapping_or_none,
+        sequence_or_none_fn=sequence_or_none,
+    )
 
 def _serialize_file_scan_resume_state(
     *,
@@ -9782,74 +9693,29 @@ def _build_analysis_collection_resume_payload(
     analysis_index_resume = None,
     file_stage_timings_v1_by_path = None,
 ) -> JSONObject:
-    check_deadline()
-    groups_payload: JSONObject = {}
-    spans_payload: JSONObject = {}
-    sites_payload: JSONObject = {}
-    in_progress_scan_payload: JSONObject = {}
-    completed_keys = sort_once(
-        (_analysis_collection_resume_path_key(path) for path in completed_paths),
-        source="gabion.analysis.dataflow_indexed_file_scan._build_analysis_collection_resume_payload.site_1",
+    return _build_analysis_collection_resume_payload_impl(
+        groups_by_path=groups_by_path,
+        param_spans_by_path=param_spans_by_path,
+        bundle_sites_by_path=bundle_sites_by_path,
+        invariant_propositions=invariant_propositions,
+        completed_paths=completed_paths,
+        in_progress_scan_by_path=in_progress_scan_by_path,
+        analysis_index_resume=analysis_index_resume,
+        file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
+        format_version=_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
+        path_key_fn=_analysis_collection_resume_path_key,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
+        serialize_groups_for_resume_fn=_serialize_groups_for_resume,
+        serialize_param_spans_for_resume_fn=_serialize_param_spans_for_resume,
+        serialize_bundle_sites_for_resume_fn=_serialize_bundle_sites_for_resume,
+        serialize_invariants_for_resume_fn=_serialize_invariants_for_resume,
+        mapping_or_none_fn=mapping_or_none,
+        never_fn=never,
     )
-    for path_key in completed_keys:
-        check_deadline()
-        path = Path(path_key)
-        groups_payload[path_key] = _serialize_groups_for_resume(
-            groups_by_path.get(path, {})
-        )
-        spans_payload[path_key] = _serialize_param_spans_for_resume(
-            param_spans_by_path.get(path, {})
-        )
-        sites_payload[path_key] = _serialize_bundle_sites_for_resume(
-            bundle_sites_by_path.get(path, {})
-        )
-    previous_path_key = None
-    for path in in_progress_scan_by_path:
-        check_deadline()
-        path_key = _analysis_collection_resume_path_key(path)
-        if previous_path_key is not None and previous_path_key > path_key:
-            never(
-                "in_progress_scan_by_path path order regression",
-                previous_path=previous_path_key,
-                current_path=path_key,
-            )
-        previous_path_key = path_key
-        in_progress_scan_payload[path_key] = {
-            str(key): in_progress_scan_by_path[path][key]
-            for key in in_progress_scan_by_path[path]
-        }
-    payload: JSONObject = {
-        "format_version": _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
-        "completed_paths": completed_keys,
-        "groups_by_path": groups_payload,
-        "param_spans_by_path": spans_payload,
-        "bundle_sites_by_path": sites_payload,
-        "in_progress_scan_by_path": in_progress_scan_payload,
-        "invariant_propositions": _serialize_invariants_for_resume(
-            invariant_propositions
-        ),
-    }
-    if file_stage_timings_v1_by_path:
-        payload["file_stage_timings_v1_by_path"] = {
-            _analysis_collection_resume_path_key(path): {
-                str(key): value
-                for key, value in file_stage_timings_v1_by_path[path].items()
-            }
-            for path in sort_once(
-                file_stage_timings_v1_by_path,
-                key=_analysis_collection_resume_path_key,
-            source = 'gabion.analysis.dataflow_indexed_file_scan._build_analysis_collection_resume_payload.site_2')
-        }
-    analysis_index_resume_mapping = mapping_or_none(analysis_index_resume)
-    if analysis_index_resume_mapping is not None:
-        payload["analysis_index_resume"] = {
-            str(key): analysis_index_resume_mapping[key]
-            for key in analysis_index_resume_mapping
-        }
-    return payload
 
 def _empty_analysis_collection_resume_payload():
-    return ({}, {}, {}, [], set(), {}, None)
+    return _empty_analysis_collection_resume_payload_impl()
 
 def _load_analysis_collection_resume_payload(
     *,
@@ -9857,81 +9723,25 @@ def _load_analysis_collection_resume_payload(
     file_paths: Sequence[Path],
     include_invariant_propositions: bool,
 ):
-    (
-        groups_by_path,
-        param_spans_by_path,
-        bundle_sites_by_path,
-        invariant_propositions,
-        completed_paths,
-        in_progress_scan_by_path,
-        analysis_index_resume,
-    ) = _empty_analysis_collection_resume_payload()
-    payload = payload_with_format(
-        payload,
+    return _load_analysis_collection_resume_payload_impl(
+        payload=payload,
+        file_paths=file_paths,
+        include_invariant_propositions=include_invariant_propositions,
         format_version=_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
-    )
-    if payload is None:
-        return _empty_analysis_collection_resume_payload()
-    sections = mapping_sections(
-        payload,
-        section_keys=(
-            "groups_by_path",
-            "param_spans_by_path",
-            "bundle_sites_by_path",
-        ),
-    )
-    if sections is None:
-        return _empty_analysis_collection_resume_payload()
-    groups_payload, spans_payload, sites_payload = sections
-    in_progress_scan_payload = mapping_payload(payload.get("in_progress_scan_by_path"))
-    completed_payload = payload.get("completed_paths")
-    if in_progress_scan_payload is None:
-        in_progress_scan_payload = {}
-    allowed_paths = allowed_path_lookup(
-        file_paths,
-        key_fn=_analysis_collection_resume_path_key,
-    )
-    for path in load_allowed_paths_from_sequence(
-        completed_payload,
-        allowed_paths=allowed_paths,
-    ):
-        check_deadline()
-        path_key = _analysis_collection_resume_path_key(path)
-        raw_groups = mapping_or_none(groups_payload.get(path_key))
-        raw_spans = mapping_or_none(spans_payload.get(path_key))
-        raw_sites = mapping_or_none(sites_payload.get(path_key))
-        if raw_groups is not None and raw_spans is not None and raw_sites is not None:
-            groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
-            param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
-            bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
-            completed_paths.add(path)
-    if include_invariant_propositions:
-        raw_invariants = sequence_or_none(payload.get("invariant_propositions"))
-        if raw_invariants is not None:
-            invariant_propositions = _deserialize_invariants_for_resume(raw_invariants)
-    for raw_path, raw_state in in_progress_scan_payload.items():
-        check_deadline()
-        raw_state_mapping = mapping_or_none(raw_state)
-        path = allowed_paths.get(raw_path)
-        if raw_state_mapping is not None and path is not None and path not in completed_paths:
-            in_progress_scan_by_path[path] = {
-                str(key): raw_state_mapping[key] for key in raw_state_mapping
-            }
-    raw_analysis_index_resume = payload.get("analysis_index_resume")
-    raw_analysis_index_mapping = mapping_or_none(raw_analysis_index_resume)
-    if raw_analysis_index_mapping is not None:
-        analysis_index_resume = {
-            str(key): raw_analysis_index_mapping[key]
-            for key in raw_analysis_index_mapping
-        }
-    return (
-        groups_by_path,
-        param_spans_by_path,
-        bundle_sites_by_path,
-        invariant_propositions,
-        completed_paths,
-        in_progress_scan_by_path,
-        analysis_index_resume,
+        path_key_fn=_analysis_collection_resume_path_key,
+        deserialize_groups_for_resume_fn=_deserialize_groups_for_resume,
+        deserialize_param_spans_for_resume_fn=_deserialize_param_spans_for_resume,
+        deserialize_bundle_sites_for_resume_fn=_deserialize_bundle_sites_for_resume,
+        deserialize_invariants_for_resume_fn=_deserialize_invariants_for_resume,
+        empty_payload_fn=_empty_analysis_collection_resume_payload,
+        payload_with_format_fn=payload_with_format,
+        mapping_sections_fn=mapping_sections,
+        mapping_payload_fn=mapping_payload,
+        allowed_path_lookup_fn=allowed_path_lookup,
+        load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
+        mapping_or_none_fn=mapping_or_none,
+        sequence_or_none_fn=sequence_or_none,
+        check_deadline_fn=check_deadline,
     )
 
 def _compute_violations(
@@ -9951,32 +9761,10 @@ def _compute_violations(
     )
 
 def _resolve_baseline_path(path, root: Path):
-    if not path:
-        return None
-    baseline = Path(path)
-    if not baseline.is_absolute():
-        baseline = root / baseline
-    return baseline
+    return _resolve_baseline_path_impl(path, root)
 
 def _resolve_synth_registry_path(path, root: Path):
-    if not path:
-        return None
-    value = str(path).strip()
-    if not value:
-        return None
-    if value.endswith("/LATEST/fingerprint_synth.json"):
-        marker = Path(root) / value.replace(
-            "/LATEST/fingerprint_synth.json", "/LATEST.txt"
-        )
-        try:
-            stamp = marker.read_text().strip()
-        except OSError:
-            return None
-        return (marker.parent / stamp / "fingerprint_synth.json").resolve()
-    candidate = Path(value)
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    return candidate.resolve()
+    return _resolve_synth_registry_path_impl(path, root)
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
@@ -10200,46 +9988,11 @@ def _build_parser() -> argparse.ArgumentParser:
 def _normalize_transparent_decorators(
     value: object,
 ) -> object:
-    check_deadline()
-    if value is not None:
-        items: list[str] = []
-        value_type = type(value)
-        if value_type is str:
-            items = [part.strip() for part in cast(str, value).split(",") if part.strip()]
-        elif value_type in {list, tuple, set}:
-            for item in cast(Iterable[object], value):
-                check_deadline()
-                if type(item) is str:
-                    parts = [part.strip() for part in cast(str, item).split(",") if part.strip()]
-                    items.extend(parts)
-        if items:
-            return set(items)
-    return None
+    return _normalize_transparent_decorators_impl(value, check_deadline_fn=check_deadline)
 
 @contextmanager
 def _analysis_deadline_scope(args: argparse.Namespace):
-    timeout_carrier = TimeoutTickCarrier.from_ingress(
-        ticks=args.analysis_timeout_ticks,
-        tick_ns=args.analysis_timeout_tick_ns,
-    )
-    if timeout_carrier.ticks == 0:
-        never(
-            "invalid analysis timeout ticks",
-            analysis_timeout_ticks=timeout_carrier.ticks,
-        )
-    tick_limit_value = args.analysis_tick_limit
-    logical_limit = timeout_carrier.ticks
-    if tick_limit_value is not None:
-        tick_limit = int(tick_limit_value)
-        if tick_limit <= 0:
-            never("invalid analysis tick limit", analysis_tick_limit=tick_limit)
-        logical_limit = min(logical_limit, tick_limit)
-    with ExitStack() as stack:
-        stack.enter_context(forest_scope(Forest()))
-        stack.enter_context(
-            deadline_scope(Deadline.from_timeout_ticks(timeout_carrier))
-        )
-        stack.enter_context(deadline_clock_scope(GasMeter(limit=logical_limit)))
+    with _analysis_deadline_scope_impl(args):
         yield
 
 def _run_impl(
@@ -10249,257 +10002,42 @@ def _run_impl(
     emit_report_fn: Callable[..., tuple[str, list[str]]] = _emit_report,
     compute_violations_fn: Callable[..., list[str]] = _compute_violations,
 ) -> int:
-    check_deadline()
-    if args.fail_on_type_ambiguities:
-        args.type_audit = True
-    fingerprint_deadness_json = args.fingerprint_deadness_json
-    fingerprint_coherence_json = args.fingerprint_coherence_json
-    fingerprint_rewrite_plans_json = args.fingerprint_rewrite_plans_json
-    fingerprint_exception_obligations_json = args.fingerprint_exception_obligations_json
-    fingerprint_handledness_json = args.fingerprint_handledness_json
-    exclude_dirs = None
-    if args.exclude is not None:
-        exclude_dirs = []
-        for entry in args.exclude:
-            check_deadline()
-            for part in entry.split(","):
-                check_deadline()
-                part = part.strip()
-                if part:
-                    exclude_dirs.append(part)
-    ignore_params = None
-    if args.ignore_params is not None:
-        ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
-    transparent_decorators = None
-    if args.transparent_decorators is not None:
-        transparent_decorators = [
-            p.strip() for p in args.transparent_decorators.split(",") if p.strip()
-        ]
-    config_path = Path(args.config) if args.config else None
-    defaults = dataflow_defaults(Path(args.root), config_path)
-    synth_defaults = synthesis_defaults(Path(args.root), config_path)
-    decision_section = decision_defaults(Path(args.root), config_path)
-    decision_tiers = decision_tier_map(decision_section)
-    decision_require = decision_require_tiers(decision_section)
-    exception_section = exception_defaults(Path(args.root), config_path)
-    never_exceptions = set(exception_marker_family(exception_section, "never"))
-    never_exceptions.update(exception_never_list(exception_section))
-    all_marker_aliases = {
-        alias
-        for aliases in DEFAULT_MARKER_ALIASES.values()
-        for alias in aliases
-    }
-    never_exceptions.update(all_marker_aliases)
-    fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
-    synth_min_occurrences = 0
-    synth_version = "synth@1"
-    synth_registry_path = None
-    fingerprint_seed_path = None
-    try:
-        synth_min_occurrences = int(
-            fingerprint_section.get("synth_min_occurrences", 0) or 0
-        )
-    except (TypeError, ValueError):
-        synth_min_occurrences = 0
-    synth_version = str(
-        fingerprint_section.get("synth_version", synth_version) or synth_version
-    )
-    synth_registry_path = fingerprint_section.get("synth_registry_path")
-    fingerprint_seed_path = fingerprint_section.get("seed_registry_path")
-    if fingerprint_seed_path is None:
-        fingerprint_seed_path = fingerprint_section.get("fingerprint_seed_path")
-    fingerprint_registry = None
-    fingerprint_index: dict[Fingerprint, set[str]] = {}
-    fingerprint_seed_revision = None
-    constructor_registry = None
-    synth_registry = None
-    # The [fingerprints] section mixes bundle specs with synth settings.
-    # Filter out the settings so they do not pollute the registry/index.
-    fingerprint_spec: dict[str, JSONValue] = {
-        key: value
-        for key, value in fingerprint_section.items()
-        if (
-            not str(key).startswith("synth_")
-            and not str(key).startswith("seed_")
-            and str(key) != "fingerprint_seed_path"
-        )
-    }
-    seed_revision = fingerprint_section.get("seed_revision")
-    if seed_revision is None:
-        seed_revision = fingerprint_section.get("registry_seed_revision")
-    if seed_revision is not None:
-        fingerprint_seed_revision = str(seed_revision)
-    if fingerprint_spec:
-        seed_payload: object = None
-        if fingerprint_seed_path:
-            resolved_seed = _resolve_synth_registry_path(
-                str(fingerprint_seed_path), Path(args.root)
-            )
-            if resolved_seed is not None:
-                try:
-                    seed_payload = load_json(resolved_seed)
-                except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-                    seed_payload = None
-        registry, index = build_fingerprint_registry(
-            fingerprint_spec,
-            registry_seed=seed_payload,
-        )
-        if index:
-            fingerprint_registry = registry
-            fingerprint_index = index
-            constructor_registry = TypeConstructorRegistry(registry)
-            if synth_registry_path:
-                resolved = _resolve_synth_registry_path(
-                    str(synth_registry_path), Path(args.root)
-                )
-                if resolved is not None:
-                    try:
-                        payload = load_json(resolved)
-                    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-                        payload = None
-                else:
-                    payload = None
-                payload_mapping = mapping_or_none(cast(JSONValue, payload))
-                if payload_mapping is not None:
-                    synth_registry = build_synth_registry_from_payload(
-                        payload_mapping, registry
-                    )
-    merged = merge_payload(
-        {
-            "exclude": exclude_dirs,
-            "ignore_params": ignore_params,
-            "allow_external": args.allow_external,
-            "strictness": args.strictness,
-            "baseline": args.baseline,
-            "transparent_decorators": transparent_decorators,
-        },
-        defaults,
-    )
-    exclude_dirs = set(merged.get("exclude", []) or [])
-    ignore_params_set = set(merged.get("ignore_params", []) or [])
-    decision_ignore_params = set(ignore_params_set)
-    decision_ignore_params.update(decision_ignore_list(decision_section))
-    allow_external = bool(merged.get("allow_external", False))
-    strictness = merged.get("strictness") or "high"
-    if strictness not in {"high", "low"}:
-        strictness = "high"
-    transparent_decorators = _normalize_transparent_decorators(
-        merged.get("transparent_decorators")
-    )
-    deadline_roots = set(dataflow_deadline_roots(merged))
-    adapter_payload = dataflow_adapter_payload(merged)
-    required_analysis_surfaces = {
-        str(item)
-        for item in dataflow_required_surfaces(merged)
-        if type(item) is str and str(item)
-    }
-    config = AuditConfig(
-        project_root=Path(args.root),
-        exclude_dirs=exclude_dirs,
-        ignore_params=ignore_params_set,
-        decision_ignore_params=decision_ignore_params,
-        external_filter=not allow_external,
-        strictness=strictness,
-        transparent_decorators=transparent_decorators,
-        decision_tiers=decision_tiers,
-        decision_require_tiers=decision_require,
-        never_exceptions=never_exceptions,
-        deadline_roots=deadline_roots,
-        fingerprint_registry=fingerprint_registry,
-        fingerprint_index=fingerprint_index,
-        constructor_registry=constructor_registry,
-        fingerprint_seed_revision=fingerprint_seed_revision,
-        fingerprint_synth_min_occurrences=synth_min_occurrences,
-        fingerprint_synth_version=synth_version,
-        fingerprint_synth_registry=synth_registry,
-        adapter_contract=normalize_adapter_contract(adapter_payload),
-        required_analysis_surfaces=required_analysis_surfaces,
-    )
-    baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
-    baseline_write = args.baseline_write
-    if baseline_write and baseline_path is None:
-        print("Baseline path required for --baseline-write.", file=sys.stderr)
-        return 2
-    paths = _iter_paths(args.paths, config)
-    decision_snapshot_path = args.emit_decision_snapshot
-    include_decisions = bool(args.report) or bool(decision_snapshot_path) or bool(
-        args.fail_on_violations
-    )
-    if decision_tiers:
-        include_decisions = True
-    include_rewrite_plans = bool(args.report) or bool(fingerprint_rewrite_plans_json)
-    include_exception_obligations = bool(args.report) or bool(
-        fingerprint_exception_obligations_json
-    )
-    include_handledness_witnesses = bool(args.report) or bool(
-        fingerprint_handledness_json
-    )
-    include_never_invariants = bool(args.report)
-    include_wl_refinement = bool(args.wl_refinement)
-    include_ambiguities = bool(args.report) or bool(args.lint)
-    include_coherence = (
-        bool(args.report)
-        or bool(fingerprint_coherence_json)
-        or include_rewrite_plans
-    )
-    forest = Forest()
-    analysis = analyze_paths_fn(
-        paths,
-        forest=forest,
-        recursive=not args.no_recursive,
-        type_audit=args.type_audit or args.type_audit_report,
-        type_audit_report=args.type_audit_report,
-        type_audit_max=args.type_audit_max,
-        include_constant_smells=bool(args.report),
-        include_unused_arg_smells=bool(args.report),
-        include_deadness_witnesses=bool(args.report) or bool(fingerprint_deadness_json),
-        include_coherence_witnesses=include_coherence,
-        include_rewrite_plans=include_rewrite_plans,
-        include_exception_obligations=include_exception_obligations,
-        include_handledness_witnesses=include_handledness_witnesses,
-        include_never_invariants=include_never_invariants,
-        include_wl_refinement=include_wl_refinement,
-        include_deadline_obligations=bool(args.report) or bool(args.lint),
-        include_decision_surfaces=include_decisions,
-        include_value_decision_surfaces=include_decisions,
-        include_invariant_propositions=(
-            bool(args.report)
-            or bool(args.synthesis_plan)
-            or bool(args.synthesis_report)
-            or bool(args.synthesis_property_hook_hypothesis)
+    return _run_entry_impl(
+        args,
+        deps=_RunImplDeps(
+            dataflow_defaults_fn=dataflow_defaults,
+            synthesis_defaults_fn=synthesis_defaults,
+            decision_defaults_fn=decision_defaults,
+            decision_tier_map_fn=decision_tier_map,
+            decision_require_tiers_fn=decision_require_tiers,
+            decision_ignore_list_fn=decision_ignore_list,
+            exception_defaults_fn=exception_defaults,
+            exception_marker_family_fn=exception_marker_family,
+            exception_never_list_fn=exception_never_list,
+            fingerprint_defaults_fn=fingerprint_defaults,
+            merge_payload_fn=merge_payload,
+            dataflow_deadline_roots_fn=dataflow_deadline_roots,
+            dataflow_adapter_payload_fn=dataflow_adapter_payload,
+            dataflow_required_surfaces_fn=dataflow_required_surfaces,
+            normalize_adapter_contract_fn=normalize_adapter_contract,
+            resolve_baseline_path_fn=_resolve_baseline_path,
+            resolve_synth_registry_path_fn=_resolve_synth_registry_path,
+            iter_paths_fn=_iter_paths,
+            load_json_fn=load_json,
+            build_fingerprint_registry_fn=build_fingerprint_registry,
+            build_synth_registry_from_payload_fn=build_synth_registry_from_payload,
+            type_constructor_registry_cls=TypeConstructorRegistry,
+            default_marker_aliases=DEFAULT_MARKER_ALIASES,
+            audit_config_cls=AuditConfig,
+            forest_cls=Forest,
+            run_output_context_factory=_RunImplOutputContextCore,
+            finalize_run_outputs_fn=_finalize_run_outputs_impl,
         ),
-        include_lint_lines=bool(args.lint),
-        include_ambiguities=include_ambiguities,
-        include_bundle_forest=bool(args.report)
-        or bool(args.dot)
-        or bool(args.fail_on_violations)
-        or bool(args.emit_structure_tree)
-        or bool(args.emit_structure_metrics)
-        or bool(args.emit_decision_snapshot),
-        config=config,
-    )
-
-    return _finalize_run_outputs_impl(
-        context=_RunImplOutputContextCore(
-            args=args,
-            analysis=analysis,
-            paths=paths,
-            config=config,
-            synth_defaults=synth_defaults,
-            baseline_path=baseline_path,
-            baseline_write=baseline_write,
-            decision_snapshot_path=decision_snapshot_path,
-            fingerprint_deadness_json=fingerprint_deadness_json,
-            fingerprint_coherence_json=fingerprint_coherence_json,
-            fingerprint_rewrite_plans_json=fingerprint_rewrite_plans_json,
-            fingerprint_exception_obligations_json=(
-                fingerprint_exception_obligations_json
-            ),
-            fingerprint_handledness_json=fingerprint_handledness_json,
-        ),
+        analyze_paths_fn=analyze_paths_fn,
         emit_report_fn=emit_report_fn,
         compute_violations_fn=compute_violations_fn,
-    ).exit_code
+        check_deadline_fn=check_deadline,
+    )
 
 def run(argv = None) -> int:
     parser = _build_parser()
