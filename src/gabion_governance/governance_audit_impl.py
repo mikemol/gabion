@@ -2065,6 +2065,158 @@ def _docflow_compliance_rows(
     op_registry = _docflow_predicates()
     evidence_rows = [row for row in rows if row.get("row_kind") == "evidence_key"]
     covered_evidence: set[str] = set()
+
+    def _handle_cover_invariant(
+        invariant: DocflowInvariant,
+        *,
+        matched: list[dict[str, object]],
+        evidence_matched: list[dict[str, object]],
+        active_flag: bool,
+        compliance: list[dict[str, object]],
+        covered_evidence: set[str],
+    ) -> None:
+        del matched
+        if not active_flag:
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": invariant.name,
+                    "invariant_kind": invariant.kind,
+                    "status": "proposed",
+                    "match_count": len(evidence_matched),
+                    "detail": "cover target missing" if not evidence_matched else None,
+                }
+            )
+            return
+        if evidence_matched:
+            for row in evidence_matched:
+                check_deadline()
+                evidence_id = str(row.get("evidence_id", "") or "")
+                if evidence_id:
+                    covered_evidence.add(evidence_id)
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": invariant.name,
+                    "invariant_kind": invariant.kind,
+                    "status": "compliant",
+                    "match_count": len(evidence_matched),
+                }
+            )
+            return
+        compliance.append(
+            {
+                "row_kind": "docflow_compliance",
+                "invariant": invariant.name,
+                "invariant_kind": invariant.kind,
+                "status": "contradicts",
+                "match_count": 0,
+                "detail": "cover target missing",
+            }
+        )
+
+    def _handle_never_invariant(
+        invariant: DocflowInvariant,
+        *,
+        matched: list[dict[str, object]],
+        evidence_matched: list[dict[str, object]],
+        active_flag: bool,
+        compliance: list[dict[str, object]],
+        covered_evidence: set[str],
+    ) -> None:
+        del evidence_matched
+        del covered_evidence
+        if not active_flag:
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": invariant.name,
+                    "invariant_kind": invariant.kind,
+                    "status": "proposed",
+                    "match_count": len(matched),
+                    "would_violate": bool(matched),
+                }
+            )
+            return
+        if matched:
+            for row in matched:
+                check_deadline()
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "contradicts",
+                        "match_count": len(matched),
+                        "path": row.get("path"),
+                        "qual": row.get("qual"),
+                        "source_row_kind": row.get("row_kind"),
+                    }
+                )
+            return
+        compliance.append(
+            {
+                "row_kind": "docflow_compliance",
+                "invariant": invariant.name,
+                "invariant_kind": invariant.kind,
+                "status": "compliant",
+                "match_count": 0,
+            }
+        )
+
+    def _handle_require_invariant(
+        invariant: DocflowInvariant,
+        *,
+        matched: list[dict[str, object]],
+        evidence_matched: list[dict[str, object]],
+        active_flag: bool,
+        compliance: list[dict[str, object]],
+        covered_evidence: set[str],
+    ) -> None:
+        del evidence_matched
+        del covered_evidence
+        if not active_flag:
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": invariant.name,
+                    "invariant_kind": invariant.kind,
+                    "status": "proposed",
+                    "match_count": len(matched),
+                    "would_violate": not bool(matched),
+                    "detail": "requirement missing" if not matched else None,
+                }
+            )
+            return
+        if matched:
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": invariant.name,
+                    "invariant_kind": invariant.kind,
+                    "status": "compliant",
+                    "match_count": len(matched),
+                }
+            )
+            return
+        compliance.append(
+            {
+                "row_kind": "docflow_compliance",
+                "invariant": invariant.name,
+                "invariant_kind": invariant.kind,
+                "status": "contradicts",
+                "match_count": 0,
+                "detail": "requirement missing",
+            }
+        )
+
+    Handler: TypeAlias = Callable[..., None]
+    handlers: dict[str, Handler] = {
+        "cover": _handle_cover_invariant,
+        "never": _handle_never_invariant,
+        "require": _handle_require_invariant,
+    }
+
     for invariant in invariants:
         check_deadline()
         matched = apply_spec(
@@ -2075,119 +2227,18 @@ def _docflow_compliance_rows(
         evidence_matched = [
             row for row in matched if row.get("row_kind") == "evidence_key"
         ]
-        if invariant.status != "active":
-            if invariant.kind == "cover":
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "proposed",
-                        "match_count": len(evidence_matched),
-                        "detail": "cover target missing" if not evidence_matched else None,
-                    }
-                )
-            elif invariant.kind == "never":
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "proposed",
-                        "match_count": len(matched),
-                        "would_violate": bool(matched),
-                    }
-                )
-            elif invariant.kind == "require":
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "proposed",
-                        "match_count": len(matched),
-                        "would_violate": not bool(matched),
-                        "detail": "requirement missing" if not matched else None,
-                    }
-                )
-            continue
-        if invariant.kind == "cover":
-            if evidence_matched:
-                for row in evidence_matched:
-                    check_deadline()
-                    evidence_id = str(row.get("evidence_id", "") or "")
-                    if evidence_id:
-                        covered_evidence.add(evidence_id)
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "compliant",
-                        "match_count": len(evidence_matched),
-                    }
-                )
-            else:
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "contradicts",
-                        "match_count": 0,
-                        "detail": "cover target missing",
-                    }
-                )
-            continue
-        if invariant.kind == "never":
-            if matched:
-                for row in matched:
-                    check_deadline()
-                    compliance.append(
-                        {
-                            "row_kind": "docflow_compliance",
-                            "invariant": invariant.name,
-                            "invariant_kind": invariant.kind,
-                            "status": "contradicts",
-                            "match_count": len(matched),
-                            "path": row.get("path"),
-                            "qual": row.get("qual"),
-                            "source_row_kind": row.get("row_kind"),
-                        }
-                    )
-            else:
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "compliant",
-                        "match_count": 0,
-                    }
-                )
-            continue
-        if invariant.kind == "require":
-            if matched:
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "compliant",
-                        "match_count": len(matched),
-                    }
-                )
-            else:
-                compliance.append(
-                    {
-                        "row_kind": "docflow_compliance",
-                        "invariant": invariant.name,
-                        "invariant_kind": invariant.kind,
-                        "status": "contradicts",
-                        "match_count": 0,
-                        "detail": "requirement missing",
-                    }
-                )
+        active_flag = invariant.status == "active"
+        handler = handlers.get(invariant.kind)
+        if handler is None:
+            never("unknown docflow invariant kind", kind=invariant.kind)
+        handler(
+            invariant,
+            matched=matched,
+            evidence_matched=evidence_matched,
+            active_flag=active_flag,
+            compliance=compliance,
+            covered_evidence=covered_evidence,
+        )
     for row in evidence_rows:
         check_deadline()
         evidence_id = str(row.get("evidence_id", "") or "")
