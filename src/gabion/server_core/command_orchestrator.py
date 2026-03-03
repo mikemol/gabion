@@ -444,16 +444,13 @@ def _auxiliary_mode_from_payload(
                 emit_delta=emit_delta,
                 write_baseline=write_baseline,
             )
-        if emit_report:
-            kind = "report"
-        elif emit_state:
-            kind = "state"
-        elif emit_delta:
-            kind = "delta"
-        elif write_baseline:
-            kind = "baseline-write"
-        else:
-            kind = "off"
+        ordered_modes = (
+            (emit_report, "report"),
+            (emit_state, "state"),
+            (emit_delta, "delta"),
+            (write_baseline, "baseline-write"),
+        )
+        kind = next((candidate_kind for flag, candidate_kind in ordered_modes if flag), "off")
     allowed = {"off", "state", "delta", "baseline-write"}
     if allow_report:
         allowed.add("report")
