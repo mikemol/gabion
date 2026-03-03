@@ -28,6 +28,56 @@ def _entries_from_payload(payload: dict[str, object]) -> list[test_evidence_sugg
     return entries
 
 
+@pytest.mark.parametrize(
+    ("alt_kind", "expected_display"),
+    [
+        (
+            "DecisionSurface",
+            "E:decision_surface/direct::core.py::pkg.core.decide::flag",
+        ),
+        (
+            "ValueDecisionSurface",
+            "E:decision_surface/value_encoded::core.py::pkg.core.decide::flag",
+        ),
+        (
+            "NeverInvariantSink",
+            "E:never/sink::core.py::pkg.core.decide::flag",
+        ),
+    ],
+)
+def test_evidence_for_alt_supported_prefixes(
+    alt_kind: str,
+    expected_display: str,
+) -> None:
+    forest = Forest()
+    site_id = forest.add_site("core.py", "pkg.core.decide")
+    paramset_id = forest.add_paramset(["flag"])
+    alt = forest.add_alt(alt_kind, (site_id, paramset_id))
+
+    suggestion = test_evidence_suggestions._evidence_for_alt(alt, forest)
+
+    assert suggestion is not None
+    assert suggestion.display == expected_display
+
+
+def test_evidence_for_alt_unsupported_prefix_returns_no_result() -> None:
+    forest = Forest()
+    site_id = forest.add_site("core.py", "pkg.core.decide")
+    paramset_id = forest.add_paramset(["flag"])
+    alt = forest.add_alt("DecisionSurface", (site_id, paramset_id))
+    custom_prefix_map = {
+        "DecisionSurface": "unsupported/prefix",
+    }
+
+    suggestion = test_evidence_suggestions._evidence_for_alt(
+        alt,
+        forest,
+        prefix_map=custom_prefix_map,
+    )
+
+    assert suggestion is None
+
+
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_5be3e3f35aa5_15961b39
 def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
     root = tmp_path
