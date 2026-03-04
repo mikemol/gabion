@@ -2,21 +2,8 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
-
-
-def write_text_or_stdout(path: str, text: str) -> None:
-    if path.strip() == "-":
-        print(text)
-        return
-    Path(path).write_text(text)
-
-
-def write_json_or_stdout(path: str, payload: object) -> None:
-    write_text_or_stdout(path, json.dumps(payload, indent=2, sort_keys=False))
+from gabion.cli_support.shared.output_emitters import write_json_to_target
 
 
 def has_followup_actions(
@@ -70,7 +57,7 @@ def emit_sidecar_outputs(
             continue
         if require_content and not payload:
             continue
-        write_json_or_stdout(path, payload)
+        write_json_to_target(path, payload)
     if args.lint:
         for line in deadline_loop_iter(analysis.lint_lines):
             check_deadline()

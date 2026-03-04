@@ -4,7 +4,8 @@ import argparse
 from contextlib import nullcontext
 from typing import Any
 
-from gabion.cli_support.shared.output_emitters import emit_dataflow_result_outputs
+from gabion.analysis.dataflow.io import dataflow_output_emitters
+from gabion.cli_support.shared.output_emitters import emit_dataflow_result_outputs, write_text_to_target
 from gabion.server_core import command_orchestrator_primitives
 
 
@@ -132,3 +133,41 @@ def test_emit_dataflow_outputs_uses_canonical_capability_field_normalization() -
     assert normalized["selected_adapter"] == "7"
     assert normalized["supported_analysis_surfaces"] == []
     assert normalized["disabled_surface_reasons"] == {}
+
+
+def test_write_text_to_target_treats_stdout_alias_and_path_equally(capsys) -> None:
+    write_text_to_target("-", "alpha", ensure_trailing_newline=True)
+    write_text_to_target("/dev/stdout", "beta", ensure_trailing_newline=True)
+    captured = capsys.readouterr()
+    assert captured.out == "alpha\nbeta\n"
+
+
+def test_emit_sidecar_outputs_stdout_alias_matches_path(capsys) -> None:
+    class _Args:
+        fingerprint_synth_json = "-"
+        fingerprint_provenance_json = "/dev/stdout"
+        lint = False
+
+    class _Analysis:
+        fingerprint_synth_registry = {"k": "v"}
+        fingerprint_provenance = {"p": 1}
+        deadness_witnesses: list[object] = []
+        coherence_witnesses: list[object] = []
+        rewrite_plans: list[object] = []
+        exception_obligations: list[object] = []
+        handledness_witnesses: list[object] = []
+        lint_lines: list[str] = []
+
+    dataflow_output_emitters.emit_sidecar_outputs(
+        args=_Args(),
+        analysis=_Analysis(),
+        fingerprint_deadness_json=None,
+        fingerprint_coherence_json=None,
+        fingerprint_rewrite_plans_json=None,
+        fingerprint_exception_obligations_json=None,
+        fingerprint_handledness_json=None,
+    )
+
+    captured = capsys.readouterr()
+    assert '{\n  "k": "v"\n}' in captured.out
+    assert '{\n  "p": 1\n}' in captured.out

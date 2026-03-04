@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 from contextlib import AbstractContextManager
+from pathlib import Path
 from typing import Callable
 
 import typer
 
 from gabion.json_types import JSONObject
+from gabion.runtime import path_policy
 
 DeadlineScopeFactory = Callable[[], AbstractContextManager[object]]
 EmitLintOutputsFn = Callable[..., None]
@@ -19,6 +21,72 @@ EmitResultJsonToStdoutFn = Callable[..., None]
 CheckDeadlineFn = Callable[[], None]
 SortOnceFn = Callable[..., list[str]]
 NormalizeDataflowResponseFn = Callable[[JSONObject], dict[str, object]]
+
+
+def normalize_output_target(
+    target: str | Path,
+    *,
+    stdout_alias: str = path_policy.STDOUT_ALIAS,
+    stdout_path: str = path_policy.STDOUT_PATH,
+) -> str:
+    return path_policy.normalize_output_target(
+        target,
+        stdout_alias=stdout_alias,
+        stdout_path=stdout_path,
+    )
+
+
+def is_stdout_target(
+    target: object,
+    *,
+    stdout_alias: str = path_policy.STDOUT_ALIAS,
+    stdout_path: str = path_policy.STDOUT_PATH,
+) -> bool:
+    return path_policy.is_stdout_target(
+        target,
+        stdout_alias=stdout_alias,
+        stdout_path=stdout_path,
+    )
+
+
+def write_text_to_target(
+    target: str | Path,
+    payload: str,
+    *,
+    ensure_trailing_newline: bool = False,
+    encoding: str = "utf-8",
+    stdout_alias: str = path_policy.STDOUT_ALIAS,
+    stdout_path: str = path_policy.STDOUT_PATH,
+) -> None:
+    normalized_target = normalize_output_target(
+        target,
+        stdout_alias=stdout_alias,
+        stdout_path=stdout_path,
+    )
+    text = payload
+    if ensure_trailing_newline and not text.endswith("\n"):
+        text = f"{text}\n"
+    if normalized_target == stdout_path:
+        print(text, end="")
+        return
+    Path(normalized_target).write_text(text, encoding=encoding)
+
+
+def write_json_to_target(
+    target: str | Path,
+    payload: object,
+    *,
+    ensure_trailing_newline: bool = True,
+    stdout_alias: str = path_policy.STDOUT_ALIAS,
+    stdout_path: str = path_policy.STDOUT_PATH,
+) -> None:
+    write_text_to_target(
+        target,
+        json.dumps(payload, indent=2, sort_keys=False),
+        ensure_trailing_newline=ensure_trailing_newline,
+        stdout_alias=stdout_alias,
+        stdout_path=stdout_path,
+    )
 
 
 def emit_dataflow_result_outputs(

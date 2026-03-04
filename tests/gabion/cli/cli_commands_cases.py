@@ -11,6 +11,7 @@ import typer
 from typer.testing import CliRunner
 
 from gabion.commands import transport_policy
+from gabion.cli_support.check import check_commands
 from gabion import cli
 from gabion.runtime import env_policy
 
@@ -749,3 +750,57 @@ def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> No
     payload = json.loads(result.output)
     assert payload["rewrite_plans"]
     assert payload["rewrite_plans"][0]["kind"] == "AMBIENT_REWRITE"
+
+
+def test_register_check_aux_commands_uses_registration_table() -> None:
+    observed: list[tuple[str, str]] = []
+
+    def _capture(**kwargs: object) -> None:
+        domain = kwargs.get("domain")
+        action = kwargs.get("action")
+        assert isinstance(domain, str)
+        assert isinstance(action, str)
+        observed.append((domain, action))
+
+    apps = {
+        "obsolescence": typer.Typer(),
+        "annotation-drift": typer.Typer(),
+        "ambiguity": typer.Typer(),
+        "taint": typer.Typer(),
+    }
+    registered = check_commands.register_check_aux_commands(
+        command_domains=apps,
+        check_strictness_mode=cli.CheckStrictnessMode,
+        run_check_aux_operation_fn=_capture,
+    )
+
+    expected = {
+        (entry.domain, entry.action)
+        for entry in check_commands.CHECK_AUX_COMMAND_REGISTRATIONS
+    }
+    assert len(registered) == len(expected)
+
+    runner = CliRunner()
+    app = typer.Typer()
+    for domain, domain_app in apps.items():
+        app.add_typer(domain_app, name=domain)
+
+    delta_result = runner.invoke(
+        app,
+        [
+            "obsolescence",
+            "delta",
+            "sample.py",
+            "--baseline",
+            "obs.json",
+        ],
+    )
+    assert delta_result.exit_code == 0
+    state_result = runner.invoke(app, ["taint", "state", "sample.py"])
+    assert state_result.exit_code == 0
+    report_result = runner.invoke(app, ["annotation-drift", "report", "sample.py"])
+    assert report_result.exit_code == 0
+
+    assert ("obsolescence", "delta") in observed
+    assert ("taint", "state") in observed
+    assert ("annotation-drift", "report") in observed
