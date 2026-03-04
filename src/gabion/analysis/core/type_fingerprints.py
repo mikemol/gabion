@@ -14,6 +14,15 @@ from gabion.analysis.aspf.aspf_decision_surface import (
     RepresentativeSelectionMode, RepresentativeSelectionOptions, select_representative)
 from gabion.analysis.aspf.aspf_morphisms import (
     AspfPrimeBasis, DomainPrimeBasis, DomainToAspfCofibration, DomainToAspfCofibrationEntry)
+from gabion.analysis.core.identity_namespace import (
+    EVIDENCE_KIND_NAMESPACE,
+    SITE_KIND_NAMESPACE,
+    SYNTH_NAMESPACE,
+    TYPE_BASE_NAMESPACE,
+    TYPE_CTOR_NAMESPACE,
+    namespace_key as _decode_namespace_key,
+    raw_key as _encode_raw_key,
+)
 from gabion.analysis.semantics.evidence_keys import fingerprint_identity_layers
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none, str_list_from_sequence
@@ -22,33 +31,12 @@ from gabion.analysis.foundation.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.runtime import stable_encode
 
-TYPE_BASE_NAMESPACE = "type_base"
-TYPE_CTOR_NAMESPACE = "type_ctor"
-EVIDENCE_KIND_NAMESPACE = "evidence_kind"
-SITE_KIND_NAMESPACE = "site_kind"
-SYNTH_NAMESPACE = "synth"
-
-_NAMESPACE_TO_PREFIX: dict[str, str] = {
-    TYPE_BASE_NAMESPACE: "",
-    TYPE_CTOR_NAMESPACE: "ctor:",
-    EVIDENCE_KIND_NAMESPACE: "evidence:",
-    SITE_KIND_NAMESPACE: "site:",
-    SYNTH_NAMESPACE: "synth:",
-}
-
-
 def _namespace_key(key: str) -> tuple[str, str]:
-    check_deadline()
-    for namespace, prefix in _NAMESPACE_TO_PREFIX.items():
-        check_deadline()
-        if prefix and key.startswith(prefix):
-            return namespace, key[len(prefix) :]
-    return TYPE_BASE_NAMESPACE, key
+    return _decode_namespace_key(key)
 
 
 def _raw_key(namespace: str, key: str) -> str:
-    prefix = _NAMESPACE_TO_PREFIX.get(namespace, "")
-    return f"{prefix}{key}"
+    return _encode_raw_key(namespace, key)
 
 
 @dataclass(frozen=True)

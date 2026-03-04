@@ -931,3 +931,70 @@ def test_fingerprint_stage_cache_identity_normalizes_equivalent_seed_text() -> N
     second = tf.fingerprint_stage_cache_identity("seed@v1")
     assert first == second
     assert first.startswith("aspf:sha1:")
+
+
+def test_identity_namespace_codec_roundtrip_preserves_legacy_key_shapes() -> None:
+    from gabion.analysis.core import identity_namespace as ns
+
+    raw_keys = (
+        "int",
+        "ctor:list",
+        "evidence:partition_witness",
+        "site:SuiteSite",
+        "synth:synth@1:2:3:5:0",
+    )
+    for raw_key in raw_keys:
+        namespace, local = ns.namespace_key(raw_key)
+        assert ns.raw_key(namespace, local) == raw_key
+
+
+def test_prime_registry_seed_payload_stays_namespace_compatible() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.load_seed_payload(
+        {
+            "version": "prime-registry-seed@1",
+            "namespaces": {
+                "type_base": {
+                    "primes": {"int": 2},
+                    "bit_positions": {"int": 0},
+                },
+                "type_ctor": {
+                    "primes": {"list": 13},
+                    "bit_positions": {"list": 1},
+                },
+            },
+        }
+    )
+    seed_payload = registry.seed_payload()
+    namespaces = seed_payload.get("namespaces")
+    assert isinstance(namespaces, dict)
+    assert namespaces.get("type_base", {}).get("primes", {}).get("int") == 2
+    assert namespaces.get("type_ctor", {}).get("primes", {}).get("list") == 13
+    assert registry.prime_for("int") == 2
+    assert registry.prime_for("ctor:list") == 13
+
+
+def test_namespace_codec_preserves_seeded_vs_learned_assignment_policy() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.load_seed_payload(
+        {
+            "version": "prime-registry-seed@1",
+            "namespaces": {
+                "type_base": {
+                    "primes": {"int": 2},
+                    "bit_positions": {"int": 0},
+                }
+            },
+        }
+    )
+    _ = registry.get_or_assign("ctor:list")
+    seed_payload = registry.seed_payload()
+    assignment_policy = seed_payload.get("assignment_policy")
+    assert isinstance(assignment_policy, dict)
+    seeded = assignment_policy.get("seeded")
+    learned = assignment_policy.get("learned")
+    assert seeded == ["int"]
+    assert isinstance(learned, list)
+    assert "ctor:list" in learned
