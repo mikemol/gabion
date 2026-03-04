@@ -1391,25 +1391,44 @@ def analyze_decision_surfaces_repo(
     parse_failure_witnesses = None,
     analysis_index = None,
 ) -> tuple[list[str], list[str], list[str]]:
+    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
+        DecisionSurfaceAnalyzerInput,
+        analyze_decision_surfaces,
+    )
+    from gabion.analysis.dataflow.engine.scan_kernel import (
+        ScanKernelDeps,
+        ScanKernelRequest,
+    )
+
     check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="decision_surfaces",
-            run=lambda context: _analyze_decision_surfaces_indexed(
-                context,
-                decision_tiers=decision_tiers,
-                require_tiers=require_tiers,
-                forest=forest,
+    analyzer_output = analyze_decision_surfaces(
+        data=DecisionSurfaceAnalyzerInput(
+            kernel_request=ScanKernelRequest(
+                paths=paths,
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                external_filter=external_filter,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=analysis_index,
             ),
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
         ),
+        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
+        runner=lambda context: _analyze_decision_surfaces_indexed(
+            context,
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+    )
+    return (
+        analyzer_output.surfaces,
+        analyzer_output.warnings,
+        analyzer_output.lint_lines,
     )
 
 def _analyze_value_encoded_decisions_indexed(
@@ -1441,25 +1460,45 @@ def analyze_value_encoded_decisions_repo(
     parse_failure_witnesses = None,
     analysis_index = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
+    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
+        DecisionSurfaceAnalyzerInput,
+        analyze_value_encoded_decisions,
+    )
+    from gabion.analysis.dataflow.engine.scan_kernel import (
+        ScanKernelDeps,
+        ScanKernelRequest,
+    )
+
     check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="value_encoded_decisions",
-            run=lambda context: _analyze_value_encoded_decisions_indexed(
-                context,
-                decision_tiers=decision_tiers,
-                require_tiers=require_tiers,
-                forest=forest,
+    analyzer_output = analyze_value_encoded_decisions(
+        data=DecisionSurfaceAnalyzerInput(
+            kernel_request=ScanKernelRequest(
+                paths=paths,
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                external_filter=external_filter,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=analysis_index,
             ),
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
         ),
+        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
+        runner=lambda context: _analyze_value_encoded_decisions_indexed(
+            context,
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+    )
+    return (
+        analyzer_output.surfaces,
+        analyzer_output.warnings,
+        analyzer_output.rewrites,
+        analyzer_output.lint_lines,
     )
 
 def _node_span(node: ast.AST):
@@ -2719,16 +2758,17 @@ def _materialize_suite_order_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation, suite_index = _suite_order_relation(forest)
-    if not relation:
-        return
-    projected = apply_spec(SUITE_ORDER_SPEC, relation)
+    from gabion.analysis.dataflow.io.dataflow_spec_materialization import (
+        materialize_suite_order_spec,
+    )
 
-    _materialize_projection_spec_rows(
-        spec=SUITE_ORDER_SPEC,
-        projected=projected,
+    materialize_suite_order_spec(
         forest=forest,
-        row_to_site=lambda row: _suite_order_row_to_site(row, suite_index),
+        suite_order_relation_runner=_suite_order_relation,
+        row_to_site_runner=_suite_order_row_to_site,
+        projection_spec=SUITE_ORDER_SPEC,
+        projection_apply_runner=apply_spec,
+        materialize_rows_runner=_materialize_projection_spec_rows,
     )
 
 def _ambiguity_suite_relation(
@@ -2786,36 +2826,87 @@ def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation = _ambiguity_suite_relation(forest)
-    if not relation:
-        return
-    projected = apply_spec(AMBIGUITY_SUITE_AGG_SPEC, relation)
-    _materialize_projection_spec_rows(
-        spec=AMBIGUITY_SUITE_AGG_SPEC,
-        projected=projected,
+    from gabion.analysis.dataflow.io.dataflow_spec_materialization import (
+        materialize_ambiguity_suite_agg_spec,
+    )
+
+    materialize_ambiguity_suite_agg_spec(
         forest=forest,
-        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
+        ambiguity_relation_runner=_ambiguity_suite_relation,
+        row_to_suite_runner=_ambiguity_suite_row_to_suite,
+        projection_spec=AMBIGUITY_SUITE_AGG_SPEC,
+        projection_apply_runner=apply_spec,
+        materialize_rows_runner=_materialize_projection_spec_rows,
     )
 
 def _materialize_ambiguity_virtual_set_spec(
     *,
     forest: Forest,
 ) -> None:
-    relation = _ambiguity_suite_relation(forest)
-    if not relation:
-        return
+    from gabion.analysis.dataflow.io.dataflow_spec_materialization import (
+        materialize_ambiguity_virtual_set_spec,
+    )
 
-    projected = apply_spec(
-        AMBIGUITY_VIRTUAL_SET_SPEC,
-        relation,
-        op_registry={"count_gt_1": _ambiguity_virtual_count_gt_1},
-    )
-    _materialize_projection_spec_rows(
-        spec=AMBIGUITY_VIRTUAL_SET_SPEC,
-        projected=projected,
+    materialize_ambiguity_virtual_set_spec(
         forest=forest,
-        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
+        ambiguity_relation_runner=_ambiguity_suite_relation,
+        row_to_suite_runner=_ambiguity_suite_row_to_suite,
+        projection_spec=AMBIGUITY_VIRTUAL_SET_SPEC,
+        projection_apply_runner=apply_spec,
+        materialize_rows_runner=_materialize_projection_spec_rows,
+        count_gt_1_runner=_ambiguity_virtual_count_gt_1,
     )
+
+
+def run_scan_domain_orchestrator(
+    *,
+    paths: list[Path],
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    forest: Forest,
+    transparent_decorators = None,
+    decision_tiers = None,
+    require_tiers: bool = False,
+    parse_failure_witnesses = None,
+    analysis_index = None,
+) -> dict[str, list[str]]:
+    decision_surfaces, decision_warnings, decision_lint = analyze_decision_surfaces_repo(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+    )
+    value_surfaces, value_warnings, value_rewrites, value_lint = analyze_value_encoded_decisions_repo(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+    )
+    return {
+        "decision_surfaces": decision_surfaces,
+        "decision_warnings": decision_warnings,
+        "decision_lint": decision_lint,
+        "value_surfaces": value_surfaces,
+        "value_warnings": value_warnings,
+        "value_rewrites": value_rewrites,
+        "value_lint": value_lint,
+    }
 
 def _span_line_col(span):
     from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _span_line_col as _impl
