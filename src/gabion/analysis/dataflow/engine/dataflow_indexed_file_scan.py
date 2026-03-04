@@ -225,6 +225,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _format_type_flow_site,
     _split_top_level,
     _type_from_const_repr,
+    analyze_constant_flow_repo,
+    analyze_deadness_flow_repo,
+    analyze_type_flow_repo_with_evidence,
+    analyze_type_flow_repo_with_map,
+    analyze_unused_arg_flow_repo,
     generate_property_hook_manifest,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
@@ -4504,80 +4509,6 @@ def _infer_type_flow(
         ),
     )
 
-def analyze_type_flow_repo_with_map(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    parse_failure_witnesses = None,
-    analysis_index = None,
-):
-    """Repo-wide fixed-point pass for downstream type tightening."""
-    check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="type_flow_with_map",
-            run=lambda context: _infer_type_flow(
-                context.paths,
-                project_root=context.project_root,
-                ignore_params=context.ignore_params,
-                strictness=context.strictness,
-                external_filter=context.external_filter,
-                transparent_decorators=context.transparent_decorators,
-                parse_failure_witnesses=context.parse_failure_witnesses,
-                analysis_index=context.analysis_index,
-            )[:3],
-        ),
-    )
-
-def analyze_type_flow_repo_with_evidence(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    max_sites_per_param: int = 3,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-) -> tuple[list[str], list[str], list[str]]:
-    check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="type_flow_with_evidence",
-            run=lambda context: _infer_type_flow(
-                context.paths,
-                project_root=context.project_root,
-                ignore_params=context.ignore_params,
-                strictness=context.strictness,
-                external_filter=context.external_filter,
-                transparent_decorators=context.transparent_decorators,
-                max_sites_per_param=max_sites_per_param,
-                parse_failure_witnesses=context.parse_failure_witnesses,
-                analysis_index=context.analysis_index,
-            )[1:],
-        ),
-    )
 
 def analyze_type_flow_repo(
     paths: list[Path],
@@ -4602,43 +4533,6 @@ def analyze_type_flow_repo(
     )
     return suggestions, ambiguities
 
-def analyze_constant_flow_repo(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-) -> list[str]:
-    """Detect parameters that only receive a single constant value (non-test)."""
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="constant_flow",
-            run=lambda context: _constant_smells_from_details(
-                _collect_constant_flow_details(
-                    context.paths,
-                    project_root=context.project_root,
-                    ignore_params=context.ignore_params,
-                    strictness=context.strictness,
-                    external_filter=context.external_filter,
-                    transparent_decorators=context.transparent_decorators,
-                    parse_failure_witnesses=context.parse_failure_witnesses,
-                    analysis_index=context.analysis_index,
-                )
-            ),
-        ),
-    )
 
 @dataclass(frozen=True)
 class ConstantFlowDetail:
@@ -4714,44 +4608,6 @@ def _collect_constant_flow_details(
         ),
     )
 
-def analyze_deadness_flow_repo(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-) -> list[JSONObject]:
-    """Emit deadness witnesses based on constant-only parameter flows."""
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="deadness_flow",
-            run=lambda context: _deadness_witnesses_from_constant_details(
-                _collect_constant_flow_details(
-                    context.paths,
-                    project_root=context.project_root,
-                    ignore_params=context.ignore_params,
-                    strictness=context.strictness,
-                    external_filter=context.external_filter,
-                    transparent_decorators=context.transparent_decorators,
-                    parse_failure_witnesses=context.parse_failure_witnesses,
-                    analysis_index=context.analysis_index,
-                ),
-                project_root=context.project_root,
-            ),
-        ),
-    )
 
 def _compute_knob_param_names(
     *,
@@ -4794,33 +4650,6 @@ def _analyze_unused_arg_flow_indexed(
         sort_once_fn=sort_once,
     )
 
-def analyze_unused_arg_flow_repo(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-) -> list[str]:
-    """Detect non-constant arguments passed into unused callee parameters."""
-    check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="unused_arg_flow",
-            run=_analyze_unused_arg_flow_indexed,
-        ),
-    )
 
 def _iter_config_fields(
     path: Path,

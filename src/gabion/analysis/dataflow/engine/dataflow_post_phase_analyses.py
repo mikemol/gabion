@@ -70,6 +70,12 @@ def _runtime_callable(name: str):
     return getattr(_runtime, name)
 
 
+def _runtime_module():
+    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
+
+    return _runtime
+
+
 def _function_key(scope, name: str) -> str:
     parts = list(scope)
     parts.append(name)
@@ -243,24 +249,190 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
     )
 
 
-def analyze_type_flow_repo_with_map(*args, **kwargs):
-    return _runtime_callable("analyze_type_flow_repo_with_map")(*args, **kwargs)
+def analyze_type_flow_repo_with_map(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+):
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    return runtime._run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=runtime._IndexedPassSpec(
+            pass_id="type_flow_with_map",
+            run=lambda context: runtime._infer_type_flow(
+                context.paths,
+                project_root=context.project_root,
+                ignore_params=context.ignore_params,
+                strictness=context.strictness,
+                external_filter=context.external_filter,
+                transparent_decorators=context.transparent_decorators,
+                parse_failure_witnesses=context.parse_failure_witnesses,
+                analysis_index=context.analysis_index,
+            )[:3],
+        ),
+    )
 
 
-def analyze_type_flow_repo_with_evidence(*args, **kwargs):
-    return _runtime_callable("analyze_type_flow_repo_with_evidence")(*args, **kwargs)
+def analyze_type_flow_repo_with_evidence(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    max_sites_per_param: int = 3,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> tuple[list[str], list[str], list[str]]:
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    return runtime._run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=runtime._IndexedPassSpec(
+            pass_id="type_flow_with_evidence",
+            run=lambda context: runtime._infer_type_flow(
+                context.paths,
+                project_root=context.project_root,
+                ignore_params=context.ignore_params,
+                strictness=context.strictness,
+                external_filter=context.external_filter,
+                transparent_decorators=context.transparent_decorators,
+                max_sites_per_param=max_sites_per_param,
+                parse_failure_witnesses=context.parse_failure_witnesses,
+                analysis_index=context.analysis_index,
+            )[1:],
+        ),
+    )
 
 
-def analyze_constant_flow_repo(*args, **kwargs):
-    return _runtime_callable("analyze_constant_flow_repo")(*args, **kwargs)
+def analyze_constant_flow_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> list[str]:
+    runtime = _runtime_module()
+    return runtime._run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=runtime._IndexedPassSpec(
+            pass_id="constant_flow",
+            run=lambda context: runtime._constant_smells_from_details(
+                runtime._collect_constant_flow_details(
+                    context.paths,
+                    project_root=context.project_root,
+                    ignore_params=context.ignore_params,
+                    strictness=context.strictness,
+                    external_filter=context.external_filter,
+                    transparent_decorators=context.transparent_decorators,
+                    parse_failure_witnesses=context.parse_failure_witnesses,
+                    analysis_index=context.analysis_index,
+                )
+            ),
+        ),
+    )
 
 
-def analyze_deadness_flow_repo(*args, **kwargs):
-    return _runtime_callable("analyze_deadness_flow_repo")(*args, **kwargs)
+def analyze_deadness_flow_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> list[JSONObject]:
+    runtime = _runtime_module()
+    return runtime._run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=runtime._IndexedPassSpec(
+            pass_id="deadness_flow",
+            run=lambda context: runtime._deadness_witnesses_from_constant_details(
+                runtime._collect_constant_flow_details(
+                    context.paths,
+                    project_root=context.project_root,
+                    ignore_params=context.ignore_params,
+                    strictness=context.strictness,
+                    external_filter=context.external_filter,
+                    transparent_decorators=context.transparent_decorators,
+                    parse_failure_witnesses=context.parse_failure_witnesses,
+                    analysis_index=context.analysis_index,
+                ),
+                project_root=context.project_root,
+            ),
+        ),
+    )
 
 
-def analyze_unused_arg_flow_repo(*args, **kwargs):
-    return _runtime_callable("analyze_unused_arg_flow_repo")(*args, **kwargs)
+def analyze_unused_arg_flow_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> list[str]:
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    return runtime._run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=runtime._IndexedPassSpec(
+            pass_id="unused_arg_flow",
+            run=runtime._analyze_unused_arg_flow_indexed,
+        ),
+    )
 
 
 def _collect_constant_flow_details(*args, **kwargs):

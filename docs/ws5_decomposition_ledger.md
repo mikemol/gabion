@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 5049
+- Monolith LOC (current): 4878
 - Monolith top-level import statements (current): 108
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -46,6 +46,19 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest passed (`58 passed` for touched suites)
+    - evidence refresh/check passed
+- WS-5 continuation (next CU):
+  - Post-phase analyzer ownership moved to canonical owner module:
+    - `analyze_type_flow_repo_with_map`
+    - `analyze_type_flow_repo_with_evidence`
+    - `analyze_constant_flow_repo`
+    - `analyze_deadness_flow_repo`
+    - `analyze_unused_arg_flow_repo`
+  - Monolith analyzer bodies removed and replaced by owner aliases.
+  - ASPF no-change acknowledgement refreshed for this cut.
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`66 passed` for touched suites)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
