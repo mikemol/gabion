@@ -18,6 +18,7 @@ from gabion.analysis.dataflow.io.dataflow_baseline_gates import _resolve_baselin
 from gabion.analysis.dataflow.engine.dataflow_contracts import AnalysisResult, AuditConfig
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths
+from gabion.analysis.indexed_scan.scanners.run_entry import RunImplDeps, run_impl
 from gabion.analysis.dataflow.io.dataflow_reporting import (
     compute_violations as _compute_violations, render_report as _emit_report)
 from gabion.analysis.dataflow.io.dataflow_run_outputs import (
@@ -373,257 +374,44 @@ def _run_impl(
     emit_report_fn: Callable[..., tuple[str, list[str]]] = _emit_report,
     compute_violations_fn: Callable[..., list[str]] = _compute_violations,
 ) -> int:
-    check_deadline()
-    if args.fail_on_type_ambiguities:
-        args.type_audit = True
-    fingerprint_deadness_json = args.fingerprint_deadness_json
-    fingerprint_coherence_json = args.fingerprint_coherence_json
-    fingerprint_rewrite_plans_json = args.fingerprint_rewrite_plans_json
-    fingerprint_exception_obligations_json = args.fingerprint_exception_obligations_json
-    fingerprint_handledness_json = args.fingerprint_handledness_json
-    exclude_dirs = None
-    if args.exclude is not None:
-        exclude_dirs = []
-        for entry in args.exclude:
-            check_deadline()
-            for part in entry.split(","):
-                check_deadline()
-                part = part.strip()
-                if part:
-                    exclude_dirs.append(part)
-    ignore_params = None
-    if args.ignore_params is not None:
-        ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
-    transparent_decorators = None
-    if args.transparent_decorators is not None:
-        transparent_decorators = [
-            p.strip() for p in args.transparent_decorators.split(",") if p.strip()
-        ]
-    config_path = Path(args.config) if args.config else None
-    defaults = dataflow_defaults(Path(args.root), config_path)
-    synth_defaults = synthesis_defaults(Path(args.root), config_path)
-    decision_section = decision_defaults(Path(args.root), config_path)
-    decision_tiers = decision_tier_map(decision_section)
-    decision_require = decision_require_tiers(decision_section)
-    exception_section = exception_defaults(Path(args.root), config_path)
-    never_exceptions = set(exception_marker_family(exception_section, "never"))
-    never_exceptions.update(exception_never_list(exception_section))
-    all_marker_aliases = {
-        alias
-        for aliases in DEFAULT_MARKER_ALIASES.values()
-        for alias in aliases
-    }
-    never_exceptions.update(all_marker_aliases)
-    fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
-    synth_min_occurrences = 0
-    synth_version = "synth@1"
-    synth_registry_path = None
-    fingerprint_seed_path = None
-    try:
-        synth_min_occurrences = int(
-            fingerprint_section.get("synth_min_occurrences", 0) or 0
-        )
-    except (TypeError, ValueError):
-        synth_min_occurrences = 0
-    synth_version = str(
-        fingerprint_section.get("synth_version", synth_version) or synth_version
-    )
-    synth_registry_path = fingerprint_section.get("synth_registry_path")
-    fingerprint_seed_path = fingerprint_section.get("seed_registry_path")
-    if fingerprint_seed_path is None:
-        fingerprint_seed_path = fingerprint_section.get("fingerprint_seed_path")
-    fingerprint_registry = None
-    fingerprint_index: dict[Fingerprint, set[str]] = {}
-    fingerprint_seed_revision = None
-    constructor_registry = None
-    synth_registry = None
-    # The [fingerprints] section mixes bundle specs with synth settings.
-    # Filter out the settings so they do not pollute the registry/index.
-    fingerprint_spec: dict[str, JSONValue] = {
-        key: value
-        for key, value in fingerprint_section.items()
-        if (
-            not str(key).startswith("synth_")
-            and not str(key).startswith("seed_")
-            and str(key) != "fingerprint_seed_path"
-        )
-    }
-    seed_revision = fingerprint_section.get("seed_revision")
-    if seed_revision is None:
-        seed_revision = fingerprint_section.get("registry_seed_revision")
-    if seed_revision is not None:
-        fingerprint_seed_revision = str(seed_revision)
-    if fingerprint_spec:
-        seed_payload: object = None
-        if fingerprint_seed_path:
-            resolved_seed = _resolve_synth_registry_path(
-                str(fingerprint_seed_path), Path(args.root)
-            )
-            if resolved_seed is not None:
-                try:
-                    seed_payload = load_json(resolved_seed)
-                except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-                    seed_payload = None
-        registry, index = build_fingerprint_registry(
-            fingerprint_spec,
-            registry_seed=seed_payload,
-        )
-        if index:
-            fingerprint_registry = registry
-            fingerprint_index = index
-            constructor_registry = TypeConstructorRegistry(registry)
-            if synth_registry_path:
-                resolved = _resolve_synth_registry_path(
-                    str(synth_registry_path), Path(args.root)
-                )
-                if resolved is not None:
-                    try:
-                        payload = load_json(resolved)
-                    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-                        payload = None
-                else:
-                    payload = None
-                payload_mapping = mapping_or_none(cast(JSONValue, payload))
-                if payload_mapping is not None:
-                    synth_registry = build_synth_registry_from_payload(
-                        payload_mapping, registry
-                    )
-    merged = merge_payload(
-        {
-            "exclude": exclude_dirs,
-            "ignore_params": ignore_params,
-            "allow_external": args.allow_external,
-            "strictness": args.strictness,
-            "baseline": args.baseline,
-            "transparent_decorators": transparent_decorators,
-        },
-        defaults,
-    )
-    exclude_dirs = set(merged.get("exclude", []) or [])
-    ignore_params_set = set(merged.get("ignore_params", []) or [])
-    decision_ignore_params = set(ignore_params_set)
-    decision_ignore_params.update(decision_ignore_list(decision_section))
-    allow_external = bool(merged.get("allow_external", False))
-    strictness = merged.get("strictness") or "high"
-    if strictness not in {"high", "low"}:
-        strictness = "high"
-    transparent_decorators = _normalize_transparent_decorators(
-        merged.get("transparent_decorators")
-    )
-    deadline_roots = set(dataflow_deadline_roots(merged))
-    adapter_payload = dataflow_adapter_payload(merged)
-    required_analysis_surfaces = {
-        str(item)
-        for item in dataflow_required_surfaces(merged)
-        if type(item) is str and str(item)
-    }
-    config = AuditConfig(
-        project_root=Path(args.root),
-        exclude_dirs=exclude_dirs,
-        ignore_params=ignore_params_set,
-        decision_ignore_params=decision_ignore_params,
-        external_filter=not allow_external,
-        strictness=strictness,
-        transparent_decorators=transparent_decorators,
-        decision_tiers=decision_tiers,
-        decision_require_tiers=decision_require,
-        never_exceptions=never_exceptions,
-        deadline_roots=deadline_roots,
-        fingerprint_registry=fingerprint_registry,
-        fingerprint_index=fingerprint_index,
-        constructor_registry=constructor_registry,
-        fingerprint_seed_revision=fingerprint_seed_revision,
-        fingerprint_synth_min_occurrences=synth_min_occurrences,
-        fingerprint_synth_version=synth_version,
-        fingerprint_synth_registry=synth_registry,
-        adapter_contract=normalize_adapter_contract(adapter_payload),
-        required_analysis_surfaces=required_analysis_surfaces,
-    )
-    baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
-    baseline_write = args.baseline_write
-    if baseline_write and baseline_path is None:
-        print("Baseline path required for --baseline-write.", file=sys.stderr)
-        return 2
-    paths = _iter_paths(args.paths, config)
-    decision_snapshot_path = args.emit_decision_snapshot
-    include_decisions = bool(args.report) or bool(decision_snapshot_path) or bool(
-        args.fail_on_violations
-    )
-    if decision_tiers:
-        include_decisions = True
-    include_rewrite_plans = bool(args.report) or bool(fingerprint_rewrite_plans_json)
-    include_exception_obligations = bool(args.report) or bool(
-        fingerprint_exception_obligations_json
-    )
-    include_handledness_witnesses = bool(args.report) or bool(
-        fingerprint_handledness_json
-    )
-    include_never_invariants = bool(args.report)
-    include_wl_refinement = bool(args.wl_refinement)
-    include_ambiguities = bool(args.report) or bool(args.lint)
-    include_coherence = (
-        bool(args.report)
-        or bool(fingerprint_coherence_json)
-        or include_rewrite_plans
-    )
-    forest = Forest()
-    analysis = analyze_paths_fn(
-        paths,
-        forest=forest,
-        recursive=not args.no_recursive,
-        type_audit=args.type_audit or args.type_audit_report,
-        type_audit_report=args.type_audit_report,
-        type_audit_max=args.type_audit_max,
-        include_constant_smells=bool(args.report),
-        include_unused_arg_smells=bool(args.report),
-        include_deadness_witnesses=bool(args.report) or bool(fingerprint_deadness_json),
-        include_coherence_witnesses=include_coherence,
-        include_rewrite_plans=include_rewrite_plans,
-        include_exception_obligations=include_exception_obligations,
-        include_handledness_witnesses=include_handledness_witnesses,
-        include_never_invariants=include_never_invariants,
-        include_wl_refinement=include_wl_refinement,
-        include_deadline_obligations=bool(args.report) or bool(args.lint),
-        include_decision_surfaces=include_decisions,
-        include_value_decision_surfaces=include_decisions,
-        include_invariant_propositions=(
-            bool(args.report)
-            or bool(args.synthesis_plan)
-            or bool(args.synthesis_report)
-            or bool(args.synthesis_property_hook_hypothesis)
+    return run_impl(
+        args,
+        deps=RunImplDeps(
+            dataflow_defaults_fn=dataflow_defaults,
+            synthesis_defaults_fn=synthesis_defaults,
+            decision_defaults_fn=decision_defaults,
+            decision_tier_map_fn=decision_tier_map,
+            decision_require_tiers_fn=decision_require_tiers,
+            decision_ignore_list_fn=decision_ignore_list,
+            exception_defaults_fn=exception_defaults,
+            exception_marker_family_fn=exception_marker_family,
+            exception_never_list_fn=exception_never_list,
+            fingerprint_defaults_fn=fingerprint_defaults,
+            merge_payload_fn=merge_payload,
+            dataflow_deadline_roots_fn=dataflow_deadline_roots,
+            dataflow_adapter_payload_fn=dataflow_adapter_payload,
+            dataflow_required_surfaces_fn=dataflow_required_surfaces,
+            normalize_adapter_contract_fn=normalize_adapter_contract,
+            resolve_baseline_path_fn=_resolve_baseline_path,
+            resolve_synth_registry_path_fn=_resolve_synth_registry_path,
+            iter_paths_fn=_iter_paths,
+            load_json_fn=load_json,
+            build_fingerprint_registry_fn=build_fingerprint_registry,
+            build_synth_registry_from_payload_fn=build_synth_registry_from_payload,
+            coerce_synth_payload_fn=lambda payload: mapping_or_none(cast(JSONValue, payload)),
+            fingerprint_json_error_types=(OSError, UnicodeError, json.JSONDecodeError, ValueError),
+            type_constructor_registry_cls=TypeConstructorRegistry,
+            default_marker_aliases=DEFAULT_MARKER_ALIASES,
+            audit_config_cls=AuditConfig,
+            forest_cls=Forest,
+            run_output_context_factory=_RunImplOutputContextCore,
+            finalize_run_outputs_fn=_finalize_run_outputs_impl,
         ),
-        include_lint_lines=bool(args.lint),
-        include_ambiguities=include_ambiguities,
-        include_bundle_forest=bool(args.report)
-        or bool(args.dot)
-        or bool(args.fail_on_violations)
-        or bool(args.emit_structure_tree)
-        or bool(args.emit_structure_metrics)
-        or bool(args.emit_decision_snapshot),
-        config=config,
-    )
-
-    return _finalize_run_outputs_impl(
-        context=_RunImplOutputContextCore(
-            args=args,
-            analysis=analysis,
-            paths=paths,
-            config=config,
-            synth_defaults=synth_defaults,
-            baseline_path=baseline_path,
-            baseline_write=baseline_write,
-            decision_snapshot_path=decision_snapshot_path,
-            fingerprint_deadness_json=fingerprint_deadness_json,
-            fingerprint_coherence_json=fingerprint_coherence_json,
-            fingerprint_rewrite_plans_json=fingerprint_rewrite_plans_json,
-            fingerprint_exception_obligations_json=(
-                fingerprint_exception_obligations_json
-            ),
-            fingerprint_handledness_json=fingerprint_handledness_json,
-        ),
+        analyze_paths_fn=analyze_paths_fn,
         emit_report_fn=emit_report_fn,
         compute_violations_fn=compute_violations_fn,
-    ).exit_code
+        check_deadline_fn=check_deadline,
+    )
 
 
 def run(argv = None) -> int:

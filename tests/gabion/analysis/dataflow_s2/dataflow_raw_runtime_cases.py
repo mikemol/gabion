@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.analysis.dataflow.engine import dataflow_raw_runtime as legacy_dataflow_monolith
+from gabion.analysis.indexed_scan.scanners import run_entry
 
 
 def _write_sample_code(path: Path) -> None:
@@ -285,3 +286,40 @@ def test_run_impl_fingerprint_spec_with_empty_index_branch(tmp_path: Path) -> No
         analyze_paths_fn=lambda *_args, **_kwargs: analysis,
     )
     assert code == 0
+
+
+# gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.run_impl E:function_site::dataflow/engine/dataflow_raw_runtime.py::gabion.analysis.dataflow.engine.dataflow_raw_runtime._run_impl
+def test_run_impl_parity_with_runtime_entrypoint(tmp_path: Path) -> None:
+    parser = legacy_dataflow_monolith._build_parser()
+    args = parser.parse_args(
+        [
+            str(tmp_path),
+            "--root",
+            str(tmp_path),
+            "--exclude",
+            "a,b",
+            "--ignore-params",
+            "x,y",
+            "--transparent-decorators",
+            "d1,d2",
+            "--strictness",
+            "high",
+        ]
+    )
+
+    def _analyze(*_args, **kwargs):
+        analysis = _empty_analysis(legacy_dataflow_monolith, tmp_path)
+        return analysis
+
+    code_direct = legacy_dataflow_monolith._run_impl(
+        args,
+        analyze_paths_fn=_analyze,
+    )
+    code_via_run_entry = run_entry.run_impl_from_runtime_module(
+        args,
+        runtime_module=legacy_dataflow_monolith,
+        analyze_paths_fn=_analyze,
+        emit_report_fn=legacy_dataflow_monolith._emit_report,
+        compute_violations_fn=legacy_dataflow_monolith._compute_violations,
+    )
+    assert code_direct == code_via_run_entry == 0

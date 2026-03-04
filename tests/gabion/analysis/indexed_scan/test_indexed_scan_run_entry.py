@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from gabion.analysis.dataflow.engine.runtime_bootstrap import build_runtime_bootstrap
 from gabion.analysis.indexed_scan.scanners import run_entry
 from gabion.exceptions import NeverThrown
 
@@ -75,6 +76,8 @@ def _deps(overrides: dict[str, object] | None = None) -> run_entry.RunImplDeps:
         "load_json_fn": lambda _path: {},
         "build_fingerprint_registry_fn": lambda _spec, registry_seed=None: ("registry", {}),
         "build_synth_registry_from_payload_fn": lambda _payload, _registry: None,
+        "coerce_synth_payload_fn": lambda payload: payload if type(payload) is dict else None,
+        "fingerprint_json_error_types": (OSError, UnicodeError, ValueError),
         "type_constructor_registry_cls": lambda registry: {"registry": registry},
         "default_marker_aliases": run_entry.DEFAULT_MARKER_ALIASES,
         "audit_config_cls": lambda **kwargs: SimpleNamespace(**kwargs),
@@ -263,3 +266,41 @@ def test_run_impl_handles_fingerprint_io_errors_and_empty_index() -> None:
     assert config.fingerprint_registry is None
     assert config.constructor_registry is None
     assert config.fingerprint_synth_registry is None
+
+
+# gabion:evidence E:function_site::dataflow/engine/runtime_bootstrap.py::gabion.analysis.dataflow.engine.runtime_bootstrap.build_runtime_bootstrap
+def test_runtime_bootstrap_parity_between_strategy_variants(tmp_path: Path) -> None:
+    args = _args(
+        root=str(tmp_path),
+        exclude=["a,b", " c "],
+        ignore_params="left, right",
+        transparent_decorators="trace, wrap",
+        baseline="baseline.txt",
+        strictness="unknown",
+    )
+
+    indexed_strategy = _deps()
+    raw_strategy = _deps(
+        {
+            "coerce_synth_payload_fn": (
+                lambda payload: payload if type(payload) is dict else None
+            ),
+        }
+    )
+
+    indexed = build_runtime_bootstrap(
+        args,
+        strategy=indexed_strategy,
+        check_deadline_fn=lambda: None,
+    )
+    raw = build_runtime_bootstrap(
+        args,
+        strategy=raw_strategy,
+        check_deadline_fn=lambda: None,
+    )
+
+    assert indexed.config.exclude_dirs == raw.config.exclude_dirs
+    assert indexed.config.ignore_params == raw.config.ignore_params
+    assert indexed.config.transparent_decorators == raw.config.transparent_decorators
+    assert indexed.config.strictness == "high"
+    assert indexed.baseline_path == raw.baseline_path
