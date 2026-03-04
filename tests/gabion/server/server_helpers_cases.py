@@ -6,6 +6,7 @@ from tests.path_helpers import REPO_ROOT
 import pytest
 
 from gabion.exceptions import NeverThrown
+from gabion.server_core import command_orchestrator_primitives
 
 def _load():
     repo_root = REPO_ROOT
@@ -216,6 +217,32 @@ def test_phase_primary_unit_for_phase_rejects_unknown_phase() -> None:
 
     with pytest.raises(NeverThrown):
         server._phase_primary_unit_for_phase("mystery")
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_progress_obligation_helpers_forward_to_canonical_impl::server.py::gabion.server._split_incremental_obligations::command_orchestrator_primitives.py::gabion.server_core.command_orchestrator_primitives._split_incremental_obligations
+def test_progress_obligation_helpers_forward_to_canonical_impl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _load()
+    calls: list[object] = []
+
+    def _stub(obligations: object) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+        calls.append(obligations)
+        return ([{"source": "canonical"}], [])
+
+    monkeypatch.setattr(
+        command_orchestrator_primitives,
+        "_split_incremental_obligations",
+        _stub,
+    )
+
+    payload = [{"contract": "resume_contract"}]
+    assert server._split_incremental_obligations(payload) == ([{"source": "canonical"}], [])
+    assert command_orchestrator_primitives._split_incremental_obligations(payload) == (
+        [{"source": "canonical"}],
+        [],
+    )
+    assert calls == [payload, payload]
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_progress_heartbeat_seconds_parsing_edges::server.py::gabion.server._progress_heartbeat_seconds

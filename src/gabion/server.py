@@ -178,6 +178,21 @@ _materialize_execution_plan = orchestrator_primitives._materialize_execution_pla
 _default_execute_command_deps = orchestrator_primitives._default_execute_command_deps
 
 
+# Temporary boundary adapter metadata for progress-obligation helper imports.
+PROGRESS_OBLIGATION_ADAPTER_METADATA: dict[str, object] = {
+    "actor": "codex",
+    "rationale": "Keep gabion.server helper symbols stable while converging progress-obligation semantics into server_core.",
+    "scope": "gabion.server progress/journal helper function surface",
+    "start": "2026-03-04",
+    "expiry": "2026-09-01",
+    "rollback_condition": "All in-repo helper callsites import canonical progress-obligation primitives from gabion.server_core.command_orchestrator_primitives.",
+    "evidence_links": [
+        "tests/gabion/server/server_helpers_cases.py",
+        "tests/gabion/server/server_execute_command_edges_cases.py",
+    ],
+}
+
+
 def _collection_checkpoint_flush_due(
     *,
     intro_changed: bool,
@@ -892,13 +907,10 @@ def _resolve_report_section_journal_path(
     root: Path,
     report_path: str | None,
 ) -> Path | None:
-    resolved_report = _resolve_report_output_path(root=root, report_path=report_path)
-    if resolved_report is None:
-        return None
-    default_journal = root / _DEFAULT_REPORT_SECTION_JOURNAL
-    if resolved_report.name == "dataflow_report.md":
-        return default_journal
-    return resolved_report.with_name(f"{resolved_report.stem}_sections.json")
+    return orchestrator_primitives._resolve_report_section_journal_path(
+        root=root,
+        report_path=report_path,
+    )
 
 
 def _report_witness_digest(
@@ -932,35 +944,10 @@ def _load_report_section_journal(
     path: Path | None,
     witness_digest: str | None,
 ) -> tuple[dict[str, list[str]], str | None]:
-    if path is None or not path.exists():
-        return {}, None
-    try:
-        payload = json.loads(
-            _read_text_profiled(path, io_name="report_section_journal.read")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}, "policy"
-    if not isinstance(payload, dict):
-        return {}, "policy"
-    if payload.get("format_version") != _REPORT_SECTION_JOURNAL_FORMAT_VERSION:
-        return {}, "policy"
-    expected_digest = payload.get("witness_digest")
-    if isinstance(expected_digest, str):
-        if not isinstance(witness_digest, str) or expected_digest != witness_digest:
-            return {}, "stale_input"
-    sections_payload = payload.get("sections")
-    if not isinstance(sections_payload, Mapping):
-        return {}, "policy"
-    sections: dict[str, list[str]] = {}
-    for key, entry in sections_payload.items():
-        check_deadline()
-        if not isinstance(key, str) or not isinstance(entry, Mapping):
-            continue
-        lines = _coerce_section_lines(entry.get("lines"))
-        if not lines:
-            continue
-        sections[key] = lines
-    return sections, None
+    return orchestrator_primitives._load_report_section_journal(
+        path=path,
+        witness_digest=witness_digest,
+    )
 
 
 def _write_report_section_journal(
@@ -971,49 +958,12 @@ def _write_report_section_journal(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
-    if path is None:
-        return
-    rows_payload: list[JSONObject] = []
-    sections_payload: JSONObject = {}
-    pending_reasons = pending_reasons or {}
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
-        status = "resolved" if section_id in sections else "pending"
-        section_entry: JSONObject = {
-            "phase": phase,
-            "deps": deps,
-            "status": status,
-            "lines": sections.get(section_id, []),
-        }
-        section_entry["reason"] = pending_reasons.get(section_id)
-        sections_payload[section_id] = section_entry
-        rows_payload.append(
-            {
-                "section_id": section_id,
-                "phase": phase,
-                "deps": deps,
-                "status": status,
-            }
-        )
-    payload: JSONObject = {
-        "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
-        "witness_digest": witness_digest,
-        "sections": sections_payload,
-        "projection_rows": rows_payload,
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        path,
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        io_name="report_section_journal.write",
+    orchestrator_primitives._write_report_section_journal(
+        path=path,
+        witness_digest=witness_digest,
+        projection_rows=projection_rows,
+        sections=sections,
+        pending_reasons=pending_reasons,
     )
 
 
@@ -1580,204 +1530,28 @@ def _incremental_progress_obligations(
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
     resume_payload_available: bool,
-    partial_report_written: bool,
-    report_requested: bool,
     projection_rows: Sequence[Mapping[str, JSONValue]],
+    report_requested: bool,
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str],
+    partial_report_written: bool,
 ) -> list[JSONObject]:
-    check_deadline()
-    obligations: list[JSONObject] = []
-    classification = (
-        str(progress_payload.get("classification", "") or "")
-        if isinstance(progress_payload, Mapping)
-        else ""
+    return orchestrator_primitives._incremental_progress_obligations(
+        analysis_state=analysis_state,
+        progress_payload=progress_payload,
+        resume_payload_available=resume_payload_available,
+        report_requested=report_requested,
+        projection_rows=projection_rows,
+        sections=sections,
+        pending_reasons=pending_reasons,
+        partial_report_written=partial_report_written,
     )
-    resume_supported = (
-        bool(progress_payload.get("resume_supported"))
-        if isinstance(progress_payload, Mapping)
-        else False
-    )
-    semantic_progress = (
-        progress_payload.get("semantic_progress")
-        if isinstance(progress_payload, Mapping)
-        else None
-    )
-    semantic_monotonic_progress: bool | None = None
-    semantic_substantive_progress: bool | None = None
-    if isinstance(semantic_progress, Mapping):
-        raw_monotonic = semantic_progress.get("monotonic_progress")
-        raw_substantive = semantic_progress.get("substantive_progress")
-        if isinstance(raw_monotonic, bool):
-            semantic_monotonic_progress = raw_monotonic
-        if isinstance(raw_substantive, bool):
-            semantic_substantive_progress = raw_substantive
-    is_timeout_state = analysis_state.startswith("timed_out_")
-    if is_timeout_state:
-        expected_progress = analysis_state == "timed_out_progress_resume"
-        classification_ok = (expected_progress and resume_supported) or (
-            not expected_progress and not resume_supported
-        )
-    else:
-        classification_ok = True
-    obligations.append(
-        {
-            "status": "SATISFIED" if classification_ok else "VIOLATION",
-            "contract": "resume_contract",
-            "kind": "classification_matches_resume_support",
-            "detail": (
-                f"analysis_state={analysis_state} classification={classification} "
-                f"resume_supported={resume_supported}"
-            ),
-        }
-    )
-    if semantic_monotonic_progress is not None:
-        obligations.append(
-            {
-                "status": "SATISFIED" if semantic_monotonic_progress else "VIOLATION",
-                "contract": "resume_contract",
-                "kind": "progress_monotonicity",
-                "detail": (
-                    "semantic progress is monotonic"
-                    if semantic_monotonic_progress
-                    else "semantic progress regression detected"
-                ),
-            }
-        )
-    if is_timeout_state and semantic_substantive_progress is not None:
-        expected_substantive_progress = analysis_state == "timed_out_progress_resume"
-        obligations.append(
-            {
-                "status": (
-                    "SATISFIED"
-                    if semantic_substantive_progress == expected_substantive_progress
-                    else "VIOLATION"
-                ),
-                "contract": "resume_contract",
-                "kind": "substantive_progress_required",
-                "detail": (
-                    f"analysis_state={analysis_state} "
-                    f"substantive_progress={semantic_substantive_progress}"
-                ),
-            }
-        )
-
-    resume_payload_ok = True
-    if resume_supported and is_timeout_state:
-        resume_payload_ok = resume_payload_available
-    obligations.append(
-        {
-            "status": "SATISFIED" if resume_payload_ok else "VIOLATION",
-            "contract": "resume_contract",
-            "kind": "resume_payload_present_when_resumable",
-            "detail": "resume payload available"
-            if resume_payload_ok
-            else "resume payload missing",
-        }
-    )
-    stale_input_detected = any(
-        reason == "stale_input" for reason in pending_reasons.values()
-    )
-    if stale_input_detected and sections:
-        restart_status = "VIOLATION"
-        restart_detail = "witness_mismatch_with_reused_sections"
-    elif stale_input_detected:
-        restart_status = "SATISFIED"
-        restart_detail = "restart_required"
-    else:
-        restart_status = "OBLIGATION"
-        restart_detail = "no_witness_mismatch"
-    obligations.append(
-        {
-            "status": restart_status,
-            "contract": "resume_contract",
-            "kind": "restart_required_on_witness_mismatch",
-            "detail": restart_detail,
-        }
-    )
-    if report_requested and is_timeout_state:
-        projection_count = sum(
-            1
-            for row in projection_rows
-            if isinstance(row, Mapping)
-            and isinstance(row.get("section_id"), str)
-            and str(row.get("section_id") or "")
-        )
-        resolved_count = len(sections)
-        obligations.append(
-            {
-                "status": "SATISFIED" if resolved_count > 0 else "VIOLATION",
-                "contract": "resume_contract",
-                "kind": "no_projection_progress",
-                "detail": (
-                    f"resolved_sections={resolved_count} "
-                    f"projected_sections={projection_count}"
-                ),
-            }
-        )
-
-    if report_requested and is_timeout_state:
-        obligations.append(
-            {
-                "status": "SATISFIED" if partial_report_written else "VIOLATION",
-                "contract": "progress_report_contract",
-                "kind": "partial_report_emitted",
-                "detail": "partial report emission on timeout",
-            }
-        )
-    elif report_requested:
-        obligations.append(
-            {
-                "status": "SATISFIED",
-                "contract": "progress_report_contract",
-                "kind": "partial_report_emitted",
-                "detail": "not_applicable_without_timeout",
-            }
-        )
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        if section_id in sections:
-            status = "SATISFIED"
-            detail = "section reused from witness-matched journal"
-        else:
-            status = "OBLIGATION"
-            detail = pending_reasons.get(section_id, "section pending")
-            if stale_input_detected and detail == "policy":
-                detail = "stale_input"
-        obligations.append(
-            {
-                "status": status,
-                "contract": "incremental_projection_contract",
-                "kind": "section_projection_state",
-                "section_id": section_id,
-                "phase": str(row.get("phase", "") or ""),
-                "detail": detail,
-            }
-        )
-    return obligations
 
 
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
 ) -> tuple[list[JSONObject], list[JSONObject]]:
-    check_deadline()
-    resumability: list[JSONObject] = []
-    incremental: list[JSONObject] = []
-    for raw_entry in obligations:
-        check_deadline()
-        if not isinstance(raw_entry, Mapping):
-            continue
-        entry: JSONObject = {str(key): raw_entry[key] for key in raw_entry}
-        contract = str(entry.get("contract", "") or "")
-        if contract == "resume_contract":
-            resumability.append(entry)
-            continue
-        if contract in {"progress_report_contract", "incremental_projection_contract"}:
-            incremental.append(entry)
-    return resumability, incremental
+    return orchestrator_primitives._split_incremental_obligations(obligations)
 
 
 def _apply_journal_pending_reason(
@@ -1787,14 +1561,12 @@ def _apply_journal_pending_reason(
     pending_reasons: dict[str, str],
     journal_reason: str | None,
 ) -> None:
-    if journal_reason not in {"stale_input", "policy"}:
-        return
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id or section_id in sections:
-            continue
-        pending_reasons[section_id] = journal_reason
+    orchestrator_primitives._apply_journal_pending_reason(
+        projection_rows=projection_rows,
+        sections=sections,
+        pending_reasons=pending_reasons,
+        journal_reason=journal_reason,
+    )
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
