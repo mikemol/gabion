@@ -180,6 +180,53 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     iter_monotonic_paths as _iter_monotonic_paths_impl,
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
+from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _analysis_collection_resume_path_key,
+    _analysis_index_resume_variant_payload,
+    _analysis_index_resume_variants,
+    _build_analysis_collection_resume_payload,
+    _deserialize_bundle_sites_for_resume,
+    _deserialize_call_args,
+    _deserialize_call_args_list,
+    _deserialize_class_info_for_resume,
+    _deserialize_function_info_for_resume,
+    _deserialize_groups_for_resume,
+    _deserialize_invariants_for_resume,
+    _deserialize_param_spans_for_resume,
+    _deserialize_param_use,
+    _deserialize_param_use_map,
+    _deserialize_symbol_table_for_resume,
+    _empty_analysis_collection_resume_payload,
+    _empty_file_scan_resume_state,
+    _load_analysis_collection_resume_payload,
+    _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
+    _load_file_scan_resume_state,
+    _serialize_analysis_index_resume_payload,
+    _serialize_bundle_sites_for_resume,
+    _serialize_call_args,
+    _serialize_call_args_list,
+    _serialize_class_info_for_resume,
+    _serialize_file_scan_resume_state,
+    _serialize_function_info_for_resume,
+    _serialize_groups_for_resume,
+    _serialize_invariants_for_resume,
+    _serialize_param_spans_for_resume,
+    _serialize_param_use,
+    _serialize_param_use_map,
+    _serialize_symbol_table_for_resume,
+    _with_analysis_index_resume_variants,
+)
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _build_property_hook_callable_index,
+    _callsite_evidence_for_bundle,
+    _combine_type_hints,
+    _expand_type_hint,
+    _format_call_site,
+    _format_type_flow_site,
+    _split_top_level,
+    _type_from_const_repr,
+    generate_property_hook_manifest,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
@@ -189,7 +236,7 @@ from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
 
 from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites, CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
-from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier
+from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier, SymbolTable as _ContractSymbolTable
 
 from gabion.analysis.dataflow.io.dataflow_report_rendering import (
     render_unsupported_by_adapter_section as _report_render_unsupported_section, render_synthesis_section as _report_render_synthesis_section)
@@ -236,8 +283,6 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
-from gabion.analysis.indexed_scan.state.resume_state import (
-    analysis_collection_resume_path_key as _analysis_collection_resume_path_key_impl, build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_impl, deserialize_bundle_sites_for_resume as _deserialize_bundle_sites_for_resume_impl, deserialize_groups_for_resume as _deserialize_groups_for_resume_impl, deserialize_invariants_for_resume as _deserialize_invariants_for_resume_impl, deserialize_param_spans_for_resume as _deserialize_param_spans_for_resume_impl, empty_analysis_collection_resume_payload as _empty_analysis_collection_resume_payload_impl, load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_impl, serialize_bundle_sites_for_resume as _serialize_bundle_sites_for_resume_impl, serialize_groups_for_resume as _serialize_groups_for_resume_impl, serialize_invariants_for_resume as _serialize_invariants_for_resume_impl, serialize_param_spans_for_resume as _serialize_param_spans_for_resume_impl)
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
     normalize_key_expr as _normalize_key_expr_impl, stage_cache_key_aliases as _stage_cache_key_aliases_impl)
 from gabion.analysis.indexed_scan.scanners.edge_param_events import (
@@ -254,10 +299,6 @@ from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry im
     CollectDataclassRegistryDeps as _CollectDataclassRegistryDeps, DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, collect_dataclass_registry as _collect_dataclass_registry_impl, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.scanners.config_fields import (
     CollectConfigBundlesDeps as _CollectConfigBundlesDeps, IterConfigFieldsDeps as _IterConfigFieldsDeps, collect_config_bundles as _collect_config_bundles_impl, iter_config_fields as _iter_config_fields_impl)
-from gabion.analysis.indexed_scan.state.file_scan_resume_state import (
-    FileScanResumeStateLoadDeps as _FileScanResumeStateLoadDeps, FileScanResumeStateSerializeDeps as _FileScanResumeStateSerializeDeps, load_file_scan_resume_state as _load_file_scan_resume_state_impl, serialize_file_scan_resume_state as _serialize_file_scan_resume_state_impl)
-from gabion.analysis.indexed_scan.state.symbol_table_resume import (
-    DeserializeSymbolTableForResumeDeps as _DeserializeSymbolTableForResumeDeps, SerializeSymbolTableForResumeDeps as _SerializeSymbolTableForResumeDeps, deserialize_symbol_table_for_resume as _deserialize_symbol_table_for_resume_impl, serialize_symbol_table_for_resume as _serialize_symbol_table_for_resume_impl)
 from gabion.analysis.indexed_scan.scanners.knob_param_names import (
     ComputeKnobParamNamesDeps as _ComputeKnobParamNamesDeps, KnobFlowFoldAccumulator as _KnobFlowFoldAccumulator, compute_knob_param_names as _compute_knob_param_names_impl)
 from gabion.analysis.indexed_scan.calls.call_ambiguities import (
@@ -270,12 +311,8 @@ from gabion.analysis.indexed_scan.state.function_index_accumulator import (
     FunctionIndexAccumulatorDeps as _FunctionIndexAccumulatorDeps, accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl)
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     ResolveCalleeDeps as _ResolveCalleeDeps, resolve_callee as _resolve_callee_impl, resolve_callee_outcome as _resolve_callee_outcome_impl, resolve_callee_outcome_from_runtime_module as _resolve_callee_outcome_impl_runtime)
-from gabion.analysis.indexed_scan.calls.callsite_evidence import (
-    CallsiteEvidenceDeps as _CallsiteEvidenceDeps, callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl)
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
     CallNodesForTreeDeps as _CallNodesForTreeDeps, CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps, call_nodes_for_tree as _call_nodes_for_tree_impl, collect_call_nodes_by_path as _collect_call_nodes_by_path_impl)
-from gabion.analysis.indexed_scan.state.function_info_resume import (
-    SerializeFunctionInfoForResumeDeps as _SerializeFunctionInfoForResumeDeps, DeserializeFunctionInfoForResumeDeps as _DeserializeFunctionInfoForResumeDeps, serialize_function_info_for_resume as _serialize_function_info_for_resume_impl, deserialize_function_info_for_resume as _deserialize_function_info_for_resume_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.suite_order_relation import (
     AmbiguitySuiteRelationDeps as _AmbiguitySuiteRelationDeps, SuiteOrderRelationDeps as _SuiteOrderRelationDeps, ambiguity_suite_relation as _ambiguity_suite_relation_impl, suite_order_relation as _suite_order_relation_impl)
 from gabion.analysis.indexed_scan.state.module_exports import (
@@ -284,11 +321,6 @@ from gabion.analysis.indexed_scan.calls.call_ambiguity_summary import (
     CallAmbiguitySummaryDeps as _CallAmbiguitySummaryDeps, summarize_call_ambiguities as _summarize_call_ambiguities_impl)
 from gabion.analysis.indexed_scan.ast.lambda_bindings import (
     ClosureLambdaFactoriesDeps as _ClosureLambdaFactoriesDeps, LambdaBindingsByCallerDeps as _LambdaBindingsByCallerDeps, collect_closure_lambda_factories as _collect_closure_lambda_factories_impl, collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl)
-from gabion.analysis.indexed_scan.index.analysis_index_resume_payload import (
-    LoadAnalysisIndexResumePayloadDeps as _LoadAnalysisIndexResumePayloadDeps, SerializeAnalysisIndexResumePayloadDeps as _SerializeAnalysisIndexResumePayloadDeps, load_analysis_index_resume_payload as _load_analysis_index_resume_payload_impl, serialize_analysis_index_resume_payload as _serialize_analysis_index_resume_payload_impl)
-from gabion.analysis.indexed_scan.scanners.materialization.property_hook_manifest import (
-    PropertyHookCallableIndexDeps as _PropertyHookCallableIndexDeps, PropertyHookManifestDeps as _PropertyHookManifestDeps, build_property_hook_callable_index as _build_property_hook_callable_index_impl, generate_property_hook_manifest as _generate_property_hook_manifest_impl)
-
 from gabion.schema import SynthesisResponse
 
 from gabion.refactor.rewrite_plan import rewrite_plan_schema, validate_rewrite_plan_payload
@@ -585,6 +617,9 @@ class SymbolTable:
                 return resolved
         return None
 
+# Canonical owner contract class (WS-5 hard-cut compatibility).
+SymbolTable = _ContractSymbolTable
+
 @dataclass
 class AuditConfig:
     project_root: OptionalPath = None
@@ -850,34 +885,6 @@ def _collect_invariant_propositions(
                 invariant_proposition_type=InvariantProposition,
                 normalize_invariant_proposition_fn=_normalize_invariant_proposition,
             ),
-        ),
-    )
-
-def generate_property_hook_manifest(
-    invariants: Sequence[InvariantProposition],
-    *,
-    min_confidence: float = 0.7,
-    emit_hypothesis_templates: bool = False,
-) -> JSONObject:
-    return _generate_property_hook_manifest_impl(
-        invariants,
-        min_confidence=min_confidence,
-        emit_hypothesis_templates=emit_hypothesis_templates,
-        deps=_PropertyHookManifestDeps(
-            check_deadline_fn=check_deadline,
-            sort_once_fn=sort_once,
-            invariant_confidence_fn=_invariant_confidence,
-            normalize_invariant_proposition_fn=_normalize_invariant_proposition,
-            invariant_digest_fn=_invariant_digest,
-        ),
-    )
-
-def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSONObject]:
-    return _build_property_hook_callable_index_impl(
-        hooks,
-        deps=_PropertyHookCallableIndexDeps(
-            check_deadline_fn=check_deadline,
-            sort_once_fn=sort_once,
         ),
     )
 
@@ -3776,36 +3783,6 @@ def _populate_bundle_forest(
         runtime_module=sys.modules[__name__],
     )
 
-def _type_from_const_repr(value: str):
-    try:
-        literal = ast.literal_eval(value)
-    except _LITERAL_EVAL_ERROR_TYPES:
-        return None
-    if literal is None:
-        return "None"
-    literal_type = type(literal)
-    if literal_type is bool:
-        return "bool"
-    if literal_type is int:
-        return "int"
-    if literal_type is float:
-        return "float"
-    if literal_type is complex:
-        return "complex"
-    if literal_type is str:
-        return "str"
-    if literal_type is bytes:
-        return "bytes"
-    if literal_type is list:
-        return "list"
-    if literal_type is tuple:
-        return "tuple"
-    if literal_type is set:
-        return "set"
-    if literal_type is dict:
-        return "dict"
-    return None
-
 def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
         return True
@@ -3885,27 +3862,6 @@ def _propagate_groups(
             strictness,
             opaque_callees=opaque_callees,
             deps=_PropagateGroupsDeps(check_deadline_fn=check_deadline),
-        ),
-    )
-
-def _callsite_evidence_for_bundle(
-    calls: list[CallArgs],
-    bundle: set[str],
-    *,
-    limit: int = 12,
-) -> list[JSONObject]:
-    return cast(
-        list[JSONObject],
-        _callsite_evidence_for_bundle_impl(
-            calls,
-            bundle,
-            limit=limit,
-            deps=_CallsiteEvidenceDeps(
-                check_deadline_fn=check_deadline,
-                sort_once_fn=sort_once,
-                require_not_none_fn=require_not_none,
-                span_identity_from_tuple_fn=SpanIdentity.from_tuple,
-            ),
         ),
     )
 
@@ -4005,53 +3961,6 @@ def _is_broad_type(annot) -> bool:
         return True
     base = annot.replace("typing.", "")
     return base in {"Any", "object"}
-
-_NONE_TYPES = {"None", "NoneType", "type(None)"}
-
-def _split_top_level(value: str, sep: str) -> list[str]:
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _split_top_level as _impl
-
-    return _impl(value, sep)
-
-def _expand_type_hint(hint: str) -> set[str]:
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _expand_type_hint as _impl
-
-    return _impl(hint)
-
-def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
-    check_deadline()
-    normalized_sets = []
-    for hint in types:
-        check_deadline()
-        expanded = _expand_type_hint(hint)
-        normalized_sets.append(
-            tuple(
-                sort_once(
-                    (t for t in expanded if t not in _NONE_TYPES),
-                    source="gabion.analysis.dataflow_indexed_file_scan._combine_type_hints.site_1",
-                )
-            )
-        )
-    unique_normalized = {norm for norm in normalized_sets if norm}
-    expanded: set[str] = set()
-    for hint in types:
-        check_deadline()
-        expanded.update(_expand_type_hint(hint))
-    none_types = {t for t in expanded if t in _NONE_TYPES}
-    expanded -= none_types
-    if not expanded:
-        return "Any", bool(types)
-    sorted_types = sort_once(expanded, source = 'gabion.analysis.dataflow_indexed_file_scan._combine_type_hints.site_2')
-    if len(sorted_types) == 1:
-        base = sorted_types[0]
-        if none_types:
-            conflicted = len(unique_normalized) > 1
-            return f"Optional[{base}]", conflicted
-        return base, len(unique_normalized) > 1
-    union = f"Union[{', '.join(sorted_types)}]"
-    if none_types:
-        return f"Optional[{union}]", len(unique_normalized) > 1
-    return union, len(unique_normalized) > 1
 
 @dataclass
 class FunctionInfo:
@@ -4559,28 +4468,6 @@ def _resolve_callee_outcome(
         ),
     )
 
-def _format_type_flow_site(
-    *,
-    caller: FunctionInfo,
-    call: CallArgs,
-    callee: FunctionInfo,
-    caller_param: str,
-    callee_param: str,
-    annot: str,
-    project_root,
-) -> str:
-    """Format a stable, machine-actionable callsite for type-flow evidence."""
-    caller_name = _function_key(caller.scope, caller.name)
-    caller_path = _normalize_snapshot_path(caller.path, project_root)
-    if call.span is None:
-        loc = f"{caller_path}:{caller_name}"
-    else:
-        line, col, _, _ = call.span
-        loc = f"{caller_path}:{line + 1}:{col + 1}"
-    return (
-        f"{loc}: {caller_name}.{caller_param} -> {callee.qual}.{callee_param} expects {annot}"
-    )
-
 def _infer_type_flow(
     paths: list[Path],
     *,
@@ -4778,18 +4665,6 @@ def _deadness_witnesses_from_constant_details(
     from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _deadness_witnesses_from_constant_details as _impl
 
     return _impl(details, project_root=project_root)
-
-def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
-    """Render a stable, human-friendly call site identifier.
-
-    Spans are stored 0-based; we report 1-based line/col for readability.
-    """
-    caller_name = _function_key(caller.scope, caller.name)
-    span = call.span
-    if span is None:
-        return f"{caller.path.name}:{caller_name}"
-    line, col, _, _ = span
-    return f"{caller.path.name}:{line + 1}:{col + 1}:{caller_name}"
 
 @dataclass
 class _ConstantFlowFoldAccumulator:
@@ -5099,14 +4974,9 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
 def _normalize_snapshot_path(path: Path, root) -> str:
     return _normalize_snapshot_path_impl(path, root)
 
-_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
-
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
-
-def _analysis_collection_resume_path_key(path: Path) -> str:
-    return _analysis_collection_resume_path_key_impl(path)
 
 def _iter_monotonic_paths(
     paths: Iterable[Path],
@@ -5121,311 +4991,6 @@ def _iter_monotonic_paths(
         never_fn=never,
     )
 
-def _serialize_param_use(value: ParamUse) -> JSONObject:
-    return {
-        "direct_forward": [
-            [callee, slot] for callee, slot in sort_once(value.direct_forward, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use.site_1')
-        ],
-        "non_forward": bool(value.non_forward),
-        "current_aliases": sort_once(value.current_aliases, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use.site_2'),
-        "forward_sites": [
-            {
-                "callee": callee,
-                "slot": slot,
-                "spans": [list(span) for span in sort_once(spans, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use.site_3')],
-            }
-            for (callee, slot), spans in sort_once(value.forward_sites.items(), source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use.site_4')
-        ],
-        "unknown_key_carrier": bool(value.unknown_key_carrier),
-        "unknown_key_sites": [list(span) for span in sort_once(value.unknown_key_sites, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use.site_5')],
-    }
-
-def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
-    direct_forward = str_pair_set_from_sequence(payload.get("direct_forward"))
-    current_aliases = str_set_from_sequence(payload.get("current_aliases"))
-    forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = {}
-    for raw_entry in sequence_or_none(payload.get("forward_sites")) or ():
-        check_deadline()
-        entry = mapping_or_none(raw_entry)
-        if entry is not None:
-            callee = entry.get("callee")
-            slot = entry.get("slot")
-            if type(callee) is str and type(slot) is str:
-                span_set: set[tuple[int, int, int, int]] = set()
-                for raw_span in sequence_or_none(entry.get("spans")) or ():
-                    check_deadline()
-                    span = int_tuple4_or_none(raw_span)
-                    if span is not None:
-                        span_set.add(span)
-                forward_sites[(callee, slot)] = span_set
-    non_forward = bool(payload.get("non_forward"))
-    unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
-    unknown_key_sites: set[tuple[int, int, int, int]] = set()
-    for raw_span in sequence_or_none(payload.get("unknown_key_sites")) or ():
-        check_deadline()
-        span = int_tuple4_or_none(raw_span)
-        if span is not None:
-            unknown_key_sites.add(span)
-    return ParamUse(
-        direct_forward=direct_forward,
-        non_forward=non_forward,
-        current_aliases=current_aliases,
-        forward_sites=forward_sites,
-        unknown_key_carrier=unknown_key_carrier,
-        unknown_key_sites=unknown_key_sites,
-    )
-
-def _serialize_param_use_map(
-    use_map: Mapping[str, ParamUse],
-) -> JSONObject:
-    payload: JSONObject = {}
-    for param_name in sort_once(use_map, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_param_use_map.site_1'):
-        check_deadline()
-        payload[param_name] = _serialize_param_use(use_map[param_name])
-    return payload
-
-def _deserialize_param_use_map(
-    payload: Mapping[str, JSONValue],
-) -> dict[str, ParamUse]:
-    use_map: dict[str, ParamUse] = {}
-    for param_name, raw_value in payload.items():
-        check_deadline()
-        raw_mapping = mapping_or_none(raw_value)
-        if type(param_name) is str and raw_mapping is not None:
-            use_map[param_name] = _deserialize_param_use(raw_mapping)
-    return use_map
-
-def _serialize_call_args(call: CallArgs) -> JSONObject:
-    payload: JSONObject = {
-        "callee": call.callee,
-        "pos_map": {key: call.pos_map[key] for key in sort_once(call.pos_map, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_1')},
-        "kw_map": {key: call.kw_map[key] for key in sort_once(call.kw_map, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_2')},
-        "const_pos": {key: call.const_pos[key] for key in sort_once(call.const_pos, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_3')},
-        "const_kw": {key: call.const_kw[key] for key in sort_once(call.const_kw, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_4')},
-        "non_const_pos": sort_once(call.non_const_pos, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_5'),
-        "non_const_kw": sort_once(call.non_const_kw, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_call_args.site_6'),
-        "star_pos": [[idx, name] for idx, name in call.star_pos],
-        "star_kw": list(call.star_kw),
-        "is_test": call.is_test,
-        "callable_kind": call.callable_kind,
-        "callable_source": call.callable_source,
-    }
-    if call.span is not None:
-        payload["span"] = list(call.span)
-    return payload
-
-def _deserialize_call_args(payload: Mapping[str, JSONValue]):
-    callee = payload.get("callee")
-    if type(callee) is not str:
-        return None
-    star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
-    span = int_tuple4_or_none(payload.get("span"))
-
-    return CallArgs(
-        callee=callee,
-        pos_map=str_map_from_mapping(payload.get("pos_map")),
-        kw_map=str_map_from_mapping(payload.get("kw_map")),
-        const_pos=str_map_from_mapping(payload.get("const_pos")),
-        const_kw=str_map_from_mapping(payload.get("const_kw")),
-        non_const_pos=str_set_from_sequence(payload.get("non_const_pos")),
-        non_const_kw=str_set_from_sequence(payload.get("non_const_kw")),
-        star_pos=star_pos,
-        star_kw=sort_once(str_set_from_sequence(payload.get("star_kw")), source = 'gabion.analysis.dataflow_indexed_file_scan._deserialize_call_args.site_1'),
-        is_test=bool(payload.get("is_test")),
-        span=span,
-        callable_kind=str(payload.get("callable_kind") or "function"),
-        callable_source=str(payload.get("callable_source") or "symbol"),
-    )
-
-def _serialize_call_args_list(call_args: Sequence[CallArgs]) -> list[JSONObject]:
-    return [_serialize_call_args(call) for call in call_args]
-
-def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
-    call_args: list[CallArgs] = []
-    for raw_entry in payload:
-        check_deadline()
-        entry_mapping = mapping_or_none(raw_entry)
-        if entry_mapping is not None:
-            call = _deserialize_call_args(entry_mapping)
-            if call is not None:
-                call_args.append(call)
-    return call_args
-
-def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
-    return cast(
-        JSONObject,
-        _serialize_function_info_for_resume_impl(
-            info,
-            deps=_SerializeFunctionInfoForResumeDeps(
-                sort_once_fn=sort_once,
-                serialize_call_args_list_fn=_serialize_call_args_list,
-            ),
-        ),
-    )
-
-def _deserialize_function_info_for_resume(
-    payload: Mapping[str, JSONValue],
-    *,
-    allowed_paths: Mapping[str, Path],
-):
-    return _deserialize_function_info_for_resume_impl(
-        payload,
-        allowed_paths=allowed_paths,
-        deps=_DeserializeFunctionInfoForResumeDeps(
-            sequence_or_none_fn=sequence_or_none,
-            str_list_from_sequence_fn=str_list_from_sequence,
-            mapping_or_empty_fn=mapping_or_empty,
-            check_deadline_fn=check_deadline,
-            deserialize_call_args_list_fn=_deserialize_call_args_list,
-            str_set_from_sequence_fn=str_set_from_sequence,
-            str_tuple_from_sequence_fn=str_tuple_from_sequence,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
-            function_info_ctor=FunctionInfo,
-        ),
-    )
-
-def _serialize_class_info_for_resume(class_info: ClassInfo) -> JSONObject:
-    return {
-        "qual": class_info.qual,
-        "module": class_info.module,
-        "bases": list(class_info.bases),
-        "methods": sort_once(class_info.methods, source = 'gabion.analysis.dataflow_indexed_file_scan._serialize_class_info_for_resume.site_1'),
-    }
-
-def _deserialize_class_info_for_resume(
-    payload: Mapping[str, JSONValue],
-):
-    qual = payload.get("qual")
-    module = payload.get("module")
-    if type(qual) is not str or type(module) is not str:
-        return None
-    bases = str_list_from_sequence(payload.get("bases"))
-    methods = str_set_from_sequence(payload.get("methods"))
-    return ClassInfo(
-        qual=qual,
-        module=module,
-        bases=bases,
-        methods=methods,
-    )
-
-def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
-    return cast(
-        JSONObject,
-        _serialize_symbol_table_for_resume_impl(
-            table,
-            deps=_SerializeSymbolTableForResumeDeps(
-                sort_once_fn=sort_once,
-            ),
-        ),
-    )
-
-def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> SymbolTable:
-    return cast(
-        SymbolTable,
-        _deserialize_symbol_table_for_resume_impl(
-            payload,
-            deps=_DeserializeSymbolTableForResumeDeps(
-                symbol_table_ctor=SymbolTable,
-                sequence_or_none_fn=sequence_or_none,
-                check_deadline_fn=check_deadline,
-                str_set_from_sequence_fn=str_set_from_sequence,
-                mapping_or_none_fn=mapping_or_none,
-                mapping_or_empty_fn=mapping_or_empty,
-            ),
-        ),
-    )
-
-def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    variant_payload = {
-        str(key): payload[key]
-        for key in payload
-        if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
-    }
-    try:
-        identities = _ResumeCacheIdentityPair.decode_required(variant_payload)
-    except NeverThrown:
-        return variant_payload
-    variant_payload.update(identities.encode())
-    return variant_payload
-
-def _analysis_index_resume_variants(
-    payload = None,
-) -> dict[str, JSONObject]:
-    variants: dict[str, JSONObject] = {}
-    if payload is None:
-        return variants
-    raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
-    raw_variants_mapping = mapping_or_none(raw_variants)
-    if raw_variants_mapping is not None:
-        for identity, raw_variant in raw_variants_mapping.items():
-            check_deadline()
-            raw_variant_mapping = mapping_or_none(raw_variant)
-            variant_identity = _CacheIdentity.from_boundary(identity)
-            if variant_identity is not None and raw_variant_mapping is not None:
-                variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
-                if variant_payload is not None:
-                    variants[variant_identity.value] = _analysis_index_resume_variant_payload(
-                        variant_payload
-                    )
-    return variants
-
-def _with_analysis_index_resume_variants(
-    *,
-    payload: JSONObject,
-    previous_payload,
-) -> JSONObject:
-    identities = _ResumeCacheIdentityPair.decode_required(payload)
-    variants = _analysis_index_resume_variants(previous_payload)
-    payload.update(identities.encode())
-    variants[identities.canonical_index.value] = _analysis_index_resume_variant_payload(payload)
-    ordered_variant_keys = [
-        key
-        for key in sort_once(
-            variants.keys(), source = 'gabion.analysis.dataflow_indexed_file_scan._with_analysis_index_resume_variants.site_1'
-        )
-        if key != identities.canonical_index.value
-    ]
-    ordered_variant_keys.append(identities.canonical_index.value)
-    if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
-        ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
-    payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
-        key: variants[key] for key in ordered_variant_keys
-    }
-    return payload
-
-def _serialize_analysis_index_resume_payload(
-    *,
-    hydrated_paths: set[Path],
-    by_qual: Mapping[str, FunctionInfo],
-    symbol_table: SymbolTable,
-    class_index: Mapping[str, ClassInfo],
-    index_cache_identity: str,
-    projection_cache_identity: str,
-    profiling_v1 = None,
-    previous_payload = None,
-) -> JSONObject:
-    return _serialize_analysis_index_resume_payload_impl(
-        hydrated_paths=hydrated_paths,
-        by_qual=cast(Mapping[str, object], by_qual),
-        symbol_table=symbol_table,
-        class_index=cast(Mapping[str, object], class_index),
-        index_cache_identity=index_cache_identity,
-        projection_cache_identity=projection_cache_identity,
-        profiling_v1=profiling_v1,
-        previous_payload=previous_payload,
-        deps=_SerializeAnalysisIndexResumePayloadDeps(
-            resume_cache_identity_pair_ctor=_ResumeCacheIdentityPair,
-            cache_identity_from_boundary_required_fn=_CacheIdentity.from_boundary_required,
-            analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
-            sort_once_fn=sort_once,
-            serialize_function_info_for_resume_fn=_serialize_function_info_for_resume,
-            serialize_symbol_table_for_resume_fn=_serialize_symbol_table_for_resume,
-            serialize_class_info_for_resume_fn=_serialize_class_info_for_resume,
-            mapping_or_none_fn=mapping_or_none,
-            with_analysis_index_resume_variants_fn=_with_analysis_index_resume_variants,
-        ),
-    )
-
 def _load_analysis_index_resume_payload(
     *,
     payload,
@@ -5434,26 +4999,11 @@ def _load_analysis_index_resume_payload(
     expected_projection_cache_identity: str = "",
 ) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
     hydrated_paths, by_qual_raw, symbol_table_raw, class_index_raw = (
-        _load_analysis_index_resume_payload_impl(
+        _load_analysis_index_resume_payload_owner(
             payload=payload,
             file_paths=file_paths,
             expected_index_cache_identity=expected_index_cache_identity,
             expected_projection_cache_identity=expected_projection_cache_identity,
-            deps=_LoadAnalysisIndexResumePayloadDeps(
-                symbol_table_ctor=SymbolTable,
-                payload_with_format_fn=payload_with_format,
-                cache_identity_from_boundary_fn=_CacheIdentity.from_boundary,
-                analysis_index_resume_variants_fn=_analysis_index_resume_variants,
-                resume_variant_for_identity_fn=_resume_variant_for_identity,
-                allowed_path_lookup_fn=allowed_path_lookup,
-                analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
-                load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
-                mapping_or_none_fn=mapping_or_none,
-                check_deadline_fn=check_deadline,
-                deserialize_function_info_for_resume_fn=_deserialize_function_info_for_resume,
-                deserialize_symbol_table_for_resume_fn=_deserialize_symbol_table_for_resume,
-                deserialize_class_info_for_resume_fn=_deserialize_class_info_for_resume,
-            ),
         )
     )
     return (
@@ -5461,205 +5011,6 @@ def _load_analysis_index_resume_payload(
         cast(dict[str, FunctionInfo], by_qual_raw),
         cast(SymbolTable, symbol_table_raw),
         cast(dict[str, ClassInfo], class_index_raw),
-    )
-
-def _serialize_groups_for_resume(
-    groups: dict[str, list[set[str]]],
-) -> dict[str, list[list[str]]]:
-    return _serialize_groups_for_resume_impl(
-        groups,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-    )
-
-def _deserialize_groups_for_resume(
-    payload: Mapping[str, JSONValue],
-) -> dict[str, list[set[str]]]:
-    return _deserialize_groups_for_resume_impl(
-        payload,
-        check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-    )
-
-def _serialize_param_spans_for_resume(
-    spans: dict[str, dict[str, tuple[int, int, int, int]]],
-) -> dict[str, dict[str, list[int]]]:
-    return _serialize_param_spans_for_resume_impl(
-        spans,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-    )
-
-def _deserialize_param_spans_for_resume(
-    payload: Mapping[str, JSONValue],
-) -> dict[str, dict[str, tuple[int, int, int, int]]]:
-    return _deserialize_param_spans_for_resume_impl(
-        payload,
-        check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-    )
-
-def _serialize_bundle_sites_for_resume(
-    bundle_sites: dict[str, list[list[JSONObject]]],
-) -> dict[str, list[list[JSONObject]]]:
-    return _serialize_bundle_sites_for_resume_impl(
-        bundle_sites,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
-    )
-
-def _deserialize_bundle_sites_for_resume(
-    payload: Mapping[str, JSONValue],
-) -> dict[str, list[list[JSONObject]]]:
-    return _deserialize_bundle_sites_for_resume_impl(
-        payload,
-        check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
-    )
-
-def _serialize_invariants_for_resume(
-    invariants: Sequence[InvariantProposition],
-) -> list[JSONObject]:
-    return _serialize_invariants_for_resume_impl(
-        invariants,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-    )
-
-def _deserialize_invariants_for_resume(
-    payload: Sequence[JSONValue],
-) -> list[InvariantProposition]:
-    return _deserialize_invariants_for_resume_impl(
-        payload,
-        normalize_invariant_proposition_fn=_normalize_invariant_proposition,
-        check_deadline_fn=check_deadline,
-        mapping_or_none_fn=mapping_or_none,
-        sequence_or_none_fn=sequence_or_none,
-    )
-
-def _serialize_file_scan_resume_state(
-    *,
-    fn_use: Mapping[str, Mapping[str, ParamUse]],
-    fn_calls: Mapping[str, Sequence[CallArgs]],
-    fn_param_orders: Mapping[str, Sequence[str]],
-    fn_param_spans: Mapping[str, Mapping[str, tuple[int, int, int, int]]],
-    fn_names: Mapping[str, str],
-    fn_lexical_scopes: Mapping[str, Sequence[str]],
-    fn_class_names: Mapping[str, object],
-    opaque_callees: set[str],
-) -> JSONObject:
-    return cast(
-        JSONObject,
-        _serialize_file_scan_resume_state_impl(
-            fn_use=fn_use,
-            fn_calls=fn_calls,
-            fn_param_orders=fn_param_orders,
-            fn_param_spans=fn_param_spans,
-            fn_names=fn_names,
-            fn_lexical_scopes=fn_lexical_scopes,
-            fn_class_names=fn_class_names,
-            opaque_callees=opaque_callees,
-            deps=_FileScanResumeStateSerializeDeps(
-                sort_once_fn=sort_once,
-                check_deadline_fn=check_deadline,
-                serialize_param_use_map_fn=_serialize_param_use_map,
-                serialize_call_args_list_fn=_serialize_call_args_list,
-                serialize_param_spans_for_resume_fn=_serialize_param_spans_for_resume,
-            ),
-        ),
-    )
-
-def _empty_file_scan_resume_state():
-    return ({}, {}, {}, {}, {}, {}, {}, set())
-
-def _load_file_scan_resume_state(
-    *,
-    payload,
-    valid_fn_keys: set[str],
-):
-    return _load_file_scan_resume_state_impl(
-        payload=payload,
-        valid_fn_keys=valid_fn_keys,
-        deps=_FileScanResumeStateLoadDeps(
-            empty_state_fn=_empty_file_scan_resume_state,
-            payload_with_phase_fn=payload_with_phase,
-            mapping_sections_fn=mapping_sections,
-            load_resume_map_fn=load_resume_map,
-            deserialize_param_use_map_fn=_deserialize_param_use_map,
-            mapping_or_none_fn=mapping_or_none,
-            deserialize_call_args_list_fn=_deserialize_call_args_list,
-            sequence_or_none_fn=sequence_or_none,
-            str_list_from_sequence_fn=str_list_from_sequence,
-            deserialize_param_spans_for_resume_fn=_deserialize_param_spans_for_resume,
-            str_tuple_from_sequence_fn=str_tuple_from_sequence,
-            deadline_loop_iter_fn=deadline_loop_iter,
-            iter_valid_key_entries_fn=iter_valid_key_entries,
-        ),
-    )
-
-def _build_analysis_collection_resume_payload(
-    *,
-    groups_by_path: Mapping[Path, dict[str, list[set[str]]]],
-    param_spans_by_path: Mapping[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
-    bundle_sites_by_path: Mapping[Path, dict[str, list[list[JSONObject]]]],
-    invariant_propositions: Sequence[InvariantProposition],
-    completed_paths: set[Path],
-    in_progress_scan_by_path: Mapping[Path, JSONObject],
-    analysis_index_resume = None,
-    file_stage_timings_v1_by_path = None,
-) -> JSONObject:
-    return _build_analysis_collection_resume_payload_impl(
-        groups_by_path=groups_by_path,
-        param_spans_by_path=param_spans_by_path,
-        bundle_sites_by_path=bundle_sites_by_path,
-        invariant_propositions=invariant_propositions,
-        completed_paths=completed_paths,
-        in_progress_scan_by_path=in_progress_scan_by_path,
-        analysis_index_resume=analysis_index_resume,
-        file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
-        format_version=_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
-        path_key_fn=_analysis_collection_resume_path_key,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-        serialize_groups_for_resume_fn=_serialize_groups_for_resume,
-        serialize_param_spans_for_resume_fn=_serialize_param_spans_for_resume,
-        serialize_bundle_sites_for_resume_fn=_serialize_bundle_sites_for_resume,
-        serialize_invariants_for_resume_fn=_serialize_invariants_for_resume,
-        mapping_or_none_fn=mapping_or_none,
-        never_fn=never,
-    )
-
-def _empty_analysis_collection_resume_payload():
-    return _empty_analysis_collection_resume_payload_impl()
-
-def _load_analysis_collection_resume_payload(
-    *,
-    payload,
-    file_paths: Sequence[Path],
-    include_invariant_propositions: bool,
-):
-    return _load_analysis_collection_resume_payload_impl(
-        payload=payload,
-        file_paths=file_paths,
-        include_invariant_propositions=include_invariant_propositions,
-        format_version=_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
-        path_key_fn=_analysis_collection_resume_path_key,
-        deserialize_groups_for_resume_fn=_deserialize_groups_for_resume,
-        deserialize_param_spans_for_resume_fn=_deserialize_param_spans_for_resume,
-        deserialize_bundle_sites_for_resume_fn=_deserialize_bundle_sites_for_resume,
-        deserialize_invariants_for_resume_fn=_deserialize_invariants_for_resume,
-        empty_payload_fn=_empty_analysis_collection_resume_payload,
-        payload_with_format_fn=payload_with_format,
-        mapping_sections_fn=mapping_sections,
-        mapping_payload_fn=mapping_payload,
-        allowed_path_lookup_fn=allowed_path_lookup,
-        load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
-        mapping_or_none_fn=mapping_or_none,
-        sequence_or_none_fn=sequence_or_none,
-        check_deadline_fn=check_deadline,
     )
 
 def _compute_violations(
