@@ -83,6 +83,7 @@ from gabion.tooling.docflow import (
     docflow_delta_emit as tooling_docflow_delta_emit)
 from gabion.tooling.governance import (
     governance_audit as tooling_governance_audit, ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check, normative_symdiff as tooling_normative_symdiff)
+from gabion.server_core import command_orchestrator_primitives
 from gabion.tooling.impact import (
     impact_select_tests as tooling_impact_select_tests)
 from gabion.json_types import JSONObject
@@ -866,6 +867,7 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         emit_result_json_to_stdout_fn=_emit_result_json_to_stdout,
         stdout_path=_STDOUT_PATH,
         check_deadline_fn=check_deadline,
+        normalize_dataflow_response_fn=command_orchestrator_primitives._normalize_dataflow_response,
     )
 
 
