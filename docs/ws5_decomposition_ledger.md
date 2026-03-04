@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4182
+- Monolith LOC (current): 4025
 - Monolith top-level import statements (current): 100
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -144,11 +144,27 @@ doc_scope:
     - policy checks passed
     - targeted pytest passed (`45 passed` for touched suites)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner hard-cut (core traversal/reduction subset) moved to `dataflow_analysis_index_owner.py`:
+    - `_collect_transitive_callers`
+    - `_analysis_index_resolved_call_edges`
+    - `_analysis_index_resolved_call_edges_by_caller`
+    - `_analysis_index_transitive_callers`
+    - `_reduce_resolved_call_edges`
+    - `_iter_resolved_edge_param_events`
+    - `_build_call_graph`
+  - Monolith bodies removed and replaced with owner aliases.
+  - Owner module switched from dynamic `__getattr__` alternation to explicit wrapper exports for ambiguity-contract compliance.
+  - ASPF no-change acknowledgement refreshed (`in-70`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`71 passed` for touched suites)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Post-phase ownership cleanup: remove residual monolith-only helper leaves not required by compatibility aliases.
-2. Analysis-index ownership expansion: cache identity carriers + indexed pass/build surfaces.
-3. Projection/ambiguity ownership expansion and remaining facade contraction.
+1. Analysis-index ownership expansion: cache identity carriers + indexed pass/build/module-tree/stage-cache surfaces.
+2. Projection/ambiguity ownership expansion and remaining facade contraction.
+3. Post-phase cleanup: tighten remaining runtime dependency shims to explicit owner deps.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`

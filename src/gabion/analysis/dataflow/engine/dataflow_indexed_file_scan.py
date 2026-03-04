@@ -265,6 +265,15 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     analyze_value_encoded_decisions_repo,
     generate_property_hook_manifest,
 )
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _analysis_index_resolved_call_edges,
+    _analysis_index_resolved_call_edges_by_caller,
+    _analysis_index_transitive_callers,
+    _build_call_graph,
+    _collect_transitive_callers,
+    _iter_resolved_edge_param_events,
+    _reduce_resolved_call_edges,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
@@ -312,8 +321,6 @@ from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
     normalize_key_expr as _normalize_key_expr_impl, stage_cache_key_aliases as _stage_cache_key_aliases_impl)
-from gabion.analysis.indexed_scan.scanners.edge_param_events import (
-    iter_resolved_edge_param_events as _iter_resolved_edge_param_events_impl)
 from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
     analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
@@ -2372,26 +2379,6 @@ def _decision_tier_for(
             return tier_map[key]
     return None
 
-def _collect_transitive_callers(
-    callers_by_qual: dict[str, set[str]],
-    by_qual: dict[str, FunctionInfo],
-) -> dict[str, set[str]]:
-    check_deadline()
-    transitive: dict[str, set[str]] = {}
-    for qual in by_qual:
-        check_deadline()
-        seen: set[str] = set()
-        stack = list(callers_by_qual.get(qual, set()))
-        while stack:
-            check_deadline()
-            caller = stack.pop()
-            if caller in seen:
-                continue
-            seen.add(caller)
-            stack.extend(callers_by_qual.get(caller, set()))
-        transitive[qual] = seen
-    return transitive
-
 @dataclass
 class AnalysisIndex:
     by_name: dict[str, list[FunctionInfo]]
@@ -2892,150 +2879,6 @@ def _analysis_index_stage_cache(
             ),
         ),
     )
-
-def _analysis_index_transitive_callers(
-    analysis_index: AnalysisIndex,
-    *,
-    project_root,
-) -> dict[str, set[str]]:
-    check_deadline()
-    if analysis_index.transitive_callers is not None:
-        return analysis_index.transitive_callers
-    callers_by_qual: dict[str, set[str]] = defaultdict(set)
-    for edge in _analysis_index_resolved_call_edges(
-        analysis_index,
-        project_root=project_root,
-        require_transparent=False,
-    ):
-        check_deadline()
-        callers_by_qual[edge.callee.qual].add(edge.caller.qual)
-    analysis_index.transitive_callers = _collect_transitive_callers(
-        callers_by_qual,
-        analysis_index.by_qual,
-    )
-    return analysis_index.transitive_callers
-
-def _analysis_index_resolved_call_edges(
-    analysis_index: AnalysisIndex,
-    *,
-    project_root,
-    require_transparent: bool,
-) -> tuple[_ResolvedCallEdge, ...]:
-    check_deadline()
-    if require_transparent:
-        cached_edges = analysis_index.resolved_transparent_call_edges
-    else:
-        cached_edges = analysis_index.resolved_call_edges
-    if cached_edges is not None:
-        return cached_edges
-    edges: list[_ResolvedCallEdge] = []
-    for infos in analysis_index.by_name.values():
-        check_deadline()
-        for info in infos:
-            check_deadline()
-            for call in info.calls:
-                check_deadline()
-                if not call.is_test:
-                    callee = _resolve_callee(
-                        call.callee,
-                        info,
-                        analysis_index.by_name,
-                        analysis_index.by_qual,
-                        analysis_index.symbol_table,
-                        project_root,
-                        analysis_index.class_index,
-                    )
-                    if callee is not None and (not require_transparent or callee.transparent):
-                        edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
-    frozen_edges = tuple(edges)
-    if require_transparent:
-        analysis_index.resolved_transparent_call_edges = frozen_edges
-    else:
-        analysis_index.resolved_call_edges = frozen_edges
-    return frozen_edges
-
-def _analysis_index_resolved_call_edges_by_caller(
-    analysis_index: AnalysisIndex,
-    *,
-    project_root,
-    require_transparent: bool,
-) -> dict[str, tuple[_ResolvedCallEdge, ...]]:
-    check_deadline()
-    if require_transparent and analysis_index.resolved_transparent_edges_by_caller is not None:
-        return analysis_index.resolved_transparent_edges_by_caller
-    grouped: dict[str, list[_ResolvedCallEdge]] = defaultdict(list)
-    for edge in _analysis_index_resolved_call_edges(
-        analysis_index,
-        project_root=project_root,
-        require_transparent=require_transparent,
-    ):
-        check_deadline()
-        grouped[edge.caller.qual].append(edge)
-    frozen_grouped = {qual: tuple(edges) for qual, edges in grouped.items()}
-    if require_transparent:
-        analysis_index.resolved_transparent_edges_by_caller = frozen_grouped
-    return frozen_grouped
-
-def _reduce_resolved_call_edges(
-    analysis_index: AnalysisIndex,
-    *,
-    project_root,
-    require_transparent: bool,
-    spec: _ResolvedEdgeReducerSpec[_ResolvedEdgeAcc, _ResolvedEdgeOut],
-) -> _ResolvedEdgeOut:
-    check_deadline()
-    acc = spec.init()
-    for edge in _analysis_index_resolved_call_edges(
-        analysis_index,
-        project_root=project_root,
-        require_transparent=require_transparent,
-    ):
-        check_deadline()
-        spec.fold(acc, edge)
-    return spec.finish(acc)
-
-def _iter_resolved_edge_param_events(
-    edge: _ResolvedCallEdge,
-    *,
-    strictness: str,
-    include_variadics_in_low_star: bool,
-) -> Iterator[_ResolvedEdgeParamEvent]:
-    yield from _iter_resolved_edge_param_events_impl(
-        edge=edge,
-        strictness=strictness,
-        include_variadics_in_low_star=include_variadics_in_low_star,
-        check_deadline_fn=check_deadline,
-        event_ctor=_ResolvedEdgeParamEvent,
-    )
-
-def _build_call_graph(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
-    check_deadline()
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            list(paths),
-            project_root=project_root,
-            ignore_params=set(ignore_params),
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=list(parse_failure_witnesses),
-        )
-    transitive_callers = _analysis_index_transitive_callers(
-        index,
-        project_root=project_root,
-    )
-    return index.by_name, index.by_qual, transitive_callers
 
 def _collect_call_ambiguities_indexed(
     context: _IndexedPassContext,
