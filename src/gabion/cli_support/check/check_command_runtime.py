@@ -9,13 +9,14 @@ from typing import Callable, Mapping
 import typer
 
 from gabion.commands import check_contract
+from gabion.cli_support.shared.runtime_deps import CliRuntimeDeps
 from gabion.json_types import JSONObject
 
 CheckArtifactFlags = check_contract.CheckArtifactFlags
 DataflowFilterBundle = check_contract.DataflowFilterBundle
 CheckAuxOperation = check_contract.CheckAuxOperation
 
-ContextCliDepsFn = Callable[[typer.Context], object]
+ContextCliDepsFn = Callable[[typer.Context], CliRuntimeDeps]
 RunWithTimeoutRetriesFn = Callable[..., JSONObject]
 PhaseProgressFromNotificationFn = Callable[[Mapping[str, object]], dict[str, object] | None]
 PhaseProgressSignatureFn = Callable[[Mapping[str, object]], tuple[object, ...]]
