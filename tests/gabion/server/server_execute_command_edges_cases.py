@@ -213,14 +213,18 @@ def test_invalid_ingress_payload_rejected_before_analysis(
     assert called is False
 
 
-def _progress_values(ls: _DummyNotifyingServer) -> list[dict[str, object]]:
+def _progress_values(
+    ls: _DummyNotifyingServer,
+    *,
+    token: str = server._LSP_PROGRESS_TOKEN,
+) -> list[dict[str, object]]:
     values: list[dict[str, object]] = []
     for method, params in ls.notifications:
         if method != server._LSP_PROGRESS_NOTIFICATION_METHOD:
             continue
         if not isinstance(params, dict):
             continue
-        if params.get("token") != server._LSP_PROGRESS_TOKEN:
+        if params.get("token") != token:
             continue
         value = params.get("value")
         if isinstance(value, dict):
@@ -241,10 +245,27 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     )
 
     assert result["analysis_state"] == "succeeded"
-    progress_values = _progress_values(ls)
-    assert progress_values
-    assert all(value.get("schema") == "gabion/dataflow_progress_v1" for value in progress_values)
-    assert all(value.get("format_version") == 1 for value in progress_values)
+    progress_values_v1 = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    progress_values_v2 = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V2)
+    assert progress_values_v1
+    assert progress_values_v2
+    assert len(progress_values_v1) == len(progress_values_v2)
+    assert all(
+        value.get("schema") == "gabion/dataflow_progress_v1"
+        for value in progress_values_v1
+    )
+    assert all(value.get("format_version") == 1 for value in progress_values_v1)
+    assert all("identity_allocation_delta_v1" in value for value in progress_values_v1)
+    assert all("canonical_event_v1" in value for value in progress_values_v1)
+    assert all("canonical_event_error_v1" not in value for value in progress_values_v1)
+    assert all(
+        value.get("schema") == "gabion/canonical_progress_event_v1"
+        for value in progress_values_v2
+    )
+    assert all(value.get("adaptation_kind") == "valid" for value in progress_values_v2)
+    assert all(isinstance(value.get("event"), dict) for value in progress_values_v2)
+    assert all(value.get("fallback_payload_v1") is None for value in progress_values_v2)
+    assert isinstance(result.get("identity_seed_v1"), dict)
     assert any(
         "completed_files" in value
         and "in_progress_files" in value
@@ -252,8 +273,157 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
         and "total_files" in value
         and "work_done" in value
         and "work_total" in value
-        for value in progress_values
+        for value in progress_values_v1
     )
+
+
+def test_execute_command_identity_shadow_sidecars_are_deterministic_across_identical_runs(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    payload = _with_timeout(
+        {"root": str(tmp_path), "paths": [str(module_path)], "report": "-"}
+    )
+
+    first_ls = _DummyNotifyingServer(str(tmp_path))
+    first_result = _execute_with_deps(
+        first_ls,
+        payload,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+    second_ls = _DummyNotifyingServer(str(tmp_path))
+    second_result = _execute_with_deps(
+        second_ls,
+        payload,
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+
+    assert isinstance(first_result.get("identity_seed_v1"), dict)
+    assert isinstance(second_result.get("identity_seed_v1"), dict)
+
+    first_progress = _progress_values(first_ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    second_progress = _progress_values(second_ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    first_by_seq = {
+        int(value["event_seq"]): value
+        for value in first_progress
+        if isinstance(value.get("event_seq"), int)
+    }
+    second_by_seq = {
+        int(value["event_seq"]): value
+        for value in second_progress
+        if isinstance(value.get("event_seq"), int)
+    }
+    shared_sequences = sorted(set(first_by_seq) & set(second_by_seq))
+    assert shared_sequences
+    for sequence in shared_sequences:
+        first_value = first_by_seq[sequence]
+        second_value = second_by_seq[sequence]
+        first_canonical = first_value.get("canonical_event_v1")
+        second_canonical = second_value.get("canonical_event_v1")
+        assert isinstance(first_canonical, dict)
+        assert isinstance(second_canonical, dict)
+        assert first_canonical.get("event_id") == second_canonical.get("event_id")
+        assert first_canonical.get("identity_projection") == second_canonical.get(
+            "identity_projection"
+        )
+
+    first_progress_v2 = _progress_values(first_ls, token=server._LSP_PROGRESS_TOKEN_V2)
+    second_progress_v2 = _progress_values(second_ls, token=server._LSP_PROGRESS_TOKEN_V2)
+    def _v2_event_seq(value: dict[str, object]) -> int | None:
+        event = value.get("event")
+        if not isinstance(event, dict):
+            return None
+        payload_map = event.get("payload")
+        if not isinstance(payload_map, dict):
+            return None
+        raw_seq = payload_map.get("event_seq")
+        if isinstance(raw_seq, int):
+            return int(raw_seq)
+        return None
+
+    first_v2_by_seq: dict[int, dict[str, object]] = {}
+    for value in first_progress_v2:
+        event_seq = _v2_event_seq(value)
+        if event_seq is not None:
+            first_v2_by_seq[event_seq] = value
+    second_v2_by_seq: dict[int, dict[str, object]] = {}
+    for value in second_progress_v2:
+        event_seq = _v2_event_seq(value)
+        if event_seq is not None:
+            second_v2_by_seq[event_seq] = value
+    shared_v2_sequences = sorted(set(first_v2_by_seq) & set(second_v2_by_seq))
+    assert shared_v2_sequences
+    for sequence in shared_v2_sequences:
+        first_value = first_v2_by_seq[sequence]
+        second_value = second_v2_by_seq[sequence]
+        first_event = first_value.get("event")
+        second_event = second_value.get("event")
+        assert isinstance(first_event, dict)
+        assert isinstance(second_event, dict)
+        assert first_event.get("event_id") == second_event.get("event_id")
+        assert first_event.get("identity_projection") == second_event.get(
+            "identity_projection"
+        )
+
+
+def test_execute_command_mirrors_fingerprint_registry_allocations_into_identity_delta(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _analyze_with_fingerprint_allocations(
+        *_args: object,
+        **kwargs: object,
+    ) -> server.AnalysisResult:
+        config = kwargs.get("config")
+        assert isinstance(config, server.AuditConfig)
+        registry = config.fingerprint_registry
+        assert isinstance(registry, server.PrimeRegistry)
+        registry.get_or_assign("phase2b_type_base_anchor")
+        registry.get_or_assign("ctor:phase2b_type_ctor_anchor")
+        registry.get_or_assign("synth:phase2b_synth_anchor")
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], "report": "-"}),
+        analyze_paths_fn=_analyze_with_fingerprint_allocations,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    delta_rows: list[dict[str, object]] = []
+    for value in progress_values:
+        delta = value.get("identity_allocation_delta_v1")
+        if not isinstance(delta, list):
+            continue
+        for row in delta:
+            if isinstance(row, dict):
+                delta_rows.append(row)
+    assert delta_rows
+    fingerprint_rows = [
+        row
+        for row in delta_rows
+        if row.get("namespace") in {"type_base", "type_ctor", "synth"}
+    ]
+    assert fingerprint_rows
+
+    seqs = [int(row["seq"]) for row in delta_rows if isinstance(row.get("seq"), int)]
+    assert seqs
+    assert len(seqs) == len(set(seqs))
+    assert sorted(seqs) == list(range(min(seqs), max(seqs) + 1))
+
+    seen_identity_rows = {
+        (str(row.get("namespace")), str(row.get("token")), int(row.get("atom_id")))
+        for row in delta_rows
+        if isinstance(row.get("namespace"), str)
+        and isinstance(row.get("token"), str)
+        and isinstance(row.get("atom_id"), int)
+    }
+    assert len(seen_identity_rows) == len(delta_rows)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_terminal_latching_emits_single_active_complete_and_heartbeat_keepalive::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -303,7 +473,7 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
     )
 
     assert result["analysis_state"] == "succeeded"
-    progress_values = _progress_values(ls)
+    progress_values = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
     complete_terminal_values = []
     complete_heartbeat_values = []
     complete_progress_values = []

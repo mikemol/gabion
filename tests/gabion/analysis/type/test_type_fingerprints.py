@@ -44,6 +44,45 @@ def test_prime_registry_assigns_stable_primes() -> None:
     assert first != second
     assert registry.get_or_assign("int") == first
 
+
+def test_prime_registry_assignment_observer_fires_once_per_new_assignment() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    events: list[object] = []
+
+    observer_id = registry.register_assignment_observer(events.append)
+    first = registry.get_or_assign("int")
+    second = registry.get_or_assign("int")
+    registry.unregister_assignment_observer(observer_id)
+    registry.get_or_assign("str")
+
+    assert first == second
+    assert len(events) == 1
+    event = events[0]
+    assert isinstance(event, tf.PrimeAssignmentEvent)
+    assert event.raw_key == "int"
+    assert event.namespace == "type_base"
+    assert event.token == "int"
+    assert event.atom_id == first
+
+
+def test_prime_registry_assignment_observer_decodes_ctor_namespace_tokens() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    seen: list[object] = []
+
+    observer_id = registry.register_assignment_observer(seen.append)
+    assigned = registry.get_or_assign("ctor:list")
+    registry.unregister_assignment_observer(observer_id)
+
+    assert len(seen) == 1
+    event = seen[0]
+    assert isinstance(event, tf.PrimeAssignmentEvent)
+    assert event.raw_key == "ctor:list"
+    assert event.namespace == "type_ctor"
+    assert event.token == "list"
+    assert event.atom_id == assigned
+
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_consumes_gas_ticks::test_type_fingerprints.py::tests.test_type_fingerprints._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_prime_registry_consumes_gas_ticks() -> None:
     tf = _load()

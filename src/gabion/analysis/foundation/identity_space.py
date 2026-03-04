@@ -95,18 +95,56 @@ class GlobalIdentitySpace:
         atom_id = int(
             self.allocator.get_or_assign(namespace=namespace_text, token=token_text)
         )
-        known[token_text] = atom_id
-        self._token_by_atom.setdefault(namespace_text, {})[atom_id] = token_text
-        self._allocation_records.append(
-            IdentityAllocationRecord(
-                seq=self._next_seq,
-                namespace=namespace_text,
-                token=token_text,
-                atom_id=atom_id,
-            )
+        return self.register_atom(
+            namespace=namespace_text,
+            token=token_text,
+            atom_id=atom_id,
+            record_allocation=True,
         )
-        self._next_seq += 1
-        return atom_id
+
+    def register_atom(
+        self,
+        *,
+        namespace: str,
+        token: str,
+        atom_id: int,
+        record_allocation: bool = True,
+    ) -> int:
+        check_deadline()
+        namespace_text = self._normalize_namespace(namespace)
+        token_text = str(token)
+        atom_value = int(atom_id)
+        if not token_text:
+            raise ValueError("Identity token must be non-empty.")
+        if atom_value <= 0:
+            raise ValueError("Identity atom_id must be a positive integer.")
+        known_tokens = self._atom_by_token.setdefault(namespace_text, {})
+        known_atoms = self._token_by_atom.setdefault(namespace_text, {})
+        existing_atom = known_tokens.get(token_text)
+        if existing_atom is not None:
+            if int(existing_atom) != atom_value:
+                raise ValueError(
+                    "Identity token is already interned to a different atom_id."
+                )
+            return int(existing_atom)
+        existing_token = known_atoms.get(atom_value)
+        if existing_token is not None and existing_token != token_text:
+            raise ValueError(
+                "Identity atom_id is already interned to a different token."
+            )
+        known_tokens[token_text] = atom_value
+        known_atoms[atom_value] = token_text
+        if record_allocation:
+            self._allocation_records.append(
+                IdentityAllocationRecord(
+                    seq=self._next_seq,
+                    namespace=namespace_text,
+                    token=token_text,
+                    atom_id=atom_value,
+                )
+            )
+            self._next_seq += 1
+        return atom_value
 
     def intern_path(self, *, namespace: str, tokens: object) -> IdentityPath:
         check_deadline()
@@ -180,8 +218,12 @@ class GlobalIdentitySpace:
         )
         if not decoded.is_present:
             return IdentityTokenLookup(is_present=False)
-        self._token_by_atom.setdefault(namespace_text, {})[int(atom_id)] = decoded.token
-        self._atom_by_token.setdefault(namespace_text, {})[decoded.token] = int(atom_id)
+        self.register_atom(
+            namespace=namespace_text,
+            token=decoded.token,
+            atom_id=int(atom_id),
+            record_allocation=False,
+        )
         return decoded
 
     def seed_payload(self) -> dict[str, object]:

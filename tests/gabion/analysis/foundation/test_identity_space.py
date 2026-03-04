@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.analysis.foundation.identity_space import (
@@ -101,3 +103,55 @@ def test_identity_space_allocation_ledger_is_deterministic_and_replayable() -> N
         lookup = second.token_for_atom(namespace=record.namespace, atom_id=record.atom_id)
         assert lookup.is_present
         assert lookup.token == record.token
+
+
+def test_identity_space_register_atom_is_idempotent() -> None:
+    space = _build_space()
+    first = space.register_atom(
+        namespace=IdentityNamespace.SYMBOL,
+        token="MyNode",
+        atom_id=2,
+    )
+    second = space.register_atom(
+        namespace=IdentityNamespace.SYMBOL,
+        token="MyNode",
+        atom_id=2,
+    )
+    assert first == second == 2
+    assert len(space.allocation_records()) == 1
+
+
+def test_identity_space_register_atom_hydration_does_not_append_allocation_ledger() -> None:
+    space = _build_space()
+    atom_id = space.register_atom(
+        namespace=IdentityNamespace.SYMBOL,
+        token="Hydrated",
+        atom_id=3,
+        record_allocation=False,
+    )
+    assert atom_id == 3
+    assert space.allocation_records() == ()
+    lookup = space.token_for_atom(namespace=IdentityNamespace.SYMBOL, atom_id=3)
+    assert lookup.is_present is True
+    assert lookup.token == "Hydrated"
+
+
+def test_identity_space_register_atom_rejects_token_atom_conflicts() -> None:
+    space = _build_space()
+    space.register_atom(
+        namespace=IdentityNamespace.SYMBOL,
+        token="A",
+        atom_id=2,
+    )
+    with pytest.raises(ValueError):
+        space.register_atom(
+            namespace=IdentityNamespace.SYMBOL,
+            token="A",
+            atom_id=3,
+        )
+    with pytest.raises(ValueError):
+        space.register_atom(
+            namespace=IdentityNamespace.SYMBOL,
+            token="B",
+            atom_id=2,
+        )

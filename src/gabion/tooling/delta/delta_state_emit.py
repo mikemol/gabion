@@ -23,7 +23,9 @@ _TIMELINE_MIN_INTERVAL_SECONDS = (
     progress_timeline.DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS
 )
 _LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_METHOD
-_LSP_PROGRESS_TOKEN = progress_timeline.LSP_PROGRESS_TOKEN
+_LSP_PROGRESS_TOKEN_V1 = progress_timeline.LSP_PROGRESS_TOKEN_V1
+_LSP_PROGRESS_TOKEN_V2 = progress_timeline.LSP_PROGRESS_TOKEN_V2
+_LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
 _EXPECTED_STATE_PATHS = (
     Path("artifacts/out/test_obsolescence_state.json"),
     Path("artifacts/out/test_annotation_drift.json"),

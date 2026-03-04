@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from hashlib import sha1
-from typing import Mapping
+from typing import Callable, Mapping
 
 from gabion.analysis.foundation.event_algebra import (
     CanonicalAdaptationDecision,
@@ -24,6 +24,7 @@ from gabion.runtime import stable_encode
 
 DATAFLOW_PHASE_PROGRESS_SOURCE = "dataflow.phase_progress"
 DATAFLOW_COLLECTION_PROGRESS_SOURCE = "dataflow.collection_progress"
+DataflowIntegerAnchorEncoder = Callable[[str, int], tuple[str, ...]]
 
 
 def adapt_dataflow_phase_progress_event(
@@ -31,13 +32,19 @@ def adapt_dataflow_phase_progress_event(
     phase_progress: Mapping[str, object],
     run_context: CanonicalRunContext,
     causal_refs: tuple[str, ...] = (),
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None = None,
 ) -> CanonicalAdaptationDecision:
     check_deadline()
     try:
         payload = _mapping_payload(phase_progress)
         phase = _required_phase(payload)
         kind = _phase_kind(payload)
-        identity_tokens = _phase_identity_tokens(payload=payload, phase=phase, kind=kind)
+        identity_tokens = _phase_identity_tokens(
+            payload=payload,
+            phase=phase,
+            kind=kind,
+            integer_anchor_encoder=integer_anchor_encoder,
+        )
         identity_projection = derive_identity_projection_from_tokens(
             run_context=run_context,
             tokens=identity_tokens,
@@ -61,6 +68,7 @@ def adapt_dataflow_phase_progress_event_or_raise(
     phase_progress: Mapping[str, object],
     run_context: CanonicalRunContext,
     causal_refs: tuple[str, ...] = (),
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None = None,
 ) -> CanonicalEventEnvelope:
     check_deadline()
     return envelope_from_decision_or_raise(
@@ -68,6 +76,7 @@ def adapt_dataflow_phase_progress_event_or_raise(
             phase_progress=phase_progress,
             run_context=run_context,
             causal_refs=causal_refs,
+            integer_anchor_encoder=integer_anchor_encoder,
         )
     )
 
@@ -77,13 +86,18 @@ def adapt_dataflow_collection_progress_event(
     collection_progress: Mapping[str, object],
     run_context: CanonicalRunContext,
     causal_refs: tuple[str, ...] = (),
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None = None,
 ) -> CanonicalAdaptationDecision:
     check_deadline()
     try:
         payload = _mapping_payload(collection_progress)
         phase = "collection"
         kind = _collection_kind(payload)
-        identity_tokens = _collection_identity_tokens(payload=payload, kind=kind)
+        identity_tokens = _collection_identity_tokens(
+            payload=payload,
+            kind=kind,
+            integer_anchor_encoder=integer_anchor_encoder,
+        )
         identity_projection = derive_identity_projection_from_tokens(
             run_context=run_context,
             tokens=identity_tokens,
@@ -107,6 +121,7 @@ def adapt_dataflow_collection_progress_event_or_raise(
     collection_progress: Mapping[str, object],
     run_context: CanonicalRunContext,
     causal_refs: tuple[str, ...] = (),
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None = None,
 ) -> CanonicalEventEnvelope:
     check_deadline()
     return envelope_from_decision_or_raise(
@@ -114,6 +129,7 @@ def adapt_dataflow_collection_progress_event_or_raise(
             collection_progress=collection_progress,
             run_context=run_context,
             causal_refs=causal_refs,
+            integer_anchor_encoder=integer_anchor_encoder,
         )
     )
 
@@ -159,13 +175,20 @@ def _phase_identity_tokens(
     payload: Mapping[str, object],
     phase: str,
     kind: str,
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None,
 ) -> tuple[str, ...]:
     check_deadline()
     components: list[str] = [DATAFLOW_PHASE_PROGRESS_SOURCE, phase, kind]
 
     event_seq = _positive_int_or_none(payload.get("event_seq"))
     if event_seq is not None:
-        components.append(f"event_seq:{event_seq}")
+        components.extend(
+            _integer_anchor_tokens(
+                key="event_seq",
+                value=event_seq,
+                integer_anchor_encoder=integer_anchor_encoder,
+            )
+        )
 
     marker = str(payload.get("progress_marker", "") or "").strip()
     if marker:
@@ -249,6 +272,7 @@ def _collection_identity_tokens(
     *,
     payload: Mapping[str, object],
     kind: str,
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None,
 ) -> tuple[str, ...]:
     check_deadline()
     components: list[str] = [
@@ -258,7 +282,13 @@ def _collection_identity_tokens(
     ]
     event_seq = _positive_int_or_none(payload.get("event_seq"))
     if event_seq is not None:
-        components.append(f"event_seq:{event_seq}")
+        components.extend(
+            _integer_anchor_tokens(
+                key="event_seq",
+                value=event_seq,
+                integer_anchor_encoder=integer_anchor_encoder,
+            )
+        )
 
     analysis_index_resume = mapping_or_none(payload.get("analysis_index_resume"))
     if analysis_index_resume is not None:
@@ -327,7 +357,39 @@ def _payload_digest(payload: Mapping[str, object]) -> str:
     return sha1(canonical).hexdigest()
 
 
+def _integer_anchor_tokens(
+    *,
+    key: str,
+    value: int,
+    integer_anchor_encoder: DataflowIntegerAnchorEncoder | None,
+) -> tuple[str, ...]:
+    check_deadline()
+    key_text = str(key).strip()
+    if not key_text:
+        raise CanonicalEventAdaptationError(
+            "integer anchor key must be non-empty."
+        )
+    if integer_anchor_encoder is None:
+        return (f"{key_text}:{int(value)}",)
+    encoded_values = integer_anchor_encoder(key_text, int(value))
+    if not encoded_values:
+        raise CanonicalEventAdaptationError(
+            f"integer anchor encoder returned empty token tuple for '{key_text}'."
+        )
+    tokens: list[str] = []
+    for raw_value in encoded_values:
+        check_deadline()
+        encoded_text = str(raw_value).strip()
+        if not encoded_text:
+            raise CanonicalEventAdaptationError(
+                f"integer anchor encoder returned empty token for '{key_text}'."
+            )
+        tokens.append(f"{key_text}:{encoded_text}")
+    return tuple(tokens)
+
+
 __all__ = [
+    "DataflowIntegerAnchorEncoder",
     "DATAFLOW_COLLECTION_PROGRESS_SOURCE",
     "DATAFLOW_PHASE_PROGRESS_SOURCE",
     "adapt_dataflow_collection_progress_event",

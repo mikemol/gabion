@@ -137,6 +137,81 @@ def test_phase_progress_from_notification_prefers_transition_payload_for_marker_
     assert phase_progress["event_kind"] == "terminal"
 
 
+# gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_canonical_v2_payload::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+def test_phase_progress_from_notification_prefers_canonical_v2_payload() -> None:
+    notification = {
+        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
+        "params": {
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
+            "value": {
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "valid",
+                "event": {
+                    "payload": {
+                        "phase": "post",
+                        "event_kind": "terminal",
+                        "work_done": 6,
+                        "work_total": 6,
+                        "progress_marker": "complete",
+                    }
+                },
+                "adaptation_error": "",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": None,
+            },
+        },
+    }
+    phase_progress = progress_contract.phase_progress_from_progress_notification(
+        notification
+    )
+    assert isinstance(phase_progress, dict)
+    assert phase_progress["phase"] == "post"
+    assert phase_progress["event_kind"] == "terminal"
+    assert phase_progress["progress_marker"] == "complete"
+    assert phase_progress["work_done"] == 6
+    assert phase_progress["work_total"] == 6
+
+
+# gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_uses_v2_rejected_fallback_payload::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+def test_phase_progress_from_notification_uses_v2_rejected_fallback_payload() -> None:
+    fallback_payload = {
+        "phase": "post",
+        "event_kind": "progress",
+        "work_done": 1,
+        "work_total": 9,
+        "progress_marker": "fingerprint:normalize",
+        "progress_transition_v1": {
+            "event_kind": "progress",
+            "parent": {"unit": "post_tasks", "done": 1, "total": 9},
+            "child": {"marker_text": "fingerprint:normalize"},
+        },
+    }
+    notification = {
+        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
+        "params": {
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
+            "value": {
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "rejected",
+                "event": None,
+                "adaptation_error": "canonical adaptation rejected",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": fallback_payload,
+            },
+        },
+    }
+    phase_progress = progress_contract.phase_progress_from_progress_notification(
+        notification
+    )
+    assert isinstance(phase_progress, dict)
+    assert phase_progress["phase"] == "post"
+    assert phase_progress["progress_marker"] == "fingerprint:normalize"
+    assert phase_progress["work_done"] == 1
+    assert phase_progress["work_total"] == 9
+
+
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
 def test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable() -> None:
     notification = {

@@ -7,7 +7,12 @@ import pytest
 
 from gabion import server
 from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.analysis.dataflow.engine.dataflow_contracts import AnalysisResult
+from gabion.analysis.foundation.identity_shadow_runtime import (
+    IntegerAnchorDecode,
+    build_identity_shadow_runtime,
+)
 from gabion.exceptions import NeverThrown
 from gabion.server_core import command_orchestrator as orchestrator
 
@@ -32,6 +37,90 @@ def _empty_analysis_result() -> AnalysisResult:
         constant_smells=[],
         unused_arg_smells=[],
         forest=Forest(),
+    )
+
+
+def test_execute_command_total_starts_and_stops_identity_registry_mirror(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind()
+    module_path = tmp_path / "sample.py"
+    module_path.write_text(
+        "def callee(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller(a, b):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+    mirror_events: list[str] = []
+
+    class _Mirror:
+        def start(self) -> None:
+            mirror_events.append("start")
+
+        def stop(self) -> None:
+            mirror_events.append("stop")
+
+    def _build_mirror(
+        *,
+        registry: object,
+        identity_space: object,
+        allowed_namespaces: object = (),
+    ) -> _Mirror:
+        _ = (registry, identity_space, allowed_namespaces)
+        mirror_events.append("build")
+        return _Mirror()
+
+    monkeypatch.setattr(orchestrator, "build_identity_registry_mirror", _build_mirror)
+
+    class _Workspace:
+        def __init__(self, root_path: str) -> None:
+            self.root_path = root_path
+
+    class _DummyNotifyingServer:
+        def __init__(self, root_path: str) -> None:
+            self.workspace = _Workspace(root_path)
+            self.notifications: list[tuple[str, dict[str, object]]] = []
+
+        def send_notification(self, method: str, params: dict[str, object]) -> None:
+            self.notifications.append((method, params))
+
+    ls = _DummyNotifyingServer(str(tmp_path))
+    payload = {
+        "root": str(tmp_path),
+        "paths": [str(module_path)],
+        "report": "-",
+        "analysis_timeout_ticks": 50_000,
+        "analysis_timeout_tick_ns": 1_000_000,
+    }
+    deps = server._default_execute_command_deps().with_overrides(
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+    response = orchestrator.execute_command_total(ls, payload, deps=deps)
+
+    assert response.get("analysis_state") == "succeeded"
+    assert mirror_events[0] == "build"
+    assert mirror_events[1] == "start"
+    assert mirror_events[-1] == "stop"
+    assert mirror_events.count("start") == 1
+    assert mirror_events.count("stop") == 1
+
+    by_token: dict[str, dict[str, object]] = {}
+    for method, params in ls.notifications:
+        if method != orchestrator._LSP_PROGRESS_NOTIFICATION_METHOD:
+            continue
+        token = params.get("token")
+        value = params.get("value")
+        if isinstance(token, str) and isinstance(value, dict):
+            by_token[token] = value
+    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
+    assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
+    assert by_token[orchestrator._LSP_PROGRESS_TOKEN].get("schema") == "gabion/dataflow_progress_v1"
+    assert (
+        by_token[orchestrator._LSP_PROGRESS_TOKEN_V2].get("schema")
+        == "gabion/canonical_progress_event_v1"
     )
 
 
@@ -417,6 +506,10 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     tmp_path: Path,
 ) -> None:
     notifications: list[tuple[str, object]] = []
+    identity_shadow_runtime = build_identity_shadow_runtime(
+        run_id="run:coverage",
+        registry=PrimeRegistry(),
+    )
 
     def _send_notification(method: str, params: object) -> None:
         notifications.append((method, params))
@@ -431,6 +524,7 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
         progress_heartbeat_seconds=1.0,
         profiling_stage_ns={},
         profiling_counters={},
+        identity_shadow_runtime=identity_shadow_runtime,
     )
     assert callable(emitter.emit)
     emitter.emit(
@@ -459,19 +553,127 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     )
     emitter.stop()
 
-    assert len(notifications) == 1
-    _, params = notifications[0]
-    assert isinstance(params, dict)
-    value = params.get("value")
-    assert isinstance(value, dict)
-    assert value.get("event_kind") == "terminal"
-    transition_v2 = value.get("progress_transition_v2")
+    assert len(notifications) == 2
+    by_token: dict[str, dict[str, object]] = {}
+    for _method, params in notifications:
+        assert isinstance(params, dict)
+        token = params.get("token")
+        value = params.get("value")
+        if isinstance(token, str) and isinstance(value, dict):
+            by_token[token] = value
+    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
+    assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
+
+    v1_value = by_token[orchestrator._LSP_PROGRESS_TOKEN]
+    assert v1_value.get("event_kind") == "terminal"
+    transition_v2 = v1_value.get("progress_transition_v2")
     assert isinstance(transition_v2, dict)
     assert transition_v2.get("format_version") == 2
-    transition = value.get("progress_transition_v1")
+    transition = v1_value.get("progress_transition_v1")
     assert isinstance(transition, dict)
     assert transition.get("terminal_complete") is False
     assert transition.get("reason") == "initial_transition"
+    assert "canonical_event_v1" in v1_value
+    assert "identity_allocation_delta_v1" in v1_value
+    assert "canonical_event_error_v1" not in v1_value
+
+    v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
+    assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"
+    assert v2_value.get("adaptation_kind") == "valid"
+    assert isinstance(v2_value.get("event"), dict)
+    assert v2_value.get("adaptation_error") == ""
+    assert v2_value.get("fallback_payload_v1") is None
+
+
+def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
+    tmp_path: Path,
+) -> None:
+    notifications: list[tuple[str, object]] = []
+
+    class _RejectingIntegerCarrier:
+        def encode_anchor_tokens(
+            self,
+            *,
+            namespace: str,
+            key: str,
+            value: int,
+        ) -> tuple[str, ...]:
+            _ = (namespace, key, value)
+            return ()
+
+        def decode_anchor_tokens(
+            self,
+            *,
+            namespace: str,
+            key: str,
+            tokens: tuple[str, ...],
+        ) -> IntegerAnchorDecode:
+            _ = (namespace, key, tokens)
+            return IntegerAnchorDecode(is_present=False)
+
+    identity_shadow_runtime = build_identity_shadow_runtime(
+        run_id="run:coverage:rejected",
+        registry=PrimeRegistry(),
+        integer_carrier=_RejectingIntegerCarrier(),
+    )
+
+    def _send_notification(method: str, params: object) -> None:
+        notifications.append((method, params))
+
+    emitter = orchestrator._create_progress_emitter(
+        notification_runtime=orchestrator._NotificationRuntime(
+            send_notification_fn=_send_notification,
+            emit_phase_progress_events=False,
+        ),
+        phase_timeline_markdown_path=tmp_path / "timeline.md",
+        phase_timeline_jsonl_path=tmp_path / "timeline.jsonl",
+        progress_heartbeat_seconds=1.0,
+        profiling_stage_ns={},
+        profiling_counters={},
+        identity_shadow_runtime=identity_shadow_runtime,
+    )
+    emitter.emit(
+        phase="post",
+        collection_progress={
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": 1,
+            "total_files": 1,
+        },
+        semantic_progress=None,
+        work_done=1,
+        work_total=2,
+        include_timing=False,
+        done=False,
+        analysis_state="analysis_post_in_progress",
+        classification="active",
+        progress_marker="fingerprint:normalize",
+        event_kind="progress",
+    )
+    emitter.stop()
+
+    by_token: dict[str, dict[str, object]] = {}
+    for _method, params in notifications:
+        assert isinstance(params, dict)
+        token = params.get("token")
+        value = params.get("value")
+        if isinstance(token, str) and isinstance(value, dict):
+            by_token[token] = value
+    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
+    assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
+
+    v1_value = by_token[orchestrator._LSP_PROGRESS_TOKEN]
+    assert "canonical_event_v1" not in v1_value
+    assert isinstance(v1_value.get("canonical_event_error_v1"), str)
+
+    v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
+    assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"
+    assert v2_value.get("adaptation_kind") == "rejected"
+    assert v2_value.get("event") is None
+    assert isinstance(v2_value.get("adaptation_error"), str)
+    fallback_payload = v2_value.get("fallback_payload_v1")
+    assert isinstance(fallback_payload, dict)
+    assert fallback_payload.get("schema") == "gabion/dataflow_progress_v1"
 
 
 def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analysis(

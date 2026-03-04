@@ -2,7 +2,7 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Iterable, cast
 import hashlib
@@ -43,6 +43,14 @@ def _raw_key(namespace: str, key: str) -> str:
 class _MaybeInt:
     is_present: bool
     value: int = 0
+
+
+@dataclass(frozen=True)
+class PrimeAssignmentEvent:
+    raw_key: str
+    atom_id: int
+    namespace: str
+    token: str
 
 
 def _mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
@@ -234,6 +242,10 @@ class PrimeRegistry:
     bit_positions: dict[str, int] = field(default_factory=dict)
     next_bit: int = 0
     assignment_origin: dict[str, str] = field(default_factory=dict)
+    _assignment_observers: dict[int, Callable[[PrimeAssignmentEvent], None]] = field(
+        default_factory=dict
+    )
+    _next_observer_id: int = 1
 
     def get_or_assign(self, key: str) -> int:
         consume_deadline_ticks()
@@ -250,7 +262,44 @@ class PrimeRegistry:
         if key not in self.bit_positions:
             self.bit_positions[key] = self.next_bit
             self.next_bit += 1
+        self._notify_assignment_observers(raw_key=key, atom_id=prime)
         return prime
+
+    def register_assignment_observer(
+        self,
+        observer: Callable[[PrimeAssignmentEvent], None],
+    ) -> int:
+        check_deadline()
+        if not callable(observer):
+            raise ValueError("Prime assignment observer must be callable.")
+        observer_id = int(self._next_observer_id)
+        self._next_observer_id += 1
+        self._assignment_observers[observer_id] = observer
+        return observer_id
+
+    def unregister_assignment_observer(self, observer_id: int) -> None:
+        self._assignment_observers.pop(int(observer_id), None)
+
+    def _notify_assignment_observers(self, *, raw_key: str, atom_id: int) -> None:
+        check_deadline()
+        if not self._assignment_observers:
+            return
+        namespace, token = _namespace_key(str(raw_key))
+        event = PrimeAssignmentEvent(
+            raw_key=str(raw_key),
+            atom_id=int(atom_id),
+            namespace=namespace,
+            token=token,
+        )
+        for observer_id in sort_once(
+            self._assignment_observers,
+            source="PrimeRegistry._notify_assignment_observers.observer_ids",
+            policy=OrderPolicy.SORT,
+        ):
+            check_deadline()
+            observer = self._assignment_observers.get(int(observer_id))
+            if observer is not None:
+                observer(event)
 
     def prime_for(self, key: str) -> object:
         return self.primes.get(key)

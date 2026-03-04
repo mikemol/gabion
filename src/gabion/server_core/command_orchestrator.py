@@ -15,6 +15,15 @@ from gabion.commands.progress_transition import (
     NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v1_payload, progress_transition_v2_payload, validate_progress_transition)
 from gabion.order_contract import OrderPolicy
 from gabion.analysis.projection.pattern_schema_projection import pattern_schema_surface_payloads
+from gabion.analysis.foundation.identity_shadow_runtime import (
+    DEFAULT_IDENTITY_SHADOW_RUN_ID,
+    IdentityShadowRuntime,
+    build_identity_shadow_runtime,
+)
+from gabion.analysis.foundation.identity_registry_mirror import (
+    IdentityRegistryMirror,
+    build_identity_registry_mirror,
+)
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
@@ -1278,6 +1287,7 @@ class _TimeoutCleanupContext:
     )
     analysis_resume_source: str = "cold_start"
     analysis_resume_state_compatibility_status: str | None = None
+    identity_shadow_runtime: IdentityShadowRuntime | None = None
 
 
 @dataclass(frozen=True)
@@ -2076,6 +2086,7 @@ def _create_progress_emitter(
     progress_heartbeat_seconds: float,
     profiling_stage_ns: dict[str, int],
     profiling_counters: dict[str, int],
+    identity_shadow_runtime: IdentityShadowRuntime | None = None,
 ) -> _ProgressEmitter:
     progress_event_seq = 0
     progress_state_lock = threading.Lock()
@@ -2090,6 +2101,86 @@ def _create_progress_emitter(
     previous_transition_state: _ProgressTransitionState | None = None
     send_notification = notification_runtime.send_notification_fn
     emit_phase_progress_events = notification_runtime.emit_phase_progress_events
+
+    def _identity_shadow_payloads(
+        *,
+        phase: Literal["collection", "forest", "edge", "post"],
+        progress_value: Mapping[str, object],
+    ) -> tuple[dict[str, object], str, JSONObject | None, str, list[JSONObject]]:
+        def _rejected_payload(reason: str) -> tuple[
+            dict[str, object], str, JSONObject | None, str, list[JSONObject]
+        ]:
+            normalized_reason = str(reason).strip() or "canonical adaptation rejected."
+            return (
+                {
+                    "identity_allocation_delta_v1": [],
+                    "canonical_event_error_v1": normalized_reason,
+                },
+                "rejected",
+                None,
+                normalized_reason,
+                [],
+            )
+
+        if identity_shadow_runtime is None:
+            return _rejected_payload("identity shadow runtime unavailable.")
+        try:
+            emission = identity_shadow_runtime.adapt_progress_payload(
+                phase=phase,
+                progress_payload=progress_value,
+            )
+            emission_kind = str(emission.kind)
+            if emission_kind == "valid":
+                return (
+                    emission.sidecar_payload(),
+                    "valid",
+                    dict(emission.canonical_event_v1),
+                    "",
+                    [dict(item) for item in emission.identity_allocation_delta_v1],
+                )
+            if emission_kind == "rejected":
+                reason = (
+                    str(emission.canonical_event_error_v1).strip()
+                    or "canonical adaptation rejected."
+                )
+                return (
+                    emission.sidecar_payload(),
+                    "rejected",
+                    None,
+                    reason,
+                    [dict(item) for item in emission.identity_allocation_delta_v1],
+                )
+            return _rejected_payload("invalid identity shadow emission kind.")
+        except Exception as exc:
+            return _rejected_payload(str(exc))
+
+    def _canonical_progress_payload(
+        *,
+        adaptation_kind: str,
+        canonical_event: JSONObject | None,
+        adaptation_error: str,
+        identity_allocation_delta: list[JSONObject],
+        fallback_payload_v1: Mapping[str, object] | None,
+    ) -> JSONObject:
+        payload: JSONObject = {
+            "schema": _CANONICAL_PROGRESS_EVENT_SCHEMA_V1,
+            "format_version": 1,
+            "adaptation_kind": str(adaptation_kind),
+            "event": dict(canonical_event) if isinstance(canonical_event, Mapping) else None,
+            "adaptation_error": str(adaptation_error).strip(),
+            "identity_allocation_delta_v1": [
+                dict(item) for item in identity_allocation_delta
+            ],
+            "fallback_payload_v1": (
+                {str(key): fallback_payload_v1[key] for key in fallback_payload_v1}
+                if isinstance(fallback_payload_v1, Mapping)
+                else None
+            ),
+        }
+        if str(adaptation_kind) != "rejected":
+            payload["adaptation_error"] = ""
+            payload["fallback_payload_v1"] = None
+        return payload
 
     def emit_lsp_progress(
         *,
@@ -2216,12 +2307,45 @@ def _create_progress_emitter(
                 )
                 phase_timeline_header_emitted = True
             progress_value["phase_timeline_row"] = phase_timeline_row
+            sidecars, adaptation_kind, canonical_event, adaptation_error, allocation_delta = (
+                _identity_shadow_payloads(
+                    phase=phase,
+                    progress_value=progress_value,
+                )
+            )
+            for sidecar_key in sidecars:
+                progress_value[sidecar_key] = sidecars[sidecar_key]
             ordered_progress_value = boundary_order.canonicalize_boundary_mapping(
                 progress_value,
                 source=(
                     "server._emit_lsp_progress."
                     f"{phase}.{event_kind}.progress_value"
                 ),
+            )
+            canonical_progress_value = _canonical_progress_payload(
+                adaptation_kind=adaptation_kind,
+                canonical_event=canonical_event,
+                adaptation_error=adaptation_error,
+                identity_allocation_delta=allocation_delta,
+                fallback_payload_v1=(
+                    ordered_progress_value if adaptation_kind == "rejected" else None
+                ),
+            )
+            ordered_canonical_progress_value = (
+                boundary_order.canonicalize_boundary_mapping(
+                    canonical_progress_value,
+                    source=(
+                        "server._emit_lsp_progress."
+                        f"{phase}.{event_kind}.canonical_progress_value"
+                    ),
+                )
+            )
+            send_notification(
+                _LSP_PROGRESS_NOTIFICATION_METHOD,
+                {
+                    "token": _LSP_PROGRESS_TOKEN_V2,
+                    "value": ordered_canonical_progress_value,
+                },
             )
             send_notification(
                 _LSP_PROGRESS_NOTIFICATION_METHOD,
@@ -3172,6 +3296,13 @@ def _handle_timeout_cleanup(
             classification=timeout_classification_value,
             event_kind="terminal",
         )
+        if context.identity_shadow_runtime is not None:
+            try:
+                timeout_response["identity_seed_v1"] = (
+                    context.identity_shadow_runtime.identity_seed_payload()
+                )
+            except Exception:
+                pass
         return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
@@ -3627,6 +3758,7 @@ class _SuccessResponseContext:
     latest_collection_progress: JSONObject
     emit_lsp_progress_fn: Callable[..., None]
     dataflow_capabilities: _DataflowCapabilityAnnotations
+    identity_shadow_runtime: IdentityShadowRuntime | None = None
 
 
 @dataclass(frozen=True)
@@ -4013,6 +4145,13 @@ def _build_success_response(
         classification="succeeded",
         event_kind="terminal",
     )
+    if context.identity_shadow_runtime is not None:
+        try:
+            response["identity_seed_v1"] = (
+                context.identity_shadow_runtime.identity_seed_payload()
+            )
+        except Exception:
+            pass
     return _SuccessResponseOutcome(
         response=_normalize_dataflow_response(response),
         phase_checkpoint_state=phase_checkpoint_state,
@@ -4124,6 +4263,8 @@ def execute_command_total(
     aspf_trace_state: object | None = None
     progress_emitter: _ProgressEmitter | None = None
     emit_phase_progress_events = False
+    identity_shadow_runtime: IdentityShadowRuntime | None = None
+    identity_registry_mirror: IdentityRegistryMirror | None = None
 
     def _emit_lsp_progress(**_kwargs: object) -> None:
         return
@@ -4436,6 +4577,20 @@ def execute_command_total(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         }
+        if config.fingerprint_registry is None:
+            config.fingerprint_registry = PrimeRegistry()
+        identity_shadow_runtime = build_identity_shadow_runtime(
+            run_id=(
+                f"{DEFAULT_IDENTITY_SHADOW_RUN_ID}:"
+                f"{sha1(str(root).encode('utf-8')).hexdigest()}"
+            ),
+            registry=config.fingerprint_registry,
+        )
+        identity_registry_mirror = build_identity_registry_mirror(
+            registry=config.fingerprint_registry,
+            identity_space=identity_shadow_runtime.run_context.identity_space,
+        )
+        identity_registry_mirror.start()
         progress_emitter = _create_progress_emitter(
             notification_runtime=_notification_runtime(
                 getattr(ls, "send_notification", None)
@@ -4445,6 +4600,7 @@ def execute_command_total(
             progress_heartbeat_seconds=progress_heartbeat_seconds,
             profiling_stage_ns=profiling_stage_ns,
             profiling_counters=profiling_counters,
+            identity_shadow_runtime=identity_shadow_runtime,
         )
         _emit_lsp_progress = progress_emitter.emit
         emit_phase_progress_events = progress_emitter.emit_phase_progress_events
@@ -4561,6 +4717,7 @@ def execute_command_total(
                 latest_collection_progress=latest_collection_progress,
                 emit_lsp_progress_fn=_emit_lsp_progress,
                 dataflow_capabilities=dataflow_capabilities,
+                identity_shadow_runtime=identity_shadow_runtime,
             )
         )
         phase_checkpoint_state = success_outcome.phase_checkpoint_state
@@ -4606,6 +4763,7 @@ def execute_command_total(
                 ensure_report_sections_cache_fn=_ensure_report_sections_cache,
                 emit_lsp_progress_fn=_emit_lsp_progress,
                 dataflow_capabilities=dataflow_capabilities,
+                identity_shadow_runtime=identity_shadow_runtime,
             ),
         )
     except Exception:
@@ -4621,6 +4779,8 @@ def execute_command_total(
         )
         raise
     finally:
+        if identity_registry_mirror is not None:
+            identity_registry_mirror.stop()
         if progress_emitter is not None:
             progress_emitter.stop()
         reset_forest(forest_token)

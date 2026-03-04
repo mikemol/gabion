@@ -1109,6 +1109,43 @@ def test_phase_progress_from_progress_notification() -> None:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification_accepts_canonical_v2_payload::cli.py::gabion.cli._phase_progress_from_progress_notification
+def test_phase_progress_from_progress_notification_accepts_canonical_v2_payload() -> None:
+    payload = cli._phase_progress_from_progress_notification(
+        {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v2",
+                "value": {
+                    "schema": "gabion/canonical_progress_event_v1",
+                    "format_version": 1,
+                    "adaptation_kind": "valid",
+                    "event": {
+                        "payload": {
+                            "phase": "forest",
+                            "work_done": 3,
+                            "work_total": 8,
+                            "completed_files": 282,
+                            "remaining_files": 0,
+                            "total_files": 282,
+                            "analysis_state": "analysis_forest_in_progress",
+                            "classification": "forest_projection",
+                            "done": False,
+                        }
+                    },
+                    "adaptation_error": "",
+                    "identity_allocation_delta_v1": [],
+                    "fallback_payload_v1": None,
+                },
+            },
+        }
+    )
+    assert isinstance(payload, dict)
+    assert payload["phase"] == "forest"
+    assert payload["work_done"] == 3
+    assert payload["work_total"] == 8
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_from_progress_notification_wrapper::cli.py::gabion.cli._phase_timeline_from_progress_notification::progress_contract.py::gabion.commands.progress_contract.phase_timeline_from_progress_notification
 def test_phase_timeline_from_progress_notification_wrapper() -> None:
     timeline = cli._phase_timeline_from_progress_notification(

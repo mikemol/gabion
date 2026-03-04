@@ -9,7 +9,10 @@ from gabion.commands.progress_transition import (
 from gabion.order_contract import sort_once
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
-LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+LSP_PROGRESS_TOKEN_V1 = "gabion.dataflowAudit/progress-v1"
+LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
+LSP_PROGRESS_TOKEN = LSP_PROGRESS_TOKEN_V1
+CANONICAL_PROGRESS_EVENT_SCHEMA_V1 = "gabion/canonical_progress_event_v1"
 DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS = 1.0
 
 _PHASE_TIMELINE_COLUMNS: tuple[str, ...] = (
@@ -150,6 +153,20 @@ def _progress_value_from_notification(
         return None
     value = params.get("value")
     if not isinstance(value, Mapping):
+        return None
+    return value
+
+
+def _canonical_progress_value_from_notification(
+    notification: Mapping[str, object],
+) -> Mapping[str, object] | None:
+    value = _progress_value_from_notification(
+        notification,
+        token=LSP_PROGRESS_TOKEN_V2,
+    )
+    if not isinstance(value, Mapping):
+        return None
+    if str(value.get("schema", "") or "") != CANONICAL_PROGRESS_EVENT_SCHEMA_V1:
         return None
     return value
 
@@ -321,9 +338,35 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
 def phase_progress_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, object] | None:
-    value = _progress_value_from_notification(notification)
-    if not isinstance(value, Mapping):
+    canonical_value = _canonical_progress_value_from_notification(notification)
+    if isinstance(canonical_value, Mapping):
+        adaptation_kind = str(canonical_value.get("adaptation_kind", "") or "").strip()
+        if adaptation_kind == "valid":
+            event_value = canonical_value.get("event")
+            if isinstance(event_value, Mapping):
+                payload = event_value.get("payload")
+                if isinstance(payload, Mapping):
+                    normalized_payload = _phase_progress_from_progress_value(payload)
+                    if isinstance(normalized_payload, dict):
+                        return normalized_payload
+        elif adaptation_kind == "rejected":
+            fallback_payload = canonical_value.get("fallback_payload_v1")
+            if isinstance(fallback_payload, Mapping):
+                normalized_payload = _phase_progress_from_progress_value(fallback_payload)
+                if isinstance(normalized_payload, dict):
+                    return normalized_payload
+    legacy_value = _progress_value_from_notification(
+        notification,
+        token=LSP_PROGRESS_TOKEN_V1,
+    )
+    if not isinstance(legacy_value, Mapping):
         return None
+    return _phase_progress_from_progress_value(legacy_value)
+
+
+def _phase_progress_from_progress_value(
+    value: Mapping[str, object],
+) -> dict[str, object] | None:
     phase = str(value.get("phase", "") or "")
     if not phase:
         return None

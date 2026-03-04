@@ -90,7 +90,13 @@ _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*
 
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 
-_LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+_LSP_PROGRESS_TOKEN_V1 = "gabion.dataflowAudit/progress-v1"
+
+_LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
+
+_LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V1
+
+_CANONICAL_PROGRESS_EVENT_SCHEMA_V1 = "gabion/canonical_progress_event_v1"
 
 _STDOUT_ALIAS = "-"
 
@@ -2259,6 +2265,9 @@ __all__ = [
     'TypeConstructorRegistry',
     '_LSP_PROGRESS_NOTIFICATION_METHOD',
     '_LSP_PROGRESS_TOKEN',
+    '_LSP_PROGRESS_TOKEN_V1',
+    '_LSP_PROGRESS_TOKEN_V2',
+    '_CANONICAL_PROGRESS_EVENT_SCHEMA_V1',
     '_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS',
     '_PROGRESS_DEADLINE_FLUSH_SECONDS',
     '_PROGRESS_DEADLINE_WATCHDOG_SECONDS',
