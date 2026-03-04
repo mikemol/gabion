@@ -402,9 +402,57 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
     assert "2/5 collection_files" not in row
 
 
-# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_profile_sample_interval_rejects_invalid_values::server.py::gabion.server._deadline_profile_sample_interval
-def test_deadline_profile_sample_interval_rejects_invalid_values() -> None:
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_analysis_timeout_grace_ns_parsing_precedence::server.py::gabion.server._analysis_timeout_grace_ns
+def test_analysis_timeout_grace_ns_parsing_precedence() -> None:
     server = _load()
+    assert (
+        server._analysis_timeout_grace_ns(
+            {
+                "analysis_timeout_grace_ticks": 3,
+                "analysis_timeout_grace_tick_ns": 100,
+                "analysis_timeout_grace_ms": 50,
+                "analysis_timeout_grace_seconds": "1",
+            },
+            total_ns=1_000_000_000,
+        )
+        == 300
+    )
+    assert (
+        server._analysis_timeout_grace_ns(
+            {
+                "analysis_timeout_grace_ms": 9,
+                "analysis_timeout_grace_seconds": "1",
+            },
+            total_ns=1_000_000_000,
+        )
+        == 9_000_000
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_analysis_timeout_grace_ns_rejects_invalid_values::server.py::gabion.server._analysis_timeout_grace_ns
+def test_analysis_timeout_grace_ns_rejects_invalid_values() -> None:
+    server = _load()
+    with pytest.raises(NeverThrown):
+        server._analysis_timeout_grace_ns(
+            {"analysis_timeout_grace_ticks": "bad", "analysis_timeout_grace_tick_ns": 10},
+            total_ns=1_000_000_000,
+        )
+    with pytest.raises(NeverThrown):
+        server._analysis_timeout_grace_ns(
+            {"analysis_timeout_grace_ms": 0},
+            total_ns=1_000_000_000,
+        )
+    with pytest.raises(NeverThrown):
+        server._analysis_timeout_grace_ns(
+            {"analysis_timeout_grace_seconds": "bad"},
+            total_ns=1_000_000_000,
+        )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_profile_sample_interval_normalization_and_validation::server.py::gabion.server._deadline_profile_sample_interval
+def test_deadline_profile_sample_interval_normalization_and_validation() -> None:
+    server = _load()
+    assert server._deadline_profile_sample_interval({}, default_interval=0) == 1
     assert (
         server._deadline_profile_sample_interval(
             {"deadline_profile_sample_interval": "16"}
@@ -419,6 +467,20 @@ def test_deadline_profile_sample_interval_rejects_invalid_values() -> None:
         server._deadline_profile_sample_interval(
             {"deadline_profile_sample_interval": 0}
         )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_truthy_flag_coercion_semantics::server.py::gabion.server._truthy_flag
+def test_truthy_flag_coercion_semantics() -> None:
+    server = _load()
+    assert server._truthy_flag(True) is True
+    assert server._truthy_flag(False) is False
+    assert server._truthy_flag(None) is False
+    assert server._truthy_flag(0) is False
+    assert server._truthy_flag(2) is True
+    assert server._truthy_flag(0.0) is False
+    assert server._truthy_flag(" on ") is True
+    assert server._truthy_flag("TRUE") is True
+    assert server._truthy_flag(" no ") is False
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._load_aspf_resume_state

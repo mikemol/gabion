@@ -85,11 +85,6 @@ _IMPACT_DIFF_HUNK_RE = re.compile(
 )
 _IMPACT_TEST_PATH_TOKENS = ("/tests/", "\\tests\\")
 
-_SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
-_SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
-_SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
-_ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR = 1
-_ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR = 5
 _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
 _DEFAULT_PHASE_TIMELINE_MD = Path(
@@ -106,7 +101,6 @@ _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = 1_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
-_DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL = 16
 _DEFAULT_PROGRESS_HEARTBEAT_SECONDS = 55.0
 _MIN_PROGRESS_HEARTBEAT_SECONDS = 5.0
 _PROGRESS_DEADLINE_FLUSH_SECONDS = 5.0
@@ -2116,14 +2110,7 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
 
 
 def _truthy_flag(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return False
-    if isinstance(value, (int, float)):
-        return value != 0
-    text = str(value).strip().lower()
-    return text in {"1", "true", "yes", "on"}
+    return orchestrator_primitives._truthy_flag(value)
 
 
 def _server_deadline_overhead_ns(
@@ -2131,38 +2118,18 @@ def _server_deadline_overhead_ns(
     *,
     divisor: int | None = None,
 ) -> int:
-    if total_ns <= 0:
-        return 0
-    divisor_value = (
-        _SERVER_DEADLINE_OVERHEAD_DIVISOR
-        if divisor is None
-        else int(divisor)
+    return orchestrator_primitives._server_deadline_overhead_ns(
+        total_ns,
+        divisor=divisor,
     )
-    if divisor_value <= 0:
-        never("invalid server deadline overhead divisor", divisor=divisor_value)
-    overhead = total_ns // divisor_value
-    if overhead < _SERVER_DEADLINE_OVERHEAD_MIN_NS:
-        overhead = _SERVER_DEADLINE_OVERHEAD_MIN_NS
-    if overhead > _SERVER_DEADLINE_OVERHEAD_MAX_NS:
-        overhead = _SERVER_DEADLINE_OVERHEAD_MAX_NS
-    if overhead >= total_ns:
-        overhead = max(0, total_ns - 1)
-    return overhead
 
 
 def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
-    return payload_codec.analysis_timeout_total_ns(
-        payload,
-        source="server._analysis_timeout_total_ns.payload_keys",
-        reject_sub_millisecond_seconds=True,
-    )
+    return orchestrator_primitives._analysis_timeout_total_ns(payload)
 
 
 def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
-    return payload_codec.analysis_timeout_total_ticks(
-        payload,
-        source="server._analysis_timeout_total_ticks.payload_keys",
-    )
+    return orchestrator_primitives._analysis_timeout_total_ticks(payload)
 
 
 def _analysis_timeout_grace_ns(
@@ -2170,89 +2137,27 @@ def _analysis_timeout_grace_ns(
     *,
     total_ns: int,
 ) -> int:
-    if total_ns <= 1:
-        return 0
-    grace_cap_ns = max(
-        1,
-        (total_ns * _ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR)
-        // _ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR,
+    return orchestrator_primitives._analysis_timeout_grace_ns(
+        payload,
+        total_ns=total_ns,
     )
-    provided_grace_ns: int | None = None
-    grace_ticks = payload.get("analysis_timeout_grace_ticks")
-    grace_tick_ns = payload.get("analysis_timeout_grace_tick_ns")
-    grace_ms = payload.get("analysis_timeout_grace_ms")
-    grace_seconds = payload.get("analysis_timeout_grace_seconds")
-    if grace_ticks not in (None, ""):
-        try:
-            grace_ticks_value = int(grace_ticks)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout grace ticks", ticks=grace_ticks)
-        if grace_ticks_value <= 0:
-            never("invalid analysis timeout grace ticks", ticks=grace_ticks)
-        if grace_tick_ns in (None, ""):
-            never(
-                "missing analysis timeout grace tick_ns",
-                analysis_timeout_grace_ticks=grace_ticks_value,
-            )
-        try:
-            grace_tick_ns_value = int(grace_tick_ns)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout grace tick_ns", tick_ns=grace_tick_ns)
-        if grace_tick_ns_value <= 0:
-            never("invalid analysis timeout grace tick_ns", tick_ns=grace_tick_ns)
-        provided_grace_ns = grace_ticks_value * grace_tick_ns_value
-    elif grace_ms not in (None, ""):
-        try:
-            grace_ms_value = int(grace_ms)
-        except (TypeError, ValueError):
-            never("invalid analysis timeout grace ms", ms=grace_ms)
-        if grace_ms_value <= 0:
-            never("invalid analysis timeout grace ms", ms=grace_ms)
-        provided_grace_ns = grace_ms_value * 1_000_000
-    elif grace_seconds not in (None, ""):
-        try:
-            grace_seconds_value = Decimal(str(grace_seconds))
-        except (InvalidOperation, ValueError):
-            never("invalid analysis timeout grace seconds", seconds=grace_seconds)
-        if grace_seconds_value <= 0:
-            never("invalid analysis timeout grace seconds", seconds=grace_seconds)
-        provided_grace_ns = int(grace_seconds_value * Decimal(1_000_000_000))
-    if provided_grace_ns is None:
-        return min(total_ns - 1, grace_cap_ns)
-    return max(1, min(total_ns - 1, grace_cap_ns, provided_grace_ns))
 
 
 def _analysis_timeout_budget_ns(
     payload: dict[str, object],
 ) -> tuple[int, int, int]:
-    total_ns = _analysis_timeout_total_ns(payload)
-    cleanup_grace_ns = _analysis_timeout_grace_ns(payload, total_ns=total_ns)
-    analysis_ns = max(1, total_ns - cleanup_grace_ns)
-    cleanup_ns = max(0, total_ns - analysis_ns)
-    return total_ns, analysis_ns, cleanup_ns
+    return orchestrator_primitives._analysis_timeout_budget_ns(payload)
 
 
 def _deadline_profile_sample_interval(
     payload: dict[str, object],
     *,
-    default_interval: int = _DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL,
+    default_interval: int = 16,
 ) -> int:
-    raw_value = payload.get("deadline_profile_sample_interval")
-    if raw_value in (None, ""):
-        return max(1, int(default_interval))
-    try:
-        interval = int(raw_value)
-    except (TypeError, ValueError):
-        never(
-            "invalid deadline profile sample interval",
-            deadline_profile_sample_interval=raw_value,
-        )
-    if interval <= 0:
-        never(
-            "invalid deadline profile sample interval",
-            deadline_profile_sample_interval=raw_value,
-        )
-    return interval
+    return orchestrator_primitives._deadline_profile_sample_interval(
+        payload,
+        default_interval=default_interval,
+    )
 
 
 def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
