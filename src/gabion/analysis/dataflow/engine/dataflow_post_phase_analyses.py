@@ -36,8 +36,16 @@ from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
 )
+from gabion.analysis.indexed_scan.ast.expression_eval import (
+    branch_reachability_under_env as _branch_reachability_under_env_impl,
+    eval_bool_expr as _eval_bool_expr_impl,
+    eval_value_expr as _eval_value_expr_impl,
+    is_reachability_false as _is_reachability_false_impl,
+    is_reachability_true as _is_reachability_true_impl,
+)
 from gabion.analysis.indexed_scan.obligations.exception_obligations import (
-    collect_exception_obligations_from_runtime_module as _collect_exception_obligations_impl_runtime,
+    collect_exception_obligations as _collect_exception_obligations_impl,
+    dead_env_map as _dead_env_map_impl,
 )
 from gabion.analysis.indexed_scan.obligations.handledness import (
     collect_handledness_witnesses as _collect_handledness_witnesses_impl,
@@ -197,6 +205,94 @@ def _scope_path(path: Path, root) -> str:
         except ValueError:
             pass
     return str(path)
+
+
+def _enclosing_function_node(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+):
+    check_deadline()
+    current = parents.get(node)
+    while current is not None:
+        check_deadline()
+        current_type = type(current)
+        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
+            return cast(ast.FunctionDef | ast.AsyncFunctionDef, current)
+        current = parents.get(current)
+    return None
+
+
+def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
+    check_deadline()
+    for stmt in block:
+        check_deadline()
+        if node is stmt:
+            return True
+        for child in ast.walk(stmt):
+            check_deadline()
+            if node is child:
+                return True
+    return False
+
+
+def _names_in_expr(expr: ast.AST) -> set[str]:
+    check_deadline()
+    names: set[str] = set()
+    for node in ast.walk(expr):
+        check_deadline()
+        if type(node) is ast.Name:
+            names.add(cast(ast.Name, node).id)
+    return names
+
+
+def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]):
+    return _eval_value_expr_impl(
+        expr,
+        env,
+        check_deadline_fn=check_deadline,
+    )
+
+
+def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]):
+    return _eval_bool_expr_impl(
+        expr,
+        env,
+        check_deadline_fn=check_deadline,
+    )
+
+
+def _branch_reachability_under_env(
+    node: ast.AST,
+    parents: dict[ast.AST, ast.AST],
+    env: dict[str, JSONValue],
+):
+    return _branch_reachability_under_env_impl(
+        node,
+        parents,
+        env,
+        check_deadline_fn=check_deadline,
+        node_in_block_fn=_node_in_block,
+    )
+
+
+def _is_reachability_false(reachability) -> bool:
+    return _is_reachability_false_impl(reachability)
+
+
+def _is_reachability_true(reachability) -> bool:
+    return _is_reachability_true_impl(reachability)
+
+
+def _dead_env_map(
+    deadness_witnesses,
+) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
+    runtime = _runtime_module()
+    return _dead_env_map_impl(
+        deadness_witnesses,
+        check_deadline_fn=check_deadline,
+        sequence_or_none_fn=runtime.sequence_or_none,
+        mapping_or_none_fn=runtime.mapping_or_none,
+        literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
+    )
 
 
 def _normalize_snapshot_path(path: Path, root) -> str:
@@ -608,12 +704,49 @@ class _ConstantFlowFoldAccumulator:
     )
 
 
-def _collect_exception_obligations(*args, **kwargs):
+def _collect_exception_obligations(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    handledness_witnesses=None,
+    deadness_witnesses=None,
+    never_exceptions=None,
+):
     runtime = _runtime_module()
-    return _collect_exception_obligations_impl_runtime(
-        *args,
-        runtime_module=runtime,
-        **kwargs,
+    return cast(
+        list[JSONObject],
+        _collect_exception_obligations_impl(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            handledness_witnesses=handledness_witnesses,
+            deadness_witnesses=deadness_witnesses,
+            never_exceptions=never_exceptions,
+            check_deadline_fn=check_deadline,
+            parent_annotator_factory=runtime.ParentAnnotator,
+            collect_functions_fn=runtime._collect_functions,
+            param_names_fn=runtime._param_names,
+            normalize_snapshot_path_fn=_normalize_snapshot_path,
+            enclosing_function_node_fn=_enclosing_function_node,
+            enclosing_scopes_fn=runtime._enclosing_scopes,
+            function_key_fn=_function_key,
+            exception_type_name_fn=runtime._exception_type_name,
+            decorator_matches_fn=runtime._decorator_matches,
+            is_never_marker_raise_fn=runtime._is_never_marker_raise,
+            exception_param_names_fn=runtime._exception_param_names,
+            exception_path_id_fn=runtime._exception_path_id,
+            sequence_or_none_fn=runtime.sequence_or_none,
+            branch_reachability_under_env_fn=_branch_reachability_under_env,
+            is_reachability_false_fn=_is_reachability_false,
+            is_reachability_true_fn=_is_reachability_true,
+            names_in_expr_fn=_names_in_expr,
+            sort_once_fn=sort_once,
+            order_policy_sort=runtime.OrderPolicy.SORT,
+            order_policy_enforce=runtime.OrderPolicy.ENFORCE,
+            mapping_or_none_fn=runtime.mapping_or_none,
+            literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
+        ),
     )
 
 
@@ -635,11 +768,11 @@ def _collect_handledness_witnesses(
             collect_functions_fn=runtime._collect_functions,
             param_names_fn=runtime._param_names,
             param_annotations_fn=runtime._param_annotations,
-            normalize_snapshot_path_fn=runtime._normalize_snapshot_path,
+            normalize_snapshot_path_fn=_normalize_snapshot_path,
             find_handling_try_fn=runtime._find_handling_try,
-            enclosing_function_node_fn=runtime._enclosing_function_node,
+            enclosing_function_node_fn=_enclosing_function_node,
             enclosing_scopes_fn=runtime._enclosing_scopes,
-            function_key_fn=runtime._function_key,
+            function_key_fn=_function_key,
             refine_exception_name_from_annotations_fn=runtime._refine_exception_name_from_annotations,
             exception_param_names_fn=runtime._exception_param_names,
             exception_path_id_fn=runtime._exception_path_id,
@@ -673,18 +806,18 @@ def _collect_never_invariants(
             parent_annotator_factory=runtime.ParentAnnotator,
             collect_functions_fn=runtime._collect_functions,
             param_names_fn=runtime._param_names,
-            normalize_snapshot_path_fn=runtime._normalize_snapshot_path,
-            enclosing_function_node_fn=runtime._enclosing_function_node,
+            normalize_snapshot_path_fn=_normalize_snapshot_path,
+            enclosing_function_node_fn=_enclosing_function_node,
             enclosing_scopes_fn=runtime._enclosing_scopes,
-            function_key_fn=runtime._function_key,
+            function_key_fn=_function_key,
             exception_param_names_fn=runtime._exception_param_names,
             node_span_fn=runtime._node_span,
-            dead_env_map_fn=runtime._dead_env_map,
-            branch_reachability_under_env_fn=runtime._branch_reachability_under_env,
-            is_reachability_false_fn=runtime._is_reachability_false,
-            is_reachability_true_fn=runtime._is_reachability_true,
-            names_in_expr_fn=runtime._names_in_expr,
-            sort_once_fn=runtime.sort_once,
+            dead_env_map_fn=_dead_env_map,
+            branch_reachability_under_env_fn=_branch_reachability_under_env,
+            is_reachability_false_fn=_is_reachability_false,
+            is_reachability_true_fn=_is_reachability_true,
+            names_in_expr_fn=_names_in_expr,
+            sort_once_fn=sort_once,
             order_policy_sort=runtime.OrderPolicy.SORT,
             order_policy_enforce=runtime.OrderPolicy.ENFORCE,
             is_marker_call_fn=runtime._is_marker_call,

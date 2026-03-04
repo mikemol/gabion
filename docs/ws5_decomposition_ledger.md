@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4370
-- Monolith top-level import statements (current): 103
+- Monolith LOC (current): 4295
+- Monolith top-level import statements (current): 102
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -104,9 +104,27 @@ doc_scope:
     - policy checks passed
     - targeted pytest passed (`37 passed` for touched suites)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Reachability/dead-env helper relocation to post-phase owner:
+    - `_enclosing_function_node`
+    - `_node_in_block`
+    - `_names_in_expr`
+    - `_eval_value_expr`
+    - `_eval_bool_expr`
+    - `_branch_reachability_under_env`
+    - `_is_reachability_false`
+    - `_is_reachability_true`
+    - `_dead_env_map`
+  - Post-phase exception/never analyzers switched to owner-local helper wiring (direct deps) instead of monolith runtime helper lookup.
+  - Monolith compatibility maintained via alias exports for helper API surface (`da._EvalDecision`, helper callables).
+  - ASPF no-change acknowledgement refreshed (`in-68`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`36 passed` for touched suites)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Post-phase ownership cleanup: relocate remaining exception/dead-env/reachability helper bodies to post-phase owner.
+1. Post-phase ownership cleanup: relocate remaining exception annotation/handler helper bodies to post-phase owner and trim monolith leftovers.
 2. Analysis-index ownership expansion: cache identity carriers + indexed pass/build surfaces.
 3. Projection/ambiguity ownership expansion and remaining facade contraction.
 

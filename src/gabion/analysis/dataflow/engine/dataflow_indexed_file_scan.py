@@ -220,17 +220,26 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_constant_flow_details,
     _collect_dataclass_registry,
+    _dead_env_map,
+    _branch_reachability_under_env,
     _collect_exception_obligations,
     _collect_handledness_witnesses,
     _collect_invariant_propositions,
     _collect_never_invariants,
     _combine_type_hints,
+    _enclosing_function_node,
+    _eval_bool_expr,
+    _eval_value_expr,
     _compute_knob_param_names,
     _expand_type_hint,
     _format_call_site,
     _format_type_flow_site,
+    _is_reachability_false,
+    _is_reachability_true,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
+    _names_in_expr,
+    _node_in_block,
     _param_annotations_by_path,
     _split_top_level,
     _type_from_const_repr,
@@ -277,8 +286,6 @@ from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheDeps as _AnalysisIndexStageCacheDeps, analysis_index_stage_cache as _analysis_index_stage_cache_impl)
 from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
     AnalysisIndexModuleTreesDeps as _AnalysisIndexModuleTreesDeps, analysis_index_module_trees as _analysis_index_module_trees_impl)
-from gabion.analysis.indexed_scan.obligations.exception_obligations import (
-    dead_env_map as _dead_env_map_impl)
 from gabion.analysis.indexed_scan.obligations.never_invariants import (
     keyword_links_literal as _keyword_links_literal_impl, keyword_string_literal as _keyword_string_literal_impl, never_reason as _never_reason_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
@@ -288,7 +295,7 @@ from gabion.analysis.indexed_scan.scanners.flow.group_propagation import (
 from gabion.analysis.indexed_scan.scanners.materialization.structured_suite_sites import (
     MaterializeStructuredSuiteSitesDeps as _MaterializeStructuredSuiteSitesDeps, MaterializeStructuredSuiteSitesForTreeDeps as _MaterializeStructuredSuiteSitesForTreeDeps, materialize_structured_suite_sites as _materialize_structured_suite_sites_impl, materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_impl)
 from gabion.analysis.indexed_scan.ast.expression_eval import (
-    BoolEvalOutcome as _BoolEvalOutcome, EvalDecision as _EvalDecision, ValueEvalOutcome as _ValueEvalOutcome, branch_reachability_under_env as _branch_reachability_under_env_impl, eval_bool_expr as _eval_bool_expr_impl, eval_value_expr as _eval_value_expr_impl, is_reachability_false as _is_reachability_false_impl, is_reachability_true as _is_reachability_true_impl)
+    BoolEvalOutcome as _BoolEvalOutcome, EvalDecision as _EvalDecision, ValueEvalOutcome as _ValueEvalOutcome)
 from gabion.analysis.indexed_scan.scanners.materialization.statement_materialization import (
     materialize_statement_suite_contains as _materialize_statement_suite_contains_impl)
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
@@ -1488,19 +1495,6 @@ def _parse_module_tree(
         )
         return None
 
-def _enclosing_function_node(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-):
-    check_deadline()
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        current_type = type(current)
-        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
-            return cast(ast.FunctionDef | ast.AsyncFunctionDef, current)
-        current = parents.get(current)
-    return None
-
 def _exception_param_names(expr, params: set[str]) -> list[str]:
     return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
 
@@ -1603,75 +1597,6 @@ def _find_handling_try(
     return next(
         (try_node for try_node in try_ancestors if _node_in_try_body(node, try_node)),
         None,
-    )
-
-def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
-    check_deadline()
-    for stmt in block:
-        check_deadline()
-        if node is stmt:
-            return True
-        for child in ast.walk(stmt):
-            check_deadline()
-            if node is child:
-                return True
-    return False
-
-def _names_in_expr(expr: ast.AST) -> set[str]:
-    check_deadline()
-    names: set[str] = set()
-    for node in ast.walk(expr):
-        check_deadline()
-        if type(node) is ast.Name:
-            names.add(cast(ast.Name, node).id)
-    return names
-
-def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _ValueEvalOutcome:
-    return _eval_value_expr_impl(
-        expr,
-        env,
-        check_deadline_fn=check_deadline,
-    )
-
-
-def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> _BoolEvalOutcome:
-    return _eval_bool_expr_impl(
-        expr,
-        env,
-        check_deadline_fn=check_deadline,
-    )
-
-
-def _branch_reachability_under_env(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-    env: dict[str, JSONValue],
-) -> _EvalDecision:
-    return _branch_reachability_under_env_impl(
-        node,
-        parents,
-        env,
-        check_deadline_fn=check_deadline,
-        node_in_block_fn=_node_in_block,
-    )
-
-
-def _is_reachability_false(reachability: _EvalDecision) -> bool:
-    return _is_reachability_false_impl(reachability)
-
-
-def _is_reachability_true(reachability: _EvalDecision) -> bool:
-    return _is_reachability_true_impl(reachability)
-
-def _dead_env_map(
-    deadness_witnesses,
-) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
-    return _dead_env_map_impl(
-        deadness_witnesses,
-        check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
-        literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
     )
 
 def _keyword_string_literal(call: ast.Call, key: str) -> str:
