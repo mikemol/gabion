@@ -52,7 +52,7 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 
 from gabion.analysis.semantics.schema_audit import find_anonymous_schema_surfaces
 
-from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId, structural_key_atom, structural_key_json
+from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 
@@ -73,7 +73,7 @@ from gabion.analysis.foundation.marker_protocol import (
     DEFAULT_MARKER_ALIASES)
 
 from gabion.analysis.core.type_fingerprints import (
-    Fingerprint, FingerprintDimension, PrimeRegistry, TypeConstructorRegistry, _collect_base_atoms, _collect_constructors, SynthRegistry, build_synth_registry, build_fingerprint_registry, build_synth_registry_from_payload, bundle_fingerprint_dimensional, format_fingerprint, fingerprint_carrier_soundness, fingerprint_identity_payload, fingerprint_stage_cache_identity, synth_registry_payload)
+    Fingerprint, FingerprintDimension, PrimeRegistry, TypeConstructorRegistry, _collect_base_atoms, _collect_constructors, SynthRegistry, build_synth_registry, build_fingerprint_registry, build_synth_registry_from_payload, bundle_fingerprint_dimensional, format_fingerprint, fingerprint_carrier_soundness, fingerprint_identity_payload, synth_registry_payload)
 
 from gabion.analysis.core.forest_signature import (
     build_forest_signature, build_forest_signature_from_groups)
@@ -270,9 +270,22 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _analysis_index_resolved_call_edges_by_caller,
     _analysis_index_transitive_callers,
     _build_call_graph,
+    _build_stage_cache_identity_spec,
+    _cache_identity_aliases,
+    _canonical_cache_identity,
+    _canonical_stage_cache_detail,
+    _canonical_stage_cache_identity,
     _collect_transitive_callers,
+    _get_stage_cache_bucket,
+    _index_stage_cache_identity,
     _iter_resolved_edge_param_events,
+    _normalize_cache_config,
+    _parse_stage_cache_key,
+    _projection_stage_cache_identity,
     _reduce_resolved_call_edges,
+    _resume_variant_for_identity,
+    _sorted_text,
+    _stage_cache_key_aliases,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
@@ -320,7 +333,7 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
-    normalize_key_expr as _normalize_key_expr_impl, stage_cache_key_aliases as _stage_cache_key_aliases_impl)
+    normalize_key_expr as _normalize_key_expr_impl)
 from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
     analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
@@ -2539,160 +2552,6 @@ class _ResumeCacheIdentityPair:
                 field="projection_cache_identity",
             ),
         )
-
-def _sorted_text(values = None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    cleaned = {str(value).strip() for value in values if str(value).strip()}
-    return tuple(sort_once(cleaned, source = 'gabion.analysis.dataflow_indexed_file_scan._sorted_text.site_1'))
-
-def _normalize_cache_config(value: JSONValue) -> JSONValue:
-    if type(value) is dict:
-        mapping = cast(dict[object, JSONValue], value)
-        normalized = {
-            str(key): _normalize_cache_config(mapping[key])
-            for key in sort_once(mapping, source="_normalize_cache_config.mapping")
-        }
-        return cast(JSONValue, normalized)
-    if type(value) is list:
-        return cast(JSONValue, [_normalize_cache_config(item) for item in value])
-    return value
-
-def _canonical_stage_cache_detail(detail: Hashable) -> str:
-    structural_detail = structural_key_atom(
-        detail,
-        source="gabion.analysis.dataflow_indexed_file_scan._canonical_stage_cache_detail",
-    )
-    canonical_json = structural_key_json(structural_detail)
-    return json.dumps(canonical_json, sort_keys=False, separators=(",", ":"))
-
-def _build_stage_cache_identity_spec(
-    *,
-    stage: Literal["parse", "index", "projection"],
-    cache_context: _CacheSemanticContext,
-    config_subset: Mapping[str, JSONValue],
-) -> _StageCacheIdentitySpec:
-    normalized_config = _normalize_cache_config(cast(JSONValue, config_subset))
-    return _StageCacheIdentitySpec(
-        stage=stage,
-        forest_spec_id=str(cache_context.forest_spec_id or ""),
-        fingerprint_seed_revision=fingerprint_stage_cache_identity(cache_context.fingerprint_seed_revision),
-        normalized_config=normalized_config,
-    )
-
-def _canonical_stage_cache_identity(spec: _StageCacheIdentitySpec) -> str:
-    payload: dict[str, JSONValue] = {
-        "stage": spec.stage,
-        "forest_spec_id": spec.forest_spec_id,
-        "fingerprint_seed_revision": spec.fingerprint_seed_revision,
-        "config_subset": spec.normalized_config,
-    }
-    digest = hashlib.sha1(
-        json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    return f"aspf:sha1:{digest}"
-
-def _canonical_cache_identity(
-    *,
-    stage: Literal["parse", "index", "projection"],
-    cache_context: _CacheSemanticContext,
-    config_subset: Mapping[str, JSONValue],
-) -> _CacheIdentity:
-    spec = _build_stage_cache_identity_spec(
-        stage=stage,
-        cache_context=cache_context,
-        config_subset=config_subset,
-    )
-    canonical = _CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
-    if canonical is None:
-        never("failed to construct canonical cache identity", stage=stage)  # pragma: no cover - invariant sink
-    return canonical
-
-def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
-    canonical = _CacheIdentity.from_boundary(identity)
-    if canonical is None:
-        return ("",)
-    return (canonical.value,)
-
-def _resume_variant_for_identity(
-    variants: Mapping[str, JSONObject],
-    expected_identity: _CacheIdentity,
-):
-    direct = variants.get(expected_identity.value)
-    if direct is not None:
-        return direct
-    return None
-
-def _parse_stage_cache_key(
-    *,
-    stage: _ParseModuleStage,
-    cache_context: _CacheSemanticContext,
-    config_subset: Mapping[str, JSONValue],
-    detail: Hashable,
-) -> NodeId:
-    identity = _canonical_cache_identity(
-        stage="parse",
-        cache_context=cache_context,
-        config_subset=config_subset,
-    )
-    return NodeId(
-        kind="ParseStageCacheIdentity",
-        key=(
-            stage.value,
-            identity.value,
-            _canonical_stage_cache_detail(detail),
-        ),
-    )
-
-def _index_stage_cache_identity(
-    *,
-    cache_context: _CacheSemanticContext,
-    config_subset: Mapping[str, JSONValue],
-) -> _CacheIdentity:
-    return _canonical_cache_identity(
-        stage="index",
-        cache_context=cache_context,
-        config_subset=config_subset,
-    )
-
-def _projection_stage_cache_identity(
-    *,
-    cache_context: _CacheSemanticContext,
-    config_subset: Mapping[str, JSONValue],
-) -> _CacheIdentity:
-    return _canonical_cache_identity(
-        stage="projection",
-        cache_context=cache_context,
-        config_subset=config_subset,
-    )
-
-def _stage_cache_key_aliases(key: Hashable) -> tuple[Hashable, ...]:
-    return _stage_cache_key_aliases_impl(
-        key,
-        cache_identity_aliases_fn=_cache_identity_aliases,
-        cache_identity_prefix=_CACHE_IDENTITY_PREFIX,
-        cache_identity_digest_hex=_CACHE_IDENTITY_DIGEST_HEX,
-        node_id_type=NodeId,
-    )
-
-def _get_stage_cache_bucket(
-    analysis_index: AnalysisIndex,
-    *,
-    scoped_cache_key: Hashable,
-) -> dict[Path, object]:
-    stage_cache_by_key = analysis_index.stage_cache_by_key
-    bucket = stage_cache_by_key.get(scoped_cache_key)
-    if bucket is not None:
-        return bucket
-    for candidate_key in _stage_cache_key_aliases(scoped_cache_key):
-        check_deadline()
-        if candidate_key == scoped_cache_key:
-            continue
-        legacy_bucket = stage_cache_by_key.get(candidate_key)
-        if legacy_bucket is not None:
-            stage_cache_by_key[scoped_cache_key] = legacy_bucket
-            return legacy_bucket
-    return stage_cache_by_key.setdefault(scoped_cache_key, {})
 
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())

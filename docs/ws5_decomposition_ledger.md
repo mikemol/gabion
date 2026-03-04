@@ -1,5 +1,5 @@
 ---
-doc_revision: 9
+doc_revision: 10
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4025
+- Monolith LOC (current): 3884
 - Monolith top-level import statements (current): 100
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -159,6 +159,28 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest passed (`71 passed` for touched suites)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner expansion for cache-identity and stage-cache key surfaces:
+    - `_sorted_text`
+    - `_normalize_cache_config`
+    - `_canonical_stage_cache_detail`
+    - `_build_stage_cache_identity_spec`
+    - `_canonical_stage_cache_identity`
+    - `_canonical_cache_identity`
+    - `_cache_identity_aliases`
+    - `_resume_variant_for_identity`
+    - `_parse_stage_cache_key`
+    - `_index_stage_cache_identity`
+    - `_projection_stage_cache_identity`
+    - `_stage_cache_key_aliases`
+    - `_get_stage_cache_bucket`
+  - Removed corresponding monolith bodies and switched to owner aliases.
+  - Owner runtime coupling tightened: canonical helpers now imported directly from ASPF/type-fingerprint/key-alias modules rather than monolith namespace fallthrough.
+  - ASPF no-change acknowledgement refreshed (`in-71`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`78 passed` for touched suites)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
