@@ -86,11 +86,22 @@ def test_parity_gate_normalizes_payload_and_is_deterministic() -> None:
     assert first["checked_commands"][0]["parity_ok"] is True
 
 
-# gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_lsp_command_executor_map_covers_known_and_unknown::server.py::gabion.server._lsp_command_executor
-def test_lsp_command_executor_map_covers_known_and_unknown() -> None:
+# gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_command_executor_transport_filtering_is_stable::server.py::gabion.server._lsp_command_executor
+def test_command_executor_transport_filtering_is_stable() -> None:
     assert server._lsp_command_executor(server.CHECK_COMMAND) is server.execute_command
     assert server._lsp_command_executor(server.IMPACT_COMMAND) is server.execute_impact
+    assert server._lsp_command_executor(server.LSP_PARITY_GATE_COMMAND) is None
+    assert (
+        server._direct_command_executor(server.LSP_PARITY_GATE_COMMAND)
+        is server.execute_lsp_parity_gate
+    )
     assert server._lsp_command_executor("gabion.unknown") is None
+    assert server._direct_command_executor("gabion.unknown") is None
+
+
+# gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_command_dispatch_registry_covers_semantic_command_ids::server.py::gabion.server._validate_command_dispatch_registry_coverage
+def test_command_dispatch_registry_covers_semantic_command_ids() -> None:
+    assert set(server._COMMAND_DISPATCH_REGISTRY) == set(server.command_ids.SEMANTIC_COMMAND_IDS)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_strip_parity_ignored_keys_filters_requested_fields::server.py::gabion.server._strip_parity_ignored_keys
