@@ -63,6 +63,7 @@ from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
     boundary_order, check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
+from gabion.commands.lint_parser import parse_lint_line
 from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -135,7 +136,6 @@ CliRunCiWatchFn: TypeAlias = Callable[
     tooling_ci_watch.StatusWatchResult,
 ]
 
-_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
@@ -543,21 +543,11 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _parse_lint_line(line: str) -> dict[str, object] | None:
-    match = _LINT_RE.match(line.strip())
-    if not match:
+    entry = parse_lint_line(line)
+    if entry is None:
         return None
-    line_no = int(match.group("line"))
-    col_no = int(match.group("col"))
-    rest = match.group("rest").strip()
-    if not rest:
-        return None
-    code, _, message = rest.partition(" ")
     return {
-        "path": match.group("path"),
-        "line": line_no,
-        "col": col_no,
-        "code": code,
-        "message": message,
+        **entry.model_dump(),
         "severity": "warning",
     }
 
