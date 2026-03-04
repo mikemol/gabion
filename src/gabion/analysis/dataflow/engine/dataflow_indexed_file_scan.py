@@ -266,9 +266,12 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     generate_property_hook_manifest,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _analysis_index_module_trees,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
+    _analysis_index_stage_cache,
     _analysis_index_transitive_callers,
+    _build_analysis_index,
     _build_call_graph,
     _build_stage_cache_identity_spec,
     _cache_identity_aliases,
@@ -284,6 +287,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _projection_stage_cache_identity,
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
+    _run_indexed_pass,
     _sorted_text,
     _stage_cache_key_aliases,
 )
@@ -314,10 +318,6 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfoRuntime, FunctionSuiteKey as _FunctionSuiteKeyRuntime, FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime, FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime, bind_call_args as _bind_call_args_impl, call_candidate_target_site as _call_candidate_target_site_impl, caller_param_bindings_for_call as _caller_param_bindings_for_call_impl, classify_deadline_expr as _classify_deadline_expr_impl, collect_call_edges_from_forest as _collect_call_edges_from_forest_impl, collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl, collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl, deadline_arg_info_map as _deadline_arg_info_map_impl, deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl, fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl, function_suite_id as _function_suite_id_impl, function_suite_key as _function_suite_key_impl, is_deadline_origin_call as _is_deadline_origin_call_impl, materialize_call_candidates as _materialize_call_candidates_impl, node_to_function_suite_id as _node_to_function_suite_id_impl, node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl, obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl, suite_caller_function_id as _suite_caller_function_id_impl)
 from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
-from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
-    AnalysisIndexStageCacheDeps as _AnalysisIndexStageCacheDeps, analysis_index_stage_cache as _analysis_index_stage_cache_impl)
-from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
-    AnalysisIndexModuleTreesDeps as _AnalysisIndexModuleTreesDeps, analysis_index_module_trees as _analysis_index_module_trees_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl, spec_row_span as _spec_row_span_impl)
 from gabion.analysis.indexed_scan.scanners.flow.group_propagation import (
@@ -338,8 +338,6 @@ from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
     analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
     decorator_name as _decorator_name_impl, resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_impl)
-from gabion.analysis.indexed_scan.index.analysis_index_builder import (
-    AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps, build_analysis_index as _build_analysis_index_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
     populate_bundle_forest_from_runtime_module as _populate_bundle_forest_impl_runtime)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
@@ -2582,159 +2580,6 @@ def _build_module_artifacts(
                     _PARSE_MODULE_ERROR_TYPES,
                 ),
                 record_parse_failure_witness_fn=_record_parse_failure_witness,
-            ),
-        ),
-    )
-
-def _build_analysis_index(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators=None,
-    parse_failure_witnesses: list[JSONObject],
-    resume_payload=None,
-    on_progress=None,
-    accumulate_function_index_for_tree_fn=None,
-    forest_spec_id=None,
-    fingerprint_seed_revision=None,
-    decision_ignore_params=None,
-    decision_require_tiers: bool = False,
-) -> AnalysisIndex:
-    return cast(
-        AnalysisIndex,
-        _build_analysis_index_impl(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-            resume_payload=resume_payload,
-            on_progress=on_progress,
-            accumulate_function_index_for_tree_fn=accumulate_function_index_for_tree_fn,
-            forest_spec_id=forest_spec_id,
-            fingerprint_seed_revision=fingerprint_seed_revision,
-            decision_ignore_params=decision_ignore_params,
-            decision_require_tiers=decision_require_tiers,
-            deps=_AnalysisIndexBuildDeps(
-                check_deadline_fn=check_deadline,
-                accumulate_function_index_for_tree_default_fn=_accumulate_function_index_for_tree,
-                sorted_text_fn=_sorted_text,
-                cache_context_ctor=_CacheSemanticContext,
-                index_stage_cache_identity_fn=_index_stage_cache_identity,
-                projection_stage_cache_identity_fn=_projection_stage_cache_identity,
-                iter_monotonic_paths_fn=_iter_monotonic_paths,
-                load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload,
-                function_index_acc_ctor=_FunctionIndexAccumulator,
-                sort_once_fn=sort_once,
-                profiling_payload_fn=_profiling_v1_payload,
-                serialize_resume_payload_fn=_serialize_analysis_index_resume_payload,
-                parse_module_source_fn=_parse_module_source,
-                parse_module_error_types=cast(
-                    tuple[type[BaseException], ...],
-                    _PARSE_MODULE_ERROR_TYPES,
-                ),
-                record_parse_failure_witness_fn=_record_parse_failure_witness,
-                parse_module_stage_function_index=_ParseModuleStage.FUNCTION_INDEX,
-                parse_module_stage_symbol_table=_ParseModuleStage.SYMBOL_TABLE,
-                parse_module_stage_class_index=_ParseModuleStage.CLASS_INDEX,
-                accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree,
-                accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree,
-                timeout_exceeded_type=TimeoutExceeded,
-                analysis_index_ctor=AnalysisIndex,
-                progress_emit_min_interval_seconds=_PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-            ),
-        ),
-    )
-
-def _run_indexed_pass(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-    spec: _IndexedPassSpec[_IndexedPassResult],
-    build_index: Callable[..., AnalysisIndex] = _build_analysis_index,
-) -> _IndexedPassResult:
-    check_deadline()
-    sink = _parse_failure_sink(parse_failure_witnesses)
-    index = analysis_index
-    if index is None:
-        index = build_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=sink,
-        )
-    context = _IndexedPassContext(
-        paths=paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=sink,
-        analysis_index=index,
-    )
-    return spec.run(context)
-
-def _analysis_index_module_trees(
-    analysis_index: AnalysisIndex,
-    paths: list[Path],
-    *,
-    stage: _ParseModuleStage,
-    parse_failure_witnesses: list[JSONObject],
-):
-    return cast(
-        dict[Path, ast.Module | None],
-        _analysis_index_module_trees_impl(
-            analysis_index,
-            paths,
-            stage=stage,
-            parse_failure_witnesses=parse_failure_witnesses,
-            deps=_AnalysisIndexModuleTreesDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_source_fn=cast(Callable[[Path], object], _parse_module_source),
-                parse_module_error_types=_PARSE_MODULE_ERROR_TYPES,
-                record_parse_failure_witness_fn=_record_parse_failure_witness,
-            ),
-        ),
-    )
-
-def _analysis_index_stage_cache(
-    analysis_index: AnalysisIndex,
-    paths: list[Path],
-    *,
-    spec: _StageCacheSpec[_StageCacheValue],
-    parse_failure_witnesses: list[JSONObject],
-    module_trees_fn = None,
-):
-    return cast(
-        dict[Path, _StageCacheValue | None],
-        _analysis_index_stage_cache_impl(
-            analysis_index,
-            paths,
-            spec=spec,
-            parse_failure_witnesses=parse_failure_witnesses,
-            module_trees_fn=module_trees_fn,
-            deps=_AnalysisIndexStageCacheDeps(
-                check_deadline_fn=check_deadline,
-                get_global_derivation_cache_fn=get_global_derivation_cache,
-                analysis_index_module_trees_fn=_analysis_index_module_trees,
-                get_stage_cache_bucket_fn=_get_stage_cache_bucket,
-                path_dependency_payload_fn=_path_dependency_payload,
-                analysis_index_stage_cache_op=_ANALYSIS_INDEX_STAGE_CACHE_OP,
             ),
         ),
     )

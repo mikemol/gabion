@@ -17,7 +17,20 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
 )
+from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.indexed_scan.index.analysis_index_builder import (
+    AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps,
+    build_analysis_index as _build_analysis_index_impl,
+)
+from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
+    AnalysisIndexModuleTreesDeps as _AnalysisIndexModuleTreesDeps,
+    analysis_index_module_trees as _analysis_index_module_trees_impl,
+)
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheDeps as _AnalysisIndexStageCacheDeps,
+    analysis_index_stage_cache as _analysis_index_stage_cache_impl,
+)
 from gabion.analysis.indexed_scan.scanners.edge_param_events import (
     iter_resolved_edge_param_events as _iter_resolved_edge_param_events_impl,
 )
@@ -430,21 +443,147 @@ def _build_analysis_index(
     decision_require_tiers=False,
 ):
     runtime = _runtime_module()
-    return runtime._build_analysis_index(
-        paths,
+    return cast(
+        object,
+        _build_analysis_index_impl(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+            resume_payload=resume_payload,
+            on_progress=on_progress,
+            accumulate_function_index_for_tree_fn=None,
+            forest_spec_id=forest_spec_id,
+            fingerprint_seed_revision=fingerprint_seed_revision,
+            decision_ignore_params=decision_ignore_params,
+            decision_require_tiers=decision_require_tiers,
+            deps=_AnalysisIndexBuildDeps(
+                check_deadline_fn=check_deadline,
+                accumulate_function_index_for_tree_default_fn=runtime._accumulate_function_index_for_tree,
+                sorted_text_fn=_sorted_text,
+                cache_context_ctor=runtime._CacheSemanticContext,
+                index_stage_cache_identity_fn=_index_stage_cache_identity,
+                projection_stage_cache_identity_fn=_projection_stage_cache_identity,
+                iter_monotonic_paths_fn=runtime._iter_monotonic_paths,
+                load_analysis_index_resume_payload_fn=runtime._load_analysis_index_resume_payload,
+                function_index_acc_ctor=runtime._FunctionIndexAccumulator,
+                sort_once_fn=sort_once,
+                profiling_payload_fn=runtime._profiling_v1_payload,
+                serialize_resume_payload_fn=runtime._serialize_analysis_index_resume_payload,
+                parse_module_source_fn=runtime._parse_module_source,
+                parse_module_error_types=cast(
+                    tuple[type[BaseException], ...],
+                    runtime._PARSE_MODULE_ERROR_TYPES,
+                ),
+                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+                parse_module_stage_function_index=runtime._ParseModuleStage.FUNCTION_INDEX,
+                parse_module_stage_symbol_table=runtime._ParseModuleStage.SYMBOL_TABLE,
+                parse_module_stage_class_index=runtime._ParseModuleStage.CLASS_INDEX,
+                accumulate_symbol_table_for_tree_fn=runtime._accumulate_symbol_table_for_tree,
+                accumulate_class_index_for_tree_fn=runtime._accumulate_class_index_for_tree,
+                timeout_exceeded_type=runtime.TimeoutExceeded,
+                analysis_index_ctor=runtime.AnalysisIndex,
+                progress_emit_min_interval_seconds=runtime._PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+            ),
+        ),
+    )
+
+
+def _analysis_index_module_trees(
+    analysis_index,
+    paths,
+    *,
+    stage,
+    parse_failure_witnesses,
+):
+    runtime = _runtime_module()
+    return cast(
+        dict[Path, object | None],
+        _analysis_index_module_trees_impl(
+            analysis_index,
+            paths,
+            stage=stage,
+            parse_failure_witnesses=parse_failure_witnesses,
+            deps=_AnalysisIndexModuleTreesDeps(
+                check_deadline_fn=check_deadline,
+                parse_module_source_fn=runtime._parse_module_source,
+                parse_module_error_types=runtime._PARSE_MODULE_ERROR_TYPES,
+                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+            ),
+        ),
+    )
+
+
+def _analysis_index_stage_cache(
+    analysis_index,
+    paths,
+    *,
+    spec,
+    parse_failure_witnesses,
+    module_trees_fn=None,
+):
+    runtime = _runtime_module()
+    return cast(
+        dict[Path, object | None],
+        _analysis_index_stage_cache_impl(
+            analysis_index,
+            paths,
+            spec=spec,
+            parse_failure_witnesses=parse_failure_witnesses,
+            module_trees_fn=module_trees_fn,
+            deps=_AnalysisIndexStageCacheDeps(
+                check_deadline_fn=check_deadline,
+                get_global_derivation_cache_fn=get_global_derivation_cache,
+                analysis_index_module_trees_fn=_analysis_index_module_trees,
+                get_stage_cache_bucket_fn=_get_stage_cache_bucket,
+                path_dependency_payload_fn=runtime._path_dependency_payload,
+                analysis_index_stage_cache_op=runtime._ANALYSIS_INDEX_STAGE_CACHE_OP,
+            ),
+        ),
+    )
+
+
+def _run_indexed_pass(
+    paths,
+    *,
+    project_root,
+    ignore_params,
+    strictness,
+    external_filter,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+    spec,
+    build_index=_build_analysis_index,
+):
+    runtime = _runtime_module()
+    check_deadline()
+    sink = runtime._parse_failure_sink(parse_failure_witnesses)
+    index = analysis_index
+    if index is None:
+        index = build_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=sink,
+        )
+    context = runtime._IndexedPassContext(
+        paths=paths,
         project_root=project_root,
         ignore_params=ignore_params,
         strictness=strictness,
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        resume_payload=resume_payload,
-        on_progress=on_progress,
-        forest_spec_id=forest_spec_id,
-        fingerprint_seed_revision=fingerprint_seed_revision,
-        decision_ignore_params=decision_ignore_params,
-        decision_require_tiers=decision_require_tiers,
+        parse_failure_witnesses=sink,
+        analysis_index=index,
     )
+    return spec.run(context)
 
 
 def _load_analysis_collection_resume_payload(
@@ -461,14 +600,11 @@ def _load_analysis_collection_resume_payload(
     )
 
 
-def _run_indexed_pass(*args, **kwargs):
-    runtime = _runtime_module()
-    return runtime._run_indexed_pass(*args, **kwargs)
-
-
 __all__ = [
+    "_analysis_index_module_trees",
     "_analysis_index_resolved_call_edges",
     "_analysis_index_resolved_call_edges_by_caller",
+    "_analysis_index_stage_cache",
     "_analysis_index_transitive_callers",
     "_analyze_file_internal",
     "_build_stage_cache_identity_spec",
