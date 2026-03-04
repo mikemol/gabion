@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
-from gabion.cli_support.shared.output_emitters import write_json_to_target
+from gabion.cli_support.shared.output_emitters import (
+    write_json_to_target,
+    write_text_to_target,
+)
 
 
 def has_followup_actions(
@@ -62,3 +65,11 @@ def emit_sidecar_outputs(
         for line in deadline_loop_iter(analysis.lint_lines):
             check_deadline()
             print(line)
+
+
+def write_json_or_stdout(target: str, payload: object) -> None:
+    write_json_to_target(target, payload)
+
+
+def write_text_or_stdout(target: str, payload: str) -> None:
+    write_text_to_target(target, payload, ensure_trailing_newline=True)

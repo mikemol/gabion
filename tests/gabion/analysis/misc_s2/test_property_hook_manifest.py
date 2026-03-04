@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from gabion.analysis import InvariantProposition
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-    _build_property_hook_callable_index, _deserialize_invariants_for_resume, generate_property_hook_manifest)
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _build_property_hook_callable_index,
+    _deserialize_invariants_for_resume,
+    generate_property_hook_manifest,
+)
 from gabion.order_contract import ordered_or_sorted
 
 

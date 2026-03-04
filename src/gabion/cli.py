@@ -494,6 +494,14 @@ def _is_stdout_target(target: object) -> bool:
     )
 
 
+def _normalize_output_target(target: str | Path) -> str:
+    return _normalize_output_target_impl(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
+
+
 def _write_text_to_target(
     target: str | Path,
     payload: str,
@@ -502,11 +510,7 @@ def _write_text_to_target(
     encoding: str = "utf-8",
 ) -> None:
     _write_text_to_target_impl(
-        _normalize_output_target_impl(
-            target,
-            stdout_alias=_STDOUT_ALIAS,
-            stdout_path=_STDOUT_PATH,
-        ),
+        _normalize_output_target(target),
         payload,
         ensure_trailing_newline=ensure_trailing_newline,
         encoding=encoding,

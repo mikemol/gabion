@@ -18,6 +18,7 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
     _callee_key,
     _resolve_class_candidates,
     _resolve_method_in_hierarchy,
+    _resolve_method_in_hierarchy_outcome,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo, FunctionInfo, SymbolTable
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
@@ -389,4 +390,5 @@ __all__ = [
     "_resolve_class_candidates",
     "_resolve_callee",
     "_resolve_method_in_hierarchy",
+    "_resolve_method_in_hierarchy_outcome",
 ]

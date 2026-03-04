@@ -12,8 +12,9 @@ def _write(tmp_path: Path, rel: str, content: str) -> Path:
 
 def _load_analyzer():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        analyze_unused_arg_flow_repo)
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        analyze_unused_arg_flow_repo,
+    )
 
     return analyze_unused_arg_flow_repo
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
+from gabion.analysis.dataflow.engine import dataflow_facade as da
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, CallArgs, ParamUse
 
 

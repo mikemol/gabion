@@ -8,8 +8,10 @@ def _load():
     repo_root = REPO_ROOT
     from gabion.analysis import (
         AuditConfig, analyze_paths)
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        analyze_constant_flow_repo, analyze_deadness_flow_repo)
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        analyze_constant_flow_repo,
+        analyze_deadness_flow_repo,
+    )
 
     return AuditConfig, analyze_constant_flow_repo, analyze_deadness_flow_repo, analyze_paths
 
@@ -199,7 +201,9 @@ def test_deadness_witnesses_from_constant_flow(tmp_path: Path) -> None:
 def test_format_call_site_handles_missing_span(tmp_path: Path) -> None:
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import _format_call_site
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        _format_call_site,
+    )
 
     caller = FunctionInfo(
         name="caller",

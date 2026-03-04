@@ -3,6 +3,7 @@
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
 
+from hashlib import sha1
 from typing import Callable, Mapping
 
 from gabion.analysis.foundation.event_algebra import (

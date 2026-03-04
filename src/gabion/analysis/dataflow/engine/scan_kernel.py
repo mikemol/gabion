@@ -4,21 +4,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Generic, TypeVar
 
-from gabion.analysis.foundation.json_types import JSONObject
-
 _KernelResult = TypeVar("_KernelResult")
 
 
 @dataclass(frozen=True)
 class ScanKernelRequest:
     paths: list[Path]
-    project_root: Path | None
+    project_root: object
     ignore_params: set[str]
     strictness: str
     external_filter: bool
-    transparent_decorators: set[str] | None
-    parse_failure_witnesses: list[JSONObject] | None
-    analysis_index: object | None
+    transparent_decorators: object
+    parse_failure_witnesses: object
+    analysis_index: object
 
 
 @dataclass(frozen=True)

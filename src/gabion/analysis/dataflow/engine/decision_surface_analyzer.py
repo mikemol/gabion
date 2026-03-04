@@ -13,7 +13,7 @@ from gabion.analysis.dataflow.engine.scan_kernel import (
 @dataclass(frozen=True)
 class DecisionSurfaceAnalyzerInput:
     kernel_request: ScanKernelRequest
-    decision_tiers: dict[str, int] | None
+    decision_tiers: object
     require_tiers: bool
     forest: object
 

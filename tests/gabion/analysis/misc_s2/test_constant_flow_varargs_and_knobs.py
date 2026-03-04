@@ -7,8 +7,9 @@ def _load():
     repo_root = REPO_ROOT
     from gabion.analysis import (
         AuditConfig, build_synthesis_plan)
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        analyze_constant_flow_repo)
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        analyze_constant_flow_repo,
+    )
 
     return AuditConfig, analyze_constant_flow_repo, build_synthesis_plan
 

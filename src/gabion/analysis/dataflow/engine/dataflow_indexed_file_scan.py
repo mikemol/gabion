@@ -24,15 +24,13 @@ import sys
 
 import time
 
-from collections import Counter, defaultdict, deque
+from collections import Counter, defaultdict
 
 from contextlib import ExitStack, contextmanager
 
 from dataclasses import dataclass, field, replace
 
 from enum import StrEnum
-
-from graphlib import CycleError, TopologicalSorter
 
 from pathlib import Path
 
@@ -146,6 +144,25 @@ from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     _summarize_fingerprint_provenance,
     verify_rewrite_plan,
     verify_rewrite_plans,
+)
+from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
+    AdapterCapabilities,
+    normalize_adapter_contract,
+    parse_adapter_capabilities,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
+    _analyze_function,
+    _call_context,
+    _collect_return_aliases,
+    _const_repr,
+    _normalize_key_expr,
+    _return_aliases,
+)
+from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
+    _collect_recursive_functions,
+    _collect_recursive_nodes,
+    _reachable_from_roots,
+    _sorted_graph_nodes,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _deadline_lint_lines,
@@ -568,41 +585,6 @@ class SymbolTable:
                 return resolved
         return None
 
-@dataclass(frozen=True)
-class AdapterCapabilities:
-    bundle_inference: bool = True
-    decision_surfaces: bool = True
-    type_flow: bool = True
-    exception_obligations: bool = True
-    rewrite_plan_support: bool = True
-
-def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
-    if type(payload) is not dict:
-        return AdapterCapabilities()
-    raw = cast(dict[object, object], payload)
-
-    def _read(name: str, default: bool = True) -> bool:
-        value = raw.get(name)
-        if type(value) is bool:
-            return bool(value)
-        return default
-
-    return AdapterCapabilities(
-        bundle_inference=_read("bundle_inference"),
-        decision_surfaces=_read("decision_surfaces"),
-        type_flow=_read("type_flow"),
-        exception_obligations=_read("exception_obligations"),
-        rewrite_plan_support=_read("rewrite_plan_support"),
-    )
-
-def normalize_adapter_contract(payload: object) -> JSONObject:
-    if type(payload) is not dict:
-        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
-    raw = cast(dict[object, object], payload)
-    name = str(raw.get("name", "native") or "native")
-    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
-    return {"name": name, "capabilities": {str(key): bool(capabilities[key]) for key in capabilities}}
-
 @dataclass
 class AuditConfig:
     project_root: OptionalPath = None
@@ -633,25 +615,6 @@ class AuditConfig:
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
         return bool(self.exclude_dirs & parts)
-
-def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
-    check_deadline()
-    child = node
-    parent = parents.get(child)
-    while parent is not None:
-        check_deadline()
-        if type(parent) is ast.Call:
-            call_parent = cast(ast.Call, parent)
-            if child in call_parent.args:
-                return call_parent, True
-            for kw in call_parent.keywords:
-                check_deadline()
-                if child is kw or child is kw.value:
-                    return call_parent, True
-            return call_parent, False
-        child = parent
-        parent = parents.get(child)
-    return None, False
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
 
@@ -2486,85 +2449,6 @@ def _materialize_call_candidates(
         normalize_snapshot_path_fn=_normalize_snapshot_path,
     )
 
-_GraphNode = TypeVar("_GraphNode", bound=Hashable)
-
-def _sorted_graph_nodes(
-    nodes: Iterable[_GraphNode],
-) -> list[_GraphNode]:
-    try:
-        return sort_once(nodes, source = 'gabion.analysis.dataflow_indexed_file_scan._sorted_graph_nodes.site_1')
-    except TypeError:
-        return sort_once(nodes, key=lambda item: repr(item), source = 'gabion.analysis.dataflow_indexed_file_scan._sorted_graph_nodes.site_2')
-
-def _collect_recursive_nodes(
-    edges: Mapping[_GraphNode, set[_GraphNode]],
-) -> set[_GraphNode]:
-    check_deadline()
-    index = 0
-    stack: list[_GraphNode] = []
-    on_stack: set[_GraphNode] = set()
-    indices: dict[_GraphNode, int] = {}
-    lowlink: dict[_GraphNode, int] = {}
-    recursive: set[_GraphNode] = set()
-
-    def _strongconnect(node: _GraphNode) -> None:
-        check_deadline()
-        nonlocal index
-        indices[node] = index
-        lowlink[node] = index
-        index += 1
-        stack.append(node)
-        on_stack.add(node)
-        for succ in edges.get(node, set()):
-            check_deadline()
-            if succ not in indices:
-                _strongconnect(succ)
-                lowlink[node] = min(lowlink[node], lowlink.get(succ, lowlink[node]))
-            elif succ in on_stack:
-                lowlink[node] = min(lowlink[node], indices.get(succ, lowlink[node]))
-        if lowlink.get(node) == indices.get(node):
-            scc: list[str] = []
-            while True:
-                check_deadline()
-                w = stack.pop()
-                on_stack.discard(w)
-                scc.append(w)
-                if w == node:
-                    break
-            if len(scc) > 1:
-                recursive.update(scc)
-            else:
-                if node in edges.get(node, set()):
-                    recursive.add(node)
-
-    for node in edges:
-        check_deadline()
-        if node not in indices:
-            _strongconnect(node)
-    return recursive
-
-def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
-    return _collect_recursive_nodes(edges)
-
-def _reachable_from_roots(
-    edges: Mapping[_GraphNode, set[_GraphNode]],
-    roots: set[_GraphNode],
-) -> set[_GraphNode]:
-    check_deadline()
-    reachable: set[_GraphNode] = set()
-    queue: deque[_GraphNode] = deque(_sorted_graph_nodes(roots))
-    while queue:
-        check_deadline()
-        node = queue.popleft()
-        if node in reachable:
-            continue
-        reachable.add(node)
-        for succ in _sorted_graph_nodes(edges.get(node, set())):
-            check_deadline()
-            if succ not in reachable:
-                queue.append(succ)
-    return reachable
-
 _DeadlineArgInfo = _DeadlineArgInfoRuntime
 
 def _bind_call_args(
@@ -3892,144 +3776,6 @@ def _populate_bundle_forest(
         runtime_module=sys.modules[__name__],
     )
 
-class _ReturnAliasCollector(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.returns: list[OptionalAstNode] = []
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        return
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        return
-
-    def visit_Lambda(self, node: ast.Lambda) -> None:
-        return
-
-    def visit_Return(self, node: ast.Return) -> None:
-        self.returns.append(node.value)
-
-def _return_aliases(
-    fn: ast.AST,
-    ignore_params = None,
-):
-    check_deadline()
-    params = _param_names(fn, ignore_params)
-    if not params:
-        return None
-    param_set = set(params)
-    collector = _ReturnAliasCollector()
-    for stmt in fn.body:
-        check_deadline()
-        collector.visit(stmt)
-    if not collector.returns:
-        return None
-    alias = None
-
-    def _alias_from_expr(expr = None):
-        check_deadline()
-        if expr is not None:
-            expr_type = type(expr)
-            if expr_type is ast.Name:
-                name_node = cast(ast.Name, expr)
-                if name_node.id in param_set:
-                    return [name_node.id]
-            if expr_type in {ast.Tuple, ast.List}:
-                sequence_node = cast(ast.Tuple | ast.List, expr)
-                names: list[str] = []
-                for elt in sequence_node.elts:
-                    check_deadline()
-                    if type(elt) is ast.Name and cast(ast.Name, elt).id in param_set:
-                        names.append(cast(ast.Name, elt).id)
-                    else:
-                        return None
-                return names
-        return None
-
-    for expr in collector.returns:
-        check_deadline()
-        candidate = _alias_from_expr(expr)
-        if candidate is not None:
-            if alias is None:
-                alias = candidate
-                continue
-            if alias != candidate:
-                return None
-            continue
-        return None
-    return alias
-
-def _collect_return_aliases(
-    funcs: list[FunctionNode],
-    parents: dict[ast.AST, ast.AST],
-    *,
-    ignore_params,
-) -> dict[str, tuple[list[str], list[str]]]:
-    check_deadline()
-    aliases: dict[str, tuple[list[str], list[str]]] = {}
-    conflicts: set[str] = set()
-    for fn in funcs:
-        check_deadline()
-        alias = _return_aliases(fn, ignore_params)
-        if not alias:
-            continue
-        params = _param_names(fn, ignore_params)
-        class_name = _enclosing_class(fn, parents)
-        scopes = _enclosing_scopes(fn, parents)
-        keys = {fn.name}
-        if class_name:
-            keys.add(f"{class_name}.{fn.name}")
-        if scopes:
-            keys.add(_function_key(scopes, fn.name))
-        info = (params, alias)
-        for key in keys:
-            check_deadline()
-            if key in conflicts:
-                continue
-            if key in aliases:
-                aliases.pop(key, None)
-                conflicts.add(key)
-                continue
-            aliases[key] = info
-    return aliases
-
-def _const_repr(node: ast.AST):
-    node_type = type(node)
-    if node_type is ast.Constant:
-        return repr(cast(ast.Constant, node).value)
-    if node_type is ast.UnaryOp:
-        unary_node = cast(ast.UnaryOp, node)
-        if type(unary_node.op) in {ast.USub, ast.UAdd} and type(unary_node.operand) is ast.Constant:
-            try:
-                return ast.unparse(unary_node)
-            except _AST_UNPARSE_ERROR_TYPES:
-                return None
-    if node_type is ast.Attribute:
-        attribute_node = cast(ast.Attribute, node)
-        if attribute_node.attr.isupper():
-            try:
-                return ast.unparse(attribute_node)
-            except _AST_UNPARSE_ERROR_TYPES:
-                return None
-        return None
-    return None
-
-def _normalize_key_expr(
-    node: ast.AST,
-    *,
-    const_bindings: Mapping[str, ast.AST],
-):
-    """Normalize deterministic subscript key forms.
-
-    Recognizes literal string/int keys, constant-bound names resolving to
-    literals, and literal tuples composed from those forms.
-    """
-    return _normalize_key_expr_impl(
-        node,
-        const_bindings=const_bindings,
-        check_deadline_fn=check_deadline,
-        literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
-    )
-
 def _type_from_const_repr(value: str):
     try:
         literal = ast.literal_eval(value)
@@ -4064,38 +3810,6 @@ def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
         return True
     return path.name.startswith("test_")
-
-def _analyze_function(
-    fn: FunctionNode,
-    parents: dict[ast.AST, ast.AST],
-    *,
-    is_test: bool,
-    ignore_params: OptionalIgnoredParams = None,
-    strictness: str = "high",
-    class_name: OptionalClassName = None,
-    return_aliases: OptionalReturnAliasMap = None,
-) -> tuple[dict[str, ParamUse], list[CallArgs]]:
-    params = _param_names(fn, ignore_params)
-    use_map = {p: ParamUse(set(), False, {p}) for p in params}
-    alias_to_param: dict[str, str] = {p: p for p in params}
-    call_args: list[CallArgs] = []
-
-    visitor = UseVisitor(
-        parents=parents,
-        use_map=use_map,
-        call_args=call_args,
-        alias_to_param=alias_to_param,
-        is_test=is_test,
-        strictness=strictness,
-        const_repr=_const_repr,
-        callee_name=lambda call: _normalize_callee(_callee_name(call), class_name),
-        call_args_factory=CallArgs,
-        call_context=_call_context,
-        return_aliases=return_aliases,
-        normalize_key_expr=_normalize_key_expr,
-    )
-    visitor.visit(fn)
-    return use_map, call_args
 
 def _unused_params(use_map: dict[str, ParamUse]) -> tuple[set[str], set[str]]:
     check_deadline()

@@ -5,7 +5,7 @@ import textwrap
 
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
-from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
+from gabion.analysis.dataflow.engine import dataflow_facade as da
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
 from gabion.analysis.foundation.timeout_context import Deadline, TimeoutTickCarrier, deadline_scope
 

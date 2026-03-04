@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
+from gabion.analysis.dataflow.engine import dataflow_facade as da
 from gabion.exceptions import NeverThrown
 
 

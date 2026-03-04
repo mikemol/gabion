@@ -10,8 +10,10 @@ def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine.dataflow_contracts import (
         CallArgs, ParamUse)
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _call_context, _callee_name, _const_repr, _normalize_key_expr)
+    from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+        _callee_name)
+    from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
+        _call_context, _const_repr, _normalize_key_expr)
     from gabion.analysis.core.visitors import ParentAnnotator, UseVisitor
 
     return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor

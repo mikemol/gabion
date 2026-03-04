@@ -30,7 +30,7 @@ from gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers import (
     _collect_call_ambiguities, _emit_call_ambiguities, _materialize_ambiguity_suite_agg_spec, _materialize_ambiguity_virtual_set_spec, _materialize_suite_order_spec, _populate_bundle_forest)
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     _collect_fingerprint_atom_keys, _compute_fingerprint_coherence, _compute_fingerprint_matches, _compute_fingerprint_provenance, _compute_fingerprint_rewrite_plans, _compute_fingerprint_synth, _compute_fingerprint_warnings)
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details, _collect_exception_obligations, _collect_handledness_witnesses, _collect_invariant_propositions, _collect_never_invariants, _param_annotations_by_path, analyze_decision_surfaces_repo, analyze_type_flow_repo_with_evidence, analyze_unused_arg_flow_repo, analyze_value_encoded_decisions_repo)
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _compute_lint_lines, _constant_smells_from_details, _deadness_witnesses_from_constant_details, _internal_broad_type_lint_lines)

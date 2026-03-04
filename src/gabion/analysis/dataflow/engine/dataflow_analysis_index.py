@@ -10,8 +10,13 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-    _analyze_file_internal as _indexed_analyze_file_internal, _build_analysis_collection_resume_payload as _indexed_build_analysis_collection_resume_payload, _build_analysis_index as _indexed_build_analysis_index, _build_call_graph as _indexed_build_call_graph, _load_analysis_collection_resume_payload as _indexed_load_analysis_collection_resume_payload)
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _analyze_file_internal as _indexed_analyze_file_internal,
+    _build_analysis_collection_resume_payload as _indexed_build_analysis_collection_resume_payload,
+    _build_analysis_index as _indexed_build_analysis_index,
+    _build_call_graph as _indexed_build_call_graph,
+    _load_analysis_collection_resume_payload as _indexed_load_analysis_collection_resume_payload,
+)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 

@@ -9,7 +9,7 @@ from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as da
+    from gabion.analysis.dataflow.engine import dataflow_facade as da
 
     return da
 

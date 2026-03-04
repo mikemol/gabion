@@ -10,8 +10,10 @@ def _load():
     from gabion.analysis.aspf.aspf import Forest
     from gabion.analysis.dataflow.engine.dataflow_contracts import (
         CallArgs, FunctionInfo)
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _format_type_flow_site, analyze_type_flow_repo_with_evidence)
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        _format_type_flow_site,
+        analyze_type_flow_repo_with_evidence,
+    )
 
     return (
         CallArgs,

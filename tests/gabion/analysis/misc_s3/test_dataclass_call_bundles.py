@@ -7,8 +7,10 @@ def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
         _build_symbol_table)
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _collect_dataclass_registry, _iter_dataclass_call_bundles)
+    from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+        _collect_dataclass_registry,
+        _iter_dataclass_call_bundles,
+    )
 
     return _iter_dataclass_call_bundles, _build_symbol_table, _collect_dataclass_registry
 
