@@ -215,6 +215,19 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _ConstantFlowFoldAccumulator,
+    _annotation_exception_candidates,
+    _exception_handler_compatibility,
+    _exception_param_names,
+    _exception_path_id,
+    _exception_type_name,
+    _find_handling_try,
+    _handler_label,
+    _handler_type_names,
+    _keyword_links_literal,
+    _keyword_string_literal,
+    _never_reason,
+    _node_in_try_body,
+    _refine_exception_name_from_annotations,
     _build_property_hook_callable_index,
     _callsite_evidence_for_bundle,
     _collect_config_bundles,
@@ -256,9 +269,6 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
 
-from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
-    exception_handler_compatibility as _exc_exception_handler_compatibility, exception_param_names as _exc_exception_param_names, handler_type_names as _exc_handler_type_names, exception_type_name as _exc_exception_type_name, handler_is_broad as _exc_handler_is_broad, handler_label as _exc_handler_label, node_in_try_body as _exc_node_in_try_body, _builtin_exception_class as _exc_builtin_exception_class)
-
 from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites, CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier, SymbolTable as _ContractSymbolTable
@@ -286,8 +296,6 @@ from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheDeps as _AnalysisIndexStageCacheDeps, analysis_index_stage_cache as _analysis_index_stage_cache_impl)
 from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
     AnalysisIndexModuleTreesDeps as _AnalysisIndexModuleTreesDeps, analysis_index_module_trees as _analysis_index_module_trees_impl)
-from gabion.analysis.indexed_scan.obligations.never_invariants import (
-    keyword_links_literal as _keyword_links_literal_impl, keyword_string_literal as _keyword_string_literal_impl, never_reason as _never_reason_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl, spec_row_span as _spec_row_span_impl)
 from gabion.analysis.indexed_scan.scanners.flow.group_propagation import (
@@ -1494,127 +1502,6 @@ def _parse_module_tree(
             error=exc,
         )
         return None
-
-def _exception_param_names(expr, params: set[str]) -> list[str]:
-    return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
-
-def _exception_type_name(expr):
-    return _exc_exception_type_name(expr, decorator_name=_decorator_name)
-
-def _annotation_exception_candidates(annotation) -> tuple[str, ...]:
-    check_deadline()
-    if not annotation:
-        return ()
-    try:
-        expr = ast.parse(annotation, mode="eval").body
-    except SyntaxError:
-        return ()
-    candidates: set[str] = set()
-    for node in ast.walk(expr):
-        check_deadline()
-        node_type = type(node)
-        if node_type is ast.Name:
-            node_name = cast(ast.Name, node)
-            cls = _exc_builtin_exception_class(node_name.id)
-            if cls is not None:
-                candidates.add(node_name.id)
-        elif node_type is ast.Attribute:
-            node_attr = cast(ast.Attribute, node)
-            cls = _exc_builtin_exception_class(node_attr.attr)
-            if cls is not None:
-                candidates.add(node_attr.attr)
-    return tuple(
-        sort_once(
-            candidates,
-            source="_annotation_exception_candidates.candidates",
-            policy=OrderPolicy.SORT,
-        )
-    )
-
-def _refine_exception_name_from_annotations(
-    expr,
-    *,
-    param_annotations: ParamAnnotationMap,
-):
-    check_deadline()
-    direct_name = _exception_type_name(expr)
-    if type(expr) is not ast.Name:
-        return direct_name, None, ()
-    annotation = param_annotations.get(cast(ast.Name, expr).id)
-    candidates = _annotation_exception_candidates(annotation)
-    if not candidates:
-        return direct_name, None, ()
-    if len(candidates) == 1:
-        return candidates[0], "PARAM_ANNOTATION", candidates
-    return direct_name, "PARAM_ANNOTATION_AMBIGUOUS", candidates
-
-def _handler_type_names(handler_type) -> tuple[str, ...]:
-    return _exc_handler_type_names(
-        handler_type,
-        decorator_name=_decorator_name,
-        check_deadline=check_deadline,
-    )
-
-def _exception_handler_compatibility(
-    exception_name,
-    handler_type,
-) -> str:
-    return _exc_exception_handler_compatibility(
-        exception_name,
-        handler_type,
-        decorator_name=_decorator_name,
-        check_deadline=check_deadline,
-    )
-
-def _exception_path_id(
-    *,
-    path: str,
-    function: str,
-    source_kind: str,
-    lineno: int,
-    col: int,
-    kind: str,
-) -> str:
-    return f"{path}:{function}:{source_kind}:{lineno}:{col}:{kind}"
-
-def _handler_label(handler: ast.ExceptHandler) -> str:
-    return _exc_handler_label(handler)
-
-def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
-    return _exc_node_in_try_body(node, try_node, check_deadline=check_deadline)
-
-def _find_handling_try(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-):
-    check_deadline()
-    current = parents.get(node)
-    try_ancestors: list[ast.Try] = []
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.Try:
-            try_ancestors.append(cast(ast.Try, current))
-        current = parents.get(current)
-    return next(
-        (try_node for try_node in try_ancestors if _node_in_try_body(node, try_node)),
-        None,
-    )
-
-def _keyword_string_literal(call: ast.Call, key: str) -> str:
-    return _keyword_string_literal_impl(
-        call,
-        key,
-        check_deadline_fn=check_deadline,
-    )
-
-def _keyword_links_literal(call: ast.Call) -> list[JSONObject]:
-    return _keyword_links_literal_impl(
-        call,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-    )
-
-def _never_reason(call: ast.Call):
-    return _never_reason_impl(call, check_deadline_fn=check_deadline)
 
 _DEADLINE_CHECK_METHODS = {"check", "expired"}
 

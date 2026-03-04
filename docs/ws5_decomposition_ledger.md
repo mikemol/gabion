@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4295
-- Monolith top-level import statements (current): 102
+- Monolith LOC (current): 4182
+- Monolith top-level import statements (current): 100
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -122,9 +122,31 @@ doc_scope:
     - policy checks passed
     - targeted pytest passed (`36 passed` for touched suites)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Exception/handler helper relocation to post-phase owner:
+    - `_exception_param_names`
+    - `_exception_type_name`
+    - `_annotation_exception_candidates`
+    - `_refine_exception_name_from_annotations`
+    - `_handler_type_names`
+    - `_exception_handler_compatibility`
+    - `_exception_path_id`
+    - `_handler_label`
+    - `_node_in_try_body`
+    - `_find_handling_try`
+    - `_keyword_string_literal`
+    - `_keyword_links_literal`
+    - `_never_reason`
+  - Post-phase handledness/exception/never collectors now use owner-local helper wiring.
+  - Monolith helper API compatibility preserved through alias exports.
+  - ASPF no-change acknowledgement refreshed (`in-69`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`45 passed` for touched suites)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Post-phase ownership cleanup: relocate remaining exception annotation/handler helper bodies to post-phase owner and trim monolith leftovers.
+1. Post-phase ownership cleanup: remove residual monolith-only helper leaves not required by compatibility aliases.
 2. Analysis-index ownership expansion: cache identity carriers + indexed pass/build surfaces.
 3. Projection/ambiguity ownership expansion and remaining facade contraction.
 
