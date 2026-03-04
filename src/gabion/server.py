@@ -2931,36 +2931,103 @@ def _impact_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
     return not (a_end < b_start or b_end < a_start)
 
 
+@dataclass(frozen=True)
+class CommandDispatchRegistration:
+    executor_name: str
+    transport_lsp: bool
+    transport_direct: bool
+
+
+_COMMAND_DISPATCH_REGISTRY: dict[str, CommandDispatchRegistration] = {
+    CHECK_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_command",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    DATAFLOW_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_command",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    STRUCTURE_DIFF_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_structure_diff",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    STRUCTURE_REUSE_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_structure_reuse",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    DECISION_DIFF_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_decision_diff",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    SYNTHESIS_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_synthesis",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    REFACTOR_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_refactor",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    IMPACT_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_impact",
+        transport_lsp=True,
+        transport_direct=True,
+    ),
+    LSP_PARITY_GATE_COMMAND: CommandDispatchRegistration(
+        executor_name="execute_lsp_parity_gate",
+        transport_lsp=False,
+        transport_direct=True,
+    ),
+}
+
+
+def _validate_command_dispatch_registry_coverage() -> None:
+    registered = set(_COMMAND_DISPATCH_REGISTRY)
+    semantic = set(command_ids.SEMANTIC_COMMAND_IDS)
+    missing = tuple(
+        sort_once(
+            semantic - registered,
+            source="server.command_dispatch_registry.missing",
+        )
+    )
+    if missing:
+        never(
+            "command dispatch registry missing semantic command ids",
+            missing=missing,
+        )
+
+
+_validate_command_dispatch_registry_coverage()
+
+def _command_executor_from_registration(
+    registration: CommandDispatchRegistration,
+) -> Callable[[LanguageServer, dict[str, object] | None], dict] | None:
+    candidate = globals().get(registration.executor_name)
+    if not callable(candidate):
+        return None
+    return cast(Callable[[LanguageServer, dict[str, object] | None], dict], candidate)
+
 
 def _lsp_command_executor(command: str) -> Callable[[LanguageServer, dict[str, object] | None], dict] | None:
-    mapping: dict[str, Callable[[LanguageServer, dict[str, object] | None], dict]] = {
-        CHECK_COMMAND: execute_command,
-        DATAFLOW_COMMAND: execute_command,
-        STRUCTURE_DIFF_COMMAND: execute_structure_diff,
-        STRUCTURE_REUSE_COMMAND: execute_structure_reuse,
-        DECISION_DIFF_COMMAND: execute_decision_diff,
-        SYNTHESIS_COMMAND: execute_synthesis,
-        REFACTOR_COMMAND: execute_refactor,
-        IMPACT_COMMAND: execute_impact,
-    }
-    return mapping.get(command)
+    registration = _COMMAND_DISPATCH_REGISTRY.get(command)
+    if registration is None or not registration.transport_lsp:
+        return None
+    return _command_executor_from_registration(registration)
 
 
 def _direct_command_executor(
     command: str,
 ) -> Callable[[LanguageServer, dict[str, object] | None], dict] | None:
-    mapping: dict[str, Callable[[LanguageServer, dict[str, object] | None], dict]] = {
-        CHECK_COMMAND: execute_command,
-        DATAFLOW_COMMAND: execute_command,
-        STRUCTURE_DIFF_COMMAND: execute_structure_diff,
-        STRUCTURE_REUSE_COMMAND: execute_structure_reuse,
-        DECISION_DIFF_COMMAND: execute_decision_diff,
-        SYNTHESIS_COMMAND: execute_synthesis,
-        REFACTOR_COMMAND: execute_refactor,
-        IMPACT_COMMAND: execute_impact,
-        LSP_PARITY_GATE_COMMAND: execute_lsp_parity_gate,
-    }
-    return mapping.get(command)
+    registration = _COMMAND_DISPATCH_REGISTRY.get(command)
+    if registration is None or not registration.transport_direct:
+        return None
+    return _command_executor_from_registration(registration)
 
 
 def _strip_parity_ignored_keys(
