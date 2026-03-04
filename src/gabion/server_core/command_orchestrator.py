@@ -3200,11 +3200,8 @@ def _handle_timeout_cleanup(
         if cleanup_timeout_steps:
             progress_payload["cleanup_truncated"] = True
             progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
-        timeout_classification = progress_payload.get("classification")
-        timeout_classification_value = (
-            timeout_classification
-            if isinstance(timeout_classification, str)
-            else "timed_out_no_progress"
+        timeout_classification_value = _timeout_classification_decision(
+            progress_payload=progress_payload
         )
         emit_lsp_progress(
             phase="post",
@@ -3299,6 +3296,21 @@ def _handle_timeout_cleanup(
         return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
+
+
+def _timeout_classification_decision(*, progress_payload: JSONObject) -> str:
+    timeout_classification = progress_payload.get("classification")
+    if isinstance(timeout_classification, str) and timeout_classification:
+        return timeout_classification
+    return "timed_out_no_progress"
+
+
+def _checkpoint_projection_decision(*, report_output_path: Path | None) -> bool:
+    return bool(report_output_path)
+
+
+def _resume_compatibility_projection_decision(*, compatibility_status: str | None) -> str | None:
+    return compatibility_status
 
 
 @dataclass(frozen=True)
@@ -3760,6 +3772,79 @@ class _SuccessResponseOutcome:
     phase_checkpoint_state: JSONObject
 
 
+@dataclass(frozen=True)
+class _ExecuteCommandIngressStage:
+    execute_deps: CommandEffects
+    execution_plan: ExecutionPlan
+    payload: dict[str, object]
+    profile_enabled: bool
+    runtime_input: CommandRuntimeInput
+    timeout_total_ns: int
+    analysis_window_ns: int
+    cleanup_grace_ns: int
+    timeout_hard_deadline_ns: int
+    dataflow_capabilities: _DataflowCapabilityAnnotations
+    deadline_token: object
+    deadline_clock_token: object
+    profile_token: object
+    forest: Forest
+    forest_token: object
+
+
+@dataclass(frozen=True)
+class _ExecuteCommandFinalizeSuccessStage:
+    execute_deps: CommandEffects
+    aspf_trace_state: object | None
+    analysis: AnalysisResult
+    root: str
+    paths: list[Path]
+    payload: Mapping[str, object]
+    config: AuditConfig
+    options: _ExecutionPayloadOptions
+    name_filter_bundle: DataflowNameFilterBundle
+    report_path: object
+    report_output_path: Path | None
+    report_section_journal_path: Path
+    report_section_witness_digest: str | None
+    report_phase_checkpoint_path: Path | None
+    projection_rows: list[JSONObject]
+    analysis_resume_state_path: Path | None
+    analysis_resume_source: str
+    analysis_resume_state_status: str | None
+    analysis_resume_state_compatibility_status: str | None
+    analysis_resume_manifest_digest: str | None
+    analysis_resume_reused_files: int
+    analysis_resume_total_files: int
+    profiling_stage_ns: dict[str, int]
+    profiling_counters: dict[str, int]
+    phase_checkpoint_state: JSONObject
+    execution_plan: ExecutionPlan
+    last_collection_resume_payload: JSONObject | None
+    semantic_progress_cumulative: JSONObject | None
+    latest_collection_progress: JSONObject
+    emit_lsp_progress_fn: Callable[..., None]
+    dataflow_capabilities: _DataflowCapabilityAnnotations
+    identity_shadow_runtime: IdentityShadowRuntime | None
+
+
+@dataclass(frozen=True)
+class _ExecuteCommandRuntimeBootstrapStage:
+    identity_shadow_runtime: IdentityShadowRuntime
+    identity_registry_mirror: IdentityRegistryMirror
+    progress_emitter: _ProgressEmitter
+    emit_lsp_progress_fn: Callable[..., None]
+    emit_phase_progress_events: bool
+
+
+@dataclass(frozen=True)
+class _ExecuteCommandAnalysisStage:
+    analysis_outcome: _AnalysisExecutionOutcome
+    last_collection_resume_payload: JSONObject | None
+    semantic_progress_cumulative: JSONObject | None
+    latest_collection_progress: JSONObject
+
+
+
 def _build_success_response(
     *,
     context: _SuccessResponseContext,
@@ -4151,12 +4236,13 @@ def _build_success_response(
     )
 
 
-def execute_command_total(
+
+def _stage_ingress(
+    *,
     ls: LanguageServer,
     payload: dict[str, object],
-    *,
-    deps: ExecuteCommandDeps | None = None,
-) -> dict:
+    deps: ExecuteCommandDeps | None,
+) -> _ExecuteCommandIngressStage:
     _bind_server_symbols()
     execute_deps: CommandEffects = deps or _default_execute_command_deps()
     execution_plan = _materialize_execution_plan(payload)
@@ -4181,7 +4267,6 @@ def execute_command_total(
         root=initial_root,
     )
     payload = ingress.payload
-    dataflow_capabilities = ingress.dataflow_capabilities
     normalized_timeout_total_ticks = _normalize_duration_timeout_clock_ticks(
         timeout=ingress.timeout,
         total_ticks=_analysis_timeout_total_ticks(payload),
@@ -4209,6 +4294,157 @@ def execute_command_total(
     )
     forest = Forest()
     forest_token = set_forest(forest)
+    return _ExecuteCommandIngressStage(
+        execute_deps=execute_deps,
+        execution_plan=execution_plan,
+        payload=payload,
+        profile_enabled=profile_enabled,
+        runtime_input=runtime_input,
+        timeout_total_ns=timeout_total_ns,
+        analysis_window_ns=analysis_window_ns,
+        cleanup_grace_ns=cleanup_grace_ns,
+        timeout_hard_deadline_ns=timeout_hard_deadline_ns,
+        dataflow_capabilities=ingress.dataflow_capabilities,
+        deadline_token=deadline_token,
+        deadline_clock_token=deadline_clock_token,
+        profile_token=profile_token,
+        forest=forest,
+        forest_token=forest_token,
+    )
+
+
+def _stage_finalize_success(*, stage: _ExecuteCommandFinalizeSuccessStage) -> _SuccessResponseOutcome:
+    return _build_success_response(
+        context=_SuccessResponseContext(
+            execute_deps=stage.execute_deps,
+            aspf_trace_state=stage.aspf_trace_state,
+            analysis=stage.analysis,
+            root=stage.root,
+            paths=stage.paths,
+            payload=stage.payload,
+            config=stage.config,
+            options=stage.options,
+            name_filter_bundle=stage.name_filter_bundle,
+            report_path=stage.report_path,
+            report_output_path=stage.report_output_path,
+            report_section_journal_path=stage.report_section_journal_path,
+            report_section_witness_digest=stage.report_section_witness_digest,
+            report_phase_checkpoint_path=stage.report_phase_checkpoint_path,
+            projection_rows=stage.projection_rows,
+            analysis_resume_state_path=stage.analysis_resume_state_path,
+            analysis_resume_source=stage.analysis_resume_source,
+            analysis_resume_state_status=stage.analysis_resume_state_status,
+            analysis_resume_state_compatibility_status=_resume_compatibility_projection_decision(
+                compatibility_status=stage.analysis_resume_state_compatibility_status
+            ),
+            analysis_resume_manifest_digest=stage.analysis_resume_manifest_digest,
+            analysis_resume_reused_files=stage.analysis_resume_reused_files,
+            analysis_resume_total_files=stage.analysis_resume_total_files,
+            profiling_stage_ns=stage.profiling_stage_ns,
+            profiling_counters=stage.profiling_counters,
+            phase_checkpoint_state=stage.phase_checkpoint_state,
+            execution_plan=stage.execution_plan,
+            last_collection_resume_payload=stage.last_collection_resume_payload,
+            semantic_progress_cumulative=stage.semantic_progress_cumulative,
+            latest_collection_progress=stage.latest_collection_progress,
+            emit_lsp_progress_fn=stage.emit_lsp_progress_fn,
+            dataflow_capabilities=stage.dataflow_capabilities,
+            identity_shadow_runtime=stage.identity_shadow_runtime,
+        )
+    )
+
+
+def _stage_finalize_timeout(*, exc: TimeoutExceeded, context: _TimeoutCleanupContext) -> dict:
+    return _handle_timeout_cleanup(exc=exc, context=context)
+
+
+def _stage_runtime_bootstrap(
+    *,
+    config: AuditConfig,
+    root: object,
+    ls: LanguageServer,
+    phase_timeline_markdown_path: Path,
+    phase_timeline_jsonl_path: Path,
+    progress_heartbeat_seconds: float,
+    profiling_stage_ns: dict[str, int],
+    profiling_counters: dict[str, int],
+) -> _ExecuteCommandRuntimeBootstrapStage:
+    if config.fingerprint_registry is None:
+        config.fingerprint_registry = PrimeRegistry()
+    identity_shadow_runtime = build_identity_shadow_runtime(
+        run_id=(
+            f"{DEFAULT_IDENTITY_SHADOW_RUN_ID}:"
+            f"{sha1(str(root).encode('utf-8')).hexdigest()}"
+        ),
+        registry=config.fingerprint_registry,
+    )
+    identity_registry_mirror = build_identity_registry_mirror(
+        registry=config.fingerprint_registry,
+        identity_space=identity_shadow_runtime.run_context.identity_space,
+    )
+    identity_registry_mirror.start()
+    progress_emitter = _create_progress_emitter(
+        notification_runtime=_notification_runtime(
+            getattr(ls, "send_notification", None)
+        ),
+        phase_timeline_markdown_path=phase_timeline_markdown_path,
+        phase_timeline_jsonl_path=phase_timeline_jsonl_path,
+        progress_heartbeat_seconds=progress_heartbeat_seconds,
+        profiling_stage_ns=profiling_stage_ns,
+        profiling_counters=profiling_counters,
+        identity_shadow_runtime=identity_shadow_runtime,
+    )
+    return _ExecuteCommandRuntimeBootstrapStage(
+        identity_shadow_runtime=identity_shadow_runtime,
+        identity_registry_mirror=identity_registry_mirror,
+        progress_emitter=progress_emitter,
+        emit_lsp_progress_fn=progress_emitter.emit,
+        emit_phase_progress_events=progress_emitter.emit_phase_progress_events,
+    )
+
+
+def _stage_execute_analysis(
+    *,
+    context: _AnalysisExecutionContext,
+    state: _AnalysisExecutionMutableState,
+    collection_resume_payload: JSONObject | None,
+) -> _ExecuteCommandAnalysisStage:
+    analysis_outcome = _run_analysis_with_progress(
+        context=context,
+        state=state,
+        collection_resume_payload=collection_resume_payload,
+    )
+    return _ExecuteCommandAnalysisStage(
+        analysis_outcome=analysis_outcome,
+        last_collection_resume_payload=analysis_outcome.last_collection_resume_payload,
+        semantic_progress_cumulative=analysis_outcome.semantic_progress_cumulative,
+        latest_collection_progress=analysis_outcome.latest_collection_progress,
+    )
+
+
+
+def execute_command_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+    *,
+    deps: ExecuteCommandDeps | None = None,
+) -> dict:
+    ingress_stage = _stage_ingress(ls=ls, payload=payload, deps=deps)
+    execute_deps = ingress_stage.execute_deps
+    execution_plan = ingress_stage.execution_plan
+    payload = ingress_stage.payload
+    profile_enabled = ingress_stage.profile_enabled
+    runtime_input = ingress_stage.runtime_input
+    timeout_hard_deadline_ns = ingress_stage.timeout_hard_deadline_ns
+    timeout_total_ns = ingress_stage.timeout_total_ns
+    analysis_window_ns = ingress_stage.analysis_window_ns
+    cleanup_grace_ns = ingress_stage.cleanup_grace_ns
+    dataflow_capabilities = ingress_stage.dataflow_capabilities
+    deadline_token = ingress_stage.deadline_token
+    deadline_clock_token = ingress_stage.deadline_clock_token
+    profile_token = ingress_stage.profile_token
+    forest = ingress_stage.forest
+    forest_token = ingress_stage.forest_token
     explicit_resume_state = False
     analysis_resume_state_path: Path | None = None
     analysis_resume_input_witness: JSONObject | None = None
@@ -4388,7 +4624,7 @@ def execute_command_total(
             representative="gabion.dataflow.start",
             basis_path=("command", "start"),
         )
-        enable_phase_projection_checkpoints = bool(report_output_path)
+        enable_phase_projection_checkpoints = _checkpoint_projection_decision(report_output_path=report_output_path)
         emit_phase_timeline = False
         phase_timeline_path = Path(root) / "_unused_phase_timeline.md"
         phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
@@ -4570,33 +4806,21 @@ def execute_command_total(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         }
-        if config.fingerprint_registry is None:
-            config.fingerprint_registry = PrimeRegistry()
-        identity_shadow_runtime = build_identity_shadow_runtime(
-            run_id=(
-                f"{DEFAULT_IDENTITY_SHADOW_RUN_ID}:"
-                f"{sha1(str(root).encode('utf-8')).hexdigest()}"
-            ),
-            registry=config.fingerprint_registry,
-        )
-        identity_registry_mirror = build_identity_registry_mirror(
-            registry=config.fingerprint_registry,
-            identity_space=identity_shadow_runtime.run_context.identity_space,
-        )
-        identity_registry_mirror.start()
-        progress_emitter = _create_progress_emitter(
-            notification_runtime=_notification_runtime(
-                getattr(ls, "send_notification", None)
-            ),
+        runtime_bootstrap = _stage_runtime_bootstrap(
+            config=config,
+            root=root,
+            ls=ls,
             phase_timeline_markdown_path=phase_timeline_markdown_path,
             phase_timeline_jsonl_path=phase_timeline_jsonl_path,
             progress_heartbeat_seconds=progress_heartbeat_seconds,
             profiling_stage_ns=profiling_stage_ns,
             profiling_counters=profiling_counters,
-            identity_shadow_runtime=identity_shadow_runtime,
         )
-        _emit_lsp_progress = progress_emitter.emit
-        emit_phase_progress_events = progress_emitter.emit_phase_progress_events
+        identity_shadow_runtime = runtime_bootstrap.identity_shadow_runtime
+        identity_registry_mirror = runtime_bootstrap.identity_registry_mirror
+        progress_emitter = runtime_bootstrap.progress_emitter
+        _emit_lsp_progress = runtime_bootstrap.emit_lsp_progress_fn
+        emit_phase_progress_events = runtime_bootstrap.emit_phase_progress_events
 
         analysis_execution_state = _AnalysisExecutionMutableState(
             last_collection_resume_payload=last_collection_resume_payload,
@@ -4604,7 +4828,7 @@ def execute_command_total(
             latest_collection_progress=dict(latest_collection_progress),
         )
         try:
-            analysis_outcome = _run_analysis_with_progress(
+            analysis_stage = _stage_execute_analysis(
                 context=_AnalysisExecutionContext(
                     execute_deps=execute_deps,
                     aspf_trace_state=aspf_trace_state,
@@ -4671,12 +4895,12 @@ def execute_command_total(
                 analysis_execution_state.latest_collection_progress
             )
             raise
-        analysis = analysis_outcome.analysis
-        last_collection_resume_payload = analysis_outcome.last_collection_resume_payload
-        semantic_progress_cumulative = analysis_outcome.semantic_progress_cumulative
-        latest_collection_progress = analysis_outcome.latest_collection_progress
-        success_outcome = _build_success_response(
-            context=_SuccessResponseContext(
+        analysis = analysis_stage.analysis_outcome.analysis
+        last_collection_resume_payload = analysis_stage.last_collection_resume_payload
+        semantic_progress_cumulative = analysis_stage.semantic_progress_cumulative
+        latest_collection_progress = analysis_stage.latest_collection_progress
+        success_outcome = _stage_finalize_success(
+            stage=_ExecuteCommandFinalizeSuccessStage(
                 execute_deps=execute_deps,
                 aspf_trace_state=aspf_trace_state,
                 analysis=analysis,
@@ -4716,7 +4940,7 @@ def execute_command_total(
         phase_checkpoint_state = success_outcome.phase_checkpoint_state
         return success_outcome.response
     except TimeoutExceeded as exc:
-        return _handle_timeout_cleanup(
+        return _stage_finalize_timeout(
             exc=exc,
             context=_TimeoutCleanupContext(
                 timeout_hard_deadline_ns=timeout_hard_deadline_ns,
