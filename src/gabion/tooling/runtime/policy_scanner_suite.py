@@ -17,6 +17,51 @@ _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
 _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 
 
+_ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orchestrator_primitives.py")
+_ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
+_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
+
+
+def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, object]]:
+    path = root / _ORCHESTRATOR_PRIMITIVE_BARREL_PATH
+    if not path.exists():
+        return []
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    export_count = source.count("'" ) if "__all__" in source else 0
+    violations: list[dict[str, object]] = []
+    if len(lines) > _ORCHESTRATOR_PRIMITIVE_MAX_LINES:
+        violations.append({
+            "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
+            "line": 1,
+            "column": 1,
+            "kind": "line_threshold",
+            "message": f"command_orchestrator_primitives.py exceeds line threshold {_ORCHESTRATOR_PRIMITIVE_MAX_LINES}",
+            "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: line_threshold: exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_LINES} lines",
+        })
+    if "__all__" in source:
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            tree = None
+        if tree is not None:
+            for node in tree.body:
+                if isinstance(node, ast.Assign):
+                    if any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
+                        if isinstance(node.value, (ast.List, ast.Tuple)):
+                            export_count = len(node.value.elts)
+        if export_count > _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS:
+            violations.append({
+                "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
+                "line": 1,
+                "column": 1,
+                "kind": "export_threshold",
+                "message": f"command_orchestrator_primitives.py __all__ exports exceed {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS}",
+                "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: export_threshold: __all__ exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS} symbols",
+            })
+    return violations
+
+
 @dataclass(frozen=True)
 class PolicySuiteResult:
     root: Path
@@ -97,6 +142,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         "branchless": [],
         "defensive_fallback": [],
         "no_legacy_monolith_import": [],
+        "orchestrator_primitive_barrel": [],
     }
 
     legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
@@ -112,6 +158,10 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                 )
             )
         )
+
+    violations_by_rule["orchestrator_primitive_barrel"].extend(
+        _scan_orchestrator_primitive_barrel(root=resolved_root)
+    )
 
     for path in inventory:
         rel_path = path.relative_to(resolved_root).as_posix()
@@ -207,7 +257,7 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "no_legacy_monolith_import": [],
         }
     normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import"):
+    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel"):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -245,6 +295,7 @@ def _rule_set_hash() -> str:
             "branchless:v1",
             "defensive_fallback:v1",
             "no_legacy_monolith_import:v1",
+            "orchestrator_primitive_barrel:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()

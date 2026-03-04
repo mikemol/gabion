@@ -167,7 +167,7 @@ def _bind_server_symbols() -> None:
 
 def _record_trace_1cell(
     *,
-    execute_deps: CommandEffects,
+    execute_deps: ExecuteCommandDeps,
     state: object | None,
     kind: str,
     source_label: str,
@@ -179,7 +179,7 @@ def _record_trace_1cell(
 ) -> None:
     if state is None:
         return
-    execute_deps.record_1cell_fn(
+    execute_deps.progress.record_1cell_fn(
         state,
         kind=kind,
         source_label=source_label,
@@ -1371,7 +1371,7 @@ class _TimeoutCleanupContext:
     analysis_resume_state_path: Path | None
     analysis_resume_input_manifest_digest: str | None
     last_collection_resume_payload: JSONObject | None
-    execute_deps: CommandEffects
+    execute_deps: ExecuteCommandDeps
     analysis_resume_input_witness: JSONObject | None
     emit_phase_timeline: bool
     phase_timeline_path: Path
@@ -1424,7 +1424,7 @@ class _ProgressEmitter:
 
 @dataclass(frozen=True)
 class _AnalysisExecutionContext:
-    execute_deps: CommandEffects
+    execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
     runtime_state: CommandRuntimeState
     forest: Forest
@@ -1526,7 +1526,7 @@ def _aspf_import_state_paths(
 
 def _prepare_analysis_resume_state(
     *,
-    execute_deps: CommandEffects,
+    execute_deps: ExecuteCommandDeps,
     aspf_trace_state: object | None,
     needs_analysis: bool,
     normalized_ingest: NormalizedIngestBundle,
@@ -1550,7 +1550,7 @@ def _prepare_analysis_resume_state(
         # Legacy checkpoint payload ingress is hard-rejected; ASPF import-state is the
         # only supported continuation path for active orchestration.
         state.analysis_resume_state_path = None
-        input_manifest = execute_deps.analysis_input_manifest_fn(
+        input_manifest = execute_deps.analysis.analysis_input_manifest_fn(
             root=resolved_root,
             file_paths=file_paths_for_run,
             recursive=not no_recursive,
@@ -1559,7 +1559,7 @@ def _prepare_analysis_resume_state(
             config=config,
         )
         state.analysis_resume_input_manifest_digest = (
-            execute_deps.analysis_input_manifest_digest_fn(input_manifest)
+            execute_deps.analysis.analysis_input_manifest_digest_fn(input_manifest)
         )
         import_state_paths = _aspf_import_state_paths(
             aspf_import_state,
@@ -1568,7 +1568,7 @@ def _prepare_analysis_resume_state(
         if import_state_paths:
             aspf_resume_payload = cast(
                 Mapping[str, object],
-                execute_deps.load_aspf_resume_state_fn(
+                execute_deps.analysis.load_aspf_resume_state_fn(
                     import_state_paths=import_state_paths
                 )
                 or {},
@@ -1732,7 +1732,7 @@ def _run_analysis_with_progress(
         nonlocal last_collection_report_flush_ns
         nonlocal last_collection_report_flush_completed
         context.profiling_counters["server.collection_resume_persist_calls"] += 1
-        semantic_progress = context.execute_deps.collection_semantic_progress_fn(
+        semantic_progress = context.execute_deps.analysis.collection_semantic_progress_fn(
             previous_collection_resume=state.last_collection_resume_payload,
             collection_resume=progress_payload,
             total_files=context.analysis_resume_total_files,
@@ -1785,7 +1785,7 @@ def _run_analysis_with_progress(
             else False
         )
         now_ns = time.monotonic_ns()
-        if intro_changed and context.execute_deps.collection_checkpoint_flush_due_fn(
+        if intro_changed and context.execute_deps.output.collection_checkpoint_flush_due_fn(
             intro_changed=True,
             remaining_files=collection_progress["remaining_files"],
             semantic_substantive_progress=semantic_substantive_progress,
@@ -1824,7 +1824,7 @@ def _run_analysis_with_progress(
                 forest=context.forest,
                 parse_failure_witnesses=[],
             )
-            preview_sections = context.execute_deps.project_report_sections_fn(
+            preview_sections = context.execute_deps.analysis.project_report_sections_fn(
                 preview_groups_by_path,
                 preview_report,
                 max_phase="post",
@@ -1960,7 +1960,7 @@ def _run_analysis_with_progress(
         ):
             return
         phase_progress_last_flush_ns[phase] = now_ns
-        available_sections = context.execute_deps.project_report_sections_fn(
+        available_sections = context.execute_deps.analysis.project_report_sections_fn(
             groups_by_path,
             report_carrier,
             max_phase="post",
@@ -2037,7 +2037,7 @@ def _run_analysis_with_progress(
         if bootstrap_collection_resume is None:
             seed_paths = context.file_paths_for_run[:1] if context.file_paths_for_run else []
             bootstrap_collection_resume = (
-                context.execute_deps.build_analysis_collection_resume_seed_fn(
+                context.execute_deps.analysis.build_analysis_collection_resume_seed_fn(
                     in_progress_paths=seed_paths
                 )
             )
@@ -2086,7 +2086,7 @@ def _run_analysis_with_progress(
             basis_path=("analysis", "call", "start"),
         )
         with policy_runtime.runtime_policy_scope(runtime_policy):
-            analysis = context.execute_deps.analyze_paths_fn(
+            analysis = context.execute_deps.analysis.analyze_paths_fn(
                 context.paths,
                 forest=context.forest,
                 recursive=not context.no_recursive,
@@ -3187,7 +3187,7 @@ def _render_timeout_partial_report(
                     forest=context.forest,
                     parse_failure_witnesses=[],
                 )
-                preview_sections = context.execute_deps.project_report_sections_fn(
+                preview_sections = context.execute_deps.analysis.project_report_sections_fn(
                     preview_groups_by_path,
                     preview_report,
                     max_phase="post",
@@ -3363,7 +3363,7 @@ def _handle_timeout_cleanup(
                 context.dataflow_capabilities.disabled_surface_reasons
             ),
         }
-        trace_artifacts = context.execute_deps.finalize_trace_fn(
+        trace_artifacts = context.execute_deps.progress.finalize_trace_fn(
             state=context.aspf_trace_state,
             root=context.runtime_root,
             semantic_surface_payloads={
@@ -3854,7 +3854,7 @@ def _compute_analysis_inclusion_flags(
 
 @dataclass(frozen=True)
 class _SuccessResponseContext:
-    execute_deps: CommandEffects
+    execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
     analysis: AnalysisResult
     root: str
@@ -3896,7 +3896,7 @@ class _SuccessResponseOutcome:
 
 @dataclass(frozen=True)
 class _ExecuteCommandIngressStage:
-    execute_deps: CommandEffects
+    execute_deps: ExecuteCommandDeps
     execution_plan: ExecutionPlan
     payload: dict[str, object]
     profile_enabled: bool
@@ -3916,7 +3916,7 @@ class _ExecuteCommandIngressStage:
 
 @dataclass(frozen=True)
 class _ExecuteCommandFinalizeSuccessStage:
-    execute_deps: CommandEffects
+    execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
     analysis: AnalysisResult
     root: str
@@ -4267,7 +4267,7 @@ def _build_success_response(
     response["disabled_surface_reasons"] = dict(
         context.dataflow_capabilities.disabled_surface_reasons
     )
-    trace_artifacts = context.execute_deps.finalize_trace_fn(
+    trace_artifacts = context.execute_deps.progress.finalize_trace_fn(
         state=context.aspf_trace_state,
         root=Path(context.root),
         semantic_surface_payloads={
@@ -4366,7 +4366,7 @@ def _stage_ingress(
     deps: ExecuteCommandDeps | None,
 ) -> _ExecuteCommandIngressStage:
     _bind_server_symbols()
-    execute_deps: CommandEffects = deps or _default_execute_command_deps()
+    execute_deps: ExecuteCommandDeps = deps or _default_execute_command_deps()
     execution_plan = _materialize_execution_plan(payload)
     payload = dict(execution_plan.inputs)
     _reject_removed_legacy_payload_keys(payload)
@@ -4590,7 +4590,7 @@ def execute_command_total(
     )
     report_phase_checkpoint_path: Path | None = None
     projection_rows: list[JSONObject] = (
-        execute_deps.report_projection_spec_rows_fn() if report_output_path else []
+        execute_deps.analysis.report_projection_spec_rows_fn() if report_output_path else []
     )
     enable_phase_projection_checkpoints = False
     phase_checkpoint_state: JSONObject = {}
@@ -4626,7 +4626,7 @@ def execute_command_total(
         nonlocal report_sections_cache_loaded
         if not report_sections_cache_loaded:
             report_sections_cache, report_sections_cache_reason = (
-                execute_deps.load_report_section_journal_fn(
+                execute_deps.output.load_report_section_journal_fn(
                 path=report_section_journal_path,
                 witness_digest=report_section_witness_digest,
                 )
@@ -4640,7 +4640,7 @@ def execute_command_total(
 
     raw_initial_paths = payload.get("paths")
     initial_paths_count_value = initial_paths_count(raw_initial_paths)
-    execute_deps.write_bootstrap_incremental_artifacts_fn(
+    execute_deps.output.write_bootstrap_incremental_artifacts_fn(
         report_output_path=report_output_path,
         report_section_journal_path=report_section_journal_path,
         report_phase_checkpoint_path=report_phase_checkpoint_path,
@@ -4726,14 +4726,14 @@ def execute_command_total(
         )
         report_phase_checkpoint_path = None
         projection_rows = (
-            execute_deps.report_projection_spec_rows_fn() if report_output_path else []
+            execute_deps.analysis.report_projection_spec_rows_fn() if report_output_path else []
         )
         options = _parse_execution_payload_options(
             payload=payload,
             root=Path(root),
             aux_operation=aux_operation,
         )
-        aspf_trace_state = execute_deps.start_trace_fn(
+        aspf_trace_state = execute_deps.progress.start_trace_fn(
             root=Path(root),
             payload=payload,
         )

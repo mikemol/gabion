@@ -8,7 +8,7 @@ import json
 import threading
 import time
 from datetime import (datetime, timezone)
-from dataclasses import (dataclass, replace)
+from dataclasses import dataclass
 from decimal import (Decimal, InvalidOperation)
 from pathlib import Path
 from typing import (Callable, Literal, Mapping, Sequence, cast)
@@ -41,6 +41,7 @@ from gabion.config import (dataflow_defaults, dataflow_deadline_roots, decision_
 from gabion.analysis.core.type_fingerprints import (Fingerprint, PrimeRegistry, TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.refactor.rewrite_plan import (normalize_rewrite_plan_order, validate_rewrite_plan_payload)
 from gabion.schema import (LegacyDataflowMonolithResponseDTO, LintEntryDTO)
+from gabion.server_core.ingress_primitives import AnalysisDeps, ExecuteCommandDeps, OutputDeps, ProgressDeps
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
 
@@ -151,29 +152,6 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
     if isinstance(limit, int) and isinstance(current, int):
         return (limit - current) > 1
     return True
-
-@dataclass(frozen=True)
-class ExecuteCommandDeps:
-    analyze_paths_fn: Callable[..., AnalysisResult]
-    load_aspf_resume_state_fn: Callable[..., JSONObject | None]
-    analysis_input_manifest_fn: Callable[..., JSONObject]
-    analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
-    build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
-    collection_semantic_progress_fn: Callable[..., JSONObject]
-    project_report_sections_fn: Callable[..., dict[str, list[str]]]
-    report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
-    collection_checkpoint_flush_due_fn: Callable[..., bool]
-    write_bootstrap_incremental_artifacts_fn: Callable[..., None]
-    load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
-    start_trace_fn: Callable[..., object]
-    record_1cell_fn: Callable[..., object]
-    record_2cell_witness_fn: Callable[..., object]
-    record_cofibration_fn: Callable[..., object]
-    merge_imported_trace_fn: Callable[..., object]
-    finalize_trace_fn: Callable[..., object]
-
-    def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
-        return replace(self, **overrides)
 
 def _collection_checkpoint_flush_due(
     *,
@@ -2239,23 +2217,29 @@ def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
 
 def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
-        analyze_paths_fn=analyze_paths,
-        load_aspf_resume_state_fn=_load_aspf_resume_state,
-        analysis_input_manifest_fn=_analysis_input_manifest,
-        analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
-        build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
-        collection_semantic_progress_fn=_collection_semantic_progress,
-        project_report_sections_fn=project_report_sections,
-        report_projection_spec_rows_fn=report_projection_spec_rows,
-        collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
-        write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
-        load_report_section_journal_fn=_load_report_section_journal,
-        start_trace_fn=aspf_execution_fibration.start_execution_trace,
-        record_1cell_fn=aspf_execution_fibration.record_1cell,
-        record_2cell_witness_fn=aspf_execution_fibration.record_2cell_witness,
-        record_cofibration_fn=aspf_execution_fibration.record_cofibration,
-        merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
-        finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
+        analysis=AnalysisDeps(
+            analyze_paths_fn=analyze_paths,
+            load_aspf_resume_state_fn=_load_aspf_resume_state,
+            analysis_input_manifest_fn=_analysis_input_manifest,
+            analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
+            build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
+            collection_semantic_progress_fn=_collection_semantic_progress,
+            project_report_sections_fn=project_report_sections,
+            report_projection_spec_rows_fn=report_projection_spec_rows,
+        ),
+        output=OutputDeps(
+            collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
+            write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
+            load_report_section_journal_fn=_load_report_section_journal,
+        ),
+        progress=ProgressDeps(
+            start_trace_fn=aspf_execution_fibration.start_execution_trace,
+            record_1cell_fn=aspf_execution_fibration.record_1cell,
+            record_2cell_witness_fn=aspf_execution_fibration.record_2cell_witness,
+            record_cofibration_fn=aspf_execution_fibration.record_cofibration,
+            merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
+            finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
+        ),
     )
 
 __all__ = [
