@@ -44,6 +44,12 @@ from gabion.schema import (LegacyDataflowMonolithResponseDTO, LintEntryDTO)
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
 
+_SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
+
+_SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
+
+_SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
+
 _ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR = 1
 
 _ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR = 5
@@ -1960,6 +1966,29 @@ def _truthy_flag(value: object) -> bool:
         return value != 0
     text = str(value).strip().lower()
     return text in {"1", "true", "yes", "on"}
+
+def _server_deadline_overhead_ns(
+    total_ns: int,
+    *,
+    divisor: int | None = None,
+) -> int:
+    if total_ns <= 0:
+        return 0
+    divisor_value = (
+        _SERVER_DEADLINE_OVERHEAD_DIVISOR
+        if divisor is None
+        else int(divisor)
+    )
+    if divisor_value <= 0:
+        never("invalid server deadline overhead divisor", divisor=divisor_value)
+    overhead = total_ns // divisor_value
+    if overhead < _SERVER_DEADLINE_OVERHEAD_MIN_NS:
+        overhead = _SERVER_DEADLINE_OVERHEAD_MIN_NS
+    if overhead > _SERVER_DEADLINE_OVERHEAD_MAX_NS:
+        overhead = _SERVER_DEADLINE_OVERHEAD_MAX_NS
+    if overhead >= total_ns:
+        overhead = max(0, total_ns - 1)
+    return overhead
 
 def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
     return payload_codec.analysis_timeout_total_ns(
