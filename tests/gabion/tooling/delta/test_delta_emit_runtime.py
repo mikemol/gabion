@@ -14,21 +14,30 @@ def _progress_notification(*, phase: str, event_seq: int, work_done: int) -> dic
         "params": {
             "token": "gabion.dataflowAudit/progress-v2",
             "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
+                "schema": "gabion/canonical_progress_event_v2",
+                "format_version": 2,
                 "adaptation_kind": "valid",
                 "event": {
+                    "schema_version": 1,
+                    "sequence": event_seq,
+                    "run_id": "run:delta-runtime:test",
+                    "source": "delta.runtime.test",
+                    "phase": phase,
+                    "kind": "progress",
+                    "identity_projection": {},
                     "payload": {
                         "phase": phase,
                         "event_kind": "progress",
                         "event_seq": event_seq,
                         "work_done": work_done,
                         "work_total": 3,
-                    }
+                    },
+                    "causal_refs": [],
+                    "event_id": f"run:delta-runtime:test:{event_seq}",
                 },
                 "adaptation_error": "",
                 "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": None,
+                "rejected_progress_payload_v2": None,
             },
         },
     }

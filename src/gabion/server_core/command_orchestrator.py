@@ -9,21 +9,141 @@ import json
 from typing import Literal, Mapping, cast
 import dataclasses
 
-from gabion.server_core.command_orchestrator_primitives import *  # noqa: F401,F403
+from gabion.server_core.command_orchestrator_primitives import (
+    AnalysisResult,
+    AuditConfig,
+    Callable,
+    DataflowNameFilterBundle,
+    Deadline,
+    DecisionSnapshotSurfaces,
+    ExecutionPlan,
+    Fingerprint,
+    Forest,
+    GasMeter,
+    JSONObject,
+    JSONValue,
+    Path,
+    PrimeRegistry,
+    ReportCarrier,
+    TimeoutExceeded,
+    TypeConstructorRegistry,
+    _LSP_PROGRESS_NOTIFICATION_METHOD,
+    _LSP_PROGRESS_TOKEN_V2,
+    _CANONICAL_PROGRESS_EVENT_SCHEMA_V2,
+    _PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS,
+    _PROGRESS_DEADLINE_FLUSH_SECONDS,
+    _PROGRESS_DEADLINE_WATCHDOG_SECONDS,
+    _PROGRESS_HEARTBEAT_POLL_SECONDS,
+    _analysis_index_resume_hydrated_count,
+    _analysis_index_resume_signature,
+    _analysis_resume_cache_verdict,
+    _analysis_resume_progress,
+    _analysis_timeout_budget_ns,
+    _analysis_timeout_total_ticks,
+    _append_phase_timeline_event,
+    _apply_journal_pending_reason,
+    _build_phase_progress_v2,
+    _collection_components_preview_lines,
+    _collection_progress_intro_lines,
+    _collection_report_flush_due,
+    _deadline_profile_sample_interval,
+    _default_execute_command_deps,
+    _groups_by_path_from_collection_resume,
+    _incremental_progress_obligations,
+    _is_stdout_target,
+    _latest_report_phase,
+    _materialize_execution_plan,
+    _normalize_dataflow_response,
+    _output_dirs,
+    _phase_timeline_header_block,
+    _phase_timeline_jsonl_path,
+    _phase_timeline_md_path,
+    _progress_heartbeat_seconds,
+    _projection_phase_flush_due,
+    _render_incremental_report,
+    _report_witness_digest,
+    _resolve_report_output_path,
+    _resolve_report_section_journal_path,
+    _split_incremental_obligations,
+    _timeout_context_payload,
+    _truthy_flag,
+    _write_report_section_journal,
+    _write_text_profiled,
+    ambiguity_delta,
+    ambiguity_state,
+    apply_baseline,
+    boundary_order,
+    build_fingerprint_registry,
+    build_refactor_plan,
+    build_synthesis_plan,
+    call_cluster_consolidation,
+    call_clusters,
+    check_deadline,
+    compute_structure_metrics,
+    compute_violations,
+    dataflow_deadline_roots,
+    dataflow_defaults,
+    datetime,
+    decision_defaults,
+    decision_require_tiers,
+    decision_tier_map,
+    exception_defaults,
+    exception_never_list,
+    extract_report_sections,
+    fingerprint_defaults,
+    load_baseline,
+    merge_payload,
+    never,
+    render_decision_snapshot,
+    render_dot,
+    render_protocol_stubs,
+    render_refactor_plan,
+    render_report,
+    render_structure_snapshot,
+    render_synthesis_section,
+    report_projection_phase_rank,
+    reset_deadline,
+    reset_deadline_clock,
+    reset_deadline_profile,
+    reset_forest,
+    resolve_baseline_path,
+    semantic_coverage_map,
+    set_deadline,
+    set_deadline_clock,
+    set_deadline_profile,
+    set_forest,
+    sort_once,
+    taint_boundary_registry,
+    taint_defaults,
+    taint_delta,
+    taint_lifecycle,
+    taint_profile,
+    taint_state,
+    test_annotation_drift,
+    test_annotation_drift_delta,
+    test_evidence_suggestions,
+    test_obsolescence,
+    test_obsolescence_delta,
+    test_obsolescence_state,
+    threading,
+    time,
+    timezone,
+    write_baseline,
+    write_execution_plan_artifact,
+)
 from gabion.commands import aux_operation_contract
 from gabion.commands.progress_transition import (
-    NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v1_payload, progress_transition_v2_payload, validate_progress_transition)
+    NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v2_payload, validate_progress_transition)
 from gabion.order_contract import OrderPolicy
 from gabion.analysis.projection.pattern_schema_projection import pattern_schema_surface_payloads
 from gabion.analysis.foundation.identity_shadow_runtime import (
-    DEFAULT_IDENTITY_SHADOW_RUN_ID,
     IdentityShadowRuntime,
-    build_identity_shadow_runtime,
 )
-from gabion.analysis.foundation.identity_registry_mirror import (
-    IdentityRegistryMirror,
-    build_identity_registry_mirror,
+from gabion.analysis.foundation.identity_shadow_session import (
+    IdentityShadowSession,
+    build_identity_shadow_session,
 )
+from gabion.schema import CanonicalProgressEventPayloadDTO
 
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
@@ -2160,27 +2280,32 @@ def _create_progress_emitter(
         canonical_event: JSONObject | None,
         adaptation_error: str,
         identity_allocation_delta: list[JSONObject],
-        fallback_payload_v1: Mapping[str, object] | None,
+        rejected_progress_payload_v2: Mapping[str, object] | None,
     ) -> JSONObject:
         payload: JSONObject = {
-            "schema": _CANONICAL_PROGRESS_EVENT_SCHEMA_V1,
-            "format_version": 1,
+            "schema": _CANONICAL_PROGRESS_EVENT_SCHEMA_V2,
+            "format_version": 2,
             "adaptation_kind": str(adaptation_kind),
             "event": dict(canonical_event) if isinstance(canonical_event, Mapping) else None,
             "adaptation_error": str(adaptation_error).strip(),
             "identity_allocation_delta_v1": [
                 dict(item) for item in identity_allocation_delta
             ],
-            "fallback_payload_v1": (
-                {str(key): fallback_payload_v1[key] for key in fallback_payload_v1}
-                if isinstance(fallback_payload_v1, Mapping)
+            "rejected_progress_payload_v2": (
+                {
+                    str(key): rejected_progress_payload_v2[key]
+                    for key in rejected_progress_payload_v2
+                }
+                if isinstance(rejected_progress_payload_v2, Mapping)
                 else None
             ),
         }
         if str(adaptation_kind) != "rejected":
             payload["adaptation_error"] = ""
-            payload["fallback_payload_v1"] = None
-        return payload
+            payload["rejected_progress_payload_v2"] = None
+        return CanonicalProgressEventPayloadDTO.model_validate(payload).model_dump(
+            by_alias=True
+        )
 
     def emit_lsp_progress(
         *,
@@ -2287,11 +2412,6 @@ def _create_progress_emitter(
                 reason=transition_decision.reason,
                 effective_event_kind=transition_decision.effective_event_kind,
             )
-            progress_value["progress_transition_v1"] = progress_transition_v1_payload(
-                transition=normalized_transition_state,
-                reason=transition_decision.reason,
-                effective_event_kind=transition_decision.effective_event_kind,
-            )
             progress_event_seq += 1
             progress_value["event_seq"] = progress_event_seq
             phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
@@ -2327,7 +2447,7 @@ def _create_progress_emitter(
                 canonical_event=canonical_event,
                 adaptation_error=adaptation_error,
                 identity_allocation_delta=allocation_delta,
-                fallback_payload_v1=(
+                rejected_progress_payload_v2=(
                     ordered_progress_value if adaptation_kind == "rejected" else None
                 ),
             )
@@ -3784,6 +3904,7 @@ class _ExecuteCommandIngressStage:
     cleanup_grace_ns: int
     timeout_hard_deadline_ns: int
     dataflow_capabilities: _DataflowCapabilityAnnotations
+    aux_operation: _AuxOperationIngressCarrier | None
     deadline_token: object
     deadline_clock_token: object
     profile_token: object
@@ -3829,8 +3950,7 @@ class _ExecuteCommandFinalizeSuccessStage:
 
 @dataclass(frozen=True)
 class _ExecuteCommandRuntimeBootstrapStage:
-    identity_shadow_runtime: IdentityShadowRuntime
-    identity_registry_mirror: IdentityRegistryMirror
+    identity_shadow_session: IdentityShadowSession
     progress_emitter: _ProgressEmitter
     emit_lsp_progress_fn: Callable[..., None]
     emit_phase_progress_events: bool
@@ -4305,6 +4425,7 @@ def _stage_ingress(
         cleanup_grace_ns=cleanup_grace_ns,
         timeout_hard_deadline_ns=timeout_hard_deadline_ns,
         dataflow_capabilities=ingress.dataflow_capabilities,
+        aux_operation=ingress.aux_operation,
         deadline_token=deadline_token,
         deadline_clock_token=deadline_clock_token,
         profile_token=profile_token,
@@ -4371,18 +4492,11 @@ def _stage_runtime_bootstrap(
 ) -> _ExecuteCommandRuntimeBootstrapStage:
     if config.fingerprint_registry is None:
         config.fingerprint_registry = PrimeRegistry()
-    identity_shadow_runtime = build_identity_shadow_runtime(
-        run_id=(
-            f"{DEFAULT_IDENTITY_SHADOW_RUN_ID}:"
-            f"{sha1(str(root).encode('utf-8')).hexdigest()}"
-        ),
+    identity_shadow_session = build_identity_shadow_session(
+        root=Path(str(root)),
         registry=config.fingerprint_registry,
     )
-    identity_registry_mirror = build_identity_registry_mirror(
-        registry=config.fingerprint_registry,
-        identity_space=identity_shadow_runtime.run_context.identity_space,
-    )
-    identity_registry_mirror.start()
+    identity_shadow_session.start()
     progress_emitter = _create_progress_emitter(
         notification_runtime=_notification_runtime(
             getattr(ls, "send_notification", None)
@@ -4392,11 +4506,10 @@ def _stage_runtime_bootstrap(
         progress_heartbeat_seconds=progress_heartbeat_seconds,
         profiling_stage_ns=profiling_stage_ns,
         profiling_counters=profiling_counters,
-        identity_shadow_runtime=identity_shadow_runtime,
+        identity_shadow_runtime=identity_shadow_session.runtime,
     )
     return _ExecuteCommandRuntimeBootstrapStage(
-        identity_shadow_runtime=identity_shadow_runtime,
-        identity_registry_mirror=identity_registry_mirror,
+        identity_shadow_session=identity_shadow_session,
         progress_emitter=progress_emitter,
         emit_lsp_progress_fn=progress_emitter.emit,
         emit_phase_progress_events=progress_emitter.emit_phase_progress_events,
@@ -4440,6 +4553,7 @@ def execute_command_total(
     analysis_window_ns = ingress_stage.analysis_window_ns
     cleanup_grace_ns = ingress_stage.cleanup_grace_ns
     dataflow_capabilities = ingress_stage.dataflow_capabilities
+    aux_operation = ingress_stage.aux_operation
     deadline_token = ingress_stage.deadline_token
     deadline_clock_token = ingress_stage.deadline_clock_token
     profile_token = ingress_stage.profile_token
@@ -4493,7 +4607,7 @@ def execute_command_total(
     progress_emitter: _ProgressEmitter | None = None
     emit_phase_progress_events = False
     identity_shadow_runtime: IdentityShadowRuntime | None = None
-    identity_registry_mirror: IdentityRegistryMirror | None = None
+    identity_shadow_session: IdentityShadowSession | None = None
 
     def _emit_lsp_progress(**_kwargs: object) -> None:
         return
@@ -4609,7 +4723,7 @@ def execute_command_total(
         options = _parse_execution_payload_options(
             payload=payload,
             root=Path(root),
-            aux_operation=ingress.aux_operation,
+            aux_operation=aux_operation,
         )
         aspf_trace_state = execute_deps.start_trace_fn(
             root=Path(root),
@@ -4816,8 +4930,8 @@ def execute_command_total(
             profiling_stage_ns=profiling_stage_ns,
             profiling_counters=profiling_counters,
         )
-        identity_shadow_runtime = runtime_bootstrap.identity_shadow_runtime
-        identity_registry_mirror = runtime_bootstrap.identity_registry_mirror
+        identity_shadow_session = runtime_bootstrap.identity_shadow_session
+        identity_shadow_runtime = identity_shadow_session.runtime
         progress_emitter = runtime_bootstrap.progress_emitter
         _emit_lsp_progress = runtime_bootstrap.emit_lsp_progress_fn
         emit_phase_progress_events = runtime_bootstrap.emit_phase_progress_events
@@ -4996,8 +5110,8 @@ def execute_command_total(
         )
         raise
     finally:
-        if identity_registry_mirror is not None:
-            identity_registry_mirror.stop()
+        if identity_shadow_session is not None:
+            identity_shadow_session.stop()
         if progress_emitter is not None:
             progress_emitter.stop()
         reset_forest(forest_token)

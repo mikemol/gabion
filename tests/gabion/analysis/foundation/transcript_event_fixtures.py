@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from hashlib import sha1
 from typing import Mapping, TypeAlias
 
+from gabion.analysis.foundation.event_algebra_adapter_utils import (
+    mapping_payload_to_json_object,
+    payload_sha1_digest,
+)
 from gabion.analysis.foundation.event_algebra import (
     CanonicalAdaptationDecision,
     CanonicalEventAdaptationError,
@@ -16,7 +20,6 @@ from gabion.analysis.foundation.event_algebra import (
     envelope_from_decision_or_raise,
 )
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.runtime import stable_encode
 
 
 @dataclass(frozen=True)
@@ -116,11 +119,13 @@ def _fixture_payload(
                 raise CanonicalEventAdaptationError(
                     "NodeDiscovered requires non-empty node_id and module_path."
                 )
-            payload = {
+            payload = mapping_payload_to_json_object(
+                {
                 "node_id": node_id,
                 "module_path": module_path,
                 "label": str(event.label).strip(),
-            }
+                }
+            )
             return (
                 "node_discovered",
                 payload,
@@ -139,11 +144,13 @@ def _fixture_payload(
                 raise CanonicalEventAdaptationError(
                     "EdgeFormed requires non-empty src/dst/relation."
                 )
-            payload = {
+            payload = mapping_payload_to_json_object(
+                {
                 "src_node_id": src_node,
                 "dst_node_id": dst_node,
                 "relation": relation,
-            }
+                }
+            )
             return (
                 "edge_formed",
                 payload,
@@ -162,7 +169,9 @@ def _fixture_payload(
                 raise CanonicalEventAdaptationError(
                     "ComponentSealed requires non-empty component_id and members."
                 )
-            payload = {"component_id": component_id, "members": list(members)}
+            payload = mapping_payload_to_json_object(
+                {"component_id": component_id, "members": list(members)}
+            )
             members_hash = sha1("|".join(members).encode("utf-8")).hexdigest()
             return (
                 "component_sealed",
@@ -180,10 +189,12 @@ def _fixture_payload(
                 raise CanonicalEventAdaptationError(
                     "StreamTerminated requires a non-empty reason."
                 )
-            payload = {
+            payload = mapping_payload_to_json_object(
+                {
                 "reason": reason,
                 "total_events": int(event.total_events),
-            }
+                }
+            )
             return (
                 "stream_terminated",
                 payload,
@@ -202,14 +213,14 @@ def _fixture_payload(
                 raise CanonicalEventAdaptationError(
                     "NameInterned requires namespace/token and positive atom_id."
                 )
-            payload = {
+            payload = mapping_payload_to_json_object(
+                {
                 "namespace": namespace,
                 "token": token,
                 "atom_id": atom_id,
-            }
-            digest = sha1(
-                stable_encode.stable_compact_text(payload).encode("utf-8")
-            ).hexdigest()
+                }
+            )
+            digest = payload_sha1_digest(payload)
             return (
                 "name_interned",
                 payload,
@@ -224,4 +235,3 @@ def _fixture_payload(
             raise CanonicalEventAdaptationError(
                 f"Unsupported transcript fixture event type: {type(event).__name__}"
             )
-

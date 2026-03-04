@@ -12,7 +12,6 @@ PROGRESS_EVENT_KINDS: Final[frozenset[str]] = frozenset(
 
 _POST_ANALYSIS_STATE_PREFIX = "analysis_post_"
 _DEFAULT_ROOT_IDENTITY = "__root__"
-_DEFAULT_ACTIVE_IDENTITY = "__active__"
 
 
 @dataclass(frozen=True)
@@ -125,7 +124,7 @@ def _node_identity_from_marker(marker: ProgressMarkerParts) -> str:
         return marker.marker_family
     if marker.marker_text:
         return marker.marker_text
-    return _DEFAULT_ACTIVE_IDENTITY
+    return "__active__"
 
 
 def _fallback_primary_from_phase_progress(
@@ -244,9 +243,6 @@ def _transition_payload_mapping(
     raw_transition_v2 = phase_progress.get("progress_transition_v2")
     if isinstance(raw_transition_v2, Mapping):
         return raw_transition_v2
-    raw_transition_v1 = phase_progress.get("progress_transition_v1")
-    if isinstance(raw_transition_v1, Mapping):
-        return raw_transition_v1
     return None
 
 
@@ -298,101 +294,6 @@ def _normalize_transition_from_v2(
         and (root.total > 0)
         and (root.done == root.total)
         and (active_node.marker.marker_text == "complete")
-    )
-    return NormalizedProgressTransition(
-        phase=phase,
-        analysis_state=analysis_state,
-        event_kind=event_kind,
-        root=root,
-        active_path=active_path,
-        terminal_complete=terminal_complete,
-    )
-
-
-def _normalize_transition_from_v1(
-    *,
-    phase_progress: Mapping[str, object],
-    transition: Mapping[str, object],
-) -> NormalizedProgressTransition | None:
-    phase = str(transition.get("phase", "") or phase_progress.get("phase", "") or "")
-    if not phase:
-        return None
-    analysis_state = str(
-        transition.get("analysis_state", "")
-        or phase_progress.get("analysis_state", "")
-        or ""
-    )
-    event_kind = _normalize_event_kind(transition.get("event_kind"))
-    if event_kind is None:
-        event_kind = _normalize_event_kind(phase_progress.get("event_kind"))
-    if event_kind is None:
-        return None
-    parent = transition.get("parent")
-    unit = ""
-    done: int | None = None
-    total: int | None = None
-    parent_identity = f"{phase}:{analysis_state}" if analysis_state else _DEFAULT_ROOT_IDENTITY
-    if isinstance(parent, Mapping):
-        unit = str(parent.get("unit", "") or "")
-        done = _normalize_non_negative_int(parent.get("done"))
-        total = _normalize_non_negative_int(parent.get("total"))
-        raw_parent_identity = parent.get("identity")
-        if isinstance(raw_parent_identity, str) and raw_parent_identity.strip():
-            parent_identity = raw_parent_identity.strip()
-    fallback_unit, fallback_done, fallback_total = _fallback_primary_from_phase_progress(
-        phase_progress
-    )
-    if not unit:
-        unit = fallback_unit
-    if done is None:
-        done = fallback_done
-    if total is None:
-        total = fallback_total
-    if done is None or total is None:
-        return None
-    done, total = _coerce_done_total(done, total)
-    child_payload = transition.get("child")
-    marker = _normalize_marker_parts(phase_progress.get("progress_marker", ""))
-    child_identity = _DEFAULT_ACTIVE_IDENTITY
-    if isinstance(child_payload, Mapping):
-        marker = _normalize_marker_parts(
-            child_payload.get("marker_text", marker.marker_text),
-            marker_family=child_payload.get("marker_family", marker.marker_family),
-            marker_step=child_payload.get("marker_step", marker.marker_step),
-        )
-        raw_identity = child_payload.get("identity")
-        if isinstance(raw_identity, str) and raw_identity.strip():
-            child_identity = raw_identity.strip()
-    if not marker.marker_text:
-        return None
-    if child_identity == _DEFAULT_ACTIVE_IDENTITY:
-        child_identity = _node_identity_from_marker(marker)
-    child_node = ProgressNode(
-        identity=child_identity,
-        unit=unit,
-        done=done,
-        total=total,
-        marker=marker,
-        children=(),
-    )
-    root_marker = _normalize_marker_parts(
-        phase_progress.get("progress_marker", marker.marker_text),
-        marker_family="parent",
-    )
-    root = ProgressNode(
-        identity=parent_identity,
-        unit=unit,
-        done=done,
-        total=total,
-        marker=root_marker,
-        children=(child_node,),
-    )
-    active_path = (root.identity, child_node.identity)
-    terminal_complete = bool(
-        (phase == "post")
-        and (total > 0)
-        and (done == total)
-        and (marker.marker_text == "complete")
     )
     return NormalizedProgressTransition(
         phase=phase,
@@ -462,12 +363,6 @@ def normalize_progress_transition_from_phase_progress(
         return _normalize_transition_from_v2(
             phase_progress=phase_progress,
             transition=transition_v2,
-        )
-    transition_v1 = phase_progress.get("progress_transition_v1")
-    if isinstance(transition_v1, Mapping):
-        return _normalize_transition_from_v1(
-            phase_progress=phase_progress,
-            transition=transition_v1,
         )
     return None
 
@@ -761,36 +656,5 @@ def progress_transition_v2_payload(
         "event_kind": effective_event_kind,
         "root": _node_payload(transition.root),
         "active_path": list(transition.active_path),
-        "terminal_complete": transition.terminal_complete,
-    }
-
-
-def progress_transition_v1_payload(
-    *,
-    transition: NormalizedProgressTransition,
-    reason: str,
-    effective_event_kind: ProgressEventKind,
-) -> dict[str, object]:
-    marker = transition.marker
-    active = transition.active_node
-    return {
-        "format_version": 1,
-        "reason": reason,
-        "phase": transition.phase,
-        "analysis_state": transition.analysis_state,
-        "event_kind": effective_event_kind,
-        "parent": {
-            "identity": transition.root.identity,
-            "unit": transition.primary_unit,
-            "done": transition.primary_done,
-            "total": transition.primary_total,
-        },
-        "child": {
-            "identity": active.identity,
-            "path": list(transition.active_path),
-            "marker_text": marker.marker_text,
-            "marker_family": marker.marker_family,
-            "marker_step": marker.marker_step,
-        },
         "terminal_complete": transition.terminal_complete,
     }

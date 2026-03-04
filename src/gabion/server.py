@@ -63,6 +63,7 @@ from gabion.refactor import (
 from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
     LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
+from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.tooling.governance.governance_rules import GovernanceRules, load_governance_rules
 
@@ -630,41 +631,10 @@ def _analysis_resume_progress(
     collection_resume: Mapping[str, JSONValue] | None,
     total_files: int,
 ) -> dict[str, int]:
-    if not isinstance(collection_resume, Mapping):
-        normalized_total_files = max(total_files, 0)
-        return {
-            "completed_files": 0,
-            "in_progress_files": 0,
-            "remaining_files": normalized_total_files,
-            "total_files": normalized_total_files,
-        }
-    completed_paths = collection_resume.get("completed_paths")
-    completed = 0
-    if isinstance(completed_paths, list):
-        completed = sum(1 for path in completed_paths if isinstance(path, str))
-    in_progress_scan = collection_resume.get("in_progress_scan_by_path")
-    in_progress = 0
-    if isinstance(in_progress_scan, Mapping):
-        in_progress = sum(
-            1
-            for path, state in in_progress_scan.items()
-            if isinstance(path, str) and isinstance(state, Mapping)
-        )
-    if total_files >= 0:
-        # A timeout can occur before path discovery populates total_files.
-        # Preserve observed checkpoint progress instead of clamping it away.
-        observed_files = completed + in_progress
-        if observed_files > total_files:
-            total_files = observed_files
-        completed = min(completed, total_files)
-        in_progress = min(in_progress, max(total_files - completed, 0))
-    remaining = max(total_files - completed, 0)
-    return {
-        "completed_files": completed,
-        "in_progress_files": in_progress,
-        "remaining_files": remaining,
-        "total_files": total_files,
-    }
+    return orchestrator_primitives._analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
 
 
 def _normalize_progress_work(
@@ -703,138 +673,14 @@ def _build_phase_progress_v2(
     work_total: object | None,
     phase_progress_v2: Mapping[str, JSONValue] | None = None,
 ) -> tuple[JSONObject, int, int]:
-    normalized_work_done, normalized_work_total = _normalize_progress_work(
+    return orchestrator_primitives._build_phase_progress_v2(
+        phase=phase,
+        collection_progress=collection_progress,
+        semantic_progress=semantic_progress,
         work_done=work_done,
         work_total=work_total,
+        phase_progress_v2=phase_progress_v2,
     )
-    if normalized_work_done is None or normalized_work_total is None:
-        if phase == "collection":
-            raw_completed = collection_progress.get("completed_files")
-            raw_total = collection_progress.get("total_files")
-            if (
-                isinstance(raw_completed, int)
-                and not isinstance(raw_completed, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                normalized_work_done = max(int(raw_completed), 0)
-                normalized_work_total = max(int(raw_total), 0)
-    if normalized_work_done is None:
-        normalized_work_done = 0
-    if normalized_work_total is None:
-        normalized_work_total = 0
-    if normalized_work_total:
-        normalized_work_done = min(normalized_work_done, normalized_work_total)
-
-    primary_unit_for_phase = _phase_primary_unit_for_phase(phase)
-    normalized: JSONObject = {
-        "format_version": 1,
-        "schema": "gabion/phase_progress_v2",
-        "primary_unit": primary_unit_for_phase,
-        "primary_done": normalized_work_done,
-        "primary_total": normalized_work_total,
-        "dimensions": {
-            primary_unit_for_phase: {
-                "done": normalized_work_done,
-                "total": normalized_work_total,
-            }
-        },
-        "inventory": {},
-    }
-    if isinstance(phase_progress_v2, Mapping):
-        for key, value in phase_progress_v2.items():
-            if isinstance(key, str):
-                normalized[key] = value
-    primary_unit = str(normalized.get("primary_unit", "") or "").strip()
-    if not primary_unit:
-        primary_unit = primary_unit_for_phase
-    raw_primary_done = normalized.get("primary_done")
-    raw_primary_total = normalized.get("primary_total")
-    primary_done = (
-        max(int(raw_primary_done), 0)
-        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
-        else normalized_work_done
-    )
-    primary_total = (
-        max(int(raw_primary_total), 0)
-        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
-        else normalized_work_total
-    )
-    if primary_total:
-        primary_done = min(primary_done, primary_total)
-    normalized["primary_unit"] = primary_unit
-    normalized["primary_done"] = primary_done
-    normalized["primary_total"] = primary_total
-    raw_dimensions = normalized.get("dimensions")
-    dimensions: JSONObject = {}
-    if isinstance(raw_dimensions, Mapping):
-        for dim_name, dim_payload in raw_dimensions.items():
-            if not isinstance(dim_name, str) or not isinstance(dim_payload, Mapping):
-                continue
-            raw_done = dim_payload.get("done")
-            raw_total = dim_payload.get("total")
-            if (
-                isinstance(raw_done, int)
-                and not isinstance(raw_done, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                dim_done = max(int(raw_done), 0)
-                dim_total = max(int(raw_total), 0)
-                if dim_total:
-                    dim_done = min(dim_done, dim_total)
-                dimensions[dim_name] = {"done": dim_done, "total": dim_total}
-    if primary_unit not in dimensions:
-        dimensions[primary_unit] = {"done": primary_done, "total": primary_total}
-    if phase == "collection" and isinstance(semantic_progress, Mapping):
-        raw_cumulative_new = semantic_progress.get("cumulative_new_processed_functions")
-        raw_cumulative_completed = semantic_progress.get("cumulative_completed_files_delta")
-        raw_cumulative_hydrated = semantic_progress.get("cumulative_hydrated_paths_delta")
-        raw_cumulative_regressed = semantic_progress.get("cumulative_regressed_functions")
-        semantic_new = (
-            max(int(raw_cumulative_new), 0)
-            if isinstance(raw_cumulative_new, int) and not isinstance(raw_cumulative_new, bool)
-            else 0
-        )
-        semantic_completed = (
-            max(int(raw_cumulative_completed), 0)
-            if isinstance(raw_cumulative_completed, int)
-            and not isinstance(raw_cumulative_completed, bool)
-            else 0
-        )
-        semantic_hydrated = (
-            max(int(raw_cumulative_hydrated), 0)
-            if isinstance(raw_cumulative_hydrated, int)
-            and not isinstance(raw_cumulative_hydrated, bool)
-            else 0
-        )
-        semantic_regressed = (
-            max(int(raw_cumulative_regressed), 0)
-            if isinstance(raw_cumulative_regressed, int)
-            and not isinstance(raw_cumulative_regressed, bool)
-            else 0
-        )
-        if semantic_hydrated > 0 or semantic_regressed > 0:
-            dimensions["hydrated_paths_delta"] = {
-                "done": semantic_hydrated,
-                "total": semantic_hydrated + semantic_regressed,
-            }
-        semantic_done = semantic_new + semantic_completed + semantic_hydrated
-        semantic_total = semantic_done + semantic_regressed
-        if semantic_done > 0 or semantic_regressed > 0:
-            dimensions["semantic_progress_points"] = {
-                "done": semantic_done,
-                "total": semantic_total,
-            }
-    normalized["dimensions"] = dimensions
-    raw_inventory = normalized.get("inventory")
-    inventory: JSONObject = {}
-    if isinstance(raw_inventory, Mapping):
-        for inv_key, inv_value in raw_inventory.items():
-            if isinstance(inv_key, str):
-                inventory[inv_key] = inv_value
-    normalized["inventory"] = inventory
-    return normalized, primary_done, primary_total
 
 
 def _completed_path_set(
@@ -2266,120 +2112,7 @@ def _normalize_dataflow_boundary_controls(
 
 
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
-    lint_decision = LintEntriesDecision.from_response(response)
-    lint_lines = list(lint_decision.lint_lines)
-    lint_entries = lint_decision.normalize_entries(
-        parse_lint_entry_fn=_parse_lint_line_as_payload,
-    )
-    aspf_trace_raw = response.get("aspf_trace")
-    aspf_equivalence_raw = response.get("aspf_equivalence")
-    aspf_opportunities_raw = response.get("aspf_opportunities")
-    aspf_delta_ledger_raw = response.get("aspf_delta_ledger")
-    aspf_state_raw = response.get("aspf_state")
-    supported_analysis_surfaces_raw = response.get("supported_analysis_surfaces")
-    disabled_surface_reasons_raw = response.get("disabled_surface_reasons")
-    supported_analysis_surfaces = (
-        sort_once(
-            [str(item) for item in supported_analysis_surfaces_raw],
-            source="server._normalize_dataflow_response.supported_analysis_surfaces",
-        )
-        if isinstance(supported_analysis_surfaces_raw, list)
-        else []
-    )
-    disabled_surface_reasons = (
-        {
-            str(key): str(disabled_surface_reasons_raw[key])
-            for key in sort_once(
-                disabled_surface_reasons_raw,
-                source="server._normalize_dataflow_response.disabled_surface_keys",
-            )
-        }
-        if isinstance(disabled_surface_reasons_raw, Mapping)
-        else {}
-    )
-    base = LegacyDataflowMonolithResponseDTO(
-        exit_code=int(response.get("exit_code", 0) or 0),
-        timeout=bool(response.get("timeout", False)),
-        analysis_state=(str(response.get("analysis_state")) if response.get("analysis_state") is not None else None),
-        errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
-        lint_lines=lint_lines,
-        lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
-        selected_adapter=(
-            str(response.get("selected_adapter"))
-            if response.get("selected_adapter") is not None
-            else None
-        ),
-        supported_analysis_surfaces=supported_analysis_surfaces,
-        disabled_surface_reasons=disabled_surface_reasons,
-        aspf_trace=aspf_trace_raw if isinstance(aspf_trace_raw, Mapping) else None,
-        aspf_equivalence=(
-            aspf_equivalence_raw if isinstance(aspf_equivalence_raw, Mapping) else None
-        ),
-        aspf_opportunities=(
-            aspf_opportunities_raw
-            if isinstance(aspf_opportunities_raw, Mapping)
-            else None
-        ),
-        aspf_delta_ledger=(
-            aspf_delta_ledger_raw if isinstance(aspf_delta_ledger_raw, Mapping) else None
-        ),
-        aspf_state=aspf_state_raw if isinstance(aspf_state_raw, Mapping) else None,
-        payload={str(key): response[key] for key in response},
-    )
-    normalized = dict(base.payload)
-    rewrite_plans = normalized.get("fingerprint_rewrite_plans")
-    if isinstance(rewrite_plans, list):
-        ordered_plans = normalize_rewrite_plan_order(
-            [entry for entry in rewrite_plans if isinstance(entry, dict)]
-        )
-        normalized["fingerprint_rewrite_plans"] = ordered_plans
-        rewrite_plan_schema_errors: list[dict[str, object]] = []
-        for entry in ordered_plans:
-            issues = validate_rewrite_plan_payload(entry)
-            if issues:
-                rewrite_plan_schema_errors.append(
-                    {"plan_id": str(entry.get("plan_id", "")), "issues": issues}
-                )
-        if rewrite_plan_schema_errors:
-            normalized["rewrite_plan_schema_errors"] = rewrite_plan_schema_errors
-
-    normalized["exit_code"] = base.exit_code
-    normalized["timeout"] = base.timeout
-    normalized["analysis_state"] = base.analysis_state
-    normalized["errors"] = base.errors
-    normalized["lint_lines"] = base.lint_lines
-    normalized["selected_adapter"] = base.selected_adapter
-    normalized["supported_analysis_surfaces"] = list(
-        base.supported_analysis_surfaces
-    )
-    normalized["disabled_surface_reasons"] = dict(base.disabled_surface_reasons)
-    normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
-    payload = normalized.get("payload")
-    if isinstance(payload, Mapping):
-        payload_updates: dict[str, object] = {
-            "selected_adapter": base.selected_adapter,
-            "supported_analysis_surfaces": list(base.supported_analysis_surfaces),
-            "disabled_surface_reasons": dict(base.disabled_surface_reasons),
-        }
-        normalized["payload"] = boundary_order.apply_boundary_updates_once(
-            {str(key): payload[key] for key in payload},
-            payload_updates,
-            source="server._normalize_dataflow_response.payload_capabilities",
-        )
-    if base.aspf_trace is not None:
-        normalized["aspf_trace"] = base.aspf_trace.model_dump()
-    if base.aspf_equivalence is not None:
-        normalized["aspf_equivalence"] = base.aspf_equivalence.model_dump()
-    if base.aspf_opportunities is not None:
-        normalized["aspf_opportunities"] = base.aspf_opportunities.model_dump()
-    if base.aspf_delta_ledger is not None:
-        normalized["aspf_delta_ledger"] = base.aspf_delta_ledger.model_dump()
-    if base.aspf_state is not None:
-        normalized["aspf_state"] = base.aspf_state.model_dump()
-    return boundary_order.canonicalize_boundary_mapping(
-        normalized,
-        source="server._normalize_dataflow_response",
-    )
+    return orchestrator_primitives._normalize_dataflow_response(response)
 
 
 def _truthy_flag(value: object) -> bool:

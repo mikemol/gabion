@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: identity_debt_rebase_map
 doc_role: architecture
@@ -82,7 +82,7 @@ allocation ledger.
 | `IdentityRegistryMirror` | added | `keep` | active Phase 2B write-through mirror (`PrimeRegistry` -> `GlobalIdentitySpace`) for `type_base`/`type_ctor`/`synth` |
 | Canonical primary progress (`gabion.dataflowAudit/progress-v2`) | added, default-on | `keep` | authoritative progress carrier (`valid`/`rejected` adaptation kinds) |
 | Legacy compatibility progress (`gabion.dataflowAudit/progress-v1`) | removed | `boundary-only` | retired in `IDR-001` stage 2 hard cut; no `progress-v1` transport remains in `src/gabion` |
-| Progress sidecars (`canonical_event_v1`, `identity_allocation_delta_v1`, `canonical_event_error_v1`) | retained | `boundary-only` | additive compatibility lane while v1 exists; `identity_allocation_delta_v1` now includes mirrored fingerprint namespaces |
+| Progress sidecars (`canonical_event_v1`, `identity_allocation_delta_v1`, `canonical_event_error_v1`) | retained | `boundary-only` | additive canonical adaptation sidecars on `progress-v2`; rejected envelopes carry `rejected_progress_payload_v2` alongside sidecar metadata |
 | Command response sidecar (`identity_seed_v1`) | added | `keep` | replay/debug seed output |
 
 ## Adapter inventory (retirement tags)
@@ -109,7 +109,7 @@ allocation ledger.
 
 | Gate | Purpose | Command | Current expectation |
 | --- | --- | --- | --- |
-| `G-001` | dual-publish parity and sidecar behavior remains healthy | `mise exec -- python -m pytest -q tests/gabion/server/server_execute_command_edges_cases.py tests/gabion/server_core/command_orchestrator_coverage_cases.py tests/gabion/commands/test_progress_contract_edges.py` | pass |
+| `G-001` | canonical progress and sidecar behavior remains healthy | `mise exec -- python -m pytest -q tests/gabion/server/server_execute_command_edges_cases.py tests/gabion/server_core/command_orchestrator_coverage_cases.py tests/gabion/commands/test_progress_contract_edges.py` | pass |
 | `G-002` | transcript fixture adapter parity remains healthy | `mise exec -- python -m pytest -q tests/gabion/analysis/foundation/test_transcript_event_adapter.py tests/gabion/analysis/foundation/test_event_algebra.py` | pass |
 | `G-005` | transcript fixture lane remains test-only and does not leak into production source | `rg -n "transcript_event_fixtures|adapt_transcript_fixture_event|NodeDiscovered|EdgeFormed|ComponentSealed|StreamTerminated|NameInterned|transcript\\.scout" src/gabion` | pass (no matches) |
 | `G-003` | `FastIntegerCarrier` fully removed from tracked code/tests/docs surfaces | `rg -n "FastIntegerCarrier" src tests docs --glob '!docs/identity_debt_rebase_map.md'` | pass |

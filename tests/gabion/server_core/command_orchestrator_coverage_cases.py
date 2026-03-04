@@ -13,6 +13,7 @@ from gabion.analysis.foundation.identity_shadow_runtime import (
     IntegerAnchorDecode,
     build_identity_shadow_runtime,
 )
+from gabion.analysis.foundation.identity_shadow_session import IdentityShadowSession
 from gabion.exceptions import NeverThrown
 from gabion.server_core import command_orchestrator as orchestrator
 
@@ -40,7 +41,7 @@ def _empty_analysis_result() -> AnalysisResult:
     )
 
 
-def test_execute_command_total_starts_and_stops_identity_registry_mirror(
+def test_execute_command_total_starts_and_stops_identity_shadow_session(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -63,17 +64,21 @@ def test_execute_command_total_starts_and_stops_identity_registry_mirror(
         def stop(self) -> None:
             mirror_events.append("stop")
 
-    def _build_mirror(
+    def _build_session(
         *,
         registry: object,
-        identity_space: object,
-        allowed_namespaces: object = (),
-    ) -> _Mirror:
-        _ = (registry, identity_space, allowed_namespaces)
+        root: Path,
+    ) -> IdentityShadowSession:
+        _ = root
+        assert isinstance(registry, PrimeRegistry)
         mirror_events.append("build")
-        return _Mirror()
+        runtime = build_identity_shadow_runtime(
+            run_id="run:coverage:session",
+            registry=registry,
+        )
+        return IdentityShadowSession(runtime=runtime, registry_mirror=_Mirror())
 
-    monkeypatch.setattr(orchestrator, "build_identity_registry_mirror", _build_mirror)
+    monkeypatch.setattr(orchestrator, "build_identity_shadow_session", _build_session)
 
     class _Workspace:
         def __init__(self, root_path: str) -> None:
@@ -118,7 +123,7 @@ def test_execute_command_total_starts_and_stops_identity_registry_mirror(
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
     assert (
         by_token[orchestrator._LSP_PROGRESS_TOKEN_V2].get("schema")
-        == "gabion/canonical_progress_event_v1"
+        == "gabion/canonical_progress_event_v2"
     )
 
 
@@ -562,7 +567,7 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
 
     v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
-    assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"
+    assert v2_value.get("schema") == "gabion/canonical_progress_event_v2"
     assert v2_value.get("adaptation_kind") == "valid"
     event = v2_value.get("event")
     assert isinstance(event, dict)
@@ -572,12 +577,12 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     transition_v2 = payload.get("progress_transition_v2")
     assert isinstance(transition_v2, dict)
     assert transition_v2.get("format_version") == 2
-    transition = payload.get("progress_transition_v1")
+    transition = payload.get("progress_transition_v2")
     assert isinstance(transition, dict)
     assert transition.get("terminal_complete") is False
     assert transition.get("reason") == "initial_transition"
     assert v2_value.get("adaptation_error") == ""
-    assert v2_value.get("fallback_payload_v1") is None
+    assert v2_value.get("rejected_progress_payload_v2") is None
     assert isinstance(v2_value.get("identity_allocation_delta_v1"), list)
 
 
@@ -658,11 +663,11 @@ def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
 
     v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
-    assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"
+    assert v2_value.get("schema") == "gabion/canonical_progress_event_v2"
     assert v2_value.get("adaptation_kind") == "rejected"
     assert v2_value.get("event") is None
     assert isinstance(v2_value.get("adaptation_error"), str)
-    fallback_payload = v2_value.get("fallback_payload_v1")
+    fallback_payload = v2_value.get("rejected_progress_payload_v2")
     assert isinstance(fallback_payload, dict)
     assert fallback_payload.get("schema") == "gabion/dataflow_progress_v1"
 

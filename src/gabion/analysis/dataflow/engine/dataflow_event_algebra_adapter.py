@@ -3,7 +3,6 @@
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
 
-from hashlib import sha1
 from typing import Callable, Mapping
 
 from gabion.analysis.foundation.event_algebra import (
@@ -17,10 +16,12 @@ from gabion.analysis.foundation.event_algebra import (
     derive_identity_projection_from_tokens,
     envelope_from_decision_or_raise,
 )
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.event_algebra_adapter_utils import (
+    mapping_payload_to_json_object,
+    payload_sha1_digest,
+)
 from gabion.analysis.foundation.resume_codec import mapping_or_none
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.runtime import stable_encode
 
 DATAFLOW_PHASE_PROGRESS_SOURCE = "dataflow.phase_progress"
 DATAFLOW_COLLECTION_PROGRESS_SOURCE = "dataflow.collection_progress"
@@ -36,7 +37,7 @@ def adapt_dataflow_phase_progress_event(
 ) -> CanonicalAdaptationDecision:
     check_deadline()
     try:
-        payload = _mapping_payload(phase_progress)
+        payload = mapping_payload_to_json_object(phase_progress)
         phase = _required_phase(payload)
         kind = _phase_kind(payload)
         identity_tokens = _phase_identity_tokens(
@@ -90,7 +91,7 @@ def adapt_dataflow_collection_progress_event(
 ) -> CanonicalAdaptationDecision:
     check_deadline()
     try:
-        payload = _mapping_payload(collection_progress)
+        payload = mapping_payload_to_json_object(collection_progress)
         phase = "collection"
         kind = _collection_kind(payload)
         identity_tokens = _collection_identity_tokens(
@@ -134,11 +135,6 @@ def adapt_dataflow_collection_progress_event_or_raise(
     )
 
 
-def _mapping_payload(payload: Mapping[str, object]) -> JSONObject:
-    check_deadline()
-    return {str(key): payload[key] for key in payload}
-
-
 def _required_phase(payload: Mapping[str, object]) -> str:
     check_deadline()
     phase = str(payload.get("phase", "") or "").strip()
@@ -152,11 +148,9 @@ def _required_phase(payload: Mapping[str, object]) -> str:
 def _phase_kind(payload: Mapping[str, object]) -> str:
     check_deadline()
     transition_v2 = mapping_or_none(payload.get("progress_transition_v2"))
-    transition_v1 = mapping_or_none(payload.get("progress_transition_v1"))
     for candidate in (
         payload.get("event_kind"),
         (transition_v2 or {}).get("event_kind"),
-        (transition_v1 or {}).get("event_kind"),
     ):
         check_deadline()
         text = str(candidate or "").strip()
@@ -222,29 +216,14 @@ def _phase_identity_tokens(
             if active_nodes and len(active_nodes) == len(active_path_value):
                 components.append(f"active_path:{'|'.join(active_nodes)}")
 
-    transition_v1 = mapping_or_none(payload.get("progress_transition_v1"))
-    if transition_v1 is not None:
-        parent = mapping_or_none(transition_v1.get("parent"))
-        if parent is not None:
-            parent_identity = str(parent.get("identity", "") or "").strip()
-            if parent_identity:
-                components.append(f"parent_identity:{parent_identity}")
-        child = mapping_or_none(transition_v1.get("child"))
-        if child is not None:
-            child_marker = str(child.get("marker_text", "") or "").strip()
-            if child_marker:
-                components.append(f"child_marker:{child_marker}")
-
     has_identity_anchor = any(
         token.startswith(
             (
                 "event_seq:",
                 "progress_marker:",
                 "root_identity:",
-                "parent_identity:",
                 "active_path:",
                 "primary_unit:",
-                "child_marker:",
             )
         )
         for token in components
@@ -352,9 +331,7 @@ def _positive_int_or_none(value: object) -> int | None:
 
 
 def _payload_digest(payload: Mapping[str, object]) -> str:
-    check_deadline()
-    canonical = stable_encode.stable_compact_text(payload).encode("utf-8")
-    return sha1(canonical).hexdigest()
+    return payload_sha1_digest(payload)
 
 
 def _integer_anchor_tokens(

@@ -3,6 +3,81 @@ from __future__ import annotations
 from gabion.commands import progress_contract
 
 
+def _progress_transition_v2_payload(
+    *,
+    event_kind: str,
+    done: int,
+    total: int,
+    marker: str,
+    reason: str = "parent_held",
+) -> dict[str, object]:
+    return {
+        "phase": "post",
+        "analysis_state": "analysis_post_in_progress",
+        "event_kind": event_kind,
+        "reason": reason,
+        "root": {
+            "identity": "post_root",
+            "unit": "post_tasks",
+            "done": done,
+            "total": total,
+            "marker_text": "root",
+            "children": [
+                {
+                    "identity": marker,
+                    "unit": "post_tasks",
+                    "done": done,
+                    "total": total,
+                    "marker_text": marker,
+                    "children": [],
+                }
+            ],
+        },
+        "active_path": ["post_root", marker],
+    }
+
+
+def _canonical_progress_notification(
+    payload: dict[str, object],
+    *,
+    adaptation_kind: str = "valid",
+) -> dict[str, object]:
+    value: dict[str, object] = {
+        "schema": "gabion/canonical_progress_event_v2",
+        "format_version": 2,
+        "adaptation_kind": adaptation_kind,
+        "event": None,
+        "adaptation_error": "",
+        "identity_allocation_delta_v1": [],
+        "rejected_progress_payload_v2": None,
+    }
+    if adaptation_kind == "valid":
+        phase = str(payload.get("phase", "") or "")
+        event_kind = str(payload.get("event_kind", "") or "")
+        value["event"] = {
+            "schema_version": 1,
+            "sequence": 1,
+            "run_id": "run:test",
+            "source": "dataflow.progress",
+            "phase": phase,
+            "kind": event_kind,
+            "identity_projection": {},
+            "payload": dict(payload),
+            "causal_refs": [],
+            "event_id": "run:test:1",
+        }
+    else:
+        value["adaptation_error"] = "canonical adaptation rejected"
+        value["rejected_progress_payload_v2"] = dict(payload)
+    return {
+        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
+        "params": {
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
+            "value": value,
+        },
+    }
+
+
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_dimensions_summary_keeps_zero_total_without_clamp::progress_contract.py::gabion.commands.progress_contract.phase_progress_dimensions_summary
 def test_phase_progress_dimensions_summary_keeps_zero_total_without_clamp() -> None:
     summary = progress_contract.phase_progress_dimensions_summary(
@@ -45,9 +120,12 @@ def test_phase_timeline_row_prefers_progress_transition_marker_payload() -> None
             "progress_marker": "stale-marker",
             "work_done": 5,
             "work_total": 6,
-            "progress_transition_v1": {
-                "child": {"marker_text": "fingerprint:warnings"},
-            },
+            "progress_transition_v2": _progress_transition_v2_payload(
+                event_kind="progress",
+                done=5,
+                total=6,
+                marker="fingerprint:warnings",
+            ),
         }
     )
     assert "| fingerprint:warnings |" in row
@@ -66,14 +144,13 @@ def test_phase_timeline_row_prefers_progress_transition_parent_payload() -> None
                 "primary_done": 1,
                 "primary_total": 9,
             },
-            "progress_transition_v1": {
-                "parent": {
-                    "unit": "post_tasks",
-                    "done": 6,
-                    "total": 6,
-                },
-                "child": {"marker_text": "complete"},
-            },
+            "progress_transition_v2": _progress_transition_v2_payload(
+                event_kind="terminal",
+                done=6,
+                total=6,
+                marker="complete",
+                reason="terminal_transition",
+            ),
         }
     )
     assert "| 6/6 post_tasks |" in row
@@ -86,15 +163,15 @@ def test_phase_progress_signature_includes_transition_parent_and_reason() -> Non
             "phase": "post",
             "event_kind": "terminal",
             "progress_marker": "stale",
-            "progress_transition_v1": {
-                "reason": "terminal_transition",
-                "parent": {
-                    "unit": "post_tasks",
-                    "done": 6,
-                    "total": 6,
-                },
-                "child": {"marker_text": "complete"},
-            },
+            "work_done": 6,
+            "work_total": 6,
+            "progress_transition_v2": _progress_transition_v2_payload(
+                event_kind="terminal",
+                done=6,
+                total=6,
+                marker="complete",
+                reason="terminal_transition",
+            ),
         }
     )
     assert "complete" in signature
@@ -104,39 +181,22 @@ def test_phase_progress_signature_includes_transition_parent_and_reason() -> Non
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_transition_payload_for_marker_and_work::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
 def test_phase_progress_from_notification_prefers_transition_payload_for_marker_and_work() -> None:
-    notification = {
-        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
-        "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
-            "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
-                "adaptation_kind": "valid",
-                "event": {
-                    "payload": {
-                        "phase": "post",
-                        "event_kind": "progress",
-                        "work_done": 1,
-                        "work_total": 9,
-                        "progress_marker": "stale",
-                        "progress_transition_v1": {
-                            "reason": "terminal_transition",
-                            "event_kind": "terminal",
-                            "parent": {
-                                "unit": "post_tasks",
-                                "done": 6,
-                                "total": 6,
-                            },
-                            "child": {"marker_text": "complete"},
-                        },
-                    }
-                },
-                "adaptation_error": "",
-                "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": None,
-            },
-        },
-    }
+    notification = _canonical_progress_notification(
+        {
+            "phase": "post",
+            "event_kind": "progress",
+            "work_done": 1,
+            "work_total": 9,
+            "progress_marker": "stale",
+            "progress_transition_v2": _progress_transition_v2_payload(
+                event_kind="terminal",
+                done=6,
+                total=6,
+                marker="complete",
+                reason="terminal_transition",
+            ),
+        }
+    )
     phase_progress = progress_contract.phase_progress_from_progress_notification(
         notification
     )
@@ -149,29 +209,15 @@ def test_phase_progress_from_notification_prefers_transition_payload_for_marker_
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_canonical_v2_payload::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
 def test_phase_progress_from_notification_prefers_canonical_v2_payload() -> None:
-    notification = {
-        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
-        "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
-            "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
-                "adaptation_kind": "valid",
-                "event": {
-                    "payload": {
-                        "phase": "post",
-                        "event_kind": "terminal",
-                        "work_done": 6,
-                        "work_total": 6,
-                        "progress_marker": "complete",
-                    }
-                },
-                "adaptation_error": "",
-                "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": None,
-            },
-        },
-    }
+    notification = _canonical_progress_notification(
+        {
+            "phase": "post",
+            "event_kind": "terminal",
+            "work_done": 6,
+            "work_total": 6,
+            "progress_marker": "complete",
+        }
+    )
     phase_progress = progress_contract.phase_progress_from_progress_notification(
         notification
     )
@@ -191,27 +237,17 @@ def test_phase_progress_from_notification_uses_v2_rejected_fallback_payload() ->
         "work_done": 1,
         "work_total": 9,
         "progress_marker": "fingerprint:normalize",
-        "progress_transition_v1": {
-            "event_kind": "progress",
-            "parent": {"unit": "post_tasks", "done": 1, "total": 9},
-            "child": {"marker_text": "fingerprint:normalize"},
-        },
+        "progress_transition_v2": _progress_transition_v2_payload(
+            event_kind="progress",
+            done=1,
+            total=9,
+            marker="fingerprint:normalize",
+        ),
     }
-    notification = {
-        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
-        "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
-            "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
-                "adaptation_kind": "rejected",
-                "event": None,
-                "adaptation_error": "canonical adaptation rejected",
-                "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": fallback_payload,
-            },
-        },
-    }
+    notification = _canonical_progress_notification(
+        fallback_payload,
+        adaptation_kind="rejected",
+    )
     phase_progress = progress_contract.phase_progress_from_progress_notification(
         notification
     )
@@ -224,33 +260,19 @@ def test_phase_progress_from_notification_uses_v2_rejected_fallback_payload() ->
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
 def test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable() -> None:
-    notification = {
-        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
-        "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
-            "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
-                "adaptation_kind": "valid",
-                "event": {
-                    "payload": {
-                        "phase": "post",
-                        "event_kind": "progress",
-                        "work_done": "invalid",
-                        "work_total": "invalid",
-                        "progress_marker": "fingerprint:normalize",
-                        "progress_transition_v1": {
-                            "parent": {"unit": "post_tasks"},
-                            "child": {"marker_text": "fingerprint:normalize"},
-                        },
-                    }
-                },
-                "adaptation_error": "",
-                "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": None,
+    notification = _canonical_progress_notification(
+        {
+            "phase": "post",
+            "event_kind": "progress",
+            "work_done": "invalid",
+            "work_total": "invalid",
+            "progress_marker": "fingerprint:normalize",
+            "progress_transition_v2": {
+                "parent": {"unit": "post_tasks"},
+                "child": {"marker_text": "fingerprint:normalize"},
             },
-        },
-    }
+        }
+    )
     phase_progress = progress_contract.phase_progress_from_progress_notification(
         notification
     )
@@ -274,6 +296,7 @@ def test_phase_timeline_row_prefers_progress_transition_v2_payload() -> None:
                 "phase": "post",
                 "analysis_state": "analysis_post_in_progress",
                 "event_kind": "progress",
+                "reason": "parent_held",
                 "root": {
                     "identity": "post_root",
                     "unit": "post_tasks",
@@ -306,10 +329,6 @@ def test_phase_timeline_row_prefers_progress_transition_v2_payload() -> None:
                     "fingerprint:normalize",
                 ],
             },
-            "progress_transition_v1": {
-                "parent": {"unit": "post_tasks", "done": 6, "total": 6},
-                "child": {"marker_text": "complete"},
-            },
         }
     )
     assert "| fingerprint:normalize |" in row
@@ -320,51 +339,22 @@ def test_phase_timeline_row_prefers_progress_transition_v2_payload() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_transition_v2_event_kind::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
 def test_phase_progress_from_notification_prefers_transition_v2_event_kind() -> None:
-    notification = {
-        "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
-        "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
-            "value": {
-                "schema": "gabion/canonical_progress_event_v1",
-                "format_version": 1,
-                "adaptation_kind": "valid",
-                "event": {
-                    "payload": {
-                        "phase": "post",
-                        "event_kind": "progress",
-                        "work_done": 1,
-                        "work_total": 9,
-                        "progress_marker": "stale",
-                        "progress_transition_v2": {
-                            "reason": "terminal_transition",
-                            "event_kind": "terminal",
-                            "root": {
-                                "identity": "post_root",
-                                "unit": "post_tasks",
-                                "done": 6,
-                                "total": 6,
-                                "marker_text": "root",
-                                "children": [
-                                    {
-                                        "identity": "complete",
-                                        "unit": "post_tasks",
-                                        "done": 6,
-                                        "total": 6,
-                                        "marker_text": "complete",
-                                        "children": [],
-                                    }
-                                ],
-                            },
-                            "active_path": ["post_root", "complete"],
-                        },
-                    }
-                },
-                "adaptation_error": "",
-                "identity_allocation_delta_v1": [],
-                "fallback_payload_v1": None,
-            },
-        },
-    }
+    notification = _canonical_progress_notification(
+        {
+            "phase": "post",
+            "event_kind": "progress",
+            "work_done": 1,
+            "work_total": 9,
+            "progress_marker": "stale",
+            "progress_transition_v2": _progress_transition_v2_payload(
+                event_kind="terminal",
+                done=6,
+                total=6,
+                marker="complete",
+                reason="terminal_transition",
+            ),
+        }
+    )
     phase_progress = progress_contract.phase_progress_from_progress_notification(
         notification
     )

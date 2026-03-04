@@ -2,9 +2,6 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from hashlib import sha1
-from typing import Mapping
-
 from gabion.analysis.aspf.aspf_visitors import (
     AspfCofibrationEvent,
     AspfOneCellEvent,
@@ -24,10 +21,13 @@ from gabion.analysis.foundation.event_algebra import (
     derive_identity_projection_from_tokens,
     envelope_from_decision_or_raise,
 )
+from gabion.analysis.foundation.event_algebra_adapter_utils import (
+    mapping_payload_to_json_object,
+    payload_sha1_digest,
+)
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
-from gabion.runtime import stable_encode
 
 ASPF_CANONICAL_SOURCE = "aspf.trace_replay"
 
@@ -82,8 +82,8 @@ def _normalized_aspf_event_payload(
     check_deadline()
     match event:
         case AspfOneCellEvent():
-            payload = _mapping_payload(event.payload)
-            digest = _payload_digest(payload)
+            payload = mapping_payload_to_json_object(event.payload)
+            digest = payload_sha1_digest(payload)
             return (
                 "one_cell",
                 "trace_replay",
@@ -97,8 +97,8 @@ def _normalized_aspf_event_payload(
                 ),
             )
         case AspfTwoCellEvent():
-            payload = _mapping_payload(event.payload)
-            digest = _payload_digest(payload)
+            payload = mapping_payload_to_json_object(event.payload)
+            digest = payload_sha1_digest(payload)
             return (
                 "two_cell",
                 "trace_replay",
@@ -112,8 +112,8 @@ def _normalized_aspf_event_payload(
                 ),
             )
         case AspfCofibrationEvent():
-            payload = _mapping_payload(event.payload)
-            digest = _payload_digest(payload)
+            payload = mapping_payload_to_json_object(event.payload)
+            digest = payload_sha1_digest(payload)
             return (
                 "cofibration",
                 "trace_replay",
@@ -151,8 +151,8 @@ def _normalized_aspf_event_payload(
                 ),
             )
         case AspfRunBoundaryEvent():
-            payload = _mapping_payload(event.payload)
-            digest = _payload_digest(payload)
+            payload = mapping_payload_to_json_object(event.payload)
+            digest = payload_sha1_digest(payload)
             boundary = str(event.boundary).strip()
             if not boundary:
                 raise CanonicalEventAdaptationError(
@@ -172,19 +172,6 @@ def _normalized_aspf_event_payload(
             )
         case _:
             never("invalid aspf replay event", kind=type(event).__name__)
-
-
-def _mapping_payload(payload: Mapping[str, object]) -> JSONObject:
-    check_deadline()
-    normalized = {str(key): payload[key] for key in payload}
-    return normalized
-
-
-def _payload_digest(payload: Mapping[str, object]) -> str:
-    check_deadline()
-    canonical = stable_encode.stable_compact_text(payload).encode("utf-8")
-    return sha1(canonical).hexdigest()
-
 
 __all__ = [
     "ASPF_CANONICAL_SOURCE",

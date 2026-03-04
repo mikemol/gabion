@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: identity_substrate_bridge_matrix
 doc_role: architecture
@@ -76,8 +76,8 @@ doc_owner: maintainer
 
 | Sidecar field | Producer | Consumer intent |
 | --- | --- | --- |
-| `canonical_progress_event_v1` (`$/progress`, token `gabion.dataflowAudit/progress-v2`) | orchestrator canonical primary emission | v2 authoritative progress carrier (valid/rejected adaptation outcomes) |
-| `fallback_payload_v1` (v2 rejected-only) | canonical v2 rejected adaptation payload | preserve observability during rejection without dropping v1 payload semantics |
+| `canonical_progress_event_v2` (`$/progress`, token `gabion.dataflowAudit/progress-v2`) | orchestrator canonical primary emission | v2 authoritative progress carrier (valid/rejected adaptation outcomes) |
+| `rejected_progress_payload_v2` (v2 rejected-only) | canonical v2 rejected adaptation payload | preserve rejected-lane observability without legacy v1 payload naming |
 | `canonical_event_v1` | identity shadow runtime valid adaptation | cross-lane canonical replay and adapter parity |
 | `identity_allocation_delta_v1` | identity shadow runtime delta cursor + fingerprint write-through mirror | deterministic incremental allocation telemetry across path and fingerprint namespaces (`type_base`, `type_ctor`, `synth`) |
 | `canonical_event_error_v1` | identity shadow runtime rejected adaptation | non-fatal shadow fault visibility |

@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: progress_transition_contract
 doc_role: contract
@@ -32,11 +32,8 @@ notifications.
 Its canonical envelope `event.payload` contains the phase-progress fields this
 contract operates on.
 
-`gabion.dataflowAudit/progress-v1` is a temporary compatibility adapter during
-the dual-publish migration window.
-
-`progress_transition_v2` is authoritative when present. `progress_transition_v1`
-is a compatibility projection from `v2` at transport/display boundaries.
+`progress_transition_v2` is the only supported transition payload in
+`src/gabion` for `$/progress` normalization and validation.
 
 ## Recursive model
 

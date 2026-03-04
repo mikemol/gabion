@@ -7,11 +7,12 @@ from typing import Mapping
 from gabion.commands.progress_transition import (
     normalize_progress_transition_from_phase_progress, transition_reason_from_phase_progress)
 from gabion.order_contract import sort_once
+from gabion.schema import CanonicalProgressEventPayloadDTO
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
 LSP_PROGRESS_TOKEN = LSP_PROGRESS_TOKEN_V2
-CANONICAL_PROGRESS_EVENT_SCHEMA_V1 = "gabion/canonical_progress_event_v1"
+CANONICAL_PROGRESS_EVENT_SCHEMA_V2 = "gabion/canonical_progress_event_v2"
 DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS = 1.0
 
 _PHASE_TIMELINE_COLUMNS: tuple[str, ...] = (
@@ -165,9 +166,14 @@ def _canonical_progress_value_from_notification(
     )
     if not isinstance(value, Mapping):
         return None
-    if str(value.get("schema", "") or "") != CANONICAL_PROGRESS_EVENT_SCHEMA_V1:
+    if str(value.get("schema", "") or "") != CANONICAL_PROGRESS_EVENT_SCHEMA_V2:
         return None
-    return value
+    try:
+        return CanonicalProgressEventPayloadDTO.model_validate(value).model_dump(
+            by_alias=True
+        )
+    except ValueError:
+        return None
 
 
 def phase_timeline_header_columns() -> list[str]:
@@ -349,9 +355,9 @@ def phase_progress_from_progress_notification(
                     if isinstance(normalized_payload, dict):
                         return normalized_payload
         elif adaptation_kind == "rejected":
-            fallback_payload = canonical_value.get("fallback_payload_v1")
-            if isinstance(fallback_payload, Mapping):
-                normalized_payload = _phase_progress_from_progress_value(fallback_payload)
+            rejected_payload = canonical_value.get("rejected_progress_payload_v2")
+            if isinstance(rejected_payload, Mapping):
+                normalized_payload = _phase_progress_from_progress_value(rejected_payload)
                 if isinstance(normalized_payload, dict):
                     return normalized_payload
     return None
@@ -421,19 +427,11 @@ def _phase_progress_from_progress_value(
         if isinstance(progress_transition_v2, Mapping)
         else None
     )
-    progress_transition_v1 = value.get("progress_transition_v1")
-    normalized_progress_transition_v1 = (
-        {str(key): progress_transition_v1[key] for key in progress_transition_v1}
-        if isinstance(progress_transition_v1, Mapping)
-        else None
-    )
     transition_progress_marker = progress_marker
     transition_done: int | None = None
     transition_total: int | None = None
     transition_event_kind = event_kind
-    if isinstance(normalized_progress_transition_v1, Mapping) or isinstance(
-        normalized_progress_transition_v2, Mapping
-    ):
+    if isinstance(normalized_progress_transition_v2, Mapping):
         transition_phase_progress: dict[str, object] = {
             "phase": phase,
             "analysis_state": analysis_state,
@@ -445,8 +443,6 @@ def _phase_progress_from_progress_value(
         }
         if isinstance(normalized_progress_transition_v2, Mapping):
             transition_phase_progress["progress_transition_v2"] = normalized_progress_transition_v2
-        if isinstance(normalized_progress_transition_v1, Mapping):
-            transition_phase_progress["progress_transition_v1"] = normalized_progress_transition_v1
         normalized_transition = normalize_progress_transition_from_phase_progress(
             transition_phase_progress
         )
@@ -487,8 +483,6 @@ def _phase_progress_from_progress_value(
     }
     if isinstance(normalized_progress_transition_v2, Mapping):
         normalized["progress_transition_v2"] = normalized_progress_transition_v2
-    if isinstance(normalized_progress_transition_v1, Mapping):
-        normalized["progress_transition_v1"] = normalized_progress_transition_v1
     return normalized
 
 

@@ -36,17 +36,32 @@ def _canonical_progress_notification(
     adaptation_kind: str = "valid",
 ) -> dict[str, object]:
     canonical_value: dict[str, object] = {
-        "schema": "gabion/canonical_progress_event_v1",
-        "format_version": 1,
+        "schema": "gabion/canonical_progress_event_v2",
+        "format_version": 2,
         "adaptation_kind": adaptation_kind,
-        "event": {"payload": dict(payload)} if adaptation_kind == "valid" else None,
+        "event": None,
         "adaptation_error": "",
         "identity_allocation_delta_v1": [],
-        "fallback_payload_v1": None,
+        "rejected_progress_payload_v2": None,
     }
-    if adaptation_kind == "rejected":
+    if adaptation_kind == "valid":
+        phase = str(payload.get("phase", "") or "")
+        event_kind = str(payload.get("event_kind", "") or "")
+        canonical_value["event"] = {
+            "schema_version": 1,
+            "sequence": 1,
+            "run_id": "run:cli:test",
+            "source": "cli.test",
+            "phase": phase,
+            "kind": event_kind,
+            "identity_projection": {},
+            "payload": dict(payload),
+            "causal_refs": [],
+            "event_id": "run:cli:test:1",
+        }
+    else:
         canonical_value["adaptation_error"] = "adapter rejection"
-        canonical_value["fallback_payload_v1"] = dict(payload)
+        canonical_value["rejected_progress_payload_v2"] = dict(payload)
     return {
         "method": "$/progress",
         "params": {
@@ -1134,33 +1149,19 @@ def test_phase_progress_from_progress_notification() -> None:
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification_accepts_canonical_v2_payload::cli.py::gabion.cli._phase_progress_from_progress_notification
 def test_phase_progress_from_progress_notification_accepts_canonical_v2_payload() -> None:
     payload = cli._phase_progress_from_progress_notification(
-        {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v2",
-                "value": {
-                    "schema": "gabion/canonical_progress_event_v1",
-                    "format_version": 1,
-                    "adaptation_kind": "valid",
-                    "event": {
-                        "payload": {
-                            "phase": "forest",
-                            "work_done": 3,
-                            "work_total": 8,
-                            "completed_files": 282,
-                            "remaining_files": 0,
-                            "total_files": 282,
-                            "analysis_state": "analysis_forest_in_progress",
-                            "classification": "forest_projection",
-                            "done": False,
-                        }
-                    },
-                    "adaptation_error": "",
-                    "identity_allocation_delta_v1": [],
-                    "fallback_payload_v1": None,
-                },
-            },
-        }
+        _canonical_progress_notification(
+            {
+                "phase": "forest",
+                "work_done": 3,
+                "work_total": 8,
+                "completed_files": 282,
+                "remaining_files": 0,
+                "total_files": 282,
+                "analysis_state": "analysis_forest_in_progress",
+                "classification": "forest_projection",
+                "done": False,
+            }
+        )
     )
     assert isinstance(payload, dict)
     assert payload["phase"] == "forest"
@@ -1741,7 +1742,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree(capsys) -> None:
         # dataflow-bundle: _args, _kwargs
         return {
             "exit_code": 0,
-            "structure_tree": {"format_version": 1, "root": ".", "files": []},
+            "structure_tree": {"format_version": 2, "root": ".", "files": []},
         }
 
     with pytest.raises(typer.Exit) as exc:
@@ -1751,7 +1752,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree(capsys) -> None:
         )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
-    assert "\"format_version\": 1" in captured.out
+    assert "\"format_version\": 2" in captured.out
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_3ee3d4401f7c
@@ -1760,7 +1761,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree_dev_stdout(capsys) -> Non
         # dataflow-bundle: _args, _kwargs
         return {
             "exit_code": 0,
-            "structure_tree": {"format_version": 1, "root": ".", "files": []},
+            "structure_tree": {"format_version": 2, "root": ".", "files": []},
         }
 
     with pytest.raises(typer.Exit) as exc:
@@ -1770,7 +1771,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree_dev_stdout(capsys) -> Non
         )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
-    assert "\"format_version\": 1" in captured.out
+    assert "\"format_version\": 2" in captured.out
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_c3f2f0d13aec
@@ -1806,7 +1807,7 @@ def test_legacy_dataflow_monolith_emits_decision_snapshot(capsys) -> None:
         return {
             "exit_code": 0,
             "decision_snapshot": {
-                "format_version": 1,
+                "format_version": 2,
                 "root": ".",
                 "decision_surfaces": [],
                 "value_decision_surfaces": [],
@@ -2432,8 +2433,8 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     def runner(request, root=None):
         calls.append(request.command)
         if request.command == cli.STRUCTURE_REUSE_COMMAND:
-            return {"exit_code": 0, "reuse": {"format_version": 1}}
-        return {"exit_code": 0, "diff": {"format_version": 1}}
+            return {"exit_code": 0, "reuse": {"format_version": 2}}
+        return {"exit_code": 0, "diff": {"format_version": 2}}
 
     saved = cli.DEFAULT_RUNNER
     cli.DEFAULT_RUNNER = runner

@@ -20,17 +20,32 @@ def _canonical_progress_notification(
     adaptation_kind: str = "valid",
 ) -> dict[str, object]:
     canonical_value: dict[str, object] = {
-        "schema": "gabion/canonical_progress_event_v1",
-        "format_version": 1,
+        "schema": "gabion/canonical_progress_event_v2",
+        "format_version": 2,
         "adaptation_kind": adaptation_kind,
-        "event": {"payload": dict(payload)} if adaptation_kind == "valid" else None,
+        "event": None,
         "adaptation_error": "",
         "identity_allocation_delta_v1": [],
-        "fallback_payload_v1": None,
+        "rejected_progress_payload_v2": None,
     }
-    if adaptation_kind == "rejected":
+    if adaptation_kind == "valid":
+        phase = str(payload.get("phase", "") or "")
+        event_kind = str(payload.get("event_kind", "") or "")
+        canonical_value["event"] = {
+            "schema_version": 1,
+            "sequence": 1,
+            "run_id": "run:delta:test",
+            "source": "delta.test",
+            "phase": phase,
+            "kind": event_kind,
+            "identity_projection": {},
+            "payload": dict(payload),
+            "causal_refs": [],
+            "event_id": "run:delta:test:1",
+        }
+    else:
         canonical_value["adaptation_error"] = "adapter rejection"
-        canonical_value["fallback_payload_v1"] = dict(payload)
+        canonical_value["rejected_progress_payload_v2"] = dict(payload)
     return {
         "method": "$/progress",
         "params": {

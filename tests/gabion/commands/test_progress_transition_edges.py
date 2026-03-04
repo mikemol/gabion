@@ -4,7 +4,7 @@ import pytest
 
 import gabion.commands.progress_transition as progress_transition_module
 from gabion.commands.progress_transition import (
-    NormalizedProgressTransition, ProgressMarkerParts, ProgressNode, normalize_progress_transition_boundary, normalize_progress_transition_from_phase_progress, progress_transition_v1_payload, progress_transition_v2_payload, transition_event_kind_from_phase_progress, transition_marker_from_phase_progress, transition_primary_from_phase_progress, transition_reason_from_phase_progress, validate_progress_transition)
+    NormalizedProgressTransition, ProgressMarkerParts, ProgressNode, normalize_progress_transition_boundary, normalize_progress_transition_from_phase_progress, progress_transition_v2_payload, transition_event_kind_from_phase_progress, transition_marker_from_phase_progress, transition_primary_from_phase_progress, transition_reason_from_phase_progress, validate_progress_transition)
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_rejects_invalid_shapes::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
@@ -14,14 +14,14 @@ from gabion.commands.progress_transition import (
         (
             {
                 "event_kind": "progress",
-                "progress_transition_v1": {"event_kind": "progress"},
+                "progress_transition_v2": {"event_kind": "progress"},
             },
         ),
         (
             {
                 "phase": "post",
                 "event_kind": "invalid",
-                "progress_transition_v1": {
+                "progress_transition_v2": {
                     "phase": "post",
                     "event_kind": "invalid",
                 },
@@ -31,7 +31,7 @@ from gabion.commands.progress_transition import (
             {
                 "phase": "post",
                 "event_kind": "progress",
-                "progress_transition_v1": {
+                "progress_transition_v2": {
                     "phase": "post",
                     "event_kind": "progress",
                 },
@@ -58,11 +58,26 @@ def test_normalize_progress_transition_from_phase_progress_rejects_invalid_shape
                     "primary_done": 9,
                     "primary_total": 5,
                 },
-                "progress_transition_v1": {
+                "progress_transition_v2": {
                     "phase": "post",
                     "event_kind": "progress",
-                    "parent": {"unit": "post_tasks"},
-                    "child": {"marker_text": "fingerprint:normalize"},
+                    "root": {
+                        "identity": "post_root",
+                        "unit": "post_tasks",
+                        "done": 9,
+                        "total": 5,
+                        "children": [
+                            {
+                                "identity": "fingerprint:normalize",
+                                "unit": "post_tasks",
+                                "done": 9,
+                                "total": 5,
+                                "marker_text": "fingerprint:normalize",
+                                "children": [],
+                            }
+                        ],
+                    },
+                    "active_path": ["post_root", "fingerprint:normalize"],
                 },
             },
             5,
@@ -72,11 +87,28 @@ def test_normalize_progress_transition_from_phase_progress_rejects_invalid_shape
             {
                 "phase": "post",
                 "event_kind": "progress",
-                "progress_transition_v1": {
+                "work_done": 9,
+                "work_total": 6,
+                "progress_transition_v2": {
                     "phase": "post",
                     "event_kind": "progress",
-                    "parent": {"unit": "post_tasks", "done": 9, "total": 6},
-                    "child": {"marker_text": "fingerprint:normalize"},
+                    "root": {
+                        "identity": "post_root",
+                        "unit": "post_tasks",
+                        "done": 9,
+                        "total": 6,
+                        "children": [
+                            {
+                                "identity": "fingerprint:normalize",
+                                "unit": "post_tasks",
+                                "done": 9,
+                                "total": 6,
+                                "marker_text": "fingerprint:normalize",
+                                "children": [],
+                            }
+                        ],
+                    },
+                    "active_path": ["post_root", "fingerprint:normalize"],
                 },
             },
             6,
@@ -104,11 +136,17 @@ def test_normalize_progress_transition_from_phase_progress_falls_back_to_progres
             "progress_marker": "fingerprint:done",
             "work_done": 5,
             "work_total": 6,
-            "progress_transition_v1": {
+            "progress_transition_v2": {
                 "phase": "post",
                 "event_kind": "progress",
-                "parent": {"unit": "post_tasks", "done": 5, "total": 6},
-                "child": {},
+                "root": {
+                    "identity": "post_root",
+                    "unit": "post_tasks",
+                    "done": 5,
+                    "total": 6,
+                    "children": [],
+                },
+                "active_path": ["post_root"],
             },
         }
     )
@@ -125,11 +163,25 @@ def test_normalize_progress_transition_from_phase_progress_falls_back_to_progres
             "progress_marker": "fingerprint:warnings",
             "work_done": 5,
             "work_total": 6,
-            "progress_transition_v1": {
+            "progress_transition_v2": {
                 "phase": "post",
                 "event_kind": "progress",
-                "parent": {"unit": "post_tasks", "done": 5, "total": 6},
-                "child": "invalid-child-shape",
+                "root": {
+                    "identity": "post_root",
+                    "unit": "post_tasks",
+                    "done": 5,
+                    "total": 6,
+                    "children": [
+                        {
+                            "identity": "child-id",
+                            "unit": "post_tasks",
+                            "done": 5,
+                            "total": 6,
+                            "children": [],
+                        }
+                    ],
+                },
+                "active_path": ["post_root", "child-id"],
             },
         }
     )
@@ -150,11 +202,29 @@ def test_transition_helper_accessors_return_transition_fields_when_present() -> 
     phase_progress = {
         "phase": "post",
         "event_kind": "progress",
-        "progress_transition_v1": {
+        "work_done": 6,
+        "work_total": 6,
+        "progress_transition_v2": {
             "phase": "post",
             "event_kind": "terminal",
-            "parent": {"unit": "post_tasks", "done": 6, "total": 6},
-            "child": {"marker_text": "complete"},
+            "root": {
+                "identity": "post_root",
+                "unit": "post_tasks",
+                "done": 6,
+                "total": 6,
+                "marker_text": "root",
+                "children": [
+                    {
+                        "identity": "complete",
+                        "unit": "post_tasks",
+                        "done": 6,
+                        "total": 6,
+                        "marker_text": "complete",
+                        "children": [],
+                    }
+                ],
+            },
+            "active_path": ["post_root", "complete"],
         },
     }
     assert transition_marker_from_phase_progress(phase_progress) == "complete"
@@ -166,7 +236,7 @@ def test_transition_helper_accessors_return_transition_fields_when_present() -> 
 def test_transition_reason_from_phase_progress_rejects_non_string_reason() -> None:
     reason = transition_reason_from_phase_progress(
         {
-            "progress_transition_v1": {
+            "progress_transition_v2": {
                 "reason": 123,
             }
         }
@@ -274,12 +344,6 @@ def test_normalize_progress_transition_from_phase_progress_prefers_recursive_v2_
                     "fingerprint",
                     "fingerprint:normalize",
                 ],
-            },
-            "progress_transition_v1": {
-                "phase": "post",
-                "event_kind": "terminal",
-                "parent": {"unit": "post_tasks", "done": 6, "total": 6},
-                "child": {"marker_text": "complete"},
             },
         }
     )
@@ -419,16 +483,13 @@ def test_progress_transition_payload_projection_includes_recursive_path() -> Non
         reason="terminal_transition",
         effective_event_kind="terminal",
     )
-    v1 = progress_transition_v1_payload(
-        transition=transition,
-        reason="terminal_transition",
-        effective_event_kind="terminal",
-    )
     assert v2["active_path"] == list(transition.active_path)
-    assert isinstance(v1["child"], dict)
-    child = v1["child"]
-    assert child.get("path") == list(transition.active_path)
+    assert isinstance(v2.get("root"), dict)
+    root = v2["root"]
+    assert isinstance(root.get("children"), list)
+    child = root["children"][0]
     assert child.get("marker_text") == "complete"
+    assert v2.get("terminal_complete") is True
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_reason_from_phase_progress_accepts_v2_reason::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
@@ -634,27 +695,34 @@ def test_normalize_progress_transition_from_phase_progress_v2_applies_identity_f
     assert transition.root.identity == "__root__"
 
 
-# gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v1_accepts_explicit_identities::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
-def test_normalize_progress_transition_from_phase_progress_v1_accepts_explicit_identities() -> None:
+# gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_accepts_explicit_identities::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+def test_normalize_progress_transition_from_phase_progress_v2_accepts_explicit_identities() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
             "phase": "post",
             "event_kind": "progress",
             "work_done": 5,
             "work_total": 6,
-            "progress_transition_v1": {
+            "progress_transition_v2": {
                 "phase": "post",
                 "event_kind": "progress",
-                "parent": {
+                "root": {
                     "identity": "parent-id",
                     "unit": "post_tasks",
                     "done": 5,
                     "total": 6,
+                    "children": [
+                        {
+                            "identity": "child-id",
+                            "unit": "post_tasks",
+                            "done": 5,
+                            "total": 6,
+                            "marker_text": "fingerprint:normalize",
+                            "children": [],
+                        }
+                    ],
                 },
-                "child": {
-                    "identity": "child-id",
-                    "marker_text": "fingerprint:normalize",
-                },
+                "active_path": ["parent-id", "child-id"],
             },
         }
     )
@@ -663,15 +731,15 @@ def test_normalize_progress_transition_from_phase_progress_v1_accepts_explicit_i
     assert transition.active_node.identity == "child-id"
 
 
-# gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v1_rejects_empty_marker::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
-def test_normalize_progress_transition_from_phase_progress_v1_rejects_empty_marker() -> None:
+# gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_rejects_missing_root_payload::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+def test_normalize_progress_transition_from_phase_progress_v2_rejects_missing_root_payload() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
             "phase": "post",
             "event_kind": "progress",
             "work_done": 5,
             "work_total": 6,
-            "progress_transition_v1": {
+            "progress_transition_v2": {
                 "phase": "post",
                 "event_kind": "progress",
                 "parent": {"unit": "post_tasks", "done": 5, "total": 6},

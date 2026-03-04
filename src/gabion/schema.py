@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class BundleDTO(BaseModel):
@@ -263,6 +263,51 @@ class AspfStateDTO(BaseModel):
     delta_ledger: Dict[str, Any] = {}
     exit_code: Optional[int] = None
     analysis_state: Optional[str] = None
+
+
+class CanonicalProgressEventEnvelopeDTO(BaseModel):
+    schema_version: int
+    sequence: int
+    run_id: str
+    source: str
+    phase: str
+    kind: str
+    identity_projection: Dict[str, Any]
+    payload: Dict[str, Any]
+    causal_refs: List[str] = []
+    event_id: str
+
+
+class CanonicalProgressEventPayloadDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    schema_uri: Literal["gabion/canonical_progress_event_v2"] = Field(
+        default="gabion/canonical_progress_event_v2",
+        alias="schema",
+    )
+    format_version: int = 2
+    adaptation_kind: Literal["valid", "rejected"]
+    event: CanonicalProgressEventEnvelopeDTO | None = None
+    adaptation_error: str = ""
+    identity_allocation_delta_v1: List[Dict[str, Any]] = []
+    rejected_progress_payload_v2: Dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _validate_adaptation_kind(self) -> "CanonicalProgressEventPayloadDTO":
+        if self.adaptation_kind == "valid":
+            if self.event is None:
+                raise ValueError("canonical progress valid payload requires event.")
+            if self.rejected_progress_payload_v2 is not None:
+                raise ValueError(
+                    "canonical progress valid payload must not include rejected_progress_payload_v2."
+                )
+            return self
+        if self.event is not None:
+            raise ValueError("canonical progress rejected payload must not include event.")
+        if self.rejected_progress_payload_v2 is None:
+            raise ValueError(
+                "canonical progress rejected payload requires rejected_progress_payload_v2."
+            )
+        return self
 
 
 class LegacyDataflowMonolithResponseDTO(BaseModel):

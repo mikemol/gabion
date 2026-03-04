@@ -245,7 +245,7 @@ def _progress_values(
             if isinstance(payload, dict):
                 values.append(payload)
                 continue
-        fallback_payload = canonical_value.get("fallback_payload_v1")
+        fallback_payload = canonical_value.get("rejected_progress_payload_v2")
         if isinstance(fallback_payload, dict):
             values.append(fallback_payload)
     return values
@@ -269,16 +269,16 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     assert progress_values
     assert canonical_progress_values
     assert all(
-        value.get("schema") == "gabion/canonical_progress_event_v1"
+        value.get("schema") == "gabion/canonical_progress_event_v2"
         for value in canonical_progress_values
     )
-    assert all(value.get("format_version") == 1 for value in canonical_progress_values)
+    assert all(value.get("format_version") == 2 for value in canonical_progress_values)
     assert all(
         "identity_allocation_delta_v1" in value for value in canonical_progress_values
     )
     assert all(value.get("adaptation_kind") == "valid" for value in canonical_progress_values)
     assert all(isinstance(value.get("event"), dict) for value in canonical_progress_values)
-    assert all(value.get("fallback_payload_v1") is None for value in canonical_progress_values)
+    assert all(value.get("rejected_progress_payload_v2") is None for value in canonical_progress_values)
     assert isinstance(result.get("identity_seed_v1"), dict)
     assert any(
         "completed_files" in value
@@ -480,13 +480,10 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
     complete_heartbeat_values = []
     complete_progress_values = []
     for value in progress_values:
-        transition = value.get("progress_transition_v1")
+        transition = value.get("progress_transition_v2")
         if not isinstance(transition, dict):
             continue
-        child = transition.get("child")
-        if not isinstance(child, dict):
-            continue
-        if child.get("marker_text") != "complete":
+        if value.get("progress_marker") != "complete":
             continue
         event_kind = value.get("event_kind")
         if event_kind == "terminal":
@@ -497,7 +494,7 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
             complete_progress_values.append(value)
 
     assert len(complete_terminal_values) == 1
-    transition_payload = complete_terminal_values[0].get("progress_transition_v1")
+    transition_payload = complete_terminal_values[0].get("progress_transition_v2")
     assert isinstance(transition_payload, dict)
     assert transition_payload.get("reason") == "terminal_transition"
     transition_payload_v2 = complete_terminal_values[0].get("progress_transition_v2")
@@ -505,8 +502,8 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
     assert transition_payload_v2.get("format_version") == 2
     assert complete_heartbeat_values
     assert all(
-        isinstance(value.get("progress_transition_v1"), dict)
-        and cast(dict[str, object], value["progress_transition_v1"]).get("reason")
+        isinstance(value.get("progress_transition_v2"), dict)
+        and cast(dict[str, object], value["progress_transition_v2"]).get("reason")
         == "terminal_keepalive"
         for value in complete_heartbeat_values
     )
@@ -3324,7 +3321,7 @@ def test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges(
     seed_calls = {"count": 0}
 
     def _manifest(**_kwargs: object) -> dict[str, object]:
-        return {"format_version": 1, "root": str(tmp_path), "files": []}
+        return {"format_version": 2, "root": str(tmp_path), "files": []}
 
     def _manifest_digest(_manifest_payload: object) -> str:
         manifest_digest_calls["count"] += 1
@@ -3388,7 +3385,7 @@ def test_execute_command_resume_checkpoint_seed_written_when_manifest_missing(
             }
         ),
         analysis_input_manifest_fn=lambda **_kwargs: {
-            "format_version": 1,
+            "format_version": 2,
             "root": str(tmp_path),
             "files": [],
         },
@@ -4394,7 +4391,7 @@ def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
         {
             "exit_code": 0,
             "aspf_trace": {
-                "format_version": 1,
+                "format_version": 2,
                 "trace_id": "aspf-trace:abc123",
                 "started_at_utc": "2026-02-25T00:00:00+00:00",
                 "controls": {},
@@ -4405,13 +4402,13 @@ def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
                 "imported_trace_count": 0,
             },
             "aspf_equivalence": {
-                "format_version": 1,
+                "format_version": 2,
                 "trace_id": "aspf-trace:abc123",
                 "verdict": "non_drift",
                 "surface_table": [],
             },
             "aspf_opportunities": {
-                "format_version": 1,
+                "format_version": 2,
                 "trace_id": "aspf-trace:abc123",
                 "opportunities": [],
             },
@@ -4987,7 +4984,7 @@ def test_execute_structure_reuse_total_additional_error_paths(tmp_path: Path) ->
 
     valid_snapshot = tmp_path / "valid_snapshot.json"
     valid_snapshot.write_text(
-        json.dumps({"format_version": 1, "root": None, "files": []}),
+        json.dumps({"format_version": 2, "root": None, "files": []}),
         encoding="utf-8",
     )
     result = server._execute_structure_reuse_total(
