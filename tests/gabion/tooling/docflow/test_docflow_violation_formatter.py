@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion_governance import governance_audit_impl as audit_impl
+from gabion.tooling.governance import governance_audit as audit_impl
 
 
 def test_format_docflow_violation_known_kinds() -> None:

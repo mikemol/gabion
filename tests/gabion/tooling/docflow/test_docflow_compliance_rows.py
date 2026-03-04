@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion_governance import governance_audit_impl as impl
+from gabion.tooling.governance import governance_audit as impl
 
 
 def _spec(name: str, predicate: str, **params: object):

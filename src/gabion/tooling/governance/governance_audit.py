@@ -3,9 +3,25 @@ from __future__ import annotations
 # gabion:decision_protocol_module
 # gabion:boundary_normalization_module
 
-from typing import Any
+from typing import Final
 
 from gabion_governance import governance_audit_impl as _impl
+
+# Temporary boundary adapter metadata for legacy direct module access.
+# This adapter exists only to provide a stable import surface while core
+# implementation remains in gabion_governance.governance_audit_impl.
+BOUNDARY_ADAPTER_METADATA: Final[dict[str, object]] = {
+    "actor": "codex",
+    "rationale": "Preserve stable governance-audit API boundary at gabion.tooling.governance.",
+    "scope": "module import surface gabion.tooling.governance.governance_audit",
+    "start": "2026-03-04",
+    "expiry": "2026-09-01",
+    "rollback_condition": "All in-repo and external imports target gabion_governance.governance_audit_impl directly or a newly ratified canonical package path.",
+    "evidence_links": [
+        "tests/gabion/tooling/governance/test_governance_audit_adapter.py",
+        "tests/gabion/tooling/docflow/test_docflow_violation_formatter.py",
+    ],
+}
 
 CORE_GOVERNANCE_DOCS = _impl.CORE_GOVERNANCE_DOCS
 DOCFLOW_AUDIT_INVARIANTS = _impl.DOCFLOW_AUDIT_INVARIANTS
@@ -15,69 +31,32 @@ _DEFAULT_AUDIT_GAS_LIMIT = _impl._DEFAULT_AUDIT_GAS_LIMIT
 
 Doc = _impl.Doc
 DocflowObligationResult = _impl.DocflowObligationResult
+DocflowInvariant = _impl.DocflowInvariant
 
+_audit_deadline_scope = _impl._audit_deadline_scope
+_parse_frontmatter = _impl._parse_frontmatter
+_agent_instruction_graph = _impl._agent_instruction_graph
+_docflow_invariant_rows = _impl._docflow_invariant_rows
+_evaluate_docflow_invariants = _impl._evaluate_docflow_invariants
+_docflow_compliance_rows = _impl._docflow_compliance_rows
+_sppf_sync_check = _impl._sppf_sync_check
+_sppf_status_triplet_violations = _impl._sppf_status_triplet_violations
+_emit_docflow_compliance = _impl._emit_docflow_compliance
+_format_docflow_violation = _impl._format_docflow_violation
+_make_invariant_spec = _impl._make_invariant_spec
+_audit_gas_limit = _impl._audit_gas_limit
 
-def _audit_deadline_scope(*args: Any, **kwargs: Any) -> Any:
-    return _impl._audit_deadline_scope(*args, **kwargs)
+run_docflow_cli = _impl.run_docflow_cli
+run_sppf_graph_cli = _impl.run_sppf_graph_cli
+run_status_consistency_cli = _impl.run_status_consistency_cli
+run_decision_tiers_cli = _impl.run_decision_tiers_cli
+run_consolidation_cli = _impl.run_consolidation_cli
+run_lint_summary_cli = _impl.run_lint_summary_cli
 
-
-def _parse_frontmatter(*args: Any, **kwargs: Any) -> Any:
-    return _impl._parse_frontmatter(*args, **kwargs)
-
-
-def _agent_instruction_graph(*args: Any, **kwargs: Any) -> Any:
-    return _impl._agent_instruction_graph(*args, **kwargs)
-
-
-def _docflow_invariant_rows(*args: Any, **kwargs: Any) -> Any:
-    return _impl._docflow_invariant_rows(*args, **kwargs)
-
-
-def _evaluate_docflow_invariants(*args: Any, **kwargs: Any) -> Any:
-    return _impl._evaluate_docflow_invariants(*args, **kwargs)
-
-
-def _sppf_sync_check(*args: Any, **kwargs: Any) -> Any:
-    return _impl._sppf_sync_check(*args, **kwargs)
-
-
-def _sppf_status_triplet_violations(*args: Any, **kwargs: Any) -> Any:
-    return _impl._sppf_status_triplet_violations(*args, **kwargs)
-
-
-def _emit_docflow_compliance(*args: Any, **kwargs: Any) -> Any:
-    return _impl._emit_docflow_compliance(*args, **kwargs)
-
-
-def _audit_gas_limit(*args: Any, **kwargs: Any) -> Any:
-    return _impl._audit_gas_limit(*args, **kwargs)
-
-
-def run_docflow_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_docflow_cli(argv)
-
-
-def run_sppf_graph_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_sppf_graph_cli(argv)
-
-
-def run_status_consistency_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_status_consistency_cli(argv)
-
-
-def run_decision_tiers_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_decision_tiers_cli(argv)
-
-
-def run_consolidation_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_consolidation_cli(argv)
-
-
-def run_lint_summary_cli(argv: list[str] | None = None) -> int:
-    return _impl.run_lint_summary_cli(argv)
-
+spec_from_dict = _impl.spec_from_dict
 
 __all__ = [
+    "BOUNDARY_ADAPTER_METADATA",
     "CORE_GOVERNANCE_DOCS",
     "DOCFLOW_AUDIT_INVARIANTS",
     "NORMATIVE_LOOP_DOMAINS",
@@ -85,12 +64,16 @@ __all__ = [
     "_DEFAULT_AUDIT_GAS_LIMIT",
     "Doc",
     "DocflowObligationResult",
+    "DocflowInvariant",
     "_agent_instruction_graph",
     "_audit_deadline_scope",
     "_audit_gas_limit",
+    "_docflow_compliance_rows",
     "_docflow_invariant_rows",
     "_emit_docflow_compliance",
     "_evaluate_docflow_invariants",
+    "_format_docflow_violation",
+    "_make_invariant_spec",
     "_parse_frontmatter",
     "_sppf_status_triplet_violations",
     "_sppf_sync_check",
@@ -100,4 +83,5 @@ __all__ = [
     "run_lint_summary_cli",
     "run_sppf_graph_cli",
     "run_status_consistency_cli",
+    "spec_from_dict",
 ]
