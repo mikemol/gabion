@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: identity_substrate_bridge_matrix
 doc_role: architecture
@@ -69,7 +69,7 @@ doc_owner: maintainer
 
 1. Envelope fields are purpose-agnostic; payload schemas are intentionally lane-specific and should not be collapsed.
 2. Transcript tuple-path identities and fingerprint prime allocations are substrate-isomorphic, but provenance witness payloads remain domain-scoped.
-3. `progress-v1` remains a temporary boundary adapter; canonical authority is `progress-v2`.
+3. `progress-v1` is retired from `src/gabion`; canonical authority is `progress-v2`.
 4. Transcript runtime remains fixture-only; bridge matrix assumes adapter reuse, not production transcript lane cutover.
 
 ## Progress bridge (Phase 2A Dataflow lane)
@@ -81,5 +81,5 @@ doc_owner: maintainer
 | `canonical_event_v1` | identity shadow runtime valid adaptation | cross-lane canonical replay and adapter parity |
 | `identity_allocation_delta_v1` | identity shadow runtime delta cursor + fingerprint write-through mirror | deterministic incremental allocation telemetry across path and fingerprint namespaces (`type_base`, `type_ctor`, `synth`) |
 | `canonical_event_error_v1` | identity shadow runtime rejected adaptation | non-fatal shadow fault visibility |
-| `gabion.dataflowAudit/progress-v1` (legacy token) | dual-publish compatibility adapter | temporary migration lane until repo-consumer-zero gate |
+| `gabion.dataflowAudit/progress-v1` (legacy token) | historical dual-publish compatibility adapter | retired from `src/gabion`; kept only as historical bridge record |
 | `identity_seed_v1` | final command response | replay/debug seed handoff |
