@@ -154,6 +154,38 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_commands.py::test_removed_delta_wrapper_commands_emit_migration_errors
+
+
+def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
+    class _Ctx:
+        def __init__(self, args: list[str]) -> None:
+            self.args = args
+
+    with cli._tooling_runner_override(
+        no_arg={
+            "delta-advisory-telemetry": lambda: 9,
+            "docflow-delta-emit": lambda: 10,
+        },
+        with_argv={
+            "ambiguity-contract-gate": lambda _argv: 11,
+            "normative-symdiff": lambda _argv: 12,
+        },
+    ):
+        with pytest.raises(typer.Exit) as exc:
+            cli.delta_advisory_telemetry()
+        assert exc.value.exit_code == 9
+
+        with pytest.raises(typer.Exit) as exc:
+            cli.docflow_delta_emit()
+        assert exc.value.exit_code == 10
+
+        with pytest.raises(typer.Exit) as exc:
+            cli.ambiguity_contract_gate(_Ctx(["--root", "."]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 11
+
+        with pytest.raises(typer.Exit) as exc:
+            cli.normative_symdiff(_Ctx(["--root", "."]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 12
 def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     runner = CliRunner()
     removed_emit = _invoke(runner, ["delta-state-emit"])

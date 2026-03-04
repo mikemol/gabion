@@ -50,7 +50,14 @@ from gabion.cli_support.shared.timeout_progress import (
 from gabion.cli_support.shared.runtime_flags import (
     register_runtime_flags_callback as _register_runtime_flags_callback)
 from gabion.cli_support.tooling_commands import (
-    build_status_watch_options as _build_status_watch_options_impl, register_ci_watch_command as _register_ci_watch_command)
+    build_status_watch_options as _build_status_watch_options_impl,
+    invoke_argparse_command as _invoke_argparse_command_impl,
+    register_ci_watch_command as _register_ci_watch_command,
+    register_tooling_passthrough_commands as _register_tooling_passthrough_commands,
+    run_tooling_no_arg as _run_tooling_no_arg_impl,
+    run_tooling_with_argv as _run_tooling_with_argv_impl,
+    tooling_runner_override as _tooling_runner_override_impl,
+)
 from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
@@ -2575,13 +2582,7 @@ def _invoke_argparse_command(
     main_fn: Callable[[list[str] | None], int],
     argv: list[str],
 ) -> int:
-    try:
-        return int(main_fn(argv))
-    except SystemExit as exc:
-        code = exc.code
-        if isinstance(code, int):
-            return int(code)
-        return 1
+    return _invoke_argparse_command_impl(main_fn, argv)
 
 
 _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
@@ -2603,35 +2604,30 @@ def _tooling_runner_override(
     no_arg: Mapping[str, Callable[[], int]] | None = None,
     with_argv: Mapping[str, Callable[[list[str] | None], int]] | None = None,
 ) -> Generator[None, None, None]:
-    previous_no_arg = dict(_TOOLING_NO_ARG_RUNNERS)
-    previous_with_argv = dict(_TOOLING_ARGV_RUNNERS)
-    if isinstance(no_arg, Mapping):
-        _TOOLING_NO_ARG_RUNNERS.update(
-            {str(key): value for key, value in no_arg.items() if callable(value)}
-        )
-    if isinstance(with_argv, Mapping):
-        _TOOLING_ARGV_RUNNERS.update(
-            {str(key): value for key, value in with_argv.items() if callable(value)}
-        )
-    try:
+    with _tooling_runner_override_impl(
+        no_arg_runners=_TOOLING_NO_ARG_RUNNERS,
+        with_argv_runners=_TOOLING_ARGV_RUNNERS,
+        no_arg=no_arg,
+        with_argv=with_argv,
+    ):
         yield
-    finally:
-        _TOOLING_NO_ARG_RUNNERS.clear()
-        _TOOLING_NO_ARG_RUNNERS.update(previous_no_arg)
-        _TOOLING_ARGV_RUNNERS.clear()
-        _TOOLING_ARGV_RUNNERS.update(previous_with_argv)
 
 
 def _run_tooling_no_arg(command_name: str) -> int:
-    runner = _TOOLING_NO_ARG_RUNNERS[command_name]
-    with _cli_deadline_scope():
-        return int(runner())
+    return _run_tooling_no_arg_impl(
+        command_name=command_name,
+        no_arg_runners=_TOOLING_NO_ARG_RUNNERS,
+        cli_deadline_scope_factory=_cli_deadline_scope,
+    )
 
 
 def _run_tooling_with_argv(command_name: str, argv: list[str]) -> int:
-    runner = _TOOLING_ARGV_RUNNERS[command_name]
-    with _cli_deadline_scope():
-        return _invoke_argparse_command(runner, argv)
+    return _run_tooling_with_argv_impl(
+        command_name=command_name,
+        argv=argv,
+        with_argv_runners=_TOOLING_ARGV_RUNNERS,
+        cli_deadline_scope_factory=_cli_deadline_scope,
+    )
 
 
 @app.command("delta-state-emit", hidden=True)
@@ -2648,18 +2644,6 @@ def removed_delta_triplets() -> None:
     )
 
 
-@app.command("delta-advisory-telemetry")
-def delta_advisory_telemetry() -> None:
-    """Emit non-blocking advisory telemetry artifacts."""
-    raise typer.Exit(code=_run_tooling_no_arg("delta-advisory-telemetry"))
-
-
-@app.command("docflow-delta-emit")
-def docflow_delta_emit() -> None:
-    """Emit docflow compliance delta through the gabion CLI."""
-    raise typer.Exit(code=_run_tooling_no_arg("docflow-delta-emit"))
-
-
 ci_watch = _register_ci_watch_command(
     app=app,
     default_status_watch_artifact_root=_DEFAULT_STATUS_WATCH_ARTIFACT_ROOT,
@@ -2667,61 +2651,17 @@ ci_watch = _register_ci_watch_command(
     run_tooling_with_argv_fn=_run_tooling_with_argv,
 )
 
-
-@app.command(
-    "impact-select-tests",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+_tooling_passthrough_commands = _register_tooling_passthrough_commands(
+    app=app,
+    run_tooling_no_arg_fn=_run_tooling_no_arg,
+    run_tooling_with_argv_fn=_run_tooling_with_argv,
 )
-def impact_select_tests(ctx: typer.Context) -> None:
-    """Select impacted tests from diffs and evidence index."""
-    raise typer.Exit(
-        code=_run_tooling_with_argv(
-            "impact-select-tests",
-            list(ctx.args),
-        )
-    )
-
-
-@app.command(
-    "run-dataflow-stage",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def run_dataflow_stage(ctx: typer.Context) -> None:
-    """Run a single dataflow stage with CI-aligned outputs."""
-    raise typer.Exit(
-        code=_run_tooling_with_argv(
-            "run-dataflow-stage",
-            list(ctx.args),
-        )
-    )
-
-
-@app.command(
-    "ambiguity-contract-gate",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def ambiguity_contract_gate(ctx: typer.Context) -> None:
-    """Run ambiguity-contract policy gate for deterministic-core surfaces."""
-    raise typer.Exit(
-        code=_run_tooling_with_argv(
-            "ambiguity-contract-gate",
-            list(ctx.args),
-        )
-    )
-
-
-@app.command(
-    "normative-symdiff",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def normative_symdiff(ctx: typer.Context) -> None:
-    """Compute a normative-docs ↔ code/tooling symmetric-difference report."""
-    raise typer.Exit(
-        code=_run_tooling_with_argv(
-            "normative-symdiff",
-            list(ctx.args),
-        )
-    )
+delta_advisory_telemetry = _tooling_passthrough_commands["delta_advisory_telemetry"]
+docflow_delta_emit = _tooling_passthrough_commands["docflow_delta_emit"]
+impact_select_tests = _tooling_passthrough_commands["impact_select_tests"]
+run_dataflow_stage = _tooling_passthrough_commands["run_dataflow_stage"]
+ambiguity_contract_gate = _tooling_passthrough_commands["ambiguity_contract_gate"]
+normative_symdiff = _tooling_passthrough_commands["normative_symdiff"]
 
 
 @app.command("lsp-parity-gate")

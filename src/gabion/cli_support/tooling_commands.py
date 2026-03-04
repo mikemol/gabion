@@ -1,6 +1,8 @@
 # gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -13,6 +15,148 @@ class _StatusWatchOptions(Protocol):
 
 StatusWatchOptionsCtor = Callable[..., _StatusWatchOptions]
 RunToolingWithArgvFn = Callable[[str, list[str]], int]
+RunToolingNoArgFn = Callable[[str], int]
+
+
+def invoke_argparse_command(
+    main_fn: Callable[[list[str] | None], int],
+    argv: list[str],
+) -> int:
+    try:
+        return int(main_fn(argv))
+    except SystemExit as exc:
+        code = exc.code
+        if isinstance(code, int):
+            return int(code)
+        return 1
+
+
+@contextmanager
+def tooling_runner_override(
+    *,
+    no_arg_runners: dict[str, Callable[[], int]],
+    with_argv_runners: dict[str, Callable[[list[str] | None], int]],
+    no_arg: Mapping[str, Callable[[], int]] | None = None,
+    with_argv: Mapping[str, Callable[[list[str] | None], int]] | None = None,
+) -> Generator[None, None, None]:
+    previous_no_arg = dict(no_arg_runners)
+    previous_with_argv = dict(with_argv_runners)
+    if isinstance(no_arg, Mapping):
+        no_arg_runners.update(
+            {str(key): value for key, value in no_arg.items() if callable(value)}
+        )
+    if isinstance(with_argv, Mapping):
+        with_argv_runners.update(
+            {str(key): value for key, value in with_argv.items() if callable(value)}
+        )
+    try:
+        yield
+    finally:
+        no_arg_runners.clear()
+        no_arg_runners.update(previous_no_arg)
+        with_argv_runners.clear()
+        with_argv_runners.update(previous_with_argv)
+
+
+def run_tooling_no_arg(
+    *,
+    command_name: str,
+    no_arg_runners: dict[str, Callable[[], int]],
+    cli_deadline_scope_factory: Callable[[], object],
+) -> int:
+    runner = no_arg_runners[command_name]
+    with cli_deadline_scope_factory():
+        return int(runner())
+
+
+def run_tooling_with_argv(
+    *,
+    command_name: str,
+    argv: list[str],
+    with_argv_runners: dict[str, Callable[[list[str] | None], int]],
+    cli_deadline_scope_factory: Callable[[], object],
+) -> int:
+    runner = with_argv_runners[command_name]
+    with cli_deadline_scope_factory():
+        return invoke_argparse_command(runner, argv)
+
+
+def register_tooling_passthrough_commands(
+    *,
+    app: typer.Typer,
+    run_tooling_no_arg_fn: RunToolingNoArgFn,
+    run_tooling_with_argv_fn: RunToolingWithArgvFn,
+) -> dict[str, Callable[..., None]]:
+    @app.command("delta-advisory-telemetry")
+    def delta_advisory_telemetry() -> None:
+        """Emit non-blocking advisory telemetry artifacts."""
+        raise typer.Exit(code=run_tooling_no_arg_fn("delta-advisory-telemetry"))
+
+    @app.command("docflow-delta-emit")
+    def docflow_delta_emit() -> None:
+        """Emit docflow compliance delta through the gabion CLI."""
+        raise typer.Exit(code=run_tooling_no_arg_fn("docflow-delta-emit"))
+
+    @app.command(
+        "impact-select-tests",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def impact_select_tests(ctx: typer.Context) -> None:
+        """Select impacted tests from diffs and evidence index."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "impact-select-tests",
+                list(ctx.args),
+            )
+        )
+
+    @app.command(
+        "run-dataflow-stage",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def run_dataflow_stage(ctx: typer.Context) -> None:
+        """Run a single dataflow stage with CI-aligned outputs."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "run-dataflow-stage",
+                list(ctx.args),
+            )
+        )
+
+    @app.command(
+        "ambiguity-contract-gate",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def ambiguity_contract_gate(ctx: typer.Context) -> None:
+        """Run ambiguity-contract policy gate for deterministic-core surfaces."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "ambiguity-contract-gate",
+                list(ctx.args),
+            )
+        )
+
+    @app.command(
+        "normative-symdiff",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def normative_symdiff(ctx: typer.Context) -> None:
+        """Compute a normative-docs ↔ code/tooling symmetric-difference report."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "normative-symdiff",
+                list(ctx.args),
+            )
+        )
+
+    return {
+        "delta_advisory_telemetry": delta_advisory_telemetry,
+        "docflow_delta_emit": docflow_delta_emit,
+        "impact_select_tests": impact_select_tests,
+        "run_dataflow_stage": run_dataflow_stage,
+        "ambiguity_contract_gate": ambiguity_contract_gate,
+        "normative_symdiff": normative_symdiff,
+    }
 
 
 def build_status_watch_options(
