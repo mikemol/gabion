@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4454
+- Monolith LOC (current): 4370
 - Monolith top-level import statements (current): 103
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -91,9 +91,22 @@ doc_scope:
     - policy checks passed
     - targeted pytest passed (`47 passed` for touched suites)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Invariant proposition helper relocation to post-phase owner:
+    - `_invariant_term`
+    - `_extract_invariant_from_expr`
+    - `_InvariantCollector`
+    - `_scope_path`
+  - Post-phase `_collect_invariant_propositions` now uses owner-local helpers instead of runtime-module helper lookups.
+  - Removed relocated helper bodies from monolith.
+  - ASPF no-change acknowledgement refreshed (`in-67`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`37 passed` for touched suites)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Post-phase ownership cleanup: remove remaining temporary boundary-adapter metadata/delegates and normalize typed signatures.
+1. Post-phase ownership cleanup: relocate remaining exception/dead-env/reachability helper bodies to post-phase owner.
 2. Analysis-index ownership expansion: cache identity carriers + indexed pass/build surfaces.
 3. Projection/ambiguity ownership expansion and remaining facade contraction.
 

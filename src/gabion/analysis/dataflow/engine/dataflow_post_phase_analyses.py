@@ -111,6 +111,94 @@ def _function_key(scope, name: str) -> str:
     return ".".join(parts)
 
 
+def _invariant_term(expr: ast.AST, params: set[str]):
+    expr_type = type(expr)
+    if expr_type is ast.Name:
+        name_expr = cast(ast.Name, expr)
+        return next(iter(params.intersection({name_expr.id})), None)
+    if expr_type is ast.Call:
+        call_expr = cast(ast.Call, expr)
+        if type(call_expr.func) is ast.Name:
+            func_name = cast(ast.Name, call_expr.func)
+            if func_name.id == "len" and len(call_expr.args) == 1:
+                arg = call_expr.args[0]
+                if type(arg) is ast.Name:
+                    arg_id = cast(ast.Name, arg).id
+                    return next((f"{entry}.length" for entry in params.intersection({arg_id})), None)
+    return None
+
+
+def _extract_invariant_from_expr(
+    expr: ast.AST,
+    params: set[str],
+    *,
+    scope: str,
+    source: str = "assert",
+) -> object:
+    if type(expr) is not ast.Compare:
+        return None
+    compare_expr = cast(ast.Compare, expr)
+    if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
+        return None
+    if type(compare_expr.ops[0]) is not ast.Eq:
+        return None
+    left = _invariant_term(compare_expr.left, params)
+    right = _invariant_term(compare_expr.comparators[0], params)
+    if left is not None and right is not None:
+        return InvariantProposition(
+            form="Equal",
+            terms=(left, right),
+            scope=scope,
+            source=source,
+        )
+    return None
+
+
+class _InvariantCollector(ast.NodeVisitor):
+    # dataflow-bundle: params, scope
+    def __init__(self, params: set[str], scope: str) -> None:
+        self._params = params
+        self._scope = scope
+        self.propositions: list[InvariantProposition] = []
+        self._seen: set[tuple[str, tuple[str, ...], str]] = set()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_Assert(self, node: ast.Assert) -> None:
+        prop = _extract_invariant_from_expr(
+            node.test,
+            self._params,
+            scope=self._scope,
+        )
+        if prop is not None:
+            normalized = _normalize_invariant_proposition(
+                prop,
+                default_scope=self._scope,
+                default_source="assert",
+            )
+            key = (normalized.form, normalized.terms, normalized.scope or "")
+            if key not in self._seen:
+                self._seen.add(key)
+                self.propositions.append(normalized)
+        self.generic_visit(node)
+
+
+def _scope_path(path: Path, root) -> str:
+    if root is not None:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            pass
+    return str(path)
+
+
 def _normalize_snapshot_path(path: Path, root) -> str:
     return _normalize_snapshot_path_impl(path, root)
 
@@ -626,10 +714,10 @@ def _collect_invariant_propositions(
                 parse_module_source_fn=runtime._parse_module_source,
                 collect_functions_fn=cast(Callable[[object], Iterable[object]], runtime._collect_functions),
                 param_names_fn=runtime._param_names,
-                scope_path_fn=runtime._scope_path,
-                invariant_collector_ctor=cast(Callable[..., object], runtime._InvariantCollector),
+                scope_path_fn=_scope_path,
+                invariant_collector_ctor=cast(Callable[..., object], _InvariantCollector),
                 invariant_proposition_type=InvariantProposition,
-                normalize_invariant_proposition_fn=runtime._normalize_invariant_proposition,
+                normalize_invariant_proposition_fn=_normalize_invariant_proposition,
             ),
         ),
     )
