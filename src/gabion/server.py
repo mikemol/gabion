@@ -66,6 +66,7 @@ from gabion.schema import (
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.tooling.governance.governance_rules import GovernanceRules, load_governance_rules
+from gabion.runtime import path_policy
 
 server = LanguageServer("gabion", "0.1.0")
 CHECK_COMMAND = command_ids.CHECK_COMMAND
@@ -122,10 +123,11 @@ _PHASE_PRIMARY_UNITS: Mapping[str, str] = {
 
 
 def _is_stdout_target(target: object) -> bool:
-    if not isinstance(target, (str, Path)):
-        return False
-    text = str(target).strip()
-    return text in {_STDOUT_ALIAS, _STDOUT_PATH}
+    return path_policy.is_stdout_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 def _analysis_resume_cache_verdict(

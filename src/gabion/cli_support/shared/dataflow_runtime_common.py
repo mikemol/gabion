@@ -38,10 +38,11 @@ def normalize_output_target(
     stdout_alias: str = STDOUT_ALIAS,
     stdout_path: str = STDOUT_PATH,
 ) -> str:
-    target_str = str(target)
-    if target_str == stdout_alias:
-        return stdout_path
-    return target_str
+    return path_policy.normalize_output_target(
+        target,
+        stdout_alias=stdout_alias,
+        stdout_path=stdout_path,
+    )
 
 
 def normalize_optional_output_target(

@@ -351,3 +351,25 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
     assert {key: cli_result.get(key) for key in keys} == {
         key: server_result.get(key) for key in keys
     }
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_stdout_target_normalization_parity_between_cli_and_server::cli.py::gabion.cli._is_stdout_target::cli.py::gabion.cli._normalize_output_target::server.py::gabion.server._is_stdout_target
+@pytest.mark.parametrize(
+    ("target", "normalized", "is_stdout"),
+    [
+        ("-", "/dev/stdout", True),
+        (" /dev/stdout ", "/dev/stdout", True),
+        ("  -  ", "/dev/stdout", True),
+        ("report.json", "report.json", False),
+        (" report.json ", "report.json", False),
+    ],
+)
+def test_stdout_target_normalization_parity_between_cli_and_server(
+    target: str,
+    normalized: str,
+    is_stdout: bool,
+) -> None:
+    assert cli._normalize_output_target(target) == normalized
+    assert cli._is_stdout_target(target) is is_stdout
+
+    assert server._is_stdout_target(target) is is_stdout

@@ -574,7 +574,7 @@ def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
 
 
 def _normalize_output_target(target: str | Path) -> str:
-    return dataflow_runtime_common.normalize_output_target(
+    return path_policy.normalize_output_target(
         target,
         stdout_alias=_STDOUT_ALIAS,
         stdout_path=_STDOUT_PATH,
@@ -582,9 +582,11 @@ def _normalize_output_target(target: str | Path) -> str:
 
 
 def _is_stdout_target(target: object) -> bool:
-    if target is None:
-        return False
-    return _normalize_output_target(str(target)) == _STDOUT_PATH
+    return path_policy.is_stdout_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 class _TargetStreamRouter:
