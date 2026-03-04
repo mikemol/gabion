@@ -45,6 +45,24 @@ def test_rewrite_plan_schema_helpers_cover_non_dict_and_unknown_kind() -> None:
     assert rewrite_plan_mod.attach_plan_schema({"rewrite": "bad"}) == {"rewrite": "bad"}
     unknown = {"rewrite": {"kind": "NOT_A_KIND"}}
     assert rewrite_plan_mod.attach_plan_schema(unknown) == unknown
+    loop_schema = rewrite_plan_mod.rewrite_plan_schema("LOOP_GENERATOR")
+    assert loop_schema.is_known is True
+    assert "loop_id" in loop_schema.schema.required_parameters
+    issues = rewrite_plan_mod.validate_rewrite_plan_payload(
+        {
+            "rewrite": {
+                "kind": "LOOP_GENERATOR",
+                "parameters": {
+                    "loop_id": "f:12",
+                    "op_kinds": ["LIST_APPEND"],
+                    "filter_lowering": "filter",
+                },
+            },
+            "evidence": {"provenance_id": "p", "coherence_id": "c"},
+            "verification": {"predicates": [{"kind": "stream_deterministic"}]},
+        }
+    )
+    assert "missing predicate: reducer_equivalence_reference" in issues
 
 
 # gabion:evidence E:function_site::tests/test_server_rewrite_plan_projection.py::test_server_projection_normalizes_lint_entry_trichotomy

@@ -10,7 +10,8 @@ from typing import cast
 import libcst as cst
 
 from gabion.refactor.model import (
-    CompatibilityShimConfig, FieldSpec, RefactorPlan, RefactorPlanOutcome, RefactorRequest, RewritePlanEntry, TextEdit, normalize_compatibility_shim)
+    CompatibilityShimConfig, FieldSpec, LoopGeneratorRequest, RefactorPlan, RefactorPlanOutcome, RefactorRequest, RewritePlanEntry, TextEdit, normalize_compatibility_shim)
+from gabion.refactor.loop_generator import plan_loop_generator_rewrite as _plan_loop_generator_rewrite
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -18,6 +19,12 @@ from gabion.order_contract import sort_once
 class RefactorEngine:
     def __init__(self, project_root = None) -> None:
         self.project_root = project_root
+
+    def plan_loop_generator_rewrite(self, request: LoopGeneratorRequest) -> RefactorPlan:
+        return _plan_loop_generator_rewrite(
+            request=request,
+            project_root=self.project_root,
+        )
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
         check_deadline()

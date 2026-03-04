@@ -14,6 +14,7 @@ class RewritePlanKind(StrEnum):
     CTOR_NORMALIZE = "CTOR_NORMALIZE"
     SURFACE_CANONICALIZE = "SURFACE_CANONICALIZE"
     AMBIENT_REWRITE = "AMBIENT_REWRITE"
+    LOOP_GENERATOR = "LOOP_GENERATOR"
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,12 @@ _REWRITE_PLAN_SCHEMAS: dict[RewritePlanKind, RewritePlanSchema] = {
         required_evidence_refs=("provenance_id", "coherence_id"),
         required_predicates=("base_conservation", "match_strata", "remainder_non_regression"),
     ),
+    RewritePlanKind.LOOP_GENERATOR: RewritePlanSchema(
+        kind=RewritePlanKind.LOOP_GENERATOR,
+        required_parameters=("loop_id", "op_kinds", "filter_lowering"),
+        required_evidence_refs=("provenance_id", "coherence_id"),
+        required_predicates=("stream_deterministic", "reducer_equivalence_reference"),
+    ),
 }
 
 
@@ -93,6 +100,7 @@ def rewrite_plan_kind_sort_key(kind: str) -> int:
         RewritePlanKind.CTOR_NORMALIZE.value: 1,
         RewritePlanKind.SURFACE_CANONICALIZE.value: 2,
         RewritePlanKind.AMBIENT_REWRITE.value: 3,
+        RewritePlanKind.LOOP_GENERATOR.value: 4,
     }
     return order.get(str(kind), 99)
 

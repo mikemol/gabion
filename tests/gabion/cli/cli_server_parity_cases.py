@@ -101,6 +101,39 @@ def test_refactor_protocol_cli_matches_server(tmp_path: Path) -> None:
     assert cli_response == json.loads(json.dumps(normalized_server))
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_refactor_loop_generator_cli_matches_server::server.py::gabion.server.execute_refactor::cli.py::gabion.cli.app
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_refactor_loop_generator_cli_matches_server(tmp_path: Path) -> None:
+    target = tmp_path / "module.py"
+    target.write_text(
+        "def apply(xs, out):\n"
+        "    for item in xs:\n"
+        "        out.append(item)\n"
+    )
+    payload = {
+        "kind": "loop_generator",
+        "target_path": str(target),
+        "target_functions": ["apply"],
+        "target_loop_lines": [],
+    }
+    payload_path = tmp_path / "refactor-loop.json"
+    output_path = tmp_path / "refactor-loop-out.json"
+    payload_path.write_text(json.dumps(payload))
+
+    runner = CliRunner()
+    cli_result = runner.invoke(
+        cli.app,
+        ["refactor-protocol", "--input", str(payload_path), "--output", str(output_path)],
+        env=_cli_env(),
+    )
+    assert cli_result.exit_code == 0
+    cli_response = json.loads(output_path.read_text())
+
+    server_response = server.execute_refactor(_dummy_ls(tmp_path), _with_timeout(payload))
+    normalized_server = cli.RefactorProtocolResponseDTO.model_validate(server_response).model_dump()
+    assert cli_response == json.loads(json.dumps(normalized_server))
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_structure_and_decision_diff_cli_match_server::server.py::gabion.server.execute_decision_diff::server.py::gabion.server.execute_structure_diff::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_structure_and_decision_diff_cli_match_server(tmp_path: Path) -> None:

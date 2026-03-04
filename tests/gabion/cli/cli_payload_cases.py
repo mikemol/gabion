@@ -588,6 +588,28 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
     assert payload["bundle"] == ["a", "b"]
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::rewrite_kind,target_functions,target_path
+def test_refactor_payload_loop_generator_mode(tmp_path: Path) -> None:
+    payload = cli.build_refactor_payload(
+        rewrite_kind="loop_generator",
+        protocol_name=None,
+        bundle=None,
+        field=None,
+        target_path=tmp_path / "sample.py",
+        target_functions=["apply"],
+        target_loop_lines=[12],
+        compatibility_shim=False,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
+        ambient_rewrite=False,
+        rationale="rewrite for streaming",
+    )
+    assert payload["kind"] == "loop_generator"
+    assert payload["target_functions"] == ["apply"]
+    assert payload["target_loop_lines"] == [12]
+    assert "protocol_name" not in payload
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
 def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     captured: dict[str, object] = {}

@@ -553,6 +553,34 @@ def test_cli_refactor_protocol(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_loop_generator::cli.py::gabion.cli.app
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_refactor_protocol_loop_generator(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text(
+        "def apply(xs, out):\n"
+        "    for item in xs:\n"
+        "        out.append(item)\n"
+    )
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        [
+            "refactor-protocol",
+            "--rewrite-kind",
+            "loop_generator",
+            "--target-path",
+            str(module),
+            "--target-function",
+            "apply",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["rewrite_plans"]
+    assert payload["rewrite_plans"][0]["kind"] == "LOOP_GENERATOR"
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json::cli.py::gabion.cli.app
 def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"

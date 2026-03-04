@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class BundleDTO(BaseModel):
@@ -70,15 +70,48 @@ class RefactorCompatibilityShimDTO(BaseModel):
     emit_overload_stubs: bool = True
 
 
+class RefactorLoopGeneratorRequest(BaseModel):
+    kind: Literal["loop_generator"] = "loop_generator"
+    target_path: str
+    target_functions: List[str]
+    target_loop_lines: List[int] = []
+    rationale: Optional[str] = None
+
+
 class RefactorRequest(BaseModel):
-    protocol_name: str
-    bundle: List[str]
+    kind: Literal["protocol_extract", "loop_generator"] = "protocol_extract"
+    protocol_name: Optional[str] = None
+    bundle: List[str] = []
     fields: List[RefactorFieldDTO] = []
     target_path: str
     target_functions: List[str] = []
+    target_loop_lines: List[int] = []
     compatibility_shim: bool | RefactorCompatibilityShimDTO = False
     ambient_rewrite: bool = False
     rationale: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_mode_payload(self) -> "RefactorRequest":
+        if any(line <= 0 for line in self.target_loop_lines):
+            raise ValueError("target_loop_lines must be positive 1-based integers")
+        if self.kind == "protocol_extract":
+            if self.protocol_name is None or not self.protocol_name.strip():
+                raise ValueError("protocol_name is required when kind='protocol_extract'")
+            return self
+
+        if not self.target_functions:
+            raise ValueError("target_functions must be non-empty when kind='loop_generator'")
+        if self.protocol_name not in (None, ""):
+            raise ValueError("protocol_name is not accepted when kind='loop_generator'")
+        if self.bundle:
+            raise ValueError("bundle is not accepted when kind='loop_generator'")
+        if self.fields:
+            raise ValueError("fields are not accepted when kind='loop_generator'")
+        if self.ambient_rewrite:
+            raise ValueError("ambient_rewrite is not accepted when kind='loop_generator'")
+        if self.compatibility_shim is not False:
+            raise ValueError("compatibility_shim is not accepted when kind='loop_generator'")
+        return self
 
 
 class TextEditDTO(BaseModel):

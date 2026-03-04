@@ -594,6 +594,22 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
         {"name": "b", "type_hint": None},
     ]
 
+    with pytest.raises(typer.BadParameter):
+        cli.build_refactor_payload(
+            rewrite_kind="loop_generator",
+            protocol_name=None,
+            bundle=None,
+            field=None,
+            target_path=tmp_path / "target.py",
+            target_functions=[],
+            target_loop_lines=None,
+            compatibility_shim=False,
+            compatibility_shim_warnings=True,
+            compatibility_shim_overloads=True,
+            ambient_rewrite=False,
+            rationale=None,
+        )
+
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_runner_success_and_exception::cli.py::gabion.cli._run_governance_runner
 def test_run_governance_runner_success_and_exception(capsys: pytest.CaptureFixture[str]) -> None:

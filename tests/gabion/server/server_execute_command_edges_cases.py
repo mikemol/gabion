@@ -4057,6 +4057,52 @@ def test_execute_refactor_valid_payload_without_workspace_root(tmp_path: Path) -
     assert result.get("errors") == []
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_valid_payload::server.py::gabion.server.execute_refactor
+def test_execute_refactor_loop_generator_valid_payload(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text(
+        "def apply(xs, out):\n"
+        "    for item in xs:\n"
+        "        out.append(item)\n"
+    )
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "kind": "loop_generator",
+                "target_path": str(module_path),
+                "target_functions": ["apply"],
+            }
+        ),
+    )
+    assert result.get("errors") == []
+    rewrite_plans = result.get("rewrite_plans") or []
+    assert rewrite_plans
+    assert rewrite_plans[0].get("kind") == "LOOP_GENERATOR"
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_rejects_protocol_fields::server.py::gabion.server.execute_refactor
+def test_execute_refactor_loop_generator_rejects_protocol_fields(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text(
+        "def apply(xs, out):\n"
+        "    for item in xs:\n"
+        "        out.append(item)\n"
+    )
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "kind": "loop_generator",
+                "protocol_name": "Bundle",
+                "target_path": str(module_path),
+                "target_functions": ["apply"],
+            }
+        ),
+    )
+    assert result.get("errors")
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_success_without_lemma_stubs::server.py::gabion.server._execute_structure_reuse_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
 def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot.json"

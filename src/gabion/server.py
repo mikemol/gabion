@@ -59,7 +59,7 @@ from gabion.config import (
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint, PrimeRegistry, TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.refactor import (
-    FieldSpec, RefactorEngine, RefactorCompatibilityShimConfig, RefactorRequest as RefactorRequestModel)
+    FieldSpec, LoopGeneratorRequest as LoopGeneratorRequestModel, RefactorEngine, RefactorCompatibilityShimConfig, RefactorRequest as RefactorRequestModel)
 from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
     LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
@@ -3013,7 +3013,9 @@ def execute_refactor(
 def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
     with _deadline_scope_from_payload(payload):
         try:
-            request = RefactorRequest.model_validate(payload)
+            normalized_request_payload = dict(payload)
+            normalized_request_payload.setdefault("kind", "protocol_extract")
+            request = RefactorRequest.model_validate(normalized_request_payload)
         except ValidationError as exc:
             return RefactorProtocolResponseDTO(errors=[str(exc)]).model_dump()
 
@@ -3021,31 +3023,41 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
         if ls.workspace.root_path:
             project_root = Path(ls.workspace.root_path)
         engine = RefactorEngine(project_root=project_root)
-        normalized_bundle = request.bundle or [field.name for field in request.fields or []]
-        compatibility_shim = request.compatibility_shim
-        if isinstance(compatibility_shim, bool):
-            normalized_shim: bool | RefactorCompatibilityShimConfig = compatibility_shim
+        if request.kind == "loop_generator":
+            plan = engine.plan_loop_generator_rewrite(
+                LoopGeneratorRequestModel(
+                    target_path=request.target_path,
+                    target_functions=list(request.target_functions),
+                    target_loop_lines=list(request.target_loop_lines),
+                    rationale=request.rationale or "",
+                )
+            )
         else:
-            normalized_shim = RefactorCompatibilityShimConfig(
-                enabled=compatibility_shim.enabled,
-                emit_deprecation_warning=compatibility_shim.emit_deprecation_warning,
-                emit_overload_stubs=compatibility_shim.emit_overload_stubs,
+            normalized_bundle = request.bundle or [field.name for field in request.fields or []]
+            compatibility_shim = request.compatibility_shim
+            if isinstance(compatibility_shim, bool):
+                normalized_shim: bool | RefactorCompatibilityShimConfig = compatibility_shim
+            else:
+                normalized_shim = RefactorCompatibilityShimConfig(
+                    enabled=compatibility_shim.enabled,
+                    emit_deprecation_warning=compatibility_shim.emit_deprecation_warning,
+                    emit_overload_stubs=compatibility_shim.emit_overload_stubs,
+                )
+            plan = engine.plan_protocol_extraction(
+                RefactorRequestModel(
+                    protocol_name=request.protocol_name or "",
+                    bundle=normalized_bundle,
+                    fields=[
+                        FieldSpec(name=field.name, type_hint=field.type_hint)
+                        for field in request.fields or []
+                    ],
+                    target_path=request.target_path,
+                    target_functions=request.target_functions,
+                    compatibility_shim=normalized_shim,
+                    ambient_rewrite=request.ambient_rewrite,
+                    rationale=request.rationale,
+                )
             )
-        plan = engine.plan_protocol_extraction(
-            RefactorRequestModel(
-                protocol_name=request.protocol_name,
-                bundle=normalized_bundle,
-                fields=[
-                    FieldSpec(name=field.name, type_hint=field.type_hint)
-                    for field in request.fields or []
-                ],
-                target_path=request.target_path,
-                target_functions=request.target_functions,
-                compatibility_shim=normalized_shim,
-                ambient_rewrite=request.ambient_rewrite,
-                rationale=request.rationale,
-            )
-        )
         edits = [
             TextEditDTO(
                 path=edit.path,

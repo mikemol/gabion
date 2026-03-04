@@ -15,11 +15,13 @@ CheckDeadlineFn = Callable[[], None]
 def build_refactor_payload(
     *,
     input_payload: JSONObject | None = None,
+    rewrite_kind: str = "protocol_extract",
     protocol_name: str | None,
     bundle: list[str] | None,
     field: list[str] | None,
     target_path: Path | None,
     target_functions: list[str] | None,
+    target_loop_lines: list[int] | None = None,
     compatibility_shim: bool,
     compatibility_shim_warnings: bool,
     compatibility_shim_overloads: bool,
@@ -30,6 +32,23 @@ def build_refactor_payload(
     check_deadline_fn()
     if input_payload is not None:
         return input_payload
+    normalized_kind = str(rewrite_kind or "protocol_extract").strip().lower()
+    if normalized_kind == "loop_generator":
+        if target_path is None or not (target_functions or []):
+            raise typer.BadParameter(
+                "Provide --target-path and at least one --target-function or use --input."
+            )
+        return {
+            "kind": "loop_generator",
+            "target_path": str(target_path),
+            "target_functions": target_functions or [],
+            "target_loop_lines": [int(line) for line in target_loop_lines or []],
+            "rationale": rationale,
+        }
+    if normalized_kind != "protocol_extract":
+        raise typer.BadParameter(
+            "--rewrite-kind must be one of: protocol_extract, loop_generator"
+        )
     if protocol_name is None or target_path is None:
         raise typer.BadParameter(
             "Provide --protocol-name and --target-path or use --input."
@@ -55,11 +74,13 @@ def build_refactor_payload(
     else:
         compatibility_shim_payload = False
     return {
+        "kind": "protocol_extract",
         "protocol_name": protocol_name,
         "bundle": bundle or [],
         "fields": field_specs,
         "target_path": str(target_path),
         "target_functions": target_functions or [],
+        "target_loop_lines": [int(line) for line in target_loop_lines or []],
         "compatibility_shim": compatibility_shim_payload,
         "ambient_rewrite": ambient_rewrite,
         "rationale": rationale,

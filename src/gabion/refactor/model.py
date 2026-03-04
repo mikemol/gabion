@@ -59,6 +59,14 @@ class RefactorRequest:
 
 
 @dataclass(frozen=True)
+class LoopGeneratorRequest:
+    target_path: str
+    target_functions: List[str]
+    target_loop_lines: List[int] = field(default_factory=list)
+    rationale: str = ""
+
+
+@dataclass(frozen=True)
 class RewritePlanEntry:
     kind: str
     status: str

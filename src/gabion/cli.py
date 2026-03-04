@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from collections import OrderedDict
 from enum import Enum
 from functools import partial
-from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias, cast
+from typing import Callable, Generator, List, Literal, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
 import io
 import json
@@ -2873,6 +2873,11 @@ def refactor_protocol(
     output_path: Optional[Path] = typer.Option(
         None, "--output", help="Write refactor response JSON to this path."
     ),
+    rewrite_kind: Literal["protocol_extract", "loop_generator"] = typer.Option(
+        "protocol_extract",
+        "--rewrite-kind",
+        help="Refactor rewrite mode.",
+    ),
     protocol_name: Optional[str] = typer.Option(None, "--protocol-name"),
     bundle: Optional[List[str]] = typer.Option(None, "--bundle"),
     field: Optional[List[str]] = typer.Option(
@@ -2882,6 +2887,7 @@ def refactor_protocol(
     ),
     target_path: Optional[Path] = typer.Option(None, "--target-path"),
     target_functions: Optional[List[str]] = typer.Option(None, "--target-function"),
+    target_loop_lines: Optional[List[int]] = typer.Option(None, "--target-loop-line"),
     compatibility_shim: bool = typer.Option(
         False, "--compat-shim/--no-compat-shim"
     ),
@@ -2899,11 +2905,13 @@ def refactor_protocol(
         _run_refactor_protocol(
             input_path=input_path,
             output_path=output_path,
+            rewrite_kind=rewrite_kind,
             protocol_name=protocol_name,
             bundle=bundle,
             field=field,
             target_path=target_path,
             target_functions=target_functions,
+            target_loop_lines=target_loop_lines,
             compatibility_shim=compatibility_shim,
             compatibility_shim_warnings=compatibility_shim_warnings,
             compatibility_shim_overloads=compatibility_shim_overloads,
