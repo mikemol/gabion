@@ -825,3 +825,48 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
     assert isinstance(resume_payload, dict)
     assert resume_payload["source"] == "resume_manifest"
     assert resume_payload["cache_verdict"] in {"seeded", "warm"}
+
+
+def test_execute_command_total_uses_analysis_stage_module(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind()
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def f(x):\n    return x\n")
+
+    class _Workspace:
+        def __init__(self, root_path: str) -> None:
+            self.root_path = root_path
+
+    class _DummyServer:
+        def __init__(self, root_path: str) -> None:
+            self.workspace = _Workspace(root_path)
+
+    called = {"analysis_stage": False}
+
+    original = orchestrator.run_analysis_stage
+
+    def _wrapped_run_analysis_stage(**kwargs: object):
+        called["analysis_stage"] = True
+        return original(**kwargs)
+
+    monkeypatch.setattr(orchestrator, "run_analysis_stage", _wrapped_run_analysis_stage)
+
+    deps = server._default_execute_command_deps().with_overrides(
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+    response = orchestrator.execute_command_total(
+        _DummyServer(str(tmp_path)),
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "report": "-",
+            "analysis_timeout_ticks": 5_000,
+            "analysis_timeout_tick_ns": 1_000_000,
+        },
+        deps=deps,
+    )
+
+    assert called["analysis_stage"] is True
+    assert response["analysis_state"] == "succeeded"
