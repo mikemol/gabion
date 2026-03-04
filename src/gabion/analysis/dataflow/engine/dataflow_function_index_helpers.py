@@ -1,4 +1,5 @@
 # gabion:boundary_normalization_module
+# gabion:ambiguity_boundary_module
 from __future__ import annotations
 
 """Function-index helper boundary during runtime retirement."""
