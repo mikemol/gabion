@@ -22,6 +22,7 @@ from gabion.cli_support.check.check_commands import (
     register_check_delta_bundle_command as _register_check_delta_bundle_command, register_check_group_callback as _register_check_group_callback, register_check_run_command as _register_check_run_command)
 from gabion.cli_support.check.check_command_runtime import (
     check_raw_profile_args as _check_raw_profile_args_impl, run_check_aux_operation as _run_check_aux_operation_impl, run_check_command as _run_check_command_impl, run_check_raw_profile as _run_check_raw_profile_impl)
+from gabion.cli_support.check import check_runtime_facade
 from gabion.cli_support.check.check_execution_plan import (
     check_derived_artifacts as _check_derived_artifacts_impl, build_check_execution_plan_request as _build_check_execution_plan_request_impl)
 from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
@@ -39,6 +40,16 @@ from gabion.cli_support.shared.output_emitters import (
     emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, is_stdout_target as _is_stdout_target_impl,
     normalize_output_target as _normalize_output_target_impl, write_lint_sarif as _write_lint_sarif_impl,
     write_text_to_target as _write_text_to_target_impl)
+from gabion.cli_support.shared import result_emitters
+from gabion.cli_support.shared.runtime_deps import (
+    CliRuntimeDeps,
+    CliRunCiWatchFn,
+    CliRunCheckDeltaGatesFn,
+    CliRunCheckFn,
+    CliRunDataflowRawArgvFn,
+    CliRunSppfSyncFn,
+    context_cli_runtime_deps,
+)
 from gabion.cli_support.synth.synth_runtime import run_synth as _run_synth_impl
 from gabion.cli_support.synth.synth_commands import (
     register_synth_command as _register_synth_command)
@@ -63,7 +74,6 @@ from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
     boundary_order, check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
-from gabion.commands.lint_parser import parse_lint_line
 from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -127,16 +137,6 @@ check_app.add_typer(check_taint_app, name="taint")
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
-CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
-CliRunCheckFn: TypeAlias = Callable[..., JSONObject]
-CliRunSppfSyncFn: TypeAlias = Callable[..., int]
-CliRunCheckDeltaGatesFn: TypeAlias = Callable[[], int]
-CliRunCiWatchFn: TypeAlias = Callable[
-    [tooling_ci_watch.StatusWatchOptions],
-    tooling_ci_watch.StatusWatchResult,
-]
-
-
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_CHECK_REPORT_REL_PATH = path_policy.DEFAULT_CHECK_REPORT_REL_PATH
@@ -198,79 +198,15 @@ class SppfSyncCommitInfo:
     body: str
 
 
-@dataclass(frozen=True)
-class CliDeps:
-    run_dataflow_raw_argv_fn: CliRunDataflowRawArgvFn
-    run_check_fn: CliRunCheckFn
-    run_sppf_sync_fn: CliRunSppfSyncFn
-    run_check_delta_gates_fn: CliRunCheckDeltaGatesFn
-    run_ci_watch_fn: CliRunCiWatchFn
-
-
-def _context_callable_dep(
-    *,
-    ctx: typer.Context,
-    key: str,
-    default: Callable[..., object],
-) -> Callable[..., object]:
-    obj = ctx.obj
-    if not isinstance(obj, Mapping):
-        return default
-    candidate = obj.get(key)
-    if candidate is None:
-        return default
-    if callable(candidate):
-        return candidate
-    never(
-        "invalid cli dependency override",
-        dependency=key,
-        value_type=type(candidate).__name__,
-    )
-    return default  # pragma: no cover - never() raises
-
-
-def _context_cli_deps(ctx: typer.Context) -> CliDeps:
-    return CliDeps(
-        run_dataflow_raw_argv_fn=cast(
-            CliRunDataflowRawArgvFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_dataflow_raw_argv",
-                default=_run_dataflow_raw_argv,
-            ),
-        ),
-        run_check_fn=cast(
-            CliRunCheckFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_check",
-                default=run_check,
-            ),
-        ),
-        run_sppf_sync_fn=cast(
-            CliRunSppfSyncFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_sppf_sync",
-                default=_run_sppf_sync,
-            ),
-        ),
-        run_check_delta_gates_fn=cast(
-            CliRunCheckDeltaGatesFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_check_delta_gates",
-                default=_run_check_delta_gates,
-            ),
-        ),
-        run_ci_watch_fn=cast(
-            CliRunCiWatchFn,
-            _context_callable_dep(
-                ctx=ctx,
-                key="run_ci_watch",
-                default=_run_ci_watch,
-            ),
-        ),
+def _context_cli_deps(ctx: typer.Context) -> CliRuntimeDeps:
+    return context_cli_runtime_deps(
+        ctx=ctx,
+        default_run_dataflow_raw_argv_fn=_run_dataflow_raw_argv,
+        default_run_check_fn=run_check,
+        default_run_sppf_sync_fn=_run_sppf_sync,
+        default_run_check_delta_gates_fn=_run_check_delta_gates,
+        default_run_ci_watch_fn=_run_ci_watch,
+        never_fn=never,
     )
 
 
@@ -543,24 +479,11 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _parse_lint_line(line: str) -> dict[str, object] | None:
-    entry = parse_lint_line(line)
-    if entry is None:
-        return None
-    return {
-        **entry.model_dump(),
-        "severity": "warning",
-    }
+    return result_emitters.parse_lint_line_entry(line)
 
 
 def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
-    check_deadline()
-    entries: list[dict[str, object]] = []
-    for line in lines:
-        check_deadline()
-        parsed = _parse_lint_line(line)
-        if parsed is not None:
-            entries.append(parsed)
-    return entries
+    return result_emitters.collect_lint_entries(lines, check_deadline_fn=check_deadline)
 
 
 def _is_stdout_target(target: object) -> bool:
@@ -609,13 +532,14 @@ def _normalize_optional_output_target(target: object) -> str | None:
 
 
 def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
-    payload = "\n".join(json.dumps(entry, sort_keys=False) for entry in entries)
-    _write_text_to_target(
+    result_emitters.write_lint_jsonl(
         target,
-        payload,
-        ensure_trailing_newline=bool(payload),
+        entries,
+        write_text_to_target_fn=_write_text_to_target,
     )
 
+
+_TargetStreamRouter = result_emitters.TargetStreamRouter
 
 _write_lint_sarif = cast(
     Callable[[str, list[dict[str, object]]], None],
@@ -636,17 +560,16 @@ def _emit_lint_outputs(
     lint_sarif: Optional[Path],
     lint_entries: list[dict[str, object]] | None = None,
 ) -> None:
-    check_deadline()
-    if lint:
-        for line in lint_lines:
-            check_deadline()
-            typer.echo(line)
-    if lint_jsonl or lint_sarif:
-        entries = lint_entries if lint_entries is not None else _collect_lint_entries(lint_lines)
-        if lint_jsonl is not None:
-            _write_lint_jsonl(str(lint_jsonl), entries)
-        if lint_sarif is not None:
-            _write_lint_sarif(str(lint_sarif), entries)
+    result_emitters.emit_lint_outputs(
+        lint_lines,
+        lint=lint,
+        lint_jsonl=lint_jsonl,
+        lint_sarif=lint_sarif,
+        lint_entries=lint_entries,
+        check_deadline_fn=check_deadline,
+        write_lint_jsonl_fn=_write_lint_jsonl,
+        write_lint_sarif_fn=_write_lint_sarif,
+    )
 
 
 def _emit_timeout_profile_artifacts(
@@ -654,23 +577,11 @@ def _emit_timeout_profile_artifacts(
     *,
     root: Path,
 ) -> None:
-    timeout_context = result.get("timeout_context")
-    if not isinstance(timeout_context, Mapping):
-        return
-    profile = timeout_context.get("deadline_profile")
-    if not isinstance(profile, Mapping):
-        return
-    artifact_dir = root / "artifacts" / "out"
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    profile_json_path = artifact_dir / "deadline_profile.json"
-    profile_md_path = artifact_dir / "deadline_profile.md"
-    profile_json_path.write_text(json.dumps(profile, indent=2, sort_keys=False) + "\n")
-    profile_md_path.write_text(
-        render_deadline_profile_markdown(profile) + "\n",
-        encoding="utf-8",
+    result_emitters.emit_timeout_profile_artifacts(
+        result,
+        root=root,
+        render_deadline_profile_markdown_fn=render_deadline_profile_markdown,
     )
-    typer.echo(f"Wrote deadline profile JSON: {profile_json_path}")
-    typer.echo(f"Wrote deadline profile markdown: {profile_md_path}")
 
 
 _render_timeout_progress_markdown = _render_timeout_progress_markdown_impl
@@ -858,38 +769,11 @@ _run_check_raw_profile = cast(
 
 
 def _nonzero_exit_causes(result: JSONObject) -> list[str]:
-    causes: list[str] = []
-    if bool(result.get("timeout", False)):
-        analysis_state = str(result.get("analysis_state") or "unknown")
-        causes.append(f"timeout (analysis_state={analysis_state})")
-    violations = int(result.get("violations", 0) or 0)
-    if violations > 0:
-        causes.append(f"policy violations={violations}")
-    type_ambiguities_raw = result.get("type_ambiguities")
-    if isinstance(type_ambiguities_raw, list) and type_ambiguities_raw:
-        causes.append(f"type ambiguities={len(type_ambiguities_raw)}")
-    errors_raw = result.get("errors")
-    if isinstance(errors_raw, list) and errors_raw:
-        first_error = str(errors_raw[0])
-        if len(errors_raw) > 1:
-            causes.append(f"errors={len(errors_raw)} (first: {first_error})")
-        else:
-            causes.append(f"error: {first_error}")
-    if not causes:
-        analysis_state = str(result.get("analysis_state") or "unknown")
-        causes.append(
-            "no explicit violations/type ambiguities/errors were returned; "
-            f"analysis_state={analysis_state}"
-        )
-    return causes
+    return result_emitters.nonzero_exit_causes(result)
 
 
 def _emit_nonzero_exit_causes(result: JSONObject) -> None:
-    exit_code = int(result.get("exit_code", 0) or 0)
-    if exit_code == 0:
-        return
-    causes = "; ".join(_nonzero_exit_causes(result))
-    typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
+    result_emitters.emit_nonzero_exit_causes(result)
 
 
 def _emit_resume_state_startup_line(
@@ -983,22 +867,7 @@ def _emit_phase_timeline_progress(*, header: str | None, row: str) -> None:
 
 
 def _emit_analysis_resume_summary(result: JSONObject) -> None:
-    resume = result.get("analysis_resume")
-    if not isinstance(resume, Mapping):
-        return
-    path = str(resume.get("state_path", "") or "")
-    status = str(resume.get("status", "") or "")
-    reused_files = int(resume.get("reused_files", 0) or 0)
-    total_files = int(resume.get("total_files", 0) or 0)
-    remaining_files = int(resume.get("remaining_files", 0) or 0)
-    cache_verdict = str(resume.get("cache_verdict", "") or "")
-    status_suffix = f" status={status}" if status else ""
-    verdict_suffix = f" cache_verdict={cache_verdict}" if cache_verdict else ""
-    typer.echo(
-        "Resume state: "
-        f"path={path or '<none>'} reused_files={reused_files}/{total_files} "
-        f"remaining_files={remaining_files}{status_suffix}{verdict_suffix}"
-    )
+    result_emitters.emit_analysis_resume_summary(result)
 
 
 def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], None]:
@@ -1074,42 +943,19 @@ def _run_dataflow_raw_argv(
 
 
 def _default_check_artifact_flags() -> CheckArtifactFlags:
-    return CheckArtifactFlags(
-        emit_test_obsolescence=False,
-        emit_test_evidence_suggestions=False,
-        emit_call_clusters=False,
-        emit_call_cluster_consolidation=False,
-        emit_test_annotation_drift=False,
-        emit_semantic_coverage_map=False,
-    )
+    return check_runtime_facade.default_check_artifact_flags()
 
 
 def _default_check_delta_options() -> CheckDeltaOptions:
-    return CheckDeltaOptions(
-        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
-        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
-        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
-        semantic_coverage_mapping=None,
-    )
+    return check_runtime_facade.default_check_delta_options()
 
 
 def _check_help_or_exit(ctx: typer.Context) -> None:
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit(code=2)
+    check_runtime_facade.check_help_or_exit(ctx)
 
 
 def _check_gate_policy(gate: CheckGateMode) -> tuple[bool, bool]:
-    if gate is CheckGateMode.all:
-        return True, True
-    if gate is CheckGateMode.none:
-        return False, False
-    if gate is CheckGateMode.violations:
-        return True, False
-    if gate is CheckGateMode.type_ambiguities:
-        return False, True
-    never("invalid check gate mode", gate=str(gate))
-    return False, False  # pragma: no cover
+    return check_runtime_facade.check_gate_policy(gate, never_fn=never)
 
 
 def _check_lint_mode(
@@ -1118,42 +964,11 @@ def _check_lint_mode(
     lint_jsonl_out: Path | None,
     lint_sarif_out: Path | None,
 ) -> tuple[bool, bool]:
-    line_enabled = lint_mode in {
-        CheckLintMode.line,
-        CheckLintMode.line_jsonl,
-        CheckLintMode.line_sarif,
-        CheckLintMode.all,
-    }
-    jsonl_enabled = lint_mode in {
-        CheckLintMode.jsonl,
-        CheckLintMode.line_jsonl,
-        CheckLintMode.jsonl_sarif,
-        CheckLintMode.all,
-    }
-    sarif_enabled = lint_mode in {
-        CheckLintMode.sarif,
-        CheckLintMode.line_sarif,
-        CheckLintMode.jsonl_sarif,
-        CheckLintMode.all,
-    }
-    if jsonl_enabled and lint_jsonl_out is None:
-        raise typer.BadParameter(
-            "--lint-jsonl-out is required when --lint includes jsonl output."
-        )
-    if sarif_enabled and lint_sarif_out is None:
-        raise typer.BadParameter(
-            "--lint-sarif-out is required when --lint includes sarif output."
-        )
-    if not jsonl_enabled and lint_jsonl_out is not None:
-        raise typer.BadParameter(
-            "--lint-jsonl-out is only valid when --lint includes jsonl."
-        )
-    if not sarif_enabled and lint_sarif_out is not None:
-        raise typer.BadParameter(
-            "--lint-sarif-out is only valid when --lint includes sarif."
-        )
-    lint_enabled = lint_mode is not CheckLintMode.none
-    return lint_enabled, line_enabled
+    return check_runtime_facade.check_lint_mode(
+        lint_mode=lint_mode,
+        lint_jsonl_out=lint_jsonl_out,
+        lint_sarif_out=lint_sarif_out,
+    )
 
 
 _build_status_watch_options = cast(
