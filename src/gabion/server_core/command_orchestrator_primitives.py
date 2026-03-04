@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import threading
 import time
 from datetime import (datetime, timezone)
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import (Callable, Literal, Mapping, Sequence, cast)
 from gabion.json_types import (JSONObject, JSONValue)
 from gabion.commands import (boundary_order, command_ids, payload_codec, progress_contract as progress_timeline)
+from gabion.commands.lint_parser import parse_lint_line
 from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (ExecutionPlan, ExecutionPlanObligations, ExecutionPlanPolicyMetadata, write_execution_plan_artifact)
 from gabion.analysis import (AnalysisResult, AuditConfig, ReportCarrier, analyze_paths, apply_baseline, build_analysis_collection_resume_seed, compute_structure_metrics, compute_violations, build_refactor_plan, build_synthesis_plan, load_baseline, extract_report_sections, project_report_sections, report_projection_phase_rank, report_projection_spec_rows, render_dot, render_structure_snapshot, render_decision_snapshot, DecisionSnapshotSurfaces, render_protocol_stubs, render_refactor_plan, render_report, render_synthesis_section, resolve_baseline_path, write_baseline)
@@ -92,7 +92,6 @@ _PROGRESS_HEARTBEAT_POLL_SECONDS = 0.05
 
 _PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = 0.5
 
-_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 
@@ -1822,20 +1821,7 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     return best_phase
 
 def _parse_lint_line(line: str) -> LintEntryDTO | None:
-    match = _LINT_RE.match(line.strip())
-    if not match:
-        return None
-    rest = match.group("rest").strip()
-    if not rest:
-        return None
-    code, _, message = rest.partition(" ")
-    return LintEntryDTO(
-        path=match.group("path"),
-        line=int(match.group("line")),
-        col=int(match.group("col")),
-        code=code,
-        message=message,
-    )
+    return parse_lint_line(line)
 
 def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)

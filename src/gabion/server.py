@@ -26,6 +26,7 @@ from lsprotocol.types import (
 from gabion.json_types import JSONObject, JSONValue
 from gabion.commands import (
     boundary_order, command_ids, payload_codec, progress_contract as progress_timeline)
+from gabion.commands.lint_parser import parse_lint_line
 from gabion.commands.check_contract import LintEntriesDecision
 from gabion.plan import (
     ExecutionPlan, ExecutionPlanObligations, ExecutionPlanPolicyMetadata, write_execution_plan_artifact)
@@ -108,7 +109,6 @@ _PROGRESS_DEADLINE_FLUSH_SECONDS = 5.0
 _PROGRESS_DEADLINE_WATCHDOG_SECONDS = 10.0
 _PROGRESS_HEARTBEAT_POLL_SECONDS = 0.05
 _PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = 0.5
-_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
 _LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
@@ -1861,20 +1861,7 @@ def _ordered_command_response(
 
 
 def _parse_lint_line(line: str) -> LintEntryDTO | None:
-    match = _LINT_RE.match(line.strip())
-    if not match:
-        return None
-    rest = match.group("rest").strip()
-    if not rest:
-        return None
-    code, _, message = rest.partition(" ")
-    return LintEntryDTO(
-        path=match.group("path"),
-        line=int(match.group("line")),
-        col=int(match.group("col")),
-        code=code,
-        message=message,
-    )
+    return parse_lint_line(line)
 
 
 def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
