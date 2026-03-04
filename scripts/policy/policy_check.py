@@ -92,6 +92,12 @@ _ASPF_TAINT_TRIGGER_PREFIXES = (
     "src/gabion/analysis/",
 )
 
+_SCRIPT_FILE_LOADING_APIS = {
+    "importlib.util.spec_from_file_location",
+    "SourceFileLoader",
+    "importlib.machinery.SourceFileLoader",
+}
+
 
 def _changed_repo_paths() -> set[str]:
     check_deadline()
@@ -1638,6 +1644,50 @@ def check_semantic_core_payload_branching() -> None:
             *errors,
         ])
 
+
+def _dotted_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _dotted_name(node.value)
+        if parent is None:
+            return None
+        return f"{parent}.{node.attr}"
+    return None
+
+
+def _node_mentions_scripts(node: ast.AST) -> bool:
+    for child in ast.walk(node):
+        if isinstance(child, ast.Constant) and isinstance(child.value, str):
+            value = child.value
+            if "scripts/" in value or value == "scripts":
+                return True
+    return False
+
+
+def check_src_script_file_loading_policy() -> None:
+    errors: list[str] = []
+    for path in sorted((REPO_ROOT / "src" / "gabion").glob("**/*.py")):
+        check_deadline()
+        if not path.is_file() or any(part == "__pycache__" for part in path.parts):
+            continue
+        source = path.read_text(encoding="utf-8")
+        module = ast.parse(source)
+        rel_path = path.relative_to(REPO_ROOT).as_posix()
+        for node in ast.walk(module):
+            if not isinstance(node, ast.Call):
+                continue
+            dotted = _dotted_name(node.func)
+            if dotted not in _SCRIPT_FILE_LOADING_APIS:
+                continue
+            if _node_mentions_scripts(node):
+                line = int(getattr(node, "lineno", 1) or 1)
+                errors.append(
+                    f"{rel_path}:{line}: src/gabion modules must not file-load scripts/**; import runtime modules directly"
+                )
+    if errors:
+        _fail(["src script file-loading policy check failed", *errors])
+
 def check_adapter_surface_policy() -> None:
     errors: list[str] = []
     dataflow = dataflow_defaults(root=REPO_ROOT)
@@ -1689,6 +1739,8 @@ def main():
             check_adapter_surface_policy()
         if args.semantic_core_payload_branching:
             check_semantic_core_payload_branching()
+        if args.workflows:
+            check_src_script_file_loading_policy()
         if args.aspf_taint_crosswalk or args.workflows:
             check_aspf_taint_crosswalk_ack()
     return 0

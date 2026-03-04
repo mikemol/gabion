@@ -4,28 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
-import sys
 from typing import Iterable
 import ast
-
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-
-
-def _load_script_module(module_stem: str):
-    module_path = _REPO_ROOT / "scripts" / "policy" / f"{module_stem}.py"
-    spec = importlib.util.spec_from_file_location(f"gabion_policy_{module_stem}", module_path)
-    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)  # type: ignore[union-attr]
-    return module
-
-
-branchless_policy_check = _load_script_module("branchless_policy_check")
-defensive_fallback_policy_check = _load_script_module("defensive_fallback_policy_check")
-no_monkeypatch_policy_check = _load_script_module("no_monkeypatch_policy_check")
+from gabion.tooling.policy_rules import branchless_rule, defensive_fallback_rule, no_monkeypatch_rule
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
@@ -101,11 +84,11 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
     inventory_hash = _inventory_hash(inventory, resolved_root)
     rule_set_hash = _rule_set_hash()
     branchless_allowed = _load_rule_baseline_keys(
-        module=branchless_policy_check,
+        module=branchless_rule,
         baseline_path=resolved_root / _BRANCHLESS_BASELINE,
     )
     defensive_allowed = _load_rule_baseline_keys(
-        module=defensive_fallback_policy_check,
+        module=defensive_fallback_rule,
         baseline_path=resolved_root / _DEFENSIVE_BASELINE,
     )
 
@@ -144,14 +127,14 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                 )
 
             if rel_path.startswith("src/") or rel_path.startswith("tests/"):
-                no_mp = no_monkeypatch_policy_check._NoMonkeypatchVisitor(rel_path=rel_path)
+                no_mp = no_monkeypatch_rule._NoMonkeypatchVisitor(rel_path=rel_path)
                 no_mp.visit(tree)
                 violations_by_rule["no_monkeypatch"].extend(
                     _serialize_no_monkeypatch(item) for item in no_mp.violations
                 )
 
             if rel_path.startswith("src/gabion/"):
-                branchless_visitor = branchless_policy_check._BranchlessVisitor(
+                branchless_visitor = branchless_rule._BranchlessVisitor(
                     rel_path=rel_path,
                     source_lines=source_lines,
                 )
@@ -164,7 +147,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                     _serialize_branchless(item) for item in branchless_violations
                 )
 
-                defensive_visitor = defensive_fallback_policy_check._DefensiveFallbackVisitor(
+                defensive_visitor = defensive_fallback_rule._DefensiveFallbackVisitor(
                     rel_path=rel_path,
                     source_lines=source_lines,
                 )
