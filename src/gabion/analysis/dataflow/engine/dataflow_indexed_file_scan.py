@@ -116,8 +116,51 @@ from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotop
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
+from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import (
+    iter_dataclass_call_bundle_effects as _iter_dataclass_call_bundle_effects_impl,
+)
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
-    _merge_counts_by_knobs as _merge_counts_by_knobs_shared,
+    _merge_counts_by_knobs,
+)
+from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
+    CalleeResolutionContext as _CalleeResolutionContextCore,
+    collect_callee_resolution_effects as _collect_callee_resolution_effects_impl,
+    resolve_callee_with_effects as _resolve_callee_with_effects_impl,
+)
+from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
+    _resolve_class_candidates,
+    _resolve_method_in_hierarchy,
+)
+from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
+    _build_synth_registry_payload,
+    _collect_fingerprint_atom_keys,
+    _compute_fingerprint_coherence,
+    _compute_fingerprint_matches,
+    _compute_fingerprint_provenance,
+    _compute_fingerprint_rewrite_plans,
+    _compute_fingerprint_synth,
+    _compute_fingerprint_warnings,
+    _find_provenance_entry_for_site,
+    _fingerprint_soundness_issues,
+    _glossary_match_strata,
+    _summarize_fingerprint_provenance,
+    verify_rewrite_plan,
+    verify_rewrite_plans,
+)
+from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _deadline_lint_lines,
+    _exception_protocol_lint_lines,
+    _internal_broad_type_lint_lines,
+    _is_broad_internal_type,
+    _lint_lines_from_bundle_evidence,
+    _lint_lines_from_constant_smells,
+    _lint_lines_from_type_evidence,
+    _lint_lines_from_unused_arg_smells,
+    _normalize_type_name,
+    _parse_exception_path_id,
+)
+from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
+    _topologically_order_report_projection_specs,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
@@ -125,10 +168,17 @@ from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
 
 from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites, CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
-from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition
+from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier
 
 from gabion.analysis.dataflow.io.dataflow_report_rendering import (
     render_unsupported_by_adapter_section as _report_render_unsupported_section, render_synthesis_section as _report_render_synthesis_section)
+from gabion.analysis.dataflow.io.dataflow_reporting import (
+    emit_report as _emit_report,
+    render_report,
+)
+from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
+    render_mermaid_component as _render_mermaid_component,
+)
 
 from gabion.analysis.dataflow.io.dataflow_snapshot_contracts import (
     DecisionSnapshotSurfaces, StructureSnapshotDiffRequest)
@@ -602,234 +652,6 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
 
 
-def _iter_dataclass_call_bundle_effects_impl(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import iter_dataclass_call_bundle_effects
-
-    return iter_dataclass_call_bundle_effects(*args, **kwargs)
-
-
-def _CalleeResolutionContextCore(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_callee_resolution import CalleeResolutionContext
-
-    return CalleeResolutionContext(*args, **kwargs)
-
-
-def _collect_callee_resolution_effects_impl(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_callee_resolution import collect_callee_resolution_effects
-
-    return collect_callee_resolution_effects(*args, **kwargs)
-
-
-def _resolve_callee_with_effects_impl(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_callee_resolution import resolve_callee_with_effects
-
-    return resolve_callee_with_effects(*args, **kwargs)
-
-
-def _emit_report(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
-
-    return emit_report(*args, **kwargs)
-
-
-def _resolve_class_candidates(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_class_candidates as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _resolve_method_in_hierarchy(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_method_in_hierarchy as _impl
-
-    resolution = _impl(*args, **kwargs)
-    if getattr(resolution, "kind", "") == "found" and hasattr(resolution, "resolved"):
-        return resolution.resolved
-    return None
-
-
-def _internal_broad_type_lint_lines(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _internal_broad_type_lint_lines as _impl
-
-    if kwargs.get("analysis_index") is None and args:
-        paths = list(args[0])
-        kwargs["analysis_index"] = _build_analysis_index(
-            paths,
-            project_root=kwargs["project_root"],
-            ignore_params=set(kwargs["ignore_params"]),
-            strictness=kwargs["strictness"],
-            external_filter=bool(kwargs["external_filter"]),
-            transparent_decorators=kwargs.get("transparent_decorators"),
-            parse_failure_witnesses=list(kwargs.get("parse_failure_witnesses", [])),
-        )
-    return _impl(*args, **kwargs)
-
-
-def _is_broad_internal_type(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _is_broad_internal_type as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _normalize_type_name(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _normalize_type_name as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _exception_protocol_lint_lines(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _exception_protocol_lint_lines as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _lint_lines_from_bundle_evidence(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _lint_lines_from_bundle_evidence as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _lint_lines_from_constant_smells(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _lint_lines_from_constant_smells as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _lint_lines_from_type_evidence(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _lint_lines_from_type_evidence as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _lint_lines_from_unused_arg_smells(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _lint_lines_from_unused_arg_smells as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _parse_exception_path_id(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _parse_exception_path_id as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _parse_lint_location(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _parse_lint_location as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_coherence(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_coherence as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_rewrite_plans(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_rewrite_plans as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _find_provenance_entry_for_site(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _find_provenance_entry_for_site as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _glossary_match_strata(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _glossary_match_strata as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def verify_rewrite_plan(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import verify_rewrite_plan as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def verify_rewrite_plans(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import verify_rewrite_plans as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _merge_counts_by_knobs(*args, **kwargs):
-    return _merge_counts_by_knobs_shared(*args, **kwargs)
-
-
-def _render_mermaid_component(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_reporting_helpers import render_mermaid_component as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _topologically_order_report_projection_specs(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_projection_helpers import _topologically_order_report_projection_specs as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _build_synth_registry_payload(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _build_synth_registry_payload as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_matches(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_matches as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_provenance(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_provenance as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_synth(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_synth as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _compute_fingerprint_warnings(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _compute_fingerprint_warnings as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _fingerprint_soundness_issues(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _fingerprint_soundness_issues as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _summarize_fingerprint_provenance(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _summarize_fingerprint_provenance as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _collect_fingerprint_atom_keys(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _collect_fingerprint_atom_keys as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def render_report(*args, **kwargs):
-    from gabion.analysis.dataflow.io.dataflow_reporting import render_report as _impl
-
-    return _impl(*args, **kwargs)
-
-
-def _deadline_lint_lines(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _deadline_lint_lines as _impl
-
-    return _impl(*args, **kwargs)
-
-
 def _summarize_deadline_obligations(entries, *, max_entries=20, forest):
     return _summarize_deadline_obligations_impl(
         entries,
@@ -883,7 +705,7 @@ def _report_section_text(
     rendered, _ = _emit_report(
         groups_by_path,
         max_components=10,
-        report=report,
+        report=cast(_DataflowReportCarrier, report),
     )
     return extract_report_sections(rendered).get(section_id, [])
 
@@ -6053,7 +5875,7 @@ def _compute_violations(
     _, violations = _emit_report(
         groups_by_path,
         max_components,
-        report=report,
+        report=cast(_DataflowReportCarrier, report),
     )
     return sort_once(
         set(violations),
