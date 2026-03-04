@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 
+from gabion.cli_support.shared.option_schema import SHARED_OPTION_SPECS, add_argparse_option
+
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -9,27 +11,19 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("paths", nargs="+")
-    parser.add_argument("--root", default=".")
-    parser.add_argument("--config", default=None)
+    add_argparse_option(parser, SHARED_OPTION_SPECS["root"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["config"])
     parser.add_argument("--baseline", default=None, help="Baseline file for violations.")
     parser.add_argument(
         "--baseline-write",
         action="store_true",
         help="Write current violations to baseline file.",
     )
-    parser.add_argument("--exclude", action="append", default=None)
-    parser.add_argument("--ignore-params", default=None)
-    parser.add_argument(
-        "--transparent-decorators",
-        default=None,
-        help="Comma-separated decorator names treated as transparent.",
-    )
-    parser.add_argument(
-        "--allow-external",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-    )
-    parser.add_argument("--strictness", choices=["high", "low"], default=None)
+    add_argparse_option(parser, SHARED_OPTION_SPECS["exclude"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["ignore_params"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["transparent_decorators"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["allow_external"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["strictness"])
     parser.add_argument(
         "--language",
         default=None,
@@ -40,51 +34,15 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional ingest profile used by the selected language adapter.",
     )
-    parser.add_argument(
-        "--aspf-trace-json",
-        default=None,
-        help="Write ASPF execution trace JSON to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-import-trace",
-        action="append",
-        default=None,
-        help="Import one or more prior ASPF trace JSON artifacts.",
-    )
-    parser.add_argument(
-        "--aspf-equivalence-against",
-        action="append",
-        default=None,
-        help="One or more ASPF trace JSON artifacts used as equivalence baseline.",
-    )
-    parser.add_argument(
-        "--aspf-opportunities-json",
-        default=None,
-        help="Write ASPF simplification/fungibility opportunities JSON to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-state-json",
-        default=None,
-        help="Write ASPF serialized state JSON to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-delta-jsonl",
-        default=None,
-        help="Write ASPF mutation delta ledger JSONL to file or '-' for stdout.",
-    )
-    parser.add_argument(
-        "--aspf-import-state",
-        action="append",
-        default=None,
-        help="Import one or more prior ASPF serialized state JSON artifacts.",
-    )
-    parser.add_argument(
-        "--aspf-semantic-surface",
-        action="append",
-        default=None,
-        help="Semantic surface keys to project into ASPF representatives.",
-    )
-    parser.add_argument("--no-recursive", action="store_true")
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_trace_json"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_import_trace"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_equivalence_against"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_opportunities_json"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_state_json"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_delta_jsonl"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_import_state"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["aspf_semantic_surface"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["no_recursive"])
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
     parser.add_argument(
         "--emit-structure-tree",
@@ -152,33 +110,20 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
         help="Write lint SARIF to file or '-' for stdout.",
     )
-    parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
+    add_argparse_option(parser, SHARED_OPTION_SPECS["max_components"])
     parser.add_argument(
         "--type-audit",
         action="store_true",
         help="Emit type-tightening suggestions based on downstream annotations.",
     )
-    parser.add_argument(
-        "--type-audit-max",
-        type=int,
-        default=50,
-        help="Max type-tightening entries to print.",
-    )
-    parser.add_argument(
-        "--type-audit-report",
-        action="store_true",
-        help="Include type-flow audit summary in the markdown report.",
-    )
+    add_argparse_option(parser, SHARED_OPTION_SPECS["type_audit_max"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["type_audit_report"])
     parser.add_argument(
         "--fail-on-type-ambiguities",
         action="store_true",
         help="Exit non-zero if type ambiguities are detected.",
     )
-    parser.add_argument(
-        "--fail-on-violations",
-        action="store_true",
-        help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
-    )
+    add_argparse_option(parser, SHARED_OPTION_SPECS["fail_on_violations"])
     parser.add_argument(
         "--synthesis-plan",
         default=None,
@@ -194,40 +139,17 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
         help="Write protocol/dataclass stubs to file or '-' for stdout.",
     )
-    parser.add_argument(
-        "--synthesis-protocols-kind",
-        choices=["dataclass", "protocol", "contextvar"],
-        default="dataclass",
-        help="Emit dataclass, typing.Protocol, or ContextVar stubs (default: dataclass).",
-    )
-    parser.add_argument(
-        "--synthesis-max-tier",
-        type=int,
-        default=2,
-        help="Max tier to include in synthesis plan.",
-    )
-    parser.add_argument(
-        "--synthesis-min-bundle-size",
-        type=int,
-        default=2,
-        help="Min bundle size to include in synthesis plan.",
-    )
-    parser.add_argument(
-        "--synthesis-allow-singletons",
-        action="store_true",
-        help="Allow single-field bundles in synthesis plan.",
-    )
+    add_argparse_option(parser, SHARED_OPTION_SPECS["synthesis_protocols_kind"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["synthesis_max_tier"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["synthesis_min_bundle_size"])
+    add_argparse_option(parser, SHARED_OPTION_SPECS["synthesis_allow_singletons"])
     parser.add_argument(
         "--synthesis-merge-overlap",
         type=float,
         default=None,
         help="Jaccard overlap threshold for merging bundles (0.0-1.0).",
     )
-    parser.add_argument(
-        "--refactor-plan",
-        action="store_true",
-        help="Include refactoring plan summary in the markdown report.",
-    )
+    add_argparse_option(parser, SHARED_OPTION_SPECS["refactor_plan"])
     parser.add_argument(
         "--refactor-plan-json",
         default=None,
