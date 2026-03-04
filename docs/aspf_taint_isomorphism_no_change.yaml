@@ -12,6 +12,7 @@ in_steps:
   - in-38
   - in-54
   - in-55
+  - in-56
   - in-36
   - in-59
   - in-57
@@ -22,6 +23,7 @@ justification: marker protocol generalization now classifies todo/deprecated mar
 # CU: ambiguity-boundary marker classification for dataflow_function_index_helpers is policy-surface only; ASPF taint crosswalk identities unchanged.
 # CU: canonical event algebra phase-2 adds foundation envelope/codec and adapter-only ASPF/dataflow mappings without modifying ASPF taint crosswalk identifiers or in-step obligations.
 # CU: identity shadow runtime + dataflow progress sidecar emission are additive telemetry carriers and do not change ASPF/taint identifier anchors or mapped in-step obligations.
+# CU: forest-signature metadata helper extraction in dataflow io centralizes existing key-projection logic without changing ASPF marker anchors, taint crosswalk IDs, or in-step obligations.
 # CU: canonical progress v2 dual-publish and bit-lowered integer-anchor tokenization are transport/identity-carrier refinements only and do not alter ASPF taint crosswalk identifiers or in-step obligations.
 # CU: legacy fast integer carrier removal and progress token alias-default cutover preserve ASPF taint crosswalk identifier anchors and mapped in-step obligations.
 # CU: IDR-001 stage-2 hard cut removes progress-v1 transport and parser ingress from src/gabion while preserving ASPF taint crosswalk identifiers and mapped in-step obligations.

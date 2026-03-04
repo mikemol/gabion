@@ -13,6 +13,9 @@ from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.baseline_io import load_json
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
+from gabion.analysis.dataflow.io.forest_signature_metadata import (
+    apply_forest_signature_metadata,
+)
 from gabion.analysis.dataflow.io.dataflow_snapshot_contracts import (
     DecisionSnapshotSurfaces, StructureSnapshotDiffRequest)
 from gabion.analysis.projection.decision_flow import (
@@ -147,27 +150,6 @@ def compute_structure_metrics(
     }
     metrics["forest_signature"] = build_forest_signature(forest)
     return metrics
-
-
-def _copy_forest_signature_metadata(
-    payload: JSONObject,
-    snapshot: JSONObject,
-    *,
-    prefix: str = "",
-) -> None:
-    signature = snapshot.get("forest_signature")
-    if signature is not None:
-        payload[f"{prefix}forest_signature"] = signature
-    partial = snapshot.get("forest_signature_partial")
-    if partial is not None:
-        payload[f"{prefix}forest_signature_partial"] = partial
-    basis = snapshot.get("forest_signature_basis")
-    if basis is not None:
-        payload[f"{prefix}forest_signature_basis"] = basis
-    if signature is None:
-        payload[f"{prefix}forest_signature_partial"] = True
-        if basis is None:
-            payload[f"{prefix}forest_signature_basis"] = "missing"
 
 
 def render_structure_snapshot(
@@ -356,8 +338,8 @@ def diff_decision_snapshots(
             ),
         },
     }
-    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
-    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    apply_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    apply_forest_signature_metadata(diff, current_snapshot, prefix="current_")
     return diff
 
 
@@ -434,8 +416,8 @@ def diff_structure_snapshots(
             "current_total": sum(current_counts.values()),
         },
     }
-    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
-    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    apply_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    apply_forest_signature_metadata(diff, current_snapshot, prefix="current_")
     return diff
 
 

@@ -19,6 +19,7 @@ from gabion.analysis.dataflow.io.dataflow_synthesis_runtime_bridge import (
     _collect_dataclass_registry,
 )
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_signature_metadata
 from gabion.analysis.foundation.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -396,7 +397,7 @@ def compute_structure_reuse(
         "replacement_map": replacement_map,
         "warnings": warnings,
     }
-    _copy_forest_signature_metadata(reuse_payload, snapshot)
+    apply_forest_signature_metadata(reuse_payload, snapshot)
     return reuse_payload
 
 
@@ -506,23 +507,3 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
         name_map[key].add(str(qual_name).split(".")[-1])
     return name_map
 
-
-def _copy_forest_signature_metadata(
-    payload: JSONObject,
-    snapshot: JSONObject,
-    *,
-    prefix: str = "",
-) -> None:
-    signature = snapshot.get("forest_signature")
-    if signature is not None:
-        payload[f"{prefix}forest_signature"] = signature
-    partial = snapshot.get("forest_signature_partial")
-    if partial is not None:
-        payload[f"{prefix}forest_signature_partial"] = partial
-    basis = snapshot.get("forest_signature_basis")
-    if basis is not None:
-        payload[f"{prefix}forest_signature_basis"] = basis
-    if signature is None:
-        payload[f"{prefix}forest_signature_partial"] = True
-        if basis is None:
-            payload[f"{prefix}forest_signature_basis"] = "missing"
