@@ -12,7 +12,6 @@ import tomllib
 import subprocess
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Literal, Tuple, TypeAlias
 
@@ -30,6 +29,29 @@ from gabion.analysis.semantics.obligation_registry import (
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.governance.governance_rules import load_governance_rules
+from gabion_governance.compliance_render import render_compliance
+from gabion_governance.compliance_render.decision_contracts import (
+    ConsolidationConfig,
+    DecisionSurface,
+    LintEntry,
+)
+from gabion_governance.docflow_audit import (
+    AgentDirective,
+    Doc,
+    DocflowAuditContext,
+    DocflowInvariant,
+    DocflowObligationResult,
+    run_docflow_domain,
+)
+from gabion_governance.docflow_audit.contracts import (
+    Frontmatter,
+    FrontmatterScalar,
+    FrontmatterValue,
+    JSONValue,
+)
+from gabion_governance.governance_audit_contracts import GovernanceAuditAggregateResult
+from gabion_governance.sppf_audit import build_sppf_graph, run_status_consistency
+from gabion_governance.sppf_audit.contracts import SppfStatusConsistencyResult
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
@@ -126,10 +148,6 @@ MAP_FIELDS = {
     "doc_section_reviews",
 }
 
-FrontmatterScalar: TypeAlias = str | int
-FrontmatterValue: TypeAlias = FrontmatterScalar | List[str] | dict[str, FrontmatterScalar]
-Frontmatter: TypeAlias = dict[str, FrontmatterValue]
-
 # --- Lint parsing helpers ---
 
 PARAM_RE = re.compile(r"param '([^']+)'\s*\(")
@@ -146,79 +164,6 @@ FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
 FOREST_FALLBACK_WARNING_CLASS = "consolidation.forest_fallback"
 CONSOLIDATION_SOURCE_FOREST_NATIVE = "forest-native"
 CONSOLIDATION_SOURCE_FALLBACK_DERIVED = "fallback-derived"
-
-
-@dataclass(frozen=True)
-class Doc:
-    frontmatter: Frontmatter
-    body: str
-
-
-@dataclass(frozen=True)
-class DecisionSurface:
-    path: str
-    qual: str
-    params: tuple[str, ...]
-    meta: str
-
-    @property
-    def is_boundary(self) -> bool:
-        return "boundary" in self.meta
-
-
-@dataclass(frozen=True)
-class LintEntry:
-    path: str
-    line: int
-    col: int
-    code: str
-    message: str
-    param: str | None
-
-
-@dataclass(frozen=True)
-class ConsolidationConfig:
-    min_functions: int = 3
-    min_files: int = 2
-    max_examples: int = 5
-    require_forest: bool = True
-
-
-@dataclass(frozen=True)
-class DocflowInvariant:
-    name: str
-    kind: str
-    spec: ProjectionSpec
-    status: str = "active"
-
-
-@dataclass(frozen=True)
-class DocflowAuditContext:
-    docs: dict[str, Doc]
-    revisions: dict[str, int]
-    invariant_rows: list[dict[str, object]]
-    invariants: list[DocflowInvariant]
-    warnings: list[str]
-    violations: list[str]
-
-
-@dataclass(frozen=True)
-class DocflowObligationResult:
-    entries: list[dict[str, JSONValue]]
-    summary: dict[str, int]
-    warnings: list[str]
-    violations: list[str]
-
-
-@dataclass(frozen=True)
-class AgentDirective:
-    source: str
-    scope_root: str
-    line: int
-    text: str
-    normalized: str
-    mandatory: bool
-    delta_marked: bool
 
 
 def _coerce_argv(argv: list[str] | None) -> list[str]:
@@ -4565,23 +4510,22 @@ def _docflow_command(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    context = _docflow_audit_context(
-        root,
+    docflow_result, docs = run_docflow_domain(
+        root=root,
         extra_paths=args.extra_path,
         extra_strict=args.extra_strict,
         sppf_gh_ref_mode=sppf_gh_ref_mode,
-    )
-    docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
-    violations = context.violations
-    warnings = context.warnings
-    obligations = _evaluate_docflow_obligations(
-        root=root,
-        violations=violations,
         baseline_write_emitted=bool(args.baseline_write_emitted),
         delta_guard_checked=bool(args.delta_guard_checked),
+        build_context=_docflow_audit_context,
+        load_docs=_load_docflow_docs,
+        evaluate_obligations=_evaluate_docflow_obligations,
     )
-    warnings = warnings + obligations.warnings
-    violations = violations + obligations.violations
+    context = docflow_result.context
+    obligations = docflow_result.obligations
+    warnings = docflow_result.warnings
+    violations = docflow_result.violations
+    _aggregate = GovernanceAuditAggregateResult(docflow=docflow_result)
     _emit_docflow_suite_artifacts(
         root=root,
         extra_paths=args.extra_path,
@@ -4648,9 +4592,14 @@ def _docflow_command(args: argparse.Namespace) -> int:
 
 def _sppf_graph_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
-    graph = _build_sppf_dependency_graph(root, issues_json=args.issues_json)
+    graph_result = build_sppf_graph(
+        root=root,
+        issues_json=args.issues_json,
+        build_graph=_build_sppf_dependency_graph,
+    )
+    _aggregate = GovernanceAuditAggregateResult(sppf_graph=graph_result)
     _write_sppf_graph_outputs(
-        graph,
+        graph_result.graph,
         json_output=args.json_output,
         dot_output=args.dot_output,
     )
@@ -4662,19 +4611,23 @@ def _sppf_graph_command(args: argparse.Namespace) -> int:
 
 def _status_consistency_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
-    docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
-    violations, warnings = _sppf_axis_audit(root, docs)
-    sync_violations, sync_warnings = _sppf_sync_check(root, mode="required")
-    violations.extend(sync_violations)
-    warnings.extend(sync_warnings)
+    status_result = run_status_consistency(
+        root=root,
+        extra_paths=args.extra_path,
+        load_docs=_load_docflow_docs,
+        axis_audit=_sppf_axis_audit,
+        sync_check=_sppf_sync_check,
+    )
+    violations = status_result.violations
+    warnings = status_result.warnings
+    rendered = render_compliance(status_result)
+    _aggregate = GovernanceAuditAggregateResult(
+        sppf_status=status_result,
+        compliance_render=rendered,
+    )
     payload = {
         "root": str(root),
-        "violations": violations,
-        "warnings": warnings,
-        "summary": {
-            "violation_count": len(violations),
-            "warning_count": len(warnings),
-        },
+        **status_result.payload,
     }
     if args.json_output is not None:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
@@ -4685,24 +4638,7 @@ def _status_consistency_command(args: argparse.Namespace) -> int:
         print(f"SPPF status consistency JSON written to {args.json_output}")
     if args.md_output is not None:
         args.md_output.parent.mkdir(parents=True, exist_ok=True)
-        lines = [
-            "# SPPF Status Consistency",
-            "",
-            f"- violations: {len(violations)}",
-            f"- warnings: {len(warnings)}",
-            "",
-        ]
-        if violations:
-            lines.extend(["## Violations", ""])
-            lines.extend(f"- {item}" for item in violations)
-            lines.append("")
-        if warnings:
-            lines.extend(["## Warnings", ""])
-            lines.extend(f"- {item}" for item in warnings)
-            lines.append("")
-        if not warnings and not violations:
-            lines.extend(["No issues detected.", ""])
-        args.md_output.write_text("\n".join(lines), encoding="utf-8")
+        args.md_output.write_text(rendered.status_consistency.markdown, encoding="utf-8")
         print(f"SPPF status consistency markdown written to {args.md_output}")
     if violations and args.fail_on_violations:
         return 1
