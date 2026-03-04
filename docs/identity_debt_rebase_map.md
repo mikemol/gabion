@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: identity_debt_rebase_map
 doc_role: architecture
@@ -31,26 +31,37 @@ identity-space allocation ledger.
 
 ## Reuse-now surfaces (keep)
 
-| Surface | Status | Why reused |
-| --- | --- | --- |
-| `PrimeRegistry` + `PrimeIdentityAdapter` | keep | already canonical unique-structure allocator with seed replay |
-| `GlobalIdentitySpace` | keep | already provides interned atom/path + projection witness |
-| `CanonicalRunContext` + event algebra envelope | keep | provides typed sequence/run boundary contract |
-| Dataflow event algebra adapters | keep (extended) | already normalize collection/phase progress into canonical envelopes |
-| ASPF event adapter stack | keep | already converges on typed replay envelopes and sink/visitor model |
+| Surface | Status | Debt tag | Why reused |
+| --- | --- | --- | --- |
+| `PrimeRegistry` + `PrimeIdentityAdapter` | keep | `reuse` | already canonical unique-structure allocator with seed replay |
+| `GlobalIdentitySpace` | keep | `reuse` | already provides interned atom/path + projection witness |
+| `CanonicalRunContext` + event algebra envelope | keep | `reuse` | provides typed sequence/run boundary contract |
+| Dataflow event algebra adapters | keep (extended) | `reuse` | already normalize collection/phase progress into canonical envelopes |
+| ASPF event adapter stack | keep | `reuse` | already converges on typed replay envelopes and sink/visitor model |
 
 ## New bridge seams (Phase 2A)
 
-| Seam | Status | Lifecycle |
-| --- | --- | --- |
-| `IdentityShadowRuntime` | added | active shadow lane for dataflow progress sidecars |
-| `IntegerCarrierProtocol` + `BitPrimeIntegerCarrier` | active | bit-lowered integer anchor tokenization for high-cardinality anchors |
-| `FastIntegerCarrier` | retained | explicit compatibility implementation |
-| `IdentityRegistryMirror` | added | active Phase 2B write-through mirror (`PrimeRegistry` -> `GlobalIdentitySpace`) for `type_base`/`type_ctor`/`synth` |
-| Canonical primary progress (`gabion.dataflowAudit/progress-v2`) | added, default-on | authoritative progress carrier (`valid`/`rejected` adaptation kinds) |
-| Legacy compatibility progress (`gabion.dataflowAudit/progress-v1`) | retained | temporary boundary adapter during dual-publish migration |
-| Progress sidecars (`canonical_event_v1`, `identity_allocation_delta_v1`, `canonical_event_error_v1`) | retained | additive compatibility lane while v1 exists; `identity_allocation_delta_v1` now includes mirrored fingerprint namespaces |
-| Command response sidecar (`identity_seed_v1`) | added | replay/debug seed output |
+| Seam | Status | Debt tag | Lifecycle |
+| --- | --- | --- | --- |
+| `IdentityShadowRuntime` | added | `keep` | active shadow lane for dataflow progress sidecars |
+| `IntegerCarrierProtocol` + `BitPrimeIntegerCarrier` | active | `keep` | bit-lowered integer anchor tokenization for high-cardinality anchors |
+| `FastIntegerCarrier` | retained | `sunset` | explicit compatibility implementation pending carrier simplification gate |
+| `IdentityRegistryMirror` | added | `keep` | active Phase 2B write-through mirror (`PrimeRegistry` -> `GlobalIdentitySpace`) for `type_base`/`type_ctor`/`synth` |
+| Canonical primary progress (`gabion.dataflowAudit/progress-v2`) | added, default-on | `keep` | authoritative progress carrier (`valid`/`rejected` adaptation kinds) |
+| Legacy compatibility progress (`gabion.dataflowAudit/progress-v1`) | retained | `boundary-only` | temporary boundary adapter during dual-publish migration |
+| Progress sidecars (`canonical_event_v1`, `identity_allocation_delta_v1`, `canonical_event_error_v1`) | retained | `boundary-only` | additive compatibility lane while v1 exists; `identity_allocation_delta_v1` now includes mirrored fingerprint namespaces |
+| Command response sidecar (`identity_seed_v1`) | added | `keep` | replay/debug seed output |
+
+## Adapter inventory (retirement tags)
+
+| Adapter | Lane | Debt tag | Decision | Action |
+| --- | --- | --- | --- | --- |
+| `progress-v2` canonical primary emitter/parser | dataflow progress | `keep` | canonical transport boundary | retain as authoritative carrier |
+| `progress-v1` dual-publish compatibility adapter | dataflow progress | `boundary-only` | temporary transport boundary adapter | remove at repo-consumer-zero gate |
+| transcript fixture event adapter | transcript fixture-contract lane | `boundary-only` | fixture-only bridge; not production lane | retain fixture-only unless transcript runtime lane is explicitly accepted |
+| `FastIntegerCarrier` | dataflow identity tokenization | `sunset` | temporary compatibility carrier | remove after carrier simplification gate |
+| legacy lane-local seed export helpers | cross-lane response shaping | `sunset` | duplicated seed handoff paths | collapse into one `identity_seed_v1` path |
+| `PrimeRegistry`/`GlobalIdentitySpace` allocator core | identity substrate | `reuse` | canonical allocator and projection substrate | keep and extend via boundary adapters only |
 
 ## Rebase candidates (next phases)
 
@@ -73,13 +84,25 @@ identity-space allocation ledger.
 | rollback_condition | v2 canonical emission causes operational regressions in progress consumers; restore v1-only emission until corrected |
 | evidence_links | `tests/gabion/server/server_execute_command_edges_cases.py`, `tests/gabion/server_core/command_orchestrator_coverage_cases.py`, `tests/gabion/commands/test_progress_contract_edges.py` |
 
+### Transcript fixture boundary metadata
+
+| field | value |
+| --- | --- |
+| actor | `gabion-maintainers` |
+| rationale | Preserve transcript substrate comparability without introducing a production transcript runtime lane. |
+| scope | transcript fixture adapters only (`in/transcript.md` contract references and fixture tests) |
+| start | `2026-03-04` |
+| expiry | `explicit transcript runtime lane acceptance` |
+| rollback_condition | fixture adapter assumptions diverge from canonical envelope contract and fail bridge parity checks |
+| evidence_links | `docs/identity_substrate_bridge_matrix.md`, `in/transcript.md` |
+
 ## Deferred deletion list (post-cutover)
 
 | Candidate | Delete condition |
 | --- | --- |
-| ad-hoc progress-only identity token branches | once all progress producers use shared integer-carrier + canonical envelope adapter |
-| bespoke lane-local allocation delta bookkeeping | once all lanes emit `identity_allocation_delta_v1` from shared shadow runtime |
-| duplicated seed export helpers | once all command responses use one `identity_seed_v1` path |
+| ad-hoc progress-only identity token branches (`sunset`) | once all progress producers use shared integer-carrier + canonical envelope adapter |
+| bespoke lane-local allocation delta bookkeeping (`sunset`) | once all lanes emit `identity_allocation_delta_v1` from shared shadow runtime |
+| duplicated seed export helpers (`sunset`) | once all command responses use one `identity_seed_v1` path |
 
 ## Guardrails
 
