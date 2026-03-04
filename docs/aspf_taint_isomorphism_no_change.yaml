@@ -19,3 +19,4 @@ justification: marker protocol generalization now classifies todo/deprecated mar
 
 # CU: identity interning facade phase-1 is namespace/interner substrate only; ASPF taint crosswalk identities unchanged.
 # CU: ambiguity-boundary marker classification for dataflow_function_index_helpers is policy-surface only; ASPF taint crosswalk identities unchanged.
+# CU: canonical event algebra phase-2 adds foundation envelope/codec and adapter-only ASPF/dataflow mappings without modifying ASPF taint crosswalk identifiers or in-step obligations.

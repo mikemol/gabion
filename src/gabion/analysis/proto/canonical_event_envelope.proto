@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package gabion.analysis.canonical_event_envelope;
+
+message CanonicalIdentityProjection {
+  string namespace = 1;
+  repeated uint64 atoms = 2;
+  uint64 prime_product = 3;
+  string digest_alias = 4;
+  string witness_json = 5;
+}
+
+message CanonicalEventEnvelope {
+  uint64 schema_version = 1;
+  uint64 sequence = 2;
+  string run_id = 3;
+  string source = 4;
+  string phase = 5;
+  string kind = 6;
+  CanonicalIdentityProjection identity_projection = 7;
+  string payload_json = 8;
+  repeated string causal_refs = 9;
+  string event_id = 10;
+}

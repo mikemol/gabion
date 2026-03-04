@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: identity_interning_bridge
 doc_role: architecture
@@ -22,6 +22,7 @@ doc_review_notes:
   AGENTS.md#agent_obligations: "Reviewed agent obligations; bridge preserves deterministic contracts and does not bypass policy checks."
 doc_sections:
   bridge: 1
+  phase2_status: 1
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
@@ -79,3 +80,21 @@ Deferred to later phases:
 - No ASPF semantic model replacement.
 - Phase 1 is additive: it exposes a consolidation seam while preserving current
   runtime contracts.
+
+<a id="phase2_status"></a>
+## Phase 2 Status
+
+Phase 2 activates the canonical event algebra seam on top of this identity
+substrate:
+
+- canonical envelope core:
+  - `src/gabion/analysis/foundation/event_algebra.py`
+- canonical envelope codecs:
+  - `src/gabion/analysis/foundation/event_algebra_codec.py`
+  - `src/gabion/analysis/proto/canonical_event_envelope.proto`
+- adapter convergence surfaces:
+  - `src/gabion/analysis/aspf/aspf_event_algebra_adapter.py`
+  - `src/gabion/analysis/dataflow/engine/dataflow_event_algebra_adapter.py`
+
+The identity substrate remains unchanged semantically; Phase 2 consumes
+`IdentityProjection` as a required field on every canonical envelope.
