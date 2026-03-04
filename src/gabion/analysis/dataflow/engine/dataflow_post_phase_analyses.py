@@ -8,7 +8,7 @@ import ast
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence, cast
+from typing import Callable, Iterable, Sequence, cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     CallArgs,
@@ -35,6 +35,19 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
+)
+from gabion.analysis.indexed_scan.obligations.exception_obligations import (
+    collect_exception_obligations_from_runtime_module as _collect_exception_obligations_impl_runtime,
+)
+from gabion.analysis.indexed_scan.obligations.handledness import (
+    collect_handledness_witnesses as _collect_handledness_witnesses_impl,
+)
+from gabion.analysis.indexed_scan.obligations.invariant_propositions import (
+    CollectInvariantPropositionsDeps as _CollectInvariantPropositionsDeps,
+    collect_invariant_propositions as _collect_invariant_propositions_impl,
+)
+from gabion.analysis.indexed_scan.obligations.never_invariants import (
+    collect_never_invariants as _collect_never_invariants_impl,
 )
 from gabion.analysis.indexed_scan.scanners.config_fields import (
     CollectConfigBundlesDeps as _CollectConfigBundlesDeps,
@@ -84,12 +97,6 @@ _LITERAL_EVAL_ERROR_TYPES = (
 )
 
 _NONE_TYPES = {"None", "NoneType", "type(None)"}
-
-
-def _runtime_callable(name: str):
-    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
-
-    return getattr(_runtime, name)
 
 
 def _runtime_module():
@@ -514,31 +521,261 @@ class _ConstantFlowFoldAccumulator:
 
 
 def _collect_exception_obligations(*args, **kwargs):
-    return _runtime_callable("_collect_exception_obligations")(*args, **kwargs)
+    runtime = _runtime_module()
+    return _collect_exception_obligations_impl_runtime(
+        *args,
+        runtime_module=runtime,
+        **kwargs,
+    )
 
 
-def _collect_handledness_witnesses(*args, **kwargs):
-    return _runtime_callable("_collect_handledness_witnesses")(*args, **kwargs)
+def _collect_handledness_witnesses(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+) -> list[JSONObject]:
+    runtime = _runtime_module()
+    return cast(
+        list[JSONObject],
+        _collect_handledness_witnesses_impl(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            check_deadline_fn=runtime.check_deadline,
+            parent_annotator_factory=runtime.ParentAnnotator,
+            collect_functions_fn=runtime._collect_functions,
+            param_names_fn=runtime._param_names,
+            param_annotations_fn=runtime._param_annotations,
+            normalize_snapshot_path_fn=runtime._normalize_snapshot_path,
+            find_handling_try_fn=runtime._find_handling_try,
+            enclosing_function_node_fn=runtime._enclosing_function_node,
+            enclosing_scopes_fn=runtime._enclosing_scopes,
+            function_key_fn=runtime._function_key,
+            refine_exception_name_from_annotations_fn=runtime._refine_exception_name_from_annotations,
+            exception_param_names_fn=runtime._exception_param_names,
+            exception_path_id_fn=runtime._exception_path_id,
+            exception_handler_compatibility_fn=runtime._exception_handler_compatibility,
+            handler_label_fn=runtime._handler_label,
+            handler_type_names_fn=runtime._handler_type_names,
+        ),
+    )
 
 
-def _collect_never_invariants(*args, **kwargs):
-    return _runtime_callable("_collect_never_invariants")(*args, **kwargs)
+def _collect_never_invariants(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    forest,
+    marker_aliases: Sequence[str] = (),
+    deadness_witnesses=None,
+) -> list[JSONObject]:
+    runtime = _runtime_module()
+    return cast(
+        list[JSONObject],
+        _collect_never_invariants_impl(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            forest=forest,
+            marker_aliases=marker_aliases,
+            deadness_witnesses=deadness_witnesses,
+            check_deadline_fn=runtime.check_deadline,
+            parent_annotator_factory=runtime.ParentAnnotator,
+            collect_functions_fn=runtime._collect_functions,
+            param_names_fn=runtime._param_names,
+            normalize_snapshot_path_fn=runtime._normalize_snapshot_path,
+            enclosing_function_node_fn=runtime._enclosing_function_node,
+            enclosing_scopes_fn=runtime._enclosing_scopes,
+            function_key_fn=runtime._function_key,
+            exception_param_names_fn=runtime._exception_param_names,
+            node_span_fn=runtime._node_span,
+            dead_env_map_fn=runtime._dead_env_map,
+            branch_reachability_under_env_fn=runtime._branch_reachability_under_env,
+            is_reachability_false_fn=runtime._is_reachability_false,
+            is_reachability_true_fn=runtime._is_reachability_true,
+            names_in_expr_fn=runtime._names_in_expr,
+            sort_once_fn=runtime.sort_once,
+            order_policy_sort=runtime.OrderPolicy.SORT,
+            order_policy_enforce=runtime.OrderPolicy.ENFORCE,
+            is_marker_call_fn=runtime._is_marker_call,
+            decorator_name_fn=runtime._decorator_name,
+            require_not_none_fn=require_not_none,
+        ),
+    )
 
 
-def _collect_invariant_propositions(*args, **kwargs):
-    return _runtime_callable("_collect_invariant_propositions")(*args, **kwargs)
+def _collect_invariant_propositions(
+    path: Path,
+    *,
+    ignore_params: set[str],
+    project_root,
+    emitters: Iterable[Callable[[ast.FunctionDef], Iterable[InvariantProposition]]] = (),
+) -> list[InvariantProposition]:
+    runtime = _runtime_module()
+    return cast(
+        list[InvariantProposition],
+        _collect_invariant_propositions_impl(
+            path,
+            ignore_params=ignore_params,
+            project_root=project_root,
+            emitters=cast(Iterable[Callable[[object], Iterable[object]]], emitters),
+            deps=_CollectInvariantPropositionsDeps(
+                check_deadline_fn=runtime.check_deadline,
+                parse_module_source_fn=runtime._parse_module_source,
+                collect_functions_fn=cast(Callable[[object], Iterable[object]], runtime._collect_functions),
+                param_names_fn=runtime._param_names,
+                scope_path_fn=runtime._scope_path,
+                invariant_collector_ctor=cast(Callable[..., object], runtime._InvariantCollector),
+                invariant_proposition_type=InvariantProposition,
+                normalize_invariant_proposition_fn=runtime._normalize_invariant_proposition,
+            ),
+        ),
+    )
 
 
-def _param_annotations_by_path(*args, **kwargs):
-    return _runtime_callable("_param_annotations_by_path")(*args, **kwargs)
+def _param_annotations_by_path(
+    paths: list[Path],
+    *,
+    ignore_params: set[str],
+    parse_failure_witnesses: list[JSONObject],
+) -> dict[Path, dict[str, object]]:
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    annotations: dict[Path, dict[str, object]] = {}
+    for path in paths:
+        runtime.check_deadline()
+        tree = runtime._parse_module_tree(
+            path,
+            stage=runtime._ParseModuleStage.PARAM_ANNOTATIONS,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is not None:
+            parent = runtime.ParentAnnotator()
+            parent.visit(tree)
+            parents = parent.parents
+            by_fn: dict[str, object] = {}
+            for fn in runtime._collect_functions(tree):
+                runtime.check_deadline()
+                scopes = runtime._enclosing_scopes(fn, parents)
+                fn_key = runtime._function_key(scopes, fn.name)
+                by_fn[fn_key] = runtime._param_annotations(fn, ignore_params)
+            annotations[path] = by_fn
+    return annotations
 
 
-def analyze_decision_surfaces_repo(*args, **kwargs):
-    return _runtime_callable("analyze_decision_surfaces_repo")(*args, **kwargs)
+def analyze_decision_surfaces_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    decision_tiers=None,
+    require_tiers: bool = False,
+    forest=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> tuple[list[str], list[str], list[str]]:
+    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
+        DecisionSurfaceAnalyzerInput,
+        analyze_decision_surfaces,
+    )
+    from gabion.analysis.dataflow.engine.scan_kernel import (
+        ScanKernelDeps,
+        ScanKernelRequest,
+    )
+
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    analyzer_output = analyze_decision_surfaces(
+        data=DecisionSurfaceAnalyzerInput(
+            kernel_request=ScanKernelRequest(
+                paths=paths,
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                external_filter=external_filter,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=analysis_index,
+            ),
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+        deps=ScanKernelDeps(run_indexed_pass_fn=runtime._run_indexed_pass),
+        runner=lambda context: runtime._analyze_decision_surfaces_indexed(
+            context,
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+    )
+    return (
+        analyzer_output.surfaces,
+        analyzer_output.warnings,
+        analyzer_output.lint_lines,
+    )
 
 
-def analyze_value_encoded_decisions_repo(*args, **kwargs):
-    return _runtime_callable("analyze_value_encoded_decisions_repo")(*args, **kwargs)
+def analyze_value_encoded_decisions_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    decision_tiers=None,
+    require_tiers: bool = False,
+    forest=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
+        DecisionSurfaceAnalyzerInput,
+        analyze_value_encoded_decisions,
+    )
+    from gabion.analysis.dataflow.engine.scan_kernel import (
+        ScanKernelDeps,
+        ScanKernelRequest,
+    )
+
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    analyzer_output = analyze_value_encoded_decisions(
+        data=DecisionSurfaceAnalyzerInput(
+            kernel_request=ScanKernelRequest(
+                paths=paths,
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                external_filter=external_filter,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=analysis_index,
+            ),
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+        deps=ScanKernelDeps(run_indexed_pass_fn=runtime._run_indexed_pass),
+        runner=lambda context: runtime._analyze_value_encoded_decisions_indexed(
+            context,
+            decision_tiers=decision_tiers,
+            require_tiers=require_tiers,
+            forest=forest,
+        ),
+    )
+    return (
+        analyzer_output.surfaces,
+        analyzer_output.warnings,
+        analyzer_output.rewrites,
+        analyzer_output.lint_lines,
+    )
 
 
 def _compute_knob_param_names(

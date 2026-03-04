@@ -220,6 +220,10 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_constant_flow_details,
     _collect_dataclass_registry,
+    _collect_exception_obligations,
+    _collect_handledness_witnesses,
+    _collect_invariant_propositions,
+    _collect_never_invariants,
     _combine_type_hints,
     _compute_knob_param_names,
     _expand_type_hint,
@@ -227,13 +231,16 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _format_type_flow_site,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
+    _param_annotations_by_path,
     _split_top_level,
     _type_from_const_repr,
     analyze_constant_flow_repo,
+    analyze_decision_surfaces_repo,
     analyze_deadness_flow_repo,
     analyze_type_flow_repo_with_evidence,
     analyze_type_flow_repo_with_map,
     analyze_unused_arg_flow_repo,
+    analyze_value_encoded_decisions_repo,
     generate_property_hook_manifest,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
@@ -271,19 +278,15 @@ from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
 from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
     AnalysisIndexModuleTreesDeps as _AnalysisIndexModuleTreesDeps, analysis_index_module_trees as _analysis_index_module_trees_impl)
 from gabion.analysis.indexed_scan.obligations.exception_obligations import (
-    collect_exception_obligations as _collect_exception_obligations_impl, collect_exception_obligations_from_runtime_module as _collect_exception_obligations_impl_runtime, dead_env_map as _dead_env_map_impl)
-from gabion.analysis.indexed_scan.obligations.handledness import (
-    collect_handledness_witnesses as _collect_handledness_witnesses_impl)
+    dead_env_map as _dead_env_map_impl)
 from gabion.analysis.indexed_scan.obligations.never_invariants import (
-    collect_never_invariants as _collect_never_invariants_impl, keyword_links_literal as _keyword_links_literal_impl, keyword_string_literal as _keyword_string_literal_impl, never_reason as _never_reason_impl)
+    keyword_links_literal as _keyword_links_literal_impl, keyword_string_literal as _keyword_string_literal_impl, never_reason as _never_reason_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl, spec_row_span as _spec_row_span_impl)
 from gabion.analysis.indexed_scan.scanners.flow.group_propagation import (
     PropagateGroupsDeps as _PropagateGroupsDeps, propagate_groups as _propagate_groups_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.structured_suite_sites import (
     MaterializeStructuredSuiteSitesDeps as _MaterializeStructuredSuiteSitesDeps, MaterializeStructuredSuiteSitesForTreeDeps as _MaterializeStructuredSuiteSitesForTreeDeps, materialize_structured_suite_sites as _materialize_structured_suite_sites_impl, materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_impl)
-from gabion.analysis.indexed_scan.obligations.invariant_propositions import (
-    CollectInvariantPropositionsDeps as _CollectInvariantPropositionsDeps, collect_invariant_propositions as _collect_invariant_propositions_impl)
 from gabion.analysis.indexed_scan.ast.expression_eval import (
     BoolEvalOutcome as _BoolEvalOutcome, EvalDecision as _EvalDecision, ValueEvalOutcome as _ValueEvalOutcome, branch_reachability_under_env as _branch_reachability_under_env_impl, eval_bool_expr as _eval_bool_expr_impl, eval_value_expr as _eval_value_expr_impl, is_reachability_false as _is_reachability_false_impl, is_reachability_true as _is_reachability_true_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.statement_materialization import (
@@ -864,35 +867,6 @@ def _scope_path(path: Path, root) -> str:
             pass
     return str(path)
 
-def _collect_invariant_propositions(
-    path: Path,
-    *,
-    ignore_params: set[str],
-    project_root,
-    emitters: Iterable[
-        Callable[[ast.FunctionDef], Iterable[InvariantProposition]]
-    ] = (),
-) -> list[InvariantProposition]:
-    return cast(
-        list[InvariantProposition],
-        _collect_invariant_propositions_impl(
-            path,
-            ignore_params=ignore_params,
-            project_root=project_root,
-            emitters=cast(Iterable[Callable[[object], Iterable[object]]], emitters),
-            deps=_CollectInvariantPropositionsDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_source_fn=_parse_module_source,
-                collect_functions_fn=cast(Callable[[object], Iterable[object]], _collect_functions),
-                param_names_fn=_param_names,
-                scope_path_fn=_scope_path,
-                invariant_collector_ctor=cast(Callable[..., object], _InvariantCollector),
-                invariant_proposition_type=InvariantProposition,
-                normalize_invariant_proposition_fn=_normalize_invariant_proposition,
-            ),
-        ),
-    )
-
 def _decorator_name(node: ast.AST):
     return _decorator_name_impl(node, check_deadline_fn=check_deadline)
 
@@ -1352,60 +1326,6 @@ def _analyze_decision_surfaces_indexed(
         )
     return surfaces, warnings, lint_lines
 
-def analyze_decision_surfaces_repo(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    decision_tiers = None,
-    require_tiers: bool = False,
-    forest: Forest,
-    parse_failure_witnesses = None,
-    analysis_index = None,
-) -> tuple[list[str], list[str], list[str]]:
-    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
-        DecisionSurfaceAnalyzerInput,
-        analyze_decision_surfaces,
-    )
-    from gabion.analysis.dataflow.engine.scan_kernel import (
-        ScanKernelDeps,
-        ScanKernelRequest,
-    )
-
-    check_deadline()
-    analyzer_output = analyze_decision_surfaces(
-        data=DecisionSurfaceAnalyzerInput(
-            kernel_request=ScanKernelRequest(
-                paths=paths,
-                project_root=project_root,
-                ignore_params=ignore_params,
-                strictness=strictness,
-                external_filter=external_filter,
-                transparent_decorators=transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=analysis_index,
-            ),
-            decision_tiers=decision_tiers,
-            require_tiers=require_tiers,
-            forest=forest,
-        ),
-        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
-        runner=lambda context: _analyze_decision_surfaces_indexed(
-            context,
-            decision_tiers=decision_tiers,
-            require_tiers=require_tiers,
-            forest=forest,
-        ),
-    )
-    return (
-        analyzer_output.surfaces,
-        analyzer_output.warnings,
-        analyzer_output.lint_lines,
-    )
-
 def _analyze_value_encoded_decisions_indexed(
     context: _IndexedPassContext,
     *,
@@ -1419,61 +1339,6 @@ def _analyze_value_encoded_decisions_indexed(
         decision_tiers=decision_tiers,
         require_tiers=require_tiers,
         forest=forest,
-    )
-
-def analyze_value_encoded_decisions_repo(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    decision_tiers = None,
-    require_tiers: bool = False,
-    forest: Forest,
-    parse_failure_witnesses = None,
-    analysis_index = None,
-) -> tuple[list[str], list[str], list[str], list[str]]:
-    from gabion.analysis.dataflow.engine.decision_surface_analyzer import (
-        DecisionSurfaceAnalyzerInput,
-        analyze_value_encoded_decisions,
-    )
-    from gabion.analysis.dataflow.engine.scan_kernel import (
-        ScanKernelDeps,
-        ScanKernelRequest,
-    )
-
-    check_deadline()
-    analyzer_output = analyze_value_encoded_decisions(
-        data=DecisionSurfaceAnalyzerInput(
-            kernel_request=ScanKernelRequest(
-                paths=paths,
-                project_root=project_root,
-                ignore_params=ignore_params,
-                strictness=strictness,
-                external_filter=external_filter,
-                transparent_decorators=transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=analysis_index,
-            ),
-            decision_tiers=decision_tiers,
-            require_tiers=require_tiers,
-            forest=forest,
-        ),
-        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
-        runner=lambda context: _analyze_value_encoded_decisions_indexed(
-            context,
-            decision_tiers=decision_tiers,
-            require_tiers=require_tiers,
-            forest=forest,
-        ),
-    )
-    return (
-        analyzer_output.surfaces,
-        analyzer_output.warnings,
-        analyzer_output.rewrites,
-        analyzer_output.lint_lines,
     )
 
 def _node_span(node: ast.AST):
@@ -1707,34 +1572,6 @@ def _parse_module_tree(
         )
         return None
 
-def _param_annotations_by_path(
-    paths: list[Path],
-    *,
-    ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
-) -> dict[Path, dict[str, ParamAnnotationMap]]:
-    check_deadline()
-    annotations: dict[Path, dict[str, ParamAnnotationMap]] = {}
-    for path in paths:
-        check_deadline()
-        tree = _parse_module_tree(
-            path,
-            stage=_ParseModuleStage.PARAM_ANNOTATIONS,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-        if tree is not None:
-            parent = ParentAnnotator()
-            parent.visit(tree)
-            parents = parent.parents
-            by_fn: dict[str, ParamAnnotationMap] = {}
-            for fn in _collect_functions(tree):
-                check_deadline()
-                scopes = _enclosing_scopes(fn, parents)
-                fn_key = _function_key(scopes, fn.name)
-                by_fn[fn_key] = _param_annotations(fn, ignore_params)
-            annotations[path] = by_fn
-    return annotations
-
 def _enclosing_function_node(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
 ):
@@ -1910,34 +1747,6 @@ def _is_reachability_false(reachability: _EvalDecision) -> bool:
 def _is_reachability_true(reachability: _EvalDecision) -> bool:
     return _is_reachability_true_impl(reachability)
 
-def _collect_handledness_witnesses(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-) -> list[JSONObject]:
-    return _collect_handledness_witnesses_impl(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        check_deadline_fn=check_deadline,
-        parent_annotator_factory=ParentAnnotator,
-        collect_functions_fn=_collect_functions,
-        param_names_fn=_param_names,
-        param_annotations_fn=_param_annotations,
-        normalize_snapshot_path_fn=_normalize_snapshot_path,
-        find_handling_try_fn=_find_handling_try,
-        enclosing_function_node_fn=_enclosing_function_node,
-        enclosing_scopes_fn=_enclosing_scopes,
-        function_key_fn=_function_key,
-        refine_exception_name_from_annotations_fn=_refine_exception_name_from_annotations,
-        exception_param_names_fn=_exception_param_names,
-        exception_path_id_fn=_exception_path_id,
-        exception_handler_compatibility_fn=_exception_handler_compatibility,
-        handler_label_fn=_handler_label,
-        handler_type_names_fn=_handler_type_names,
-    )
-
 def _dead_env_map(
     deadness_witnesses,
 ) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
@@ -1947,25 +1756,6 @@ def _dead_env_map(
         sequence_or_none_fn=sequence_or_none,
         mapping_or_none_fn=mapping_or_none,
         literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
-    )
-
-def _collect_exception_obligations(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    handledness_witnesses=None,
-    deadness_witnesses=None,
-    never_exceptions=None,
-) -> list[JSONObject]:
-    return _collect_exception_obligations_impl_runtime(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        handledness_witnesses=handledness_witnesses,
-        deadness_witnesses=deadness_witnesses,
-        never_exceptions=never_exceptions,
-        runtime_module=sys.modules[__name__],
     )
 
 def _keyword_string_literal(call: ast.Call, key: str) -> str:
@@ -1984,45 +1774,6 @@ def _keyword_links_literal(call: ast.Call) -> list[JSONObject]:
 
 def _never_reason(call: ast.Call):
     return _never_reason_impl(call, check_deadline_fn=check_deadline)
-
-def _collect_never_invariants(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    forest: Forest,
-    marker_aliases: Sequence[str] = (),
-    deadness_witnesses=None,
-) -> list[JSONObject]:
-    return _collect_never_invariants_impl(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        forest=forest,
-        marker_aliases=marker_aliases,
-        deadness_witnesses=deadness_witnesses,
-        check_deadline_fn=check_deadline,
-        parent_annotator_factory=ParentAnnotator,
-        collect_functions_fn=_collect_functions,
-        param_names_fn=_param_names,
-        normalize_snapshot_path_fn=_normalize_snapshot_path,
-        enclosing_function_node_fn=_enclosing_function_node,
-        enclosing_scopes_fn=_enclosing_scopes,
-        function_key_fn=_function_key,
-        exception_param_names_fn=_exception_param_names,
-        node_span_fn=_node_span,
-        dead_env_map_fn=_dead_env_map,
-        branch_reachability_under_env_fn=_branch_reachability_under_env,
-        is_reachability_false_fn=_is_reachability_false,
-        is_reachability_true_fn=_is_reachability_true,
-        names_in_expr_fn=_names_in_expr,
-        sort_once_fn=sort_once,
-        order_policy_sort=OrderPolicy.SORT,
-        order_policy_enforce=OrderPolicy.ENFORCE,
-        is_marker_call_fn=_is_marker_call,
-        decorator_name_fn=_decorator_name,
-        require_not_none_fn=require_not_none,
-    )
 
 _DEADLINE_CHECK_METHODS = {"check", "expired"}
 
