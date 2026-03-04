@@ -1,5 +1,5 @@
 ---
-doc_revision: 11
+doc_revision: 12
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3729
+- Monolith LOC (current): 3669
 - Monolith top-level import statements (current): 97
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -195,6 +195,23 @@ doc_scope:
     - stage-cache deps
   - Pruned now-unused monolith indexed-scan import statements tied to removed ownership.
   - ASPF no-change acknowledgement refreshed (`in-72`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`80 passed` for touched suites)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Indexed-pass/module-artifact carrier relocation to analysis-index owner:
+    - `_IndexedPassContext`
+    - `_IndexedPassSpec`
+    - `_ModuleArtifactSpec`
+    - `OptionalProjectRoot`
+    - `OptionalDecorators`
+    - `OptionalParseFailures`
+    - `OptionalAnalysisIndex`
+    - `_build_module_artifacts`
+  - Monolith type/builder bodies removed and replaced with owner aliases.
+  - Ambiguity-contract remediation: `_build_module_artifacts` now uses a single callable boundary contract (`_default_parse_module`) with no dynamic type alternation.
+  - ASPF no-change acknowledgement refreshed (`in-73`).
   - Validation:
     - policy checks passed
     - targeted pytest passed (`80 passed` for touched suites)

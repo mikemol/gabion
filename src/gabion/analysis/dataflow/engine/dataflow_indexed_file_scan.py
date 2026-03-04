@@ -266,12 +266,20 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     generate_property_hook_manifest,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    OptionalAnalysisIndex,
+    OptionalDecorators,
+    OptionalParseFailures,
+    OptionalProjectRoot,
+    _IndexedPassContext,
+    _IndexedPassSpec,
+    _ModuleArtifactSpec,
     _analysis_index_module_trees,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
     _analysis_index_stage_cache,
     _analysis_index_transitive_callers,
     _build_analysis_index,
+    _build_module_artifacts,
     _build_call_graph,
     _build_stage_cache_identity_spec,
     _cache_identity_aliases,
@@ -2414,39 +2422,9 @@ class _ResolvedCallEdge:
 
 _StageCacheValue = TypeVar("_StageCacheValue")
 
-_IndexedPassResult = TypeVar("_IndexedPassResult")
-
 _ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
 
 _ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
-
-_ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
-
-_ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
-
-OptionalProjectRoot = Path | None
-
-OptionalDecorators = set[str] | None
-
-OptionalParseFailures = list[JSONObject] | None
-
-OptionalAnalysisIndex = AnalysisIndex | None
-
-@dataclass(frozen=True)
-class _IndexedPassContext:
-    paths: list[Path]
-    project_root: OptionalProjectRoot
-    ignore_params: set[str]
-    strictness: str
-    external_filter: bool
-    transparent_decorators: OptionalDecorators
-    parse_failure_witnesses: list[JSONObject]
-    analysis_index: AnalysisIndex
-
-@dataclass(frozen=True)
-class _IndexedPassSpec(Generic[_IndexedPassResult]):
-    pass_id: str
-    run: Callable[[_IndexedPassContext], _IndexedPassResult]
 
 @dataclass(frozen=True)
 class _ResolvedEdgeReducerSpec(Generic[_ResolvedEdgeAcc, _ResolvedEdgeOut]):
@@ -2454,14 +2432,6 @@ class _ResolvedEdgeReducerSpec(Generic[_ResolvedEdgeAcc, _ResolvedEdgeOut]):
     init: Callable[[], _ResolvedEdgeAcc]
     fold: Callable[[_ResolvedEdgeAcc, _ResolvedCallEdge], None]
     finish: Callable[[_ResolvedEdgeAcc], _ResolvedEdgeOut]
-
-@dataclass(frozen=True)
-class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
-    artifact_id: str
-    stage: _ParseModuleStage
-    init: Callable[[], _ModuleArtifactAcc]
-    fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
-    finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
 
 @dataclass(frozen=True)
 class _ResolvedEdgeParamEvent:
@@ -2553,36 +2523,6 @@ class _ResumeCacheIdentityPair:
 
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
-
-def _build_module_artifacts(
-    paths: list[Path],
-    *,
-    specs: tuple[_ModuleArtifactSpec[object, object], ...],
-    parse_failure_witnesses: list[JSONObject],
-    parse_module: Callable[[Path], ast.Module] = _parse_module_source,
-) -> tuple[object, ...]:
-    from gabion.analysis.indexed_scan.state.module_artifacts import (
-        BuildModuleArtifactsDeps as _BuildModuleArtifactsDeps)
-    from gabion.analysis.indexed_scan.state.module_artifacts import (
-        build_module_artifacts as _build_module_artifacts_impl)
-
-    return cast(
-        tuple[object, ...],
-        _build_module_artifacts_impl(
-            paths,
-            specs=cast(tuple[object, ...], specs),
-            parse_failure_witnesses=cast(list[object], parse_failure_witnesses),
-            parse_module=parse_module,
-            deps=_BuildModuleArtifactsDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_error_types=cast(
-                    tuple[type[BaseException], ...],
-                    _PARSE_MODULE_ERROR_TYPES,
-                ),
-                record_parse_failure_witness_fn=_record_parse_failure_witness,
-            ),
-        ),
-    )
 
 def _collect_call_ambiguities_indexed(
     context: _IndexedPassContext,

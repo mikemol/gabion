@@ -4,12 +4,14 @@ from __future__ import annotations
 
 """Analysis-index owner surface during WS-5 migration."""
 
+import ast
 import hashlib
 import json
+from dataclasses import dataclass
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import cast
+from typing import Generic, TypeVar, cast
 
 from gabion.analysis.aspf.aspf import NodeId, structural_key_atom, structural_key_json
 from gabion.analysis.core.type_fingerprints import fingerprint_stage_cache_identity
@@ -18,6 +20,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_PREFIX,
 )
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
+from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.index.analysis_index_builder import (
     AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps,
@@ -30,6 +33,10 @@ from gabion.analysis.indexed_scan.index.analysis_index_module_trees import (
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheDeps as _AnalysisIndexStageCacheDeps,
     analysis_index_stage_cache as _analysis_index_stage_cache_impl,
+)
+from gabion.analysis.indexed_scan.state.module_artifacts import (
+    BuildModuleArtifactsDeps as _BuildModuleArtifactsDeps,
+    build_module_artifacts as _build_module_artifacts_impl,
 )
 from gabion.analysis.indexed_scan.scanners.edge_param_events import (
     iter_resolved_edge_param_events as _iter_resolved_edge_param_events_impl,
@@ -44,6 +51,75 @@ def _runtime_module():
     from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
 
     return _runtime
+
+
+_IndexedPassResult = TypeVar("_IndexedPassResult")
+_ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
+_ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
+
+OptionalProjectRoot = Path | None
+OptionalDecorators = set[str] | None
+OptionalParseFailures = list[JSONObject] | None
+OptionalAnalysisIndex = object | None
+
+
+@dataclass(frozen=True)
+class _IndexedPassContext:
+    paths: list[Path]
+    project_root: OptionalProjectRoot
+    ignore_params: set[str]
+    strictness: str
+    external_filter: bool
+    transparent_decorators: OptionalDecorators
+    parse_failure_witnesses: list[JSONObject]
+    analysis_index: object
+
+
+@dataclass(frozen=True)
+class _IndexedPassSpec(Generic[_IndexedPassResult]):
+    pass_id: str
+    run: Callable[[_IndexedPassContext], _IndexedPassResult]
+
+
+@dataclass(frozen=True)
+class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
+    artifact_id: str
+    stage: object
+    init: Callable[[], _ModuleArtifactAcc]
+    fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
+    finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
+
+
+def _default_parse_module(path: Path) -> ast.Module:
+    runtime = _runtime_module()
+    return runtime._parse_module_source(path)
+
+
+def _build_module_artifacts(
+    paths: list[Path],
+    *,
+    specs: tuple[_ModuleArtifactSpec[object, object], ...],
+    parse_failure_witnesses: list[JSONObject],
+    parse_module: Callable[[Path], ast.Module] = _default_parse_module,
+) -> tuple[object, ...]:
+    runtime = _runtime_module()
+    return cast(
+        tuple[object, ...],
+        _build_module_artifacts_impl(
+            paths,
+            specs=cast(tuple[object, ...], specs),
+            parse_failure_witnesses=cast(list[object], parse_failure_witnesses),
+            parse_module=parse_module,
+            deps=_BuildModuleArtifactsDeps(
+                check_deadline_fn=check_deadline,
+                parse_module_error_types=cast(
+                    tuple[type[BaseException], ...],
+                    runtime._PARSE_MODULE_ERROR_TYPES,
+                ),
+                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+            ),
+        ),
+    )
 
 
 def _collect_transitive_callers(
@@ -606,6 +682,7 @@ __all__ = [
     "_analysis_index_resolved_call_edges_by_caller",
     "_analysis_index_stage_cache",
     "_analysis_index_transitive_callers",
+    "_build_module_artifacts",
     "_analyze_file_internal",
     "_build_stage_cache_identity_spec",
     "_cache_identity_aliases",
@@ -626,6 +703,13 @@ __all__ = [
     "_reduce_resolved_call_edges",
     "_resume_variant_for_identity",
     "_run_indexed_pass",
+    "_IndexedPassContext",
+    "_IndexedPassSpec",
+    "_ModuleArtifactSpec",
+    "OptionalAnalysisIndex",
+    "OptionalDecorators",
+    "OptionalParseFailures",
+    "OptionalProjectRoot",
     "_sorted_text",
     "_stage_cache_key_aliases",
 ]
