@@ -151,6 +151,11 @@ from gabion.server_core.command_contract import CommandRuntimeInput, CommandRunt
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
     initial_collection_progress, initial_paths_count, normalize_paths, normalize_timeout_total_ticks)
+from gabion.server_core.analysis_stage import run_analysis_stage
+from gabion.server_core.timeout_stage import (
+    run_timeout_stage,
+    timeout_classification_decision,
+)
 
 _DURATION_TIMEOUT_CLOCK_MULTIPLIER = 16
 
@@ -3419,10 +3424,7 @@ def _handle_timeout_cleanup(
 
 
 def _timeout_classification_decision(*, progress_payload: JSONObject) -> str:
-    timeout_classification = progress_payload.get("classification")
-    if isinstance(timeout_classification, str) and timeout_classification:
-        return timeout_classification
-    return "timed_out_no_progress"
+    return timeout_classification_decision(progress_payload=progress_payload)
 
 
 def _checkpoint_projection_decision(*, report_output_path: Path | None) -> bool:
@@ -4476,7 +4478,12 @@ def _stage_finalize_success(*, stage: _ExecuteCommandFinalizeSuccessStage) -> _S
 
 
 def _stage_finalize_timeout(*, exc: TimeoutExceeded, context: _TimeoutCleanupContext) -> dict:
-    return _handle_timeout_cleanup(exc=exc, context=context)
+    timeout_stage = run_timeout_stage(
+        exc=exc,
+        context=context,
+        cleanup_handler=_handle_timeout_cleanup,
+    )
+    return timeout_stage.response
 
 
 def _stage_runtime_bootstrap(
@@ -4522,16 +4529,17 @@ def _stage_execute_analysis(
     state: _AnalysisExecutionMutableState,
     collection_resume_payload: JSONObject | None,
 ) -> _ExecuteCommandAnalysisStage:
-    analysis_outcome = _run_analysis_with_progress(
+    stage = run_analysis_stage(
         context=context,
         state=state,
         collection_resume_payload=collection_resume_payload,
+        run_analysis_with_progress=_run_analysis_with_progress,
     )
     return _ExecuteCommandAnalysisStage(
-        analysis_outcome=analysis_outcome,
-        last_collection_resume_payload=analysis_outcome.last_collection_resume_payload,
-        semantic_progress_cumulative=analysis_outcome.semantic_progress_cumulative,
-        latest_collection_progress=analysis_outcome.latest_collection_progress,
+        analysis_outcome=stage.analysis_outcome,
+        last_collection_resume_payload=stage.last_collection_resume_payload,
+        semantic_progress_cumulative=stage.semantic_progress_cumulative,
+        latest_collection_progress=stage.latest_collection_progress,
     )
 
 
