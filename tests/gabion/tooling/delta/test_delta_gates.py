@@ -7,6 +7,7 @@ from typing import Callable
 import pytest
 
 from gabion.tooling.delta import ambiguity_delta_gate
+from gabion.tooling.delta import delta_gate
 from gabion.tooling.runtime import annotation_drift_orphaned_gate
 from gabion.tooling.delta import obsolescence_delta_gate
 from gabion.tooling.delta import obsolescence_delta_unmapped_gate
@@ -139,3 +140,49 @@ def test_gate_delta_value_handles_invalid_shapes(
     else:
         assert delta_value({"summary": {"delta": []}}) == 0
         assert delta_value({"summary": {"delta": {key_path[-1]: "bad"}}}) == 0
+
+
+@pytest.mark.parametrize(
+    ("gate_id", "env_flag", "payload", "expected_delta"),
+    [
+        (
+            "ambiguity",
+            delta_gate.AMBIGUITY_DELTA_ENV_FLAG,
+            {"summary": {"total": {"delta": 4}}},
+            4,
+        ),
+        (
+            "obsolescence_opaque",
+            delta_gate.OBSOLESCENCE_OPAQUE_ENV_FLAG,
+            {"summary": {"opaque_evidence": {"delta": 5}}},
+            5,
+        ),
+        (
+            "obsolescence_unmapped",
+            delta_gate.OBSOLESCENCE_UNMAPPED_ENV_FLAG,
+            {"summary": {"counts": {"delta": {"unmapped": 6}}}},
+            6,
+        ),
+    ],
+)
+def test_standard_gate_adapter_resolves_enablement_and_delta_value(
+    gate_id: str,
+    env_flag: str,
+    payload: dict[str, object],
+    expected_delta: int,
+) -> None:
+    adapter = delta_gate.make_standard_gate_adapter(gate_id=gate_id)
+    assert adapter.spec.env_flag == env_flag
+    assert adapter.delta_value(payload) == expected_delta
+    with env_scope({env_flag: "off"}):
+        assert adapter.enabled() is False
+    with env_scope({env_flag: "true"}):
+        assert adapter.enabled() is True
+
+
+def test_standard_gate_adapter_resolves_by_env_flag() -> None:
+    adapter = delta_gate.make_standard_gate_adapter(
+        env_flag=delta_gate.OBSOLESCENCE_UNMAPPED_ENV_FLAG
+    )
+    assert adapter.gate_id == "obsolescence_unmapped"
+    assert adapter.spec.env_flag == delta_gate.OBSOLESCENCE_UNMAPPED_ENV_FLAG

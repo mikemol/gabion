@@ -34,6 +34,33 @@ class StandardGateSpec:
     ok_prefix: str
 
 
+@dataclass(frozen=True)
+class StandardGateAdapter:
+    gate_id: str
+    spec: StandardGateSpec
+    default_path: Path
+
+    def enabled(self, value: str | None = None) -> bool:
+        return _enabled_default_true(self.spec.env_flag, value)
+
+    def delta_value(self, payload: Mapping[str, object]) -> int:
+        return _nested_int(payload, self.spec.delta_keys)
+
+    def check_gate(self, path: Path, *, enabled: bool | None = None) -> int:
+        return _check_standard_gate(self.spec, path, enabled=enabled)
+
+    def main(self) -> int:
+        return self.check_gate(self.default_path)
+
+
+_STANDARD_GATE_DEFAULT_PATHS: dict[str, Path] = {
+    "obsolescence_opaque": Path("artifacts/out/test_obsolescence_delta.json"),
+    "obsolescence_unmapped": Path("artifacts/out/test_obsolescence_delta.json"),
+    "annotation_orphaned": Path("artifacts/out/test_annotation_drift_delta.json"),
+    "ambiguity": Path("artifacts/out/ambiguity_delta.json"),
+}
+
+
 def _standard_spec_from_policy(policy: GatePolicy) -> StandardGateSpec:
     return StandardGateSpec(
         env_flag=policy.env_flag,
@@ -109,6 +136,25 @@ def _gate_id_for_env_flag(env_flag: str) -> str:
     if gate_id is None:
         raise ValueError(f"unsupported env flag for governance mapping: {env_flag}")
     return gate_id
+
+
+def make_standard_gate_adapter(
+    *,
+    gate_id: str | None = None,
+    env_flag: str | None = None,
+    default_path: Path | None = None,
+) -> StandardGateAdapter:
+    if (gate_id is None) == (env_flag is None):
+        raise ValueError("provide exactly one of gate_id or env_flag")
+    resolved_gate_id = gate_id if gate_id is not None else _gate_id_for_env_flag(env_flag or "")
+    if resolved_gate_id not in _STANDARD_GATE_DEFAULT_PATHS:
+        raise ValueError(f"unsupported standard gate adapter id: {resolved_gate_id}")
+    spec = _policy_spec(resolved_gate_id)
+    return StandardGateAdapter(
+        gate_id=resolved_gate_id,
+        spec=spec,
+        default_path=default_path or _STANDARD_GATE_DEFAULT_PATHS[resolved_gate_id],
+    )
 
 
 def _check_standard_gate(

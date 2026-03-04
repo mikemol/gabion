@@ -5,20 +5,21 @@ from typing import Mapping
 
 from gabion.tooling.delta import delta_gate
 
-ENV_FLAG = delta_gate.OBSOLESCENCE_UNMAPPED_ENV_FLAG
+_GATE_ADAPTER = delta_gate.make_standard_gate_adapter(gate_id="obsolescence_unmapped")
+ENV_FLAG = _GATE_ADAPTER.spec.env_flag
 
 
 def _enabled(value: str | None = None) -> bool:
-    return delta_gate.obsolescence_unmapped_enabled(value)
+    return _GATE_ADAPTER.enabled(value)
 
 
 def _delta_value(payload: Mapping[str, object]) -> int:
-    return delta_gate.obsolescence_unmapped_delta_value(payload)
+    return _GATE_ADAPTER.delta_value(payload)
 
 
 def check_gate(path: Path, *, enabled: bool | None = None) -> int:
-    return delta_gate.check_obsolescence_unmapped_gate(path, enabled=enabled)
+    return _GATE_ADAPTER.check_gate(path, enabled=enabled)
 
 
 def main() -> int:
-    return delta_gate.obsolescence_unmapped_main()
+    return _GATE_ADAPTER.main()
