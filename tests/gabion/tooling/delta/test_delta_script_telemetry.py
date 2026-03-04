@@ -14,6 +14,32 @@ from gabion.tooling.delta import delta_triplets
 from tests.env_helpers import env_scope
 
 
+def _canonical_progress_notification(
+    payload: dict[str, object],
+    *,
+    adaptation_kind: str = "valid",
+) -> dict[str, object]:
+    canonical_value: dict[str, object] = {
+        "schema": "gabion/canonical_progress_event_v1",
+        "format_version": 1,
+        "adaptation_kind": adaptation_kind,
+        "event": {"payload": dict(payload)} if adaptation_kind == "valid" else None,
+        "adaptation_error": "",
+        "identity_allocation_delta_v1": [],
+        "fallback_payload_v1": None,
+    }
+    if adaptation_kind == "rejected":
+        canonical_value["adaptation_error"] = "adapter rejection"
+        canonical_value["fallback_payload_v1"] = dict(payload)
+    return {
+        "method": "$/progress",
+        "params": {
+            "token": "gabion.dataflowAudit/progress-v2",
+            "value": canonical_value,
+        },
+    }
+
+
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.main
 def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
     tmp_path: Path,
@@ -36,38 +62,30 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
     ) -> dict[str, object]:
         assert root == tmp_path
         assert callable(notification_callback)
-        post_progress = {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "phase": "post",
-                    "work_done": 0,
-                    "work_total": 2,
-                    "completed_files": 20,
-                    "remaining_files": 5,
-                    "total_files": 25,
-                    "analysis_state": "analysis_post_in_progress",
-                },
-            },
-        }
-        post_done = {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "phase": "post",
-                    "work_done": 2,
-                    "work_total": 2,
-                    "completed_files": 25,
-                    "remaining_files": 0,
-                    "total_files": 25,
-                    "analysis_state": "succeeded",
-                    "classification": "succeeded",
-                    "done": True,
-                },
-            },
-        }
+        post_progress = _canonical_progress_notification(
+            {
+                "phase": "post",
+                "work_done": 0,
+                "work_total": 2,
+                "completed_files": 20,
+                "remaining_files": 5,
+                "total_files": 25,
+                "analysis_state": "analysis_post_in_progress",
+            }
+        )
+        post_done = _canonical_progress_notification(
+            {
+                "phase": "post",
+                "work_done": 2,
+                "work_total": 2,
+                "completed_files": 25,
+                "remaining_files": 0,
+                "total_files": 25,
+                "analysis_state": "succeeded",
+                "classification": "succeeded",
+                "done": True,
+            }
+        )
         notification_callback(post_progress)
         notification_callback(post_progress)
         notification_callback(post_done)
@@ -315,7 +333,7 @@ def test_delta_state_emit_helper_branches_and_nonzero_exit(
     )
     assert (
         delta_state_emit._phase_progress_from_notification(
-            {"method": "$/progress", "params": {"token": "gabion.dataflowAudit/progress-v1", "value": {}}}
+            _canonical_progress_notification({})
         )
         is None
     )
@@ -436,7 +454,7 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
             {
                 "method": "$/progress",
                 "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
+                    "token": "gabion.dataflowAudit/progress-v2",
                     "value": [],
                 },
             }
@@ -444,20 +462,16 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
         is None
     )
     normalized = delta_state_emit._phase_progress_from_notification(
-        {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "phase": "forest",
-                    "work_done": "1",
-                    "work_total": "2",
-                    "completed_files": "3",
-                    "remaining_files": "4",
-                    "total_files": "5",
-                },
-            },
-        }
+        _canonical_progress_notification(
+            {
+                "phase": "forest",
+                "work_done": "1",
+                "work_total": "2",
+                "completed_files": "3",
+                "remaining_files": "4",
+                "total_files": "5",
+            }
+        )
     )
     assert normalized is not None
     assert normalized["work_done"] is None
@@ -498,18 +512,14 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
         assert callable(notification_callback)
         notification_callback({"method": "ignored"})
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "post",
-                        "work_done": 1,
-                        "work_total": 1,
-                        "done": True,
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "post",
+                    "work_done": 1,
+                    "work_total": 1,
+                    "done": True,
+                }
+            )
         )
         return {"exit_code": 0}
 
@@ -749,31 +759,23 @@ def test_delta_emit_modules_stream_phase_timeline_rows(
         assert root == tmp_path
         assert callable(notification_callback)
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "collection",
-                        "event_seq": 1,
-                        "phase_timeline_header": "| ts | phase |",
-                        "phase_timeline_row": "| t0 | collection |",
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "collection",
+                    "event_seq": 1,
+                    "phase_timeline_header": "| ts | phase |",
+                    "phase_timeline_row": "| t0 | collection |",
+                }
+            )
         )
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "post",
-                        "event_seq": 2,
-                        "phase_timeline_row": "| t1 | post |",
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "post",
+                    "event_seq": 2,
+                    "phase_timeline_row": "| t1 | post |",
+                }
+            )
         )
         return {"exit_code": 0}
 
@@ -825,23 +827,19 @@ def test_delta_emit_modules_ignore_non_mapping_progress_and_dedupe_duplicates(
             {
                 "method": "$/progress",
                 "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
+                    "token": "gabion.dataflowAudit/progress-v2",
                     "value": [],
                 },
             }
         )
-        progress = {
-            "method": "$/progress",
-            "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
-                "value": {
-                    "phase": "collection",
-                    "event_seq": 1,
-                    "phase_timeline_header": "| ts | phase |",
-                    "phase_timeline_row": "| t0 | collection |",
-                },
-            },
-        }
+        progress = _canonical_progress_notification(
+            {
+                "phase": "collection",
+                "event_seq": 1,
+                "phase_timeline_header": "| ts | phase |",
+                "phase_timeline_row": "| t0 | collection |",
+            }
+        )
         notification_callback(progress)
         notification_callback(progress)
         return {"exit_code": 0}
@@ -955,44 +953,32 @@ def test_delta_state_emit_main_throttles_same_phase_rows_but_forces_phase_transi
         assert root == tmp_path
         assert callable(notification_callback)
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "collection",
-                        "event_seq": 1,
-                        "phase_timeline_header": "| ts | phase |",
-                        "phase_timeline_row": "| t0 | collection |",
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "collection",
+                    "event_seq": 1,
+                    "phase_timeline_header": "| ts | phase |",
+                    "phase_timeline_row": "| t0 | collection |",
+                }
+            )
         )
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "collection",
-                        "event_seq": 2,
-                        "phase_timeline_row": "| t1 | collection |",
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "collection",
+                    "event_seq": 2,
+                    "phase_timeline_row": "| t1 | collection |",
+                }
+            )
         )
         notification_callback(
-            {
-                "method": "$/progress",
-                "params": {
-                    "token": "gabion.dataflowAudit/progress-v1",
-                    "value": {
-                        "phase": "post",
-                        "event_seq": 3,
-                        "phase_timeline_row": "| t2 | post |",
-                    },
-                },
-            }
+            _canonical_progress_notification(
+                {
+                    "phase": "post",
+                    "event_seq": 3,
+                    "phase_timeline_row": "| t2 | post |",
+                }
+            )
         )
         return {"exit_code": 0}
 

@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 from gabion.tooling.delta import delta_emit_runtime
-from gabion.commands import transport_policy
 from gabion.runtime import env_policy
 
 
@@ -13,13 +12,23 @@ def _progress_notification(*, phase: str, event_seq: int, work_done: int) -> dic
     return {
         "method": "$/progress",
         "params": {
-            "token": "gabion.dataflowAudit/progress-v1",
+            "token": "gabion.dataflowAudit/progress-v2",
             "value": {
-                "phase": phase,
-                "event_kind": "progress",
-                "event_seq": event_seq,
-                "work_done": work_done,
-                "work_total": 3,
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "valid",
+                "event": {
+                    "payload": {
+                        "phase": phase,
+                        "event_kind": "progress",
+                        "event_seq": event_seq,
+                        "work_done": work_done,
+                        "work_total": 3,
+                    }
+                },
+                "adaptation_error": "",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": None,
             },
         },
     }
@@ -138,16 +147,12 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
 
     original_runtime_run = delta_emit_runtime.run_command
     original_runtime_direct = delta_emit_runtime.run_command_direct
-    original_transport_run = transport_policy.run_command
-    original_transport_direct = transport_policy.run_command_direct
     original_direct_env = os.environ.pop("GABION_DIRECT_RUN", None)
     original_override_env = os.environ.pop("GABION_DIRECT_RUN_OVERRIDE_EVIDENCE", None)
     original_override_record_env = os.environ.pop("GABION_OVERRIDE_RECORD_JSON", None)
     try:
         delta_emit_runtime.run_command = _stub_runner
         delta_emit_runtime.run_command_direct = _stub_runner
-        transport_policy.run_command = _stub_runner
-        transport_policy.run_command_direct = _stub_runner
         exit_code = delta_emit_runtime.run_delta_emit(
             run_spec=run_spec,
             payload={"analysis_timeout_ticks": 10, "analysis_timeout_tick_ns": 1},
@@ -159,8 +164,6 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
     finally:
         delta_emit_runtime.run_command = original_runtime_run
         delta_emit_runtime.run_command_direct = original_runtime_direct
-        transport_policy.run_command = original_transport_run
-        transport_policy.run_command_direct = original_transport_direct
         if original_direct_env is not None:
             os.environ["GABION_DIRECT_RUN"] = original_direct_env
         if original_override_env is not None:

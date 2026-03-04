@@ -2347,13 +2347,6 @@ def _create_progress_emitter(
                     "value": ordered_canonical_progress_value,
                 },
             )
-            send_notification(
-                _LSP_PROGRESS_NOTIFICATION_METHOD,
-                {
-                    "token": _LSP_PROGRESS_TOKEN,
-                    "value": ordered_progress_value,
-                },
-            )
 
             heartbeat_template: dict[str, object] = {
                 "phase": phase,

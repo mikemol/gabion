@@ -114,7 +114,7 @@ def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
         ls.send_notification(
             "$/progress",
             {
-                "token": "gabion.dataflowAudit/progress-v1",
+                "token": "gabion.dataflowAudit/progress-v2",
                 "value": {"resume_checkpoint": {"status": "checkpoint_loaded"}},
             },
         )
@@ -136,7 +136,7 @@ def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
             "jsonrpc": "2.0",
             "method": "$/progress",
             "params": {
-                "token": "gabion.dataflowAudit/progress-v1",
+                "token": "gabion.dataflowAudit/progress-v2",
                 "value": {"resume_checkpoint": {"status": "checkpoint_loaded"}},
             },
         }

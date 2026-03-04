@@ -213,10 +213,10 @@ def test_invalid_ingress_payload_rejected_before_analysis(
     assert called is False
 
 
-def _progress_values(
+def _canonical_progress_values(
     ls: _DummyNotifyingServer,
     *,
-    token: str = server._LSP_PROGRESS_TOKEN,
+    token: str = server._LSP_PROGRESS_TOKEN_V2,
 ) -> list[dict[str, object]]:
     values: list[dict[str, object]] = []
     for method, params in ls.notifications:
@@ -229,6 +229,25 @@ def _progress_values(
         value = params.get("value")
         if isinstance(value, dict):
             values.append(value)
+    return values
+
+
+def _progress_values(
+    ls: _DummyNotifyingServer,
+    *,
+    token: str = server._LSP_PROGRESS_TOKEN_V2,
+) -> list[dict[str, object]]:
+    values: list[dict[str, object]] = []
+    for canonical_value in _canonical_progress_values(ls, token=token):
+        event = canonical_value.get("event")
+        if isinstance(event, dict):
+            payload = event.get("payload")
+            if isinstance(payload, dict):
+                values.append(payload)
+                continue
+        fallback_payload = canonical_value.get("fallback_payload_v1")
+        if isinstance(fallback_payload, dict):
+            values.append(fallback_payload)
     return values
 
 
@@ -245,26 +264,21 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     )
 
     assert result["analysis_state"] == "succeeded"
-    progress_values_v1 = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
-    progress_values_v2 = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V2)
-    assert progress_values_v1
-    assert progress_values_v2
-    assert len(progress_values_v1) == len(progress_values_v2)
-    assert all(
-        value.get("schema") == "gabion/dataflow_progress_v1"
-        for value in progress_values_v1
-    )
-    assert all(value.get("format_version") == 1 for value in progress_values_v1)
-    assert all("identity_allocation_delta_v1" in value for value in progress_values_v1)
-    assert all("canonical_event_v1" in value for value in progress_values_v1)
-    assert all("canonical_event_error_v1" not in value for value in progress_values_v1)
+    progress_values = _progress_values(ls)
+    canonical_progress_values = _canonical_progress_values(ls)
+    assert progress_values
+    assert canonical_progress_values
     assert all(
         value.get("schema") == "gabion/canonical_progress_event_v1"
-        for value in progress_values_v2
+        for value in canonical_progress_values
     )
-    assert all(value.get("adaptation_kind") == "valid" for value in progress_values_v2)
-    assert all(isinstance(value.get("event"), dict) for value in progress_values_v2)
-    assert all(value.get("fallback_payload_v1") is None for value in progress_values_v2)
+    assert all(value.get("format_version") == 1 for value in canonical_progress_values)
+    assert all(
+        "identity_allocation_delta_v1" in value for value in canonical_progress_values
+    )
+    assert all(value.get("adaptation_kind") == "valid" for value in canonical_progress_values)
+    assert all(isinstance(value.get("event"), dict) for value in canonical_progress_values)
+    assert all(value.get("fallback_payload_v1") is None for value in canonical_progress_values)
     assert isinstance(result.get("identity_seed_v1"), dict)
     assert any(
         "completed_files" in value
@@ -273,7 +287,7 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
         and "total_files" in value
         and "work_done" in value
         and "work_total" in value
-        for value in progress_values_v1
+        for value in progress_values
     )
 
 
@@ -302,8 +316,8 @@ def test_execute_command_identity_shadow_sidecars_are_deterministic_across_ident
     assert isinstance(first_result.get("identity_seed_v1"), dict)
     assert isinstance(second_result.get("identity_seed_v1"), dict)
 
-    first_progress = _progress_values(first_ls, token=server._LSP_PROGRESS_TOKEN_V1)
-    second_progress = _progress_values(second_ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    first_progress = _progress_values(first_ls)
+    second_progress = _progress_values(second_ls)
     first_by_seq = {
         int(value["event_seq"]): value
         for value in first_progress
@@ -316,20 +330,8 @@ def test_execute_command_identity_shadow_sidecars_are_deterministic_across_ident
     }
     shared_sequences = sorted(set(first_by_seq) & set(second_by_seq))
     assert shared_sequences
-    for sequence in shared_sequences:
-        first_value = first_by_seq[sequence]
-        second_value = second_by_seq[sequence]
-        first_canonical = first_value.get("canonical_event_v1")
-        second_canonical = second_value.get("canonical_event_v1")
-        assert isinstance(first_canonical, dict)
-        assert isinstance(second_canonical, dict)
-        assert first_canonical.get("event_id") == second_canonical.get("event_id")
-        assert first_canonical.get("identity_projection") == second_canonical.get(
-            "identity_projection"
-        )
-
-    first_progress_v2 = _progress_values(first_ls, token=server._LSP_PROGRESS_TOKEN_V2)
-    second_progress_v2 = _progress_values(second_ls, token=server._LSP_PROGRESS_TOKEN_V2)
+    first_progress_v2 = _canonical_progress_values(first_ls)
+    second_progress_v2 = _canonical_progress_values(second_ls)
     def _v2_event_seq(value: dict[str, object]) -> int | None:
         event = value.get("event")
         if not isinstance(event, dict):
@@ -394,7 +396,7 @@ def test_execute_command_mirrors_fingerprint_registry_allocations_into_identity_
     )
 
     assert result["analysis_state"] == "succeeded"
-    progress_values = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    progress_values = _canonical_progress_values(ls)
     delta_rows: list[dict[str, object]] = []
     for value in progress_values:
         delta = value.get("identity_allocation_delta_v1")
@@ -473,7 +475,7 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
     )
 
     assert result["analysis_state"] == "succeeded"
-    progress_values = _progress_values(ls, token=server._LSP_PROGRESS_TOKEN_V1)
+    progress_values = _progress_values(ls)
     complete_terminal_values = []
     complete_heartbeat_values = []
     complete_progress_values = []

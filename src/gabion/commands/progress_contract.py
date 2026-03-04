@@ -9,9 +9,8 @@ from gabion.commands.progress_transition import (
 from gabion.order_contract import sort_once
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
-LSP_PROGRESS_TOKEN_V1 = "gabion.dataflowAudit/progress-v1"
 LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
-LSP_PROGRESS_TOKEN = LSP_PROGRESS_TOKEN_V1
+LSP_PROGRESS_TOKEN = LSP_PROGRESS_TOKEN_V2
 CANONICAL_PROGRESS_EVENT_SCHEMA_V1 = "gabion/canonical_progress_event_v1"
 DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS = 1.0
 
@@ -355,13 +354,7 @@ def phase_progress_from_progress_notification(
                 normalized_payload = _phase_progress_from_progress_value(fallback_payload)
                 if isinstance(normalized_payload, dict):
                     return normalized_payload
-    legacy_value = _progress_value_from_notification(
-        notification,
-        token=LSP_PROGRESS_TOKEN_V1,
-    )
-    if not isinstance(legacy_value, Mapping):
-        return None
-    return _phase_progress_from_progress_value(legacy_value)
+    return None
 
 
 def _phase_progress_from_progress_value(

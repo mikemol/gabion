@@ -115,9 +115,7 @@ def test_execute_command_total_starts_and_stops_identity_registry_mirror(
         value = params.get("value")
         if isinstance(token, str) and isinstance(value, dict):
             by_token[token] = value
-    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
-    assert by_token[orchestrator._LSP_PROGRESS_TOKEN].get("schema") == "gabion/dataflow_progress_v1"
     assert (
         by_token[orchestrator._LSP_PROGRESS_TOKEN_V2].get("schema")
         == "gabion/canonical_progress_event_v1"
@@ -553,7 +551,7 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     )
     emitter.stop()
 
-    assert len(notifications) == 2
+    assert len(notifications) == 1
     by_token: dict[str, dict[str, object]] = {}
     for _method, params in notifications:
         assert isinstance(params, dict)
@@ -561,28 +559,26 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
         value = params.get("value")
         if isinstance(token, str) and isinstance(value, dict):
             by_token[token] = value
-    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
-
-    v1_value = by_token[orchestrator._LSP_PROGRESS_TOKEN]
-    assert v1_value.get("event_kind") == "terminal"
-    transition_v2 = v1_value.get("progress_transition_v2")
-    assert isinstance(transition_v2, dict)
-    assert transition_v2.get("format_version") == 2
-    transition = v1_value.get("progress_transition_v1")
-    assert isinstance(transition, dict)
-    assert transition.get("terminal_complete") is False
-    assert transition.get("reason") == "initial_transition"
-    assert "canonical_event_v1" in v1_value
-    assert "identity_allocation_delta_v1" in v1_value
-    assert "canonical_event_error_v1" not in v1_value
 
     v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
     assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"
     assert v2_value.get("adaptation_kind") == "valid"
-    assert isinstance(v2_value.get("event"), dict)
+    event = v2_value.get("event")
+    assert isinstance(event, dict)
+    payload = event.get("payload")
+    assert isinstance(payload, dict)
+    assert payload.get("event_kind") == "terminal"
+    transition_v2 = payload.get("progress_transition_v2")
+    assert isinstance(transition_v2, dict)
+    assert transition_v2.get("format_version") == 2
+    transition = payload.get("progress_transition_v1")
+    assert isinstance(transition, dict)
+    assert transition.get("terminal_complete") is False
+    assert transition.get("reason") == "initial_transition"
     assert v2_value.get("adaptation_error") == ""
     assert v2_value.get("fallback_payload_v1") is None
+    assert isinstance(v2_value.get("identity_allocation_delta_v1"), list)
 
 
 def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
@@ -659,12 +655,7 @@ def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
         value = params.get("value")
         if isinstance(token, str) and isinstance(value, dict):
             by_token[token] = value
-    assert orchestrator._LSP_PROGRESS_TOKEN in by_token
     assert orchestrator._LSP_PROGRESS_TOKEN_V2 in by_token
-
-    v1_value = by_token[orchestrator._LSP_PROGRESS_TOKEN]
-    assert "canonical_event_v1" not in v1_value
-    assert isinstance(v1_value.get("canonical_event_error_v1"), str)
 
     v2_value = by_token[orchestrator._LSP_PROGRESS_TOKEN_V2]
     assert v2_value.get("schema") == "gabion/canonical_progress_event_v1"

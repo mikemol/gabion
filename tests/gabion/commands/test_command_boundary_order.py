@@ -131,7 +131,7 @@ def test_lsp_direct_enforces_ingress_and_egress_order(tmp_path: Path) -> None:
         ls.send_notification(
             "$/progress",
             {
-                "token": "gabion.dataflowAudit/progress-v1",
+                "token": "gabion.dataflowAudit/progress-v2",
                 "value": {"items": [1, 2, 3], "metric": {"a": 1, "z": 2}},
             },
         )

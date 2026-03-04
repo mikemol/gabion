@@ -107,23 +107,33 @@ def test_phase_progress_from_notification_prefers_transition_payload_for_marker_
     notification = {
         "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
         "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN,
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
             "value": {
-                "phase": "post",
-                "event_kind": "progress",
-                "work_done": 1,
-                "work_total": 9,
-                "progress_marker": "stale",
-                "progress_transition_v1": {
-                    "reason": "terminal_transition",
-                    "event_kind": "terminal",
-                    "parent": {
-                        "unit": "post_tasks",
-                        "done": 6,
-                        "total": 6,
-                    },
-                    "child": {"marker_text": "complete"},
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "valid",
+                "event": {
+                    "payload": {
+                        "phase": "post",
+                        "event_kind": "progress",
+                        "work_done": 1,
+                        "work_total": 9,
+                        "progress_marker": "stale",
+                        "progress_transition_v1": {
+                            "reason": "terminal_transition",
+                            "event_kind": "terminal",
+                            "parent": {
+                                "unit": "post_tasks",
+                                "done": 6,
+                                "total": 6,
+                            },
+                            "child": {"marker_text": "complete"},
+                        },
+                    }
                 },
+                "adaptation_error": "",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": None,
             },
         },
     }
@@ -217,17 +227,27 @@ def test_phase_progress_from_notification_keeps_legacy_values_when_transition_no
     notification = {
         "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
         "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN,
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
             "value": {
-                "phase": "post",
-                "event_kind": "progress",
-                "work_done": "invalid",
-                "work_total": "invalid",
-                "progress_marker": "fingerprint:normalize",
-                "progress_transition_v1": {
-                    "parent": {"unit": "post_tasks"},
-                    "child": {"marker_text": "fingerprint:normalize"},
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "valid",
+                "event": {
+                    "payload": {
+                        "phase": "post",
+                        "event_kind": "progress",
+                        "work_done": "invalid",
+                        "work_total": "invalid",
+                        "progress_marker": "fingerprint:normalize",
+                        "progress_transition_v1": {
+                            "parent": {"unit": "post_tasks"},
+                            "child": {"marker_text": "fingerprint:normalize"},
+                        },
+                    }
                 },
+                "adaptation_error": "",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": None,
             },
         },
     }
@@ -303,35 +323,45 @@ def test_phase_progress_from_notification_prefers_transition_v2_event_kind() -> 
     notification = {
         "method": progress_contract.LSP_PROGRESS_NOTIFICATION_METHOD,
         "params": {
-            "token": progress_contract.LSP_PROGRESS_TOKEN,
+            "token": progress_contract.LSP_PROGRESS_TOKEN_V2,
             "value": {
-                "phase": "post",
-                "event_kind": "progress",
-                "work_done": 1,
-                "work_total": 9,
-                "progress_marker": "stale",
-                "progress_transition_v2": {
-                    "reason": "terminal_transition",
-                    "event_kind": "terminal",
-                    "root": {
-                        "identity": "post_root",
-                        "unit": "post_tasks",
-                        "done": 6,
-                        "total": 6,
-                        "marker_text": "root",
-                        "children": [
-                            {
-                                "identity": "complete",
+                "schema": "gabion/canonical_progress_event_v1",
+                "format_version": 1,
+                "adaptation_kind": "valid",
+                "event": {
+                    "payload": {
+                        "phase": "post",
+                        "event_kind": "progress",
+                        "work_done": 1,
+                        "work_total": 9,
+                        "progress_marker": "stale",
+                        "progress_transition_v2": {
+                            "reason": "terminal_transition",
+                            "event_kind": "terminal",
+                            "root": {
+                                "identity": "post_root",
                                 "unit": "post_tasks",
                                 "done": 6,
                                 "total": 6,
-                                "marker_text": "complete",
-                                "children": [],
-                            }
-                        ],
-                    },
-                    "active_path": ["post_root", "complete"],
+                                "marker_text": "root",
+                                "children": [
+                                    {
+                                        "identity": "complete",
+                                        "unit": "post_tasks",
+                                        "done": 6,
+                                        "total": 6,
+                                        "marker_text": "complete",
+                                        "children": [],
+                                    }
+                                ],
+                            },
+                            "active_path": ["post_root", "complete"],
+                        },
+                    }
                 },
+                "adaptation_error": "",
+                "identity_allocation_delta_v1": [],
+                "fallback_payload_v1": None,
             },
         },
     }
