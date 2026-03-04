@@ -10,7 +10,6 @@ from typing import Callable
 import typer
 
 from gabion.json_types import JSONObject
-from gabion.schema import LegacyDataflowMonolithResponseDTO
 
 DeadlineScopeFactory = Callable[[], AbstractContextManager[object]]
 EmitLintOutputsFn = Callable[..., None]
@@ -19,6 +18,7 @@ WriteTextToTargetFn = Callable[..., None]
 EmitResultJsonToStdoutFn = Callable[..., None]
 CheckDeadlineFn = Callable[[], None]
 SortOnceFn = Callable[..., list[str]]
+NormalizeDataflowResponseFn = Callable[[JSONObject], dict[str, object]]
 
 
 def emit_dataflow_result_outputs(
@@ -32,19 +32,10 @@ def emit_dataflow_result_outputs(
     emit_result_json_to_stdout_fn: EmitResultJsonToStdoutFn,
     stdout_path: str,
     check_deadline_fn: CheckDeadlineFn,
+    normalize_dataflow_response_fn: NormalizeDataflowResponseFn,
 ) -> None:
     with cli_deadline_scope_factory():
-        normalized_result = LegacyDataflowMonolithResponseDTO.model_validate(
-            {
-                "exit_code": int(result.get("exit_code", 0) or 0),
-                "timeout": bool(result.get("timeout", False)),
-                "analysis_state": result.get("analysis_state"),
-                "errors": result.get("errors") or [],
-                "lint_lines": result.get("lint_lines") or [],
-                "lint_entries": result.get("lint_entries") or [],
-                "payload": result,
-            }
-        ).model_dump()
+        normalized_result = normalize_dataflow_response_fn(result)
         lint_lines = normalized_result.get("lint_lines", []) or []
         lint_entries_raw = normalized_result.get("lint_entries")
         lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else None
@@ -56,8 +47,8 @@ def emit_dataflow_result_outputs(
             lint_entries=lint_entries,
         )
         if opts.type_audit:
-            suggestions = result.get("type_suggestions", [])
-            ambiguities = result.get("type_ambiguities", [])
+            suggestions = normalized_result.get("type_suggestions", [])
+            ambiguities = normalized_result.get("type_ambiguities", [])
             if suggestions:
                 typer.echo("Type tightening candidates:")
                 for line in suggestions[: opts.type_audit_max]:
@@ -68,77 +59,77 @@ def emit_dataflow_result_outputs(
                 for line in ambiguities[: opts.type_audit_max]:
                     check_deadline_fn()
                     typer.echo(f"- {line}")
-        if is_stdout_target_fn(opts.dot) and "dot" in result:
+        if is_stdout_target_fn(opts.dot) and "dot" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                str(result["dot"]),
+                str(normalized_result["dot"]),
                 ensure_trailing_newline=True,
             )
-        if is_stdout_target_fn(opts.synthesis_plan) and "synthesis_plan" in result:
+        if is_stdout_target_fn(opts.synthesis_plan) and "synthesis_plan" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["synthesis_plan"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["synthesis_plan"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
-        if is_stdout_target_fn(opts.synthesis_protocols) and "synthesis_protocols" in result:
+        if is_stdout_target_fn(opts.synthesis_protocols) and "synthesis_protocols" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                str(result["synthesis_protocols"]),
+                str(normalized_result["synthesis_protocols"]),
                 ensure_trailing_newline=True,
             )
-        if is_stdout_target_fn(opts.refactor_plan_json) and "refactor_plan" in result:
+        if is_stdout_target_fn(opts.refactor_plan_json) and "refactor_plan" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["refactor_plan"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["refactor_plan"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
             is_stdout_target_fn(opts.fingerprint_synth_json)
-            and "fingerprint_synth_registry" in result
+            and "fingerprint_synth_registry" in normalized_result
         ):
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_synth_registry"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_synth_registry"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
             is_stdout_target_fn(opts.fingerprint_provenance_json)
-            and "fingerprint_provenance" in result
+            and "fingerprint_provenance" in normalized_result
         ):
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_provenance"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_provenance"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
-        if is_stdout_target_fn(opts.fingerprint_deadness_json) and "fingerprint_deadness" in result:
+        if is_stdout_target_fn(opts.fingerprint_deadness_json) and "fingerprint_deadness" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_deadness"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_deadness"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
-        if is_stdout_target_fn(opts.fingerprint_coherence_json) and "fingerprint_coherence" in result:
+        if is_stdout_target_fn(opts.fingerprint_coherence_json) and "fingerprint_coherence" in normalized_result:
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_coherence"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_coherence"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
             is_stdout_target_fn(opts.fingerprint_rewrite_plans_json)
-            and "fingerprint_rewrite_plans" in result
+            and "fingerprint_rewrite_plans" in normalized_result
         ):
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_rewrite_plans"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_rewrite_plans"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         if (
             is_stdout_target_fn(opts.fingerprint_exception_obligations_json)
-            and "fingerprint_exception_obligations" in result
+            and "fingerprint_exception_obligations" in normalized_result
         ):
             write_text_to_target_fn(
                 stdout_path,
                 json.dumps(
-                    result["fingerprint_exception_obligations"],
+                    normalized_result["fingerprint_exception_obligations"],
                     indent=2,
                     sort_keys=False,
                 ),
@@ -146,11 +137,11 @@ def emit_dataflow_result_outputs(
             )
         if (
             is_stdout_target_fn(opts.fingerprint_handledness_json)
-            and "fingerprint_handledness" in result
+            and "fingerprint_handledness" in normalized_result
         ):
             write_text_to_target_fn(
                 stdout_path,
-                json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=False),
+                json.dumps(normalized_result["fingerprint_handledness"], indent=2, sort_keys=False),
                 ensure_trailing_newline=True,
             )
         stdout_json_targets = (
@@ -163,8 +154,8 @@ def emit_dataflow_result_outputs(
             (opts.aspf_state_json, "aspf_state"),
         )
         for output_target, result_key in stdout_json_targets:
-            if result_key in result and is_stdout_target_fn(output_target):
-                emit_result_json_to_stdout_fn(payload=result[result_key])
+            if result_key in normalized_result and is_stdout_target_fn(output_target):
+                emit_result_json_to_stdout_fn(payload=normalized_result[result_key])
 
 
 def write_lint_sarif(
