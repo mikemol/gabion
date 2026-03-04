@@ -5,13 +5,17 @@ from __future__ import annotations
 """Post-phase analysis owner module for WS-5 decomposition."""
 
 import ast
+from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence, cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     CallArgs,
+    ClassInfo,
     FunctionInfo,
     InvariantProposition,
+    SymbolTable,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _expand_type_hint as _expand_type_hint_impl,
@@ -32,11 +36,29 @@ from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
 )
+from gabion.analysis.indexed_scan.scanners.config_fields import (
+    CollectConfigBundlesDeps as _CollectConfigBundlesDeps,
+    IterConfigFieldsDeps as _IterConfigFieldsDeps,
+    collect_config_bundles as _collect_config_bundles_impl,
+    iter_config_fields as _iter_config_fields_impl,
+)
+from gabion.analysis.indexed_scan.scanners.knob_param_names import (
+    ComputeKnobParamNamesDeps as _ComputeKnobParamNamesDeps,
+    KnobFlowFoldAccumulator as _KnobFlowFoldAccumulator,
+    compute_knob_param_names as _compute_knob_param_names_impl,
+)
+from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
+    CollectDataclassRegistryDeps as _CollectDataclassRegistryDeps,
+    collect_dataclass_registry as _collect_dataclass_registry_impl,
+)
 from gabion.analysis.indexed_scan.scanners.materialization.property_hook_manifest import (
     PropertyHookCallableIndexDeps as _PropertyHookCallableIndexDeps,
     PropertyHookManifestDeps as _PropertyHookManifestDeps,
     build_property_hook_callable_index as _build_property_hook_callable_index_impl,
     generate_property_hook_manifest as _generate_property_hook_manifest_impl,
+)
+from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import (
+    iter_dataclass_call_bundle_effects as _iter_dataclass_call_bundle_effects_impl,
 )
 from gabion.analysis.semantics.semantic_primitives import SpanIdentity
 from gabion.invariants import require_not_none
@@ -435,8 +457,60 @@ def analyze_unused_arg_flow_repo(
     )
 
 
-def _collect_constant_flow_details(*args, **kwargs):
-    return _runtime_callable("_collect_constant_flow_details")(*args, **kwargs)
+def _collect_constant_flow_details(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+    iter_resolved_edge_param_events_fn=None,
+    reduce_resolved_call_edges_fn=None,
+):
+    from gabion.analysis.indexed_scan.scanners.flow.constant_flow_details import (
+        collect_constant_flow_details_from_runtime_module as _collect_constant_flow_details_impl,
+    )
+
+    runtime = _runtime_module()
+    if iter_resolved_edge_param_events_fn is None:
+        iter_resolved_edge_param_events_fn = runtime._iter_resolved_edge_param_events
+    if reduce_resolved_call_edges_fn is None:
+        reduce_resolved_call_edges_fn = runtime._reduce_resolved_call_edges
+    return cast(
+        list[object],
+        _collect_constant_flow_details_impl(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=analysis_index,
+            iter_resolved_edge_param_events_fn=iter_resolved_edge_param_events_fn,
+            reduce_resolved_call_edges_fn=reduce_resolved_call_edges_fn,
+            runtime_module=runtime,
+        ),
+    )
+
+
+@dataclass
+class _ConstantFlowFoldAccumulator:
+    const_values: dict[tuple[str, str], set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+    non_const: dict[tuple[str, str], bool] = field(
+        default_factory=lambda: defaultdict(bool)
+    )
+    call_counts: dict[tuple[str, str], int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+    call_sites: dict[tuple[str, str], set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
 
 
 def _collect_exception_obligations(*args, **kwargs):
@@ -467,24 +541,139 @@ def analyze_value_encoded_decisions_repo(*args, **kwargs):
     return _runtime_callable("analyze_value_encoded_decisions_repo")(*args, **kwargs)
 
 
-def _compute_knob_param_names(*args, **kwargs):
-    return _runtime_callable("_compute_knob_param_names")(*args, **kwargs)
+def _compute_knob_param_names(
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable,
+    project_root,
+    class_index: dict[str, ClassInfo],
+    strictness: str,
+    analysis_index=None,
+) -> set[str]:
+    runtime = _runtime_module()
+    return cast(
+        set[str],
+        _compute_knob_param_names_impl(
+            by_name=by_name,
+            by_qual=by_qual,
+            symbol_table=symbol_table,
+            project_root=project_root,
+            class_index=class_index,
+            strictness=strictness,
+            analysis_index=analysis_index,
+            deps=_ComputeKnobParamNamesDeps(
+                check_deadline_fn=runtime.check_deadline,
+                analysis_index_ctor=runtime.AnalysisIndex,
+                iter_resolved_edge_param_events_fn=runtime._iter_resolved_edge_param_events,
+                reduce_resolved_call_edges_fn=runtime._reduce_resolved_call_edges,
+                resolved_edge_reducer_spec_ctor=runtime._ResolvedEdgeReducerSpec,
+                knob_flow_fold_acc_ctor=_KnobFlowFoldAccumulator,
+            ),
+        ),
+    )
 
 
-def _collect_config_bundles(*args, **kwargs):
-    return _runtime_callable("_collect_config_bundles")(*args, **kwargs)
+def _collect_config_bundles(
+    paths: list[Path],
+    *,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+) -> dict[Path, dict[str, set[str]]]:
+    runtime = _runtime_module()
+    return cast(
+        dict[Path, dict[str, set[str]]],
+        _collect_config_bundles_impl(
+            paths,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=analysis_index,
+            deps=_CollectConfigBundlesDeps(
+                check_deadline_fn=runtime.check_deadline,
+                forbid_adhoc_bundle_discovery_fn=runtime._forbid_adhoc_bundle_discovery,
+                analysis_index_stage_cache_fn=runtime._analysis_index_stage_cache,
+                stage_cache_spec_ctor=runtime._StageCacheSpec,
+                parse_module_stage_config_fields=runtime._ParseModuleStage.CONFIG_FIELDS,
+                parse_stage_cache_key_fn=runtime._parse_stage_cache_key,
+                empty_cache_semantic_context=runtime._EMPTY_CACHE_SEMANTIC_CONTEXT,
+                iter_config_fields_fn=_iter_config_fields,
+            ),
+        ),
+    )
 
 
-def _iter_config_fields(*args, **kwargs):
-    return _runtime_callable("_iter_config_fields")(*args, **kwargs)
+def _iter_config_fields(
+    path: Path,
+    *,
+    tree=None,
+    parse_failure_witnesses: list[JSONObject],
+) -> dict[str, set[str]]:
+    runtime = _runtime_module()
+    return cast(
+        dict[str, set[str]],
+        _iter_config_fields_impl(
+            path,
+            tree=tree,
+            parse_failure_witnesses=parse_failure_witnesses,
+            deps=_IterConfigFieldsDeps(
+                check_deadline_fn=runtime.check_deadline,
+                parse_module_tree_fn=runtime._parse_module_tree,
+                parse_module_stage_config_fields=runtime._ParseModuleStage.CONFIG_FIELDS,
+                simple_store_name_fn=runtime._simple_store_name,
+            ),
+        ),
+    )
 
 
-def _collect_dataclass_registry(*args, **kwargs):
-    return _runtime_callable("_collect_dataclass_registry")(*args, **kwargs)
+def _collect_dataclass_registry(
+    paths: list[Path],
+    *,
+    project_root,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+    stage_cache_fn=None,
+) -> dict[str, list[str]]:
+    runtime = _runtime_module()
+    return cast(
+        dict[str, list[str]],
+        _collect_dataclass_registry_impl(
+            paths,
+            project_root=project_root,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=analysis_index,
+            stage_cache_fn=stage_cache_fn,
+            deps=_CollectDataclassRegistryDeps(
+                check_deadline_fn=runtime.check_deadline,
+                analysis_index_stage_cache_default_fn=runtime._analysis_index_stage_cache,
+                stage_cache_spec_ctor=runtime._StageCacheSpec,
+                parse_module_stage_dataclass_registry=runtime._ParseModuleStage.DATACLASS_REGISTRY,
+                parse_stage_cache_key_fn=runtime._parse_stage_cache_key,
+                empty_cache_semantic_context=runtime._EMPTY_CACHE_SEMANTIC_CONTEXT,
+                dataclass_registry_for_tree_fn=runtime._dataclass_registry_for_tree,
+                parse_module_tree_fn=runtime._parse_module_tree,
+            ),
+        ),
+    )
 
 
-def _iter_dataclass_call_bundles(*args, **kwargs):
-    return _runtime_callable("_iter_dataclass_call_bundles")(*args, **kwargs)
+def _iter_dataclass_call_bundles(
+    path: Path,
+    *,
+    project_root=None,
+    symbol_table=None,
+    dataclass_registry=None,
+    parse_failure_witnesses: list[JSONObject],
+) -> set[tuple[str, ...]]:
+    runtime = _runtime_module()
+    runtime.check_deadline()
+    outcome = _iter_dataclass_call_bundle_effects_impl(
+        path,
+        project_root=project_root,
+        symbol_table=symbol_table,
+        dataclass_registry=dataclass_registry,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    parse_failure_witnesses.extend(outcome.witness_effects)
+    return set(outcome.bundles)
 
 
 __all__ = [

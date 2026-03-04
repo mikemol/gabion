@@ -114,9 +114,6 @@ from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotop
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
-from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import (
-    iter_dataclass_call_bundle_effects as _iter_dataclass_call_bundle_effects_impl,
-)
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
 )
@@ -217,12 +214,19 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _ConstantFlowFoldAccumulator,
     _build_property_hook_callable_index,
     _callsite_evidence_for_bundle,
+    _collect_config_bundles,
+    _collect_constant_flow_details,
+    _collect_dataclass_registry,
     _combine_type_hints,
+    _compute_knob_param_names,
     _expand_type_hint,
     _format_call_site,
     _format_type_flow_site,
+    _iter_config_fields,
+    _iter_dataclass_call_bundles,
     _split_top_level,
     _type_from_const_repr,
     analyze_constant_flow_repo,
@@ -301,11 +305,7 @@ from gabion.analysis.indexed_scan.index.analysis_index_builder import (
 from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
     populate_bundle_forest_from_runtime_module as _populate_bundle_forest_impl_runtime)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
-    CollectDataclassRegistryDeps as _CollectDataclassRegistryDeps, DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, collect_dataclass_registry as _collect_dataclass_registry_impl, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
-from gabion.analysis.indexed_scan.scanners.config_fields import (
-    CollectConfigBundlesDeps as _CollectConfigBundlesDeps, IterConfigFieldsDeps as _IterConfigFieldsDeps, collect_config_bundles as _collect_config_bundles_impl, iter_config_fields as _iter_config_fields_impl)
-from gabion.analysis.indexed_scan.scanners.knob_param_names import (
-    ComputeKnobParamNamesDeps as _ComputeKnobParamNamesDeps, KnobFlowFoldAccumulator as _KnobFlowFoldAccumulator, compute_knob_param_names as _compute_knob_param_names_impl)
+    DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.calls.call_ambiguities import (
     CallAmbiguitiesEmitDeps as _CallAmbiguitiesEmitDeps, emit_call_ambiguities as _emit_call_ambiguities_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
@@ -4560,86 +4560,6 @@ def _deadness_witnesses_from_constant_details(
 
     return _impl(details, project_root=project_root)
 
-@dataclass
-class _ConstantFlowFoldAccumulator:
-    const_values: dict[tuple[str, str], set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
-    non_const: dict[tuple[str, str], bool] = field(
-        default_factory=lambda: defaultdict(bool)
-    )
-    call_counts: dict[tuple[str, str], int] = field(
-        default_factory=lambda: defaultdict(int)
-    )
-    call_sites: dict[tuple[str, str], set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
-
-def _collect_constant_flow_details(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-    iter_resolved_edge_param_events_fn: Callable[..., Iterable[_ResolvedEdgeParamEvent]] = _iter_resolved_edge_param_events,
-    reduce_resolved_call_edges_fn: Callable[..., _ConstantFlowFoldAccumulator] = _reduce_resolved_call_edges,
-) -> list[ConstantFlowDetail]:
-    from gabion.analysis.indexed_scan.scanners.flow.constant_flow_details import (
-        collect_constant_flow_details_from_runtime_module as _collect_constant_flow_details_impl)
-
-    return cast(
-        list[ConstantFlowDetail],
-        _collect_constant_flow_details_impl(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-            iter_resolved_edge_param_events_fn=iter_resolved_edge_param_events_fn,
-            reduce_resolved_call_edges_fn=reduce_resolved_call_edges_fn,
-            runtime_module=sys.modules[__name__],
-        ),
-    )
-
-
-def _compute_knob_param_names(
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable,
-    project_root,
-    class_index: dict[str, ClassInfo],
-    strictness: str,
-    analysis_index = None,
-) -> set[str]:
-    return cast(
-        set[str],
-        _compute_knob_param_names_impl(
-            by_name=by_name,
-            by_qual=by_qual,
-            symbol_table=symbol_table,
-            project_root=project_root,
-            class_index=class_index,
-            strictness=strictness,
-            analysis_index=analysis_index,
-            deps=_ComputeKnobParamNamesDeps(
-                check_deadline_fn=check_deadline,
-                analysis_index_ctor=AnalysisIndex,
-                iter_resolved_edge_param_events_fn=_iter_resolved_edge_param_events,
-                reduce_resolved_call_edges_fn=_reduce_resolved_call_edges,
-                resolved_edge_reducer_spec_ctor=_ResolvedEdgeReducerSpec,
-                knob_flow_fold_acc_ctor=_KnobFlowFoldAccumulator,
-            ),
-        ),
-    )
-
 def _analyze_unused_arg_flow_indexed(
     context: _IndexedPassContext,
 ) -> list[str]:
@@ -4650,52 +4570,6 @@ def _analyze_unused_arg_flow_indexed(
         sort_once_fn=sort_once,
     )
 
-
-def _iter_config_fields(
-    path: Path,
-    *,
-    tree = None,
-    parse_failure_witnesses: list[JSONObject],
-) -> dict[str, set[str]]:
-    return cast(
-        dict[str, set[str]],
-        _iter_config_fields_impl(
-            path,
-            tree=tree,
-            parse_failure_witnesses=parse_failure_witnesses,
-            deps=_IterConfigFieldsDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_tree_fn=_parse_module_tree,
-                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
-                simple_store_name_fn=_simple_store_name,
-            ),
-        ),
-    )
-
-def _collect_config_bundles(
-    paths: list[Path],
-    *,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-) -> dict[Path, dict[str, set[str]]]:
-    return cast(
-        dict[Path, dict[str, set[str]]],
-        _collect_config_bundles_impl(
-            paths,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-            deps=_CollectConfigBundlesDeps(
-                check_deadline_fn=check_deadline,
-                forbid_adhoc_bundle_discovery_fn=_forbid_adhoc_bundle_discovery,
-                analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-                stage_cache_spec_ctor=_StageCacheSpec,
-                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
-                parse_stage_cache_key_fn=_parse_stage_cache_key,
-                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-                iter_config_fields_fn=_iter_config_fields,
-            ),
-        ),
-    )
 
 _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
 
@@ -4722,35 +4596,6 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
         bundles.add(tuple(sort_once(parts, source = 'gabion.analysis.dataflow_indexed_file_scan._iter_documented_bundles.site_1')))
     return bundles
 
-def _collect_dataclass_registry(
-    paths: list[Path],
-    *,
-    project_root,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-    stage_cache_fn = None,
-) -> dict[str, list[str]]:
-    return cast(
-        dict[str, list[str]],
-        _collect_dataclass_registry_impl(
-            paths,
-            project_root=project_root,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-            stage_cache_fn=stage_cache_fn,
-            deps=_CollectDataclassRegistryDeps(
-                check_deadline_fn=check_deadline,
-                analysis_index_stage_cache_default_fn=_analysis_index_stage_cache,
-                stage_cache_spec_ctor=_StageCacheSpec,
-                parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
-                parse_stage_cache_key_fn=_parse_stage_cache_key,
-                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-                dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
-                parse_module_tree_fn=_parse_module_tree,
-            ),
-        ),
-    )
-
 def _dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
@@ -4773,26 +4618,6 @@ def _dataclass_registry_for_tree(
             ),
         ),
     )
-
-def _iter_dataclass_call_bundles(
-    path: Path,
-    *,
-    project_root = None,
-    symbol_table = None,
-    dataclass_registry = None,
-    parse_failure_witnesses: list[JSONObject],
-) -> set[tuple[str, ...]]:
-    """Return bundles promoted via @dataclass constructor calls."""
-    check_deadline()
-    outcome = _iter_dataclass_call_bundle_effects_impl(
-        path,
-        project_root=project_root,
-        symbol_table=symbol_table,
-        dataclass_registry=dataclass_registry,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    parse_failure_witnesses.extend(outcome.witness_effects)
-    return set(outcome.bundles)
 
 def _parse_report_section_marker(line: str):
     return _parse_report_section_marker_impl(line)

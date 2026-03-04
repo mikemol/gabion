@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 4878
-- Monolith top-level import statements (current): 108
+- Monolith LOC (current): 4703
+- Monolith top-level import statements (current): 105
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -60,9 +60,24 @@ doc_scope:
     - policy checks passed
     - targeted pytest passed (`66 passed` for touched suites)
     - evidence refresh/check passed
+- WS-5 continuation (this CU):
+  - Post-phase owner expansion for remaining helper cluster:
+    - `_collect_constant_flow_details`
+    - `_compute_knob_param_names`
+    - `_collect_config_bundles`
+    - `_iter_config_fields`
+    - `_collect_dataclass_registry`
+    - `_iter_dataclass_call_bundles`
+  - Monolith bodies removed and replaced with post-phase owner aliases.
+  - Boundary compatibility retained by exporting `_ConstantFlowFoldAccumulator` from post-phase and aliasing in monolith for constant-flow runtime deps.
+  - ASPF no-change acknowledgement refreshed (`in-65`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`34 passed` for touched suites)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Post-phase ownership expansion: type-flow/constant-flow/unused/config/dataclass/decision analyzers (remove temporary delegates).
+1. Post-phase ownership expansion: decision-surface and invariant/obligation helper owners (remove temporary delegates).
 2. Analysis-index ownership expansion: cache identity carriers + indexed pass/build surfaces.
 3. Projection/ambiguity ownership expansion and remaining facade contraction.
 
