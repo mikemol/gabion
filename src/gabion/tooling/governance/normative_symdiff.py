@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from typing import Callable, Iterable, Mapping
 
 from gabion.order_contract import sort_once
-from gabion_governance import governance_audit_impl as governance_audit
+from gabion.tooling.governance import governance_audit
 
 from gabion import server
 from gabion.tooling.governance import ambiguity_contract_policy_check
