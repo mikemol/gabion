@@ -16,10 +16,13 @@ doc_requires:
   - src/gabion/server.py
   - src/gabion/commands/progress_contract.py
   - src/gabion/analysis/foundation/identity_shadow_runtime.py
+  - src/gabion/analysis/foundation/identity_namespace_governance.py
   - src/gabion/analysis/foundation/identity_registry_mirror.py
   - src/gabion/analysis/dataflow/engine/dataflow_event_algebra_adapter.py
   - src/gabion/analysis/aspf/aspf_event_algebra_adapter.py
   - tests/gabion/analysis/foundation/test_identity_registry_mirror.py
+  - tests/gabion/analysis/foundation/test_identity_shadow_runtime.py
+  - tests/gabion/analysis/foundation/test_identity_namespace_governance.py
   - tests/gabion/analysis/foundation/transcript_event_fixtures.py
   - tests/gabion/analysis/foundation/test_transcript_event_adapter.py
   - tests/gabion/server/server_execute_command_edges_cases.py
@@ -57,7 +60,7 @@ allocation ledger.
 | `progress-v1` compatibility adapter | `done` | `src/gabion/server_core/command_orchestrator.py`; `src/gabion/server_core/command_orchestrator_primitives.py`; `src/gabion/commands/progress_contract.py`; `tests/gabion/commands/test_progress_contract_edges.py`; `tests/gabion/server_core/command_orchestrator_coverage_cases.py`; `tests/gabion/server/server_execute_command_edges_cases.py` | `IDR-001` closed after hard-cut removal from `src/gabion`; gate `G-004` now pass. |
 | `FastIntegerCarrier` sunset | `done` | `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `tests/gabion/analysis/foundation/test_identity_shadow_runtime.py` | `IDR-002` closed after runtime/test removal; gate `G-003` now pass (doc scan excludes this map file). |
 | transcript fixture boundary governance | `done` | `tests/gabion/analysis/foundation/transcript_event_fixtures.py`; `tests/gabion/analysis/foundation/test_transcript_event_adapter.py`; `docs/event_algebra_bridge_matrix.md`; `in/transcript.md` | `IDR-003` closed with fixture-only governance enforcement; `G-002` and `G-005` pass. |
-| interning namespace consolidation | `open` | `src/gabion/analysis/foundation/identity_registry_mirror.py`; `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `docs/identity_substrate_bridge_matrix.md` | Tracked by `IDR-004`; gated by `G-001`. |
+| interning namespace consolidation | `done` | `src/gabion/analysis/foundation/identity_namespace_governance.py`; `src/gabion/analysis/foundation/identity_registry_mirror.py`; `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `tests/gabion/analysis/foundation/test_identity_namespace_governance.py`; `docs/identity_substrate_bridge_matrix.md` | `IDR-004` closed after shared governance/import-export adapters landed; `G-006` pass. |
 
 ## Reuse-now surfaces (keep)
 
@@ -100,7 +103,7 @@ allocation ledger.
 | `IDR-001` | `done` | progress-v1 retirement | none | hard-cut completed: removed v1 token constants/aliases, removed v1 emission path, removed v1 parser ingress branch, and migrated affected fixtures/tests to v2 canonical transport | `G-004A` (pass), `G-004` (pass) | `src/gabion/commands/progress_contract.py`; `src/gabion/server_core/command_orchestrator_primitives.py`; `src/gabion/server_core/command_orchestrator.py`; `src/gabion/server.py`; `tests/gabion/commands/test_progress_contract_edges.py`; `tests/gabion/server_core/command_orchestrator_coverage_cases.py`; `tests/gabion/server/server_execute_command_edges_cases.py`; `tests/gabion/cli/cli_helpers_cases.py`; `tests/gabion/tooling/delta/test_delta_script_telemetry.py`; `tests/gabion/tooling/delta/test_delta_emit_runtime.py`; `tests/gabion/lsp_client/lsp_client_direct_cases.py`; `tests/gabion/commands/test_command_boundary_order.py` |
 | `IDR-002` | `done` | `FastIntegerCarrier` deletion | none | removed `FastIntegerCarrier` implementation/export and direct test coverage; bit-prime carrier is sole runtime path | `G-003` (pass) | `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `tests/gabion/analysis/foundation/test_identity_shadow_runtime.py` |
 | `IDR-003` | `done` | transcript fixture lane governance tightening | none | governance tightened with static fixture-lane boundary enforcement and parity regression coverage; transcript runtime remains out of production surfaces | `G-002` (pass), `G-005` (pass) | `tests/gabion/analysis/foundation/transcript_event_fixtures.py`; `tests/gabion/analysis/foundation/test_transcript_event_adapter.py`; `tests/gabion/analysis/foundation/test_event_algebra.py`; `docs/event_algebra_bridge_matrix.md`; `in/transcript.md` |
-| `IDR-004` | `open` | namespace governance/import-export consolidation | path/prime intern seams remain split across mirror, shadow runtime, and lane adapters | consolidate namespace governance and import/export boundary adapters while preserving deterministic ordering and sidecar additivity | `G-001` | `src/gabion/analysis/foundation/identity_registry_mirror.py`; `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `src/gabion/server_core/command_orchestrator.py`; `docs/identity_substrate_bridge_matrix.md` |
+| `IDR-004` | `done` | namespace governance/import-export consolidation | none | shared namespace governance/import-export adapters now drive mirror hydration/live updates and shadow integer-anchor namespace binding with deterministic normalization | `G-006` (pass) | `src/gabion/analysis/foundation/identity_namespace_governance.py`; `src/gabion/analysis/foundation/identity_registry_mirror.py`; `src/gabion/analysis/foundation/identity_shadow_runtime.py`; `tests/gabion/analysis/foundation/test_identity_namespace_governance.py`; `tests/gabion/analysis/foundation/test_identity_registry_mirror.py`; `tests/gabion/analysis/foundation/test_identity_shadow_runtime.py`; `docs/identity_substrate_bridge_matrix.md` |
 
 ## Gate Definitions (Measurable)
 
@@ -112,6 +115,7 @@ allocation ledger.
 | `G-003` | `FastIntegerCarrier` fully removed from tracked code/tests/docs surfaces | `rg -n "FastIntegerCarrier" src tests docs --glob '!docs/identity_debt_rebase_map.md'` | pass |
 | `G-004A` | stage-1 alias cutover complete (`LSP_PROGRESS_TOKEN` / `_LSP_PROGRESS_TOKEN` no longer default to v1) | `rg -n "LSP_PROGRESS_TOKEN\\s*=\\s*LSP_PROGRESS_TOKEN_V1|_LSP_PROGRESS_TOKEN\\s*=\\s*_?LSP_PROGRESS_TOKEN_V1" src/gabion` | pass (no matches) |
 | `G-004` | progress-v1 carrier fully retired from `src` | `rg -n "LSP_PROGRESS_TOKEN\\s*=\\s*LSP_PROGRESS_TOKEN_V1|_LSP_PROGRESS_TOKEN\\s*=\\s*_?LSP_PROGRESS_TOKEN_V1|gabion\\.dataflowAudit/progress-v1" src/gabion` | pass (no matches) |
+| `G-006` | namespace governance consolidation remains deterministic across mirror/shadow boundaries | `mise exec -- python -m pytest -q tests/gabion/analysis/foundation/test_identity_namespace_governance.py tests/gabion/analysis/foundation/test_identity_registry_mirror.py tests/gabion/analysis/foundation/test_identity_shadow_runtime.py` | pass |
 
 ## Temporary compatibility adapter lifecycle metadata
 

@@ -25,3 +25,4 @@ justification: marker protocol generalization now classifies todo/deprecated mar
 # CU: legacy fast integer carrier removal and progress token alias-default cutover preserve ASPF taint crosswalk identifier anchors and mapped in-step obligations.
 # CU: IDR-001 stage-2 hard cut removes progress-v1 transport and parser ingress from src/gabion while preserving ASPF taint crosswalk identifiers and mapped in-step obligations.
 # CU: IDR-003 transcript fixture governance tightening adds static fixture-lane boundary gating/doc lifecycle closure only and does not alter ASPF taint crosswalk identifiers or in-step obligations.
+# CU: IDR-004 namespace governance/import-export adapter consolidation for identity mirror/shadow boundaries preserves existing ASPF taint crosswalk identifiers, anchor keys, and in-step obligations.

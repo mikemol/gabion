@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
+from gabion.analysis.foundation.identity_namespace_governance import (
+    INTEGER_ANCHOR_NAMESPACE as GOVERNED_INTEGER_ANCHOR_NAMESPACE,
+)
 from gabion.analysis.foundation.identity_shadow_runtime import (
     BitPrimeIntegerCarrier,
-    FastIntegerCarrier,
+    INTEGER_ANCHOR_NAMESPACE,
     IdentityShadowEmissionKind,
     build_identity_shadow_runtime,
 )
@@ -148,23 +151,6 @@ def test_bit_prime_integer_carrier_roundtrips_and_sorts_bits() -> None:
     assert negative_decoded.value == -5
 
 
-def test_fast_integer_carrier_roundtrips_tuple_token() -> None:
-    carrier = FastIntegerCarrier()
-    encoded = carrier.encode_anchor_tokens(
-        namespace="dataflow.progress.integer_anchor",
-        key="event_seq",
-        value=42,
-    )
-    assert encoded == ("int:42",)
-    decoded = carrier.decode_anchor_tokens(
-        namespace="dataflow.progress.integer_anchor",
-        key="event_seq",
-        tokens=encoded,
-    )
-    assert decoded.is_present is True
-    assert decoded.value == 42
-
-
 def test_identity_shadow_runtime_integer_anchor_tokens_scale_by_bit_width() -> None:
     runtime = build_identity_shadow_runtime(
         run_id="run:cardinality",
@@ -183,3 +169,7 @@ def test_identity_shadow_runtime_integer_anchor_tokens_scale_by_bit_width() -> N
     }
     # Bit-lowered tokens should scale with integer bit width, not event count.
     assert len(event_seq_tokens) <= 16
+
+
+def test_identity_shadow_runtime_uses_governed_integer_anchor_namespace() -> None:
+    assert INTEGER_ANCHOR_NAMESPACE == GOVERNED_INTEGER_ANCHOR_NAMESPACE

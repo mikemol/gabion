@@ -5,22 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from gabion.analysis.core.identity_namespace import (
-    SYNTH_NAMESPACE,
-    TYPE_BASE_NAMESPACE,
-    TYPE_CTOR_NAMESPACE,
-    namespace_key,
-)
 from gabion.analysis.core.type_fingerprints import PrimeAssignmentEvent, PrimeRegistry
+from gabion.analysis.foundation.identity_namespace_governance import (
+    CANONICAL_MIRRORED_NAMESPACES,
+    NamespaceRecord,
+    apply_namespace_records_to_identity_space,
+    iter_registry_namespace_records,
+    normalize_namespaces,
+)
 from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.order_contract import OrderPolicy, sort_once
 
-DEFAULT_MIRRORED_NAMESPACES: tuple[str, ...] = (
-    TYPE_BASE_NAMESPACE,
-    TYPE_CTOR_NAMESPACE,
-    SYNTH_NAMESPACE,
-)
+DEFAULT_MIRRORED_NAMESPACES: tuple[str, ...] = CANONICAL_MIRRORED_NAMESPACES
 
 
 @dataclass
@@ -34,16 +30,9 @@ class IdentityRegistryMirror:
 
     def __post_init__(self) -> None:
         check_deadline()
-        normalized = tuple(
-            sort_once(
-                {
-                    str(namespace).strip()
-                    for namespace in self.allowed_namespaces
-                    if str(namespace).strip()
-                },
-                source="IdentityRegistryMirror.__post_init__.allowed_namespaces",
-                policy=OrderPolicy.SORT,
-            )
+        normalized = normalize_namespaces(
+            self.allowed_namespaces,
+            source="IdentityRegistryMirror.__post_init__.allowed_namespaces",
         )
         self.allowed_namespaces = normalized
         self._allowed_namespace_lookup = set(normalized)
@@ -68,30 +57,33 @@ class IdentityRegistryMirror:
 
     def _hydrate_existing_assignments(self) -> None:
         check_deadline()
-        for raw_key, atom_id in sort_once(
-            self.registry.primes.items(),
-            source="IdentityRegistryMirror._hydrate_existing_assignments.primes",
-            policy=OrderPolicy.SORT,
-        ):
-            check_deadline()
-            namespace, token = namespace_key(str(raw_key))
-            if not self._namespace_allowed(namespace):
-                continue
-            self.identity_space.register_atom(
-                namespace=namespace,
-                token=token,
-                atom_id=int(atom_id),
-                record_allocation=False,
-            )
+        records = iter_registry_namespace_records(
+            primes=self.registry.primes,
+            allowed_namespaces=self.allowed_namespaces,
+        )
+        apply_namespace_records_to_identity_space(
+            identity_space=self.identity_space,
+            records=records,
+            record_allocation=False,
+        )
 
     def _on_prime_assignment(self, event: PrimeAssignmentEvent) -> None:
         check_deadline()
-        if not self._namespace_allowed(event.namespace):
+        namespace = str(event.namespace).strip()
+        token = str(event.token).strip()
+        if not namespace or not token:
             return
-        self.identity_space.register_atom(
-            namespace=event.namespace,
-            token=event.token,
-            atom_id=event.atom_id,
+        if not self._namespace_allowed(namespace):
+            return
+        apply_namespace_records_to_identity_space(
+            identity_space=self.identity_space,
+            records=(
+                NamespaceRecord(
+                    namespace=namespace,
+                    token=token,
+                    atom_id=int(event.atom_id),
+                ),
+            ),
             record_allocation=True,
         )
 

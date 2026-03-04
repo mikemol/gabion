@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
+from gabion.analysis.foundation.identity_namespace_governance import (
+    CANONICAL_MIRRORED_NAMESPACES,
+)
 from gabion.analysis.foundation.identity_registry_mirror import (
+    DEFAULT_MIRRORED_NAMESPACES,
     build_identity_registry_mirror,
 )
 from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
@@ -78,3 +82,16 @@ def test_identity_registry_mirror_tracks_allowed_namespaces_and_ignores_disallow
         ("type_ctor", ctor_atom),
         ("synth", registry.get_or_assign("synth:tail")),
     }
+
+
+def test_identity_registry_mirror_default_namespaces_are_governed() -> None:
+    registry = PrimeRegistry()
+    space = _space_with_registry(registry)
+    mirror = build_identity_registry_mirror(
+        registry=registry,
+        identity_space=space,
+        allowed_namespaces=(" synth ", "type_ctor", "type_base", "type_ctor"),
+    )
+
+    assert DEFAULT_MIRRORED_NAMESPACES == CANONICAL_MIRRORED_NAMESPACES
+    assert mirror.allowed_namespaces == ("synth", "type_base", "type_ctor")

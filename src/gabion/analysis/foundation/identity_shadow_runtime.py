@@ -21,6 +21,9 @@ from gabion.analysis.foundation.event_algebra import (
     canonical_event_to_json_object,
     envelope_from_decision_or_raise,
 )
+from gabion.analysis.foundation.identity_namespace_governance import (
+    INTEGER_ANCHOR_NAMESPACE,
+)
 from gabion.analysis.foundation.identity_space import (
     GlobalIdentitySpace,
     IdentityAllocationRecord,
@@ -29,8 +32,7 @@ from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 
-DEFAULT_IDENTITY_SHADOW_RUN_ID = "gabion.dataflowAudit/progress-v1.shadow"
-INTEGER_ANCHOR_NAMESPACE = "dataflow.progress.integer_anchor"
+DEFAULT_IDENTITY_SHADOW_RUN_ID = "gabion.dataflowAudit/progress-v2.shadow"
 
 
 @dataclass(frozen=True)
@@ -55,48 +57,6 @@ class IntegerCarrierProtocol(Protocol):
         key: str,
         tokens: tuple[str, ...],
     ) -> IntegerAnchorDecode: ...
-
-
-@dataclass(frozen=True)
-class FastIntegerCarrier(IntegerCarrierProtocol):
-    """Phase-1 carrier: structural seam for integer anchors.
-
-    Phase 2 may replace this with bit-prime lowering/raising without changing
-    shadow-runtime call sites.
-    """
-
-    prefix: str = "int"
-
-    def encode_anchor_tokens(
-        self,
-        *,
-        namespace: str,
-        key: str,
-        value: int,
-    ) -> tuple[str, ...]:
-        check_deadline()
-        _ = (namespace, key)
-        return (f"{self.prefix}:{int(value)}",)
-
-    def decode_anchor_tokens(
-        self,
-        *,
-        namespace: str,
-        key: str,
-        tokens: tuple[str, ...],
-    ) -> IntegerAnchorDecode:
-        check_deadline()
-        _ = (namespace, key)
-        if len(tokens) != 1:
-            return IntegerAnchorDecode(is_present=False)
-        token_text = str(tokens[0]).strip()
-        prefix = f"{self.prefix}:"
-        if token_text.startswith(prefix):
-            token_text = token_text[len(prefix) :]
-        normalized = token_text.removeprefix("-")
-        if normalized.isdigit():
-            return IntegerAnchorDecode(is_present=True, value=int(token_text))
-        return IntegerAnchorDecode(is_present=False)
 
 
 @dataclass(frozen=True)
@@ -360,7 +320,6 @@ def _allocation_record_payload(record: IdentityAllocationRecord) -> JSONObject:
 __all__ = [
     "BitPrimeIntegerCarrier",
     "DEFAULT_IDENTITY_SHADOW_RUN_ID",
-    "FastIntegerCarrier",
     "IntegerAnchorDecode",
     "INTEGER_ANCHOR_NAMESPACE",
     "IdentityShadowEmission",
