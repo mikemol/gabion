@@ -12,6 +12,7 @@ import libcst as cst
 from gabion.refactor.model import (
     CompatibilityShimConfig, FieldSpec, LoopGeneratorRequest, RefactorPlan, RefactorPlanOutcome, RefactorRequest, RewritePlanEntry, TextEdit, normalize_compatibility_shim)
 from gabion.refactor.loop_generator import plan_loop_generator_rewrite as _plan_loop_generator_rewrite
+import gabion.refactor.cst_shared as cst_shared
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -273,14 +274,7 @@ def _module_name(path: Path, project_root) -> str:
 
 
 def _is_docstring(stmt: cst.CSTNode) -> bool:
-    if type(stmt) is not cst.SimpleStatementLine:
-        return False
-    line = cast(cst.SimpleStatementLine, stmt)
-    expr = line.body[0]
-    if type(expr) is not cst.Expr:
-        return False
-    value = cast(cst.Expr, expr).value
-    return type(value) is cst.SimpleString
+    return cst_shared.is_docstring_statement(stmt)
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:
@@ -295,33 +289,14 @@ def _is_import(stmt: cst.CSTNode) -> bool:
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
-    check_deadline()
-    insert_idx = 0
-    if body and _is_docstring(body[0]):
-        insert_idx = 1
-    while insert_idx < len(body) and _is_import(body[insert_idx]):
-        check_deadline()
-        insert_idx += 1
-    return insert_idx
+    return cst_shared.find_import_insert_index(
+        body,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _module_expr_to_str(expr):
-    check_deadline()
-    if type(expr) is cst.Name:
-        return cast(cst.Name, expr).value
-    if type(expr) is cst.Attribute:
-        parts = []
-        current = expr
-        while type(current) is cst.Attribute:
-            check_deadline()
-            current_attr = cast(cst.Attribute, current)
-            parts.append(current_attr.attr.value)
-            current = current_attr.value
-        if type(current) is cst.Name:
-            parts.append(cast(cst.Name, current).value)
-        # `cst.Attribute` always contributes at least one attr segment.
-        return ".".join(reversed(parts))
-    return None
+    return cst_shared.module_expr_to_str(expr, check_deadline_fn=check_deadline)
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:

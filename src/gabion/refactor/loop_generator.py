@@ -11,6 +11,7 @@ import libcst as cst
 from libcst import metadata as cst_metadata
 
 from gabion.analysis.foundation.timeout_context import check_deadline
+import gabion.refactor.cst_shared as cst_shared
 from gabion.refactor.model import (
     LoopGeneratorRequest,
     RefactorPlan,
@@ -303,15 +304,7 @@ def _code_for_node(module: cst.Module, node: cst.CSTNode) -> str:
 
 
 def _is_docstring_statement(stmt: cst.BaseStatement) -> bool:
-    if type(stmt) is not cst.SimpleStatementLine:
-        return False
-    line = cast(cst.SimpleStatementLine, stmt)
-    if not line.body:
-        return False
-    expr = line.body[0]
-    if type(expr) is not cst.Expr:
-        return False
-    return type(cast(cst.Expr, expr).value) is cst.SimpleString
+    return cst_shared.is_docstring_statement(stmt)
 
 
 def _is_side_effect_safe_expression(
@@ -574,43 +567,19 @@ def _build_helper_function(spec: _LoopRewriteSpec) -> cst.FunctionDef:
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
-    insert_idx = 0
-    if body and _is_docstring_statement(cast(cst.BaseStatement, body[0])):
-        insert_idx = 1
-    while insert_idx < len(body):
-        check_deadline()
-        node = body[insert_idx]
-        if type(node) is not cst.SimpleStatementLine:
-            break
-        line = cast(cst.SimpleStatementLine, node)
-        if not any(type(item) in {cst.Import, cst.ImportFrom} for item in line.body):
-            break
-        insert_idx += 1
-    return insert_idx
+    return cst_shared.find_import_insert_index(
+        body,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _has_import_from(body: list[cst.CSTNode], *, module_name: str, symbol: str) -> bool:
-    for stmt in body:
-        check_deadline()
-        if type(stmt) is cst.SimpleStatementLine:
-            line = cast(cst.SimpleStatementLine, stmt)
-            for item in line.body:
-                check_deadline()
-                if type(item) is cst.ImportFrom:
-                    import_from = cast(cst.ImportFrom, item)
-                    has_module = import_from.module is not None
-                    module_matches = has_module and (
-                        _code_for_node(cst.Module([]), cast(cst.CSTNode, import_from.module))
-                        == module_name
-                    )
-                    names = import_from.names
-                    names_are_aliases = type(names) in {tuple, list}
-                    if module_matches and names_are_aliases:
-                        for alias in cast(tuple[cst.ImportAlias, ...], tuple(names)):
-                            check_deadline()
-                            if type(alias.name) is cst.Name and alias.name.value == symbol:
-                                return True
-    return False
+    return cst_shared.has_import_from(
+        body,
+        module_name=module_name,
+        symbol=symbol,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _defined_top_level_name(stmt: cst.CSTNode) -> str:

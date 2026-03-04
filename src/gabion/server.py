@@ -164,28 +164,16 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
     return True
 
 
-@dataclass(frozen=True)
-class ExecuteCommandDeps:
-    analyze_paths_fn: Callable[..., AnalysisResult]
-    load_aspf_resume_state_fn: Callable[..., JSONObject | None]
-    analysis_input_manifest_fn: Callable[..., JSONObject]
-    analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
-    build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
-    collection_semantic_progress_fn: Callable[..., JSONObject]
-    project_report_sections_fn: Callable[..., dict[str, list[str]]]
-    report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
-    collection_checkpoint_flush_due_fn: Callable[..., bool]
-    write_bootstrap_incremental_artifacts_fn: Callable[..., None]
-    load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
-    start_trace_fn: Callable[..., object]
-    record_1cell_fn: Callable[..., object]
-    record_2cell_witness_fn: Callable[..., object]
-    record_cofibration_fn: Callable[..., object]
-    merge_imported_trace_fn: Callable[..., object]
-    finalize_trace_fn: Callable[..., object]
-
-    def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
-        return replace(self, **overrides)
+# Boundary aliases preserve server.py test/import surface while converging
+# execution primitives in server_core.
+ExecuteCommandDeps = orchestrator_primitives.ExecuteCommandDeps
+_analysis_input_manifest = orchestrator_primitives._analysis_input_manifest
+_analysis_input_manifest_digest = (
+    orchestrator_primitives._analysis_input_manifest_digest
+)
+_collection_semantic_progress = orchestrator_primitives._collection_semantic_progress
+_materialize_execution_plan = orchestrator_primitives._materialize_execution_plan
+_default_execute_command_deps = orchestrator_primitives._default_execute_command_deps
 
 
 def _collection_checkpoint_flush_due(
@@ -287,41 +275,6 @@ def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
             source="_analysis_witness_config_payload.transparent_decorators",
         ),
     }
-
-
-def _analysis_input_manifest(
-    *,
-    root: Path,
-    file_paths: list[Path],
-    recursive: bool,
-    include_invariant_propositions: bool,
-    include_wl_refinement: bool,
-    config: AuditConfig,
-) -> JSONObject:
-    files: list[JSONObject] = []
-    for path in file_paths:
-        check_deadline()
-        entry: JSONObject = {"path": str(path)}
-        try:
-            stat = path.stat()
-        except OSError:
-            entry["missing"] = True
-        else:
-            entry["size"] = int(stat.st_size)
-        files.append(entry)
-    return {
-        "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
-        "root": str(root),
-        "recursive": recursive,
-        "include_invariant_propositions": include_invariant_propositions,
-        "include_wl_refinement": include_wl_refinement,
-        "config": _analysis_witness_config_payload(config),
-        "files": files,
-    }
-
-
-def _analysis_input_manifest_digest(manifest: JSONObject) -> str:
-    return hashlib.sha1(_canonical_json_text(manifest).encode("utf-8")).hexdigest()
 
 
 def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | None:
@@ -918,154 +871,6 @@ def _collection_semantic_witness(
         "index_resume_digest": index_signature[5],
         "index_function_count": index_signature[2],
         "index_class_count": index_signature[3],
-    }
-
-
-def _collection_semantic_progress(
-    *,
-    previous_collection_resume: Mapping[str, JSONValue] | None,
-    collection_resume: Mapping[str, JSONValue],
-    total_files: int,
-    cumulative: Mapping[str, JSONValue] | None = None,
-) -> JSONObject:
-    previous_states = _in_progress_scan_states(previous_collection_resume)
-    current_states = _in_progress_scan_states(collection_resume)
-    current_completed_paths = _completed_path_set(collection_resume)
-    prev_progress = _analysis_resume_progress(
-        collection_resume=previous_collection_resume,
-        total_files=total_files,
-    )
-    current_progress = _analysis_resume_progress(
-        collection_resume=collection_resume,
-        total_files=total_files,
-    )
-    added_processed = 0
-    regressed_processed = 0
-    unchanged_in_progress_paths = 0
-    changed_in_progress_paths = 0
-    seen_paths: set[str] = set()
-
-    def _accumulate_progress(path_key: str) -> None:
-        nonlocal added_processed
-        nonlocal regressed_processed
-        nonlocal unchanged_in_progress_paths
-        nonlocal changed_in_progress_paths
-        previous_state = previous_states.get(path_key)
-        current_state = current_states.get(path_key)
-        if (
-            previous_state is not None
-            and current_state is None
-            and path_key in current_completed_paths
-        ):
-            # Moving a path from in-progress to completed is monotonic progress,
-            # not a semantic regression in processed functions.
-            changed_in_progress_paths += 1
-            return
-        previous_keys = (
-            _state_processed_functions(previous_state) if previous_state is not None else set()
-        )
-        current_keys = (
-            _state_processed_functions(current_state) if current_state is not None else set()
-        )
-        if previous_keys or current_keys:
-            added = current_keys - previous_keys
-            regressed = previous_keys - current_keys
-            added_count = len(added)
-            regressed_count = len(regressed)
-        else:
-            previous_count = (
-                _state_processed_count(previous_state) if previous_state is not None else 0
-            )
-            current_count = (
-                _state_processed_count(current_state) if current_state is not None else 0
-            )
-            added_count = max(0, current_count - previous_count)
-            regressed_count = max(0, previous_count - current_count)
-        added_processed += added_count
-        regressed_processed += regressed_count
-        if added_count == 0 and regressed_count == 0:
-            unchanged_in_progress_paths += 1
-        else:
-            changed_in_progress_paths += 1
-
-    for path_key in previous_states:
-        check_deadline()
-        seen_paths.add(path_key)
-        _accumulate_progress(path_key)
-    for path_key in current_states:
-        check_deadline()
-        if path_key in seen_paths:
-            continue
-        seen_paths.add(path_key)
-        _accumulate_progress(path_key)
-    completed_delta = max(
-        0, current_progress["completed_files"] - prev_progress["completed_files"]
-    )
-    completed_regressed = max(
-        0, prev_progress["completed_files"] - current_progress["completed_files"]
-    )
-    previous_hydrated_paths = _analysis_index_resume_hydrated_paths(
-        previous_collection_resume
-    )
-    current_hydrated_paths = _analysis_index_resume_hydrated_paths(collection_resume)
-    if previous_hydrated_paths or current_hydrated_paths:
-        hydrated_delta = len(current_hydrated_paths - previous_hydrated_paths)
-        hydrated_regressed = len(previous_hydrated_paths - current_hydrated_paths)
-    else:
-        previous_hydrated_count = _analysis_index_resume_hydrated_count(
-            previous_collection_resume
-        )
-        current_hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
-        hydrated_delta = max(0, current_hydrated_count - previous_hydrated_count)
-        hydrated_regressed = max(0, previous_hydrated_count - current_hydrated_count)
-    cumulative_new = added_processed
-    cumulative_completed_delta = completed_delta
-    cumulative_hydrated_delta = hydrated_delta
-    cumulative_regressed = regressed_processed + completed_regressed + hydrated_regressed
-    if isinstance(cumulative, Mapping):
-        raw_cumulative_new = cumulative.get("cumulative_new_processed_functions")
-        raw_cumulative_completed = cumulative.get("cumulative_completed_files_delta")
-        raw_cumulative_hydrated = cumulative.get("cumulative_hydrated_paths_delta")
-        raw_cumulative_regressed = cumulative.get("cumulative_regressed_functions")
-        if isinstance(raw_cumulative_new, int):
-            cumulative_new += max(0, raw_cumulative_new)
-        if isinstance(raw_cumulative_completed, int):
-            cumulative_completed_delta += max(0, raw_cumulative_completed)
-        if isinstance(raw_cumulative_hydrated, int):
-            cumulative_hydrated_delta += max(0, raw_cumulative_hydrated)
-        if isinstance(raw_cumulative_regressed, int):
-            cumulative_regressed += max(0, raw_cumulative_regressed)
-    current_witness = _collection_semantic_witness(collection_resume=collection_resume)
-    previous_witness = (
-        _collection_semantic_witness(collection_resume=previous_collection_resume)
-        if isinstance(previous_collection_resume, Mapping)
-        else {"witness_digest": None}
-    )
-    substantive_progress = (
-        (
-            cumulative_new > 0
-            or cumulative_completed_delta > 0
-            or cumulative_hydrated_delta > 0
-        )
-        and cumulative_regressed == 0
-    )
-    return {
-        "current_witness_digest": current_witness.get("witness_digest"),
-        "previous_witness_digest": previous_witness.get("witness_digest"),
-        "new_processed_functions_count": added_processed,
-        "regressed_processed_functions_count": regressed_processed,
-        "completed_files_delta": completed_delta,
-        "completed_files_regressed": completed_regressed,
-        "hydrated_paths_delta": hydrated_delta,
-        "hydrated_paths_regressed": hydrated_regressed,
-        "changed_in_progress_paths": changed_in_progress_paths,
-        "unchanged_in_progress_paths": unchanged_in_progress_paths,
-        "cumulative_new_processed_functions": cumulative_new,
-        "cumulative_completed_files_delta": cumulative_completed_delta,
-        "cumulative_hydrated_paths_delta": cumulative_hydrated_delta,
-        "cumulative_regressed_functions": cumulative_regressed,
-        "monotonic_progress": cumulative_regressed == 0,
-        "substantive_progress": substantive_progress,
     }
 
 
@@ -2391,99 +2196,6 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
         "summary": "Analysis timed out.",
         "progress": {"classification": "timed_out_no_progress"},
     }
-
-
-def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
-    request_value = payload.get("execution_plan_request")
-    if isinstance(request_value, Mapping):
-        req_ops = request_value.get("requested_operations")
-        requested_operations = [str(op) for op in req_ops] if isinstance(req_ops, list) else [DATAFLOW_COMMAND]
-        inputs_value = request_value.get("inputs")
-        if isinstance(inputs_value, Mapping):
-            inputs = {str(key): inputs_value[key] for key in inputs_value}
-        else:
-            inputs = {str(key): payload[key] for key in payload if key != "execution_plan_request"}
-        artifacts_value = request_value.get("derived_artifacts")
-        derived_artifacts = (
-            [str(path) for path in artifacts_value]
-            if isinstance(artifacts_value, list)
-            else ["artifacts/out/execution_plan.json"]
-        )
-        obligations_value = request_value.get("obligations")
-        preconditions: list[str] = []
-        postconditions: list[str] = []
-        if isinstance(obligations_value, Mapping):
-            pre_raw = obligations_value.get("preconditions")
-            post_raw = obligations_value.get("postconditions")
-            if isinstance(pre_raw, list):
-                preconditions = [str(item) for item in pre_raw]
-            if isinstance(post_raw, list):
-                postconditions = [str(item) for item in post_raw]
-        policy_value = request_value.get("policy_metadata")
-        policy_deadline: dict[str, int] = {}
-        policy_baseline_mode = "none"
-        policy_docflow_mode = "disabled"
-        if isinstance(policy_value, Mapping):
-            deadline_value = policy_value.get("deadline")
-            if isinstance(deadline_value, Mapping):
-                for key, value in deadline_value.items():
-                    if isinstance(value, bool):
-                        continue
-                    if isinstance(value, int):
-                        policy_deadline[str(key)] = int(value)
-            baseline_mode = policy_value.get("baseline_mode")
-            if isinstance(baseline_mode, str):
-                policy_baseline_mode = baseline_mode
-            docflow_mode = policy_value.get("docflow_mode")
-            if isinstance(docflow_mode, str):
-                policy_docflow_mode = docflow_mode
-        return ExecutionPlan(
-            requested_operations=requested_operations,
-            inputs=inputs,
-            derived_artifacts=derived_artifacts,
-            obligations=ExecutionPlanObligations(
-                preconditions=preconditions,
-                postconditions=postconditions,
-            ),
-            policy_metadata=ExecutionPlanPolicyMetadata(
-                deadline=policy_deadline,
-                baseline_mode=policy_baseline_mode,
-                docflow_mode=policy_docflow_mode,
-            ),
-        )
-    inputs = {str(key): payload[key] for key in payload}
-    return ExecutionPlan(
-        requested_operations=[DATAFLOW_COMMAND],
-        inputs=inputs,
-        derived_artifacts=["artifacts/out/execution_plan.json"],
-        obligations=ExecutionPlanObligations(
-            preconditions=["payload accepted by server"],
-            postconditions=["command response emitted"],
-        ),
-        policy_metadata=ExecutionPlanPolicyMetadata(deadline={}, baseline_mode="none", docflow_mode="disabled"),
-    )
-
-
-def _default_execute_command_deps() -> ExecuteCommandDeps:
-    return ExecuteCommandDeps(
-        analyze_paths_fn=analyze_paths,
-        load_aspf_resume_state_fn=_load_aspf_resume_state,
-        analysis_input_manifest_fn=_analysis_input_manifest,
-        analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
-        build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
-        collection_semantic_progress_fn=_collection_semantic_progress,
-        project_report_sections_fn=project_report_sections,
-        report_projection_spec_rows_fn=report_projection_spec_rows,
-        collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
-        write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
-        load_report_section_journal_fn=_load_report_section_journal,
-        start_trace_fn=aspf_execution_fibration.start_execution_trace,
-        record_1cell_fn=aspf_execution_fibration.record_1cell,
-        record_2cell_witness_fn=aspf_execution_fibration.record_2cell_witness,
-        record_cofibration_fn=aspf_execution_fibration.record_cofibration,
-        merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
-        finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
-    )
 
 
 def _invariant_error_message(error: NeverThrown) -> str:

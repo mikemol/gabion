@@ -159,6 +159,10 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _normalize_type_name,
     _parse_exception_path_id,
 )
+from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
+    iter_monotonic_paths as _iter_monotonic_paths_impl,
+    normalize_snapshot_path as _normalize_snapshot_path_impl,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
@@ -5288,12 +5292,7 @@ def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     return _extract_report_sections_impl(markdown, check_deadline_fn=check_deadline)
 
 def _normalize_snapshot_path(path: Path, root) -> str:
-    if root is not None:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            pass
-    return str(path)
+    return _normalize_snapshot_path_impl(path, root)
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
 
@@ -5309,21 +5308,13 @@ def _iter_monotonic_paths(
     *,
     source: str,
 ) -> list[Path]:
-    ordered: list[Path] = []
-    previous_path_key: OptionalString = None
-    for path in paths:
-        check_deadline()
-        path_key = _analysis_collection_resume_path_key(path)
-        if previous_path_key is not None and previous_path_key > path_key:
-            never(
-                "path order regression",
-                source=source,
-                previous_path=previous_path_key,
-                current_path=path_key,
-            )
-        previous_path_key = path_key
-        ordered.append(path)
-    return ordered
+    return _iter_monotonic_paths_impl(
+        paths,
+        source=source,
+        analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
+        check_deadline_fn=check_deadline,
+        never_fn=never,
+    )
 
 def _serialize_param_use(value: ParamUse) -> JSONObject:
     return {

@@ -24,6 +24,7 @@ from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
 from gabion.tooling.runtime import aspf_lifecycle
 from gabion.tooling.runtime import dataflow_invocation_runner
+from gabion.tooling.runtime import dataflow_stage_invocation
 from gabion.tooling.runtime import execution_envelope
 from gabion.tooling.runtime import terminal_outcome_projector
 from gabion.tooling.runtime import tool_specs
@@ -397,57 +398,10 @@ def _command_preview(command: Sequence[str], *, max_chars: int = 240) -> str:
 def _parse_stage_command_envelope(
     command: Sequence[str],
 ) -> execution_envelope.ExecutionEnvelope | None:
-    tokens = [str(token) for token in command]
-    if not tokens:
+    parsed = dataflow_stage_invocation.parse_delta_bundle_command_invocation(command)
+    if parsed is None:
         return None
-    try:
-        check_index = tokens.index("check")
-    except ValueError:
-        return None
-    if check_index + 1 >= len(tokens):
-        return None
-    subcommand = tokens[check_index + 1]
-    if subcommand != "delta-bundle":
-        return None
-    option_tokens = tokens[check_index + 2 :]
-    option_values: dict[str, str] = {}
-    aspf_state_json: Path | None = None
-    aspf_delta_jsonl: Path | None = None
-    aspf_import_state: list[Path] = []
-    idx = 0
-    while idx < len(option_tokens):
-        check_deadline()
-        token = option_tokens[idx]
-        if token in {"--report", "--strictness", "--aspf-state-json", "--aspf-delta-jsonl", "--aspf-import-state"}:
-            if idx + 1 >= len(option_tokens):
-                break
-            value = option_tokens[idx + 1]
-            if token == "--aspf-import-state":
-                aspf_import_state.append(Path(value))
-            else:
-                option_values[token] = value
-            if token == "--aspf-delta-jsonl":
-                aspf_delta_jsonl = Path(value)
-            idx += 2
-            continue
-        idx += 1
-    report_value = option_values.get("--report")
-    report_path = Path(report_value) if report_value is not None else None
-    strictness = option_values.get("--strictness")
-    state_value = option_values.get("--aspf-state-json")
-    if state_value is not None:
-        aspf_state_json = Path(state_value)
-    if report_path is None:
-        return None
-    return execution_envelope.ExecutionEnvelope.for_delta_bundle(
-        root=Path("."),
-        report_path=report_path,
-        strictness=strictness,
-        allow_external=None,
-        aspf_state_json=aspf_state_json,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_import_state=tuple(aspf_import_state),
-    )
+    return parsed.to_execution_envelope()
 
 
 def _unlink_if_exists(path: Path) -> None:

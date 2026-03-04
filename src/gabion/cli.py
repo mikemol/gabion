@@ -36,6 +36,7 @@ from gabion.cli_support.shared.raw_argparse import (
     parse_dataflow_args_or_exit as _parse_dataflow_args_or_exit_impl)
 from gabion.cli_support.shared.payload_builder import (
     build_dataflow_payload as _build_dataflow_payload_impl)
+from gabion.cli_support.shared import dataflow_runtime_common
 from gabion.cli_support.shared.output_emitters import (
     emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, write_lint_sarif as _write_lint_sarif_impl)
 from gabion.cli_support.synth.synth_runtime import run_synth as _run_synth_impl
@@ -283,17 +284,14 @@ configure_runtime_flags = _register_runtime_flags_callback(
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
-    budget = deadline_policy.timeout_budget_from_lsp_env(
-        default_budget=deadline_policy.DeadlineBudget(
-            ticks=_DEFAULT_TIMEOUT_TICKS,
-            tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
-        )
+    return dataflow_runtime_common.cli_timeout_ticks(
+        default_ticks=_DEFAULT_TIMEOUT_TICKS,
+        default_tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
     )
-    return budget.ticks, budget.tick_ns
 
 
 def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    return path_policy.resolve_report_path(report, root=root)
+    return dataflow_runtime_common.resolve_check_report_path(report, root=root)
 
 
 @contextmanager
@@ -576,10 +574,11 @@ def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
 
 
 def _normalize_output_target(target: str | Path) -> str:
-    target_str = str(target)
-    if target_str == _STDOUT_ALIAS:
-        return _STDOUT_PATH
-    return target_str
+    return dataflow_runtime_common.normalize_output_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 def _is_stdout_target(target: object) -> bool:
@@ -669,12 +668,11 @@ def _emit_result_json_to_stdout(*, payload: object) -> None:
 
 
 def _normalize_optional_output_target(target: object) -> str | None:
-    if target is None:
-        return None
-    text = str(target).strip()
-    if not text:
-        return None
-    return _normalize_output_target(text)
+    return dataflow_runtime_common.normalize_optional_output_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
@@ -751,7 +749,7 @@ def _build_dataflow_payload_common(
 ) -> JSONObject:
     # dataflow-bundle: filter_bundle
     # dataflow-bundle: deadline_profile
-    return check_contract.build_dataflow_payload_common(options=options)
+    return dataflow_runtime_common.build_dataflow_payload_common(options=options)
 
 
 build_check_payload = check_contract.build_check_payload

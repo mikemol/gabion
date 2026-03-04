@@ -6,6 +6,12 @@ from __future__ import annotations
 from typing import Final
 
 from gabion_governance import governance_audit_impl as _impl
+from gabion_governance.consolidation_command import run_consolidation_cli
+from gabion_governance.decision_tiers_command import run_decision_tiers_cli
+from gabion_governance.docflow_command import run_docflow_cli
+from gabion_governance.lint_summary_command import run_lint_summary_cli
+from gabion_governance.sppf_graph_command import run_sppf_graph_cli
+from gabion_governance.status_consistency_command import run_status_consistency_cli
 
 # Temporary boundary adapter metadata for legacy direct module access.
 # This adapter exists only to provide a stable import surface while core
@@ -45,13 +51,6 @@ _emit_docflow_compliance = _impl._emit_docflow_compliance
 _format_docflow_violation = _impl._format_docflow_violation
 _make_invariant_spec = _impl._make_invariant_spec
 _audit_gas_limit = _impl._audit_gas_limit
-
-run_docflow_cli = _impl.run_docflow_cli
-run_sppf_graph_cli = _impl.run_sppf_graph_cli
-run_status_consistency_cli = _impl.run_status_consistency_cli
-run_decision_tiers_cli = _impl.run_decision_tiers_cli
-run_consolidation_cli = _impl.run_consolidation_cli
-run_lint_summary_cli = _impl.run_lint_summary_cli
 
 spec_from_dict = _impl.spec_from_dict
 

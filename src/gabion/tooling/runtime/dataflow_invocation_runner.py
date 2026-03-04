@@ -15,6 +15,7 @@ from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
 from gabion.cli_support.shared.dispatch_runtime import (
     dispatch_command as _dispatch_command_impl,
 )
+from gabion.cli_support.shared import dataflow_runtime_common
 from gabion.cli_support.shared.payload_builder import (
     build_dataflow_payload as _build_dataflow_payload_impl,
 )
@@ -26,11 +27,8 @@ from gabion.commands.check_contract import DataflowFilterBundle
 from gabion.invariants import never
 from gabion.json_types import JSONObject
 from gabion.lsp_client import CommandRequest, run_command, run_command_direct
-from gabion.runtime import deadline_policy, path_policy
 from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
-_DEFAULT_TIMEOUT_TICKS = 100
-_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
 
@@ -61,40 +59,37 @@ class _ExecutionPlanRequestPayload:
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
-    budget = deadline_policy.timeout_budget_from_lsp_env(
-        default_budget=deadline_policy.DeadlineBudget(
-            ticks=_DEFAULT_TIMEOUT_TICKS,
-            tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
-        )
+    return dataflow_runtime_common.cli_timeout_ticks(
+        default_ticks=dataflow_runtime_common.DEFAULT_CLI_TIMEOUT_TICKS,
+        default_tick_ns=dataflow_runtime_common.DEFAULT_CLI_TIMEOUT_TICK_NS,
     )
-    return budget.ticks, budget.tick_ns
 
 
 def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    return path_policy.resolve_report_path(report, root=root)
+    return dataflow_runtime_common.resolve_check_report_path(report, root=root)
 
 
 def _normalize_output_target(target: str | Path) -> str:
-    target_str = str(target)
-    if target_str == _STDOUT_ALIAS:
-        return _STDOUT_PATH
-    return target_str
+    return dataflow_runtime_common.normalize_output_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 def _normalize_optional_output_target(target: object) -> str | None:
-    if target is None:
-        return None
-    text = str(target).strip()
-    if not text:
-        return None
-    return _normalize_output_target(text)
+    return dataflow_runtime_common.normalize_optional_output_target(
+        target,
+        stdout_alias=_STDOUT_ALIAS,
+        stdout_path=_STDOUT_PATH,
+    )
 
 
 def _build_dataflow_payload_common(
     *,
     options: check_contract.DataflowPayloadCommonOptions,
 ) -> JSONObject:
-    return check_contract.build_dataflow_payload_common(options=options)
+    return dataflow_runtime_common.build_dataflow_payload_common(options=options)
 
 
 def _build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
