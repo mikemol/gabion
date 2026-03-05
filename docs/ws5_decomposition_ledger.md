@@ -1,5 +1,5 @@
 ---
-doc_revision: 57
+doc_revision: 58
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2867
-- Monolith top-level import statements (current): 69
+- Monolith LOC (current): 2847
+- Monolith top-level import statements (current): 70
 - Direct monolith imports in `src/`: 4
 - Direct monolith imports in `tests/`: 0
 
@@ -983,6 +983,20 @@ doc_scope:
     - `dataflow_facade` is no longer an intermediate hop for analysis-index/projection owner delegates.
     - Temporary direct monolith imports in `src/` increased while canonical owner cutover for these three boundaries is pending.
   - ASPF no-change acknowledgement refreshed (`in-118`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Documented-bundle marker ownership extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_documented_bundles.py`
+    - Moved documented-bundle marker scanning logic:
+      - `_iter_documented_bundles`
+    - Monolith now aliases `_iter_documented_bundles` from canonical owner.
+  - Compatibility status:
+    - Marker parsing surface is now centralized and reusable for pending bundle-forest ownerization cuts.
+  - ASPF no-change acknowledgement refreshed (`in-119`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
