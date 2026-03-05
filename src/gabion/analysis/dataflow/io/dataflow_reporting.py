@@ -138,7 +138,7 @@ def _append_report_tail_sections(
     if never_invariants:
         summary = _summarize_never_invariants(never_invariants)
         start_section("never_invariants_summary")
-        state.lines.append("Never invariants:")
+        state.lines.append("Invariant obligations:")
         state.lines.append("```")
         state.lines.extend(projected("never_invariants_summary", summary))
         state.lines.append("```")
