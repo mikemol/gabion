@@ -54,7 +54,7 @@ from gabion.analysis.core.deprecated_substrate import (
     DeprecatedExtractionArtifacts, DeprecatedFiber, detect_report_section_extinction)
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
-    compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
+    compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
@@ -177,7 +177,7 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _resolve_local_method_in_hierarchy,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
-    normalize_snapshot_path as _normalize_snapshot_path_impl,
+    normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _ANALYSIS_INDEX_RESUME_MAX_VARIANTS,
@@ -451,13 +451,13 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
-    AuditConfig as _ContractAuditConfig,
-    CallArgs as _ContractCallArgs,
-    ClassInfo as _ContractClassInfo,
-    FunctionInfo as _ContractFunctionInfo,
+    AuditConfig,
+    CallArgs,
+    ClassInfo,
+    FunctionInfo,
     InvariantProposition,
-    ParamUse as _ContractParamUse,
-    SymbolTable as _ContractSymbolTable,
+    ParamUse,
+    SymbolTable,
 )
 
 from gabion.analysis.dataflow.io.dataflow_reporting import (
@@ -472,14 +472,20 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _forbid_adhoc_bundle_discovery,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
-    is_deadline_origin_call as _is_deadline_origin_call_impl,
+    is_deadline_origin_call as _is_deadline_origin_call,
 )
 from gabion.analysis.indexed_scan.scanners.report_sections import (
-    extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl)
+    extract_report_sections,
+)
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
-    build_parser as _build_parser_impl)
+    build_parser as _build_parser,
+)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
-    analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
+    analysis_deadline_scope as _analysis_deadline_scope,
+    normalize_transparent_decorators as _normalize_transparent_decorators,
+    resolve_baseline_path as _resolve_baseline_path,
+    resolve_synth_registry_path as _resolve_synth_registry_path,
+)
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -525,46 +531,12 @@ ParseCacheValue = ast.Module | BaseException
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
-ParamUse = _ContractParamUse
-
-CallArgs = _ContractCallArgs
-
-# Canonical owner contract class (WS-5 hard-cut compatibility).
-SymbolTable = _ContractSymbolTable
-
-# Canonical owner contract class (WS-5 hard-cut compatibility).
-AuditConfig = _ContractAuditConfig
-
-_is_deadline_origin_call = _is_deadline_origin_call_impl
-
 _DeadlineFunctionCollector = make_deadline_function_collector(
     node_span_fn=_node_span,
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
 
-# Canonical owner contract class (WS-5 hard-cut compatibility).
-FunctionInfo = _ContractFunctionInfo
-
-# Canonical owner contract class (WS-5 hard-cut compatibility).
-ClassInfo = _ContractClassInfo
-
-_parse_report_section_marker = _parse_report_section_marker_impl
-
-extract_report_sections = _extract_report_sections_impl
-
-_normalize_snapshot_path = _normalize_snapshot_path_impl
-
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
-
-_resolve_baseline_path = _resolve_baseline_path_impl
-
-_resolve_synth_registry_path = _resolve_synth_registry_path_impl
-
-_build_parser = _build_parser_impl
-
-_normalize_transparent_decorators = _normalize_transparent_decorators_impl
-
-_analysis_deadline_scope = _analysis_deadline_scope_impl

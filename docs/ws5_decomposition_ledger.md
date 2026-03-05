@@ -1,5 +1,5 @@
 ---
-doc_revision: 187
+doc_revision: 188
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3180,6 +3180,20 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`62 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith alias-contraction (passthrough simplification):
+    - `dataflow_indexed_file_scan.py` now imports canonical symbols directly and removes dead passthrough alias scaffolding for:
+      - contract carriers (`AuditConfig`, `CallArgs`, `ClassInfo`, `FunctionInfo`, `ParamUse`, `SymbolTable`)
+      - run-entry/parser/report-section/deadline helper surfaces (`_analysis_deadline_scope`, `_normalize_transparent_decorators`, `_resolve_baseline_path`, `_resolve_synth_registry_path`, `_build_parser`, `_is_deadline_origin_call`, `extract_report_sections`)
+    - Removed unused decision-surface import alias (`_ds_extract_smell_sample`) and unused report-section parser import alias.
+  - Correctness impact:
+    - Facade exports remain canonical; only dead alias/rebinding layer removed.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-247`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`63 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
