@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -316,6 +316,19 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted runtime/dataflow suites passed (`45 passed` + `33 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner resume-fallback contraction:
+    - `dataflow_analysis_index_owner.py` now consumes resume payload owners directly from `dataflow_resume_serialization.py` for:
+      - `_build_analysis_collection_resume_payload`
+      - `_load_analysis_collection_resume_payload`
+      - `_load_analysis_index_resume_payload`
+      - `_serialize_analysis_index_resume_payload`
+    - Removed these resume payload calls from runtime-module fallback wiring in analysis-index owner deps.
+  - ASPF no-change acknowledgement refreshed (`in-80`).
+  - Validation:
+    - policy checks passed
+    - targeted resume/runtime/dataflow suites passed (`42 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

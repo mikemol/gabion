@@ -18,6 +18,10 @@ from gabion.analysis.core.type_fingerprints import fingerprint_stage_cache_ident
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
+    _build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_owner,
+    _load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_owner,
+    _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
+    _serialize_analysis_index_resume_payload as _serialize_analysis_index_resume_payload_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _PARSE_MODULE_ERROR_TYPES,
@@ -510,8 +514,7 @@ def _build_analysis_collection_resume_payload(
     analysis_index_resume,
     file_stage_timings_v1_by_path,
 ):
-    runtime = _runtime_module()
-    return runtime._build_analysis_collection_resume_payload(
+    return _build_analysis_collection_resume_payload_owner(
         groups_by_path=groups_by_path,
         param_spans_by_path=param_spans_by_path,
         bundle_sites_by_path=bundle_sites_by_path,
@@ -565,11 +568,11 @@ def _build_analysis_index(
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
                 iter_monotonic_paths_fn=runtime._iter_monotonic_paths,
-                load_analysis_index_resume_payload_fn=runtime._load_analysis_index_resume_payload,
+                load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload_owner,
                 function_index_acc_ctor=runtime._FunctionIndexAccumulator,
                 sort_once_fn=sort_once,
                 profiling_payload_fn=runtime._profiling_v1_payload,
-                serialize_resume_payload_fn=runtime._serialize_analysis_index_resume_payload,
+                serialize_resume_payload_fn=_serialize_analysis_index_resume_payload_owner,
                 parse_module_source_fn=runtime._parse_module_source,
                 parse_module_error_types=cast(
                     tuple[type[BaseException], ...],
@@ -689,8 +692,7 @@ def _load_analysis_collection_resume_payload(
     file_paths,
     include_invariant_propositions,
 ):
-    runtime = _runtime_module()
-    return runtime._load_analysis_collection_resume_payload(
+    return _load_analysis_collection_resume_payload_owner(
         payload=payload,
         file_paths=file_paths,
         include_invariant_propositions=include_invariant_propositions,
