@@ -1,5 +1,5 @@
 ---
-doc_revision: 70
+doc_revision: 71
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1219,6 +1219,34 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline function-suite/call-candidate runtime owner hard-cut:
+    - Monolith wrapper bodies replaced by direct owner aliases for:
+      - `_FunctionSuiteKey`
+      - `_FunctionSuiteLookupStatus`
+      - `_FunctionSuiteLookupOutcome`
+      - `_function_suite_key`
+      - `_function_suite_id`
+      - `_node_to_function_suite_lookup_outcome`
+      - `_suite_caller_function_id`
+      - `_node_to_function_suite_id`
+      - `_obligation_candidate_suite_ids`
+      - `_collect_call_edges_from_forest`
+      - `_collect_call_resolution_obligations_from_forest`
+      - `_collect_call_resolution_obligation_details_from_forest`
+      - `_call_candidate_target_site`
+      - `_materialize_call_candidates`
+    - `dataflow_deadline_runtime_owner` now owns this cluster with canonical exports and direct runtime bindings.
+    - Removed redundant monolith imports for function-suite/call-candidate deadline runtime internals now owned by deadline runtime owner.
+  - Compatibility status:
+    - Deadline function-suite lookup and call-candidate materialization surfaces are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2396`; top-level imports remain within target (`68`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-131`).
+  - Validation:
+    - policy checks passed
+    - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

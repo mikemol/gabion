@@ -84,13 +84,27 @@ from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfoRuntime,
+    FunctionSuiteKey as _FunctionSuiteKeyRuntime,
+    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime,
+    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime,
     bind_call_args as _bind_call_args_impl,
+    call_candidate_target_site as _call_candidate_target_site_impl,
     caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
     classify_deadline_expr as _classify_deadline_expr_impl,
+    collect_call_edges_from_forest as _collect_call_edges_from_forest_impl,
+    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl,
+    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl,
     deadline_arg_info_map as _deadline_arg_info_map_impl,
     deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl,
     fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl,
+    function_suite_id as _function_suite_id_impl,
+    function_suite_key as _function_suite_key_impl,
     is_deadline_origin_call as _is_deadline_origin_call,
+    materialize_call_candidates as _materialize_call_candidates_impl,
+    node_to_function_suite_id as _node_to_function_suite_id_impl,
+    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl,
+    obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl,
+    suite_caller_function_id as _suite_caller_function_id_impl,
 )
 from gabion.order_contract import sort_once
 
@@ -108,6 +122,9 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
 _DeadlineArgInfo = _DeadlineArgInfoRuntime
+_FunctionSuiteKey = _FunctionSuiteKeyRuntime
+_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatusRuntime
+_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcomeRuntime
 
 
 def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
@@ -421,6 +438,95 @@ def _deadline_loop_forwarded_params(
         call_infos=call_infos,
     )
 
+def _function_suite_key(path: str, qual: str):
+    return _function_suite_key_impl(path, qual)
+
+
+def _function_suite_id(key):
+    return _function_suite_id_impl(key)
+
+
+def _node_to_function_suite_lookup_outcome(
+    forest,
+    node_id,
+):
+    return _node_to_function_suite_lookup_outcome_impl(forest, node_id)
+
+
+def _suite_caller_function_id(
+    suite_node,
+):
+    return _suite_caller_function_id_impl(suite_node)
+
+
+def _node_to_function_suite_id(
+    forest,
+    node_id,
+):
+    return _node_to_function_suite_id_impl(forest, node_id)
+
+
+def _obligation_candidate_suite_ids(
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+    callee_key: str,
+):
+    return _obligation_candidate_suite_ids_impl(
+        by_name=by_name,
+        callee_key=callee_key,
+    )
+
+
+def _collect_call_edges_from_forest(
+    forest,
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+):
+    return _collect_call_edges_from_forest_impl(forest, by_name=by_name)
+
+
+def _collect_call_resolution_obligations_from_forest(
+    forest,
+):
+    return _collect_call_resolution_obligations_from_forest_impl(forest)
+
+
+def _collect_call_resolution_obligation_details_from_forest(
+    forest,
+):
+    return _collect_call_resolution_obligation_details_from_forest_impl(forest)
+
+
+def _call_candidate_target_site(
+    *,
+    forest,
+    candidate: FunctionInfo,
+):
+    return _call_candidate_target_site_impl(forest=forest, candidate=candidate)
+
+
+def _materialize_call_candidates(
+    *,
+    forest,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table,
+    project_root,
+    class_index: dict[str, object],
+    resolve_callee_outcome_fn=None,
+) -> None:
+    resolver = resolve_callee_outcome_fn or _resolve_callee_outcome
+    _materialize_call_candidates_impl(
+        forest=forest,
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        resolve_callee_outcome_fn=resolver,
+        normalize_snapshot_path_fn=_normalize_snapshot_path,
+    )
+
 
 __all__ = [
     "_CalleeResolutionOutcome",
@@ -428,9 +534,16 @@ __all__ = [
     "_DeadlineFunctionCollector",
     "_DeadlineFunctionFacts",
     "_DeadlineLoopFacts",
+    "_FunctionSuiteKey",
+    "_FunctionSuiteLookupOutcome",
+    "_FunctionSuiteLookupStatus",
     "_bind_call_args",
     "_build_analysis_index",
+    "_call_candidate_target_site",
     "_call_nodes_for_tree",
+    "_collect_call_edges_from_forest",
+    "_collect_call_resolution_obligation_details_from_forest",
+    "_collect_call_resolution_obligations_from_forest",
     "_caller_param_bindings_for_call",
     "_classify_deadline_expr",
     "_collect_call_edges",
@@ -443,7 +556,14 @@ __all__ = [
     "_deadline_function_facts_for_tree",
     "_deadline_loop_forwarded_params",
     "_fallback_deadline_arg_info",
+    "_function_suite_id",
+    "_function_suite_key",
+    "_materialize_call_candidates",
+    "_node_to_function_suite_id",
+    "_node_to_function_suite_lookup_outcome",
     "_normalize_snapshot_path",
+    "_obligation_candidate_suite_ids",
     "_reachable_from_roots",
     "_resolve_callee_outcome",
+    "_suite_caller_function_id",
 ]

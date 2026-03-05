@@ -332,18 +332,32 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineArgInfo as _DeadlineArgInfo_owner,
+    _FunctionSuiteKey as _FunctionSuiteKey_owner,
+    _FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcome_owner,
+    _FunctionSuiteLookupStatus as _FunctionSuiteLookupStatus_owner,
     _bind_call_args as _bind_call_args_owner,
+    _call_candidate_target_site as _call_candidate_target_site_owner,
     _caller_param_bindings_for_call as _caller_param_bindings_for_call_owner,
     _classify_deadline_expr as _classify_deadline_expr_owner,
     _call_nodes_for_tree as _call_nodes_for_tree_owner,
     _collect_call_edges as _collect_call_edges_owner,
+    _collect_call_edges_from_forest as _collect_call_edges_from_forest_owner,
     _collect_call_nodes_by_path as _collect_call_nodes_by_path_owner,
     _collect_deadline_function_facts as _collect_deadline_function_facts_owner,
     _collect_deadline_local_info as _collect_deadline_local_info_owner,
+    _collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_owner,
+    _collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_owner,
     _deadline_arg_info_map as _deadline_arg_info_map_owner,
     _deadline_loop_forwarded_params as _deadline_loop_forwarded_params_owner,
     _deadline_function_facts_for_tree as _deadline_function_facts_for_tree_owner,
     _fallback_deadline_arg_info as _fallback_deadline_arg_info_owner,
+    _function_suite_id as _function_suite_id_owner,
+    _function_suite_key as _function_suite_key_owner,
+    _materialize_call_candidates as _materialize_call_candidates_owner,
+    _node_to_function_suite_id as _node_to_function_suite_id_owner,
+    _node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_owner,
+    _obligation_candidate_suite_ids as _obligation_candidate_suite_ids_owner,
+    _suite_caller_function_id as _suite_caller_function_id_owner,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
@@ -360,21 +374,7 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
-    FunctionSuiteKey as _FunctionSuiteKeyRuntime,
-    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime,
-    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime,
-    call_candidate_target_site as _call_candidate_target_site_impl,
-    collect_call_edges_from_forest as _collect_call_edges_from_forest_impl,
-    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl,
-    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl,
-    function_suite_id as _function_suite_id_impl,
-    function_suite_key as _function_suite_key_impl,
     is_deadline_origin_call as _is_deadline_origin_call_impl,
-    materialize_call_candidates as _materialize_call_candidates_impl,
-    node_to_function_suite_id as _node_to_function_suite_id_impl,
-    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl,
-    obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl,
-    suite_caller_function_id as _suite_caller_function_id_impl,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
@@ -494,7 +494,7 @@ def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgre
         normalized_done = min(normalized_done, normalized_total)
     return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
 
-_FunctionSuiteKey = _FunctionSuiteKeyRuntime
+_FunctionSuiteKey = _FunctionSuiteKey_owner
 
 @dataclass
 class ParamUse:
@@ -1429,89 +1429,20 @@ _deadline_function_facts_for_tree = _deadline_function_facts_for_tree_owner
 _collect_call_nodes_by_path = _collect_call_nodes_by_path_owner
 _call_nodes_for_tree = _call_nodes_for_tree_owner
 _collect_call_edges = _collect_call_edges_owner
-
-def _function_suite_key(path: str, qual: str) -> _FunctionSuiteKey:
-    return cast(_FunctionSuiteKey, _function_suite_key_impl(path, qual))
-
-def _function_suite_id(key: _FunctionSuiteKey) -> NodeId:
-    return _function_suite_id_impl(cast(_FunctionSuiteKeyRuntime, key))
-
-_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatusRuntime
-_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcomeRuntime
-
-def _node_to_function_suite_lookup_outcome(
-    forest: Forest,
-    node_id: NodeId,
-) -> _FunctionSuiteLookupOutcome:
-    return cast(
-        _FunctionSuiteLookupOutcome,
-        _node_to_function_suite_lookup_outcome_impl(forest, node_id),
-    )
-
-def _suite_caller_function_id(
-    suite_node: Node,
-) -> NodeId:
-    return _suite_caller_function_id_impl(suite_node)
-
-def _node_to_function_suite_id(
-    forest: Forest,
-    node_id: NodeId,
-):
-    return _node_to_function_suite_id_impl(forest, node_id)
-
-def _obligation_candidate_suite_ids(
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-    callee_key: str,
-) -> set[NodeId]:
-    return _obligation_candidate_suite_ids_impl(by_name=by_name, callee_key=callee_key)
-
-def _collect_call_edges_from_forest(
-    forest: Forest,
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-) -> dict[NodeId, set[NodeId]]:
-    return _collect_call_edges_from_forest_impl(forest, by_name=by_name)
-
-def _collect_call_resolution_obligations_from_forest(
-    forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]:
-    return _collect_call_resolution_obligations_from_forest_impl(forest)
-
-def _collect_call_resolution_obligation_details_from_forest(
-    forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]]:
-    return _collect_call_resolution_obligation_details_from_forest_impl(forest)
-
-def _call_candidate_target_site(
-    *,
-    forest: Forest,
-    candidate: FunctionInfo,
-) -> NodeId:
-    return _call_candidate_target_site_impl(forest=forest, candidate=candidate)
-
-def _materialize_call_candidates(
-    *,
-    forest: Forest,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable,
-    project_root,
-    class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn = None,
-) -> None:
-    if resolve_callee_outcome_fn is None:
-        resolve_callee_outcome_fn = _resolve_callee_outcome
-    _materialize_call_candidates_impl(
-        forest=forest,
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=cast(dict[str, object], class_index),
-        resolve_callee_outcome_fn=resolve_callee_outcome_fn,
-        normalize_snapshot_path_fn=_normalize_snapshot_path,
-    )
+_FunctionSuiteKey = _FunctionSuiteKey_owner
+_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatus_owner
+_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcome_owner
+_function_suite_key = _function_suite_key_owner
+_function_suite_id = _function_suite_id_owner
+_node_to_function_suite_lookup_outcome = _node_to_function_suite_lookup_outcome_owner
+_suite_caller_function_id = _suite_caller_function_id_owner
+_node_to_function_suite_id = _node_to_function_suite_id_owner
+_obligation_candidate_suite_ids = _obligation_candidate_suite_ids_owner
+_collect_call_edges_from_forest = _collect_call_edges_from_forest_owner
+_collect_call_resolution_obligations_from_forest = _collect_call_resolution_obligations_from_forest_owner
+_collect_call_resolution_obligation_details_from_forest = _collect_call_resolution_obligation_details_from_forest_owner
+_call_candidate_target_site = _call_candidate_target_site_owner
+_materialize_call_candidates = _materialize_call_candidates_owner
 
 _DeadlineArgInfo = _DeadlineArgInfo_owner
 _bind_call_args = _bind_call_args_owner
