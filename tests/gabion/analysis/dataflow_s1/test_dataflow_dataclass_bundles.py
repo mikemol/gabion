@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_documented_bundles as documented
+    from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
 
-    return da
+    return SimpleNamespace(
+        _iter_config_fields=post_phase._iter_config_fields,
+        _collect_config_bundles=post_phase._collect_config_bundles,
+        _iter_documented_bundles=documented._iter_documented_bundles,
+        _collect_dataclass_registry=post_phase._collect_dataclass_registry,
+        _build_symbol_table=index_owner._build_symbol_table,
+        _iter_dataclass_call_bundles=post_phase._iter_dataclass_call_bundles,
+    )
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_config_bundles E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_config_fields E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_documented_bundles
 def test_config_bundles_and_documented_markers(tmp_path: Path) -> None:
