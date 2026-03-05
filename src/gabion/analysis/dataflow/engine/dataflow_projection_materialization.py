@@ -510,7 +510,7 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
 
 
 def _populate_bundle_forest(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_facade import (
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
         _populate_bundle_forest as _populate_bundle_forest_runtime,
     )
 

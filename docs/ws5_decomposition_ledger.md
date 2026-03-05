@@ -1,5 +1,5 @@
 ---
-doc_revision: 56
+doc_revision: 57
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,9 +12,9 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3000
-- Monolith top-level import statements (current): 68
-- Direct monolith imports in `src/`: 0
+- Monolith LOC (current): 2867
+- Monolith top-level import statements (current): 69
+- Direct monolith imports in `src/`: 4
 - Direct monolith imports in `tests/`: 0
 
 ## Debt Ledger
@@ -971,10 +971,26 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade-hop contraction for compatibility owners:
+    - `dataflow_analysis_index_owner` runtime delegates now import monolith boundary symbols directly:
+      - `_accumulate_function_index_for_tree`
+      - `_analyze_file_internal`
+    - `dataflow_projection_materialization` runtime delegate now imports monolith boundary symbol directly:
+      - `_populate_bundle_forest`
+    - Removed all `dataflow_facade` imports from engine owner modules.
+  - Compatibility status:
+    - `dataflow_facade` is no longer an intermediate hop for analysis-index/projection owner delegates.
+    - Temporary direct monolith imports in `src/` increased while canonical owner cutover for these three boundaries is pending.
+  - ASPF no-change acknowledgement refreshed (`in-118`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Compatibility-owner contraction: replace remaining compatibility-owner local imports from monolith with canonical owner/type carriers where available.
-2. Facade hardening: keep monolith boundary-only aliases while minimizing dead compatibility exports.
+1. Boundary ownerization for monolith-delegated seams: canonicalize `_accumulate_function_index_for_tree`, `_analyze_file_internal`, and `_populate_bundle_forest` to remove new direct monolith imports in compatibility owners.
+2. Compatibility-owner contraction: replace remaining compatibility-owner local imports from monolith with canonical owner/type carriers where available.
 3. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
 ## Validation Checklist Per CU

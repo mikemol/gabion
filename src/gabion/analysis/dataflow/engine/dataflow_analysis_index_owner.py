@@ -212,7 +212,7 @@ def _accumulate_function_index_for_tree_runtime(
     strictness: str,
     transparent_decorators,
 ) -> None:
-    from gabion.analysis.dataflow.engine.dataflow_facade import (
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
         _accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl_runtime,
     )
 
@@ -673,7 +673,7 @@ def _get_stage_cache_bucket(
 
 
 def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress, on_profile):
-    from gabion.analysis.dataflow.engine.dataflow_facade import (
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
         _analyze_file_internal as _analyze_file_internal_runtime,
     )
 
