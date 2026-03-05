@@ -1,5 +1,5 @@
 ---
-doc_revision: 252
+doc_revision: 253
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,16 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-312`, this CU):
+  - Added hard-cut regression guard for legacy facade contraction budgets:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+  - Guarded budgets:
+    - facade LOC cap: `<= 400`
+    - facade top-level import-statement cap: `<= 50`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`42 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected new-test mapping drift
 - WS-5 continuation (`in-311`, this CU):
   - Added generalized common-surface alias parity guard between monolith and facade:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
