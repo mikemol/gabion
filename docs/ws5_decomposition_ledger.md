@@ -1,5 +1,5 @@
 ---
-doc_revision: 144
+doc_revision: 145
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2486,12 +2486,20 @@ doc_scope:
     - All in-repo callers were already migrated to canonical owner/resume modules in prior CUs (`in-196`..`in-200`), so this removes a dead compatibility surface with no behavioral path.
   - Compatibility status:
     - Analysis-index behavior remains stable under targeted WS-5 regression suites (`138 passed`).
-    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+    - Monolith metrics at this slice (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-204`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Ledger state correction:
+    - Corrected monolith metrics recorded in the prior entry to measured values for that slice:
+      - `LOC=854`
+      - `imports=57`
+      - `classes=0`
+      - `functions=0`
+    - No semantic/runtime code changes in this correction unit.
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
