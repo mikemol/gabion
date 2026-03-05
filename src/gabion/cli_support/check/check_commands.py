@@ -20,25 +20,49 @@ RunCheckAuxOperationFn = Callable[..., None]
 class CheckAuxCommandRegistration:
     domain: str
     action: str
-    option_profile: str
+    option_profile: "CheckAuxOptionProfile"
+
+
+@dataclass(frozen=True)
+class CheckAuxOptionProfile:
+    name: str
+    baseline_required: bool
+    out_md_allowed: bool
+
+
+CHECK_AUX_OPTION_PROFILE_REPORT = CheckAuxOptionProfile(
+    name="report",
+    baseline_required=False,
+    out_md_allowed=True,
+)
+CHECK_AUX_OPTION_PROFILE_STATE = CheckAuxOptionProfile(
+    name="state",
+    baseline_required=False,
+    out_md_allowed=False,
+)
+CHECK_AUX_OPTION_PROFILE_DELTA = CheckAuxOptionProfile(
+    name="delta",
+    baseline_required=True,
+    out_md_allowed=True,
+)
 
 
 CHECK_AUX_COMMAND_REGISTRATIONS: tuple[CheckAuxCommandRegistration, ...] = (
-    CheckAuxCommandRegistration("obsolescence", "report", "report"),
-    CheckAuxCommandRegistration("obsolescence", "state", "state"),
-    CheckAuxCommandRegistration("obsolescence", "delta", "delta"),
-    CheckAuxCommandRegistration("obsolescence", "baseline-write", "delta"),
-    CheckAuxCommandRegistration("annotation-drift", "report", "report"),
-    CheckAuxCommandRegistration("annotation-drift", "state", "state"),
-    CheckAuxCommandRegistration("annotation-drift", "delta", "delta"),
-    CheckAuxCommandRegistration("annotation-drift", "baseline-write", "delta"),
-    CheckAuxCommandRegistration("ambiguity", "state", "state"),
-    CheckAuxCommandRegistration("ambiguity", "delta", "delta"),
-    CheckAuxCommandRegistration("ambiguity", "baseline-write", "delta"),
-    CheckAuxCommandRegistration("taint", "state", "state"),
-    CheckAuxCommandRegistration("taint", "delta", "delta"),
-    CheckAuxCommandRegistration("taint", "baseline-write", "delta"),
-    CheckAuxCommandRegistration("taint", "lifecycle", "state"),
+    CheckAuxCommandRegistration("obsolescence", "report", CHECK_AUX_OPTION_PROFILE_REPORT),
+    CheckAuxCommandRegistration("obsolescence", "state", CHECK_AUX_OPTION_PROFILE_STATE),
+    CheckAuxCommandRegistration("obsolescence", "delta", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("obsolescence", "baseline-write", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("annotation-drift", "report", CHECK_AUX_OPTION_PROFILE_REPORT),
+    CheckAuxCommandRegistration("annotation-drift", "state", CHECK_AUX_OPTION_PROFILE_STATE),
+    CheckAuxCommandRegistration("annotation-drift", "delta", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("annotation-drift", "baseline-write", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("ambiguity", "state", CHECK_AUX_OPTION_PROFILE_STATE),
+    CheckAuxCommandRegistration("ambiguity", "delta", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("ambiguity", "baseline-write", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("taint", "state", CHECK_AUX_OPTION_PROFILE_STATE),
+    CheckAuxCommandRegistration("taint", "delta", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("taint", "baseline-write", CHECK_AUX_OPTION_PROFILE_DELTA),
+    CheckAuxCommandRegistration("taint", "lifecycle", CHECK_AUX_OPTION_PROFILE_STATE),
 )
 
 
@@ -52,48 +76,131 @@ def register_check_aux_commands(
     commands: dict[str, Callable[..., None]] = {}
     for registration in command_registrations:
         command_app = command_domains[registration.domain]
-        if registration.option_profile == "report":
-            command = _build_check_aux_report_command(
-                command_app=command_app,
-                command_name=registration.action,
-                domain=registration.domain,
-                action=registration.action,
-                check_strictness_mode=check_strictness_mode,
-                run_check_aux_operation_fn=run_check_aux_operation_fn,
-            )
-        elif registration.option_profile == "state":
-            command = _build_check_aux_state_command(
-                command_app=command_app,
-                command_name=registration.action,
-                domain=registration.domain,
-                action=registration.action,
-                check_strictness_mode=check_strictness_mode,
-                run_check_aux_operation_fn=run_check_aux_operation_fn,
-            )
-        elif registration.option_profile == "delta":
-            command = _build_check_aux_delta_command(
-                command_app=command_app,
-                command_name=registration.action,
-                domain=registration.domain,
-                action=registration.action,
-                check_strictness_mode=check_strictness_mode,
-                run_check_aux_operation_fn=run_check_aux_operation_fn,
-            )
-        else:
-            raise ValueError(f"Unknown option profile: {registration.option_profile}")
+        command = _build_check_aux_command(
+            command_app=command_app,
+            command_name=registration.action,
+            domain=registration.domain,
+            action=registration.action,
+            option_profile=registration.option_profile,
+            check_strictness_mode=check_strictness_mode,
+            run_check_aux_operation_fn=run_check_aux_operation_fn,
+        )
         commands[f"{registration.domain}:{registration.action}"] = command
     return commands
 
 
-def _build_check_aux_report_command(
+def _build_check_aux_operation_kwargs(
+    *,
+    option_profile: CheckAuxOptionProfile,
+    ctx: typer.Context,
+    domain: str,
+    action: str,
+    paths: list[Path],
+    root: Path,
+    config: Path | None,
+    strictness: object,
+    allow_external: bool | None,
+    baseline: Path | None,
+    state_in: Path | None,
+    out_json: Path | None,
+    out_md: Path | None,
+    report: Path | None,
+    decision_snapshot: Path | None,
+    analysis_budget_checks: int | None,
+    aspf_state_json: Path | None,
+    aspf_import_state: list[Path] | None,
+) -> dict[str, object]:
+    if option_profile.baseline_required and baseline is None:
+        raise typer.BadParameter("--baseline is required for this command profile")
+    return {
+        "ctx": ctx,
+        "domain": domain,
+        "action": action,
+        "paths": paths,
+        "root": root,
+        "config": config,
+        "strictness": strictness,
+        "allow_external": allow_external,
+        "baseline": baseline,
+        "state_in": state_in,
+        "out_json": out_json,
+        "out_md": out_md if option_profile.out_md_allowed else None,
+        "report": report,
+        "decision_snapshot": decision_snapshot,
+        "analysis_budget_checks": analysis_budget_checks,
+        "aspf_state_json": aspf_state_json,
+        "aspf_import_state": aspf_import_state,
+    }
+
+
+def _build_check_aux_command(
     *,
     command_app: typer.Typer,
     command_name: str,
     domain: str,
     action: str,
+    option_profile: CheckAuxOptionProfile,
     check_strictness_mode: type,
     run_check_aux_operation_fn: RunCheckAuxOperationFn,
 ) -> Callable[..., None]:
+    if option_profile.out_md_allowed:
+
+        @command_app.command(command_name)
+        def command(
+            ctx: typer.Context,
+            paths: list[Path] = typer.Argument(None),
+            root: Path = typer.Option(Path("."), "--root"),
+            config: Path | None = typer.Option(None, "--config"),
+            strictness: check_strictness_mode = typer.Option(check_strictness_mode.high, "--strictness"),
+            allow_external: bool | None = typer.Option(
+                None, "--allow-external/--no-allow-external"
+            ),
+            baseline: Path | None = typer.Option(
+                ..., "--baseline"
+            )
+            if option_profile.baseline_required
+            else typer.Option(None, "--baseline"),
+            state_in: Path | None = typer.Option(None, "--state-in"),
+            out_json: Path | None = typer.Option(None, "--out-json"),
+            out_md: Path | None = typer.Option(None, "--out-md"),
+            report: Path | None = typer.Option(None, "--report"),
+            decision_snapshot: Path | None = typer.Option(None, "--decision-snapshot"),
+            analysis_budget_checks: int | None = typer.Option(
+                None,
+                "--analysis-budget-checks",
+                min=1,
+            ),
+            aspf_state_json: Path | None = typer.Option(None, "--aspf-state-json"),
+            aspf_import_state: list[Path] | None = typer.Option(
+                None,
+                "--aspf-import-state",
+            ),
+        ) -> None:
+            run_check_aux_operation_fn(
+                **_build_check_aux_operation_kwargs(
+                    option_profile=option_profile,
+                    ctx=ctx,
+                    domain=domain,
+                    action=action,
+                    paths=paths,
+                    root=root,
+                    config=config,
+                    strictness=strictness,
+                    allow_external=allow_external,
+                    baseline=baseline,
+                    state_in=state_in,
+                    out_json=out_json,
+                    out_md=out_md,
+                    report=report,
+                    decision_snapshot=decision_snapshot,
+                    analysis_budget_checks=analysis_budget_checks,
+                    aspf_state_json=aspf_state_json,
+                    aspf_import_state=aspf_import_state,
+                )
+            )
+
+        return command
+
     @command_app.command(command_name)
     def command(
         ctx: typer.Context,
@@ -104,64 +211,11 @@ def _build_check_aux_report_command(
         allow_external: bool | None = typer.Option(
             None, "--allow-external/--no-allow-external"
         ),
-        state_in: Path | None = typer.Option(None, "--state-in"),
-        out_json: Path | None = typer.Option(None, "--out-json"),
-        out_md: Path | None = typer.Option(None, "--out-md"),
-        report: Path | None = typer.Option(None, "--report"),
-        decision_snapshot: Path | None = typer.Option(None, "--decision-snapshot"),
-        analysis_budget_checks: int | None = typer.Option(
-            None,
-            "--analysis-budget-checks",
-            min=1,
-        ),
-        aspf_state_json: Path | None = typer.Option(None, "--aspf-state-json"),
-        aspf_import_state: list[Path] | None = typer.Option(
-            None,
-            "--aspf-import-state",
-        ),
-    ) -> None:
-        run_check_aux_operation_fn(
-            ctx=ctx,
-            domain=domain,
-            action=action,
-            paths=paths,
-            root=root,
-            config=config,
-            strictness=strictness,
-            allow_external=allow_external,
-            baseline=None,
-            state_in=state_in,
-            out_json=out_json,
-            out_md=out_md,
-            report=report,
-            decision_snapshot=decision_snapshot,
-            analysis_budget_checks=analysis_budget_checks,
-            aspf_state_json=aspf_state_json,
-            aspf_import_state=aspf_import_state,
+        baseline: Path | None = typer.Option(
+            ..., "--baseline"
         )
-
-    return command
-
-
-def _build_check_aux_state_command(
-    *,
-    command_app: typer.Typer,
-    command_name: str,
-    domain: str,
-    action: str,
-    check_strictness_mode: type,
-    run_check_aux_operation_fn: RunCheckAuxOperationFn,
-) -> Callable[..., None]:
-    @command_app.command(command_name)
-    def command(
-        ctx: typer.Context,
-        paths: list[Path] = typer.Argument(None),
-        root: Path = typer.Option(Path("."), "--root"),
-        config: Path | None = typer.Option(None, "--config"),
-        strictness: check_strictness_mode = typer.Option(check_strictness_mode.high, "--strictness"),
-        allow_external: bool | None = typer.Option(
-            None, "--allow-external/--no-allow-external"
-        ),
+        if option_profile.baseline_required
+        else typer.Option(None, "--baseline"),
         state_in: Path | None = typer.Option(None, "--state-in"),
         out_json: Path | None = typer.Option(None, "--out-json"),
         report: Path | None = typer.Option(None, "--report"),
@@ -178,82 +232,26 @@ def _build_check_aux_state_command(
         ),
     ) -> None:
         run_check_aux_operation_fn(
-            ctx=ctx,
-            domain=domain,
-            action=action,
-            paths=paths,
-            root=root,
-            config=config,
-            strictness=strictness,
-            allow_external=allow_external,
-            baseline=None,
-            state_in=state_in,
-            out_json=out_json,
-            out_md=None,
-            report=report,
-            decision_snapshot=decision_snapshot,
-            analysis_budget_checks=analysis_budget_checks,
-            aspf_state_json=aspf_state_json,
-            aspf_import_state=aspf_import_state,
-        )
-
-    return command
-
-
-def _build_check_aux_delta_command(
-    *,
-    command_app: typer.Typer,
-    command_name: str,
-    domain: str,
-    action: str,
-    check_strictness_mode: type,
-    run_check_aux_operation_fn: RunCheckAuxOperationFn,
-) -> Callable[..., None]:
-    @command_app.command(command_name)
-    def command(
-        ctx: typer.Context,
-        paths: list[Path] = typer.Argument(None),
-        root: Path = typer.Option(Path("."), "--root"),
-        config: Path | None = typer.Option(None, "--config"),
-        strictness: check_strictness_mode = typer.Option(check_strictness_mode.high, "--strictness"),
-        allow_external: bool | None = typer.Option(
-            None, "--allow-external/--no-allow-external"
-        ),
-        baseline: Path = typer.Option(..., "--baseline"),
-        state_in: Path | None = typer.Option(None, "--state-in"),
-        out_json: Path | None = typer.Option(None, "--out-json"),
-        out_md: Path | None = typer.Option(None, "--out-md"),
-        report: Path | None = typer.Option(None, "--report"),
-        decision_snapshot: Path | None = typer.Option(None, "--decision-snapshot"),
-        analysis_budget_checks: int | None = typer.Option(
-            None,
-            "--analysis-budget-checks",
-            min=1,
-        ),
-        aspf_state_json: Path | None = typer.Option(None, "--aspf-state-json"),
-        aspf_import_state: list[Path] | None = typer.Option(
-            None,
-            "--aspf-import-state",
-        ),
-    ) -> None:
-        run_check_aux_operation_fn(
-            ctx=ctx,
-            domain=domain,
-            action=action,
-            paths=paths,
-            root=root,
-            config=config,
-            strictness=strictness,
-            allow_external=allow_external,
-            baseline=baseline,
-            state_in=state_in,
-            out_json=out_json,
-            out_md=out_md,
-            report=report,
-            decision_snapshot=decision_snapshot,
-            analysis_budget_checks=analysis_budget_checks,
-            aspf_state_json=aspf_state_json,
-            aspf_import_state=aspf_import_state,
+            **_build_check_aux_operation_kwargs(
+                option_profile=option_profile,
+                ctx=ctx,
+                domain=domain,
+                action=action,
+                paths=paths,
+                root=root,
+                config=config,
+                strictness=strictness,
+                allow_external=allow_external,
+                baseline=baseline,
+                state_in=state_in,
+                out_json=out_json,
+                out_md=None,
+                report=report,
+                decision_snapshot=decision_snapshot,
+                analysis_budget_checks=analysis_budget_checks,
+                aspf_state_json=aspf_state_json,
+                aspf_import_state=aspf_import_state,
+            )
         )
 
     return command
