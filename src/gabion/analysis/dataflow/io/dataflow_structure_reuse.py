@@ -6,7 +6,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Callable, cast
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_collection_resume_payload
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _build_analysis_collection_resume_payload,
+)
 from gabion.analysis.dataflow.engine.dataflow_contracts import ReportCarrier
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
@@ -506,4 +508,3 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
         )
         name_map[key].add(str(qual_name).split(".")[-1])
     return name_map
-

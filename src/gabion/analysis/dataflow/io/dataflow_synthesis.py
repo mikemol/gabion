@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import AnalysisIndex, _build_analysis_index
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import _build_analysis_index
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig, ClassInfo, FunctionInfo, InvariantProposition, SymbolTable)
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
@@ -125,7 +125,7 @@ class _SynthesisPlanContext:
     signature_meta: JSONObject
     path_list: list[Path]
     parse_failure_witnesses: list[JSONObject]
-    analysis_index: AnalysisIndex
+    analysis_index: object
     by_name: dict[str, list[FunctionInfo]]
     by_qual: dict[str, FunctionInfo]
     symbol_table: SymbolTable

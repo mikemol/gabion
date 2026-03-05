@@ -1,5 +1,5 @@
 ---
-doc_revision: 136
+doc_revision: 137
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2362,6 +2362,23 @@ doc_scope:
     - Projection/spec materialization behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-196`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - IO/runtime owner coupling convergence:
+    - Switched analysis-index helper imports from boundary `dataflow_analysis_index.py` to canonical `dataflow_analysis_index_owner.py` in:
+      - `dataflow_synthesis_runtime_bridge.py` (`_build_call_graph`)
+      - `dataflow_refactor_planning.py` (`_build_analysis_index`)
+      - `dataflow_structure_reuse.py` (`_build_analysis_collection_resume_payload`)
+      - `dataflow_ingested_analysis_support.py` (`_profiling_v1_payload_owner` aliased as `_profiling_v1_payload`)
+      - `dataflow_synthesis.py` (`_build_analysis_index`)
+    - Removed `AnalysisIndex` boundary type alias dependency from `dataflow_synthesis.py` by tightening `_SynthesisPlanContext.analysis_index` to `object`.
+  - Compatibility status:
+    - IO/runtime synthesis/refactor/profiling behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-197`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
