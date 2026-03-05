@@ -1,5 +1,5 @@
 ---
-doc_revision: 188
+doc_revision: 189
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3194,6 +3194,29 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`63 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline compatibility-surface contraction:
+    - Removed unreferenced deadline helper exports from monolith and owner boundary surfaces:
+      - `_FunctionSuiteKey`
+      - `_FunctionSuiteLookupOutcome`
+      - `_FunctionSuiteLookupStatus`
+      - `_call_nodes_for_tree`
+      - `_deadline_function_facts_for_tree`
+      - `_node_to_function_suite_id`
+      - `_node_to_function_suite_lookup_outcome`
+      - `_obligation_candidate_suite_ids`
+      - `_suite_caller_function_id`
+    - Pruned corresponding import/export wiring in:
+      - `dataflow_indexed_file_scan.py`
+      - `dataflow_deadline_runtime_owner.py`
+  - Correctness impact:
+    - Canonical deadline-obligation execution paths remain unchanged; removed names had no in-repo consumers beyond compatibility imports.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-248`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`62 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

@@ -84,9 +84,6 @@ from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo,
-    FunctionSuiteKey as _FunctionSuiteKey,
-    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcome,
-    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatus,
     bind_call_args as _bind_call_args,
     call_candidate_target_site as _call_candidate_target_site,
     caller_param_bindings_for_call as _caller_param_bindings_for_call,
@@ -101,10 +98,6 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     function_suite_key as _function_suite_key,
     is_deadline_origin_call as _is_deadline_origin_call,
     materialize_call_candidates as _materialize_call_candidates_indexed,
-    node_to_function_suite_id as _node_to_function_suite_id,
-    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome,
-    obligation_candidate_suite_ids as _obligation_candidate_suite_ids,
-    suite_caller_function_id as _suite_caller_function_id,
 )
 from gabion.order_contract import sort_once
 
@@ -352,13 +345,9 @@ __all__ = [
     "_DeadlineFunctionCollector",
     "_DeadlineFunctionFacts",
     "_DeadlineLoopFacts",
-    "_FunctionSuiteKey",
-    "_FunctionSuiteLookupOutcome",
-    "_FunctionSuiteLookupStatus",
     "_bind_call_args",
     "_build_analysis_index",
     "_call_candidate_target_site",
-    "_call_nodes_for_tree",
     "_collect_call_edges_from_forest",
     "_collect_call_resolution_obligation_details_from_forest",
     "_collect_call_resolution_obligations_from_forest",
@@ -371,18 +360,13 @@ __all__ = [
     "_collect_recursive_functions",
     "_collect_recursive_nodes",
     "_deadline_arg_info_map",
-    "_deadline_function_facts_for_tree",
     "_deadline_loop_forwarded_params",
     "_fallback_deadline_arg_info",
     "_function_suite_id",
     "_function_suite_key",
     "_materialize_call_candidates",
-    "_node_to_function_suite_id",
-    "_node_to_function_suite_lookup_outcome",
     "_normalize_snapshot_path",
-    "_obligation_candidate_suite_ids",
     "_reachable_from_roots",
     "_resolve_callee",
     "_resolve_callee_outcome",
-    "_suite_caller_function_id",
 ]
