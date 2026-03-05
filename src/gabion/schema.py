@@ -330,6 +330,30 @@ class LegacyDataflowMonolithResponseDTO(BaseModel):
     payload: Dict[str, Any] = {}
 
 
+class DataflowCanonicalResponseDTO(BaseModel):
+    exit_code: int = 0
+    timeout: bool = False
+    analysis_state: Optional[str] = None
+    classification: Optional[str] = None
+    error_kind: Optional[str] = None
+    errors: List[str] = []
+    lint_lines: List[str] = []
+    lint_entries: List[LintEntryDTO] = []
+    selected_adapter: Optional[str] = None
+    supported_analysis_surfaces: List[str] = []
+    disabled_surface_reasons: Dict[str, str] = {}
+    aspf_trace: Optional[AspfTraceDTO] = None
+    aspf_equivalence: Optional[AspfEquivalenceDTO] = None
+    aspf_opportunities: Optional[AspfOpportunitiesDTO] = None
+    aspf_delta_ledger: Optional[AspfDeltaLedgerDTO] = None
+    aspf_state: Optional[AspfStateDTO] = None
+
+
+class DataflowResponseEnvelopeDTO(BaseModel):
+    canonical: DataflowCanonicalResponseDTO
+    payload: Dict[str, Any] = {}
+
+
 class SynthesisPlanResponseDTO(SynthesisResponse):
     pass
 

@@ -37,7 +37,9 @@ def test_normalize_dataflow_response_parity() -> None:
         "payload_capabilities": {"report_projection": 1, "resume": True},
     }
     assert server._normalize_dataflow_response(payload) == (
-        command_orchestrator_primitives._normalize_dataflow_response(payload)
+        command_orchestrator_primitives._serialize_dataflow_response(
+            command_orchestrator_primitives._normalize_dataflow_response(payload)
+        )
     )
 
 

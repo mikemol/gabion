@@ -40,7 +40,7 @@ from gabion.order_contract import sort_once
 from gabion.config import (dataflow_defaults, dataflow_deadline_roots, decision_defaults, decision_ignore_list, decision_require_tiers, decision_tier_map, exception_defaults, exception_never_list, fingerprint_defaults, taint_boundary_registry, taint_defaults, taint_profile, merge_payload)
 from gabion.analysis.core.type_fingerprints import (Fingerprint, PrimeRegistry, TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.refactor.rewrite_plan import (normalize_rewrite_plan_order, validate_rewrite_plan_payload)
-from gabion.schema import (LegacyDataflowMonolithResponseDTO, LintEntryDTO)
+from gabion.schema import (DataflowCanonicalResponseDTO, DataflowResponseEnvelopeDTO, LintEntryDTO)
 from gabion.server_core.ingress_primitives import AnalysisDeps, ExecuteCommandDeps, OutputDeps, ProgressDeps
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
@@ -1767,7 +1767,7 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)
     return entry.model_dump() if entry is not None else None
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
+def _normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
     lint_decision = LintEntriesDecision.from_response(response)
     lint_lines = list(lint_decision.lint_lines)
     lint_entries = lint_decision.normalize_entries(
@@ -1799,7 +1799,7 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         if isinstance(disabled_surface_reasons_raw, Mapping)
         else {}
     )
-    base = LegacyDataflowMonolithResponseDTO(
+    canonical = DataflowCanonicalResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
         analysis_state=(str(response.get("analysis_state")) if response.get("analysis_state") is not None else None),
@@ -1826,9 +1826,8 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
             aspf_delta_ledger_raw if isinstance(aspf_delta_ledger_raw, Mapping) else None
         ),
         aspf_state=aspf_state_raw if isinstance(aspf_state_raw, Mapping) else None,
-        payload={str(key): response[key] for key in response},
     )
-    normalized = dict(base.payload)
+    normalized = {str(key): response[key] for key in response}
     rewrite_plans = normalized.get("fingerprint_rewrite_plans")
     if isinstance(rewrite_plans, list):
         ordered_plans = normalize_rewrite_plan_order(
@@ -1845,39 +1844,58 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         if rewrite_plan_schema_errors:
             normalized["rewrite_plan_schema_errors"] = rewrite_plan_schema_errors
 
-    normalized["exit_code"] = base.exit_code
-    normalized["timeout"] = base.timeout
-    normalized["analysis_state"] = base.analysis_state
-    normalized["errors"] = base.errors
-    normalized["lint_lines"] = base.lint_lines
-    normalized["selected_adapter"] = base.selected_adapter
+    normalized["exit_code"] = canonical.exit_code
+    normalized["timeout"] = canonical.timeout
+    normalized["analysis_state"] = canonical.analysis_state
+    normalized["errors"] = canonical.errors
+    normalized["lint_lines"] = canonical.lint_lines
+    normalized["selected_adapter"] = canonical.selected_adapter
     normalized["supported_analysis_surfaces"] = list(
-        base.supported_analysis_surfaces
+        canonical.supported_analysis_surfaces
     )
-    normalized["disabled_surface_reasons"] = dict(base.disabled_surface_reasons)
-    normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    normalized["disabled_surface_reasons"] = dict(canonical.disabled_surface_reasons)
+    normalized["lint_entries"] = [entry.model_dump() for entry in canonical.lint_entries]
     payload = normalized.get("payload")
     if isinstance(payload, Mapping):
         payload_updates: dict[str, object] = {
-            "selected_adapter": base.selected_adapter,
-            "supported_analysis_surfaces": list(base.supported_analysis_surfaces),
-            "disabled_surface_reasons": dict(base.disabled_surface_reasons),
+            "selected_adapter": canonical.selected_adapter,
+            "supported_analysis_surfaces": list(canonical.supported_analysis_surfaces),
+            "disabled_surface_reasons": dict(canonical.disabled_surface_reasons),
         }
         normalized["payload"] = boundary_order.apply_boundary_updates_once(
             {str(key): payload[key] for key in payload},
             payload_updates,
             source="server._normalize_dataflow_response.payload_capabilities",
         )
-    if base.aspf_trace is not None:
-        normalized["aspf_trace"] = base.aspf_trace.model_dump()
-    if base.aspf_equivalence is not None:
-        normalized["aspf_equivalence"] = base.aspf_equivalence.model_dump()
-    if base.aspf_opportunities is not None:
-        normalized["aspf_opportunities"] = base.aspf_opportunities.model_dump()
-    if base.aspf_delta_ledger is not None:
-        normalized["aspf_delta_ledger"] = base.aspf_delta_ledger.model_dump()
-    if base.aspf_state is not None:
-        normalized["aspf_state"] = base.aspf_state.model_dump()
+    return DataflowResponseEnvelopeDTO(canonical=canonical, payload=normalized)
+
+
+def _serialize_dataflow_response(
+    response: DataflowResponseEnvelopeDTO,
+) -> dict[str, object]:
+    normalized = dict(response.payload)
+    canonical = response.canonical
+    normalized["exit_code"] = canonical.exit_code
+    normalized["timeout"] = canonical.timeout
+    normalized["analysis_state"] = canonical.analysis_state
+    normalized["errors"] = list(canonical.errors)
+    normalized["lint_lines"] = list(canonical.lint_lines)
+    normalized["selected_adapter"] = canonical.selected_adapter
+    normalized["supported_analysis_surfaces"] = list(
+        canonical.supported_analysis_surfaces
+    )
+    normalized["disabled_surface_reasons"] = dict(canonical.disabled_surface_reasons)
+    normalized["lint_entries"] = [entry.model_dump() for entry in canonical.lint_entries]
+    if canonical.aspf_trace is not None:
+        normalized["aspf_trace"] = canonical.aspf_trace.model_dump()
+    if canonical.aspf_equivalence is not None:
+        normalized["aspf_equivalence"] = canonical.aspf_equivalence.model_dump()
+    if canonical.aspf_opportunities is not None:
+        normalized["aspf_opportunities"] = canonical.aspf_opportunities.model_dump()
+    if canonical.aspf_delta_ledger is not None:
+        normalized["aspf_delta_ledger"] = canonical.aspf_delta_ledger.model_dump()
+    if canonical.aspf_state is not None:
+        normalized["aspf_state"] = canonical.aspf_state.model_dump()
     return boundary_order.canonicalize_boundary_mapping(
         normalized,
         source="server._normalize_dataflow_response",
