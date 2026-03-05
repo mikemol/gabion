@@ -112,16 +112,16 @@ from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _return_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
-    _direct_lambda_callee_by_call_span as _direct_lambda_callee_by_call_span_owner,
-    _materialize_direct_lambda_callees as _materialize_direct_lambda_callees_owner,
+    _direct_lambda_callee_by_call_span,
+    _materialize_direct_lambda_callees,
     _unused_params as _unused_params_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-    _collect_closure_lambda_factories as _collect_closure_lambda_factories_owner,
-    _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_owner,
-    _collect_lambda_function_infos as _collect_lambda_function_infos_owner,
+    _collect_closure_lambda_factories,
+    _collect_lambda_bindings_by_caller,
+    _collect_lambda_function_infos,
     _function_key,
-    _synthetic_lambda_name as _synthetic_lambda_name_owner,
+    _synthetic_lambda_name,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots,
@@ -672,13 +672,6 @@ _accumulate_class_index_for_tree = _accumulate_class_index_for_tree_owner
 _FunctionIndexAccumulator = _FunctionIndexAccumulator_owner
 
 _accumulate_function_index_for_tree = _accumulate_function_index_for_tree_owner
-
-_synthetic_lambda_name = _synthetic_lambda_name_owner
-_collect_lambda_function_infos = _collect_lambda_function_infos_owner
-_collect_lambda_bindings_by_caller = _collect_lambda_bindings_by_caller_owner
-_collect_closure_lambda_factories = _collect_closure_lambda_factories_owner
-_direct_lambda_callee_by_call_span = _direct_lambda_callee_by_call_span_owner
-_materialize_direct_lambda_callees = _materialize_direct_lambda_callees_owner
 
 _function_index_module_artifact_spec = _function_index_module_artifact_spec_owner
 
