@@ -319,6 +319,10 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles as _iter_documented_bundles_owner,
 )
+from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
+    _collect_functions as _collect_functions_owner,
+    _iter_paths as _iter_paths_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _adapt_ingest_carrier_to_analysis_maps as _adapt_ingest_carrier_to_analysis_maps_owner,
     _group_by_signature as _group_by_signature_owner,
@@ -769,24 +773,9 @@ _callee_name = _callee_name_owner
 
 _normalize_callee = _normalize_callee_owner
 
-def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
-    return iter_python_paths(
-        paths,
-        config=config,
-        check_deadline=check_deadline,
-        sort_once=sort_once,
-    )
+_iter_paths = _iter_paths_owner
 
-def _collect_functions(tree: ast.AST) -> list[FunctionNode]:
-    check_deadline()
-    funcs: list[FunctionNode] = []
-    for idx, node in enumerate(ast.walk(tree), start=1):
-        if (idx & 63) == 0:
-            check_deadline()
-        node_type = type(node)
-        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
-            funcs.append(cast(FunctionNode, node))
-    return funcs
+_collect_functions = _collect_functions_owner
 
 def _decorator_name(node: ast.AST):
     return _decorator_name_impl(node, check_deadline_fn=check_deadline)
