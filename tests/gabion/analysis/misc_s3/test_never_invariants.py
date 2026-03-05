@@ -52,7 +52,7 @@ def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
         max_components=3,
         report=da.ReportCarrier.from_analysis_result(analysis),
     )
-    assert "Never invariants" in report
+    assert "Invariant obligations" in report
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_file_internal::config,recursive E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_never_invariants::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_synth::existing,min_occurrences E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_warnings::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._populate_bundle_forest::groups_by_path,include_all_sites E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_decision_surfaces_repo::forest,require_tiers E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_unused_arg_flow_repo::strictness E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_value_encoded_decisions_repo::forest,require_tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_ambiguities,include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_file_internal::stale_1493bf285096
 def test_never_invariant_violation(tmp_path: Path) -> None:
@@ -211,8 +211,8 @@ def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
         max_components=3,
         report=da.ReportCarrier.from_analysis_result(analysis),
     )
-    assert "Never invariants:" in report
-    never_section = report.split("Never invariants:")[1]
+    assert "Invariant obligations:" in report
+    never_section = report.split("Invariant obligations:")[1]
     if "generated_by_spec_id:" in never_section:
         assert "generated_by_spec:" in never_section
 
