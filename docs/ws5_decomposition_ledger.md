@@ -1,5 +1,5 @@
 ---
-doc_revision: 67
+doc_revision: 68
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -16,6 +16,8 @@ doc_scope:
 - Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
+- WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
+- WS-5 broad completion regression status: passed as of `in-128`
 
 ## Debt Ledger
 - High: monolith still carries large post-phase analysis ownership (type/constant/unused/config/dataclass/decision surfaces).
