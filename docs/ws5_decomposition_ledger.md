@@ -1,5 +1,5 @@
 ---
-doc_revision: 99
+doc_revision: 100
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -17,7 +17,7 @@ doc_scope:
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
-- WS-5 broad completion regression status: passed as of `in-128` (targeted WS-5 slices validated through `in-155`)
+- WS-5 broad completion regression status: passed as of `in-160`
 
 ## Debt Ledger
 - Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
@@ -1776,6 +1776,21 @@ doc_scope:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - WS-5 completion regression/declaration refresh:
+    - Re-ran broad convergence suites after hard-cut follow-ons:
+      - server/core convergence suite: `266 passed`
+      - CLI/runtime convergence suite: `209 passed`
+      - governance suite: `5 passed`
+      - refactor suite: `133 passed`
+      - full dataflow suites: `tests/gabion/analysis/dataflow_s1` + `dataflow_s2` => `205 passed`
+      - impacted misc/type/structure suites: `47 passed`
+    - WS-5 completion status remains satisfied with monolith as pure alias facade and no direct monolith importers in `src/` or `tests/`.
+  - Compatibility status:
+    - Monolith metrics remain `LOC=856`, `imports=58`, `classes=0`, `functions=0`.
+    - Thresholds remain satisfied: `LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`.
+  - Validation:
+    - broad convergence suites passed as listed above
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
