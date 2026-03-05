@@ -1,5 +1,5 @@
 ---
-doc_revision: 38
+doc_revision: 39
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -672,6 +672,17 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection boundary routing contraction:
+    - `_populate_bundle_forest` in `dataflow_projection_materialization.py` now routes through `dataflow_facade` instead of a direct monolith import.
+  - Monolith-coupling status:
+    - Direct local imports from `dataflow_indexed_file_scan.py` in `dataflow_projection_materialization.py` reduced from `1` to `0`.
+    - Remaining direct local imports from `dataflow_indexed_file_scan.py` now limited to `dataflow_analysis_index_owner.py` (`2` call sites).
+  - ASPF no-change acknowledgement refreshed (`in-100`).
+  - Validation:
+    - policy checks passed
+    - targeted WS5-C + runtime/dataflow suites passed (`48 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
