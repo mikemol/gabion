@@ -25,6 +25,17 @@ def test_format_docflow_violation_known_kinds() -> None:
         == "docs/governance_loop_matrix.md: governance loop matrix drift; missing gate row for: coverage_gate"
     )
 
+    assert (
+        audit_impl._format_docflow_violation(
+            {
+                "row_kind": "doc_implication_matrix_conflict",
+                "path": "docs/counterexample.md",
+                "subject": "keep matrix parity",
+            }
+        )
+        == "docs/counterexample.md: implication matrix conflict for notion subject: keep matrix parity"
+    )
+
 
 def test_format_docflow_violation_doc_review_pin_branches() -> None:
     assert (
