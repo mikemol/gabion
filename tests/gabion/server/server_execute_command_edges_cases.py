@@ -11,6 +11,7 @@ from types import MappingProxyType
 from typing import cast
 
 import pytest
+from pydantic import ValidationError
 
 from gabion import server
 from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
@@ -91,6 +92,50 @@ def test_require_payload_coerces_mapping_proxy() -> None:
     normalized = server._require_payload(proxy_payload, command="unit")
     assert normalized == {"answer": 42}
     assert isinstance(normalized, dict)
+
+
+def test_normalize_dataflow_response_envelope_rejects_malformed_lint_entry_shape() -> None:
+    with pytest.raises(ValidationError):
+        server._normalize_dataflow_response_envelope(
+            {
+                "exit_code": 0,
+                "timeout": False,
+                "errors": [],
+                "lint_lines": [],
+                "lint_entries": [{"path": 1, "line": "x"}],
+            }
+        )
+
+
+def test_execute_dataflow_boundary_passes_typed_payload_carrier_to_core(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_total(ls, payload, *, deps=None):
+        _ = ls, deps
+        captured["payload_type"] = type(payload)
+        assert isinstance(payload, server.DataflowCommandPayload)
+        return server._normalize_dataflow_response_envelope(
+            {
+                "exit_code": 0,
+                "timeout": False,
+                "errors": [],
+                "lint_lines": [],
+                "lint_entries": [],
+            }
+        )
+
+    original = server._execute_command_total
+    try:
+        server._execute_command_total = _fake_total
+        result = server._execute_dataflow_command_boundary(
+            _DummyServer(str(tmp_path)),
+            {"root": str(tmp_path), "paths": []},
+        )
+    finally:
+        server._execute_command_total = original
+
+    assert captured["payload_type"] is server.DataflowCommandPayload
+    assert result.get("exit_code") == 0
 
 
 def _write_bundle_module(path: Path) -> None:

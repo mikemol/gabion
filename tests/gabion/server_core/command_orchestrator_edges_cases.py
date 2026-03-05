@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from types import SimpleNamespace
+import inspect
 
 import pytest
 
@@ -597,6 +598,25 @@ def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> 
             },
             root=Path("."),
         )
+
+
+def test_core_orchestrator_entrypoints_use_dict_payload_carriers() -> None:
+    execute_payload_ann = inspect.signature(orchestrator.execute_command_total).parameters[
+        "payload"
+    ].annotation
+    ingress_payload_ann = inspect.signature(orchestrator._stage_ingress).parameters[
+        "payload"
+    ].annotation
+    normalize_payload_ann = inspect.signature(
+        orchestrator._normalize_command_payload_ingress
+    ).parameters["payload"].annotation
+
+    assert str(execute_payload_ann) == "dict[str, object]"
+    assert str(ingress_payload_ann) == "dict[str, object]"
+    assert str(normalize_payload_ann) == "dict[str, object]"
+    assert "Mapping" not in str(execute_payload_ann)
+    assert "Mapping" not in str(ingress_payload_ann)
+    assert "Mapping" not in str(normalize_payload_ann)
 
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary
