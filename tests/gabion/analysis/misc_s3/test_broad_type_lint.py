@@ -2,12 +2,55 @@ from __future__ import annotations
 
 from pathlib import Path
 import textwrap
+from types import SimpleNamespace
 
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
-from gabion.analysis.dataflow.engine import dataflow_facade as da
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
 from gabion.analysis.foundation.timeout_context import Deadline, TimeoutTickCarrier, deadline_scope
+
+
+def _load():
+    from gabion.analysis.dataflow.engine import dataflow_lint_helpers as lint_helpers
+    from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import _build_analysis_index
+
+    def _internal_broad_type_lint_lines(
+        paths,
+        *,
+        project_root,
+        ignore_params,
+        strictness,
+        external_filter,
+        transparent_decorators=None,
+        parse_failure_witnesses,
+        analysis_index=None,
+    ):
+        if analysis_index is None:
+            analysis_index = _build_analysis_index(
+                list(paths),
+                project_root=project_root,
+                ignore_params=set(ignore_params),
+                strictness=strictness,
+                external_filter=external_filter,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+            )
+        return lint_helpers._internal_broad_type_lint_lines(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=analysis_index,
+        )
+
+    return SimpleNamespace(
+        _internal_broad_type_lint_lines=_internal_broad_type_lint_lines,
+        _is_broad_internal_type=lint_helpers._is_broad_internal_type,
+        _normalize_type_name=lint_helpers._normalize_type_name,
+    )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._internal_broad_type_lint_lines::annot
 def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
@@ -145,6 +188,7 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_broad_type_helpers_cover_edges::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_broad_internal_type::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_type_name::test_broad_type_lint.py::tests.test_broad_type_lint._load
 def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
+    da = _load()
     assert da._normalize_type_name("typing.Any") == "Any"
     assert da._normalize_type_name("builtins.int") == "int"
     assert da._is_broad_internal_type("None") is False
@@ -154,6 +198,7 @@ def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_internal_broad_type_skips_tests::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._internal_broad_type_lint_lines::test_broad_type_lint.py::tests.test_broad_type_lint._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
 def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
+    da = _load()
     target = tmp_path / "test_sample.py"
     target.write_text(
         textwrap.dedent(

@@ -1,5 +1,5 @@
 ---
-doc_revision: 211
+doc_revision: 212
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,16 @@ doc_scope:
 - Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-271`, this CU):
+  - Migrated broad-type lint tests off `dataflow_facade` via local canonical-owner adapter:
+    - `tests/gabion/analysis/misc_s3/test_broad_type_lint.py`
+    - owner bindings:
+      - `dataflow_lint_helpers` (`_normalize_type_name`, `_is_broad_internal_type`, `_internal_broad_type_lint_lines`)
+      - `dataflow_analysis_index_owner._build_analysis_index` (adapter parity for broad-type lint analysis-index bootstrap)
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`5 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift drift from importer migration
 - WS-5 continuation (`in-270`, this CU):
   - Migrated exception/deadness helper tests off `dataflow_facade` via local canonical-owner adapter:
     - `tests/gabion/analysis/misc_s2/test_exception_deadness_helpers.py`
