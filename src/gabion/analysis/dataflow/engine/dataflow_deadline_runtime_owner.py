@@ -26,8 +26,8 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
     CalleeResolutionContext as _CalleeResolutionContextCore,
-    collect_callee_resolution_effects as _collect_callee_resolution_effects_impl,
-    resolve_callee_with_effects as _resolve_callee_with_effects_impl,
+    collect_callee_resolution_effects as _collect_callee_resolution_effects,
+    resolve_callee_with_effects as _resolve_callee_with_effects,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import _callee_key
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
@@ -60,27 +60,27 @@ from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.calls.call_edges import (
     CollectCallEdgesDeps as _CollectCallEdgesDeps,
-    collect_call_edges as _collect_call_edges_impl,
+    collect_call_edges as _collect_call_edges_core,
 )
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     CalleeOutcomeDeps as _CalleeOutcomeDeps,
     ResolveCalleeDeps as _ResolveCalleeDeps,
-    resolve_callee as _resolve_callee_impl,
-    resolve_callee_outcome as _resolve_callee_outcome_impl,
+    resolve_callee as _resolve_callee_core,
+    resolve_callee_outcome as _resolve_callee_outcome_core,
 )
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
     CallNodesForTreeDeps as _CallNodesForTreeDeps,
     CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps,
-    call_nodes_for_tree as _call_nodes_for_tree_impl,
-    collect_call_nodes_by_path as _collect_call_nodes_by_path_impl,
+    call_nodes_for_tree as _call_nodes_for_tree_core,
+    collect_call_nodes_by_path as _collect_call_nodes_by_path_core,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_local_info import (
     CollectDeadlineLocalInfoDeps as _CollectDeadlineLocalInfoDeps,
-    collect_deadline_local_info as _collect_deadline_local_info_impl,
+    collect_deadline_local_info as _collect_deadline_local_info_core,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
     CollectDeadlineFunctionFactsDeps as _CollectDeadlineFunctionFactsDeps,
-    collect_deadline_function_facts as _collect_deadline_function_facts_impl,
+    collect_deadline_function_facts as _collect_deadline_function_facts_core,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo,
@@ -100,7 +100,7 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     function_suite_id as _function_suite_id,
     function_suite_key as _function_suite_key,
     is_deadline_origin_call as _is_deadline_origin_call,
-    materialize_call_candidates as _materialize_call_candidates_impl,
+    materialize_call_candidates as _materialize_call_candidates_core,
     node_to_function_suite_id as _node_to_function_suite_id,
     node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome,
     obligation_candidate_suite_ids as _obligation_candidate_suite_ids,
@@ -160,7 +160,7 @@ _COLLECT_CALL_EDGES_DEPS = _CollectCallEdgesDeps(
 )
 
 _collect_call_edges_with_static_deps = partial(
-    _collect_call_edges_impl,
+    _collect_call_edges_core,
     deps=_COLLECT_CALL_EDGES_DEPS,
 )
 
@@ -194,21 +194,21 @@ def _collect_call_edges(
 _RESOLVE_CALLEE_DEPS = _ResolveCalleeDeps(
     check_deadline_fn=check_deadline,
     callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
-    resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
-    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
+    resolve_callee_with_effects_fn=_resolve_callee_with_effects,
+    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects,
     module_name_fn=_module_name,
 )
 
 _resolve_callee = partial(
-    _resolve_callee_impl,
+    _resolve_callee_core,
     deps=_RESOLVE_CALLEE_DEPS,
 )
 
 _CALLEE_OUTCOME_DEPS = _CalleeOutcomeDeps(
     check_deadline_fn=check_deadline,
     callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
-    resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
-    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
+    resolve_callee_with_effects_fn=_resolve_callee_with_effects,
+    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects,
     module_name_fn=_module_name,
     dedupe_resolution_candidates_fn=_dedupe_resolution_candidates,
     callee_key_fn=_callee_key,
@@ -218,7 +218,7 @@ _CALLEE_OUTCOME_DEPS = _CalleeOutcomeDeps(
 )
 
 _resolve_callee_outcome = partial(
-    _resolve_callee_outcome_impl,
+    _resolve_callee_outcome_core,
     deps=_CALLEE_OUTCOME_DEPS,
 )
 
@@ -231,7 +231,7 @@ _COLLECT_DEADLINE_LOCAL_INFO_DEPS = _CollectDeadlineLocalInfoDeps(
 )
 
 _collect_deadline_local_info = partial(
-    _collect_deadline_local_info_impl,
+    _collect_deadline_local_info_core,
     deps=_COLLECT_DEADLINE_LOCAL_INFO_DEPS,
 )
 
@@ -242,7 +242,7 @@ _CALL_NODES_FOR_TREE_DEPS = _CallNodesForTreeDeps(
 )
 
 _call_nodes_for_tree = partial(
-    _call_nodes_for_tree_impl,
+    _call_nodes_for_tree_core,
     deps=_CALL_NODES_FOR_TREE_DEPS,
 )
 
@@ -259,7 +259,7 @@ _COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(
 )
 
 _collect_call_nodes_by_path = partial(
-    _collect_call_nodes_by_path_impl,
+    _collect_call_nodes_by_path_core,
     deps=_COLLECT_CALL_NODES_BY_PATH_DEPS,
 )
 
@@ -314,12 +314,12 @@ _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
 )
 
 _collect_deadline_function_facts = partial(
-    _collect_deadline_function_facts_impl,
+    _collect_deadline_function_facts_core,
     deps=_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS,
 )
 
 _materialize_call_candidates_with_static_deps = partial(
-    _materialize_call_candidates_impl,
+    _materialize_call_candidates_core,
     normalize_snapshot_path_fn=_normalize_snapshot_path,
 )
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 177
+doc_revision: 178
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3042,6 +3042,14 @@ doc_scope:
     - Ingested analysis dependency wiring remains unchanged semantically; naming surface now converges with canonical owner naming.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-236`).
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime import-name convergence:
+    - `dataflow_deadline_runtime_owner.py` now imports indexed-scan and callee-resolution dependency callables under canonical local names (no `_impl` aliases), including call-edge/callee-outcome/call-node/local-info/function-facts/materialize-candidates dependencies.
+    - Static `partial(...)` bindings updated to canonical local names; runtime behavior unchanged.
+  - Correctness impact:
+    - Deadline runtime compatibility-owner API remains stable; only dependency-binding naming surface converged.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-237`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
