@@ -1,5 +1,5 @@
 ---
-doc_revision: 132
+doc_revision: 133
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2309,6 +2309,20 @@ doc_scope:
     - Parse-runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-192`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Lint-helper owner coupling convergence:
+    - `dataflow_lint_helpers.py` now imports canonical analysis-index owner functions directly:
+      - `_build_analysis_index`
+      - `_iter_monotonic_paths_owner`
+    - Removed lint-helper dependency on boundary `dataflow_analysis_index` aliases for these surfaces.
+  - Compatibility status:
+    - Lint-helper broad-type/indexed ordering behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-193`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

@@ -15,12 +15,10 @@ from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
 )
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _build_analysis_index,
-    _iter_monotonic_paths as _indexed_iter_monotonic_paths,
-)
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _build_analysis_index as _build_analysis_index,
     _analysis_index_transitive_callers as _analysis_index_transitive_callers_owner,
+    _iter_monotonic_paths_owner as _indexed_iter_monotonic_paths,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
