@@ -160,12 +160,19 @@ from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _collect_return_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _CACHE_IDENTITY_DIGEST_HEX,
+    _CACHE_IDENTITY_PREFIX,
+    _CacheIdentity,
     _build_analysis_collection_resume_payload,
     _deserialize_function_info_for_resume,
+    _deserialize_invariants_for_resume,
     _deserialize_symbol_table_for_resume,
+    _invariant_confidence,
+    _invariant_digest,
     _load_analysis_collection_resume_payload,
     _load_analysis_index_resume_payload,
     _load_file_scan_resume_state,
+    _normalize_invariant_proposition,
     _serialize_analysis_index_resume_payload,
     _serialize_file_scan_resume_state,
 )
