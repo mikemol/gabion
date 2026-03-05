@@ -673,7 +673,7 @@ def _get_stage_cache_bucket(
 
 
 def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress, on_profile):
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+    from gabion.analysis.dataflow.engine.dataflow_facade import (
         _analyze_file_internal as _analyze_file_internal_runtime,
     )
 
