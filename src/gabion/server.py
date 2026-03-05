@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable, Literal, Mapping, Sequence, cast
+from typing import Callable, Literal, Mapping, Protocol, Sequence, cast
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
@@ -1535,6 +1535,31 @@ def _require_optional_payload(
     return _require_payload(payload, command=command)
 
 
+def _parse_dataflow_command_payload(
+    payload: Mapping[str, object] | None,
+) -> DataflowCommandPayload:
+    normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
+    normalized_payload = _normalize_dataflow_boundary_controls(normalized_payload)
+    return DataflowCommandPayload(payload=normalized_payload)
+
+
+def _parse_lsp_parity_gate_payload(
+    payload: Mapping[str, object] | None,
+) -> LspParityGatePayload:
+    normalized_payload = _require_optional_payload(
+        payload,
+        command=LSP_PARITY_GATE_COMMAND,
+    )
+    return LspParityGatePayload(payload=normalized_payload)
+
+
+def _parse_impact_command_payload(
+    payload: Mapping[str, object] | None,
+) -> ImpactCommandPayload:
+    normalized_payload = _require_optional_payload(payload, command=IMPACT_COMMAND)
+    return ImpactCommandPayload(payload=normalized_payload)
+
+
 def _ordered_command_response(
     response: Mapping[str, object],
     *,
@@ -1604,43 +1629,43 @@ def _server_deadline_overhead_ns(
     )
 
 
-def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ns(payload)
+def _analysis_timeout_total_ns(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
+    return orchestrator_primitives._analysis_timeout_total_ns(dict(_payload_mapping(payload)))
 
 
-def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ticks(payload)
+def _analysis_timeout_total_ticks(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
+    return orchestrator_primitives._analysis_timeout_total_ticks(dict(_payload_mapping(payload)))
 
 
 def _analysis_timeout_grace_ns(
-    payload: dict[str, object],
+    payload: Mapping[str, object] | MappingPayloadCarrier,
     *,
     total_ns: int,
 ) -> int:
     return orchestrator_primitives._analysis_timeout_grace_ns(
-        payload,
+        dict(_payload_mapping(payload)),
         total_ns=total_ns,
     )
 
 
 def _analysis_timeout_budget_ns(
-    payload: dict[str, object],
+    payload: Mapping[str, object] | MappingPayloadCarrier,
 ) -> tuple[int, int, int]:
-    return orchestrator_primitives._analysis_timeout_budget_ns(payload)
+    return orchestrator_primitives._analysis_timeout_budget_ns(dict(_payload_mapping(payload)))
 
 
 def _deadline_profile_sample_interval(
-    payload: dict[str, object],
+    payload: Mapping[str, object] | MappingPayloadCarrier,
     *,
     default_interval: int = 16,
 ) -> int:
     return orchestrator_primitives._deadline_profile_sample_interval(
-        payload,
+        dict(_payload_mapping(payload)),
         default_interval=default_interval,
     )
 
 
-def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
+def _deadline_from_payload(payload: Mapping[str, object] | MappingPayloadCarrier) -> Deadline:
     total_ns = _analysis_timeout_total_ns(payload)
     overhead_ns = _server_deadline_overhead_ns(total_ns)
     analysis_ns = max(1, total_ns - overhead_ns)
@@ -1648,10 +1673,11 @@ def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: Mapping[str, object]):
-    normalized_payload = _require_payload(payload, command="deadline_scope")
-    deadline = _deadline_from_payload(normalized_payload)
-    base_ticks = _analysis_timeout_total_ticks(normalized_payload)
+def _deadline_scope_from_payload(payload: Mapping[str, object] | MappingPayloadCarrier):
+    normalized_payload = _require_payload(_payload_mapping(payload), command="deadline_scope")
+    normalized_carrier = DataflowCommandPayload(payload=normalized_payload)
+    deadline = _deadline_from_payload(normalized_carrier)
+    base_ticks = _analysis_timeout_total_ticks(normalized_carrier)
     tick_limit = base_ticks
     tick_limit_value = normalized_payload.get("analysis_tick_limit")
     if tick_limit_value not in (None, ""):
@@ -1909,9 +1935,8 @@ def _execute_dataflow_command_boundary(
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
     try:
-        normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
-        normalized_payload = _normalize_dataflow_boundary_controls(normalized_payload)
-        normalized_result = _execute_command_total(ls, normalized_payload, deps=deps)
+        command_payload = _parse_dataflow_command_payload(payload)
+        normalized_result = _execute_command_total(ls, command_payload, deps=deps)
         return _ordered_command_response(
             normalized_result,
             command=DATAFLOW_COMMAND,
@@ -1943,13 +1968,14 @@ def execute_command_with_deps(
 
 def _execute_command_total(
     ls: LanguageServer,
-    payload: dict[str, object],
+    payload: DataflowCommandPayload | Mapping[str, object],
     *,
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
     from gabion.server_core.command_orchestrator import execute_command_total
 
-    return execute_command_total(ls, payload, deps=deps)
+    command_payload = payload if isinstance(payload, DataflowCommandPayload) else DataflowCommandPayload(payload=_require_payload(payload, command=DATAFLOW_COMMAND))
+    return execute_command_total(ls, command_payload.payload, deps=deps)
 
 
 @server.command(SYNTHESIS_COMMAND)
@@ -2290,6 +2316,36 @@ class ImpactEdgeBuckets:
     unresolved_edges: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True)
+class DataflowCommandPayload:
+    payload: dict[str, object]
+
+
+@dataclass(frozen=True)
+class LspParityGatePayload:
+    payload: dict[str, object]
+
+
+@dataclass(frozen=True)
+class ImpactCommandPayload:
+    payload: dict[str, object]
+
+
+@dataclass(frozen=True)
+class ParityProbePayload:
+    payload: dict[str, object]
+
+
+class MappingPayloadCarrier(Protocol):
+    payload: Mapping[str, object]
+
+
+def _payload_mapping(payload: Mapping[str, object] | MappingPayloadCarrier) -> Mapping[str, object]:
+    if isinstance(payload, Mapping):
+        return payload
+    return payload.payload
+
+
 class ParityProbeError(RuntimeError):
     pass
 
@@ -2385,11 +2441,11 @@ def _probe_lsp_executor(
     *,
     ls: LanguageServer,
     command: str,
-    probe_payload: Mapping[str, object],
+    probe_payload: ParityProbePayload,
 ) -> dict[str, object]:
     try:
         return boundary_order.normalize_boundary_mapping_once(
-            executor(ls, dict(probe_payload)),
+            executor(ls, dict(probe_payload.payload)),
             source=f"server.lsp_parity_gate.{command}.lsp_result",
         )
     except NeverThrown:
@@ -2403,11 +2459,11 @@ def _probe_direct_executor(
     *,
     ls: LanguageServer,
     command: str,
-    probe_payload: Mapping[str, object],
+    probe_payload: ParityProbePayload,
 ) -> dict[str, object]:
     try:
         return boundary_order.normalize_boundary_mapping_once(
-            executor(ls, dict(probe_payload)),
+            executor(ls, dict(probe_payload.payload)),
             source=f"server.lsp_parity_gate.{command}.direct_result",
         )
     except NeverThrown:
@@ -2721,7 +2777,7 @@ def _normalize_probe_payload(
     *,
     root: Path,
     command: str,
-) -> dict[str, object]:
+) -> ParityProbePayload:
     payload = boundary_order.normalize_boundary_mapping_once(
         probe_payload,
         source=f"server.lsp_parity_gate.{command}.probe_payload",
@@ -2742,12 +2798,12 @@ def _normalize_probe_payload(
             {"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000},
             source=f"server.lsp_parity_gate.{command}.probe_payload_timeout",
         )
-    return payload
+    return ParityProbePayload(payload=payload)
 
 
 def _execute_lsp_parity_gate_total(
     ls: LanguageServer,
-    payload: dict[str, object],
+    payload: LspParityGatePayload | Mapping[str, object],
     *,
     load_rules: Callable[[], GovernanceRules] = load_governance_rules,
     lsp_executor_for_command: Callable[
@@ -2770,8 +2826,9 @@ def _execute_lsp_parity_gate_total(
         if direct_executor_for_command is None
         else direct_executor_for_command
     )
-    root = Path(str(payload.get("root") or ls.workspace.root_path or "."))
-    selected_commands = list(payload_codec.normalized_command_id_list(payload, key="commands"))
+    command_payload = payload if isinstance(payload, LspParityGatePayload) else LspParityGatePayload(payload=_require_payload(payload, command=LSP_PARITY_GATE_COMMAND))
+    root = Path(str(command_payload.payload.get("root") or ls.workspace.root_path or "."))
+    selected_commands = list(payload_codec.normalized_command_id_list(command_payload.payload, key="commands"))
     if not selected_commands:
         selected_commands = list(sort_once(rules.command_policies.keys(), source="server.lsp_parity_gate.selected_default"))
     checked_commands: list[dict[str, object]] = []
@@ -2849,9 +2906,9 @@ def execute_lsp_parity_gate(
     ls: LanguageServer,
     payload: dict | None = None,
 ) -> dict:
-    normalized_payload = _require_optional_payload(payload, command=LSP_PARITY_GATE_COMMAND)
+    command_payload = _parse_lsp_parity_gate_payload(payload)
     return _ordered_command_response(
-        _execute_lsp_parity_gate_total(ls, normalized_payload),
+        _execute_lsp_parity_gate_total(ls, command_payload),
         command=LSP_PARITY_GATE_COMMAND,
     )
 
@@ -2861,17 +2918,18 @@ def execute_impact(
     ls: LanguageServer,
     payload: dict[str, object] | None = None,
 ) -> dict:
-    normalized_payload = _require_optional_payload(payload, command=IMPACT_COMMAND)
+    command_payload = _parse_impact_command_payload(payload)
     return _ordered_command_response(
-        _execute_impact_total(ls, normalized_payload),
+        _execute_impact_total(ls, command_payload),
         command=IMPACT_COMMAND,
     )
 
 
-def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
-    with _deadline_scope_from_payload(payload):
+def _execute_impact_total(ls: LanguageServer, payload: ImpactCommandPayload | Mapping[str, object]) -> dict:
+    command_payload = payload if isinstance(payload, ImpactCommandPayload) else ImpactCommandPayload(payload=_require_payload(payload, command=IMPACT_COMMAND))
+    with _deadline_scope_from_payload(command_payload):
         try:
-            options = _normalize_impact_payload(payload, workspace_root=ls.workspace.root_path)
+            options = _normalize_impact_payload(command_payload.payload, workspace_root=ls.workspace.root_path)
         except ValueError as exc:
             return {"exit_code": 2, "errors": [str(exc)]}
         root = options.root
