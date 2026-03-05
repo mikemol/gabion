@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, cast
+from typing import Any, Mapping, cast
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location)
@@ -18,10 +18,14 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
+    _iter_monotonic_paths as _indexed_iter_monotonic_paths,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot_path
+from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
+)
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_spec
@@ -35,33 +39,9 @@ from gabion.order_contract import sort_once
 
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
 
+_analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key
 
-def _analysis_collection_resume_path_key(path: Path) -> str:
-    return str(path)
-
-
-def _iter_monotonic_paths(
-    paths: Iterable[Path],
-    *,
-    source: str,
-) -> list[Path]:
-    ordered: list[Path] = []
-    previous_path_key = ""
-    has_previous_path_key = False
-    for path in paths:
-        check_deadline()
-        path_key = _analysis_collection_resume_path_key(path)
-        if has_previous_path_key and previous_path_key > path_key:
-            never(
-                "path order regression",
-                source=source,
-                previous_path=previous_path_key,
-                current_path=path_key,
-            )
-        previous_path_key = path_key
-        has_previous_path_key = True
-        ordered.append(path)
-    return ordered
+_iter_monotonic_paths = _indexed_iter_monotonic_paths
 
 
 def _collect_transitive_callers(
