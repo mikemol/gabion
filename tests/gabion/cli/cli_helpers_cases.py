@@ -8,6 +8,7 @@ import subprocess
 import sys
 import urllib.error
 import zipfile
+from typing import Mapping
 
 import pytest
 import typer
@@ -4009,3 +4010,68 @@ def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
     )
     assert any(name == "lint" and "--json" in argv and "--top" in argv for name, argv in calls)
     assert any(name == "lint" and "--lint" not in argv and "--json" not in argv for name, argv in calls)
+
+
+def test_run_dataflow_raw_argv_progress_ingress_parses_once_then_feeds_emitters(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    parsed_payload = {
+        "phase": "collection",
+        "work_done": 1,
+        "work_total": 2,
+        "completed_files": 1,
+        "remaining_files": 1,
+        "total_files": 2,
+        "event_seq": 7,
+    }
+    parse_calls: list[object] = []
+    timeline_inputs: list[Mapping[str, object]] = []
+    emitted_rows: list[tuple[str | None, str]] = []
+
+    def _parse_once(notification: Mapping[str, object]) -> dict[str, object] | None:
+        parse_calls.append(notification)
+        return dict(parsed_payload)
+
+    def _timeline_from_phase_progress(payload: Mapping[str, object]) -> dict[str, str]:
+        timeline_inputs.append(payload)
+        return {"header": "| h |", "row": "| collection |"}
+
+    def _emit_timeline(*, header: str | None, row: str) -> None:
+        emitted_rows.append((header, row))
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        notification_callback({"method": "$/progress", "params": {"token": "t", "value": {}}})
+        return {"exit_code": 0}
+
+    monkeypatch.setattr(cli, "_phase_progress_from_progress_notification", _parse_once)
+    monkeypatch.setattr(
+        cli.progress_timeline,
+        "phase_timeline_from_phase_progress",
+        _timeline_from_phase_progress,
+    )
+    monkeypatch.setattr(cli, "_emit_phase_timeline_progress", _emit_timeline)
+    monkeypatch.setattr(cli, "_emit_dataflow_result_outputs", lambda _result, _opts: None)
+    monkeypatch.setattr(cli, "_emit_analysis_resume_summary", lambda _result: None)
+    monkeypatch.setattr(cli, "_emit_nonzero_exit_causes", lambda _result: None)
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+            ],
+            runner=_fake_runner,
+        )
+
+    assert exc.value.exit_code == 0
+    assert len(parse_calls) == 1
+    assert len(timeline_inputs) == 1
+    assert timeline_inputs[0] == parsed_payload
+    assert emitted_rows == [("| h |", "| collection |")]
