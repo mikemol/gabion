@@ -18,6 +18,7 @@ from typing import Callable, Iterable, Mapping
 
 from gabion.order_contract import sort_once
 from gabion.tooling.governance import governance_audit
+from gabion.tooling.governance.frontmatter_parser import parse_frontmatter
 
 from gabion import server
 from gabion.tooling.governance import ambiguity_contract_policy_check
@@ -140,13 +141,8 @@ def _ordered_gap_items(items: Iterable[GapItem], *, source: str) -> list[GapItem
 
 def _parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
     text = path.read_text(encoding="utf-8")
-    frontmatter, body = governance_audit._parse_frontmatter(text)
-    normalized = (
-        dict(frontmatter)
-        if isinstance(frontmatter, Mapping)
-        else {}
-    )
-    return normalized, body
+    parsed = parse_frontmatter(text)
+    return dict(parsed.mapping), parsed.body
 
 
 def _iter_markdown_paths(root: Path) -> list[Path]:
@@ -173,8 +169,9 @@ def collect_scope_inventory(root: Path) -> ScopeInventory:
         normative_docs,
         source="normative_symdiff.collect_scope_inventory.normative",
     )
+    core_docs = getattr(governance_audit, "GOVERNANCE_DOCS", governance_audit.CORE_GOVERNANCE_DOCS)
     core_layer_docs = _ordered_strings(
-        governance_audit.GOVERNANCE_DOCS,
+        core_docs,
         source="normative_symdiff.collect_scope_inventory.core_layer",
     )
     core_set = set(core_layer_docs)

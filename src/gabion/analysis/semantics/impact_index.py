@@ -15,6 +15,7 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_proje
 from gabion.analysis.projection.projection_registry import REGISTERED_SPECS
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.tooling.governance.frontmatter_parser import parse_frontmatter
 
 _DEFAULT_ARTIFACT_PATH = Path("artifacts/audit_reports/impact_index.json")
 _PYTHON_SOURCE_ROOTS = ("src", "tests")
@@ -907,47 +908,8 @@ def _attribute_path(node: ast.Attribute) -> list[str]:
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
-    if not text.startswith("---\n"):
-        return {}, text
-    lines = text.splitlines()
-    end = None
-    for index in range(1, len(lines)):
-        check_deadline()
-        if lines[index].strip() == "---":
-            end = index
-            break
-    if end is None:
-        return {}, text
-    raw = lines[1:end]
-    body = "\n".join(lines[end + 1 :])
-    payload: dict[str, object] = {}
-    current = None
-    items: list[str] = []
-    for line in raw:
-        check_deadline()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- ") and current is not None:
-            items.append(stripped[2:].strip().strip("\"'"))
-            continue
-        if current is not None:
-            payload[current] = items
-            current = None
-            items = []
-        if ":" not in stripped:
-            continue
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if key == "doc_targets" and not value:
-            current = key
-            items = []
-            continue
-        payload[key] = value.strip().strip("\"'")
-    if current is not None:
-        payload[current] = items
-    return payload, body
+    parsed = parse_frontmatter(text)
+    return dict(parsed.mapping), parsed.body
 
 
 def _coerce_target_list(value: object) -> list[str]:

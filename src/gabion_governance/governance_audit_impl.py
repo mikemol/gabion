@@ -29,6 +29,7 @@ from gabion.analysis.semantics.obligation_registry import (
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.governance.governance_rules import load_governance_rules
+from gabion.tooling.governance.frontmatter_parser import parse_frontmatter
 from gabion_governance.compliance_render import render_compliance
 from gabion_governance.compliance_render.decision_contracts import (
     ConsolidationConfig,
@@ -45,7 +46,6 @@ from gabion_governance.docflow_audit import (
 )
 from gabion_governance.docflow_audit.contracts import (
     Frontmatter,
-    FrontmatterScalar,
     FrontmatterValue,
     JSONValue,
 )
@@ -719,7 +719,8 @@ def _emit_docflow_suite_artifacts(
         fm_end = None
         if fm_block is not None:
             fm_lines, fm_end = fm_block
-            fm_payload = _parse_yaml_like(list(fm_lines))
+            normalized = "---\n" + "\n".join(fm_lines) + "\n---\n"
+            fm_payload = dict(parse_frontmatter(normalized).mapping)
         if not fm_payload:
             missing_frontmatter.add(rel)
         else:
@@ -1494,111 +1495,8 @@ def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[
 
 
 def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
-    if not text.startswith("---\n"):
-        return {}, text
-    lines = text.split("\n")
-    if lines[0].strip() != "---":
-        return {}, text
-    fm_lines: List[str] = []
-    idx = 1
-    while idx < len(lines):
-        check_deadline()
-        line = lines[idx]
-        if line.strip() == "---":
-            idx += 1
-            break
-        fm_lines.append(line)
-        idx += 1
-    body = "\n".join(lines[idx:])
-    return _parse_yaml_like(fm_lines), body
-
-
-def _parse_yaml_like(lines: List[str]) -> Frontmatter:
-    def _parse_scalar(raw: str) -> FrontmatterScalar:
-        value = raw.strip()
-        if value.startswith("\"") and value.endswith("\""):
-            value = value[1:-1]
-        return int(value) if value.isdigit() else value
-
-    def _next_significant(start: int) -> tuple[int, str] | None:
-        idx = start
-        while idx < len(lines):
-            check_deadline()
-            candidate = lines[idx].rstrip()
-            if not candidate.strip():
-                idx += 1
-                continue
-            if candidate.lstrip().startswith("#"):
-                idx += 1
-                continue
-            return idx, candidate
-        return None
-
-    data: Frontmatter = {}
-    stack: list[tuple[int, object]] = [(0, data)]
-    idx = 0
-    while idx < len(lines):
-        check_deadline()
-        raw = lines[idx].rstrip()
-        idx += 1
-        if not raw.strip():
-            continue
-        if raw.lstrip().startswith("#"):
-            continue
-        indent = len(raw) - len(raw.lstrip(" "))
-        line = raw.strip()
-        while stack and indent < stack[-1][0]:
-            check_deadline()
-            stack.pop()
-        if not stack:
-            stack = [(0, data)]
-        container = stack[-1][1]
-
-        if line.startswith("- "):
-            if not isinstance(container, list):
-                continue
-            item = line[2:].strip()
-            if ":" in item:
-                key, value = item.split(":", 1)
-                key = key.strip()
-                value = value.strip()
-                entry: dict[str, FrontmatterScalar | object] = {}
-                if value == "":
-                    lookahead = _next_significant(idx)
-                    nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
-                    entry[key] = nested
-                    container.append(entry)
-                    stack.append((indent + 2, nested))
-                else:
-                    entry[key] = _parse_scalar(value)
-                    container.append(entry)
-                    lookahead = _next_significant(idx)
-                    if lookahead and (len(lookahead[1]) - len(lookahead[1].lstrip(" "))) > indent:
-                        stack.append((indent + 2, entry))
-            else:
-                container.append(_parse_scalar(item))
-            continue
-
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if not isinstance(container, dict):
-            continue
-        if value == "":
-            lookahead = _next_significant(idx)
-            nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
-            container[key] = nested
-            stack.append((indent + 2, nested))
-        else:
-            if value in ("[]", "[ ]"):
-                container[key] = []
-            elif value in ("{}", "{ }"):
-                container[key] = {}
-            else:
-                container[key] = _parse_scalar(value)
-    return data
+    parsed = parse_frontmatter(text)
+    return dict(parsed.mapping), parsed.body
 
 
 def _docflow_base_meta(rel: str, doc_id: str | None) -> dict[str, object]:
