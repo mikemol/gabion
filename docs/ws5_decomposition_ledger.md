@@ -1,5 +1,5 @@
 ---
-doc_revision: 189
+doc_revision: 190
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3217,6 +3217,39 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`62 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index compatibility-surface contraction:
+    - Removed unreferenced analysis-index symbols from monolith compatibility imports:
+      - `_ANALYSIS_INDEX_STAGE_CACHE_OP`
+      - `_build_module_artifacts`
+      - `_build_stage_cache_identity_spec`
+      - `_CacheSemanticContext`
+      - `_cache_identity_aliases`
+      - `_accumulate_class_index_for_tree`
+      - `_accumulate_symbol_table_for_tree`
+      - `_canonical_cache_identity`
+      - `_canonical_stage_cache_detail`
+      - `_canonical_stage_cache_identity`
+      - `_collect_transitive_callers`
+      - `_get_stage_cache_bucket`
+      - `_index_stage_cache_identity`
+      - `_function_index_module_artifact_spec`
+      - `_symbol_table_module_artifact_spec`
+      - `_normalize_cache_config`
+      - `_path_dependency_payload`
+      - `_projection_stage_cache_identity`
+      - `_ModuleArtifactSpec`
+      - `OptionalAnalysisIndex`
+      - `_StageCacheIdentitySpec`
+    - Removed corresponding analysis-index owner `__all__` compatibility exports for the same unreferenced surfaces.
+  - Correctness impact:
+    - Canonical analysis-index execution/build paths remain unchanged; removed names had no in-repo consumers outside monolith passthrough imports.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-249`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`63 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
