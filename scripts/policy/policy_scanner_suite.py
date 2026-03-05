@@ -13,7 +13,15 @@ def run(*, root: Path, out: Path) -> int:
     print(f"policy-suite scan: cached={result.cached} total_violations={total} out={out}")
     if total == 0:
         return 0
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel"):
+    for rule in (
+        "no_monkeypatch",
+        "branchless",
+        "defensive_fallback",
+        "no_legacy_monolith_import",
+        "orchestrator_primitive_barrel",
+        "typing_surface",
+        "runtime_narrowing_boundary",
+    ):
         items = policy_scanner_suite.violations_for_rule(result, rule=rule)
         if not items:
             continue

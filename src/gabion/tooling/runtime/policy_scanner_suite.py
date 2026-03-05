@@ -6,9 +6,15 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 import ast
-from gabion.tooling.policy_rules import branchless_rule, defensive_fallback_rule, no_monkeypatch_rule, typing_surface_rule
+from gabion.tooling.policy_rules import (
+    branchless_rule,
+    defensive_fallback_rule,
+    no_monkeypatch_rule,
+    runtime_narrowing_boundary_rule,
+    typing_surface_rule,
+)
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
@@ -16,6 +22,8 @@ _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
 _TYPING_SURFACE_BASELINE = Path("baselines/typing_surface_policy_baseline.json")
 _TYPING_SURFACE_WAIVERS = Path("baselines/typing_surface_policy_waivers.json")
+_RUNTIME_NARROWING_BOUNDARY_BASELINE = Path("baselines/runtime_narrowing_boundary_policy_baseline.json")
+_RUNTIME_NARROWING_BOUNDARY_WAIVERS = Path("baselines/runtime_narrowing_boundary_policy_waivers.json")
 _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 
 
@@ -24,14 +32,14 @@ _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
 
 
-def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, object]]:
+def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
     path = root / _ORCHESTRATOR_PRIMITIVE_BARREL_PATH
     if not path.exists():
         return []
     source = path.read_text(encoding="utf-8")
     lines = source.splitlines()
     export_count = source.count("'" ) if "__all__" in source else 0
-    violations: list[dict[str, object]] = []
+    violations: list[dict[str, Any]] = []
     if len(lines) > _ORCHESTRATOR_PRIMITIVE_MAX_LINES:
         violations.append({
             "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
@@ -69,7 +77,7 @@ class PolicySuiteResult:
     root: Path
     inventory_hash: str
     rule_set_hash: str
-    violations_by_rule: dict[str, list[dict[str, object]]]
+    violations_by_rule: dict[str, list[dict[str, Any]]]
     cached: bool
 
     def total_violations(self) -> int:
@@ -142,17 +150,25 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         module=typing_surface_rule,
         baseline_path=resolved_root / _TYPING_SURFACE_BASELINE,
     )
+    runtime_narrowing_boundary_allowed = _load_rule_baseline_keys(
+        module=runtime_narrowing_boundary_rule,
+        baseline_path=resolved_root / _RUNTIME_NARROWING_BOUNDARY_BASELINE,
+    )
     typing_surface_waiver_result = typing_surface_rule.load_waivers(
         resolved_root / _TYPING_SURFACE_WAIVERS,
     )
+    runtime_narrowing_boundary_waiver_result = runtime_narrowing_boundary_rule.load_waivers(
+        resolved_root / _RUNTIME_NARROWING_BOUNDARY_WAIVERS,
+    )
 
-    violations_by_rule: dict[str, list[dict[str, object]]] = {
+    violations_by_rule: dict[str, list[dict[str, Any]]] = {
         "no_monkeypatch": [],
         "branchless": [],
         "defensive_fallback": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
         "typing_surface": [],
+        "runtime_narrowing_boundary": [],
     }
 
     for invalid in typing_surface_waiver_result.invalid_waivers:
@@ -168,6 +184,21 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                 "message": f"invalid typing-surface waiver metadata: {invalid.reason}",
                 "key": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
                 "render": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
+            }
+        )
+
+    for invalid in runtime_narrowing_boundary_waiver_result.invalid_waivers:
+        violations_by_rule["runtime_narrowing_boundary"].append(
+            {
+                "path": _RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix(),
+                "line": int(invalid.index),
+                "column": 1,
+                "qualname": "<waiver>",
+                "kind": "invalid_waiver",
+                "call": "<none>",
+                "message": f"invalid runtime-narrowing-boundary waiver metadata: {invalid.reason}",
+                "key": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
+                "render": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
             }
         )
 
@@ -248,6 +279,19 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                     _serialize_typing_surface(item) for item in typing_surface_violations
                 )
 
+                runtime_narrowing_boundary_violations = _filter_baseline_violations(
+                    runtime_narrowing_boundary_rule.collect_violations(
+                        rel_path=rel_path,
+                        source=source,
+                        tree=tree,
+                    ),
+                    allowed_keys=(runtime_narrowing_boundary_allowed | runtime_narrowing_boundary_waiver_result.allowed_keys),
+                )
+                violations_by_rule["runtime_narrowing_boundary"].extend(
+                    _serialize_runtime_narrowing_boundary(item)
+                    for item in runtime_narrowing_boundary_violations
+                )
+
     for rule, items in list(violations_by_rule.items()):
         violations_by_rule[rule] = sorted(
             items,
@@ -267,7 +311,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
     )
 
 
-def violations_for_rule(result: PolicySuiteResult, *, rule: str) -> list[dict[str, object]]:
+def violations_for_rule(result: PolicySuiteResult, *, rule: str) -> list[dict[str, Any]]:
     return list(result.violations_by_rule.get(rule, []))
 
 
@@ -285,7 +329,7 @@ def _load_cached_payload(path: Path) -> dict[str, object] | None:
     return payload
 
 
-def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[str, object]]]:
+def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     violations_raw = payload.get("violations")
     if not isinstance(violations_raw, dict):
         return {
@@ -295,9 +339,18 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "no_legacy_monolith_import": [],
             "orchestrator_primitive_barrel": [],
             "typing_surface": [],
+            "runtime_narrowing_boundary": [],
         }
-    normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel", "typing_surface"):
+    normalized: dict[str, list[dict[str, Any]]] = {}
+    for rule in (
+        "no_monkeypatch",
+        "branchless",
+        "defensive_fallback",
+        "no_legacy_monolith_import",
+        "orchestrator_primitive_barrel",
+        "typing_surface",
+        "runtime_narrowing_boundary",
+    ):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -337,6 +390,7 @@ def _rule_set_hash() -> str:
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
             "typing_surface:v1",
+            "runtime_narrowing_boundary:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -509,6 +563,20 @@ def _serialize_typing_surface(violation: object) -> dict[str, object]:
         "kind": getattr(violation, "kind"),
         "scope": getattr(violation, "scope"),
         "annotation": getattr(violation, "annotation"),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_runtime_narrowing_boundary(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "call": getattr(violation, "call"),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
