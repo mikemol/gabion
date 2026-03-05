@@ -116,11 +116,9 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support imp
     _unused_params,
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-    _collect_closure_lambda_factories,
     _collect_lambda_bindings_by_caller,
     _collect_lambda_function_infos,
     _function_key,
-    _synthetic_lambda_name,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots,
@@ -150,7 +148,6 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
     _collect_recursive_nodes,
     _reachable_from_roots,
-    _sorted_graph_nodes,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details,
@@ -184,45 +181,22 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
     _CacheIdentity,
-    _ResumeCacheIdentityPair,
-    _analysis_index_resume_variant_payload,
     _analysis_index_resume_variants,
     _build_analysis_collection_resume_payload,
     _compute_invariant_evidence_key,
     _compute_invariant_id,
-    _deserialize_bundle_sites_for_resume,
-    _deserialize_call_args,
-    _deserialize_call_args_list,
-    _deserialize_class_info_for_resume,
     _deserialize_function_info_for_resume,
-    _deserialize_groups_for_resume,
     _deserialize_invariants_for_resume,
-    _deserialize_param_spans_for_resume,
-    _deserialize_param_use,
-    _deserialize_param_use_map,
     _deserialize_symbol_table_for_resume,
-    _empty_analysis_collection_resume_payload,
-    _empty_file_scan_resume_state,
     _invariant_confidence,
     _invariant_digest,
     _load_analysis_collection_resume_payload,
     _load_analysis_index_resume_payload,
     _load_file_scan_resume_state,
     _serialize_analysis_index_resume_payload,
-    _serialize_bundle_sites_for_resume,
-    _serialize_call_args,
-    _serialize_call_args_list,
-    _serialize_class_info_for_resume,
     _serialize_file_scan_resume_state,
-    _serialize_function_info_for_resume,
-    _serialize_groups_for_resume,
-    _serialize_invariants_for_resume,
-    _serialize_param_spans_for_resume,
-    _serialize_param_use,
-    _serialize_param_use_map,
     _serialize_symbol_table_for_resume,
     _normalize_invariant_proposition,
-    _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     ConstantFlowDetail,
@@ -396,10 +370,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     ReportProjectionSpec,
     _compute_violations,
-    _report_section_identity_render,
-    _report_section_no_violations,
     _report_section_spec,
-    _report_section_text,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,

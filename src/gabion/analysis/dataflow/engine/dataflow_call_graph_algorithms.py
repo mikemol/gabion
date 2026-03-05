@@ -107,5 +107,4 @@ __all__ = [
     "_collect_recursive_functions",
     "_collect_recursive_nodes",
     "_reachable_from_roots",
-    "_sorted_graph_nodes",
 ]

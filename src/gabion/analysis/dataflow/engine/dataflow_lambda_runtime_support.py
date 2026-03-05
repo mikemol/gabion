@@ -126,9 +126,7 @@ def _collect_lambda_bindings_by_caller(
 
 
 __all__ = [
-    "_collect_closure_lambda_factories",
     "_collect_lambda_bindings_by_caller",
     "_collect_lambda_function_infos",
     "_function_key",
-    "_synthetic_lambda_name",
 ]

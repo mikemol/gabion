@@ -98,8 +98,5 @@ __all__ = [
     "ReportProjectionSpec",
     "ReportProjectionPhase",
     "_compute_violations",
-    "_report_section_identity_render",
-    "_report_section_no_violations",
     "_report_section_spec",
-    "_report_section_text",
 ]

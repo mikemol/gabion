@@ -1,5 +1,5 @@
 ---
-doc_revision: 191
+doc_revision: 192
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 570
+- Monolith LOC (current): 467
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -3271,6 +3271,27 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Resume/call-graph/lambda/reporting compatibility-surface contraction:
+    - Removed unreferenced monolith passthrough imports for symbols with no in-repo consumers outside monolith from:
+      - `dataflow_resume_serialization.py`
+      - `dataflow_call_graph_algorithms.py`
+      - `dataflow_lambda_runtime_support.py`
+      - `dataflow_runtime_reporting_owner.py`
+    - Pruned corresponding owner `__all__` export entries for those unreferenced symbols.
+    - Symbols contracted in this slice:
+      - resume serialization: `_ResumeCacheIdentityPair`, `_analysis_index_resume_variant_payload`, `_deserialize_bundle_sites_for_resume`, `_deserialize_call_args`, `_deserialize_call_args_list`, `_deserialize_class_info_for_resume`, `_deserialize_groups_for_resume`, `_deserialize_param_spans_for_resume`, `_deserialize_param_use`, `_deserialize_param_use_map`, `_empty_analysis_collection_resume_payload`, `_empty_file_scan_resume_state`, `_serialize_bundle_sites_for_resume`, `_serialize_call_args`, `_serialize_call_args_list`, `_serialize_class_info_for_resume`, `_serialize_function_info_for_resume`, `_serialize_groups_for_resume`, `_serialize_invariants_for_resume`, `_serialize_param_spans_for_resume`, `_serialize_param_use`, `_serialize_param_use_map`, `_with_analysis_index_resume_variants`
+      - call graph: `_sorted_graph_nodes`
+      - lambda runtime: `_collect_closure_lambda_factories`, `_synthetic_lambda_name`
+      - reporting owner: `_report_section_identity_render`, `_report_section_no_violations`, `_report_section_text`
+  - Correctness impact:
+    - Canonical owner internals and runtime semantics remain unchanged; this slice contracts unused compatibility export surfaces only.
+    - Monolith structural metrics improved (`LOC=467`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-251`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`45 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
