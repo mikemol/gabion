@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from gabion.schema import DataflowResponseEnvelopeDTO
 from gabion.server_core.ingress_primitives import ExecuteCommandDeps
 from gabion.server_core import command_orchestrator_primitives as legacy
 
 
 @dataclass(frozen=True)
 class IngressStageDeps:
-    normalize_dataflow_response_fn: Callable[[dict[str, object]], dict[str, object]]
+    normalize_dataflow_response_fn: Callable[[dict[str, object]], DataflowResponseEnvelopeDTO]
     materialize_execution_plan_fn: Callable[[dict[str, object]], object]
     default_execute_command_deps_fn: Callable[[], ExecuteCommandDeps]
 

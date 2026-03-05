@@ -11,6 +11,7 @@ from typing import Callable
 import typer
 
 from gabion.json_types import JSONObject
+from gabion.schema import DataflowResponseEnvelopeDTO
 from gabion.runtime import path_policy
 
 DeadlineScopeFactory = Callable[[], AbstractContextManager[object]]
@@ -20,7 +21,8 @@ WriteTextToTargetFn = Callable[..., None]
 EmitResultJsonToStdoutFn = Callable[..., None]
 CheckDeadlineFn = Callable[[], None]
 SortOnceFn = Callable[..., list[str]]
-NormalizeDataflowResponseFn = Callable[[JSONObject], dict[str, object]]
+NormalizeDataflowResponseFn = Callable[[JSONObject], DataflowResponseEnvelopeDTO]
+SerializeDataflowResponseFn = Callable[[DataflowResponseEnvelopeDTO], dict[str, object]]
 
 
 def normalize_output_target(
@@ -101,10 +103,13 @@ def emit_dataflow_result_outputs(
     stdout_path: str,
     check_deadline_fn: CheckDeadlineFn,
     normalize_dataflow_response_fn: NormalizeDataflowResponseFn,
+    serialize_dataflow_response_fn: SerializeDataflowResponseFn,
 ) -> None:
     with cli_deadline_scope_factory():
-        normalized_result = normalize_dataflow_response_fn(result)
-        lint_lines = normalized_result.get("lint_lines", []) or []
+        normalized_envelope = normalize_dataflow_response_fn(result)
+        canonical = normalized_envelope.canonical
+        normalized_result = serialize_dataflow_response_fn(normalized_envelope)
+        lint_lines = list(canonical.lint_lines)
         lint_entries_raw = normalized_result.get("lint_entries")
         lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else None
         emit_lint_outputs_fn(

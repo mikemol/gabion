@@ -97,7 +97,7 @@ from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.plan import ExecutionPlan, write_execution_plan_artifact
-from gabion.schema import CanonicalProgressEventPayloadDTO
+from gabion.schema import CanonicalProgressEventPayloadDTO, DataflowResponseEnvelopeDTO
 from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
@@ -3905,7 +3905,7 @@ class _SuccessResponseContext:
 
 @dataclass(frozen=True)
 class _SuccessResponseOutcome:
-    response: dict
+    response: DataflowResponseEnvelopeDTO
     phase_checkpoint_state: JSONObject
 
 
@@ -4569,7 +4569,7 @@ def execute_command_total(
     payload: dict[str, object],
     *,
     deps: ExecuteCommandDeps | None = None,
-) -> dict:
+) -> DataflowResponseEnvelopeDTO:
     ingress_stage = _stage_ingress(ls=ls, payload=payload, deps=deps)
     execute_deps = ingress_stage.stage_deps.execute_deps
     execution_plan = ingress_stage.execution_plan

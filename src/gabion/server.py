@@ -69,7 +69,7 @@ from gabion.refactor import (
     FieldSpec, LoopGeneratorRequest as LoopGeneratorRequestModel, RefactorEngine, RefactorCompatibilityShimConfig, RefactorRequest as RefactorRequestModel)
 from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
-    LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
+    DataflowResponseEnvelopeDTO, LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -1616,8 +1616,14 @@ def _normalize_dataflow_boundary_controls(
     )
 
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
+def _normalize_dataflow_response_envelope(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
     return orchestrator_primitives._normalize_dataflow_response(response)
+
+
+def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
+    return orchestrator_primitives._serialize_dataflow_response(
+        _normalize_dataflow_response_envelope(response)
+    )
 
 
 def _truthy_flag(value: object) -> bool:
@@ -1918,7 +1924,7 @@ def _invariant_failure_dataflow_response(
     command: str,
     error: NeverThrown,
 ) -> dict[str, object]:
-    normalized = _normalize_dataflow_response(
+    envelope = _normalize_dataflow_response_envelope(
         {
             "exit_code": 2,
             "timeout": False,
@@ -1930,7 +1936,10 @@ def _invariant_failure_dataflow_response(
             "lint_entries": [],
         }
     )
-    return _ordered_command_response(normalized, command=command)
+    return _ordered_command_response(
+        orchestrator_primitives._serialize_dataflow_response(envelope),
+        command=command,
+    )
 
 
 @decision_protocol
@@ -1944,7 +1953,7 @@ def _execute_dataflow_command_boundary(
         command_payload = _parse_dataflow_command_payload(payload)
         normalized_result = _execute_command_total(ls, command_payload, deps=deps)
         return _ordered_command_response(
-            normalized_result,
+            orchestrator_primitives._serialize_dataflow_response(normalized_result),
             command=DATAFLOW_COMMAND,
         )
     except NeverThrown as error:
@@ -1977,7 +1986,7 @@ def _execute_command_total(
     payload: DataflowCommandPayload | Mapping[str, object],
     *,
     deps: ExecuteCommandDeps | None = None,
-) -> dict:
+) -> DataflowResponseEnvelopeDTO:
     from gabion.server_core.command_orchestrator import execute_command_total
 
     command_payload = payload if isinstance(payload, DataflowCommandPayload) else DataflowCommandPayload(payload=_require_payload(payload, command=DATAFLOW_COMMAND))
