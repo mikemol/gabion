@@ -103,11 +103,11 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
-    _callee_name as _callee_name_owner,
+    _callee_name,
     _call_context,
     _collect_return_aliases,
     _const_repr,
-    _normalize_callee as _normalize_callee_owner,
+    _normalize_callee,
     _normalize_key_expr,
     _return_aliases,
 )
@@ -337,8 +337,8 @@ from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles as _iter_documented_bundles_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
-    _collect_functions as _collect_functions_owner,
-    _iter_paths as _iter_paths_owner,
+    _collect_functions,
+    _iter_paths,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _adapt_ingest_carrier_to_analysis_maps as _adapt_ingest_carrier_to_analysis_maps_owner,
@@ -543,14 +543,6 @@ AuditConfig = _ContractAuditConfig
 
 _summarize_deadline_obligations = _summarize_deadline_obligations_owner
 
-
-_callee_name = _callee_name_owner
-
-_normalize_callee = _normalize_callee_owner
-
-_iter_paths = _iter_paths_owner
-
-_collect_functions = _collect_functions_owner
 
 _decorator_name = _decorator_name_owner
 
