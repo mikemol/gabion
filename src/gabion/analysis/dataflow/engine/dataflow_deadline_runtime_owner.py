@@ -3,6 +3,7 @@ from __future__ import annotations
 
 """Deadline-runtime compatibility owner during WS-5 migration."""
 
+from functools import partial
 from pathlib import Path
 import re
 from collections.abc import Mapping
@@ -261,30 +262,28 @@ def _resolve_callee_outcome(
     )
 
 
-def _collect_deadline_local_info(
-    assignments,
-    params,
-):
-    return _collect_deadline_local_info_impl(
-        assignments,
-        params,
-        deps=_CollectDeadlineLocalInfoDeps(
-            check_deadline_fn=check_deadline,
-            is_deadline_origin_call_fn=_is_deadline_origin_call,
-            target_names_fn=_target_names,
-            deadline_local_info_ctor=_DeadlineLocalInfo,
-        ),
-    )
+_COLLECT_DEADLINE_LOCAL_INFO_DEPS = _CollectDeadlineLocalInfoDeps(
+    check_deadline_fn=check_deadline,
+    is_deadline_origin_call_fn=_is_deadline_origin_call,
+    target_names_fn=_target_names,
+    deadline_local_info_ctor=_DeadlineLocalInfo,
+)
+
+_collect_deadline_local_info = partial(
+    _collect_deadline_local_info_impl,
+    deps=_COLLECT_DEADLINE_LOCAL_INFO_DEPS,
+)
 
 
-def _call_nodes_for_tree(tree):
-    return _call_nodes_for_tree_impl(
-        tree,
-        deps=_CallNodesForTreeDeps(
-            check_deadline_fn=check_deadline,
-            node_span_fn=_node_span,
-        ),
-    )
+_CALL_NODES_FOR_TREE_DEPS = _CallNodesForTreeDeps(
+    check_deadline_fn=check_deadline,
+    node_span_fn=_node_span,
+)
+
+_call_nodes_for_tree = partial(
+    _call_nodes_for_tree_impl,
+    deps=_CALL_NODES_FOR_TREE_DEPS,
+)
 
 
 def _parse_module_tree_or_none(
@@ -305,29 +304,21 @@ def _parse_module_tree_or_none(
             return None
 
 
-def _collect_call_nodes_by_path(
-    paths,
-    *,
-    trees=None,
-    parse_failure_witnesses,
-    analysis_index=None,
-):
-    return _collect_call_nodes_by_path_impl(
-        paths,
-        trees=trees,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        deps=_CollectCallNodesByPathDeps(
-            check_deadline_fn=check_deadline,
-            analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-            stage_cache_spec_ctor=_StageCacheSpec,
-            parse_module_stage_call_nodes=_ParseModuleStage.CALL_NODES,
-            parse_stage_cache_key_fn=_parse_stage_cache_key,
-            empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-            call_nodes_for_tree_fn=_call_nodes_for_tree,
-            parse_module_tree_fn=_parse_module_tree_or_none,
-        ),
-    )
+_COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(
+    check_deadline_fn=check_deadline,
+    analysis_index_stage_cache_fn=_analysis_index_stage_cache,
+    stage_cache_spec_ctor=_StageCacheSpec,
+    parse_module_stage_call_nodes=_ParseModuleStage.CALL_NODES,
+    parse_stage_cache_key_fn=_parse_stage_cache_key,
+    empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
+    call_nodes_for_tree_fn=_call_nodes_for_tree,
+    parse_module_tree_fn=_parse_module_tree_or_none,
+)
+
+_collect_call_nodes_by_path = partial(
+    _collect_call_nodes_by_path_impl,
+    deps=_COLLECT_CALL_NODES_BY_PATH_DEPS,
+)
 
 
 def _deadline_function_facts_for_tree(
@@ -367,36 +358,22 @@ def _deadline_function_facts_for_tree(
     return facts
 
 
-def _collect_deadline_function_facts(
-    paths,
-    *,
-    project_root=None,
-    ignore_params,
-    parse_failure_witnesses: list[JSONObject],
-    trees=None,
-    analysis_index=None,
-    stage_cache_fn=None,
-):
-    return _collect_deadline_function_facts_impl(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        parse_failure_witnesses=parse_failure_witnesses,
-        trees=trees,
-        analysis_index=analysis_index,
-        stage_cache_fn=stage_cache_fn,
-        deps=_CollectDeadlineFunctionFactsDeps(
-            check_deadline_fn=check_deadline,
-            analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-            stage_cache_spec_ctor=_StageCacheSpec,
-            parse_stage_cache_key_fn=_parse_stage_cache_key,
-            deadline_function_facts_stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-            empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-            sorted_text_fn=_sorted_text,
-            deadline_function_facts_for_tree_fn=_deadline_function_facts_for_tree,
-            parse_module_tree_fn=_parse_module_tree_or_none,
-        ),
-    )
+_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
+    check_deadline_fn=check_deadline,
+    analysis_index_stage_cache_fn=_analysis_index_stage_cache,
+    stage_cache_spec_ctor=_StageCacheSpec,
+    parse_stage_cache_key_fn=_parse_stage_cache_key,
+    deadline_function_facts_stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+    empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
+    sorted_text_fn=_sorted_text,
+    deadline_function_facts_for_tree_fn=_deadline_function_facts_for_tree,
+    parse_module_tree_fn=_parse_module_tree_or_none,
+)
+
+_collect_deadline_function_facts = partial(
+    _collect_deadline_function_facts_impl,
+    deps=_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS,
+)
 
 _bind_call_args = _bind_call_args_impl
 
