@@ -47,23 +47,35 @@ def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
 
 
 def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn:
-    from gabion.analysis.foundation.marker_protocol import MarkerKind, never_marker_payload, normalize_marker_payload
+    from gabion.analysis.foundation.marker_protocol import (
+        MarkerKind,
+        never_marker_payload,
+        normalize_marker_payload,
+        normalize_marker_reasoning,
+    )
 
     owner = str(env.get("owner", ""))
     expiry = str(env.get("expiry", ""))
     links = _normalized_marker_links(env.get("links", ()))
-    extra_env = {key: value for key, value in env.items() if key not in {"owner", "expiry", "links"}}
+    raw_reasoning = env.get("reasoning", reason)
+    normalized_reasoning = normalize_marker_reasoning(raw_reasoning)
+    extra_env = {key: value for key, value in env.items() if key not in {"owner", "expiry", "links", "reasoning"}}
     if marker_kind == MarkerKind.NEVER.value:
         payload = never_marker_payload(
             reason=reason,
+            reasoning=normalized_reasoning,
             env=extra_env,
             owner=owner,
             expiry=expiry,
             links=links,
         )
     else:
+        fallback_reasoning = normalized_reasoning
+        if not fallback_reasoning.summary:
+            fallback_reasoning = normalize_marker_reasoning(f"{marker_kind}() marker reached")
         payload = normalize_marker_payload(
             reason=reason or f"{marker_kind}() marker reached",
+            reasoning=fallback_reasoning,
             env=extra_env,
             marker_kind=MarkerKind(marker_kind),
             owner=owner,
