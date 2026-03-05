@@ -1,5 +1,5 @@
 ---
-doc_revision: 197
+doc_revision: 198
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -23,6 +23,7 @@ doc_scope:
 - Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
 - Medium: monolith remains a broad compatibility alias surface with a non-trivial import fan-in/out contract despite being within WS-5 hard-cut thresholds.
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
+- High: `dataflow_facade` compatibility drift is still present for some legacy test expectations (`sort_once`, `_EvalDecision`, and hierarchy/lint helper return-shape parity), exposed during broad facade importer sweep; needs dedicated fix-forward compatibility slice.
 
 ## Progress Ledger
 - WS-1 through WS-4 completed previously (server/core, CLI/runtime, governance, CST convergence).
@@ -3387,6 +3388,30 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`56 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade import-surface contraction:
+    - Removed unreferenced compatibility re-export imports from `dataflow_facade.py` for symbols with no in-repo callsites through facade:
+      - `_CalleeResolutionOutcome`
+      - `_normalize_snapshot_path`
+      - `_accumulate_function_index_for_tree`
+      - `_collect_param_roots`
+      - `_contains_boolish`
+      - `_decision_surface_form_entries`
+      - `_decision_surface_reason_map`
+      - `_mark_param_roots`
+      - `is_decision_surface`
+      - `_module_name`
+      - `_build_parser`
+      - `TimeoutExceeded`
+  - Correctness impact:
+    - Canonical owner/runtime behavior unchanged; this slice contracts unused facade re-export import surface only.
+    - Monolith structural metrics unchanged (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+    - Broad facade-sweep pytest exposed pre-existing compatibility gaps (`sort_once`, `_EvalDecision`, class-resolution return-shape parity, and broad-type lint analysis-index expectation) tracked as debt for next correction units.
+  - ASPF no-change acknowledgement refreshed (`in-257`).
+  - Validation:
+    - policy checks passed
+    - focused touched-surface pytest bundle passed (`37 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

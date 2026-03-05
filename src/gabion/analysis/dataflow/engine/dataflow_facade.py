@@ -4,7 +4,6 @@ from __future__ import annotations
 """Facade compatibility module for legacy indexed-dataflow symbols."""
 
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
-    _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
     _DeadlineLocalInfo,
     _DeadlineLoopFacts,
@@ -24,14 +23,12 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _fallback_deadline_arg_info,
     _is_dynamic_dispatch_callee_key,
     _is_deadline_origin_call,
-    _normalize_snapshot_path,
     _resolve_callee,
     _resolve_callee_outcome,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    _accumulate_function_index_for_tree,
     _analyze_file_internal,
     _build_function_index,
     _build_symbol_table,
@@ -61,16 +58,10 @@ from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
-    _collect_param_roots,
-    _contains_boolish,
-    _decision_surface_form_entries,
     _decision_surface_params,
-    _decision_surface_reason_map,
     _decorator_name,
     _decorators_transparent,
-    _mark_param_roots,
     _value_encoded_decision_params,
-    is_decision_surface,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
@@ -80,7 +71,6 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_function_scopes,
     _enclosing_scopes,
     _is_test_path,
-    _module_name,
     _param_names,
     _param_spans,
 )
@@ -182,7 +172,6 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _collect_module_exports,
 )
 from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
-    _build_parser,
     _resolve_synth_registry_path,
 )
 
@@ -209,7 +198,7 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _parse_exception_path_id,
     _parse_lint_location,
 )
-from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
 )
