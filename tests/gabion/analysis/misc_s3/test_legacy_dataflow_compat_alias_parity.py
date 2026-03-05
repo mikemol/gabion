@@ -71,15 +71,28 @@ def _monolith_analysis_index_aliases() -> tuple[str, ...]:
 
 
 def _monolith_aliases_for(module_path: str) -> tuple[str, ...]:
+    return tuple(bound for bound, _ in _monolith_alias_bindings_for(module_path))
+
+
+def _monolith_alias_bindings_for(module_path: str) -> tuple[tuple[str, str], ...]:
     repo_root = Path(__file__).resolve().parents[4]
     monolith_path = (
         repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
     )
     tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
+    bindings: list[tuple[str, str]] = []
+    seen_bound_names: set[str] = set()
     for node in tree.body:
         if isinstance(node, ast.ImportFrom) and node.module == module_path:
-            return tuple(alias.name for alias in node.names)
-    raise AssertionError(f"monolith import surface not found for {module_path}")
+            for alias in node.names:
+                bound_name = alias.asname or alias.name
+                if bound_name in seen_bound_names:
+                    continue
+                seen_bound_names.add(bound_name)
+                bindings.append((bound_name, alias.name))
+    if not bindings:
+        raise AssertionError(f"monolith import surface not found for {module_path}")
+    return tuple(bindings)
 
 
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
@@ -273,3 +286,19 @@ def test_facade_covers_monolith_external_support_alias_surfaces() -> None:
                 "facade external-support symbol must remain an alias to canonical "
                 f"owner; module={module_path} symbol={symbol}"
             )
+
+
+def test_facade_covers_monolith_reporting_alias_surface() -> None:
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+    canonical = _load("gabion.analysis.dataflow.io.dataflow_reporting")
+    for bound_name, source_name in _monolith_alias_bindings_for(
+        "gabion.analysis.dataflow.io.dataflow_reporting"
+    ):
+        assert hasattr(facade, bound_name), (
+            "facade must carry full monolith reporting compatibility surface; "
+            f"missing={bound_name}"
+        )
+        assert getattr(facade, bound_name) is getattr(canonical, source_name), (
+            "facade reporting symbol must remain an alias to canonical owner; "
+            f"bound={bound_name} source={source_name}"
+        )

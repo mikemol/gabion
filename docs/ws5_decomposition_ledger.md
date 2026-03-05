@@ -1,5 +1,5 @@
 ---
-doc_revision: 250
+doc_revision: 251
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,17 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-310`, this CU):
+  - Hardened compatibility parity guard extraction semantics:
+    - monolith import-surface introspection now aggregates multi-import modules and tracks bound/source alias pairs
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+  - Added dedicated reporting-surface alias parity coverage:
+    - `test_facade_covers_monolith_reporting_alias_surface`
+    - verifies `_emit_report`/`render_report` bound aliases map to canonical reporting owner symbols
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`40 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected new-test/line-shift mapping drift
 - WS-5 continuation (`in-309`, this CU):
   - Expanded external-support compatibility convergence on facade boundary:
     - completed facade alias coverage for remaining monolith external support surfaces in:
