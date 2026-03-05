@@ -1,5 +1,5 @@
 ---
-doc_revision: 149
+doc_revision: 150
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2559,6 +2559,20 @@ doc_scope:
     - Deadline runtime function-carrier behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-208`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner resume-alias contraction:
+    - Replaced owner-local alias assignment shims in `dataflow_analysis_index_owner.py` with direct canonical import aliases for:
+      - `_build_analysis_collection_resume_payload`
+      - `_load_analysis_collection_resume_payload`
+    - Removed redundant owner-local reassignment layer for these resume payload helpers.
+  - Compatibility status:
+    - Analysis-index resume payload behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-209`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

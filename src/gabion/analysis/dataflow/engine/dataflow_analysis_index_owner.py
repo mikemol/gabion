@@ -21,9 +21,9 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_PREFIX,
     _CacheIdentity,
     _analysis_collection_resume_path_key as _analysis_collection_resume_path_key_resume,
-    _build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_owner,
+    _build_analysis_collection_resume_payload,
     _load_file_scan_resume_state,
-    _load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_owner,
+    _load_analysis_collection_resume_payload,
     _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
     _serialize_file_scan_resume_state,
     _serialize_analysis_index_resume_payload as _serialize_analysis_index_resume_payload_owner,
@@ -895,9 +895,6 @@ def analyze_file(path: Path, recursive: bool = True, *, config=None):
     return groups, spans
 
 
-_build_analysis_collection_resume_payload = _build_analysis_collection_resume_payload_owner
-
-
 def _build_analysis_index(
     paths,
     *,
@@ -1027,9 +1024,6 @@ def _run_indexed_pass(
         analysis_index=index,
     )
     return spec.run(context)
-
-
-_load_analysis_collection_resume_payload = _load_analysis_collection_resume_payload_owner
 
 
 __all__ = [
