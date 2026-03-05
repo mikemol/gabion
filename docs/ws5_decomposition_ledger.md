@@ -1,5 +1,5 @@
 ---
-doc_revision: 133
+doc_revision: 134
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2323,6 +2323,18 @@ doc_scope:
     - Lint-helper broad-type/indexed ordering behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-193`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime owner coupling convergence:
+    - Switched `dataflow_deadline_runtime_owner.py` to import `_build_analysis_index` directly from canonical `dataflow_analysis_index_owner.py`.
+    - Removed residual dependency on boundary `dataflow_analysis_index.py` for this surface.
+  - Compatibility status:
+    - Deadline/index coupling behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-194`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
