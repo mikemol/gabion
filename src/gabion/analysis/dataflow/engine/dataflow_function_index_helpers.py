@@ -54,18 +54,6 @@ def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
     return (lineno - 1, col, end_lineno - 1, end_col)
 
 
-def _node_span_runtime(node: ast.AST) -> tuple[int, int, int, int] | None:
-    if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
-        return None
-    start_line = max(getattr(node, "lineno", 1) - 1, 0)
-    start_col = max(getattr(node, "col_offset", 0), 0)
-    end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
-    end_col = getattr(node, "end_col_offset", start_col + 1)
-    if end_line == start_line and end_col <= start_col:
-        end_col = start_col + 1
-    return (start_line, start_col, end_line, end_col)
-
-
 def _build_parent_map(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     parent_map: dict[ast.AST, ast.AST] = {}
     for parent in ast.walk(tree):
@@ -140,23 +128,6 @@ def _param_names(
     return names
 
 
-def _param_names_runtime(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> list[str]:
-    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    names = [arg.arg for arg in args]
-    if fn.args.vararg is not None:
-        names.append(fn.args.vararg.arg)
-    if fn.args.kwarg is not None:
-        names.append(fn.args.kwarg.arg)
-    if names and names[0] in {"self", "cls"}:
-        names = names[1:]
-    if ignore_params:
-        names = [name for name in names if name not in ignore_params]
-    return names
-
-
 def _annotation_text(node: ast.AST | None) -> str | None:
     if node is None:
         return None
@@ -179,32 +150,6 @@ def _param_annotations(
         annots[fn.args.vararg.arg] = _annotation_text(fn.args.vararg.annotation)
     if fn.args.kwarg is not None and fn.args.kwarg.arg not in ignore_params:
         annots[fn.args.kwarg.arg] = _annotation_text(fn.args.kwarg.annotation)
-    return annots
-
-
-def _param_annotations_runtime(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> dict[str, str | None]:
-    check_deadline()
-    effective_ignore = ignore_params or set()
-    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    names = [arg.arg for arg in args]
-    annots: dict[str, str | None] = {}
-    for name, arg in zip(names, args):
-        check_deadline()
-        annots[name] = _annotation_text(arg.annotation)
-    if fn.args.vararg is not None:
-        annots[fn.args.vararg.arg] = _annotation_text(fn.args.vararg.annotation)
-    if fn.args.kwarg is not None:
-        annots[fn.args.kwarg.arg] = _annotation_text(fn.args.kwarg.annotation)
-    if names and names[0] in {"self", "cls"}:
-        annots.pop(names[0], None)
-    if effective_ignore:
-        for name in list(annots.keys()):
-            check_deadline()
-            if name in effective_ignore:
-                annots.pop(name, None)
     return annots
 
 
@@ -231,29 +176,6 @@ def _param_defaults(
     return defaults
 
 
-def _param_defaults_runtime(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> set[str]:
-    check_deadline()
-    defaults: set[str] = set()
-    effective_ignore = ignore_params or set()
-    args = fn.args.posonlyargs + fn.args.args
-    names = [arg.arg for arg in args]
-    if fn.args.defaults:
-        defaulted = names[-len(fn.args.defaults) :]
-        defaults.update(defaulted)
-    for kw_arg, default in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
-        check_deadline()
-        if default is not None:
-            defaults.add(kw_arg.arg)
-    if names and names[0] in {"self", "cls"}:
-        defaults.discard(names[0])
-    if effective_ignore:
-        defaults = {name for name in defaults if name not in effective_ignore}
-    return defaults
-
-
 def _param_spans(
     fn: ast.FunctionDef | ast.AsyncFunctionDef, ignore_params: set[str]
 ) -> dict[str, tuple[int, int, int, int]]:
@@ -274,101 +196,6 @@ def _param_spans(
         if span is not None:
             spans[fn.args.kwarg.arg] = span
     return spans
-
-
-def _param_spans_runtime(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    ignore_params: set[str] | None = None,
-) -> dict[str, tuple[int, int, int, int]]:
-    check_deadline()
-    spans: dict[str, tuple[int, int, int, int]] = {}
-    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    names = [arg.arg for arg in args]
-    if names and names[0] in {"self", "cls"}:
-        args = args[1:]
-    for arg in args:
-        check_deadline()
-        if ignore_params and arg.arg in ignore_params:
-            continue
-        span = _node_span_runtime(arg)
-        if span is not None:
-            spans[arg.arg] = span
-    if fn.args.vararg:
-        name = fn.args.vararg.arg
-        if not ignore_params or name not in ignore_params:
-            span = _node_span_runtime(fn.args.vararg)
-            if span is not None:
-                spans[name] = span
-    if fn.args.kwarg:
-        name = fn.args.kwarg.arg
-        if not ignore_params or name not in ignore_params:
-            span = _node_span_runtime(fn.args.kwarg)
-            if span is not None:
-                spans[name] = span
-    return spans
-
-
-def _enclosing_class_runtime(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-) -> str | None:
-    check_deadline()
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.ClassDef:
-            return cast(ast.ClassDef, current).name
-        current = parents.get(current)
-    return None
-
-
-def _enclosing_scopes_runtime(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        current_type = type(current)
-        if current_type is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
-        elif current_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
-
-
-def _enclosing_class_scopes_runtime(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
-
-
-def _enclosing_function_scopes_runtime(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        current_type = type(current)
-        if current_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
 
 
 def _callee_name(call: ast.Call) -> str:

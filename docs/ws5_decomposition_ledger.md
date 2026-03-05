@@ -1,5 +1,5 @@
 ---
-doc_revision: 196
+doc_revision: 197
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3367,6 +3367,26 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Function-index helper dead-surface contraction:
+    - Removed dead runtime-suffix helper implementations from `dataflow_function_index_helpers.py`:
+      - `_node_span_runtime`
+      - `_param_names_runtime`
+      - `_param_annotations_runtime`
+      - `_param_defaults_runtime`
+      - `_param_spans_runtime`
+      - `_enclosing_class_runtime`
+      - `_enclosing_scopes_runtime`
+      - `_enclosing_class_scopes_runtime`
+      - `_enclosing_function_scopes_runtime`
+  - Correctness impact:
+    - Canonical helper semantics are unchanged (`_node_span`, `_param_*`, `_enclosing_*` canonical implementations remain authoritative).
+    - Monolith structural metrics unchanged (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-256`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`56 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
