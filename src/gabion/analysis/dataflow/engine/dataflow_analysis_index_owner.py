@@ -31,7 +31,12 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
-from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, ClassInfo, FunctionInfo
+from gabion.analysis.dataflow.engine.dataflow_contracts import (
+    AuditConfig,
+    ClassInfo,
+    FunctionInfo,
+    SymbolTable,
+)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ImportVisitor,
@@ -382,6 +387,49 @@ def _accumulate_symbol_table_for_tree_runtime(
     )
     table.module_exports[module] = exports
     table.module_export_map[module] = export_map
+
+
+def _symbol_table_module_artifact_spec_runtime(
+    *,
+    project_root,
+    external_filter: bool,
+) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
+    return _ModuleArtifactSpec[SymbolTable, SymbolTable](
+        artifact_id="symbol_table",
+        stage=_ParseModuleStage.SYMBOL_TABLE,
+        init=lambda: SymbolTable(external_filter=external_filter),
+        fold=lambda table, path, tree: _accumulate_symbol_table_for_tree_runtime(
+            table,
+            path,
+            tree,
+            project_root=project_root,
+        ),
+        finish=lambda table: table,
+    )
+
+
+def _build_symbol_table_runtime(
+    paths: list[Path],
+    project_root,
+    *,
+    external_filter: bool,
+    parse_failure_witnesses: list[JSONObject],
+) -> SymbolTable:
+    check_deadline()
+    raw_table, = _build_module_artifacts(
+        paths,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _symbol_table_module_artifact_spec_runtime(
+                    project_root=project_root,
+                    external_filter=external_filter,
+                ),
+            ),
+        ),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return cast(SymbolTable, raw_table)
 
 
 def _accumulate_class_index_for_tree_runtime(
@@ -1064,6 +1112,7 @@ __all__ = [
     "_CacheSemanticContext",
     "_cache_identity_aliases",
     "_build_function_index_runtime",
+    "_build_symbol_table_runtime",
     "_canonical_cache_identity",
     "_canonical_stage_cache_detail",
     "_canonical_stage_cache_identity",
@@ -1075,6 +1124,7 @@ __all__ = [
     "_get_stage_cache_bucket",
     "_index_stage_cache_identity",
     "_function_index_module_artifact_spec_runtime",
+    "_symbol_table_module_artifact_spec_runtime",
     "_iter_resolved_edge_param_events",
     "_load_analysis_collection_resume_payload",
     "_normalize_cache_config",

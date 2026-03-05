@@ -338,6 +338,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _accumulate_symbol_table_for_tree_runtime as _accumulate_symbol_table_for_tree_owner,
     _build_analysis_index,
     _build_function_index_runtime as _build_function_index_owner,
+    _build_symbol_table_runtime as _build_symbol_table_owner,
     _build_module_artifacts,
     _build_call_graph,
     _build_stage_cache_identity_spec,
@@ -350,6 +351,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _index_stage_cache_identity,
     _iter_resolved_edge_param_events,
     _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec_owner,
+    _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec_owner,
     _normalize_cache_config,
     _parse_stage_cache_key,
     _path_dependency_payload as _path_dependency_payload_owner,
@@ -1671,46 +1673,9 @@ def _collect_module_exports(
 
 _accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_owner
 
-def _symbol_table_module_artifact_spec(
-    *,
-    project_root,
-    external_filter: bool,
-) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
-    return _ModuleArtifactSpec[SymbolTable, SymbolTable](
-        artifact_id="symbol_table",
-        stage=_ParseModuleStage.SYMBOL_TABLE,
-        init=lambda: SymbolTable(external_filter=external_filter),
-        fold=lambda table, path, tree: _accumulate_symbol_table_for_tree(
-            table,
-            path,
-            tree,
-            project_root=project_root,
-        ),
-        finish=lambda table: table,
-    )
+_symbol_table_module_artifact_spec = _symbol_table_module_artifact_spec_owner
 
-def _build_symbol_table(
-    paths: list[Path],
-    project_root,
-    *,
-    external_filter: bool,
-    parse_failure_witnesses: list[JSONObject],
-) -> SymbolTable:
-    check_deadline()
-    raw_table, = _build_module_artifacts(
-        paths,
-        specs=(
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _symbol_table_module_artifact_spec(
-                    project_root=project_root,
-                    external_filter=external_filter,
-                ),
-            ),
-        ),
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    return cast(SymbolTable, raw_table)
+_build_symbol_table = _build_symbol_table_owner
 
 _accumulate_class_index_for_tree = _accumulate_class_index_for_tree_owner
 
