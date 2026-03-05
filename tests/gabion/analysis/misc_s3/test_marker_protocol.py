@@ -18,7 +18,7 @@ from gabion.analysis.foundation.marker_protocol import (
 )
 from gabion.analysis.indexed_scan.scanners import marker_metadata
 from gabion.exceptions import NeverThrown
-from gabion.invariants import deprecated, never, todo
+from gabion.invariants import deprecated, invariant_factory, never, todo
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.marker_identity
@@ -138,10 +138,32 @@ def test_normalize_semantic_links_filters_unknown_kinds() -> None:
             {"kind": "policy_id", "value": ""},
         )
     )
-    assert tuple((link.kind.value, link.value) for link in links) == (("doc_id", "in-46"),)
+    assert tuple((link.kind.value, link.value) for link in links) == (
+        ("doc_id", "in-46"),
+    )
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.normalize_marker_payload
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+def test_invariant_factory_applies_marker_specific_payload_defaults() -> None:
+    with pytest.raises(NeverThrown) as never_exc:
+        invariant_factory("never", reasoning={"summary": "structured never"})
+    assert never_exc.value.marker_kind == "never"
+    assert never_exc.value.marker_payload.reason == "structured never"
+
+    with pytest.raises(NeverThrown) as todo_exc:
+        invariant_factory("todo")
+    assert todo_exc.value.marker_kind == "todo"
+    assert todo_exc.value.marker_payload.reason == "todo() marker reached"
+
+    with pytest.raises(NeverThrown) as deprecated_exc:
+        invariant_factory("deprecated")
+    assert deprecated_exc.value.marker_kind == "deprecated"
+    assert deprecated_exc.value.marker_payload.reason == "deprecated() marker reached"
+
+
 def test_todo_and_deprecated_markers_carry_kind() -> None:
     with pytest.raises(NeverThrown) as todo_exc:
         todo("later", links=[{"kind": "doc_id", "value": "in-50"}])

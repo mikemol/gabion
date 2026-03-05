@@ -13,7 +13,7 @@ from gabion.exceptions import NeverThrown
 _PROOF_MODE_OVERRIDE: ContextVar[bool | None] = ContextVar(
     "gabion_proof_mode_override",
     default=None,
- )
+)
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,9 @@ def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
     return tuple(normalized)
 
 
-def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn:
+def invariant_factory(
+    marker_kind: str, reasoning: object = "", **env: object
+) -> NoReturn:
     from gabion.analysis.foundation.marker_protocol import (
         MarkerKind,
         never_marker_payload,
@@ -57,10 +59,23 @@ def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn
     owner = str(env.get("owner", ""))
     expiry = str(env.get("expiry", ""))
     links = _normalized_marker_links(env.get("links", ()))
-    raw_reasoning = env.get("reasoning", reason)
+    raw_reasoning = env.get("reasoning", reasoning)
+    if "reason" in env:
+        reason = str(env["reason"])
+    elif isinstance(reasoning, str):
+        reason = reasoning
+    else:
+        reason = ""
     normalized_reasoning = normalize_marker_reasoning(raw_reasoning)
-    extra_env = {key: value for key, value in env.items() if key not in {"owner", "expiry", "links", "reasoning"}}
-    if marker_kind == MarkerKind.NEVER.value:
+    if not normalized_reasoning.summary and reason:
+        normalized_reasoning = normalize_marker_reasoning(reason)
+    extra_env = {
+        key: value
+        for key, value in env.items()
+        if key not in {"owner", "expiry", "links", "reasoning", "reason"}
+    }
+    marker_kind_enum = MarkerKind(marker_kind)
+    if marker_kind_enum is MarkerKind.NEVER:
         payload = never_marker_payload(
             reason=reason,
             reasoning=normalized_reasoning,
@@ -72,12 +87,14 @@ def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn
     else:
         fallback_reasoning = normalized_reasoning
         if not fallback_reasoning.summary:
-            fallback_reasoning = normalize_marker_reasoning(f"{marker_kind}() marker reached")
+            fallback_reasoning = normalize_marker_reasoning(
+                f"{marker_kind_enum.value}() marker reached"
+            )
         payload = normalize_marker_payload(
-            reason=reason or f"{marker_kind}() marker reached",
+            reason=reason or f"{marker_kind_enum.value}() marker reached",
             reasoning=fallback_reasoning,
             env=extra_env,
-            marker_kind=MarkerKind(marker_kind),
+            marker_kind=marker_kind_enum,
             owner=owner,
             expiry=expiry,
             links=links,
@@ -91,17 +108,17 @@ def never(reason: str = "", **env: object) -> NoReturn:
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
-    _raise_marker("never", reason, **env)
+    invariant_factory("never", reason=reason, **env)
 
 
 def todo(reason: str = "", **env: object) -> NoReturn:
     """Mark a code path as intentionally pending implementation."""
-    _raise_marker("todo", reason, **env)
+    invariant_factory("todo", reason=reason, **env)
 
 
 def deprecated(reason: str = "", **env: object) -> NoReturn:
     """Mark a code path as a deprecated/blocked semantic surface."""
-    _raise_marker("deprecated", reason, **env)
+    invariant_factory("deprecated", reason=reason, **env)
 
 
 def proof_mode() -> bool:
