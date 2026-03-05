@@ -2,162 +2,177 @@
 from __future__ import annotations
 # gabion:decision_protocol_module
 
-from itertools import zip_longest
-from dataclasses import dataclass, field
-from hashlib import sha1
-import json
-from typing import Literal, Mapping, cast
 import dataclasses
+import json
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from hashlib import sha1
+from itertools import zip_longest
+from pathlib import Path
+import threading
+import time
+from typing import Callable, Literal, Mapping, cast
 
-from gabion.server_core.command_orchestrator_primitives import (
+from gabion.analysis import (
     AnalysisResult,
     AuditConfig,
-    Callable,
-    DataflowNameFilterBundle,
-    Deadline,
     DecisionSnapshotSurfaces,
-    ExecutionPlan,
-    Fingerprint,
-    Forest,
-    GasMeter,
-    JSONObject,
-    JSONValue,
-    Path,
-    PrimeRegistry,
     ReportCarrier,
-    TimeoutExceeded,
-    TypeConstructorRegistry,
-    _LSP_PROGRESS_NOTIFICATION_METHOD,
-    _LSP_PROGRESS_TOKEN_V2,
-    _CANONICAL_PROGRESS_EVENT_SCHEMA_V2,
-    _PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS,
-    _PROGRESS_DEADLINE_FLUSH_SECONDS,
-    _PROGRESS_DEADLINE_WATCHDOG_SECONDS,
-    _PROGRESS_HEARTBEAT_POLL_SECONDS,
-    _analysis_index_resume_hydrated_count,
-    _analysis_index_resume_signature,
-    _analysis_resume_cache_verdict,
-    _analysis_resume_progress,
-    _analysis_timeout_budget_ns,
-    _analysis_timeout_total_ticks,
-    _append_phase_timeline_event,
-    _apply_journal_pending_reason,
-    _build_phase_progress_v2,
-    _collection_components_preview_lines,
-    _collection_progress_intro_lines,
-    _collection_report_flush_due,
-    _deadline_profile_sample_interval,
-    _default_execute_command_deps,
-    _groups_by_path_from_collection_resume,
-    _incremental_progress_obligations,
-    _is_stdout_target,
-    _latest_report_phase,
-    _materialize_execution_plan,
-    _normalize_dataflow_response,
-    _output_dirs,
-    _phase_timeline_header_block,
-    _phase_timeline_jsonl_path,
-    _phase_timeline_md_path,
-    _progress_heartbeat_seconds,
-    _projection_phase_flush_due,
-    _render_incremental_report,
-    _report_witness_digest,
-    _resolve_report_output_path,
-    _resolve_report_section_journal_path,
-    _split_incremental_obligations,
-    _timeout_context_payload,
-    _truthy_flag,
-    _write_report_section_journal,
-    _write_text_profiled,
-    ambiguity_delta,
-    ambiguity_state,
     apply_baseline,
-    boundary_order,
-    build_fingerprint_registry,
     build_refactor_plan,
     build_synthesis_plan,
-    call_cluster_consolidation,
-    call_clusters,
-    check_deadline,
     compute_structure_metrics,
     compute_violations,
-    dataflow_deadline_roots,
-    dataflow_defaults,
-    datetime,
-    decision_defaults,
-    decision_require_tiers,
-    decision_tier_map,
-    exception_defaults,
-    exception_never_list,
     extract_report_sections,
-    fingerprint_defaults,
-    load_baseline,
-    merge_payload,
-    never,
     render_decision_snapshot,
     render_dot,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
+    load_baseline,
     render_structure_snapshot,
     render_synthesis_section,
-    report_projection_phase_rank,
+    resolve_baseline_path,
+    write_baseline,
+)
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.call_cluster import call_cluster_consolidation, call_clusters
+from gabion.analysis.core import ambiguity_delta, ambiguity_state
+from gabion.analysis.foundation.timeout_context import (
+    Deadline,
+    GasMeter,
+    TimeoutExceeded,
+    check_deadline,
     reset_deadline,
     reset_deadline_clock,
     reset_deadline_profile,
     reset_forest,
-    resolve_baseline_path,
-    semantic_coverage_map,
     set_deadline,
     set_deadline_clock,
     set_deadline_profile,
     set_forest,
-    sort_once,
-    taint_boundary_registry,
-    taint_defaults,
-    taint_delta,
-    taint_lifecycle,
-    taint_profile,
-    taint_state,
+)
+from gabion.analysis.projection.pattern_schema_projection import pattern_schema_surface_payloads
+from gabion.analysis.semantics import semantic_coverage_map
+from gabion.analysis.surfaces import (
     test_annotation_drift,
     test_annotation_drift_delta,
     test_evidence_suggestions,
     test_obsolescence,
     test_obsolescence_delta,
     test_obsolescence_state,
-    threading,
-    time,
-    timezone,
-    write_baseline,
-    write_execution_plan_artifact,
 )
-from gabion.commands import aux_operation_contract
+from gabion.analysis.taint import taint_delta, taint_lifecycle, taint_state
+from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_phase_rank
+from gabion.analysis.core.type_fingerprints import (
+    Fingerprint,
+    PrimeRegistry,
+    TypeConstructorRegistry,
+    build_fingerprint_registry,
+)
+from gabion.commands import aux_operation_contract, boundary_order
 from gabion.commands.progress_transition import (
-    NormalizedProgressTransition, ProgressEventKind, ProgressTransitionDecision, normalize_progress_transition_boundary, progress_transition_v2_payload, validate_progress_transition)
-from gabion.order_contract import OrderPolicy
-from gabion.analysis.projection.pattern_schema_projection import pattern_schema_surface_payloads
-from gabion.analysis.foundation.identity_shadow_runtime import (
-    IdentityShadowRuntime,
+    NormalizedProgressTransition,
+    ProgressEventKind,
+    ProgressTransitionDecision,
+    normalize_progress_transition_boundary,
+    progress_transition_v2_payload,
+    validate_progress_transition,
 )
+from gabion.config import (
+    dataflow_deadline_roots,
+    dataflow_defaults,
+    decision_defaults,
+    decision_require_tiers,
+    decision_tier_map,
+    exception_defaults,
+    exception_never_list,
+    fingerprint_defaults,
+    merge_payload,
+    taint_boundary_registry,
+    taint_defaults,
+    taint_profile,
+)
+from gabion.invariants import never
+from gabion.json_types import JSONObject, JSONValue
+from gabion.order_contract import OrderPolicy, sort_once
+from gabion.plan import ExecutionPlan, write_execution_plan_artifact
+from gabion.schema import CanonicalProgressEventPayloadDTO
+from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
+from gabion.server_core.command_effects import CommandEffects
+from gabion.server_core.command_reducers import (
+    initial_collection_progress,
+    initial_paths_count,
+    normalize_paths,
+    normalize_timeout_total_ticks,
+)
+from gabion.server_core.ingress_contracts import default_ingress_stage_deps
+from gabion.server_core.ingress_primitives import ExecuteCommandDeps
+from gabion.server_core.analysis_stage import run_analysis_stage
+from gabion.server_core.command_orchestrator_primitives import (
+    DataflowNameFilterBundle,
+    _analysis_index_resume_hydrated_count,
+    _analysis_index_resume_signature,
+    _analysis_resume_cache_verdict,
+    _analysis_resume_progress,
+    _truthy_flag,
+)
+from gabion.server_core.progress_contracts import ProgressStageContract
+from gabion.server_core.report_projection_runtime import ReportProjectionRuntime
+from gabion.server_core.timeout_runtime import TimeoutStageRuntime
+from gabion.server_core.timeout_stage import run_timeout_stage, timeout_classification_decision
+from gabion.ingest.adapter_contract import NormalizedIngestBundle
+from gabion.ingest.registry import resolve_adapter
+from gabion.analysis.foundation.identity_shadow_runtime import IdentityShadowRuntime
 from gabion.analysis.foundation.identity_shadow_session import (
     IdentityShadowSession,
     build_identity_shadow_session,
 )
-from gabion.schema import CanonicalProgressEventPayloadDTO
-
-from gabion.ingest.adapter_contract import NormalizedIngestBundle
-from gabion.ingest.registry import resolve_adapter
-from gabion.server_core.command_contract import CommandRuntimeInput, CommandRuntimeState
-from gabion.server_core.command_effects import CommandEffects
-from gabion.server_core.command_reducers import (
-    initial_collection_progress, initial_paths_count, normalize_paths, normalize_timeout_total_ticks)
-from gabion.server_core.analysis_stage import run_analysis_stage
-from gabion.server_core.timeout_stage import (
-    run_timeout_stage,
-    timeout_classification_decision,
-)
 
 _DURATION_TIMEOUT_CLOCK_MULTIPLIER = 16
+
+_LSP_PROGRESS_NOTIFICATION_METHOD = ProgressStageContract.lsp_progress_notification_method
+_LSP_PROGRESS_TOKEN_V2 = ProgressStageContract.lsp_progress_token_v2
+_CANONICAL_PROGRESS_EVENT_SCHEMA_V2 = ProgressStageContract.canonical_progress_event_schema_v2
+_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = ProgressStageContract.progress_deadline_flush_margin_seconds
+_PROGRESS_DEADLINE_FLUSH_SECONDS = ProgressStageContract.progress_deadline_flush_seconds
+_PROGRESS_DEADLINE_WATCHDOG_SECONDS = ProgressStageContract.progress_deadline_watchdog_seconds
+_PROGRESS_HEARTBEAT_POLL_SECONDS = ProgressStageContract.progress_heartbeat_poll_seconds
+
+_build_phase_progress_v2 = ProgressStageContract.build_phase_progress_v2
+_incremental_progress_obligations = ProgressStageContract.incremental_progress_obligations
+_progress_heartbeat_seconds = ProgressStageContract.progress_heartbeat_seconds
+
+_append_phase_timeline_event = ReportProjectionRuntime.append_phase_timeline_event
+_apply_journal_pending_reason = ReportProjectionRuntime.apply_journal_pending_reason
+_collection_components_preview_lines = ReportProjectionRuntime.collection_components_preview_lines
+_collection_progress_intro_lines = ReportProjectionRuntime.collection_progress_intro_lines
+_collection_report_flush_due = ReportProjectionRuntime.collection_report_flush_due
+_groups_by_path_from_collection_resume = ReportProjectionRuntime.groups_by_path_from_collection_resume
+_is_stdout_target = ReportProjectionRuntime.is_stdout_target
+_latest_report_phase = ReportProjectionRuntime.latest_report_phase
+_output_dirs = ReportProjectionRuntime.output_dirs
+_phase_timeline_header_block = ReportProjectionRuntime.phase_timeline_header_block
+_phase_timeline_jsonl_path = ReportProjectionRuntime.phase_timeline_jsonl_path
+_phase_timeline_md_path = ReportProjectionRuntime.phase_timeline_md_path
+_projection_phase_flush_due = ReportProjectionRuntime.projection_phase_flush_due
+_render_incremental_report = ReportProjectionRuntime.render_incremental_report
+_report_witness_digest = ReportProjectionRuntime.report_witness_digest
+_resolve_report_output_path = ReportProjectionRuntime.resolve_report_output_path
+_resolve_report_section_journal_path = ReportProjectionRuntime.resolve_report_section_journal_path
+_split_incremental_obligations = ReportProjectionRuntime.split_incremental_obligations
+_write_report_section_journal = ReportProjectionRuntime.write_report_section_journal
+_write_text_profiled = ReportProjectionRuntime.write_text_profiled
+
+_analysis_timeout_budget_ns = TimeoutStageRuntime.analysis_timeout_budget_ns
+_analysis_timeout_total_ticks = TimeoutStageRuntime.analysis_timeout_total_ticks
+_deadline_profile_sample_interval = TimeoutStageRuntime.deadline_profile_sample_interval
+_timeout_context_payload = TimeoutStageRuntime.timeout_context_payload
+
+_ingress_stage_deps = default_ingress_stage_deps()
+_default_execute_command_deps = _ingress_stage_deps.default_execute_command_deps_fn
+_materialize_execution_plan = _ingress_stage_deps.materialize_execution_plan_fn
+_normalize_dataflow_response = _ingress_stage_deps.normalize_dataflow_response_fn
 
 
 def _bind_server_symbols() -> None:
@@ -3894,13 +3909,19 @@ class _SuccessResponseOutcome:
     phase_checkpoint_state: JSONObject
 
 
+
+
+@dataclass(frozen=True)
+class _ExecuteCommandStageDeps:
+    execute_deps: ExecuteCommandDeps
+    runtime_input: CommandRuntimeInput
+
 @dataclass(frozen=True)
 class _ExecuteCommandIngressStage:
-    execute_deps: ExecuteCommandDeps
+    stage_deps: _ExecuteCommandStageDeps
     execution_plan: ExecutionPlan
     payload: dict[str, object]
     profile_enabled: bool
-    runtime_input: CommandRuntimeInput
     timeout_total_ns: int
     analysis_window_ns: int
     cleanup_grace_ns: int
@@ -4417,11 +4438,10 @@ def _stage_ingress(
     forest = Forest()
     forest_token = set_forest(forest)
     return _ExecuteCommandIngressStage(
-        execute_deps=execute_deps,
+        stage_deps=_ExecuteCommandStageDeps(execute_deps=execute_deps, runtime_input=runtime_input),
         execution_plan=execution_plan,
         payload=payload,
         profile_enabled=profile_enabled,
-        runtime_input=runtime_input,
         timeout_total_ns=timeout_total_ns,
         analysis_window_ns=analysis_window_ns,
         cleanup_grace_ns=cleanup_grace_ns,
@@ -4551,11 +4571,11 @@ def execute_command_total(
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
     ingress_stage = _stage_ingress(ls=ls, payload=payload, deps=deps)
-    execute_deps = ingress_stage.execute_deps
+    execute_deps = ingress_stage.stage_deps.execute_deps
     execution_plan = ingress_stage.execution_plan
     payload = ingress_stage.payload
     profile_enabled = ingress_stage.profile_enabled
-    runtime_input = ingress_stage.runtime_input
+    runtime_input = ingress_stage.stage_deps.runtime_input
     timeout_hard_deadline_ns = ingress_stage.timeout_hard_deadline_ns
     timeout_total_ns = ingress_stage.timeout_total_ns
     analysis_window_ns = ingress_stage.analysis_window_ns
