@@ -1,14 +1,31 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 import ast
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.dataflow.engine import dataflow_callee_resolution_support as callee
+    from gabion.analysis.dataflow.engine import dataflow_local_class_hierarchy as local
+    from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo, FunctionInfo, SymbolTable
 
-    return da
+    def _resolve_method_in_hierarchy(*args, **kwargs):
+        outcome = callee._resolve_method_in_hierarchy(*args, **kwargs)
+        if hasattr(outcome, "resolved"):
+            return outcome.resolved
+        return outcome
+
+    return SimpleNamespace(
+        SymbolTable=SymbolTable,
+        ClassInfo=ClassInfo,
+        FunctionInfo=FunctionInfo,
+        _resolve_class_candidates=callee._resolve_class_candidates,
+        _resolve_method_in_hierarchy=_resolve_method_in_hierarchy,
+        _collect_local_class_bases=local._collect_local_class_bases,
+        _resolve_local_method_in_hierarchy=local._resolve_local_method_in_hierarchy,
+    )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::stale_eef7c3356597
 def test_resolve_class_candidates_variants() -> None:
