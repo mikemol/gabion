@@ -1,5 +1,5 @@
 ---
-doc_revision: 265
+doc_revision: 266
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,18 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-327`, this CU):
+  - Extended compatibility metrics guards to enforce imported-symbol budgets (expanded surface size), preventing wildcard import-statement gaming beyond facade-only coverage:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`
+      - added `_MAX_OWNER_IMPORTED_SYMBOLS = 40`
+      - computes imported symbols with wildcard expansion via canonical `__all__`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_metrics_guard.py`
+      - added `_MAX_MONOLITH_IMPORTED_SYMBOLS = 300`
+      - computes imported symbols with wildcard expansion via canonical `__all__`
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`19 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected test-line mapping drift
 - WS-5 continuation (`in-326`, this CU):
   - Added import-surface-size budgeting for the facade metrics guard so wildcard imports cannot game statement-count caps:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
