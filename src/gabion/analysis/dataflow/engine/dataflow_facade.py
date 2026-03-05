@@ -30,10 +30,13 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree,
     _analyze_file_internal,
     _build_function_index_runtime as _build_function_index,
     _build_symbol_table_runtime as _build_symbol_table,
+    _phase_work_progress_owner as _phase_work_progress,
+    _profiling_v1_payload_owner as _profiling_v1_payload,
     _stage_cache_key_aliases,
     analyze_file,
 )
@@ -123,11 +126,6 @@ from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
-)
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    _phase_work_progress,
-    _profiling_v1_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _collect_lambda_bindings_by_caller,

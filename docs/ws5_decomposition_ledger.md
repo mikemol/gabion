@@ -1,5 +1,5 @@
 ---
-doc_revision: 138
+doc_revision: 139
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2402,6 +2402,21 @@ doc_scope:
     - Pipeline edge/post-phase orchestration behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-198`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade owner coupling convergence:
+    - Switched `dataflow_facade.py` progress/profiling helper imports from boundary `dataflow_analysis_index.py` to canonical `dataflow_analysis_index_owner.py`:
+      - `_PROGRESS_EMIT_MIN_INTERVAL_SECONDS`
+      - `_phase_work_progress_owner` (aliased to `_phase_work_progress`)
+      - `_profiling_v1_payload_owner` (aliased to `_profiling_v1_payload`)
+    - Removed residual facade dependency on boundary `dataflow_analysis_index.py`.
+  - Compatibility status:
+    - Facade compatibility exports remain stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-199`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
