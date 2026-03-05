@@ -16,6 +16,12 @@ class MarkerKind(StrEnum):
     DEPRECATED = "deprecated"
 
 
+class MarkerGovernanceProfile(StrEnum):
+    GOVERNANCE = "governance"
+    DEBT_LEDGER = "debt_ledger"
+    INVARIANT = "invariant"
+
+
 class MarkerLifecycleState(StrEnum):
     ACTIVE = "active"
     EXPIRED = "expired"
@@ -36,6 +42,13 @@ class SemanticReference:
 
 
 @dataclass(frozen=True)
+class MarkerReasoning:
+    summary: str
+    control: str
+    blocking_dependencies: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class MarkerPayload:
     marker_kind: MarkerKind
     reason: str
@@ -43,8 +56,10 @@ class MarkerPayload:
     expiry: str
     lifecycle_state: MarkerLifecycleState
     links: tuple[SemanticReference, ...]
+    reasoning: MarkerReasoning
     env: dict[str, object]
 
+_DEFAULT_REASONING = MarkerReasoning(summary="", control="", blocking_dependencies=())
 
 _EMPTY_ENV: Mapping[str, object] = MappingProxyType({})
 _EMPTY_LINKS: tuple[Mapping[str, str], ...] = ()
@@ -70,6 +85,42 @@ DEFAULT_MARKER_ALIASES: dict[MarkerKind, tuple[str, ...]] = {
 }
 
 
+_PROFILE_KIND_MAP: dict[MarkerGovernanceProfile, dict[MarkerKind, MarkerKind]] = {
+    MarkerGovernanceProfile.GOVERNANCE: {
+        MarkerKind.NEVER: MarkerKind.NEVER,
+        MarkerKind.TODO: MarkerKind.TODO,
+        MarkerKind.DEPRECATED: MarkerKind.DEPRECATED,
+    },
+    MarkerGovernanceProfile.DEBT_LEDGER: {
+        MarkerKind.NEVER: MarkerKind.NEVER,
+        MarkerKind.TODO: MarkerKind.TODO,
+        MarkerKind.DEPRECATED: MarkerKind.DEPRECATED,
+    },
+    MarkerGovernanceProfile.INVARIANT: {
+        MarkerKind.NEVER: MarkerKind.NEVER,
+        MarkerKind.TODO: MarkerKind.NEVER,
+        MarkerKind.DEPRECATED: MarkerKind.NEVER,
+    },
+}
+
+
+def normalize_governance_profile(value: object) -> MarkerGovernanceProfile:
+    normalized = str(value or "").strip().lower()
+    for profile in MarkerGovernanceProfile:
+        if profile.value == normalized:
+            return profile
+    return MarkerGovernanceProfile.GOVERNANCE
+
+
+def resolve_marker_kind_for_profile(
+    marker_kind: MarkerKind,
+    *,
+    profile: object,
+) -> MarkerKind:
+    normalized = normalize_governance_profile(profile)
+    return _PROFILE_KIND_MAP[normalized].get(marker_kind, MarkerKind.NEVER)
+
+
 def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LINKS) -> tuple[SemanticReference, ...]:
     entries = tuple(
         (
@@ -86,6 +137,33 @@ def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LIN
     return tuple(sorted(links, key=lambda link: (link.kind.value, link.value)))
 
 
+def normalize_marker_reasoning(
+    *,
+    summary: object = "",
+    control: object = "",
+    blocking_dependencies: object = (),
+) -> MarkerReasoning:
+    summary_text = str(summary or "").strip()
+    control_text = str(control or "").strip()
+    if type(blocking_dependencies) is list or type(blocking_dependencies) is tuple:
+        deps = tuple(
+            sorted(
+                {
+                    str(item).strip()
+                    for item in blocking_dependencies
+                    if str(item).strip()
+                }
+            )
+        )
+    else:
+        deps = ()
+    return MarkerReasoning(
+        summary=summary_text,
+        control=control_text,
+        blocking_dependencies=deps,
+    )
+
+
 def normalize_marker_payload(
     *,
     reason: str,
@@ -95,9 +173,13 @@ def normalize_marker_payload(
     expiry: str = "",
     lifecycle_state: MarkerLifecycleState = MarkerLifecycleState.ACTIVE,
     links: Sequence[Mapping[str, str]] = _EMPTY_LINKS,
+    reasoning: MarkerReasoning = _DEFAULT_REASONING,
 ) -> MarkerPayload:
     normalized_reason = str(reason or "never() invariant reached").strip()
     env_payload = {str(key): value for key, value in env.items()}
+    normalized_reasoning = reasoning
+    if not normalized_reasoning.summary and not normalized_reasoning.control and not normalized_reasoning.blocking_dependencies:
+        normalized_reasoning = normalize_marker_reasoning(summary=normalized_reason)
     return MarkerPayload(
         marker_kind=marker_kind,
         reason=normalized_reason,
@@ -105,6 +187,7 @@ def normalize_marker_payload(
         expiry=expiry.strip(),
         lifecycle_state=lifecycle_state,
         links=normalize_semantic_links(links),
+        reasoning=normalized_reasoning,
         env=env_payload,
     )
 
@@ -116,6 +199,11 @@ def marker_identity(payload: MarkerPayload) -> str:
         "owner": payload.owner,
         "expiry": payload.expiry,
         "lifecycle_state": payload.lifecycle_state.value,
+        "reasoning": {
+            "summary": payload.reasoning.summary,
+            "control": payload.reasoning.control,
+            "blocking_dependencies": list(payload.reasoning.blocking_dependencies),
+        },
         "links": [
             {"kind": link.kind.value, "value": link.value}
             for link in payload.links
@@ -133,6 +221,7 @@ def never_marker_payload(
     owner: str = "",
     expiry: str = "",
     links: Sequence[Mapping[str, str]] = _EMPTY_LINKS,
+    reasoning: MarkerReasoning = _DEFAULT_REASONING,
 ) -> MarkerPayload:
     return normalize_marker_payload(
         reason=reason,
@@ -141,4 +230,5 @@ def never_marker_payload(
         owner=owner,
         expiry=expiry,
         links=links,
+        reasoning=reasoning,
     )

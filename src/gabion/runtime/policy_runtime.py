@@ -13,7 +13,14 @@ from gabion.commands.transport_override import (
     TransportOverrideConfig,
     transport_override_scope,
 )
-from gabion.invariants import ProofModeConfig, proof_mode_config_scope
+from gabion.invariants import (
+    InvariantProfileConfig,
+    MarkerGovernanceConfig,
+    ProofModeConfig,
+    marker_governance_scope,
+    proof_mode_config_scope,
+    set_marker_governance_config,
+)
 from gabion.order_contract import OrderPolicy, OrderRuntimeConfig, order_runtime_config_scope
 
 
@@ -32,6 +39,8 @@ class RuntimePolicyConfig:
     transport_override_record_json: str | None = None
     derivation_cache_max_entries: int = 4096
     projection_registry_gas_limit: int = 1_000_000
+    marker_governance_profile: str = "governance"
+    marker_invariant_profile: InvariantProfileConfig | None = None
 
 
 def _env_flag(name: str) -> bool:
@@ -83,6 +92,7 @@ def runtime_policy_from_env() -> RuntimePolicyConfig:
             1,
             int(os.getenv("GABION_PROJECTION_REGISTRY_GAS_LIMIT", "1000000") or "1000000"),
         ),
+        marker_governance_profile=os.getenv("GABION_MARKER_GOVERNANCE_PROFILE", "governance"),
     )
 
 
@@ -96,6 +106,16 @@ def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
     from gabion.order_contract import set_order_runtime_config
 
     set_proof_mode_config(ProofModeConfig(enabled=config.proof_mode_enabled))
+    set_marker_governance_config(
+        MarkerGovernanceConfig(
+            profile=config.marker_governance_profile,
+            invariant_profile=(
+                config.marker_invariant_profile
+                if config.marker_invariant_profile is not None
+                else MarkerGovernanceConfig().invariant_profile
+            ),
+        )
+    )
     set_order_runtime_config(
         OrderRuntimeConfig(
             default_policy=config.order_policy,
@@ -128,6 +148,16 @@ def runtime_policy_scope(config: RuntimePolicyConfig) -> Iterator[None]:
     with ExitStack() as stack:
         stack.enter_context(
             proof_mode_config_scope(ProofModeConfig(enabled=config.proof_mode_enabled))
+        )
+        stack.enter_context(
+            marker_governance_scope(
+                config.marker_governance_profile,
+                invariant_profile=(
+                    config.marker_invariant_profile
+                    if config.marker_invariant_profile is not None
+                    else MarkerGovernanceConfig().invariant_profile
+                ),
+            )
         )
         stack.enter_context(
             order_runtime_config_scope(

@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import cast
 
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.analysis.foundation.marker_protocol import MarkerKind
+from gabion.analysis.foundation.marker_protocol import (
+    MarkerKind,
+    resolve_marker_kind_for_profile,
+)
+from gabion.invariants import current_marker_governance_config
 
 from gabion.analysis.indexed_scan.ast.ast_context import (
     enclosing_function_context)
@@ -98,6 +102,10 @@ def collect_never_invariants(
                 alias_map=alias_kind_map,
                 check_deadline_fn=check_deadline_fn,
                 decorator_name_fn=decorator_name_fn,
+            )
+            marker_kind = resolve_marker_kind_for_profile(
+                marker_kind,
+                profile=current_marker_governance_config().profile,
             )
             marker_metadata = never_marker_metadata(
                 call_node,
