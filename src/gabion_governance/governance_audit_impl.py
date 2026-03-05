@@ -35,6 +35,8 @@ from gabion_governance.compliance_render.decision_contracts import (
     DecisionSurface,
     LintEntry,
 )
+from gabion_governance.consolidation_audit import parse_lint_entry as _parse_lint_entry
+from gabion_governance.consolidation_audit import parse_surface_line
 from gabion_governance.docflow_audit import (
     AgentDirective,
     Doc,
@@ -148,18 +150,6 @@ MAP_FIELDS = {
     "doc_section_reviews",
 }
 
-# --- Lint parsing helpers ---
-
-PARAM_RE = re.compile(r"param '([^']+)'\s*\(")
-
-# --- Consolidation regex helpers ---
-
-DECISION_RE = re.compile(
-    r"^(?P<path>[^:]+):(?P<qual>\S+) decision surface params: (?P<params>.+) \((?P<meta>[^)]+)\)$"
-)
-VALUE_DECISION_RE = re.compile(
-    r"^(?P<path>[^:]+):(?P<qual>\S+) value-encoded decision params: (?P<params>.+) \((?P<meta>[^)]+)\)$"
-)
 FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
 FOREST_FALLBACK_WARNING_CLASS = "consolidation.forest_fallback"
 CONSOLIDATION_SOURCE_FOREST_NATIVE = "forest-native"
@@ -225,36 +215,6 @@ def _load_consolidation_config(root: Path) -> ConsolidationConfig:
         min_files=_coerce_int("min_files", 2),
         max_examples=_coerce_int("max_examples", 5),
         require_forest=_coerce_bool("require_forest", True),
-    )
-
-
-def _parse_lint_entry(line: str) -> LintEntry | None:
-    match = re.match(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$", line.strip())
-    if not match:
-        return None
-    path = match.group("path")
-    try:
-        line_no = int(match.group("line"))
-        col_no = int(match.group("col"))
-    except ValueError:
-        return None
-    remainder = match.group("rest")
-    remainder_parts = remainder.split(" ", 1) if remainder else []
-    if not remainder_parts:
-        return None
-    code = remainder_parts[0]
-    message = remainder_parts[1] if len(remainder_parts) > 1 else ""
-    param = None
-    param_match = PARAM_RE.search(message)
-    if param_match:
-        param = param_match.group(1)
-    return LintEntry(
-        path=path,
-        line=line_no,
-        col=col_no,
-        code=code,
-        message=message,
-        param=param,
     )
 
 
@@ -4077,19 +4037,17 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
 
 def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[DecisionSurface]:
     surfaces: list[DecisionSurface] = []
-    pattern = VALUE_DECISION_RE if value_encoded else DECISION_RE
     for line in lines:
         check_deadline()
-        match = pattern.match(line.strip())
-        if not match:
+        outcome = parse_surface_line(line, value_encoded=value_encoded)
+        if outcome is None:
             continue
-        params = [p.strip() for p in match.group("params").split(",") if p.strip()]
         surfaces.append(
             DecisionSurface(
-                path=match.group("path"),
-                qual=match.group("qual"),
-                params=tuple(params),
-                meta=match.group("meta"),
+                path=outcome.path,
+                qual=outcome.qual,
+                params=outcome.params,
+                meta=outcome.meta,
             )
         )
     return surfaces
