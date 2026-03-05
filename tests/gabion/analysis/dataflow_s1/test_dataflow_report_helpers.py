@@ -20,6 +20,7 @@ def _load():
     )
     from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
     from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
+        summarize_never_invariants,
         render_mermaid_component,
     )
     from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
@@ -35,6 +36,7 @@ def _load():
         _merge_counts_by_knobs=_merge_counts_by_knobs,
         _populate_bundle_forest=_populate_bundle_forest,
         _render_mermaid_component=render_mermaid_component,
+        _summarize_never_invariants=summarize_never_invariants,
         _report_section_spec=_report_section_spec,
         _topologically_order_report_projection_specs=_topologically_order_report_projection_specs,
     )
@@ -63,6 +65,33 @@ def test_emit_report_empty_groups() -> None:
     )
     assert "No bundle components detected." in report
     assert violations == []
+
+
+def test_summarize_never_invariants_uses_marker_kind_per_row() -> None:
+    da = _load()
+    summary = da._summarize_never_invariants(
+        [
+            {
+                "status": "A",
+                "site": {"path": "a.py", "function": "fa", "suite_kind": "function"},
+                "marker_kind": "todo",
+            },
+            {
+                "status": "A",
+                "site": {"path": "b.py", "function": "fb", "suite_kind": "function"},
+            },
+            {
+                "status": "A",
+                "site": {"path": "c.py", "function": "fc", "suite_kind": "function"},
+                "marker_kind": "deprecated",
+            },
+        ]
+    )
+    assert summary == [
+        "a.py:fa[function] todo() (status=A)",
+        "b.py:fb[function] never() (status=A)",
+        "c.py:fc[function] deprecated() (status=A)",
+    ]
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_parse_failure_witnesses() -> None:
