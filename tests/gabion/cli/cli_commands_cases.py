@@ -804,3 +804,67 @@ def test_register_check_aux_commands_uses_registration_table() -> None:
     assert ("obsolescence", "delta") in observed
     assert ("taint", "state") in observed
     assert ("annotation-drift", "report") in observed
+
+
+def test_register_check_aux_commands_profile_argument_shaping() -> None:
+    captured: list[dict[str, object]] = []
+
+    def _capture(**kwargs: object) -> None:
+        captured.append(dict(kwargs))
+
+    apps = {
+        "obsolescence": typer.Typer(),
+        "annotation-drift": typer.Typer(),
+        "ambiguity": typer.Typer(),
+        "taint": typer.Typer(),
+    }
+    check_commands.register_check_aux_commands(
+        command_domains=apps,
+        check_strictness_mode=cli.CheckStrictnessMode,
+        run_check_aux_operation_fn=_capture,
+    )
+
+    app = typer.Typer()
+    for domain, domain_app in apps.items():
+        app.add_typer(domain_app, name=domain)
+    runner = CliRunner()
+
+    report_result = runner.invoke(
+        app,
+        [
+            "annotation-drift",
+            "report",
+            "sample.py",
+            "--out-md",
+            "report.md",
+        ],
+    )
+    assert report_result.exit_code == 0
+    state_result = runner.invoke(app, ["taint", "state", "sample.py"])
+    assert state_result.exit_code == 0
+    delta_result = runner.invoke(
+        app,
+        [
+            "obsolescence",
+            "delta",
+            "sample.py",
+            "--baseline",
+            "obs.json",
+            "--out-md",
+            "delta.md",
+        ],
+    )
+    assert delta_result.exit_code == 0
+
+    report_call, state_call, delta_call = captured
+    assert report_call["action"] == "report"
+    assert report_call["baseline"] is None
+    assert report_call["out_md"] == Path("report.md")
+
+    assert state_call["action"] == "state"
+    assert state_call["baseline"] is None
+    assert state_call["out_md"] is None
+
+    assert delta_call["action"] == "delta"
+    assert delta_call["baseline"] == Path("obs.json")
+    assert delta_call["out_md"] == Path("delta.md")
