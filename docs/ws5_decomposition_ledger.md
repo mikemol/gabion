@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3603
+- Monolith LOC (current): 3407
 - Monolith top-level import statements (current): 97
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -235,6 +235,22 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest passed (`80 passed` for touched suites)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection/spec materialization owner cut:
+    - Static ownership moved to `dataflow_projection_materialization.py` for:
+      - `_ProjectionSpan`, `_AmbiguitySuiteRow`
+      - `_decode_projection_span`, `_spec_row_span`, `_materialize_projection_spec_rows`
+      - `_suite_order_depth`, `_suite_order_relation`, `_suite_order_row_to_site`, `_materialize_suite_order_spec`
+      - `_ambiguity_suite_relation`, `_decode_ambiguity_suite_row`, `_ambiguity_suite_row_to_suite`
+      - `_ambiguity_virtual_count_gt_1`, `_materialize_ambiguity_suite_agg_spec`, `_materialize_ambiguity_virtual_set_spec`
+  - Monolith bodies removed and replaced with owner aliases.
+  - Removed now-unused monolith imports tied to moved projection/suite-order bodies.
+  - ASPF no-change acknowledgement refreshed (`in-75`).
+  - Validation:
+    - policy checks passed
+    - CU-WS5-C suites passed (`26 passed`)
+    - broader edge/deadline/runtime suite passed (`80 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
