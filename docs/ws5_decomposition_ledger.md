@@ -1,5 +1,5 @@
 ---
-doc_revision: 174
+doc_revision: 175
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3010,6 +3010,16 @@ doc_scope:
     - Monolith and facade import checks remain green after suffix convergence.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-233`).
+- WS-5 continuation (this CU, follow-on):
+  - Owner-suffix import convergence:
+    - `dataflow_analysis_index_owner.py` now imports and wires resume payload helpers under canonical names:
+      - `_load_analysis_index_resume_payload`
+      - `_serialize_analysis_index_resume_payload`
+    - `dataflow_deadline_runtime_owner.py` now imports and wires `_StageCacheSpec` under its canonical name (owner-suffix alias removed).
+  - Correctness impact:
+    - Owner and monolith import checks remain green after import-name convergence.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-234`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

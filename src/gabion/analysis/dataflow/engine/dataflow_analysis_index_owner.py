@@ -24,9 +24,9 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _build_analysis_collection_resume_payload,
     _load_file_scan_resume_state,
     _load_analysis_collection_resume_payload,
-    _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
+    _load_analysis_index_resume_payload,
     _serialize_file_scan_resume_state,
-    _serialize_analysis_index_resume_payload as _serialize_analysis_index_resume_payload_owner,
+    _serialize_analysis_index_resume_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _PARSE_MODULE_ERROR_TYPES,
@@ -965,11 +965,11 @@ def _build_analysis_index(
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
                 iter_monotonic_paths_fn=_iter_monotonic_paths,
-                load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload_owner,
+                load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload,
                 function_index_acc_ctor=_function_index_acc_ctor_runtime,
                 sort_once_fn=sort_once,
                 profiling_payload_fn=_profiling_v1_payload,
-                serialize_resume_payload_fn=_serialize_analysis_index_resume_payload_owner,
+                serialize_resume_payload_fn=_serialize_analysis_index_resume_payload,
                 parse_module_source_fn=_default_parse_module,
                 parse_module_error_types=cast(
                     tuple[type[BaseException], ...],
