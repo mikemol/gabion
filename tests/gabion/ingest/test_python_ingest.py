@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from gabion.analysis.core.visitors import ParentAnnotator
-from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
 from gabion.analysis.dataflow.engine import dataflow_function_index_decision_support as decision_support
 from gabion.analysis.dataflow.engine import dataflow_function_index_helpers as function_index_helpers
 from gabion.analysis.dataflow.engine import dataflow_function_semantics as function_semantics

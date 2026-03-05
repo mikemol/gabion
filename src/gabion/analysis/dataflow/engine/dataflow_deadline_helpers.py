@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Forest, NodeId
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (

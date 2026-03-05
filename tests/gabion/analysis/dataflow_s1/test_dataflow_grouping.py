@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
 from gabion.analysis.dataflow.engine import dataflow_ingested_analysis_support as ingest_support
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, CallArgs, ParamUse
 

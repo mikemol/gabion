@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
     _build_call_graph,
 )

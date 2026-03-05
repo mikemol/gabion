@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import _build_analysis_index
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, FunctionInfo
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths

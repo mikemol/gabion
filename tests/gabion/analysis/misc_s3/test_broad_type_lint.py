@@ -12,7 +12,7 @@ from gabion.analysis.foundation.timeout_context import Deadline, TimeoutTickCarr
 
 def _load():
     from gabion.analysis.dataflow.engine import dataflow_lint_helpers as lint_helpers
-    from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import _build_analysis_index
+    from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
 
     def _internal_broad_type_lint_lines(
         paths,

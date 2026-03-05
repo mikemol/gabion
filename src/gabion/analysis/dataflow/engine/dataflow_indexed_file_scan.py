@@ -242,7 +242,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _union_groups,
     analyze_ingested_file,
 )
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
     _IndexedPassSpec,

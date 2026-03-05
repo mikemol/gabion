@@ -27,7 +27,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _resolve_callee,
     _resolve_callee_outcome,
 )
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _analyze_file_internal,

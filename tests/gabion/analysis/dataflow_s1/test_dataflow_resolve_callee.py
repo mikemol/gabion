@@ -8,7 +8,7 @@ from tests.path_helpers import REPO_ROOT
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.core.visitors import ParentAnnotator
-    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
     from gabion.analysis.dataflow.engine import dataflow_function_index_runtime_support as index_runtime
     from gabion.analysis.dataflow.engine import dataflow_lambda_runtime_support as lambda_runtime
     from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (

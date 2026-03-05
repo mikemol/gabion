@@ -15,7 +15,7 @@ from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
 )
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
     _analysis_index_transitive_callers,
     _iter_monotonic_paths,

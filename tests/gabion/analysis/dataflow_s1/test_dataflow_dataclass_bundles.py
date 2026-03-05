@@ -6,7 +6,7 @@ from tests.path_helpers import REPO_ROOT
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
     from gabion.analysis.dataflow.engine import dataflow_documented_bundles as documented
     from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
 

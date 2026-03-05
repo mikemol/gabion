@@ -7,7 +7,7 @@ from functools import partial
 from pathlib import Path
 import re
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _build_analysis_index,
     _analysis_index_stage_cache,

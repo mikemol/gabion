@@ -14,7 +14,7 @@ from gabion.analysis.dataflow.engine.dataflow_obligations import (
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.aspf.aspf import Forest, NodeId
-    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
     from gabion.analysis.dataflow.engine import dataflow_call_graph_algorithms as call_graph
     from gabion.analysis.dataflow.engine import dataflow_deadline_helpers as deadline_helpers
     from gabion.analysis.dataflow.engine import dataflow_deadline_summary_owner as deadline_summary

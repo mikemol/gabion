@@ -9,7 +9,7 @@ from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _IndexedPassSpec,
     _analysis_index_module_trees,

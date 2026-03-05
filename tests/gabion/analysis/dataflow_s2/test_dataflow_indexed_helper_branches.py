@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from gabion.analysis.aspf.aspf import NodeId
 from gabion.analysis.dataflow.engine import dataflow_adapter_contract as adapter_contract
-from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
 from gabion.analysis.dataflow.engine import dataflow_evidence_helpers as evidence_helpers
 from gabion.analysis.dataflow.engine import dataflow_function_index_decision_support as decision_support
 from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase

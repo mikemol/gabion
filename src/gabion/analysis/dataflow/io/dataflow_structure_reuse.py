@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Callable, cast
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_collection_resume_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import ReportCarrier
