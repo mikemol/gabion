@@ -120,7 +120,7 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _collect_closure_lambda_factories as _collect_closure_lambda_factories_owner,
     _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_owner,
     _collect_lambda_function_infos as _collect_lambda_function_infos_owner,
-    _function_key as _function_key_owner,
+    _function_key,
     _synthetic_lambda_name as _synthetic_lambda_name_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
@@ -137,15 +137,15 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support im
     is_decision_surface,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
-    _enclosing_class_runtime as _enclosing_class_owner,
-    _enclosing_class_scopes_runtime as _enclosing_class_scopes_owner,
-    _enclosing_function_scopes_runtime as _enclosing_function_scopes_owner,
-    _enclosing_scopes_runtime as _enclosing_scopes_owner,
-    _node_span_runtime as _node_span_owner,
-    _param_annotations_runtime as _param_annotations_owner,
-    _param_defaults_runtime as _param_defaults_owner,
-    _param_names_runtime as _param_names_owner,
-    _param_spans_runtime as _param_spans_owner,
+    _enclosing_class_runtime as _enclosing_class,
+    _enclosing_class_scopes_runtime as _enclosing_class_scopes,
+    _enclosing_function_scopes_runtime as _enclosing_function_scopes,
+    _enclosing_scopes_runtime as _enclosing_scopes,
+    _node_span_runtime as _node_span,
+    _param_annotations_runtime as _param_annotations,
+    _param_defaults_runtime as _param_defaults,
+    _param_names_runtime as _param_names,
+    _param_spans_runtime as _param_spans,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
@@ -547,26 +547,6 @@ _summarize_deadline_obligations = _summarize_deadline_obligations_owner
 _collect_local_class_bases = _collect_local_class_bases_owner
 _local_class_name = _local_class_name_owner
 _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
-
-_param_names = _param_names_owner
-
-_node_span = _node_span_owner
-
-_param_spans = _param_spans_owner
-
-_function_key = _function_key_owner
-
-_enclosing_class = _enclosing_class_owner
-
-_enclosing_scopes = _enclosing_scopes_owner
-
-_enclosing_class_scopes = _enclosing_class_scopes_owner
-
-_enclosing_function_scopes = _enclosing_function_scopes_owner
-
-_param_annotations = _param_annotations_owner
-
-_param_defaults = _param_defaults_owner
 
 _ANALYSIS_INDEX_STAGE_CACHE_OP = _ANALYSIS_INDEX_STAGE_CACHE_OP_owner
 
