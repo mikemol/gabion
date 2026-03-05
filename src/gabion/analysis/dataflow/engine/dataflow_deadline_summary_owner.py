@@ -5,7 +5,9 @@ from __future__ import annotations
 """Deadline-summary compatibility owner during WS-5 migration."""
 
 from gabion.analysis.dataflow.engine import dataflow_deadline_summary as _deadline_summary
-from gabion.analysis.dataflow.engine.dataflow_deadline_summary import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
+    _summarize_deadline_obligations,
+)
 
 # Temporary boundary adapter retained for external import compatibility.
 _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {

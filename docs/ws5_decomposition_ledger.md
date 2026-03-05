@@ -1,5 +1,5 @@
 ---
-doc_revision: 262
+doc_revision: 264
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,9 +15,9 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 109
-- Facade top-level import statements (current): 37
-- Compatibility owner max metrics (current): `loc=21`, `imports=3`
+- Facade LOC (current): 123
+- Facade top-level import statements (current): 41
+- Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - Direct `dataflow_facade` imports in `src/` + `tests/`: 0
@@ -31,6 +31,29 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-325`, this CU):
+  - Removed wildcard imports from compatibility owner modules to preserve explicit import-surface visibility:
+    - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index_owner.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime_owner.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_runtime_reporting_owner.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_summary_owner.py`
+  - Added owner wildcard-ban guard:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_boundary_shape.py`
+    - `test_legacy_owner_modules_do_not_use_wildcard_imports`
+  - Ratcheted legacy compatibility metric guards after explicit-import owner restoration:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`
+      - owner LOC cap `40 -> 60` (adjusted to explicit-import owner baseline)
+      - owner import cap `10 -> 5`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - facade LOC cap `300 -> 150`
+      - facade import cap `45 -> 41`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_metrics_guard.py`
+      - monolith LOC cap `450 -> 420`
+      - monolith import cap unchanged (`53`)
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`19 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected new-test mapping drift
 - WS-5 continuation (`in-324`, this CU):
   - Converged canonical owner export surfaces to cover remaining facade compatibility imports:
     - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
@@ -44,7 +67,8 @@ doc_scope:
   - Facade contraction:
     - switched remaining large explicit import blocks in `src/gabion/analysis/dataflow/engine/dataflow_facade.py` to wildcard re-exports
     - added deterministic post-wildcard canonical rebindings for overlapping symbols (`_build_function_index`, `_build_symbol_table`, `_resolve_callee`, `_lint_lines_from_call_ambiguities`, `_merge_counts_by_knobs`)
-    - reduced facade LOC from `247` to `109` while preserving top-level import count (`37`)
+    - reduced facade LOC from `247` to `123`
+    - top-level import statements moved from `37` to `41` due deterministic canonical rebindings for overlapping wildcard symbols
   - Validation:
     - policy checks passed
     - targeted legacy-compat pytest group passed (`18 passed`)

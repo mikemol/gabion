@@ -10,8 +10,8 @@ _OWNER_RELATIVE_PATHS = (
     "src/gabion/analysis/dataflow/engine/dataflow_runtime_reporting_owner.py",
     "src/gabion/analysis/dataflow/engine/dataflow_deadline_summary_owner.py",
 )
-_MAX_OWNER_LOC = 40
-_MAX_OWNER_TOP_LEVEL_IMPORTS = 10
+_MAX_OWNER_LOC = 60
+_MAX_OWNER_TOP_LEVEL_IMPORTS = 5
 
 
 def _file_metrics(path: Path) -> tuple[int, int]:

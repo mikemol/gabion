@@ -11,6 +11,7 @@ _COMPAT_MODULES = (
     "src/gabion/analysis/dataflow/engine/dataflow_deadline_summary_owner.py",
     "src/gabion/analysis/dataflow/engine/dataflow_facade.py",
 )
+_OWNER_COMPAT_MODULES = _COMPAT_MODULES[:4]
 
 
 def _runtime_logic_offenders(module_path: Path) -> list[str]:
@@ -48,4 +49,23 @@ def test_legacy_dataflow_compat_modules_have_no_runtime_logic_defs() -> None:
         "legacy compatibility modules must remain boundary-only "
         "(imports/metadata/docstring only); "
         f"offenders={offenders_by_module}"
+    )
+
+
+def test_legacy_owner_modules_do_not_use_wildcard_imports() -> None:
+    repo_root = Path(__file__).resolve().parents[4]
+    violations: list[str] = []
+
+    for relative_path in _OWNER_COMPAT_MODULES:
+        module_path = repo_root / relative_path
+        tree = ast.parse(module_path.read_text())
+        for node in tree.body:
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if any(alias.name == "*" for alias in node.names):
+                violations.append(f"{relative_path}:{node.lineno}")
+
+    assert not violations, (
+        "legacy owner compatibility modules must not use wildcard imports; "
+        f"violations={sorted(violations)}"
     )

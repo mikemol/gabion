@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 _FACADE_RELATIVE_PATH = "src/gabion/analysis/dataflow/engine/dataflow_facade.py"
-_MAX_FACADE_LOC = 300
-_MAX_FACADE_TOP_LEVEL_IMPORTS = 45
+_MAX_FACADE_LOC = 150
+_MAX_FACADE_TOP_LEVEL_IMPORTS = 41
 
 
 def test_legacy_facade_metrics_stay_within_budget() -> None:
