@@ -1,5 +1,5 @@
 ---
-doc_revision: 228
+doc_revision: 229
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,20 @@ doc_scope:
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
+- WS-5 continuation (`in-288`, this CU):
+  - Added explicit compatibility-surface import smoke coverage to prevent silent regressions after owner hard-cuts:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+  - Covered boundary modules:
+    - `dataflow_indexed_file_scan`
+    - `dataflow_analysis_index_owner`
+    - `dataflow_deadline_runtime_owner`
+    - `dataflow_runtime_reporting_owner`
+    - `dataflow_deadline_summary_owner`
+    - `dataflow_facade`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`65 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected new-test mapping drift
 - WS-5 continuation (`in-287`, this CU):
   - Introduced canonical report/deadline-summary runtime modules:
     - `src/gabion/analysis/dataflow/engine/dataflow_runtime_reporting.py`
