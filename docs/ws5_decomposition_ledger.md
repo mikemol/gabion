@@ -1,5 +1,5 @@
 ---
-doc_revision: 109
+doc_revision: 110
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1945,6 +1945,21 @@ doc_scope:
     - Targeted WS-5 regression suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-169`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade decision/function-index export rebinding:
+    - `dataflow_facade.py` now pre-binds additional compatibility symbols directly to canonical owners, avoiding monolith `_runtime` fallback for this helper cluster:
+      - decision/decorator owners: `_decorator_name`, `_decorators_transparent`, `is_decision_surface`, `_decision_surface_form_entries`, `_decision_surface_reason_map`, `_mark_param_roots`, `_collect_param_roots`, `_contains_boolish`
+      - function-index/ingest/lambda owners: `_collect_functions`, `_enclosing_class`, `_enclosing_scopes`, `_enclosing_function_scopes`, `_is_test_path`, `_module_name`, `_param_names`, `_param_spans`, `_function_key`
+    - Removed the last explicit `_decorator_name = _runtime...` binding from facade.
+  - Compatibility status:
+    - Facade symbol names and behavior remain unchanged; only source bindings were canonicalized.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-170`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

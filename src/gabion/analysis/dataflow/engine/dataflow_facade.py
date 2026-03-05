@@ -35,11 +35,31 @@ from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
+    _collect_param_roots,
+    _contains_boolish,
+    _decision_surface_form_entries,
     _decision_surface_params,
+    _decision_surface_reason_map,
+    _decorator_name,
+    _decorators_transparent,
+    _mark_param_roots,
     _value_encoded_decision_params,
+    is_decision_surface,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _enclosing_class,
+    _enclosing_function_scopes,
+    _enclosing_scopes,
+    _is_test_path,
+    _module_name,
+    _param_names,
+    _param_spans,
+)
+from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
+    _collect_functions,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _annotation_exception_candidates,
@@ -60,6 +80,9 @@ from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _phase_work_progress,
+)
+from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+    _function_key,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
@@ -121,7 +144,6 @@ def _internal_broad_type_lint_lines(
 
 
 # Explicit static compatibility exports for high-use helper surfaces.
-_decorator_name = _runtime._decorator_name
 
 _STATIC_FACADE_EXPORTS = (
     "AuditConfig",
