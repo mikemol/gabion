@@ -14,12 +14,26 @@ _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
+_TYPE_DEBT_BASELINE = Path("baselines/type_contract_debt_baseline.json")
 _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 
 
 _ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orchestrator_primitives.py")
 _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
+_TYPE_DEBT_RULE = "type_contract_debt"
+_TYPE_DEBT_KINDS = (
+    "any_occurrence",
+    "public_bare_object_contract",
+    "non_boundary_dict_str_object_signature",
+    "narrowing_operator_outside_boundary",
+)
+_TYPE_DEBT_BOUNDARY_MARKERS = (
+    "gabion:boundary_normalization",
+    "gabion:ambiguity_boundary_module",
+    "gabion:ambiguity_boundary",
+)
+_TYPE_DEBT_APPROVED_BOUNDARY_MODULE_TOKENS = ("/boundary", "_boundary")
 
 
 def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, object]]:
@@ -78,6 +92,11 @@ class PolicySuiteResult:
             rule: len(items)
             for rule, items in self.violations_by_rule.items()
         }
+        type_debt_counts = {kind: 0 for kind in _TYPE_DEBT_KINDS}
+        for item in self.violations_by_rule.get(_TYPE_DEBT_RULE, []):
+            kind = str(item.get("kind", "") or "")
+            if kind in type_debt_counts:
+                type_debt_counts[kind] += 1
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -86,6 +105,7 @@ class PolicySuiteResult:
             "rule_set_hash": self.rule_set_hash,
             "cached": self.cached,
             "counts": counts,
+            "type_contract_debt_counts": type_debt_counts,
             "violations": self.violations_by_rule,
         }
 
@@ -136,6 +156,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         module=defensive_fallback_rule,
         baseline_path=resolved_root / _DEFENSIVE_BASELINE,
     )
+    type_debt_baseline = _load_type_debt_baseline_payload(resolved_root / _TYPE_DEBT_BASELINE)
 
     violations_by_rule: dict[str, list[dict[str, object]]] = {
         "no_monkeypatch": [],
@@ -143,6 +164,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         "defensive_fallback": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
+        _TYPE_DEBT_RULE: [],
     }
 
     legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
@@ -184,6 +206,15 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                 )
 
             if rel_path.startswith("src/gabion/"):
+                type_debt_visitor = _TypeContractDebtVisitor(
+                    rel_path=rel_path,
+                    source_lines=source_lines,
+                )
+                type_debt_visitor.visit(tree)
+                violations_by_rule[_TYPE_DEBT_RULE].extend(
+                    _serialize_type_debt(item) for item in type_debt_visitor.violations
+                )
+
                 branchless_visitor = branchless_rule._BranchlessVisitor(
                     rel_path=rel_path,
                     source_lines=source_lines,
@@ -220,6 +251,24 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                 str(item.get("kind", "")),
             ),
         )
+
+    violations_by_rule[_TYPE_DEBT_RULE].extend(
+        _ratchet_type_debt(
+            findings=violations_by_rule[_TYPE_DEBT_RULE],
+            baseline=type_debt_baseline.thresholds,
+            waived_kinds=type_debt_baseline.waivers,
+        )
+    )
+    violations_by_rule[_TYPE_DEBT_RULE] = sorted(
+        violations_by_rule[_TYPE_DEBT_RULE],
+        key=lambda item: (
+            str(item.get("path", "")),
+            str(item.get("qualname", "")),
+            int(item.get("line", 0) or 0),
+            str(item.get("kind", "")),
+        ),
+    )
+
     return PolicySuiteResult(
         root=resolved_root,
         inventory_hash=inventory_hash,
@@ -255,9 +304,11 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "branchless": [],
             "defensive_fallback": [],
             "no_legacy_monolith_import": [],
+            "orchestrator_primitive_barrel": [],
+            _TYPE_DEBT_RULE: [],
         }
     normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel"):
+    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel", _TYPE_DEBT_RULE):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -296,6 +347,7 @@ def _rule_set_hash() -> str:
             "defensive_fallback:v1",
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
+            "type_contract_debt:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -382,6 +434,264 @@ class _NoLegacyMonolithVisitor(ast.NodeVisitor):
         )
 
 
+@dataclass(frozen=True)
+class _TypeDebtViolation:
+    path: str
+    line: int
+    column: int
+    kind: str
+    message: str
+    qualname: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.kind}:{self.path}:{self.qualname}:{self.line}:{self.column}"
+
+    def render(self) -> str:
+        return f"{self.path}:{self.line}:{self.column}: [{self.kind}] [{self.qualname}] {self.message}"
+
+
+@dataclass(frozen=True)
+class _TypeDebtScope:
+    qualname: str
+    is_boundary: bool
+
+
+@dataclass(frozen=True)
+class _TypeDebtBaseline:
+    thresholds: dict[str, int]
+    waivers: set[str]
+
+
+class _TypeContractDebtVisitor(ast.NodeVisitor):
+    def __init__(self, *, rel_path: str, source_lines: list[str]) -> None:
+        self._path = rel_path
+        self._source_lines = source_lines
+        self._module_boundary = _module_is_type_debt_boundary(rel_path=rel_path, source_lines=source_lines)
+        self._scopes: list[_TypeDebtScope] = []
+        self.violations: list[_TypeDebtViolation] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_function(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_function(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._scan_annotation(annotation=node.annotation, node=node, public_contract=False)
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if self._scope_is_boundary:
+            self.generic_visit(node)
+            return
+        if isinstance(node.func, ast.Name) and node.func.id in {"isinstance", "cast"}:
+            self._record(
+                node,
+                kind="narrowing_operator_outside_boundary",
+                message=f"{node.func.id} narrowing must be isolated to approved boundary modules",
+            )
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "cast":
+            dotted = _dotted_name(node.func.value)
+            if dotted in {"typing", "typing_extensions"}:
+                self._record(
+                    node,
+                    kind="narrowing_operator_outside_boundary",
+                    message="cast narrowing must be isolated to approved boundary modules",
+                )
+        self.generic_visit(node)
+
+    @property
+    def _scope_is_boundary(self) -> bool:
+        if self._scopes:
+            return self._scopes[-1].is_boundary
+        return self._module_boundary
+
+    @property
+    def _scope_qualname(self) -> str:
+        if self._scopes:
+            return self._scopes[-1].qualname
+        return "<module>"
+
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        parent = self._scope_qualname
+        qualname = node.name if parent == "<module>" else f"{parent}.{node.name}"
+        is_boundary = self._module_boundary or _has_boundary_marker(
+            source_lines=self._source_lines,
+            line=int(getattr(node, "lineno", 1) or 1),
+        )
+        self._scopes.append(_TypeDebtScope(qualname=qualname, is_boundary=is_boundary))
+        for arg in _iter_function_args(node):
+            if arg.annotation is not None:
+                self._scan_annotation(annotation=arg.annotation, node=arg, public_contract=_is_public_name(node.name))
+        if node.returns is not None:
+            self._scan_annotation(annotation=node.returns, node=node, public_contract=_is_public_name(node.name))
+        self.generic_visit(node)
+        self._scopes.pop()
+
+    def _scan_annotation(self, *, annotation: ast.AST, node: ast.AST, public_contract: bool) -> None:
+        if _annotation_contains_name(annotation, "Any"):
+            self._record(node, kind="any_occurrence", message="Any in type contract")
+        if public_contract and _annotation_is_bare_object(annotation):
+            self._record(
+                node,
+                kind="public_bare_object_contract",
+                message="public contract uses bare object type",
+            )
+        if not self._scope_is_boundary and _annotation_is_dict_str_object(annotation):
+            self._record(
+                node,
+                kind="non_boundary_dict_str_object_signature",
+                message="dict[str, object] signature must be normalized at a boundary",
+            )
+
+    def _record(self, node: ast.AST, *, kind: str, message: str) -> None:
+        self.violations.append(
+            _TypeDebtViolation(
+                path=self._path,
+                line=int(getattr(node, "lineno", 1) or 1),
+                column=int(getattr(node, "col_offset", 0) or 0) + 1,
+                kind=kind,
+                message=message,
+                qualname=self._scope_qualname,
+            )
+        )
+
+
+
+def _module_is_type_debt_boundary(*, rel_path: str, source_lines: list[str]) -> bool:
+    normalized = f"/{rel_path.lower()}"
+    if any(token in normalized for token in _TYPE_DEBT_APPROVED_BOUNDARY_MODULE_TOKENS):
+        return True
+    return _has_boundary_marker(source_lines=source_lines, line=1)
+
+
+def _has_boundary_marker(*, source_lines: list[str], line: int) -> bool:
+    idx = max(0, line - 2)
+    while idx >= 0:
+        stripped = source_lines[idx].strip()
+        if not stripped:
+            idx -= 1
+            continue
+        if not stripped.startswith("#"):
+            return False
+        return any(marker in stripped for marker in _TYPE_DEBT_BOUNDARY_MARKERS)
+    return False
+
+
+def _dotted_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _dotted_name(node.value)
+        if parent is None:
+            return None
+        return f"{parent}.{node.attr}"
+    return None
+
+
+def _iter_function_args(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.arg]:
+    args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+    if node.args.vararg is not None:
+        args.append(node.args.vararg)
+    if node.args.kwarg is not None:
+        args.append(node.args.kwarg)
+    return args
+
+
+def _is_public_name(name: str) -> bool:
+    return not name.startswith("_")
+
+
+def _annotation_contains_name(node: ast.AST, name: str) -> bool:
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and child.id == name:
+            return True
+    return False
+
+
+def _annotation_is_bare_object(node: ast.AST) -> bool:
+    return isinstance(node, ast.Name) and node.id == "object"
+
+
+def _annotation_is_dict_str_object(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Subscript):
+        return False
+    target = _dotted_name(node.value)
+    if target not in {"dict", "typing.Dict", "Dict"}:
+        return False
+    slice_node = node.slice
+    if isinstance(slice_node, ast.Tuple) and len(slice_node.elts) == 2:
+        left, right = slice_node.elts
+        return _annotation_is_str_type(left) and _annotation_is_object_type(right)
+    return False
+
+
+def _annotation_is_str_type(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Name) and node.id == "str") or (
+        isinstance(node, ast.Constant) and node.value == "str"
+    )
+
+
+def _annotation_is_object_type(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Name) and node.id == "object") or (
+        isinstance(node, ast.Constant) and node.value == "object"
+    )
+
+
+def _load_type_debt_baseline_payload(path: Path) -> _TypeDebtBaseline:
+    defaults = {kind: 0 for kind in _TYPE_DEBT_KINDS}
+    if not path.exists():
+        return _TypeDebtBaseline(thresholds=defaults, waivers=set())
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _TypeDebtBaseline(thresholds=defaults, waivers=set())
+    thresholds_raw = payload.get("thresholds") if isinstance(payload, dict) else None
+    waivers_raw = payload.get("waivers") if isinstance(payload, dict) else None
+    merged = dict(defaults)
+    if isinstance(thresholds_raw, dict):
+        for kind in _TYPE_DEBT_KINDS:
+            value = thresholds_raw.get(kind, 0)
+            merged[kind] = int(value) if isinstance(value, int) and value >= 0 else 0
+    waivers: set[str] = set()
+    if isinstance(waivers_raw, dict):
+        for kind, note in waivers_raw.items():
+            if kind in _TYPE_DEBT_KINDS and isinstance(note, str) and note.strip():
+                waivers.add(kind)
+    return _TypeDebtBaseline(thresholds=merged, waivers=waivers)
+
+def _ratchet_type_debt(*, findings: list[dict[str, object]], baseline: dict[str, int], waived_kinds: set[str]) -> list[dict[str, object]]:
+    counts = {kind: 0 for kind in _TYPE_DEBT_KINDS}
+    for item in findings:
+        kind = str(item.get("kind", "") or "")
+        if kind in counts:
+            counts[kind] += 1
+    ratchet: list[dict[str, object]] = []
+    for kind in _TYPE_DEBT_KINDS:
+        if kind in waived_kinds:
+            continue
+        current = int(counts.get(kind, 0))
+        allowed = int(baseline.get(kind, 0))
+        if current <= allowed:
+            continue
+        ratchet.append(
+            {
+                "path": _TYPE_DEBT_BASELINE.as_posix(),
+                "line": 1,
+                "column": 1,
+                "kind": "ratchet_regression",
+                "qualname": kind,
+                "message": f"type-contract debt for {kind} increased above baseline ({current}>{allowed})",
+                "key": f"ratchet:{kind}:{current}:{allowed}",
+                "render": f"{_TYPE_DEBT_BASELINE.as_posix()}:1:1: [ratchet_regression] [{kind}] current={current} baseline={allowed}",
+                "current": current,
+                "baseline": allowed,
+            }
+        )
+    return ratchet
+
+
 def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
     loader = getattr(module, "_load_baseline", None)
     if loader is None:
@@ -452,6 +762,19 @@ def _serialize_legacy_monolith(violation: object) -> dict[str, object]:
         "path": getattr(violation, "path"),
         "line": getattr(violation, "line"),
         "column": getattr(violation, "column"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_type_debt(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),

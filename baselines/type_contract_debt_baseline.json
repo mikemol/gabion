@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "thresholds": {
+    "any_occurrence": 70,
+    "public_bare_object_contract": 229,
+    "non_boundary_dict_str_object_signature": 103,
+    "narrowing_operator_outside_boundary": 485
+  },
+  "waivers": {}
+}

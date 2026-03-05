@@ -304,3 +304,93 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
     violations = policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel")
     assert violations
     assert any(item.get("kind") == "line_threshold" for item in violations)
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_type_debt_findings_and_boundary_exemptions::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_type_debt_findings_and_boundary_exemptions(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/core_contracts.py",
+        "\n".join(
+            [
+                "from typing import Any, cast",
+                "",
+                "def publish(payload: dict[str, object], item: object) -> Any:",
+                "    if isinstance(item, str):",
+                "        return cast(object, item)",
+                "    return payload",
+                "",
+            ]
+        ),
+    )
+    _write(
+        root / "src/gabion/boundary_ingress.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization",
+                "from typing import cast",
+                "",
+                "def normalize(payload: dict[str, object]) -> dict[str, object]:",
+                "    return cast(dict[str, object], payload)",
+                "",
+            ]
+        ),
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    findings = policy_scanner_suite.violations_for_rule(result, rule="type_contract_debt")
+    finding_kinds = {str(item.get("kind", "")) for item in findings}
+    assert "any_occurrence" in finding_kinds
+    assert "public_bare_object_contract" in finding_kinds
+    assert "non_boundary_dict_str_object_signature" in finding_kinds
+    assert "narrowing_operator_outside_boundary" in finding_kinds
+    assert all(
+        not (
+            str(item.get("path", "")).endswith("boundary_ingress.py")
+            and str(item.get("kind", ""))
+            in {"non_boundary_dict_str_object_signature", "narrowing_operator_outside_boundary"}
+        )
+        for item in findings
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_type_debt_ratchet_regression::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_type_debt_ratchet_regression(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / "src/gabion/core_contracts.py", "def publish(payload: dict[str, object]) -> int:\n    return 1\n")
+    _write(
+        root / "baselines/type_contract_debt_baseline.json",
+        json.dumps(
+            {
+                "version": 1,
+                "thresholds": {
+                    "any_occurrence": 0,
+                    "public_bare_object_contract": 0,
+                    "non_boundary_dict_str_object_signature": 0,
+                    "narrowing_operator_outside_boundary": 0,
+                },
+                "waivers": {},
+            }
+        )
+        + "\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    findings = policy_scanner_suite.violations_for_rule(result, rule="type_contract_debt")
+    assert any(str(item.get("kind", "")) == "ratchet_regression" for item in findings)
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_payload_has_type_debt_counts::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.PolicySuiteResult.to_payload
+def test_policy_scanner_suite_payload_has_type_debt_counts(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / "src/gabion/core_contracts.py", "from typing import Any\n\ndef publish(value: Any) -> Any:\n    return value\n")
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    payload = result.to_payload()
+    counts = payload.get("type_contract_debt_counts")
+    assert isinstance(counts, dict)
+    assert set(counts) == {
+        "any_occurrence",
+        "public_bare_object_contract",
+        "non_boundary_dict_str_object_signature",
+        "narrowing_operator_outside_boundary",
+    }
