@@ -136,26 +136,11 @@ def _analysis_resume_cache_verdict(
     reused_files: int,
     compatibility_status: str | None,
 ) -> Literal["hit", "miss", "invalidated", "seeded"]:
-    invalidation_statuses = {
-        "checkpoint_manifest_mismatch",
-        "checkpoint_unreadable",
-        "checkpoint_invalid_payload",
-        "checkpoint_manifest_missing",
-        "checkpoint_missing_collection_resume",
-        "aspf_state_manifest_mismatch",
-        "aspf_state_missing_manifest_digest",
-        "aspf_state_missing_current_manifest_digest",
-        "aspf_state_missing_collection_resume",
-    }
-    if status in {"checkpoint_loaded", "aspf_state_loaded"}:
-        if reused_files > 0:
-            return "hit"
-        return "miss"
-    if status == "checkpoint_seeded":
-        if compatibility_status in invalidation_statuses:
-            return "invalidated"
-        return "seeded"
-    return "invalidated" if compatibility_status in invalidation_statuses else "miss"
+    return orchestrator_primitives._analysis_resume_cache_verdict(
+        status=status,
+        reused_files=reused_files,
+        compatibility_status=compatibility_status,
+    )
 
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
@@ -591,20 +576,10 @@ def _normalize_progress_work(
     work_done: object | None,
     work_total: object | None,
 ) -> tuple[int | None, int | None]:
-    normalized_done: int | None = None
-    normalized_total: int | None = None
-    if isinstance(work_done, int) and not isinstance(work_done, bool):
-        normalized_done = max(work_done, 0)
-    if isinstance(work_total, int) and not isinstance(work_total, bool):
-        normalized_total = max(work_total, 0)
-    if (
-        normalized_done is not None
-        and normalized_total is not None
-        and normalized_done > normalized_total
-    ):
-        normalized_done = normalized_total
-    return normalized_done, normalized_total
-
+    return orchestrator_primitives._normalize_progress_work(
+        work_done=work_done,
+        work_total=work_total,
+    )
 
 def _phase_primary_unit_for_phase(phase: str) -> str:
     primary_unit = _PHASE_PRIMARY_UNITS.get(phase)
@@ -877,91 +852,43 @@ def _collection_semantic_witness(
 
 
 def _resolve_report_output_path(*, root: Path, report_path: str | None) -> Path | None:
-    if report_path in (None, ""):
-        return None
-    if _is_stdout_target(report_path):
-        return None
-    candidate = Path(str(report_path))
-    if candidate.is_absolute():
-        return candidate
-    return root / candidate
-
+    return orchestrator_primitives._resolve_report_output_path(
+        root=root,
+        report_path=report_path,
+    )
 
 def _resolve_report_section_journal_path(
     *,
     root: Path,
     report_path: str | None,
 ) -> Path | None:
-    resolved_report = _resolve_report_output_path(root=root, report_path=report_path)
-    if resolved_report is None:
-        return None
-    default_journal = root / _DEFAULT_REPORT_SECTION_JOURNAL
-    if resolved_report.name == "dataflow_report.md":
-        return default_journal
-    return resolved_report.with_name(f"{resolved_report.stem}_sections.json")
-
+    return orchestrator_primitives._resolve_report_section_journal_path(
+        root=root,
+        report_path=report_path,
+    )
 
 def _report_witness_digest(
     *,
     input_witness: Mapping[str, JSONValue] | None,
     manifest_digest: str | None,
 ) -> str | None:
-    digest = input_witness.get("witness_digest") if input_witness is not None else None
-    digest_text = digest if isinstance(digest, str) and digest else None
-    manifest_text = (
-        manifest_digest
-        if isinstance(manifest_digest, str) and manifest_digest
-        else None
+    return orchestrator_primitives._report_witness_digest(
+        input_witness=input_witness,
+        manifest_digest=manifest_digest,
     )
-    return digest_text or manifest_text
-
 
 def _coerce_section_lines(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    lines: list[str] = []
-    for item in value:
-        check_deadline()
-        if isinstance(item, str):
-            lines.append(item)
-    return lines
-
+    return orchestrator_primitives._coerce_section_lines(value)
 
 def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
 ) -> tuple[dict[str, list[str]], str | None]:
-    if path is None or not path.exists():
-        return {}, None
-    try:
-        payload = json.loads(
-            _read_text_profiled(path, io_name="report_section_journal.read")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}, "policy"
-    if not isinstance(payload, dict):
-        return {}, "policy"
-    if payload.get("format_version") != _REPORT_SECTION_JOURNAL_FORMAT_VERSION:
-        return {}, "policy"
-    expected_digest = payload.get("witness_digest")
-    if isinstance(expected_digest, str):
-        if not isinstance(witness_digest, str) or expected_digest != witness_digest:
-            return {}, "stale_input"
-    sections_payload = payload.get("sections")
-    if not isinstance(sections_payload, Mapping):
-        return {}, "policy"
-    sections: dict[str, list[str]] = {}
-    for key, entry in sections_payload.items():
-        check_deadline()
-        if not isinstance(key, str) or not isinstance(entry, Mapping):
-            continue
-        lines = _coerce_section_lines(entry.get("lines"))
-        if not lines:
-            continue
-        sections[key] = lines
-    return sections, None
-
+    return orchestrator_primitives._load_report_section_journal(
+        path=path,
+        witness_digest=witness_digest,
+    )
 
 def _write_report_section_journal(
     *,
@@ -971,51 +898,13 @@ def _write_report_section_journal(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
-    if path is None:
-        return
-    rows_payload: list[JSONObject] = []
-    sections_payload: JSONObject = {}
-    pending_reasons = pending_reasons or {}
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
-        status = "resolved" if section_id in sections else "pending"
-        section_entry: JSONObject = {
-            "phase": phase,
-            "deps": deps,
-            "status": status,
-            "lines": sections.get(section_id, []),
-        }
-        section_entry["reason"] = pending_reasons.get(section_id)
-        sections_payload[section_id] = section_entry
-        rows_payload.append(
-            {
-                "section_id": section_id,
-                "phase": phase,
-                "deps": deps,
-                "status": status,
-            }
-        )
-    payload: JSONObject = {
-        "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
-        "witness_digest": witness_digest,
-        "sections": sections_payload,
-        "projection_rows": rows_payload,
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        path,
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        io_name="report_section_journal.write",
+    orchestrator_primitives._write_report_section_journal(
+        path=path,
+        witness_digest=witness_digest,
+        projection_rows=projection_rows,
+        sections=sections,
+        pending_reasons=pending_reasons,
     )
-
 
 def _write_bootstrap_incremental_artifacts(
     *,
@@ -1586,179 +1475,16 @@ def _incremental_progress_obligations(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str],
 ) -> list[JSONObject]:
-    check_deadline()
-    obligations: list[JSONObject] = []
-    classification = (
-        str(progress_payload.get("classification", "") or "")
-        if isinstance(progress_payload, Mapping)
-        else ""
+    return orchestrator_primitives._incremental_progress_obligations(
+        analysis_state=analysis_state,
+        progress_payload=progress_payload,
+        resume_payload_available=resume_payload_available,
+        partial_report_written=partial_report_written,
+        report_requested=report_requested,
+        projection_rows=projection_rows,
+        sections=sections,
+        pending_reasons=pending_reasons,
     )
-    resume_supported = (
-        bool(progress_payload.get("resume_supported"))
-        if isinstance(progress_payload, Mapping)
-        else False
-    )
-    semantic_progress = (
-        progress_payload.get("semantic_progress")
-        if isinstance(progress_payload, Mapping)
-        else None
-    )
-    semantic_monotonic_progress: bool | None = None
-    semantic_substantive_progress: bool | None = None
-    if isinstance(semantic_progress, Mapping):
-        raw_monotonic = semantic_progress.get("monotonic_progress")
-        raw_substantive = semantic_progress.get("substantive_progress")
-        if isinstance(raw_monotonic, bool):
-            semantic_monotonic_progress = raw_monotonic
-        if isinstance(raw_substantive, bool):
-            semantic_substantive_progress = raw_substantive
-    is_timeout_state = analysis_state.startswith("timed_out_")
-    if is_timeout_state:
-        expected_progress = analysis_state == "timed_out_progress_resume"
-        classification_ok = (expected_progress and resume_supported) or (
-            not expected_progress and not resume_supported
-        )
-    else:
-        classification_ok = True
-    obligations.append(
-        {
-            "status": "SATISFIED" if classification_ok else "VIOLATION",
-            "contract": "resume_contract",
-            "kind": "classification_matches_resume_support",
-            "detail": (
-                f"analysis_state={analysis_state} classification={classification} "
-                f"resume_supported={resume_supported}"
-            ),
-        }
-    )
-    if semantic_monotonic_progress is not None:
-        obligations.append(
-            {
-                "status": "SATISFIED" if semantic_monotonic_progress else "VIOLATION",
-                "contract": "resume_contract",
-                "kind": "progress_monotonicity",
-                "detail": (
-                    "semantic progress is monotonic"
-                    if semantic_monotonic_progress
-                    else "semantic progress regression detected"
-                ),
-            }
-        )
-    if is_timeout_state and semantic_substantive_progress is not None:
-        expected_substantive_progress = analysis_state == "timed_out_progress_resume"
-        obligations.append(
-            {
-                "status": (
-                    "SATISFIED"
-                    if semantic_substantive_progress == expected_substantive_progress
-                    else "VIOLATION"
-                ),
-                "contract": "resume_contract",
-                "kind": "substantive_progress_required",
-                "detail": (
-                    f"analysis_state={analysis_state} "
-                    f"substantive_progress={semantic_substantive_progress}"
-                ),
-            }
-        )
-
-    resume_payload_ok = True
-    if resume_supported and is_timeout_state:
-        resume_payload_ok = resume_payload_available
-    obligations.append(
-        {
-            "status": "SATISFIED" if resume_payload_ok else "VIOLATION",
-            "contract": "resume_contract",
-            "kind": "resume_payload_present_when_resumable",
-            "detail": "resume payload available"
-            if resume_payload_ok
-            else "resume payload missing",
-        }
-    )
-    stale_input_detected = any(
-        reason == "stale_input" for reason in pending_reasons.values()
-    )
-    if stale_input_detected and sections:
-        restart_status = "VIOLATION"
-        restart_detail = "witness_mismatch_with_reused_sections"
-    elif stale_input_detected:
-        restart_status = "SATISFIED"
-        restart_detail = "restart_required"
-    else:
-        restart_status = "OBLIGATION"
-        restart_detail = "no_witness_mismatch"
-    obligations.append(
-        {
-            "status": restart_status,
-            "contract": "resume_contract",
-            "kind": "restart_required_on_witness_mismatch",
-            "detail": restart_detail,
-        }
-    )
-    if report_requested and is_timeout_state:
-        projection_count = sum(
-            1
-            for row in projection_rows
-            if isinstance(row, Mapping)
-            and isinstance(row.get("section_id"), str)
-            and str(row.get("section_id") or "")
-        )
-        resolved_count = len(sections)
-        obligations.append(
-            {
-                "status": "SATISFIED" if resolved_count > 0 else "VIOLATION",
-                "contract": "resume_contract",
-                "kind": "no_projection_progress",
-                "detail": (
-                    f"resolved_sections={resolved_count} "
-                    f"projected_sections={projection_count}"
-                ),
-            }
-        )
-
-    if report_requested and is_timeout_state:
-        obligations.append(
-            {
-                "status": "SATISFIED" if partial_report_written else "VIOLATION",
-                "contract": "progress_report_contract",
-                "kind": "partial_report_emitted",
-                "detail": "partial report emission on timeout",
-            }
-        )
-    elif report_requested:
-        obligations.append(
-            {
-                "status": "SATISFIED",
-                "contract": "progress_report_contract",
-                "kind": "partial_report_emitted",
-                "detail": "not_applicable_without_timeout",
-            }
-        )
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        if section_id in sections:
-            status = "SATISFIED"
-            detail = "section reused from witness-matched journal"
-        else:
-            status = "OBLIGATION"
-            detail = pending_reasons.get(section_id, "section pending")
-            if stale_input_detected and detail == "policy":
-                detail = "stale_input"
-        obligations.append(
-            {
-                "status": status,
-                "contract": "incremental_projection_contract",
-                "kind": "section_projection_state",
-                "section_id": section_id,
-                "phase": str(row.get("phase", "") or ""),
-                "detail": detail,
-            }
-        )
-    return obligations
-
 
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
