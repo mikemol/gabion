@@ -291,6 +291,13 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles as _iter_documented_bundles_owner,
 )
+from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
+    _adapt_ingest_carrier_to_analysis_maps as _adapt_ingest_carrier_to_analysis_maps_owner,
+    _group_by_signature as _group_by_signature_owner,
+    _propagate_groups as _propagate_groups_owner,
+    _union_groups as _union_groups_owner,
+    analyze_ingested_file as _analyze_ingested_file_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
     OptionalAnalysisIndex,
@@ -1657,67 +1664,11 @@ def _unused_params(use_map: dict[str, ParamUse]) -> tuple[set[str], set[str]]:
 
     return _unused_params_impl(use_map)
 
-def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        _group_by_signature as _group_by_signature_impl,
-    )
-
-    return _group_by_signature_impl(use_map)
-
-def _union_groups(groups: list[set[str]]) -> list[set[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        _union_groups as _union_groups_impl,
-    )
-
-    return _union_groups_impl(groups)
-
-def _propagate_groups(
-    call_args: list[CallArgs],
-    callee_groups: dict[str, list[set[str]]],
-    callee_param_orders: dict[str, list[str]],
-    strictness: str,
-    opaque_callees = None,
-) -> list[set[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        _propagate_groups as _propagate_groups_impl,
-    )
-
-    return _propagate_groups_impl(
-        call_args,
-        callee_groups,
-        callee_param_orders,
-        strictness,
-        opaque_callees=opaque_callees,
-    )
-
-def _adapt_ingest_carrier_to_analysis_maps(ingest_carrier):
-    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        _adapt_ingest_carrier_to_analysis_maps as _adapt_ingest_carrier_to_analysis_maps_impl,
-    )
-
-    return _adapt_ingest_carrier_to_analysis_maps_impl(ingest_carrier)
-
-def analyze_ingested_file(
-    ingest_carrier,
-    *,
-    recursive: bool,
-    config: AuditConfig,
-    on_profile = None,
-) -> tuple[
-    dict[str, list[set[str]]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, list[list[JSONObject]]],
-]:
-    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        analyze_ingested_file as _analyze_ingested_file_impl,
-    )
-
-    return _analyze_ingested_file_impl(
-        ingest_carrier,
-        recursive=recursive,
-        config=config,
-        on_profile=on_profile,
-    )
+_group_by_signature = _group_by_signature_owner
+_union_groups = _union_groups_owner
+_propagate_groups = _propagate_groups_owner
+_adapt_ingest_carrier_to_analysis_maps = _adapt_ingest_carrier_to_analysis_maps_owner
+analyze_ingested_file = _analyze_ingested_file_owner
 
 _analyze_file_internal = _analyze_file_internal_owner
 

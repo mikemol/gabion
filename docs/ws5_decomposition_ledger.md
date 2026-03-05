@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1262,6 +1262,25 @@ doc_scope:
     - Monolith LOC dropped to `2299`; top-level imports remain within target (`68`).
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-132`).
+  - Validation:
+    - policy checks passed
+    - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Ingest-analysis helper wrapper hard-cut:
+    - Monolith wrapper bodies replaced by direct canonical owner aliases for:
+      - `_group_by_signature`
+      - `_union_groups`
+      - `_propagate_groups`
+      - `_adapt_ingest_carrier_to_analysis_maps`
+      - `analyze_ingested_file`
+    - `dataflow_indexed_file_scan.py` now imports this cluster from `dataflow_ingested_analysis_support`.
+    - Removed monolith local import-wrappers for ingest helper surfaces.
+  - Compatibility status:
+    - Ingest-analysis helper surfaces are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2250`; top-level imports remain within target (`69`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-133`).
   - Validation:
     - policy checks passed
     - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
