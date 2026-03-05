@@ -1,5 +1,5 @@
 ---
-doc_revision: 30
+doc_revision: 31
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -514,6 +514,30 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted constant-flow + runtime/dataflow suites passed (`55 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase config/dataclass fallback contraction:
+    - Removed runtime-module fallback wiring in:
+      - `_collect_config_bundles`
+      - `_iter_config_fields`
+      - `_collect_dataclass_registry`
+    - Added owner-local contracts for stage-cache/config/dataclass paths:
+      - `_parse_module_tree_or_none`
+      - `_simple_store_name`
+      - `_StageCacheSpec`
+      - `_dataclass_registry_for_tree`
+    - Switched these paths to canonical owner dependencies:
+      - `_analysis_index_stage_cache`
+      - `_parse_stage_cache_key`
+      - `_EMPTY_CACHE_SEMANTIC_CONTEXT`
+      - `_forbid_adhoc_bundle_discovery`
+      - indexed-scan `dataclass_registry_for_tree` deps
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `6` to `3`.
+  - ASPF no-change acknowledgement refreshed (`in-92`).
+  - Validation:
+    - policy checks passed
+    - targeted config/dataclass/constant-flow + runtime/dataflow suites passed (`67 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

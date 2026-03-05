@@ -18,11 +18,14 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import (
     SymbolTable,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
     _IndexedPassSpec,
+    _analysis_index_stage_cache,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
     _iter_resolved_edge_param_events,
+    _parse_stage_cache_key,
     _reduce_resolved_call_edges,
     _run_indexed_pass,
 )
@@ -30,6 +33,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _collect_functions,
     _enclosing_scopes,
     _is_test_path,
+    _module_name,
     _node_span,
     _param_names,
     _param_annotations,
@@ -37,6 +41,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleStage,
     _ParseModuleSuccess,
+    _forbid_adhoc_bundle_discovery,
     _parse_module_tree,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
@@ -125,7 +130,9 @@ from gabion.analysis.indexed_scan.scanners.knob_param_names import (
 )
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
     CollectDataclassRegistryDeps as _CollectDataclassRegistryDeps,
+    DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps,
     collect_dataclass_registry as _collect_dataclass_registry_impl,
+    dataclass_registry_for_tree as _dataclass_registry_for_tree_impl,
 )
 from gabion.analysis.indexed_scan.scanners.materialization.property_hook_manifest import (
     PropertyHookCallableIndexDeps as _PropertyHookCallableIndexDeps,
@@ -173,6 +180,28 @@ def _runtime_module():
 
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
+
+
+def _parse_module_tree_or_none(
+    path: Path,
+    *,
+    stage: _ParseModuleStage,
+    parse_failure_witnesses: list[JSONObject],
+):
+    outcome = _parse_module_tree(
+        path,
+        stage=stage,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    if type(outcome) is _ParseModuleSuccess:
+        return outcome.tree
+    return None
+
+
+def _simple_store_name(target: ast.AST):
+    if type(target) is ast.Name:
+        return cast(ast.Name, target).id
+    return None
 
 
 def _decorator_matches(name: str, allowlist: set[str]) -> bool:
@@ -1004,6 +1033,35 @@ class ConstantFlowDetail:
     sites: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _StageCacheSpec:
+    stage: _ParseModuleStage
+    cache_key: object
+    build: Callable[[ast.Module, Path], object]
+
+
+def _dataclass_registry_for_tree(
+    path: Path,
+    tree: ast.AST,
+    *,
+    project_root=None,
+) -> dict[str, list[str]]:
+    return cast(
+        dict[str, list[str]],
+        _dataclass_registry_for_tree_impl(
+            path,
+            tree,
+            project_root=project_root,
+            deps=_DataclassRegistryForTreeDeps(
+                check_deadline_fn=check_deadline,
+                module_name_fn=_module_name,
+                simple_store_name_fn=_simple_store_name,
+                decorator_text_fn=lambda node: _decorator_name_local(node) or "",
+            ),
+        ),
+    )
+
+
 def _collect_exception_obligations(
     paths: list[Path],
     *,
@@ -1443,7 +1501,6 @@ def _collect_config_bundles(
     parse_failure_witnesses: list[JSONObject],
     analysis_index=None,
 ) -> dict[Path, dict[str, set[str]]]:
-    runtime = _runtime_module()
     return cast(
         dict[Path, dict[str, set[str]]],
         _collect_config_bundles_impl(
@@ -1451,13 +1508,13 @@ def _collect_config_bundles(
             parse_failure_witnesses=parse_failure_witnesses,
             analysis_index=analysis_index,
             deps=_CollectConfigBundlesDeps(
-                check_deadline_fn=runtime.check_deadline,
-                forbid_adhoc_bundle_discovery_fn=runtime._forbid_adhoc_bundle_discovery,
-                analysis_index_stage_cache_fn=runtime._analysis_index_stage_cache,
-                stage_cache_spec_ctor=runtime._StageCacheSpec,
-                parse_module_stage_config_fields=runtime._ParseModuleStage.CONFIG_FIELDS,
-                parse_stage_cache_key_fn=runtime._parse_stage_cache_key,
-                empty_cache_semantic_context=runtime._EMPTY_CACHE_SEMANTIC_CONTEXT,
+                check_deadline_fn=check_deadline,
+                forbid_adhoc_bundle_discovery_fn=_forbid_adhoc_bundle_discovery,
+                analysis_index_stage_cache_fn=_analysis_index_stage_cache,
+                stage_cache_spec_ctor=_StageCacheSpec,
+                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
+                parse_stage_cache_key_fn=_parse_stage_cache_key,
+                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                 iter_config_fields_fn=_iter_config_fields,
             ),
         ),
@@ -1470,7 +1527,6 @@ def _iter_config_fields(
     tree=None,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, set[str]]:
-    runtime = _runtime_module()
     return cast(
         dict[str, set[str]],
         _iter_config_fields_impl(
@@ -1478,10 +1534,10 @@ def _iter_config_fields(
             tree=tree,
             parse_failure_witnesses=parse_failure_witnesses,
             deps=_IterConfigFieldsDeps(
-                check_deadline_fn=runtime.check_deadline,
-                parse_module_tree_fn=runtime._parse_module_tree,
-                parse_module_stage_config_fields=runtime._ParseModuleStage.CONFIG_FIELDS,
-                simple_store_name_fn=runtime._simple_store_name,
+                check_deadline_fn=check_deadline,
+                parse_module_tree_fn=_parse_module_tree_or_none,
+                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
+                simple_store_name_fn=_simple_store_name,
             ),
         ),
     )
@@ -1495,7 +1551,6 @@ def _collect_dataclass_registry(
     analysis_index=None,
     stage_cache_fn=None,
 ) -> dict[str, list[str]]:
-    runtime = _runtime_module()
     return cast(
         dict[str, list[str]],
         _collect_dataclass_registry_impl(
@@ -1505,14 +1560,14 @@ def _collect_dataclass_registry(
             analysis_index=analysis_index,
             stage_cache_fn=stage_cache_fn,
             deps=_CollectDataclassRegistryDeps(
-                check_deadline_fn=runtime.check_deadline,
-                analysis_index_stage_cache_default_fn=runtime._analysis_index_stage_cache,
-                stage_cache_spec_ctor=runtime._StageCacheSpec,
-                parse_module_stage_dataclass_registry=runtime._ParseModuleStage.DATACLASS_REGISTRY,
-                parse_stage_cache_key_fn=runtime._parse_stage_cache_key,
-                empty_cache_semantic_context=runtime._EMPTY_CACHE_SEMANTIC_CONTEXT,
-                dataclass_registry_for_tree_fn=runtime._dataclass_registry_for_tree,
-                parse_module_tree_fn=runtime._parse_module_tree,
+                check_deadline_fn=check_deadline,
+                analysis_index_stage_cache_default_fn=_analysis_index_stage_cache,
+                stage_cache_spec_ctor=_StageCacheSpec,
+                parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
+                parse_stage_cache_key_fn=_parse_stage_cache_key,
+                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
+                dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
+                parse_module_tree_fn=_parse_module_tree_or_none,
             ),
         ),
     )
