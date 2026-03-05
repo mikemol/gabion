@@ -2,13 +2,35 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.core.visitors import ParentAnnotator
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_deadline_runtime_owner as deadline_runtime
+    from gabion.analysis.dataflow.engine import dataflow_function_index_runtime_support as index_runtime
+    from gabion.analysis.dataflow.engine import dataflow_lambda_runtime_support as lambda_runtime
+    from gabion.analysis.dataflow.engine.dataflow_contracts import (
+        ClassInfo,
+        FunctionInfo,
+        SymbolTable,
+    )
 
-    return da
+    return SimpleNamespace(
+        ClassInfo=ClassInfo,
+        FunctionInfo=FunctionInfo,
+        ParentAnnotator=ParentAnnotator,
+        SymbolTable=SymbolTable,
+        _build_function_index=index_owner._build_function_index,
+        _collect_lambda_bindings_by_caller=lambda_runtime._collect_lambda_bindings_by_caller,
+        _collect_lambda_function_infos=lambda_runtime._collect_lambda_function_infos,
+        _direct_lambda_callee_by_call_span=index_runtime._direct_lambda_callee_by_call_span,
+        _is_dynamic_dispatch_callee_key=deadline_runtime._is_dynamic_dispatch_callee_key,
+        _resolve_callee=deadline_runtime._resolve_callee,
+        _resolve_callee_outcome=deadline_runtime._resolve_callee_outcome,
+    )
 
 def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
     return da.FunctionInfo(
