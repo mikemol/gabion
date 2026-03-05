@@ -1645,6 +1645,71 @@ def check_semantic_core_payload_branching() -> None:
         ])
 
 
+
+def _is_dict_object_annotation(annotation: ast.AST) -> bool:
+    text = ast.unparse(annotation).replace(" ", "")
+    return text in {
+        "dict[str,object]",
+        "Mapping[str,object]",
+        "MutableMapping[str,object]",
+        "collections.abc.Mapping[str,object]",
+        "collections.abc.MutableMapping[str,object]",
+    }
+
+
+def _helper_payload_signature_violations(path: Path) -> list[str]:
+    check_deadline()
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read source ({exc})"]
+    if "gabion:boundary_normalization_module" in source:
+        return []
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        return [f"{path}: failed to parse source ({exc})"]
+    violations: list[str] = []
+    try:
+        rel = path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel = str(path)
+    for node in ast.walk(module):
+        check_deadline()
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if not node.name.startswith("_"):
+            continue
+        params = [*node.args.posonlyargs, *node.args.args]
+        if not params:
+            continue
+        first_param = params[0]
+        if first_param.annotation is None:
+            continue
+        if _is_dict_object_annotation(first_param.annotation):
+            line = int(getattr(first_param, "lineno", getattr(node, "lineno", 1)) or 1)
+            violations.append(
+                f"{rel}:{line}: non-boundary helper must not use dict[str, object]-first payload signatures"
+            )
+    return violations
+
+
+def check_non_boundary_payload_signatures() -> None:
+    changed = _changed_repo_paths()
+    errors: list[str] = []
+    for rel in sorted(changed):
+        check_deadline()
+        if not rel.startswith("src/") or not rel.endswith(".py"):
+            continue
+        if rel.startswith("src/gabion/commands/"):
+            continue
+        path = REPO_ROOT / rel
+        if not path.is_file():
+            continue
+        errors.extend(_helper_payload_signature_violations(path))
+    if errors:
+        _fail(["non-boundary payload signature policy check failed", *errors])
+
 def _dotted_name(node: ast.AST) -> str | None:
     if isinstance(node, ast.Name):
         return node.id
@@ -1719,9 +1784,10 @@ def main():
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
+    parser.add_argument("--non-boundary-payload-signatures", action="store_true", help="forbid dict[str, object]-first helper signatures outside boundary modules")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.non_boundary_payload_signatures:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1743,6 +1809,8 @@ def main():
             check_src_script_file_loading_policy()
         if args.aspf_taint_crosswalk or args.workflows:
             check_aspf_taint_crosswalk_ack()
+        if args.non_boundary_payload_signatures or args.workflows:
+            check_non_boundary_payload_signatures()
     return 0
 
 

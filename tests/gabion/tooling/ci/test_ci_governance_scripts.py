@@ -408,6 +408,36 @@ def semantic(value: object) -> object:
     assert violations
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_non_boundary_payload_signature_policy_flags_helper
+def test_non_boundary_payload_signature_policy_flags_helper(tmp_path: Path) -> None:
+    module = tmp_path / "helper_bad.py"
+    module.write_text(
+        """
+def _helper(payload: dict[str, object]) -> None:
+    return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    violations = policy_check._helper_payload_signature_violations(module)
+    assert violations
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_non_boundary_payload_signature_policy_ignores_boundary_module
+def test_non_boundary_payload_signature_policy_ignores_boundary_module(tmp_path: Path) -> None:
+    module = tmp_path / "helper_ok.py"
+    module.write_text(
+        """
+# gabion:boundary_normalization_module
+def _helper(payload: dict[str, object]) -> None:
+    return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert policy_check._helper_payload_signature_violations(module) == []
+
+
 # gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
 def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
     original_changed = policy_check._changed_repo_paths
