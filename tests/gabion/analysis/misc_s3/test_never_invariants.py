@@ -7,6 +7,9 @@ from gabion.analysis import render_report
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, ReportCarrier
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths
+from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _never_invariant_lint_lines,
+)
 
 def _load():
     return SimpleNamespace(
@@ -15,7 +18,45 @@ def _load():
         ReportCarrier=ReportCarrier,
         analyze_paths=analyze_paths,
         render_report=render_report,
+        _never_invariant_lint_lines=_never_invariant_lint_lines,
     )
+
+
+# gabion:evidence E:function_site::dataflow_lint_helpers.py::gabion.analysis.dataflow.engine.dataflow_lint_helpers._never_invariant_lint_lines
+
+def test_never_invariant_lint_lines_use_marker_kind_and_fallback() -> None:
+    da = _load()
+    lines = da._never_invariant_lint_lines(
+        [
+            {
+                "status": "VIOLATION",
+                "marker_kind": "todo",
+                "site": {"path": "todo.py"},
+                "span": [0, 0, 0, 0],
+            },
+            {
+                "status": "OBLIGATION",
+                "marker_kind": "deprecated",
+                "site": {"path": "deprecated.py"},
+                "span": [1, 2, 1, 3],
+                "undecidable_reason": "needs witness",
+            },
+            {
+                "status": "OBLIGATION",
+                "site": {"path": "fallback.py"},
+                "span": [2, 4, 2, 5],
+                "undecidable_reason": "missing marker kind",
+            },
+        ]
+    )
+
+    assert len(lines) == 3
+    assert "GABION_NEVER_INVARIANT" in lines[0]
+    assert "todo() invariant (status=VIOLATION)" in lines[0]
+    assert "GABION_NEVER_INVARIANT" in lines[1]
+    assert "deprecated() invariant (status=OBLIGATION; why=needs witness)" in lines[1]
+    assert "GABION_NEVER_INVARIANT" in lines[2]
+    assert "never() invariant (status=OBLIGATION; why=missing marker kind)" in lines[2]
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_file_internal::config,recursive E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_never_invariants::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_synth::existing,min_occurrences E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_warnings::index E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._populate_bundle_forest::groups_by_path,include_all_sites E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_decision_surfaces_repo::forest,require_tiers E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_unused_arg_flow_repo::strictness E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_value_encoded_decisions_repo::forest,require_tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_ambiguities,include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_file_internal::stale_eb082457851e
 def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:

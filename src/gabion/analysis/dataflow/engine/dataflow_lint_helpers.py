@@ -397,6 +397,7 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
         if status != "PROVEN_UNREACHABLE" and span_entries is not None and len(span_entries) == 4:
             site = mapping_or_empty(entry.get("site"))
             path = str(site.get("path", "?"))
+            marker_kind = str(entry.get("marker_kind", "never") or "never")
             reason = entry.get("reason") or ""
             witness_ref = entry.get("witness_ref")
             environment = entry.get("environment_ref")
@@ -414,7 +415,7 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
                     bits.append(f"why={undecidable}")
                 else:
                     bits.append("why=no witness env available")
-            message = f"never() invariant ({'; '.join(bits)})"
+            message = f"{marker_kind}() invariant ({'; '.join(bits)})"
             lines.append(
                 _lint_line(
                     path,
