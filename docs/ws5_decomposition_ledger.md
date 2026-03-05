@@ -1,5 +1,5 @@
 ---
-doc_revision: 164
+doc_revision: 165
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 719
+- Monolith LOC (current): 678
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2813,6 +2813,19 @@ doc_scope:
     - Monolith facade parse/path/deadline-helper behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=719`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-223`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith deadline-runtime alias contraction:
+    - Replaced the `dataflow_deadline_runtime_owner` owner-suffix alias import/assignment surface in `dataflow_indexed_file_scan.py` with direct canonical imports for carrier, collector, call-resolution, and deadline-arg helper symbols.
+    - Removed the corresponding monolith owner-suffix reassignment shim block, including duplicate `_FunctionSuiteKey` reassignment.
+    - Switched deadline-contract carrier imports (`_DeadlineLoopFacts`, `_DeadlineLocalInfo`, `_DeadlineFunctionFacts`) to direct canonical names to preserve collector wiring after shim removal.
+  - Compatibility status:
+    - Monolith facade deadline-runtime behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=678`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-224`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)

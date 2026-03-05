@@ -57,9 +57,9 @@ from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome as _CalleeResolutionOutcome_owner,
-    _DeadlineFunctionFacts as _DeadlineFunctionFacts_owner,
-    _DeadlineLocalInfo as _DeadlineLocalInfo_owner,
-    _DeadlineLoopFacts as _DeadlineLoopFacts_owner,
+    _DeadlineFunctionFacts,
+    _DeadlineLocalInfo,
+    _DeadlineLoopFacts,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
     make_deadline_function_collector,
@@ -401,37 +401,37 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _stage_cache_key_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
-    _DeadlineArgInfo as _DeadlineArgInfo_owner,
-    _FunctionSuiteKey as _FunctionSuiteKey_owner,
-    _FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcome_owner,
-    _FunctionSuiteLookupStatus as _FunctionSuiteLookupStatus_owner,
-    _bind_call_args as _bind_call_args_owner,
-    _call_candidate_target_site as _call_candidate_target_site_owner,
-    _caller_param_bindings_for_call as _caller_param_bindings_for_call_owner,
-    _classify_deadline_expr as _classify_deadline_expr_owner,
-    _call_nodes_for_tree as _call_nodes_for_tree_owner,
-    _collect_call_edges as _collect_call_edges_owner,
-    _collect_call_edges_from_forest as _collect_call_edges_from_forest_owner,
-    _collect_call_nodes_by_path as _collect_call_nodes_by_path_owner,
-    _collect_deadline_function_facts as _collect_deadline_function_facts_owner,
-    _collect_deadline_local_info as _collect_deadline_local_info_owner,
-    _collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_owner,
-    _collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_owner,
-    _deadline_arg_info_map as _deadline_arg_info_map_owner,
-    _deadline_loop_forwarded_params as _deadline_loop_forwarded_params_owner,
-    _deadline_function_facts_for_tree as _deadline_function_facts_for_tree_owner,
-    _dedupe_resolution_candidates as _dedupe_resolution_candidates_owner,
-    _fallback_deadline_arg_info as _fallback_deadline_arg_info_owner,
-    _function_suite_id as _function_suite_id_owner,
-    _function_suite_key as _function_suite_key_owner,
-    _is_dynamic_dispatch_callee_key as _is_dynamic_dispatch_callee_key_owner,
-    _materialize_call_candidates as _materialize_call_candidates_owner,
-    _node_to_function_suite_id as _node_to_function_suite_id_owner,
-    _node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_owner,
-    _obligation_candidate_suite_ids as _obligation_candidate_suite_ids_owner,
-    _resolve_callee as _resolve_callee_owner,
-    _resolve_callee_outcome as _resolve_callee_outcome_owner,
-    _suite_caller_function_id as _suite_caller_function_id_owner,
+    _DeadlineArgInfo,
+    _FunctionSuiteKey,
+    _FunctionSuiteLookupOutcome,
+    _FunctionSuiteLookupStatus,
+    _bind_call_args,
+    _call_candidate_target_site,
+    _caller_param_bindings_for_call,
+    _classify_deadline_expr,
+    _call_nodes_for_tree,
+    _collect_call_edges,
+    _collect_call_edges_from_forest,
+    _collect_call_nodes_by_path,
+    _collect_deadline_function_facts,
+    _collect_deadline_local_info,
+    _collect_call_resolution_obligation_details_from_forest,
+    _collect_call_resolution_obligations_from_forest,
+    _deadline_arg_info_map,
+    _deadline_loop_forwarded_params,
+    _deadline_function_facts_for_tree,
+    _dedupe_resolution_candidates,
+    _fallback_deadline_arg_info,
+    _function_suite_id,
+    _function_suite_key,
+    _is_dynamic_dispatch_callee_key,
+    _materialize_call_candidates,
+    _node_to_function_suite_id,
+    _node_to_function_suite_lookup_outcome,
+    _obligation_candidate_suite_ids,
+    _resolve_callee,
+    _resolve_callee_outcome,
+    _suite_caller_function_id,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations as _summarize_deadline_obligations_owner,
@@ -529,8 +529,6 @@ _PhaseWorkProgress = _PhaseWorkProgress_owner
 
 _phase_work_progress = _phase_work_progress_owner
 
-_FunctionSuiteKey = _FunctionSuiteKey_owner
-
 ParamUse = _ContractParamUse
 
 CallArgs = _ContractCallArgs
@@ -550,42 +548,11 @@ _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
 _is_deadline_origin_call = _is_deadline_origin_call_impl
 
-_DeadlineLoopFacts = _DeadlineLoopFacts_owner
-_DeadlineLocalInfo = _DeadlineLocalInfo_owner
-_DeadlineFunctionFacts = _DeadlineFunctionFacts_owner
 _DeadlineFunctionCollector = make_deadline_function_collector(
     node_span_fn=_node_span,
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
-_collect_deadline_local_info = _collect_deadline_local_info_owner
-_collect_deadline_function_facts = _collect_deadline_function_facts_owner
-_deadline_function_facts_for_tree = _deadline_function_facts_for_tree_owner
-_collect_call_nodes_by_path = _collect_call_nodes_by_path_owner
-_call_nodes_for_tree = _call_nodes_for_tree_owner
-_collect_call_edges = _collect_call_edges_owner
-_FunctionSuiteKey = _FunctionSuiteKey_owner
-_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatus_owner
-_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcome_owner
-_function_suite_key = _function_suite_key_owner
-_function_suite_id = _function_suite_id_owner
-_node_to_function_suite_lookup_outcome = _node_to_function_suite_lookup_outcome_owner
-_suite_caller_function_id = _suite_caller_function_id_owner
-_node_to_function_suite_id = _node_to_function_suite_id_owner
-_obligation_candidate_suite_ids = _obligation_candidate_suite_ids_owner
-_collect_call_edges_from_forest = _collect_call_edges_from_forest_owner
-_collect_call_resolution_obligations_from_forest = _collect_call_resolution_obligations_from_forest_owner
-_collect_call_resolution_obligation_details_from_forest = _collect_call_resolution_obligation_details_from_forest_owner
-_call_candidate_target_site = _call_candidate_target_site_owner
-_materialize_call_candidates = _materialize_call_candidates_owner
-
-_DeadlineArgInfo = _DeadlineArgInfo_owner
-_bind_call_args = _bind_call_args_owner
-_caller_param_bindings_for_call = _caller_param_bindings_for_call_owner
-_classify_deadline_expr = _classify_deadline_expr_owner
-_fallback_deadline_arg_info = _fallback_deadline_arg_info_owner
-_deadline_arg_info_map = _deadline_arg_info_map_owner
-_deadline_loop_forwarded_params = _deadline_loop_forwarded_params_owner
 
 run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
 
@@ -665,15 +632,7 @@ _function_index_module_artifact_spec = _function_index_module_artifact_spec_owne
 
 _build_function_index = _build_function_index_owner
 
-_resolve_callee = _resolve_callee_owner
-
-_is_dynamic_dispatch_callee_key = _is_dynamic_dispatch_callee_key_owner
-
 _CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
-
-_dedupe_resolution_candidates = _dedupe_resolution_candidates_owner
-
-_resolve_callee_outcome = _resolve_callee_outcome_owner
 
 analyze_type_flow_repo = _analyze_type_flow_repo_owner
 
