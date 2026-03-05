@@ -1,5 +1,5 @@
 ---
-doc_revision: 111
+doc_revision: 112
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1975,6 +1975,21 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-171`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade deadline/callee/projection export rebinding:
+    - `dataflow_facade.py` now pre-binds another compatibility cluster directly to canonical owners:
+      - deadline runtime owners: `_classify_deadline_expr`, `_collect_call_edges_from_forest`, `_deadline_arg_info_map`, `_fallback_deadline_arg_info`, `_is_dynamic_dispatch_callee_key`, `_resolve_callee`
+      - projection owners: `_collect_call_ambiguities`, `_dedupe_call_ambiguities`, `_emit_call_ambiguities`, `_summarize_call_ambiguities`, `_materialize_ambiguity_suite_agg_spec`, `_materialize_ambiguity_virtual_set_spec`, `_materialize_suite_order_spec`, `_suite_order_relation`, `_suite_order_row_to_site`, `_spec_row_span`
+      - callee/local-class owners: `_resolve_class_candidates`, `_collect_local_class_bases`, `_resolve_local_method_in_hierarchy`
+  - Compatibility status:
+    - Facade compatibility symbols preserved; monolith `_runtime` fallback reduced for resolver/deadline/projection surfaces.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-172`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

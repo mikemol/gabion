@@ -12,13 +12,19 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineFunctionCollector,
     _bind_call_args,
+    _classify_deadline_expr,
+    _collect_call_edges_from_forest,
     _collect_call_edges,
     _collect_call_nodes_by_path,
     _collect_deadline_function_facts,
     _collect_deadline_local_info,
+    _deadline_arg_info_map,
     _deadline_loop_forwarded_params,
+    _fallback_deadline_arg_info,
+    _is_dynamic_dispatch_callee_key,
     _is_deadline_origin_call,
     _normalize_snapshot_path,
+    _resolve_callee,
     _resolve_callee_outcome,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
@@ -27,9 +33,19 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _stage_cache_key_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
+    _collect_call_ambiguities,
+    _dedupe_call_ambiguities,
+    _emit_call_ambiguities,
+    _materialize_ambiguity_suite_agg_spec,
+    _materialize_ambiguity_virtual_set_spec,
     _materialize_projection_spec_rows,
+    _materialize_suite_order_spec,
     _populate_bundle_forest,
+    _spec_row_span,
+    _suite_order_relation,
+    _suite_order_row_to_site,
     _suite_site_label,
+    _summarize_call_ambiguities,
 )
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
@@ -117,7 +133,12 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index as _build_analysis_index_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
+    _resolve_class_candidates,
     _resolve_method_in_hierarchy_outcome as _resolve_method_in_hierarchy_outcome_impl,
+)
+from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+    _collect_local_class_bases,
+    _resolve_local_method_in_hierarchy,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _parse_lint_location as _parse_lint_location,
