@@ -308,8 +308,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
-    analyze_type_flow_repo_with_evidence,
-    analyze_type_flow_repo_with_map,
+    analyze_type_flow_repo as _analyze_type_flow_repo_owner,
     analyze_unused_arg_flow_repo,
     analyze_value_encoded_decisions_repo as _analyze_value_encoded_decisions_repo_owner,
     generate_property_hook_manifest,
@@ -367,9 +366,6 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
     OptionalAnalysisIndex,
-    OptionalDecorators,
-    OptionalParseFailures,
-    OptionalProjectRoot,
     _CacheSemanticContext,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
@@ -1093,55 +1089,9 @@ _CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
 
 _dedupe_resolution_candidates = _dedupe_resolution_candidates_owner
 
-def _resolve_callee_outcome(
-    callee_key: str,
-    caller: FunctionInfo,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    *,
-    symbol_table = None,
-    project_root = None,
-    class_index = None,
-    call = None,
-    local_lambda_bindings = None,
-    resolve_callee_fn = _resolve_callee,
-) -> _CalleeResolutionOutcome:
-    return _resolve_callee_outcome_owner(
-        callee_key,
-        caller,
-        by_name,
-        by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-        call=call,
-        local_lambda_bindings=local_lambda_bindings,
-        resolve_callee_fn=resolve_callee_fn,
-    )
+_resolve_callee_outcome = _resolve_callee_outcome_owner
 
-
-def analyze_type_flow_repo(
-    paths: list[Path],
-    *,
-    project_root: OptionalProjectRoot,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: OptionalDecorators = None,
-    parse_failure_witnesses: OptionalParseFailures = None,
-    analysis_index: OptionalAnalysisIndex = None,
-) -> tuple[list[str], list[str]]:
-    inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-    )
-    return suggestions, ambiguities
+analyze_type_flow_repo = _analyze_type_flow_repo_owner
 
 
 @dataclass(frozen=True)

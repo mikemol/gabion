@@ -766,6 +766,30 @@ def analyze_type_flow_repo_with_map(
     )
 
 
+def analyze_type_flow_repo(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    parse_failure_witnesses=None,
+    analysis_index=None,
+) -> tuple[list[str], list[str]]:
+    _inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+    )
+    return suggestions, ambiguities
+
+
 def analyze_type_flow_repo_with_evidence(
     paths: list[Path],
     *,

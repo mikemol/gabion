@@ -1,5 +1,5 @@
 ---
-doc_revision: 93
+doc_revision: 94
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1206
+- Monolith LOC (current): 1156
 - Monolith top-level import statements (current): 64
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1656,6 +1656,22 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites passed (`103 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Callee/type-flow wrapper ownerization:
+    - Post-phase owner now exports canonical `analyze_type_flow_repo` wrapper.
+    - Monolith wrappers replaced by canonical owner aliases:
+      - `_resolve_callee_outcome`
+      - `analyze_type_flow_repo`
+    - Removed now-unused optional carrier imports and type-flow map/evidence import indirections from monolith.
+  - Compatibility status:
+    - Callee-resolution and type-flow suggestion behavior remains stable under resolver/pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites.
+    - Monolith LOC dropped to `1156`; top-level imports remain `64`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-154`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`105 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
