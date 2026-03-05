@@ -1,5 +1,5 @@
 ---
-doc_revision: 17
+doc_revision: 18
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3113
-- Monolith top-level import statements (current): 69
+- Monolith LOC (current): 3078
+- Monolith top-level import statements (current): 70
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -298,6 +298,24 @@ doc_scope:
   - Validation:
     - policy checks passed
     - dataflow + structure regression suites passed (`209 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Parse-failure ownership extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_parse_failures.py`
+    - Moved parse-failure carrier/helpers behind canonical owner:
+      - `_PARSE_MODULE_ERROR_TYPES`
+      - `_parse_failure_witness`
+      - `_record_parse_failure_witness`
+      - `_parse_failure_sink`
+    - Rewired monolith and `dataflow_analysis_index_owner.py` to consume parse-failure owner helpers directly (removed owner fallback reads of monolith parse-failure helpers).
+  - Threshold outcome:
+    - Monolith LOC reduced to `3078`.
+    - Monolith top-level import statements at `70` (target band maintained).
+  - ASPF no-change acknowledgement refreshed (`in-79`).
+  - Validation:
+    - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed` + `33 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

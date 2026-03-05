@@ -19,6 +19,11 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
 )
+from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
+    _PARSE_MODULE_ERROR_TYPES,
+    _parse_failure_sink,
+    _record_parse_failure_witness,
+)
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -131,9 +136,9 @@ def _build_module_artifacts(
                 check_deadline_fn=check_deadline,
                 parse_module_error_types=cast(
                     tuple[type[BaseException], ...],
-                    runtime._PARSE_MODULE_ERROR_TYPES,
+                    _PARSE_MODULE_ERROR_TYPES,
                 ),
-                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+                record_parse_failure_witness_fn=_record_parse_failure_witness,
             ),
         ),
     )
@@ -568,9 +573,9 @@ def _build_analysis_index(
                 parse_module_source_fn=runtime._parse_module_source,
                 parse_module_error_types=cast(
                     tuple[type[BaseException], ...],
-                    runtime._PARSE_MODULE_ERROR_TYPES,
+                    _PARSE_MODULE_ERROR_TYPES,
                 ),
-                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+                record_parse_failure_witness_fn=_record_parse_failure_witness,
                 parse_module_stage_function_index=runtime._ParseModuleStage.FUNCTION_INDEX,
                 parse_module_stage_symbol_table=runtime._ParseModuleStage.SYMBOL_TABLE,
                 parse_module_stage_class_index=runtime._ParseModuleStage.CLASS_INDEX,
@@ -602,8 +607,8 @@ def _analysis_index_module_trees(
             deps=_AnalysisIndexModuleTreesDeps(
                 check_deadline_fn=check_deadline,
                 parse_module_source_fn=runtime._parse_module_source,
-                parse_module_error_types=runtime._PARSE_MODULE_ERROR_TYPES,
-                record_parse_failure_witness_fn=runtime._record_parse_failure_witness,
+                parse_module_error_types=_PARSE_MODULE_ERROR_TYPES,
+                record_parse_failure_witness_fn=_record_parse_failure_witness,
             ),
         ),
     )
@@ -653,7 +658,7 @@ def _run_indexed_pass(
 ):
     runtime = _runtime_module()
     check_deadline()
-    sink = runtime._parse_failure_sink(parse_failure_witnesses)
+    sink = _parse_failure_sink(parse_failure_witnesses)
     index = analysis_index
     if index is None:
         index = build_index(

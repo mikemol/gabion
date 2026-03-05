@@ -137,6 +137,12 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _normalize_type_name,
     _parse_exception_path_id,
 )
+from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
+    _PARSE_MODULE_ERROR_TYPES,
+    _parse_failure_sink,
+    _parse_failure_witness,
+    _record_parse_failure_witness,
+)
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     iter_monotonic_paths as _iter_monotonic_paths_impl,
     normalize_snapshot_path as _normalize_snapshot_path_impl,
@@ -359,16 +365,6 @@ _AST_UNPARSE_ERROR_TYPES = (
 )
 
 _LITERAL_EVAL_ERROR_TYPES = (
-    SyntaxError,
-    ValueError,
-    TypeError,
-    MemoryError,
-    RecursionError,
-)
-
-_PARSE_MODULE_ERROR_TYPES = (
-    OSError,
-    UnicodeError,
     SyntaxError,
     ValueError,
     TypeError,
@@ -1432,37 +1428,6 @@ def _param_defaults(
     if ignore_params:
         defaults = {name for name in defaults if name not in ignore_params}
     return defaults
-
-def _parse_failure_witness(
-    *,
-    path: Path,
-    stage,
-    error: Exception,
-) -> JSONObject:
-    stage_value = stage.value if type(stage) is _ParseModuleStage else stage
-    return {
-        "path": str(path),
-        "stage": stage_value,
-        "error_type": type(error).__name__,
-        "error": str(error),
-    }
-
-def _record_parse_failure_witness(
-    *,
-    sink: list[JSONObject],
-    path: Path,
-    stage,
-    error: Exception,
-) -> None:
-    sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
-
-def _parse_failure_sink(
-    parse_failure_witnesses,
-) -> list[JSONObject]:
-    sink = parse_failure_witnesses
-    if sink is None:
-        sink = []
-    return sink
 
 _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
     name="analysis_index.stage_cache",
