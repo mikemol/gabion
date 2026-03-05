@@ -15,6 +15,7 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
 }
 
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
+    _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
     _DeadlineLocalInfo,
     _DeadlineLoopFacts,
@@ -35,6 +36,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _is_dynamic_dispatch_callee_key,
     _is_deadline_origin_call,
     _is_deadline_param,
+    _materialize_call_candidates,
     _resolve_callee,
     _resolve_callee_outcome,
 )
@@ -92,13 +94,21 @@ from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
+    _collect_param_roots,
+    _contains_boolish,
     _decision_surface_params,
+    _decision_surface_form_entries,
+    _decision_surface_reason_map,
     _decorator_name,
     _decorators_transparent,
+    _mark_param_roots,
     _value_encoded_decision_params,
+    is_decision_surface,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
+    _collect_recursive_nodes,
+    _reachable_from_roots,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_class,
@@ -110,6 +120,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
+    _iter_paths,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _group_by_signature,
@@ -170,10 +181,15 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
     _direct_lambda_callee_by_call_span,
+    _materialize_direct_lambda_callees,
+    _unused_params,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
+    _call_context,
     _collect_return_aliases,
+    _const_repr,
+    _normalize_key_expr,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
@@ -222,13 +238,18 @@ from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     verify_rewrite_plans,
 )
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    _base_identifier,
     _collect_module_exports,
+    _is_test_path,
+    _module_name,
+    _target_names,
 )
 from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
     _resolve_synth_registry_path,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
+    _callee_key,
     _resolve_method_in_hierarchy,
     _resolve_class_candidates,
 )
@@ -239,6 +260,8 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
 from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _constant_smells_from_details,
+    _deadness_witnesses_from_constant_details,
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
     _internal_broad_type_lint_lines,

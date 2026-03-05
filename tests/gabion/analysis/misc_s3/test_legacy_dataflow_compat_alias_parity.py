@@ -47,59 +47,39 @@ def _assert_symbol_alias(
 
 
 def _monolith_post_phase_aliases() -> tuple[str, ...]:
-    repo_root = Path(__file__).resolve().parents[4]
-    monolith_path = (
-        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    return _monolith_aliases_for(
+        "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses"
     )
-    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module == (
-            "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses"
-        ):
-            return tuple(alias.name for alias in node.names)
-    raise AssertionError("monolith post-phase import surface not found")
 
 
 def _monolith_projection_aliases() -> tuple[str, ...]:
-    repo_root = Path(__file__).resolve().parents[4]
-    monolith_path = (
-        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    return _monolith_aliases_for(
+        "gabion.analysis.dataflow.engine.dataflow_projection_materialization"
     )
-    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module == (
-            "gabion.analysis.dataflow.engine.dataflow_projection_materialization"
-        ):
-            return tuple(alias.name for alias in node.names)
-    raise AssertionError("monolith projection import surface not found")
 
 
 def _monolith_resume_aliases() -> tuple[str, ...]:
-    repo_root = Path(__file__).resolve().parents[4]
-    monolith_path = (
-        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    return _monolith_aliases_for(
+        "gabion.analysis.dataflow.engine.dataflow_resume_serialization"
     )
-    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module == (
-            "gabion.analysis.dataflow.engine.dataflow_resume_serialization"
-        ):
-            return tuple(alias.name for alias in node.names)
-    raise AssertionError("monolith resume import surface not found")
 
 
 def _monolith_analysis_index_aliases() -> tuple[str, ...]:
+    return _monolith_aliases_for(
+        "gabion.analysis.dataflow.engine.dataflow_analysis_index"
+    )
+
+
+def _monolith_aliases_for(module_path: str) -> tuple[str, ...]:
     repo_root = Path(__file__).resolve().parents[4]
     monolith_path = (
         repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
     )
     tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module == (
-            "gabion.analysis.dataflow.engine.dataflow_analysis_index"
-        ):
+        if isinstance(node, ast.ImportFrom) and node.module == module_path:
             return tuple(alias.name for alias in node.names)
-    raise AssertionError("monolith analysis-index import surface not found")
+    raise AssertionError(f"monolith import surface not found for {module_path}")
 
 
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
@@ -245,3 +225,30 @@ def test_facade_covers_monolith_analysis_index_alias_surface() -> None:
             "facade analysis-index symbol must remain an alias to canonical owner; "
             f"symbol={symbol}"
         )
+
+
+def test_facade_covers_monolith_analysis_support_alias_surfaces() -> None:
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+    module_paths = (
+        "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+        "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+        "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+        "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+        "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+        "gabion.analysis.dataflow.engine.dataflow_function_index_decision_support",
+        "gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support",
+        "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+        "gabion.analysis.dataflow.engine.dataflow_ingest_helpers",
+        "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+    )
+    for module_path in module_paths:
+        canonical = _load(module_path)
+        for symbol in _monolith_aliases_for(module_path):
+            assert hasattr(facade, symbol), (
+                "facade must carry full monolith analysis-support compatibility "
+                f"surface; module={module_path} missing={symbol}"
+            )
+            assert getattr(facade, symbol) is getattr(canonical, symbol), (
+                "facade analysis-support symbol must remain an alias to canonical "
+                f"owner; module={module_path} symbol={symbol}"
+            )
