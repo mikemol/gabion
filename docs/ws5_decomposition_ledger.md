@@ -1,5 +1,5 @@
 ---
-doc_revision: 86
+doc_revision: 87
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1654
+- Monolith LOC (current): 1639
 - Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1516,6 +1516,22 @@ doc_scope:
     - Monolith LOC dropped to `1654`; top-level imports are `68`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-146`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Marker/never helper ownerization:
+    - Monolith pass-through wrappers replaced by direct canonical aliases:
+      - `_decorator_matches`
+      - `_is_marker_call`
+      - `_is_never_marker_raise`
+    - Helper ownership now routes through canonical `dataflow_post_phase_analyses` owner surfaces.
+  - Compatibility status:
+    - Marker/never helper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1639`; top-level imports remain `68`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-147`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

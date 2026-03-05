@@ -240,11 +240,14 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _find_handling_try,
     _handler_label,
     _handler_type_names,
+    _is_marker_call as _is_marker_call_owner,
+    _is_never_marker_raise as _is_never_marker_raise_owner,
     _keyword_links_literal,
     _keyword_string_literal,
     _never_reason,
     _node_in_try_body,
     _refine_exception_name_from_annotations,
+    _decorator_matches as _decorator_matches_owner,
     _build_property_hook_callable_index,
     _callsite_evidence_for_bundle,
     _collect_config_bundles,
@@ -780,29 +783,11 @@ _collect_functions = _collect_functions_owner
 def _decorator_name(node: ast.AST):
     return _decorator_name_impl(node, check_deadline_fn=check_deadline)
 
-def _decorator_matches(name: str, allowlist: set[str]) -> bool:
-    if name in allowlist:
-        return True
-    if "." in name and name.split(".")[-1] in allowlist:
-        return True
-    return False
+_decorator_matches = _decorator_matches_owner
 
-def _is_marker_call(call: ast.Call, aliases: set[str]) -> bool:
-    name = _decorator_name(call.func)
-    if not name:
-        return False
-    return _decorator_matches(name, aliases)
+_is_marker_call = _is_marker_call_owner
 
-def _is_never_marker_raise(
-    function: str,
-    exception_name,
-    never_exceptions: set[str],
-) -> bool:
-    if not exception_name or not never_exceptions:
-        return False
-    if not _decorator_matches(exception_name, never_exceptions):
-        return False
-    return function == "never" or function.endswith(".never")
+_is_never_marker_raise = _is_never_marker_raise_owner
 
 _decorators_transparent = _decorators_transparent_owner
 
