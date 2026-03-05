@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 24
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -390,6 +390,21 @@ doc_scope:
   - Runtime-fallback status:
     - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `17` to `16`.
   - ASPF no-change acknowledgement refreshed (`in-84`).
+  - Validation:
+    - policy checks passed
+    - targeted post-phase/dataflow suites passed (`44 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase compatibility-fallback contraction for invariant proposition collection:
+    - `_collect_invariant_propositions` now uses direct owner dependencies (no runtime-module lookup) for:
+      - deadline hook: `check_deadline`
+      - parse source: `ast.parse(path.read_text())`
+      - function collection: `_collect_functions`
+      - parameter extraction: `_param_names`
+    - Existing invariant normalization/collector semantics preserved.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `16` to `15`.
+  - ASPF no-change acknowledgement refreshed (`in-85`).
   - Validation:
     - policy checks passed
     - targeted post-phase/dataflow suites passed (`44 passed`)

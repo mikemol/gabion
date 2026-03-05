@@ -29,6 +29,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_scopes,
     _is_test_path,
     _param_annotations,
+    _param_names,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleStage,
@@ -1067,7 +1068,6 @@ def _collect_invariant_propositions(
     project_root,
     emitters: Iterable[Callable[[ast.FunctionDef], Iterable[InvariantProposition]]] = (),
 ) -> list[InvariantProposition]:
-    runtime = _runtime_module()
     return cast(
         list[InvariantProposition],
         _collect_invariant_propositions_impl(
@@ -1076,10 +1076,10 @@ def _collect_invariant_propositions(
             project_root=project_root,
             emitters=cast(Iterable[Callable[[object], Iterable[object]]], emitters),
             deps=_CollectInvariantPropositionsDeps(
-                check_deadline_fn=runtime.check_deadline,
-                parse_module_source_fn=runtime._parse_module_source,
-                collect_functions_fn=cast(Callable[[object], Iterable[object]], runtime._collect_functions),
-                param_names_fn=runtime._param_names,
+                check_deadline_fn=check_deadline,
+                parse_module_source_fn=lambda path: ast.parse(path.read_text()),
+                collect_functions_fn=cast(Callable[[object], Iterable[object]], _collect_functions),
+                param_names_fn=_param_names,
                 scope_path_fn=_scope_path,
                 invariant_collector_ctor=cast(Callable[..., object], _InvariantCollector),
                 invariant_proposition_type=InvariantProposition,
