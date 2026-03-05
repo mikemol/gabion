@@ -1,5 +1,5 @@
 ---
-doc_revision: 217
+doc_revision: 218
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -16,6 +16,7 @@ doc_scope:
 - Monolith top-level import statements (current): 53
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
+- Direct `dataflow_facade` imports in `src/` + `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
 - WS-5 broad completion regression status: passed as of `in-160`
 
@@ -23,9 +24,18 @@ doc_scope:
 - Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
 - Medium: monolith remains a broad compatibility alias surface with a non-trivial import fan-in/out contract despite being within WS-5 hard-cut thresholds.
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
-- Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-277`, this CU):
+  - Retired temporary `dataflow_facade` boundary adapters after importer-migration completion:
+    - removed facade-local compatibility wrapper bodies:
+      - `_resolve_method_in_hierarchy`
+      - `_internal_broad_type_lint_lines`
+    - facade now binds those names directly to canonical owner exports (`dataflow_callee_resolution_support`, `dataflow_lint_helpers`)
+  - Validation:
+    - policy checks passed
+    - focused regression suite passed (`101 passed`)
+    - evidence refresh/check passed (no evidence drift)
 - WS-5 continuation (`in-276`, this CU):
   - Migrated deadline-coverage tests off `dataflow_facade` via canonical-owner adapter:
     - `tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py`

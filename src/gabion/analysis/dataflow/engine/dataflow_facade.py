@@ -177,7 +177,7 @@ from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
 )
 
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
-    _resolve_method_in_hierarchy as _resolve_method_in_hierarchy_outcome,
+    _resolve_method_in_hierarchy,
     _resolve_class_candidates,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
@@ -189,7 +189,7 @@ from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
-    _internal_broad_type_lint_lines as _internal_broad_type_lint_lines_impl,
+    _internal_broad_type_lint_lines,
     _is_broad_internal_type,
     _lint_lines_from_bundle_evidence,
     _lint_lines_from_constant_smells,
@@ -213,57 +213,3 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
 )
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.order_contract import sort_once
-
-# Temporary boundary adapters preserve legacy facade return contracts while
-# canonical owners expose structured outcomes.
-_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
-    "actor": "codex",
-    "rationale": "WS-5 facade-compatibility hardening while retiring owner/facade surfaces in slices",
-    "scope": "dataflow_facade.compatibility_adapters",
-    "start": "2026-03-05",
-    "expiry": "WS-5 compatibility-owner retirement completion",
-    "rollback_condition": "all facade importers migrated to canonical owners/contracts",
-    "evidence_links": ["docs/ws5_decomposition_ledger.md"],
-}
-
-
-def _resolve_method_in_hierarchy(*args, **kwargs):
-    outcome = _resolve_method_in_hierarchy_outcome(*args, **kwargs)
-    if type(outcome).__name__ == "_MethodHierarchyResolutionFound":
-        return outcome.resolved
-    if type(outcome).__name__ == "_MethodHierarchyResolutionMissing":
-        return None
-    return outcome
-
-
-def _internal_broad_type_lint_lines(
-    paths,
-    *,
-    project_root,
-    ignore_params,
-    strictness,
-    external_filter,
-    transparent_decorators=None,
-    parse_failure_witnesses,
-    analysis_index=None,
-):
-    if analysis_index is None:
-        analysis_index = _build_analysis_index(
-            list(paths),
-            project_root=project_root,
-            ignore_params=set(ignore_params),
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-    return _internal_broad_type_lint_lines_impl(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-    )
