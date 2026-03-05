@@ -599,40 +599,6 @@ def _internal_broad_type_lint_lines(
     return _internal_broad_type_lint_lines_indexed(context)
 
 
-def _internal_broad_type_lint_lines_runtime(
-    paths,
-    *,
-    project_root,
-    ignore_params,
-    strictness,
-    external_filter,
-    transparent_decorators=None,
-    parse_failure_witnesses,
-    analysis_index=None,
-):
-    resolved_analysis_index = analysis_index
-    if resolved_analysis_index is None:
-        resolved_analysis_index = _build_analysis_index(
-            list(paths),
-            project_root=project_root,
-            ignore_params=set(ignore_params),
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=list(parse_failure_witnesses),
-        )
-    return _internal_broad_type_lint_lines(
-        list(paths),
-        project_root=project_root,
-        ignore_params=set(ignore_params),
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=list(parse_failure_witnesses),
-        analysis_index=resolved_analysis_index,
-    )
-
-
 _BROAD_SCALAR_TYPES = {
     "str",
     "int",

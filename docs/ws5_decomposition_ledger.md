@@ -1,5 +1,5 @@
 ---
-doc_revision: 184
+doc_revision: 185
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3136,6 +3136,19 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`54 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Dead runtime-helper retirement:
+    - Removed unreferenced runtime-suffix compatibility wrappers from:
+      - `dataflow_callee_resolution_support.py`: `_resolve_method_in_hierarchy_runtime` (+ `__all__` export)
+      - `dataflow_lint_helpers.py`: `_internal_broad_type_lint_lines_runtime`
+  - Correctness impact:
+    - Canonical helper call paths are unchanged; only dead compatibility wrappers were removed.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-244`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`55 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

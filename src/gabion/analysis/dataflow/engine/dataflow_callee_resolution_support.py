@@ -135,33 +135,9 @@ def _resolve_method_in_hierarchy(
     )
 
 
-def _resolve_method_in_hierarchy_runtime(
-    class_qual: str,
-    method: str,
-    *,
-    class_index: dict[str, ClassInfo],
-    by_qual: Mapping[str, FunctionInfo],
-    symbol_table,
-    seen: set[str],
-):
-    outcome = _resolve_method_in_hierarchy_outcome(
-        class_qual,
-        method,
-        class_index=class_index,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        seen=seen,
-    )
-    resolved = getattr(outcome, "resolved", None)
-    if resolved is not None:
-        return resolved
-    return outcome
-
-
 __all__ = [
     "MethodHierarchyResolution",
     "_callee_key",
     "_resolve_class_candidates",
     "_resolve_method_in_hierarchy",
-    "_resolve_method_in_hierarchy_runtime",
 ]
