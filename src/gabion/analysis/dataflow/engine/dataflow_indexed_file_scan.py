@@ -210,9 +210,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details,
     _collect_dataclass_registry,
     _dead_env_map,
+    _infer_type_flow as _infer_type_flow_owner,
     _decision_param_lint_line as _decision_param_lint_line_owner,
     _decision_tier_for as _decision_tier_for_owner,
     _branch_reachability_under_env,
+    _analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_owner,
     _collect_exception_obligations,
     _collect_handledness_witnesses,
     _collect_invariant_propositions,
@@ -308,7 +310,7 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
 from gabion.analysis.semantics.semantic_primitives import (
-    AnalysisPassPrerequisites, CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
+    CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier, SymbolTable as _ContractSymbolTable
 
 from gabion.analysis.dataflow.io.dataflow_reporting import (
@@ -336,8 +338,6 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
-from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
-    analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
     decorator_name as _decorator_name_impl, resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
@@ -346,8 +346,6 @@ from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry im
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
-from gabion.analysis.indexed_scan.scanners.flow.type_flow import (
-    TypeFlowInferDeps as _TypeFlowInferDeps, infer_type_flow as _infer_type_flow_impl)
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     ResolveCalleeDeps as _ResolveCalleeDeps, resolve_callee as _resolve_callee_impl, resolve_callee_outcome as _resolve_callee_outcome_impl, resolve_callee_outcome_from_runtime_module as _resolve_callee_outcome_impl_runtime)
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
@@ -1986,6 +1984,10 @@ run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
 
 _span_line_col = _span_line_col_owner
 
+_infer_type_flow = _infer_type_flow_owner
+
+_analyze_unused_arg_flow_indexed = _analyze_unused_arg_flow_indexed_owner
+
 def _format_span_fields(
     line: object,
     col: object,
@@ -2335,12 +2337,6 @@ def _callee_key(name: str) -> str:
     if not name:
         return name
     return name.split(".")[-1]
-
-def _is_broad_type(annot) -> bool:
-    if annot is None:
-        return True
-    base = annot.replace("typing.", "")
-    return base in {"Any", "object"}
 
 @dataclass
 class FunctionInfo:
@@ -2848,42 +2844,6 @@ def _resolve_callee_outcome(
         ),
     )
 
-def _infer_type_flow(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-):
-    return _infer_type_flow_impl(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        max_sites_per_param=max_sites_per_param,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        deps=_TypeFlowInferDeps(
-            check_deadline_fn=check_deadline,
-            analysis_pass_prerequisites_ctor=AnalysisPassPrerequisites,
-            require_not_none_fn=require_not_none,
-            analysis_index_resolved_call_edges_by_caller_fn=_analysis_index_resolved_call_edges_by_caller,
-            caller_param_bindings_for_call_fn=_caller_param_bindings_for_call,
-            function_key_fn=_function_key,
-            normalize_snapshot_path_fn=_normalize_snapshot_path,
-            is_test_path_fn=_is_test_path,
-            is_broad_type_fn=_is_broad_type,
-            sort_once_fn=sort_once,
-        ),
-    )
-
 
 def analyze_type_flow_repo(
     paths: list[Path],
@@ -2934,16 +2894,6 @@ def _deadness_witnesses_from_constant_details(
     from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _deadness_witnesses_from_constant_details as _impl
 
     return _impl(details, project_root=project_root)
-
-def _analyze_unused_arg_flow_indexed(
-    context: _IndexedPassContext,
-) -> list[str]:
-    return _analyze_unused_arg_flow_indexed_impl(
-        context,
-        analysis_index_resolved_call_edges_fn=_analysis_index_resolved_call_edges,
-        check_deadline_fn=check_deadline,
-        sort_once_fn=sort_once,
-    )
 
 
 _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")

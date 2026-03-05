@@ -17,7 +17,19 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import (
     InvariantProposition,
     SymbolTable,
 )
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _IndexedPassContext,
+    _IndexedPassSpec,
+    _analysis_index_resolved_call_edges,
+    _analysis_index_resolved_call_edges_by_caller,
+    _run_indexed_pass,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _is_test_path,
+)
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _constant_smells_from_details as _constant_smells_from_details_impl,
+    _deadness_witnesses_from_constant_details as _deadness_witnesses_from_constant_details_impl,
     _expand_type_hint as _expand_type_hint_impl,
     _split_top_level as _split_top_level_impl,
 )
@@ -51,6 +63,16 @@ from gabion.analysis.indexed_scan.ast.expression_eval import (
     eval_value_expr as _eval_value_expr_impl,
     is_reachability_false as _is_reachability_false_impl,
     is_reachability_true as _is_reachability_true_impl,
+)
+from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
+    caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
+)
+from gabion.analysis.indexed_scan.scanners.flow.type_flow import (
+    TypeFlowInferDeps as _TypeFlowInferDeps,
+    infer_type_flow as _infer_type_flow_impl,
+)
+from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
+    analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl,
 )
 from gabion.analysis.indexed_scan.obligations.exception_obligations import (
     collect_exception_obligations as _collect_exception_obligations_impl,
@@ -93,7 +115,10 @@ from gabion.analysis.indexed_scan.scanners.materialization.property_hook_manifes
 from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import (
     iter_dataclass_call_bundle_effects as _iter_dataclass_call_bundle_effects_impl,
 )
-from gabion.analysis.semantics.semantic_primitives import SpanIdentity
+from gabion.analysis.semantics.semantic_primitives import (
+    AnalysisPassPrerequisites,
+    SpanIdentity,
+)
 from gabion.invariants import require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 
@@ -480,6 +505,13 @@ def _type_from_const_repr(value: str):
     return None
 
 
+def _is_broad_type(annot) -> bool:
+    if annot is None:
+        return True
+    base = annot.replace("typing.", "")
+    return base in {"Any", "object"}
+
+
 def _split_top_level(value: str, sep: str) -> list[str]:
     return _split_top_level_impl(value, sep)
 
@@ -623,9 +655,8 @@ def analyze_type_flow_repo_with_map(
     parse_failure_witnesses=None,
     analysis_index=None,
 ):
-    runtime = _runtime_module()
-    runtime.check_deadline()
-    return runtime._run_indexed_pass(
+    check_deadline()
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -634,9 +665,9 @@ def analyze_type_flow_repo_with_map(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-        spec=runtime._IndexedPassSpec(
+        spec=_IndexedPassSpec(
             pass_id="type_flow_with_map",
-            run=lambda context: runtime._infer_type_flow(
+            run=lambda context: _infer_type_flow(
                 context.paths,
                 project_root=context.project_root,
                 ignore_params=context.ignore_params,
@@ -662,9 +693,8 @@ def analyze_type_flow_repo_with_evidence(
     parse_failure_witnesses=None,
     analysis_index=None,
 ) -> tuple[list[str], list[str], list[str]]:
-    runtime = _runtime_module()
-    runtime.check_deadline()
-    return runtime._run_indexed_pass(
+    check_deadline()
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -673,9 +703,9 @@ def analyze_type_flow_repo_with_evidence(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-        spec=runtime._IndexedPassSpec(
+        spec=_IndexedPassSpec(
             pass_id="type_flow_with_evidence",
-            run=lambda context: runtime._infer_type_flow(
+            run=lambda context: _infer_type_flow(
                 context.paths,
                 project_root=context.project_root,
                 ignore_params=context.ignore_params,
@@ -701,8 +731,7 @@ def analyze_constant_flow_repo(
     parse_failure_witnesses=None,
     analysis_index=None,
 ) -> list[str]:
-    runtime = _runtime_module()
-    return runtime._run_indexed_pass(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -711,10 +740,10 @@ def analyze_constant_flow_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-        spec=runtime._IndexedPassSpec(
+        spec=_IndexedPassSpec(
             pass_id="constant_flow",
-            run=lambda context: runtime._constant_smells_from_details(
-                runtime._collect_constant_flow_details(
+            run=lambda context: _constant_smells_from_details_impl(
+                _collect_constant_flow_details(
                     context.paths,
                     project_root=context.project_root,
                     ignore_params=context.ignore_params,
@@ -740,8 +769,7 @@ def analyze_deadness_flow_repo(
     parse_failure_witnesses=None,
     analysis_index=None,
 ) -> list[JSONObject]:
-    runtime = _runtime_module()
-    return runtime._run_indexed_pass(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -750,10 +778,10 @@ def analyze_deadness_flow_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-        spec=runtime._IndexedPassSpec(
+        spec=_IndexedPassSpec(
             pass_id="deadness_flow",
-            run=lambda context: runtime._deadness_witnesses_from_constant_details(
-                runtime._collect_constant_flow_details(
+            run=lambda context: _deadness_witnesses_from_constant_details_impl(
+                _collect_constant_flow_details(
                     context.paths,
                     project_root=context.project_root,
                     ignore_params=context.ignore_params,
@@ -780,9 +808,8 @@ def analyze_unused_arg_flow_repo(
     parse_failure_witnesses=None,
     analysis_index=None,
 ) -> list[str]:
-    runtime = _runtime_module()
-    runtime.check_deadline()
-    return runtime._run_indexed_pass(
+    check_deadline()
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -791,10 +818,58 @@ def analyze_unused_arg_flow_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-        spec=runtime._IndexedPassSpec(
+        spec=_IndexedPassSpec(
             pass_id="unused_arg_flow",
-            run=runtime._analyze_unused_arg_flow_indexed,
+            run=_analyze_unused_arg_flow_indexed,
         ),
+    )
+
+
+def _infer_type_flow(
+    paths: list[Path],
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators=None,
+    max_sites_per_param: int = 3,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+):
+    return _infer_type_flow_impl(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        max_sites_per_param=max_sites_per_param,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        deps=_TypeFlowInferDeps(
+            check_deadline_fn=check_deadline,
+            analysis_pass_prerequisites_ctor=AnalysisPassPrerequisites,
+            require_not_none_fn=require_not_none,
+            analysis_index_resolved_call_edges_by_caller_fn=_analysis_index_resolved_call_edges_by_caller,
+            caller_param_bindings_for_call_fn=_caller_param_bindings_for_call_impl,
+            function_key_fn=_function_key,
+            normalize_snapshot_path_fn=_normalize_snapshot_path,
+            is_test_path_fn=_is_test_path,
+            is_broad_type_fn=_is_broad_type,
+            sort_once_fn=sort_once,
+        ),
+    )
+
+
+def _analyze_unused_arg_flow_indexed(
+    context: _IndexedPassContext,
+) -> list[str]:
+    return _analyze_unused_arg_flow_indexed_impl(
+        context,
+        analysis_index_resolved_call_edges_fn=_analysis_index_resolved_call_edges,
+        check_deadline_fn=check_deadline,
+        sort_once_fn=sort_once,
     )
 
 
@@ -1426,6 +1501,8 @@ __all__ = [
     "_collect_invariant_propositions",
     "_collect_never_invariants",
     "_combine_type_hints",
+    "_infer_type_flow",
+    "_analyze_unused_arg_flow_indexed",
     "_compute_knob_param_names",
     "_deserialize_invariants_for_resume",
     "_expand_type_hint",

@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3078
-- Monolith top-level import statements (current): 70
+- Monolith LOC (current): 3028
+- Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -21,7 +21,7 @@ doc_scope:
 - High: monolith still carries large post-phase analysis ownership (type/constant/unused/config/dataclass/decision surfaces).
 - High: monolith still carries index/materialization ownership and cache identity carrier definitions.
 - Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership lands.
-- Medium: monolith top-level import surface remains above target.
+- Medium: monolith top-level import surface is in target band but remains fragile while compatibility-owner fallbacks persist.
 
 ## Progress Ledger
 - WS-1 through WS-4 completed previously (server/core, CLI/runtime, governance, CST convergence).
@@ -340,6 +340,30 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resume/runtime/dataflow suites passed (`42 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase analyzer hard-cut follow-on for type/unused flow runtime contraction:
+    - `dataflow_post_phase_analyses` now owns:
+      - `_infer_type_flow`
+      - `_analyze_unused_arg_flow_indexed`
+      - `_is_broad_type`
+    - Analyzer entrypoints now consume canonical owner deps directly (no `runtime_module` delegation) for:
+      - `analyze_type_flow_repo_with_map`
+      - `analyze_type_flow_repo_with_evidence`
+      - `analyze_constant_flow_repo`
+      - `analyze_deadness_flow_repo`
+      - `analyze_unused_arg_flow_repo`
+    - Monolith bodies removed and replaced with owner aliases for:
+      - `_infer_type_flow`
+      - `_analyze_unused_arg_flow_indexed`
+    - Monolith import fan-out reduced by pruning now-unused indexed-scan type/unused flow imports.
+  - Threshold outcome:
+    - Monolith LOC reduced to `3028`.
+    - Monolith top-level import statements reduced to `68`.
+  - ASPF no-change acknowledgement refreshed (`in-82`).
+  - Validation:
+    - policy checks passed
+    - targeted post-phase/dataflow suites passed (`32 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
