@@ -225,6 +225,7 @@ SPPF_LINE_RE = re.compile(r"^- \[(?P<state>[x~ ])\]\s+(?P<body>.*)$")
 SPPF_IN_REF_RE = re.compile(r"\((?:in/)?in-\d+")
 SPPF_DOC_REF_SPLIT_RE = re.compile(r"\s*,\s*")
 SPPF_ALLOWED_STATUSES = {"done", "partial", "planned", "blocked", "deprecated"}
+DOCFLOW_NOTION_RE = re.compile(r"\b(must\s+not|shall\s+not|do\s+not|never|must|shall|required)\b", re.IGNORECASE)
 INFLUENCE_STATUS_MAP = {
     "adopted": "done",
     "partial": "partial",
@@ -332,6 +333,172 @@ def _make_invariant_spec(name: str, predicates: list[str]) -> ProjectionSpec:
     )
 
 
+def _extract_doc_body_notions_with_anchors(*, path: str, doc: Doc) -> list[dict[str, JSONValue]]:
+    notions: list[dict[str, JSONValue]] = []
+    lines = doc.body.splitlines()
+    for line_index, raw_line in enumerate(lines, start=1):
+        check_deadline()
+        line = raw_line.strip()
+        if not line:
+            continue
+        for match in DOCFLOW_NOTION_RE.finditer(raw_line):
+            check_deadline()
+            token = match.group(1).strip().lower()
+            normalized_token = " ".join(token.split())
+            polarity = "negative" if "not" in normalized_token or normalized_token == "never" else "positive"
+            subject = re.sub(r"\s+", " ", raw_line[match.end() :].strip(" :.-`*_[]()\t")).lower()
+            if not subject:
+                continue
+            notions.append(
+                {
+                    "path": path,
+                    "qual": str(doc.frontmatter.get("doc_id") or path),
+                    "row_kind": "doc_body_notion",
+                    "token": normalized_token,
+                    "polarity": polarity,
+                    "subject": subject,
+                    "anchor": {
+                        "path": path,
+                        "line": line_index,
+                        "column": match.start() + 1,
+                    },
+                }
+            )
+    return sorted(notions, key=lambda item: (str(item["path"]), int(item["anchor"]["line"]), int(item["anchor"]["column"])))
+
+
+def _build_doc_implication_lattice(
+    *,
+    path: str,
+    notions: list[dict[str, JSONValue]],
+) -> dict[str, JSONValue]:
+    indexed_nodes: list[dict[str, JSONValue]] = []
+    for idx, notion in enumerate(notions):
+        check_deadline()
+        indexed_nodes.append({"index": idx, **notion})
+    n = len(indexed_nodes)
+    second_order_matrix = [[0 for _ in range(n)] for _ in range(n)]
+    second_order_edges: list[dict[str, JSONValue]] = []
+    for i in range(n):
+        check_deadline()
+        left = indexed_nodes[i]
+        for j in range(i + 1, n):
+            check_deadline()
+            right = indexed_nodes[j]
+            if left.get("subject") != right.get("subject"):
+                continue
+            relation = "reinforces" if left.get("polarity") == right.get("polarity") else "conflicts"
+            second_order_matrix[i][j] = 1 if relation == "reinforces" else -1
+            second_order_edges.append(
+                {
+                    "relation": relation,
+                    "left": i,
+                    "right": j,
+                    "subject": left.get("subject"),
+                }
+            )
+    third_order_chains: list[dict[str, JSONValue]] = []
+    for edge_ab in second_order_edges:
+        check_deadline()
+        for edge_bc in second_order_edges:
+            check_deadline()
+            if edge_ab["right"] != edge_bc["left"]:
+                continue
+            if edge_ab["relation"] != edge_bc["relation"]:
+                continue
+            third_order_chains.append(
+                {
+                    "relation": edge_ab["relation"],
+                    "chain": [edge_ab["left"], edge_ab["right"], edge_bc["right"]],
+                    "subject": edge_ab["subject"],
+                }
+            )
+    return {
+        "path": path,
+        "first_order": {"notions": indexed_nodes},
+        "second_order": {"matrix": second_order_matrix, "implications": second_order_edges},
+        "third_order": {"chains": third_order_chains},
+    }
+
+
+def _compose_doc_dependency_matrices(
+    *,
+    docs: dict[str, Doc],
+    per_doc_lattices: dict[str, dict[str, JSONValue]],
+) -> tuple[dict[str, dict[str, JSONValue]], list[str], list[dict[str, object]]]:
+    composed: dict[str, dict[str, JSONValue]] = {}
+    warnings: list[str] = []
+    conflict_rows: list[dict[str, object]] = []
+
+    def _deps_for(rel: str) -> list[str]:
+        fm = docs[rel].frontmatter
+        requires = fm.get("doc_requires", [])
+        if not isinstance(requires, list):
+            return []
+        return [str(_doc_ref_base(item)) for item in requires if isinstance(item, str)]
+
+    memo: dict[str, list[dict[str, JSONValue]]] = {}
+
+    def _collect_notions(rel: str, chain: set[str]) -> list[dict[str, JSONValue]]:
+        if rel in memo:
+            return memo[rel]
+        if rel in chain:
+            return list(per_doc_lattices.get(rel, {}).get("first_order", {}).get("notions", []))
+        chain_next = set(chain)
+        chain_next.add(rel)
+        merged: list[dict[str, JSONValue]] = list(per_doc_lattices.get(rel, {}).get("first_order", {}).get("notions", []))
+        for dep in _deps_for(rel):
+            check_deadline()
+            if dep not in docs:
+                warnings.append(f"{rel}: dependency matrix source missing for {dep}")
+                continue
+            merged.extend(_collect_notions(dep, chain_next))
+        merged = sorted(
+            merged,
+            key=lambda item: (
+                str(item.get("path", "")),
+                int(item.get("anchor", {}).get("line", 0)),
+                int(item.get("anchor", {}).get("column", 0)),
+            ),
+        )
+        memo[rel] = merged
+        return merged
+
+    for rel in _sorted(docs.keys()):
+        check_deadline()
+        notions = _collect_notions(rel, set())
+        lattice = _build_doc_implication_lattice(path=rel, notions=notions)
+        composed[rel] = lattice
+        by_subject: dict[str, set[str]] = defaultdict(set)
+        by_subject_anchor: dict[tuple[str, str], dict[str, JSONValue]] = {}
+        for node in lattice["first_order"]["notions"]:
+            check_deadline()
+            subject = str(node.get("subject") or "")
+            polarity = str(node.get("polarity") or "")
+            if not subject or not polarity:
+                continue
+            by_subject[subject].add(polarity)
+            by_subject_anchor[(subject, polarity)] = node
+        for subject, polarities in by_subject.items():
+            check_deadline()
+            if len(polarities) < 2:
+                continue
+            left = by_subject_anchor.get((subject, "positive"), {})
+            right = by_subject_anchor.get((subject, "negative"), {})
+            conflict_rows.append(
+                {
+                    "row_kind": "doc_implication_matrix_conflict",
+                    "path": rel,
+                    "qual": str(docs[rel].frontmatter.get("doc_id") or rel),
+                    "subject": subject,
+                    "left_anchor": left.get("anchor"),
+                    "right_anchor": right.get("anchor"),
+                    "scope": "dependency_composed",
+                }
+            )
+    return composed, warnings, conflict_rows
+
+
 def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]]:
     def _is_row(row: Mapping[str, JSONValue], kind: str) -> bool:
         return str(row.get("row_kind", "") or "") == kind
@@ -411,6 +578,9 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
             return False
         return row.get("declared") is not True
 
+    def _implication_matrix_conflict(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_implication_matrix_conflict")
+
     return {
         "missing_frontmatter": _missing_frontmatter,
         "missing_required_field": _missing_required_field,
@@ -426,6 +596,7 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
         "evidence_source": _evidence_source,
         "missing_loop_entry": _missing_loop_entry,
         "missing_matrix_gate_entry": _missing_matrix_gate_entry,
+        "implication_matrix_conflict": _implication_matrix_conflict,
     }
 
 
@@ -479,6 +650,11 @@ DOCFLOW_AUDIT_INVARIANTS = [
         name="docflow:governance_loop_matrix_drift",
         kind="never",
         spec=_make_invariant_spec("docflow:governance_loop_matrix_drift", ["missing_matrix_gate_entry"]),
+    ),
+    DocflowInvariant(
+        name="docflow:implication_matrix_conflict",
+        kind="never",
+        spec=_make_invariant_spec("docflow:implication_matrix_conflict", ["implication_matrix_conflict"]),
     ),
 ]
 
@@ -1810,6 +1986,18 @@ def _docflow_invariant_rows(
             }
         )
 
+    per_doc_lattices: dict[str, dict[str, JSONValue]] = {}
+    for rel, payload in docs.items():
+        check_deadline()
+        notions = _extract_doc_body_notions_with_anchors(path=rel, doc=payload)
+        per_doc_lattices[rel] = _build_doc_implication_lattice(path=rel, notions=notions)
+    _composed_lattices, matrix_warnings, matrix_conflicts = _compose_doc_dependency_matrices(
+        docs=docs,
+        per_doc_lattices=per_doc_lattices,
+    )
+    rows.extend(matrix_conflicts)
+    warnings.extend(matrix_warnings)
+
     return rows, warnings
 
 
@@ -1936,6 +2124,11 @@ def _format_doc_loop_matrix_gate_violation(row: Mapping[str, JSONValue], path: s
     return f"{path}: governance loop matrix drift; missing gate row for: {gate_id}"
 
 
+def _format_doc_implication_matrix_conflict_violation(row: Mapping[str, JSONValue], path: str) -> str:
+    subject = row.get("subject", "?")
+    return f"{path}: implication matrix conflict for notion subject: {subject}"
+
+
 _DOCFLOW_VIOLATION_FORMATTERS: dict[str, Callable[[Mapping[str, JSONValue], str], str]] = {
     "doc_missing_frontmatter": _format_doc_missing_frontmatter_violation,
     "doc_required_field": _format_doc_required_field_violation,
@@ -1947,6 +2140,7 @@ _DOCFLOW_VIOLATION_FORMATTERS: dict[str, Callable[[Mapping[str, JSONValue], str]
     "doc_commute_edge": _format_doc_commute_edge_violation,
     "doc_loop_entry": _format_doc_loop_entry_violation,
     "doc_loop_matrix_gate": _format_doc_loop_matrix_gate_violation,
+    "doc_implication_matrix_conflict": _format_doc_implication_matrix_conflict_violation,
 }
 
 
@@ -2337,6 +2531,41 @@ def _emit_docflow_compliance(
                 ),
             )
         )
+
+
+def _emit_docflow_implication_matrices(
+    *,
+    docs: dict[str, Doc],
+    json_output: Path | None,
+) -> None:
+    per_doc_lattices: dict[str, dict[str, JSONValue]] = {}
+    notions_by_doc: dict[str, list[dict[str, JSONValue]]] = {}
+    for rel, payload in docs.items():
+        check_deadline()
+        notions = _extract_doc_body_notions_with_anchors(path=rel, doc=payload)
+        notions_by_doc[rel] = notions
+        per_doc_lattices[rel] = _build_doc_implication_lattice(path=rel, notions=notions)
+    composed, warnings, conflicts = _compose_doc_dependency_matrices(
+        docs=docs,
+        per_doc_lattices=per_doc_lattices,
+    )
+    payload: dict[str, object] = {
+        "version": 1,
+        "summary": {
+            "documents": len(docs),
+            "notions": sum(len(items) for items in notions_by_doc.values()),
+            "conflicts": len(conflicts),
+            "warnings": len(warnings),
+        },
+        "notions": notions_by_doc,
+        "lattices": per_doc_lattices,
+        "composed_lattices": composed,
+        "warnings": warnings,
+        "violations": conflicts,
+    }
+    if json_output is not None:
+        json_output.parent.mkdir(parents=True, exist_ok=True)
+        json_output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _load_docflow_docs(
@@ -4520,6 +4749,10 @@ def _docflow_command(args: argparse.Namespace) -> int:
         json_output=args.section_reviews_json,
         md_output=args.section_reviews_md,
     )
+    _emit_docflow_implication_matrices(
+        docs=docs,
+        json_output=args.implication_matrix_json,
+    )
     graph_warnings, graph_violations = _agent_instruction_graph(
         root=root,
         docs=docs,
@@ -4825,6 +5058,12 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=Path("artifacts/audit_reports/docflow_section_reviews.md"),
         help="Output path for docflow anchor review markdown.",
+    )
+    parser.add_argument(
+        "--implication-matrix-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_implication_matrices.json"),
+        help="Output path for docflow implication lattice and dependency-matrix JSON.",
     )
     parser.add_argument(
         "--agent-instruction-graph-json",
