@@ -5,13 +5,16 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 import sys
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Sequence
 
 from gabion.cli_support.check.check_execution_plan import (
     build_check_execution_plan_request as _build_check_execution_plan_request_impl,
     check_derived_artifacts as _check_derived_artifacts_impl,
 )
 from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
+from gabion.cli_support.check.execution_plan_payload import (
+    ExecutionPlanRequestPayload,
+)
 from gabion.cli_support.shared.dispatch_runtime import (
     dispatch_command as _dispatch_command_impl,
 )
@@ -31,31 +34,6 @@ from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
-
-
-class _ExecutionPlanRequest(Protocol):
-    def to_payload(self) -> JSONObject: ...
-
-
-@dataclass(frozen=True)
-class _ExecutionPlanRequestPayload:
-    requested_operations: list[str]
-    inputs: JSONObject
-    derived_artifacts: list[str]
-    obligations: dict[str, list[str]]
-    policy_metadata: dict[str, object]
-
-    def to_payload(self) -> JSONObject:
-        return {
-            "requested_operations": list(self.requested_operations),
-            "inputs": dict(self.inputs),
-            "derived_artifacts": list(self.derived_artifacts),
-            "obligations": {
-                "preconditions": list(self.obligations.get("preconditions") or []),
-                "postconditions": list(self.obligations.get("postconditions") or []),
-            },
-            "policy_metadata": dict(self.policy_metadata),
-        }
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -100,11 +78,11 @@ def _build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     )
 
 
-def _build_check_execution_plan_request(**kwargs) -> _ExecutionPlanRequest:
+def _build_check_execution_plan_request(**kwargs) -> ExecutionPlanRequestPayload:
     return _build_check_execution_plan_request_impl(
         **kwargs,
         check_derived_artifacts_fn=_check_derived_artifacts_impl,
-        execution_plan_request_ctor=_ExecutionPlanRequestPayload,
+        execution_plan_request_ctor=ExecutionPlanRequestPayload,
         dataflow_command=command_ids.DATAFLOW_COMMAND,
         check_command=command_ids.CHECK_COMMAND,
     )
@@ -116,7 +94,7 @@ def _dispatch_command(
     payload: JSONObject,
     root: Path = Path("."),
     runner: Callable[..., JSONObject] = run_command,
-    execution_plan_request: _ExecutionPlanRequest | None = None,
+    execution_plan_request: ExecutionPlanRequestPayload | None = None,
 ) -> JSONObject:
     return _dispatch_command_impl(
         command=command,

@@ -7,6 +7,7 @@ import typer
 
 from gabion import cli
 from gabion.commands import check_contract
+from gabion.tooling.runtime import dataflow_invocation_runner
 
 _DEFAULT_CHECK_ARTIFACT_FLAGS = cli.CheckArtifactFlags(
     emit_test_obsolescence=False,
@@ -318,6 +319,40 @@ def test_build_check_execution_plan_request_sets_read_baseline_mode() -> None:
     policy_metadata = payload["policy_metadata"]
     assert isinstance(policy_metadata, dict)
     assert policy_metadata["baseline_mode"] == "read"
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_build_check_execution_plan_request_cli_runtime_payload_parity::cli.py::gabion.cli.build_check_execution_plan_request E:call_footprint::tests/test_cli_payloads.py::test_build_check_execution_plan_request_cli_runtime_payload_parity::dataflow_invocation_runner.py::gabion.tooling.runtime.dataflow_invocation_runner._build_check_execution_plan_request
+def test_build_check_execution_plan_request_cli_runtime_payload_parity() -> None:
+    kwargs = dict(
+        payload={"analysis_timeout_ticks": 11, "analysis_timeout_tick_ns": 22},
+        report=Path("artifacts/audit_reports/dataflow_report.md"),
+        decision_snapshot=None,
+        baseline=Path("baselines/dataflow_baseline.txt"),
+        baseline_write=False,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=True,
+            fail_on_type_ambiguities=True,
+            lint=True,
+        ),
+        profile="strict",
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=True,
+        emit_test_obsolescence_delta=False,
+        emit_test_annotation_drift_delta=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=True,
+        aspf_trace_json=Path("artifacts/out/aspf_trace.custom.json"),
+        aspf_opportunities_json=Path("artifacts/out/aspf_opportunities.custom.json"),
+        aspf_state_json=Path("artifacts/out/aspf_state.custom.json"),
+        aspf_delta_jsonl=Path("artifacts/out/aspf_delta.custom.jsonl"),
+        aspf_equivalence_enabled=True,
+    )
+    cli_payload = cli.build_check_execution_plan_request(**kwargs).to_payload()
+    runtime_payload = (
+        dataflow_invocation_runner._build_check_execution_plan_request(**kwargs)
+        .to_payload()
+    )
+    assert runtime_payload == cli_payload
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_613d9e303867_0c617420

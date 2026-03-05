@@ -23,8 +23,6 @@ from contextlib import ExitStack
 
 from dataclasses import dataclass, field
 
-from enum import StrEnum
-
 from pathlib import Path
 
 from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
@@ -51,8 +49,6 @@ from gabion.analysis.core.forest_spec import (
 
 from gabion.analysis.foundation.timeout_context import (
     Deadline, GasMeter, TimeoutExceeded, TimeoutTickCarrier, build_timeout_context_from_stack, check_deadline, deadline_loop_iter, deadline_clock_scope, deadline_scope, forest_scope, reset_forest, set_forest)
-
-from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_or_none, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_or_empty, mapping_or_none, payload_with_format, payload_with_phase, sequence_or_none, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
@@ -188,12 +184,6 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _local_class_name as _local_class_name_owner,
     _resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_owner,
 )
-from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
-    _PARSE_MODULE_ERROR_TYPES,
-    _parse_failure_sink,
-    _parse_failure_witness,
-    _record_parse_failure_witness,
-)
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
@@ -272,6 +262,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details,
     _collect_dataclass_registry,
     _dead_env_map,
+    _decision_predicate_evidence as _decision_predicate_evidence_owner,
     _decision_reason_summary as _decision_reason_summary_owner,
     _decision_surface_alt_evidence as _decision_surface_alt_evidence_owner,
     _infer_type_flow as _infer_type_flow_owner,
@@ -284,6 +275,8 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_invariant_propositions,
     _collect_never_invariants,
     _combine_type_hints,
+    _DecisionSurfaceSpec as _DecisionSurfaceSpec_owner,
+    _DIRECT_DECISION_SURFACE_SPEC as _DIRECT_DECISION_SURFACE_SPEC_owner,
     _enclosing_function_node,
     _eval_bool_expr,
     _eval_value_expr,
@@ -305,6 +298,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _split_top_level,
     _suite_site_label as _suite_site_label_owner,
     _type_from_const_repr,
+    _VALUE_DECISION_SURFACE_SPEC as _VALUE_DECISION_SURFACE_SPEC_owner,
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
@@ -316,6 +310,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
+    CallAmbiguity as _CallAmbiguity_owner,
     _ProjectionSpan,
     _add_interned_alt as _add_interned_alt_owner,
     _ambiguity_suite_relation,
@@ -377,6 +372,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _analysis_index_resolved_call_edges_by_caller,
     _analysis_index_stage_cache,
     _analysis_index_transitive_callers,
+    analyze_file as _analyze_file_owner,
     _analyze_file_internal as _analyze_file_internal_owner,
     _accumulate_class_index_for_tree_runtime as _accumulate_class_index_for_tree_owner,
     _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree_owner,
@@ -440,35 +436,47 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _resolve_callee_outcome as _resolve_callee_outcome_owner,
     _suite_caller_function_id as _suite_caller_function_id_owner,
 )
+from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
+    _summarize_deadline_obligations as _summarize_deadline_obligations_owner,
+)
+from gabion.analysis.dataflow.engine.dataflow_parse_runtime_owner import (
+    _parse_module_tree_runtime as _parse_module_tree_owner,
+)
+from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
+    ReportProjectionSpec as _ReportProjectionSpec_owner,
+    _compute_violations as _compute_violations_owner,
+    _report_section_identity_render as _report_section_identity_render_owner,
+    _report_section_no_violations as _report_section_no_violations_owner,
+    _report_section_spec as _report_section_spec_owner,
+    _report_section_text as _report_section_text_owner,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
 from gabion.analysis.semantics.semantic_primitives import (
-    CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
+    CallArgumentMapping, CallableId, ParameterId)
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig as _ContractAuditConfig,
     ClassInfo as _ContractClassInfo,
     FunctionInfo as _ContractFunctionInfo,
     InvariantProposition,
-    ReportCarrier as _DataflowReportCarrier,
     SymbolTable as _ContractSymbolTable,
 )
 
 from gabion.analysis.dataflow.io.dataflow_reporting import (
-    emit_report as _emit_report,
+    emit_report as _emit_report_owner,
     render_report,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _ParseModuleStage as _ParseModuleStage_owner,
     _forbid_adhoc_bundle_discovery as _forbid_adhoc_bundle_discovery_owner,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     is_deadline_origin_call as _is_deadline_origin_call_impl,
 )
-from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
-    SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl)
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
@@ -518,18 +526,7 @@ NodeIdOrNone = NodeId | None
 
 ParseCacheValue = ast.Module | BaseException
 
-class _ParseModuleStage(StrEnum):
-    PARAM_ANNOTATIONS = "param_annotations"
-    DEADLINE_FUNCTION_FACTS = "deadline_function_facts"
-    CALL_NODES = "call_nodes"
-    SUITE_CONTAINMENT = "suite_containment"
-    SYMBOL_TABLE = "symbol_table"
-    CLASS_INDEX = "class_index"
-    FUNCTION_INDEX = "function_index"
-    CONFIG_FIELDS = "config_fields"
-    DATACLASS_REGISTRY = "dataclass_registry"
-    DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
-    RAW_SORTED_AUDIT = "raw_sorted_audit"
+_ParseModuleStage = _ParseModuleStage_owner
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
@@ -617,87 +614,22 @@ SymbolTable = _ContractSymbolTable
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 AuditConfig = _ContractAuditConfig
 
-def _summarize_deadline_obligations(entries, *, max_entries=20, forest):
-    return _summarize_deadline_obligations_impl(
-        entries,
-        max_entries=max_entries,
-        forest=forest,
-        deps=_SummarizeDeadlineObligationsDeps(
-            check_deadline_fn=check_deadline,
-            projection_spec_hash_fn=projection_spec_hash,
-            deadline_obligations_summary_spec=DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
-            require_not_none_fn=require_not_none,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
-            format_span_fields_fn=_format_span_fields,
-        ),
-    )
+_summarize_deadline_obligations = _summarize_deadline_obligations_owner
 
 
 _profiling_v1_payload = _profiling_v1_payload_owner
 
-_ReportSectionValue = TypeVar("_ReportSectionValue")
+ReportProjectionSpec = _ReportProjectionSpec_owner
 
-@dataclass(frozen=True)
-class ReportProjectionSpec(Generic[_ReportSectionValue]):
-    section_id: str
-    phase: ReportProjectionPhase
-    deps: tuple[str, ...]
-    build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
-        _ReportSectionValue,
-    ]
-    render: Callable[[_ReportSectionValue], list[str]]
-    violation_extract: Callable[[_ReportSectionValue], list[str]]
-    preview_build: object = None
+_report_section_identity_render = _report_section_identity_render_owner
 
-def _report_section_identity_render(lines: list[str]) -> list[str]:
-    return lines
+_report_section_no_violations = _report_section_no_violations_owner
 
-def _report_section_no_violations(_lines: list[str]) -> list[str]:
-    return []
+_report_section_text = _report_section_text_owner
 
-def _report_section_text(
-    report: ReportCarrier,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    *,
-    section_id: str,
-) -> list[str]:
-    rendered, _ = _emit_report(
-        groups_by_path,
-        max_components=10,
-        report=cast(_DataflowReportCarrier, report),
-    )
-    return extract_report_sections(rendered).get(section_id, [])
+_report_section_spec = _report_section_spec_owner
 
-def _report_section_spec(
-    *,
-    section_id: str,
-    phase: ReportProjectionPhase,
-    deps: tuple[str, ...] = (),
-    preview_build = None,
-) -> ReportProjectionSpec[list[str]]:
-    return ReportProjectionSpec[list[str]](
-        section_id=section_id,
-        phase=phase,
-        deps=deps,
-        build=lambda report, groups_by_path, _section_id=section_id: _report_section_text(
-            report,
-            groups_by_path,
-            section_id=_section_id,
-        ),
-        render=_report_section_identity_render,
-        violation_extract=_report_section_no_violations,
-        preview_build=preview_build,
-    )
-
-@dataclass(frozen=True)
-class CallAmbiguity:
-    kind: str
-    caller: FunctionInfo
-    call: "CallArgs | None"
-    callee_key: str
-    candidates: tuple[FunctionInfo, ...]
-    phase: str
+CallAmbiguity = _CallAmbiguity_owner
 
 _callee_name = _callee_name_owner
 
@@ -741,38 +673,9 @@ _contains_boolish = _contains_boolish_owner
 
 _value_encoded_decision_params = _value_encoded_decision_params_owner
 
-@dataclass(frozen=True)
-class _DecisionSurfaceSpec:
-    pass_id: str
-    alt_kind: str
-    surface_label: str
-    params: Callable[[FunctionInfo], set[str]]
-    descriptor: Callable[[FunctionInfo, str], str]
-    alt_evidence: Callable[[str, str], JSONObject]
-    surface_lint_code: str
-    surface_lint_message: Callable[[str, str, str], str]
-    emit_surface_lint: Callable[[int, object], bool]
-    tier_lint_code: str
-    tier_missing_message: Callable[[str, str], str]
-    tier_internal_message: Callable[[str, int, str, str], str]
-    rewrite_line: object = None
+_DecisionSurfaceSpec = _DecisionSurfaceSpec_owner
 
-def _decision_predicate_evidence(
-    info: FunctionInfo,
-    param: str,
-) -> DecisionPredicateEvidence:
-    reasons = tuple(
-        sort_once(
-            info.decision_surface_reasons.get(param, set()),
-            source="_decision_predicate_evidence.reasons",
-        )
-    )
-    span = info.param_spans.get(param)
-    return DecisionPredicateEvidence(
-        parameter=ParameterId.from_raw(param),
-        reasons=reasons,
-        spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
-    )
+_decision_predicate_evidence = _decision_predicate_evidence_owner
 
 _decision_reason_summary = _decision_reason_summary_owner
 
@@ -782,67 +685,9 @@ _decision_surface_alt_evidence = _decision_surface_alt_evidence_owner
 
 _suite_site_label = _suite_site_label_owner
 
-_DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
-    pass_id="decision_surfaces",
-    alt_kind="DecisionSurface",
-    surface_label="decision surface params",
-    params=lambda info: info.decision_params,
-    descriptor=lambda info, boundary: (
-        f"{boundary}; reason={_decision_reason_summary(info, info.decision_params)}"
-    ),
-    alt_evidence=lambda boundary, _descriptor: {
-        "meta": boundary,
-        "boundary": boundary,
-    },
-    surface_lint_code="GABION_DECISION_SURFACE",
-    surface_lint_message=lambda param, boundary, _descriptor: (
-        f"decision surface param '{param}' ({boundary})"
-    ),
-    emit_surface_lint=lambda caller_count, tier: caller_count == 0 and tier is None,
-    tier_lint_code="GABION_DECISION_TIER",
-    tier_missing_message=lambda param, _descriptor: (
-        f"decision param '{param}' missing decision tier metadata"
-    ),
-    tier_internal_message=lambda param, tier, boundary, _descriptor: (
-        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
-    ),
-)
+_DIRECT_DECISION_SURFACE_SPEC = _DIRECT_DECISION_SURFACE_SPEC_owner
 
-_VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
-    pass_id="value_encoded_decisions",
-    alt_kind="ValueDecisionSurface",
-    surface_label="value-encoded decision params",
-    params=lambda info: info.value_decision_params,
-    descriptor=lambda info, _boundary: ", ".join(
-        sort_once(
-            info.value_decision_reasons,
-            source="_VALUE_DECISION_SURFACE_SPEC.descriptor",
-        )
-    )
-    or "heuristic",
-    alt_evidence=lambda boundary, descriptor: {
-        "meta": descriptor,
-        "boundary": boundary,
-        "reasons": descriptor,
-    },
-    surface_lint_code="GABION_VALUE_DECISION_SURFACE",
-    surface_lint_message=lambda param, boundary, descriptor: (
-        f"value-encoded decision param '{param}' ({boundary}; {descriptor})"
-    ),
-    emit_surface_lint=lambda _caller_count, tier: tier is None,
-    tier_lint_code="GABION_VALUE_DECISION_TIER",
-    tier_missing_message=lambda param, descriptor: (
-        f"value-encoded decision param '{param}' missing decision tier metadata ({descriptor})"
-    ),
-    tier_internal_message=lambda param, tier, boundary, descriptor: (
-        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {descriptor})"
-    ),
-    rewrite_line=lambda info, params, descriptor: (
-        f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
-        + ", ".join(params)
-        + f" ({descriptor})"
-    ),
-)
+_VALUE_DECISION_SURFACE_SPEC = _VALUE_DECISION_SURFACE_SPEC_owner
 
 _analyze_decision_surface_indexed = _analyze_decision_surface_indexed_owner
 
@@ -872,22 +717,7 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = _ANALYSIS_INDEX_STAGE_CACHE_OP_owner
 
 _path_dependency_payload = _path_dependency_payload_owner
 
-def _parse_module_tree(
-    path: Path,
-    *,
-    stage: _ParseModuleStage,
-    parse_failure_witnesses: list[JSONObject],
-):
-    try:
-        return ast.parse(path.read_text())
-    except _PARSE_MODULE_ERROR_TYPES as exc:
-        _record_parse_failure_witness(
-            sink=parse_failure_witnesses,
-            path=path,
-            stage=stage,
-            error=exc,
-        )
-        return None
+_parse_module_tree = _parse_module_tree_owner
 
 _is_deadline_annot = _is_deadline_annot_owner
 
@@ -1028,14 +858,7 @@ analyze_ingested_file = _analyze_ingested_file_owner
 
 _analyze_file_internal = _analyze_file_internal_owner
 
-def analyze_file(
-    path: Path,
-    recursive: bool = True,
-    *,
-    config = None,
-) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
-    groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
-    return groups, spans
+analyze_file = _analyze_file_owner
 
 _callee_key = _callee_key_owner
 
@@ -1117,6 +940,8 @@ _dataclass_registry_for_tree = _dataclass_registry_for_tree_owner
 
 _parse_report_section_marker = _parse_report_section_marker_impl
 
+_emit_report = _emit_report_owner
+
 extract_report_sections = _extract_report_sections_impl
 
 _normalize_snapshot_path = _normalize_snapshot_path_impl
@@ -1129,21 +954,7 @@ _iter_monotonic_paths = _iter_monotonic_paths_owner
 
 _load_analysis_index_resume_payload = _load_analysis_index_resume_payload_owner
 
-def _compute_violations(
-    groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    max_components: int,
-    *,
-    report: ReportCarrier,
-) -> list[str]:
-    _, violations = _emit_report(
-        groups_by_path,
-        max_components,
-        report=cast(_DataflowReportCarrier, report),
-    )
-    return sort_once(
-        set(violations),
-        source="_compute_violations.violations",
-    )
+_compute_violations = _compute_violations_owner
 
 _resolve_baseline_path = _resolve_baseline_path_impl
 

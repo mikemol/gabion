@@ -25,6 +25,9 @@ from gabion.cli_support.check.check_command_runtime import (
 from gabion.cli_support.check import check_runtime_facade
 from gabion.cli_support.check.check_execution_plan import (
     check_derived_artifacts as _check_derived_artifacts_impl, build_check_execution_plan_request as _build_check_execution_plan_request_impl)
+from gabion.cli_support.check.execution_plan_payload import (
+    ExecutionPlanRequestPayload as ExecutionPlanRequest,
+)
 from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
 from gabion.cli_support.shared.dispatch_runtime import (
     dispatch_command as _dispatch_command_impl)
@@ -255,27 +258,6 @@ class SnapshotDiffRequest:
 
     def to_payload(self) -> JSONObject:
         return {"baseline": str(self.baseline), "current": str(self.current)}
-
-
-@dataclass(frozen=True)
-class ExecutionPlanRequest:
-    requested_operations: list[str]
-    inputs: JSONObject
-    derived_artifacts: list[str]
-    obligations: dict[str, list[str]]
-    policy_metadata: dict[str, object]
-
-    def to_payload(self) -> JSONObject:
-        return {
-            "requested_operations": list(self.requested_operations),
-            "inputs": dict(self.inputs),
-            "derived_artifacts": list(self.derived_artifacts),
-            "obligations": {
-                "preconditions": list(self.obligations.get("preconditions") or []),
-                "postconditions": list(self.obligations.get("postconditions") or []),
-            },
-            "policy_metadata": dict(self.policy_metadata),
-        }
 
 
 def _run_sppf_git(
