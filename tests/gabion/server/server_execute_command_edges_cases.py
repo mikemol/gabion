@@ -176,6 +176,21 @@ def _execute_with_deps(
     return server.execute_command_with_deps(ls, payload, deps=deps)
 
 
+def _execute_total_with_deps(
+    ls: _DummyServer,
+    payload: dict,
+    *,
+    deps: server.ExecuteCommandDeps | None = None,
+    **overrides: object,
+) -> server.DataflowResponseEnvelopeDTO:
+    active_deps = deps
+    if active_deps is None:
+        active_deps = server._default_execute_command_deps().with_overrides(**overrides)
+    elif overrides:
+        active_deps = active_deps.with_overrides(**overrides)
+    return server._execute_command_total(ls, payload, deps=active_deps)
+
+
 
 
 @pytest.mark.parametrize(
@@ -2655,7 +2670,7 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
     def _raise_projection_timeout(*_args: object, **_kwargs: object) -> dict[str, list[str]]:
         raise server.TimeoutExceeded("projection-timeout")
 
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -2671,8 +2686,9 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
             analyze_paths_fn=_raise_timeout,
         ),
     )
-    assert result["timeout"] is True
-    progress = result["timeout_context"]["progress"]
+    payload = result.payload
+    assert payload["timeout"] is True
+    progress = payload["timeout_context"]["progress"]
     assert progress.get("cleanup_truncated") is True
     cleanup_steps = progress.get("cleanup_timeout_steps")
     assert isinstance(cleanup_steps, list)
@@ -3142,7 +3158,7 @@ def test_execute_command_timeout_context_payload_fallback(tmp_path: Path) -> Non
     def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
         raise server.TimeoutExceeded(_BoomContext())  # type: ignore[arg-type]
 
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -3155,8 +3171,9 @@ def test_execute_command_timeout_context_payload_fallback(tmp_path: Path) -> Non
             analyze_paths_fn=_raise_timeout
         ),
     )
-    assert result["timeout"] is True
-    progress = result["timeout_context"]["progress"]
+    payload = result.payload
+    assert payload["timeout"] is True
+    progress = payload["timeout_context"]["progress"]
     assert progress["classification"] == "timed_out_no_progress"
 
 
@@ -3489,7 +3506,7 @@ def test_execute_command_total_timeout_context_payload_timeout_fallback(
                 )
             )
 
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -3506,7 +3523,8 @@ def test_execute_command_total_timeout_context_payload_timeout_fallback(
             )
         ),
     )
-    assert result["timeout"] is True
+    payload = result.payload
+    assert payload["timeout"] is True
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_uses_non_empty_classification::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3515,7 +3533,7 @@ def test_execute_command_total_timeout_uses_non_empty_classification(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -3532,7 +3550,8 @@ def test_execute_command_total_timeout_uses_non_empty_classification(
             )
         ),
     )
-    assert result["analysis_state"] == "timed_out_progress_resume"
+    payload = result.payload
+    assert payload["analysis_state"] == "timed_out_progress_resume"
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projection::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -3550,7 +3569,7 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
             preview_calls["count"] += 1
         return original_project(*args, **kwargs)
 
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -3569,7 +3588,8 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
             ),
         ),
     )
-    assert result["timeout"] is True
+    payload = result.payload
+    assert payload["timeout"] is True
     assert preview_calls["count"] >= 1
 
 
@@ -3601,7 +3621,7 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
     _write_bundle_module(module_path)
     report_path = tmp_path / "report.md"
 
-    result = server._execute_command_total(
+    result = _execute_total_with_deps(
         _DummyServer(str(tmp_path)),
         _with_timeout(
             {
@@ -3620,7 +3640,8 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
             ),
         ),
     )
-    assert result["timeout"] is True
+    payload = result.payload
+    assert payload["timeout"] is True
     report_text = report_path.read_text(encoding="utf-8")
     assert (
         "Collection bootstrap checkpoint (provisional)." in report_text
@@ -5571,14 +5592,14 @@ def test_probe_direct_executor_wraps_exceptions_and_passthrough_never() -> None:
             lambda _ls, _payload: (_ for _ in ()).throw(RuntimeError("boom")),
             ls=ls,  # type: ignore[arg-type]
             command="check",
-            probe_payload={},
+            probe_payload=server.ParityProbePayload(payload={}),
         )
     with pytest.raises(NeverThrown):
         server._probe_direct_executor(
             lambda _ls, _payload: (_ for _ in ()).throw(NeverThrown("invariant")),
             ls=ls,  # type: ignore[arg-type]
             command="check",
-            probe_payload={},
+            probe_payload=server.ParityProbePayload(payload={}),
         )
 
 

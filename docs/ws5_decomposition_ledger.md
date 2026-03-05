@@ -1,5 +1,5 @@
 ---
-doc_revision: 236
+doc_revision: 237
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,17 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-296`, this CU):
+  - Completed type-safe envelope rebinding in server-edge tests for `_execute_command_total` callsites:
+    - `tests/gabion/server/server_execute_command_edges_cases.py`
+    - introduced `_execute_total_with_deps` helper returning `DataflowResponseEnvelopeDTO`
+    - updated affected assertions to consume `result.payload[...]` (no envelope-to-dict compatibility bridge)
+  - Aligned direct probe executor edge test with typed parity-probe carrier contract:
+    - `probe_payload` now passed as `ParityProbePayload(payload=...)`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`217 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected line-shift mapping drift
 - WS-5 continuation (`in-295`, this CU):
   - Added monolith boundary-shape guard:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_boundary_shape.py`
