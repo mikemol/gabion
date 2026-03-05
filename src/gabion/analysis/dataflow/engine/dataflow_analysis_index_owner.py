@@ -29,6 +29,7 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.json_types import JSONObject
@@ -100,6 +101,21 @@ class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
     init: Callable[[], _ModuleArtifactAcc]
     fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
     finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
+
+
+@dataclass(frozen=True)
+class _ResolvedCallEdge:
+    caller: object
+    call: object
+    callee: object
+
+
+@dataclass(frozen=True)
+class _ResolvedEdgeParamEvent:
+    kind: str
+    param: str
+    value: object
+    countable: bool
 
 
 @dataclass(frozen=True)
@@ -215,7 +231,6 @@ def _analysis_index_resolved_call_edges(
     project_root,
     require_transparent: bool,
 ) -> tuple[object, ...]:
-    runtime = _runtime_module()
     check_deadline()
     if require_transparent:
         cached_edges = analysis_index.resolved_transparent_call_edges
@@ -231,7 +246,7 @@ def _analysis_index_resolved_call_edges(
             for call in info.calls:
                 check_deadline()
                 if not call.is_test:
-                    callee = runtime._resolve_callee(
+                    callee = _resolve_callee(
                         call.callee,
                         info,
                         analysis_index.by_name,
@@ -241,7 +256,7 @@ def _analysis_index_resolved_call_edges(
                         analysis_index.class_index,
                     )
                     if callee is not None and (not require_transparent or callee.transparent):
-                        edges.append(runtime._ResolvedCallEdge(caller=info, call=call, callee=callee))
+                        edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
     frozen_edges = tuple(edges)
     if require_transparent:
         analysis_index.resolved_transparent_call_edges = frozen_edges
@@ -298,13 +313,12 @@ def _iter_resolved_edge_param_events(
     strictness: str,
     include_variadics_in_low_star: bool,
 ):
-    runtime = _runtime_module()
     yield from _iter_resolved_edge_param_events_impl(
         edge=edge,
         strictness=strictness,
         include_variadics_in_low_star=include_variadics_in_low_star,
         check_deadline_fn=check_deadline,
-        event_ctor=runtime._ResolvedEdgeParamEvent,
+        event_ctor=_ResolvedEdgeParamEvent,
     )
 
 

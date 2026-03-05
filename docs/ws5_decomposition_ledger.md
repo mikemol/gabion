@@ -1,5 +1,5 @@
 ---
-doc_revision: 33
+doc_revision: 34
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -579,6 +579,23 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted decision-surface + constant-flow/knob + runtime/dataflow suites passed (`67 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner edge-carrier fallback contraction:
+    - Removed runtime-module fallback wiring in:
+      - `_analysis_index_resolved_call_edges`
+      - `_iter_resolved_edge_param_events`
+    - Added owner-local resolved-edge carriers:
+      - `_ResolvedCallEdge`
+      - `_ResolvedEdgeParamEvent`
+    - Switched callee resolution to canonical owner helper:
+      - `_resolve_callee` from `dataflow_evidence_helpers`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_analysis_index_owner.py` reduced from `4` to `2`.
+  - ASPF no-change acknowledgement refreshed (`in-95`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
