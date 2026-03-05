@@ -1,5 +1,5 @@
 ---
-doc_revision: 32
+doc_revision: 33
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3015
+- Monolith LOC (current): 3021
 - Monolith top-level import statements (current): 67
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -556,6 +556,29 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted constant-flow/knob + runtime/dataflow suites passed (`55 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase decision-surface fallback contraction:
+    - Removed the remaining runtime-module fallback wiring by ownerizing indexed decision-surface runners:
+      - `_analyze_decision_surface_indexed`
+      - `_analyze_decision_surfaces_indexed`
+      - `_analyze_value_encoded_decisions_indexed`
+      - `_DecisionSurfaceSpec`
+      - `_DIRECT_DECISION_SURFACE_SPEC`
+      - `_VALUE_DECISION_SURFACE_SPEC`
+      - `_decision_reason_summary`
+      - `_decision_surface_alt_evidence`
+      - `_suite_site_label`
+    - `analyze_decision_surfaces_repo` and `analyze_value_encoded_decisions_repo` now use canonical `_run_indexed_pass` + local owner runners.
+    - Monolith boundary compatibility restored with explicit aliases:
+      - `analyze_decision_surfaces_repo`
+      - `analyze_value_encoded_decisions_repo`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `2` to `0`.
+  - ASPF no-change acknowledgement refreshed (`in-94`).
+  - Validation:
+    - policy checks passed
+    - targeted decision-surface + constant-flow/knob + runtime/dataflow suites passed (`67 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

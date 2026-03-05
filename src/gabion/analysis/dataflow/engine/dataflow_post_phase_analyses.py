@@ -21,6 +21,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
     _IndexedPassSpec,
+    _build_call_graph,
     _analysis_index_stage_cache,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
@@ -69,9 +70,14 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _normalize_invariant_proposition,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import (
+    int_tuple4_or_none,
+    mapping_or_none,
+    sequence_or_none,
+)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ParentAnnotator
+from gabion.analysis.dataflow.io.dataflow_reporting_helpers import _format_span_fields
 from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
@@ -117,6 +123,10 @@ from gabion.analysis.indexed_scan.obligations.never_invariants import (
     keyword_string_literal as _keyword_string_literal_impl,
     never_reason as _never_reason_impl,
 )
+from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
+    DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps,
+    analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl,
+)
 from gabion.analysis.indexed_scan.scanners.config_fields import (
     CollectConfigBundlesDeps as _CollectConfigBundlesDeps,
     IterConfigFieldsDeps as _IterConfigFieldsDeps,
@@ -147,7 +157,7 @@ from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites,
     SpanIdentity,
 )
-from gabion.invariants import require_not_none
+from gabion.invariants import never, require_not_none
 from gabion.order_contract import OrderPolicy, sort_once
 
 # Temporary boundary adapters for unmoved post-phase owners.
@@ -170,12 +180,6 @@ _LITERAL_EVAL_ERROR_TYPES = (
 )
 
 _NONE_TYPES = {"None", "NoneType", "type(None)"}
-
-
-def _runtime_module():
-    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
-
-    return _runtime
 
 
 def _parse_module_source(path: Path) -> ast.Module:
@@ -1276,8 +1280,7 @@ def analyze_decision_surfaces_repo(
         ScanKernelRequest,
     )
 
-    runtime = _runtime_module()
-    runtime.check_deadline()
+    check_deadline()
     analyzer_output = analyze_decision_surfaces(
         data=DecisionSurfaceAnalyzerInput(
             kernel_request=ScanKernelRequest(
@@ -1294,8 +1297,8 @@ def analyze_decision_surfaces_repo(
             require_tiers=require_tiers,
             forest=forest,
         ),
-        deps=ScanKernelDeps(run_indexed_pass_fn=runtime._run_indexed_pass),
-        runner=lambda context: runtime._analyze_decision_surfaces_indexed(
+        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
+        runner=lambda context: _analyze_decision_surfaces_indexed(
             context,
             decision_tiers=decision_tiers,
             require_tiers=require_tiers,
@@ -1332,8 +1335,7 @@ def analyze_value_encoded_decisions_repo(
         ScanKernelRequest,
     )
 
-    runtime = _runtime_module()
-    runtime.check_deadline()
+    check_deadline()
     analyzer_output = analyze_value_encoded_decisions(
         data=DecisionSurfaceAnalyzerInput(
             kernel_request=ScanKernelRequest(
@@ -1350,8 +1352,8 @@ def analyze_value_encoded_decisions_repo(
             require_tiers=require_tiers,
             forest=forest,
         ),
-        deps=ScanKernelDeps(run_indexed_pass_fn=runtime._run_indexed_pass),
-        runner=lambda context: runtime._analyze_value_encoded_decisions_indexed(
+        deps=ScanKernelDeps(run_indexed_pass_fn=_run_indexed_pass),
+        runner=lambda context: _analyze_value_encoded_decisions_indexed(
             context,
             decision_tiers=decision_tiers,
             require_tiers=require_tiers,
@@ -1472,6 +1474,224 @@ def _decision_tier_for(
         if key in tier_map:
             return tier_map[key]
     return None
+
+
+@dataclass(frozen=True)
+class _DecisionSurfaceSpec:
+    pass_id: str
+    alt_kind: str
+    surface_label: str
+    params: Callable[[FunctionInfo], set[str]]
+    descriptor: Callable[[FunctionInfo, str], str]
+    alt_evidence: Callable[[str, str], JSONObject]
+    surface_lint_code: str
+    surface_lint_message: Callable[[str, str, str], str]
+    emit_surface_lint: Callable[[int, object], bool]
+    tier_lint_code: str
+    tier_missing_message: Callable[[str, str], str]
+    tier_internal_message: Callable[[str, int, str, str], str]
+    rewrite_line: object = None
+
+
+def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
+    labels: set[str] = set()
+    for param in params:
+        check_deadline()
+        labels.update(info.decision_surface_reasons.get(param, set()))
+    if not labels:
+        return "heuristic"
+    return ", ".join(
+        sort_once(labels, source="_decision_reason_summary.labels"),
+    )
+
+
+def _boundary_tier_obligation(caller_count: int) -> str:
+    if caller_count > 0:
+        return "tier-2:decision-bundle-elevation"
+    return "tier-3:decision-table-boundary"
+
+
+def _decision_surface_alt_evidence(
+    *,
+    spec: _DecisionSurfaceSpec,
+    boundary: str,
+    descriptor: str,
+    params: Iterable[str],
+    caller_count: int,
+    reason_summary: str,
+) -> JSONObject:
+    base_evidence = dict(spec.alt_evidence(boundary, descriptor))
+    payload: JSONObject = {
+        "boundary": base_evidence.get("boundary", boundary),
+        "classification_descriptor": descriptor,
+        "classification_reason": reason_summary,
+        "decision_params": sort_once(
+            set(params),
+            source="_decision_surface_alt_evidence.params",
+        ),
+    }
+    if "meta" in base_evidence:
+        payload["meta"] = base_evidence["meta"]
+    for key in sort_once(
+        (str(k) for k in base_evidence if str(k) not in {"boundary", "meta"}),
+        source="_decision_surface_alt_evidence.base_evidence",
+    ):
+        payload[key] = base_evidence[key]
+    payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
+    payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
+    return payload
+
+
+def _suite_site_label(*, forest: object, suite_id: object) -> str:
+    suite_node = forest.nodes.get(suite_id)
+    if suite_node is None:
+        never("suite site missing during label projection", suite_id=str(suite_id))  # pragma: no cover - invariant sink
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    if not path or not qual or not suite_kind or span is None:
+        never(  # pragma: no cover - invariant sink
+            "suite site label projection missing identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+            span=suite_node.meta.get("span"),
+        )
+    span_text = _format_span_fields(*span)
+    if span_text:
+        return f"{path}:{qual}[{suite_kind}]@{span_text}"
+    return f"{path}:{qual}[{suite_kind}]"
+
+
+_DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
+    pass_id="decision_surfaces",
+    alt_kind="DecisionSurface",
+    surface_label="decision surface params",
+    params=lambda info: info.decision_params,
+    descriptor=lambda info, boundary: (
+        f"{boundary}; reason={_decision_reason_summary(info, info.decision_params)}"
+    ),
+    alt_evidence=lambda boundary, _descriptor: {
+        "meta": boundary,
+        "boundary": boundary,
+    },
+    surface_lint_code="GABION_DECISION_SURFACE",
+    surface_lint_message=lambda param, boundary, _descriptor: (
+        f"decision surface param '{param}' ({boundary})"
+    ),
+    emit_surface_lint=lambda caller_count, tier: caller_count == 0 and tier is None,
+    tier_lint_code="GABION_DECISION_TIER",
+    tier_missing_message=lambda param, _descriptor: (
+        f"decision param '{param}' missing decision tier metadata"
+    ),
+    tier_internal_message=lambda param, tier, boundary, _descriptor: (
+        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
+    ),
+)
+
+
+_VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
+    pass_id="value_encoded_decisions",
+    alt_kind="ValueDecisionSurface",
+    surface_label="value-encoded decision params",
+    params=lambda info: info.value_decision_params,
+    descriptor=lambda info, _boundary: ", ".join(
+        sort_once(
+            info.value_decision_reasons,
+            source="_VALUE_DECISION_SURFACE_SPEC.descriptor",
+        )
+    )
+    or "heuristic",
+    alt_evidence=lambda boundary, descriptor: {
+        "meta": descriptor,
+        "boundary": boundary,
+        "reasons": descriptor,
+    },
+    surface_lint_code="GABION_VALUE_DECISION_SURFACE",
+    surface_lint_message=lambda param, boundary, descriptor: (
+        f"value-encoded decision param '{param}' ({boundary}; {descriptor})"
+    ),
+    emit_surface_lint=lambda _caller_count, tier: tier is None,
+    tier_lint_code="GABION_VALUE_DECISION_TIER",
+    tier_missing_message=lambda param, descriptor: (
+        f"value-encoded decision param '{param}' missing decision tier metadata ({descriptor})"
+    ),
+    tier_internal_message=lambda param, tier, boundary, descriptor: (
+        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {descriptor})"
+    ),
+    rewrite_line=lambda info, params, descriptor: (
+        f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
+        + ", ".join(params)
+        + f" ({descriptor})"
+    ),
+)
+
+
+def _analyze_decision_surface_indexed(
+    context: _IndexedPassContext,
+    *,
+    spec: _DecisionSurfaceSpec,
+    decision_tiers,
+    require_tiers: bool,
+    forest: object,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    return _analyze_decision_surface_indexed_impl(
+        context,
+        spec=spec,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+        deps=_DecisionSurfaceAnalyzeDeps(
+            build_call_graph_fn=_build_call_graph,
+            check_deadline_fn=check_deadline,
+            is_test_path_fn=_is_test_path,
+            sort_once_fn=sort_once,
+            decision_reason_summary_fn=_decision_reason_summary,
+            decision_surface_alt_evidence_fn=_decision_surface_alt_evidence,
+            suite_site_label_fn=_suite_site_label,
+            decision_tier_for_fn=_decision_tier_for,
+            decision_param_lint_line_fn=_decision_param_lint_line,
+        ),
+    )
+
+
+def _analyze_decision_surfaces_indexed(
+    context: _IndexedPassContext,
+    *,
+    decision_tiers,
+    require_tiers: bool,
+    forest: object,
+) -> tuple[list[str], list[str], list[str]]:
+    surfaces, warnings, rewrites, lint_lines = _analyze_decision_surface_indexed(
+        context,
+        spec=_DIRECT_DECISION_SURFACE_SPEC,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+    )
+    if rewrites:
+        never(
+            "decision_surfaces rewrites must be empty",
+            pass_id=_DIRECT_DECISION_SURFACE_SPEC.pass_id,
+        )
+    return surfaces, warnings, lint_lines
+
+
+def _analyze_value_encoded_decisions_indexed(
+    context: _IndexedPassContext,
+    *,
+    decision_tiers,
+    require_tiers: bool,
+    forest: object,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    return _analyze_decision_surface_indexed(
+        context,
+        spec=_VALUE_DECISION_SURFACE_SPEC,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+    )
 
 
 def _compute_knob_param_names(

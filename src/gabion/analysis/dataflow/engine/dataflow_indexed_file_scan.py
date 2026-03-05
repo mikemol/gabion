@@ -236,11 +236,13 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _span_line_col as _span_line_col_owner,
     _split_top_level,
     _type_from_const_repr,
+    analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
     analyze_type_flow_repo_with_evidence,
     analyze_type_flow_repo_with_map,
     analyze_unused_arg_flow_repo,
+    analyze_value_encoded_decisions_repo as _analyze_value_encoded_decisions_repo_owner,
     generate_property_hook_manifest,
     run_scan_domain_orchestrator as _run_scan_domain_orchestrator_owner,
 )
@@ -1968,6 +1970,10 @@ def _deadline_loop_forwarded_params(
     )
 
 run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
+
+analyze_decision_surfaces_repo = _analyze_decision_surfaces_repo_owner
+
+analyze_value_encoded_decisions_repo = _analyze_value_encoded_decisions_repo_owner
 
 _span_line_col = _span_line_col_owner
 
