@@ -13,7 +13,18 @@ from gabion.commands.transport_override import (
     TransportOverrideConfig,
     transport_override_scope,
 )
-from gabion.invariants import ProofModeConfig, proof_mode_config_scope
+from gabion.analysis.foundation.marker_protocol import (
+    MarkerKindProfile,
+    marker_kind_mapping_config,
+    runtime_marker_kind_mapping_scope,
+)
+from gabion.invariants import (
+    InvariantRuntimeBehaviorConfig,
+    InvariantRuntimeBehaviorProfile,
+    ProofModeConfig,
+    invariant_runtime_behavior_scope,
+    proof_mode_config_scope,
+)
 from gabion.order_contract import OrderPolicy, OrderRuntimeConfig, order_runtime_config_scope
 
 
@@ -32,6 +43,8 @@ class RuntimePolicyConfig:
     transport_override_record_json: str | None = None
     derivation_cache_max_entries: int = 4096
     projection_registry_gas_limit: int = 1_000_000
+    invariant_runtime_behavior_profile: InvariantRuntimeBehaviorProfile | None = None
+    marker_kind_profile: MarkerKindProfile | None = None
 
 
 def _env_flag(name: str) -> bool:
@@ -56,6 +69,35 @@ def _env_optional_policy(name: str) -> OrderPolicy | None:
             return candidate
     return None
 
+
+
+
+def _env_optional_invariant_runtime_behavior_profile(
+    name: str,
+) -> InvariantRuntimeBehaviorProfile | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    try:
+        return InvariantRuntimeBehaviorProfile(normalized)
+    except ValueError:
+        return None
+
+
+def _env_optional_marker_kind_profile(name: str) -> MarkerKindProfile | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    try:
+        return MarkerKindProfile(normalized)
+    except ValueError:
+        return None
 
 def runtime_policy_from_env() -> RuntimePolicyConfig:
     direct_requested = _env_flag("GABION_DIRECT_RUN")
@@ -83,6 +125,12 @@ def runtime_policy_from_env() -> RuntimePolicyConfig:
             1,
             int(os.getenv("GABION_PROJECTION_REGISTRY_GAS_LIMIT", "1000000") or "1000000"),
         ),
+        invariant_runtime_behavior_profile=_env_optional_invariant_runtime_behavior_profile(
+            "GABION_INVARIANT_RUNTIME_BEHAVIOR_PROFILE"
+        ),
+        marker_kind_profile=_env_optional_marker_kind_profile(
+            "GABION_MARKER_KIND_PROFILE"
+        ),
     )
 
 
@@ -92,7 +140,8 @@ def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
     from gabion.analysis.derivation.derivation_cache import set_derivation_cache_config
     from gabion.analysis.projection.projection_registry import set_projection_registry_runtime_config
     from gabion.commands.transport_override import set_transport_override
-    from gabion.invariants import set_proof_mode_config
+    from gabion.analysis.foundation.marker_protocol import set_runtime_marker_kind_mapping_config
+    from gabion.invariants import set_invariant_runtime_behavior_config, set_proof_mode_config
     from gabion.order_contract import set_order_runtime_config
 
     set_proof_mode_config(ProofModeConfig(enabled=config.proof_mode_enabled))
@@ -117,6 +166,14 @@ def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
     set_projection_registry_runtime_config(
         ProjectionRegistryRuntimeConfig(gas_limit=config.projection_registry_gas_limit)
     )
+    if config.invariant_runtime_behavior_profile is not None:
+        set_invariant_runtime_behavior_config(
+            InvariantRuntimeBehaviorConfig(profile=config.invariant_runtime_behavior_profile)
+        )
+    if config.marker_kind_profile is not None:
+        set_runtime_marker_kind_mapping_config(
+            marker_kind_mapping_config(config.marker_kind_profile)
+        )
 
 
 def apply_runtime_policy_from_env() -> None:
@@ -160,4 +217,18 @@ def runtime_policy_scope(config: RuntimePolicyConfig) -> Iterator[None]:
                 )
             )
         )
+        if config.invariant_runtime_behavior_profile is not None:
+            stack.enter_context(
+                invariant_runtime_behavior_scope(
+                    InvariantRuntimeBehaviorConfig(
+                        profile=config.invariant_runtime_behavior_profile
+                    )
+                )
+            )
+        if config.marker_kind_profile is not None:
+            stack.enter_context(
+                runtime_marker_kind_mapping_scope(
+                    marker_kind_mapping_config(config.marker_kind_profile)
+                )
+            )
         yield

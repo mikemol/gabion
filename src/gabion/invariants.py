@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from enum import StrEnum
 from typing import Callable, NoReturn, TypeVar, cast
 
 from gabion.exceptions import NeverThrown
@@ -21,9 +22,25 @@ class ProofModeConfig:
     enabled: bool = False
 
 
+class InvariantRuntimeBehaviorProfile(StrEnum):
+    THROW = "throw"
+    WARN = "warn"
+    RATE = "rate"
+
+
+@dataclass(frozen=True)
+class InvariantRuntimeBehaviorConfig:
+    profile: InvariantRuntimeBehaviorProfile = InvariantRuntimeBehaviorProfile.THROW
+
+
 _PROOF_MODE_CONFIG: ContextVar[ProofModeConfig] = ContextVar(
     "gabion_proof_mode_config",
     default=ProofModeConfig(),
+)
+
+_INVARIANT_RUNTIME_BEHAVIOR_CONFIG: ContextVar[InvariantRuntimeBehaviorConfig] = ContextVar(
+    "gabion_invariant_runtime_behavior_config",
+    default=InvariantRuntimeBehaviorConfig(),
 )
 
 T = TypeVar("T")
@@ -143,6 +160,31 @@ def proof_mode_config_scope(config: ProofModeConfig):
         yield
     finally:
         reset_proof_mode_config(token)
+
+
+def invariant_runtime_behavior_config() -> InvariantRuntimeBehaviorConfig:
+    return _INVARIANT_RUNTIME_BEHAVIOR_CONFIG.get()
+
+
+def set_invariant_runtime_behavior_config(
+    config: InvariantRuntimeBehaviorConfig,
+) -> Token[InvariantRuntimeBehaviorConfig]:
+    return _INVARIANT_RUNTIME_BEHAVIOR_CONFIG.set(config)
+
+
+def reset_invariant_runtime_behavior_config(
+    token: Token[InvariantRuntimeBehaviorConfig],
+) -> None:
+    _INVARIANT_RUNTIME_BEHAVIOR_CONFIG.reset(token)
+
+
+@contextmanager
+def invariant_runtime_behavior_scope(config: InvariantRuntimeBehaviorConfig):
+    token = set_invariant_runtime_behavior_config(config)
+    try:
+        yield
+    finally:
+        reset_invariant_runtime_behavior_config(token)
 
 
 @contextmanager

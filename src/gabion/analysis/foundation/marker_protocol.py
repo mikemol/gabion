@@ -8,8 +8,10 @@ from dataclasses import asdict, dataclass, is_dataclass
 from enum import StrEnum
 from hashlib import sha1
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from types import MappingProxyType
-from typing import Mapping, Sequence
+from typing import Iterator, Mapping, Sequence
 
 
 class MarkerKind(StrEnum):
@@ -107,17 +109,48 @@ DEFAULT_MARKER_KIND_MAPPING_CONFIG = MarkerKindMappingConfig(
     kind_map=DEFAULT_MARKER_KIND_PROFILE_MAPS[MarkerKindProfile.NATIVE],
 )
 
+_MARKER_KIND_MAPPING_CONFIG: ContextVar[MarkerKindMappingConfig] = ContextVar(
+    "gabion_marker_kind_mapping_config",
+    default=DEFAULT_MARKER_KIND_MAPPING_CONFIG,
+)
+
 
 def marker_kind_mapping_config(profile: MarkerKindProfile) -> MarkerKindMappingConfig:
     return MarkerKindMappingConfig(profile=profile, kind_map=DEFAULT_MARKER_KIND_PROFILE_MAPS[profile])
 
 
+def runtime_marker_kind_mapping_config() -> MarkerKindMappingConfig:
+    return _MARKER_KIND_MAPPING_CONFIG.get()
+
+
+def set_runtime_marker_kind_mapping_config(
+    config: MarkerKindMappingConfig,
+) -> Token[MarkerKindMappingConfig]:
+    return _MARKER_KIND_MAPPING_CONFIG.set(config)
+
+
+def reset_runtime_marker_kind_mapping_config(
+    token: Token[MarkerKindMappingConfig],
+) -> None:
+    _MARKER_KIND_MAPPING_CONFIG.reset(token)
+
+
+@contextmanager
+def runtime_marker_kind_mapping_scope(config: MarkerKindMappingConfig) -> Iterator[None]:
+    token = set_runtime_marker_kind_mapping_config(config)
+    try:
+        yield
+    finally:
+        reset_runtime_marker_kind_mapping_config(token)
+
+
 def resolve_marker_kind_for_profile(
     marker_kind: MarkerKind,
     *,
-    mapping_config: MarkerKindMappingConfig = DEFAULT_MARKER_KIND_MAPPING_CONFIG,
+    mapping_config: MarkerKindMappingConfig | None = None,
 ) -> MarkerKind:
-    return mapping_config.kind_map.get(marker_kind, marker_kind)
+    effective_mapping_config = mapping_config or runtime_marker_kind_mapping_config()
+    return effective_mapping_config.kind_map.get(marker_kind, marker_kind)
 
 
 def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LINKS) -> tuple[SemanticReference, ...]:
