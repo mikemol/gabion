@@ -307,7 +307,7 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _AmbiguitySuiteRow,
     CallAmbiguity,
     _ProjectionSpan,
-    _add_interned_alt as _add_interned_alt_owner,
+    _add_interned_alt,
     _ambiguity_suite_relation,
     _ambiguity_suite_row_to_suite,
     _ambiguity_virtual_count_gt_1,
@@ -322,11 +322,11 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
     _materialize_projection_spec_rows,
-    _materialize_statement_suite_contains as _materialize_statement_suite_contains_owner,
-    _materialize_structured_suite_sites as _materialize_structured_suite_sites_owner,
-    _materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_owner,
+    _materialize_statement_suite_contains,
+    _materialize_structured_suite_sites,
+    _materialize_structured_suite_sites_for_tree,
     _materialize_suite_order_spec,
-    _populate_bundle_forest as _populate_bundle_forest_owner,
+    _populate_bundle_forest,
     _spec_row_span,
     _summarize_call_ambiguities,
     _suite_order_depth,
@@ -441,7 +441,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     ReportProjectionSpec,
-    _compute_violations as _compute_violations_owner,
+    _compute_violations,
     _report_section_identity_render,
     _report_section_no_violations,
     _report_section_spec,
@@ -461,7 +461,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import (
 )
 
 from gabion.analysis.dataflow.io.dataflow_reporting import (
-    emit_report as _emit_report_owner,
+    emit_report as _emit_report,
     render_report,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
@@ -554,17 +554,10 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
 
-_add_interned_alt = _add_interned_alt_owner
-
 _parse_module_source = _parse_module_source_owner
 
 
 _forbid_adhoc_bundle_discovery = _forbid_adhoc_bundle_discovery_owner
-
-_materialize_statement_suite_contains = _materialize_statement_suite_contains_owner
-_materialize_structured_suite_sites_for_tree = _materialize_structured_suite_sites_for_tree_owner
-_materialize_structured_suite_sites = _materialize_structured_suite_sites_owner
-_populate_bundle_forest = _populate_bundle_forest_owner
 
 _unused_params = _unused_params_owner
 
@@ -591,8 +584,6 @@ _dataclass_registry_for_tree = _dataclass_registry_for_tree_owner
 
 _parse_report_section_marker = _parse_report_section_marker_impl
 
-_emit_report = _emit_report_owner
-
 extract_report_sections = _extract_report_sections_impl
 
 _normalize_snapshot_path = _normalize_snapshot_path_impl
@@ -604,8 +595,6 @@ _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 _iter_monotonic_paths = _iter_monotonic_paths_owner
 
 _load_analysis_index_resume_payload = _load_analysis_index_resume_payload_owner
-
-_compute_violations = _compute_violations_owner
 
 _resolve_baseline_path = _resolve_baseline_path_impl
 
