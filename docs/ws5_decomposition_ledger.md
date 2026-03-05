@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -784,6 +784,26 @@ doc_scope:
   - Compatibility status:
     - Deadline/callee carrier identity no longer originates in monolith definitions.
   - ASPF no-change acknowledgement refreshed (`in-107`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner dependency contraction:
+    - `dataflow_deadline_runtime_owner.py` now imports carrier types from canonical deadline contracts:
+      - `_CalleeResolutionOutcome`
+      - `_DeadlineFunctionFacts`
+      - `_DeadlineLoopFacts`
+    - Snapshot normalization now imports directly from canonical resume path owner:
+      - `_normalize_snapshot_path`
+    - Facade dependency is narrowed to active runtime helpers that remain monolith-backed:
+      - `_DeadlineFunctionCollector`
+      - `_collect_call_edges`
+      - `_collect_call_nodes_by_path`
+      - `_collect_deadline_function_facts`
+      - `_collect_deadline_local_info`
+      - `_resolve_callee_outcome`
+  - ASPF no-change acknowledgement refreshed (`in-108`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
