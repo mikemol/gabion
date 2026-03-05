@@ -1,5 +1,5 @@
 ---
-doc_revision: 63
+doc_revision: 64
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2718
-- Monolith top-level import statements (current): 70
+- Monolith LOC (current): 2674
+- Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 2
 - Direct monolith imports in `tests/`: 0
 
@@ -1091,6 +1091,26 @@ doc_scope:
   - Compatibility status:
     - Direct monolith imports in `src` reduced to `2` (facade + analysis-index owner `_analyze_file_internal` delegate).
   - ASPF no-change acknowledgement refreshed (`in-124`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Ingest-analysis helper extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_ingested_analysis_support.py`
+    - Moved ingest-analysis helper cluster:
+      - `_group_by_signature`
+      - `_union_groups`
+      - `_propagate_groups`
+      - `_adapt_ingest_carrier_to_analysis_maps`
+      - `analyze_ingested_file`
+    - Monolith now routes this helper cluster through canonical owner wrappers.
+  - Compatibility status:
+    - Ingest-analysis helper ownership is centralized and ready for downstream analysis-index delegate contraction.
+    - Monolith LOC dropped to `2674`; top-level imports dropped to `68`.
+    - Direct monolith imports in `src` remain `2` (facade + analysis-index owner `_analyze_file_internal` delegate).
+  - ASPF no-change acknowledgement refreshed (`in-125`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
