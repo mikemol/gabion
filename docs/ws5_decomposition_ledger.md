@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 44
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -728,6 +728,20 @@ doc_scope:
   - Compatibility status:
     - `dataflow_facade.py` runtime-module importlib is now retained only for dynamic compatibility passthrough (`__getattr__` / `__dir__`), not for primary helper execution paths above.
   - ASPF no-change acknowledgement refreshed (`in-104`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade loader simplification:
+    - Removed dynamic `importlib` runtime loader from `dataflow_facade.py`.
+    - Switched to explicit module import for monolith compatibility surface:
+      - `from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime`
+    - Preserved existing facade behavior for compatibility passthrough (`__getattr__` / `__dir__`).
+  - Compatibility status:
+    - `dataflow_facade.py` no longer uses importlib-based dynamic loading.
+    - Remaining monolith compatibility in facade is explicit and static.
+  - ASPF no-change acknowledgement refreshed (`in-105`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
