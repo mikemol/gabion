@@ -822,11 +822,7 @@ def _is_never_marker_raise(
         return False
     return function == "never" or function.endswith(".never")
 
-def _decorators_transparent(
-    fn: FunctionNode,
-    transparent_decorators,
-) -> bool:
-    return _decorators_transparent_owner(fn, transparent_decorators)
+_decorators_transparent = _decorators_transparent_owner
 
 _collect_local_class_bases = _collect_local_class_bases_owner
 _local_class_name = _local_class_name_owner
@@ -866,40 +862,21 @@ def _decision_root_name(node: ast.AST):
         return cast(ast.Name, current).id
     return None
 
-def is_decision_surface(node: ast.AST) -> bool:
-    return _is_decision_surface_owner(node)
+is_decision_surface = _is_decision_surface_owner
 
-def _decision_surface_form_entries(
-    fn: ast.AST,
-) -> list[tuple[str, ast.AST]]:
-    return _decision_surface_form_entries_owner(fn)
+_decision_surface_form_entries = _decision_surface_form_entries_owner
 
-def _decision_surface_reason_map(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> dict[str, set[str]]:
-    return _decision_surface_reason_map_owner(fn, ignore_params)
+_decision_surface_reason_map = _decision_surface_reason_map_owner
 
-def _decision_surface_params(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> set[str]:
-    return _decision_surface_params_owner(fn, ignore_params)
+_decision_surface_params = _decision_surface_params_owner
 
-def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
-    _mark_param_roots_owner(expr, params, out)
+_mark_param_roots = _mark_param_roots_owner
 
-def _collect_param_roots(expr: ast.AST, params: set[str]) -> set[str]:
-    return _collect_param_roots_owner(expr, params)
+_collect_param_roots = _collect_param_roots_owner
 
-def _contains_boolish(expr: ast.AST) -> bool:
-    return _contains_boolish_owner(expr)
+_contains_boolish = _contains_boolish_owner
 
-def _value_encoded_decision_params(
-    fn: ast.AST,
-    ignore_params = None,
-) -> tuple[set[str], set[str]]:
-    return _value_encoded_decision_params_owner(fn, ignore_params)
+_value_encoded_decision_params = _value_encoded_decision_params_owner
 
 @dataclass(frozen=True)
 class _DecisionSurfaceSpec:
@@ -1325,8 +1302,7 @@ def _is_deadline_param(name: str, annot) -> bool:
         return True
     return False
 
-def _is_deadline_origin_call(expr: ast.AST) -> bool:
-    return _is_deadline_origin_call_impl(expr)
+_is_deadline_origin_call = _is_deadline_origin_call_impl
 
 def _target_names(target: ast.AST) -> set[str]:
     check_deadline()
