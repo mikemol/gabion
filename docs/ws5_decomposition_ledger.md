@@ -1,5 +1,5 @@
 ---
-doc_revision: 128
+doc_revision: 129
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2248,6 +2248,22 @@ doc_scope:
     - Lint ordering and resume-key behavior remain stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-188`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Lint-helper transitive-caller convergence:
+    - Removed local duplicate transitive-caller/call-edge traversal logic from `dataflow_lint_helpers.py`.
+    - `_analysis_index_by_qual_and_transitive_callers` now delegates to canonical owner path:
+      - `_analysis_index_transitive_callers` in `dataflow_analysis_index_owner.py`
+    - Removed now-unused lint-helper resolver imports and duplicate helper body:
+      - `_resolve_callee`
+      - `_collect_transitive_callers`
+  - Compatibility status:
+    - Broad-type lint caller-count behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-189`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

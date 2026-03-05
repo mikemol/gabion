@@ -14,11 +14,13 @@ from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location)
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
-    _resolve_callee,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
     _iter_monotonic_paths as _indexed_iter_monotonic_paths,
+)
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _analysis_index_transitive_callers as _analysis_index_transitive_callers_owner,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
@@ -44,27 +46,6 @@ _analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_k
 _iter_monotonic_paths = _indexed_iter_monotonic_paths
 
 
-def _collect_transitive_callers(
-    callers_by_qual: dict[str, set[str]],
-    by_qual: dict[str, object],
-) -> dict[str, set[str]]:
-    check_deadline()
-    transitive: dict[str, set[str]] = {}
-    for qual in by_qual:
-        check_deadline()
-        seen: set[str] = set()
-        stack = list(callers_by_qual.get(qual, set()))
-        while stack:
-            check_deadline()
-            caller = stack.pop()
-            if caller in seen:
-                continue
-            seen.add(caller)
-            stack.extend(callers_by_qual.get(caller, set()))
-        transitive[qual] = seen
-    return transitive
-
-
 def _analysis_index_by_qual_and_transitive_callers(
     *,
     analysis_index: object,
@@ -83,32 +64,10 @@ def _analysis_index_by_qual_and_transitive_callers(
     if cached_transitive is not None:
         return by_qual, cached_transitive
 
-    by_name = cast(dict[str, list[object]], getattr(analysis_index, "by_name", {}))
-    symbol_table = getattr(analysis_index, "symbol_table", None)
-    class_index = getattr(analysis_index, "class_index", None)
-    callers_by_qual: dict[str, set[str]] = {}
-    for infos in by_name.values():
-        check_deadline()
-        for info in infos:
-            check_deadline()
-            for call in getattr(info, "calls", []):
-                check_deadline()
-                if getattr(call, "is_test", False):
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is not None:
-                    callers_by_qual.setdefault(callee.qual, set()).add(info.qual)
-    transitive = _collect_transitive_callers(callers_by_qual, by_qual)
-    if hasattr(analysis_index, "transitive_callers"):
-        analysis_index.transitive_callers = transitive
+    transitive = _analysis_index_transitive_callers_owner(
+        analysis_index,
+        project_root=project_root,
+    )
     return by_qual, transitive
 
 
