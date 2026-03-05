@@ -6,7 +6,7 @@ import json
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as dataflow_indexed_file_scan
+    from gabion.analysis.dataflow.engine import dataflow_fingerprint_helpers as dataflow_indexed_file_scan
     from gabion.analysis.dataflow.engine import dataflow_raw_runtime
 
     return dataflow_indexed_file_scan, dataflow_raw_runtime

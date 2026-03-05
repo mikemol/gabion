@@ -1,5 +1,5 @@
 ---
-doc_revision: 204
+doc_revision: 205
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,13 @@ doc_scope:
 - Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-264`, this CU):
+  - Migrated matrix-acceptance artifact test off `dataflow_facade` to canonical fingerprint owner import:
+    - `tests/gabion/analysis/misc_s1/test_matrix_acceptance_artifacts.py` now binds rewrite-plan verification through `dataflow_fingerprint_helpers`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`1 passed`)
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-263`, this CU):
   - Migrated resume-payload tests off `dataflow_facade` to canonical owner imports:
     - `tests/gabion/analysis/dataflow_s2/test_dataflow_resume_payloads.py`
