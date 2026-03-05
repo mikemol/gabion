@@ -332,7 +332,7 @@ def never(reason: str = "", **env: object) -> MarkerPayload:
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
-    if not env and reason.strip():
+    if reason.strip() and "reasoning" not in env:
         _emit_legacy_never_string_reason_deprecation(reason)
     return invariant_factory("never", reason=reason, **env)
 

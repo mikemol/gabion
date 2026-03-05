@@ -127,7 +127,7 @@ def test_never_string_only_call_emits_deprecation_marker_before_never(
     assert factory_calls[0][0] == "never"
 
 
-def test_never_with_structured_or_metadata_kwargs_skips_string_only_deprecation(
+def test_never_with_structured_reasoning_skips_string_only_deprecation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deprecated_calls = 0
@@ -145,10 +145,25 @@ def test_never_with_structured_or_metadata_kwargs_skips_string_only_deprecation(
             "legacy-style message still present",
             reasoning={"summary": "structured path"},
         )
+
+    assert deprecated_calls == 0
+
+
+def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deprecated_calls: list[tuple[str, dict[str, object]]] = []
+
+    def _fake_deprecated(reason: str = "", **env: object) -> MarkerPayload:
+        deprecated_calls.append((reason, dict(env)))
+        raise NeverThrown("deprecated marker path")
+
+    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
+
     with pytest.raises(NeverThrown):
         invariants.never("legacy-style message still present", owner="core")
 
-    assert deprecated_calls == 0
+    assert len(deprecated_calls) == 1
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
@@ -169,16 +184,21 @@ def test_helper_functions_delegate_to_invariant_factory(
 
     monkeypatch.setattr(invariants, "invariant_factory", _fake_factory)
 
-    for helper, marker_kind in (
-        (invariants.never, "never"),
-        (invariants.todo, "todo"),
-        (invariants.deprecated, "deprecated"),
-    ):
-        payload = helper("reason", owner="core")
+    helper_calls = (
+        (invariants.never, "never", {"reasoning": {"summary": "reason"}, "owner": "core"}),
+        (invariants.todo, "todo", {"owner": "core"}),
+        (invariants.deprecated, "deprecated", {"owner": "core"}),
+    )
+    for helper, marker_kind, kwargs in helper_calls:
+        payload = helper("reason", **kwargs)
         assert payload["marker_kind"] == marker_kind
 
     assert calls == [
-        ("never", "", {"reason": "reason", "owner": "core"}),
+        (
+            "never",
+            {"summary": "reason"},
+            {"reason": "reason", "owner": "core"},
+        ),
         ("todo", "", {"reason": "reason", "owner": "core"}),
         ("deprecated", "", {"reason": "reason", "owner": "core"}),
     ]
