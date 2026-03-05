@@ -1,5 +1,5 @@
 ---
-doc_revision: 152
+doc_revision: 153
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2607,6 +2607,24 @@ doc_scope:
     - Deadline-helper obligations/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-211`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith invariant/parse alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_ParseModuleStage`
+      - `_invariant_digest`
+      - `_invariant_confidence`
+      - `_compute_invariant_id`
+      - `_compute_invariant_evidence_key`
+      - `_normalize_invariant_proposition`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-212`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

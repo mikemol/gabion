@@ -189,8 +189,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_index_resume_variant_payload,
     _analysis_index_resume_variants,
     _build_analysis_collection_resume_payload,
-    _compute_invariant_evidence_key as _compute_invariant_evidence_key_owner,
-    _compute_invariant_id as _compute_invariant_id_owner,
+    _compute_invariant_evidence_key,
+    _compute_invariant_id,
     _deserialize_bundle_sites_for_resume,
     _deserialize_call_args,
     _deserialize_call_args_list,
@@ -204,8 +204,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _deserialize_symbol_table_for_resume,
     _empty_analysis_collection_resume_payload,
     _empty_file_scan_resume_state,
-    _invariant_confidence as _invariant_confidence_owner,
-    _invariant_digest as _invariant_digest_owner,
+    _invariant_confidence,
+    _invariant_digest,
     _load_analysis_collection_resume_payload,
     _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
     _load_file_scan_resume_state,
@@ -222,7 +222,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _serialize_param_use,
     _serialize_param_use_map,
     _serialize_symbol_table_for_resume,
-    _normalize_invariant_proposition as _normalize_invariant_proposition_owner,
+    _normalize_invariant_proposition,
     _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
@@ -468,7 +468,7 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleStage as _ParseModuleStage_owner,
+    _ParseModuleStage,
     _forbid_adhoc_bundle_discovery as _forbid_adhoc_bundle_discovery_owner,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
@@ -523,8 +523,6 @@ NodeIdOrNone = NodeId | None
 
 ParseCacheValue = ast.Module | BaseException
 
-_ParseModuleStage = _ParseModuleStage_owner
-
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
 _PhaseWorkProgress = _PhaseWorkProgress_owner
@@ -536,16 +534,6 @@ _FunctionSuiteKey = _FunctionSuiteKey_owner
 ParamUse = _ContractParamUse
 
 CallArgs = _ContractCallArgs
-
-_invariant_digest = _invariant_digest_owner
-
-_invariant_confidence = _invariant_confidence_owner
-
-_compute_invariant_id = _compute_invariant_id_owner
-
-_compute_invariant_evidence_key = _compute_invariant_evidence_key_owner
-
-_normalize_invariant_proposition = _normalize_invariant_proposition_owner
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 SymbolTable = _ContractSymbolTable
