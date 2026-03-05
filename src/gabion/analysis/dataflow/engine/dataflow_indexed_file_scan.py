@@ -126,12 +126,12 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots as _collect_param_roots_owner,
     _contains_boolish as _contains_boolish_owner,
-    _decorator_name as _decorator_name_owner,
+    _decorator_name,
     _decision_surface_form_entries as _decision_surface_form_entries_owner,
     _decision_surface_params as _decision_surface_params_owner,
     _decision_surface_reason_map as _decision_surface_reason_map_owner,
     _decision_root_name as _decision_root_name_owner,
-    _decorators_transparent as _decorators_transparent_owner,
+    _decorators_transparent,
     _mark_param_roots as _mark_param_roots_owner,
     _value_encoded_decision_params as _value_encoded_decision_params_owner,
     is_decision_surface as _is_decision_surface_owner,
@@ -241,14 +241,14 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _find_handling_try,
     _handler_label,
     _handler_type_names,
-    _is_marker_call as _is_marker_call_owner,
-    _is_never_marker_raise as _is_never_marker_raise_owner,
+    _is_marker_call,
+    _is_never_marker_raise,
     _keyword_links_literal,
     _keyword_string_literal,
     _never_reason,
     _node_in_try_body,
     _refine_exception_name_from_annotations,
-    _decorator_matches as _decorator_matches_owner,
+    _decorator_matches,
     _build_property_hook_callable_index,
     _callsite_evidence_for_bundle,
     _collect_config_bundles,
@@ -543,16 +543,6 @@ AuditConfig = _ContractAuditConfig
 
 _summarize_deadline_obligations = _summarize_deadline_obligations_owner
 
-
-_decorator_name = _decorator_name_owner
-
-_decorator_matches = _decorator_matches_owner
-
-_is_marker_call = _is_marker_call_owner
-
-_is_never_marker_raise = _is_never_marker_raise_owner
-
-_decorators_transparent = _decorators_transparent_owner
 
 _collect_local_class_bases = _collect_local_class_bases_owner
 _local_class_name = _local_class_name_owner

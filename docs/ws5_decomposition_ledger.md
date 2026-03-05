@@ -1,5 +1,5 @@
 ---
-doc_revision: 156
+doc_revision: 157
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2670,8 +2670,25 @@ doc_scope:
       - `LOC=820`
       - `imports=57`
       - `classes=0`
-      - `functions=0`
+    - `functions=0`
     - This correction unit is documentation/state-only; no semantic/runtime code changes.
+- WS-5 continuation (this CU, follow-on):
+  - Monolith decorator/marker alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_decorator_name`
+      - `_decorator_matches`
+      - `_is_marker_call`
+      - `_is_never_marker_raise`
+      - `_decorators_transparent`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade decorator/marker semantics remain stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=820`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-216`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
