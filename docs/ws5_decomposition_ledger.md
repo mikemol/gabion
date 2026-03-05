@@ -1,5 +1,5 @@
 ---
-doc_revision: 271
+doc_revision: 272
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,19 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 stability (`psi-4`, this CU):
+  - Hardened contributor governance for hybrid DI and private-symbol import ratcheting in:
+    - `CONTRIBUTING.md`
+      - documented rule: default-arg DI for local single-consumer seams
+      - documented rule: typed deps/dataclass carriers remain canonical for reusable seams
+      - documented rule: no new cross-module underscore imports outside explicit allowlist
+  - Integrated guard execution into the correction-unit validation baseline command stack:
+    - `scripts/policy/private_symbol_import_guard.py --check ...`
+  - Validation:
+    - policy checks passed (`--workflows`, `--ambiguity-contract`)
+    - private-symbol import guard passed (`new=0`)
+    - targeted guard pytest passed
+    - evidence refresh/check passed (`out/test_evidence.json` no additional drift in this CU)
 - WS-5 stability (`psi-3`, this CU):
   - Normalized default-arg DI seams for single-consumer helper injections in:
     - `src/gabion/analysis/dataflow/engine/dataflow_obligations.py`

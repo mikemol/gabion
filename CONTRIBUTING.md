@@ -1,5 +1,5 @@
 ---
-doc_revision: 114
+doc_revision: 115
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -168,11 +168,15 @@ sequence in order:
 
 ## Construction-first callback and decode seams (normative)
 - Test seams must be DI-based; avoid runtime patch mutation and callable-probe fallback logic.
+- Prefer default-arg DI for local single-consumer helper seams.
+- Keep typed deps/dataclass carriers as the canonical DI contract for reusable or multi-consumer seams.
 - Normalize optional boundary inputs once; internal decode/analysis paths should consume validated shapes.
 - Do not use sentinel parse outcomes for control decisions in core flows.
 - If an internal state is impossible after ingress validation, enforce it with `never()`.
 - `# pragma: no cover` is permitted only on branches protected by `never(...)`.
 - For enum exhaustiveness, prefer an explicit `never(...)` fallback with `# pragma: no cover` on the dead path so drift is immediately attributable.
+- Do not introduce new cross-module underscore-symbol imports outside
+  `docs/policy/private_symbol_import_allowlist.txt`; the ratchet baseline may shrink freely, but expansion requires an explicit policy decision and rationale.
 
 ## Runtime narrowing boundary contract (normative)
 Canonical rule: [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
@@ -288,6 +292,7 @@ Correction-unit validation stack (recommended interoperability baseline):
 ```bash
 mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python -m scripts.policy_check --ambiguity-contract
+mise exec -- env PYTHONPATH=. python scripts/policy/private_symbol_import_guard.py --check --allowlist docs/policy/private_symbol_import_allowlist.txt --baseline docs/baselines/private_symbol_import_baseline.json --out out/private_symbol_import_report.json
 mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
 mise exec -- python -m pytest -q <targeted-tests>
 mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
