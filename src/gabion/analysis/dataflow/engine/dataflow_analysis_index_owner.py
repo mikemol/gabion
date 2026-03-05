@@ -20,8 +20,10 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_PREFIX,
     _CacheIdentity,
     _build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_owner,
+    _load_file_scan_resume_state,
     _load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_owner,
     _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
+    _serialize_file_scan_resume_state,
     _serialize_analysis_index_resume_payload as _serialize_analysis_index_resume_payload_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
@@ -29,7 +31,7 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
-from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo, FunctionInfo
+from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, ClassInfo, FunctionInfo
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ImportVisitor,
@@ -64,11 +66,16 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support imp
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _collect_lambda_bindings_by_caller,
     _collect_lambda_function_infos,
+    _function_key,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _decision_surface_reason_map,
     _decorators_transparent,
     _value_encoded_decision_params,
+)
+from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+    _collect_local_class_bases,
+    _resolve_local_method_in_hierarchy,
 )
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
@@ -94,6 +101,10 @@ from gabion.analysis.indexed_scan.state.function_index_accumulator import (
     FunctionIndexAccumulatorDeps as _FunctionIndexAccumulatorDeps,
     accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl,
 )
+from gabion.analysis.indexed_scan.state.file_internal_analysis import (
+    AnalyzeFileInternalDeps as _AnalyzeFileInternalDeps,
+    analyze_file_internal as _analyze_file_internal_impl,
+)
 from gabion.analysis.indexed_scan.scanners.edge_param_events import (
     iter_resolved_edge_param_events as _iter_resolved_edge_param_events_impl,
 )
@@ -105,6 +116,7 @@ from gabion.analysis.indexed_scan.scanners.class_index_accumulator import (
     accumulate_class_index_for_tree as _accumulate_class_index_for_tree_impl,
 )
 from gabion.invariants import never
+from gabion.ingest.python_ingest import ingest_python_file
 from gabion.order_contract import sort_once
 
 
@@ -204,6 +216,7 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
     version=1,
     scope="gabion.analysis.dataflow_indexed_file_scan",
 )
+_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 
 def _default_parse_module(path: Path) -> ast.Module:
@@ -729,17 +742,46 @@ def _get_stage_cache_bucket(
 
 
 def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress, on_profile):
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _analyze_file_internal as _analyze_file_internal_runtime,
+    from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
+        analyze_ingested_file as _analyze_ingested_file_owner,
     )
 
-    return _analyze_file_internal_runtime(
-        path,
-        recursive=recursive,
-        config=config,
-        resume_state=resume_state,
-        on_progress=on_progress,
-        on_profile=on_profile,
+    return cast(
+        object,
+        _analyze_file_internal_impl(
+            path,
+            recursive=recursive,
+            config=config,
+            resume_state=resume_state,
+            on_progress=on_progress,
+            on_profile=on_profile,
+            deps=_AnalyzeFileInternalDeps(
+                check_deadline_fn=check_deadline,
+                analyze_function_default_fn=_analyze_function,
+                audit_config_ctor=AuditConfig,
+                ingest_python_file_fn=ingest_python_file,
+                parse_module_source_fn=_default_parse_module,
+                collect_functions_fn=_collect_functions,
+                collect_return_aliases_fn=_collect_return_aliases,
+                load_file_scan_resume_state_fn=_load_file_scan_resume_state,
+                serialize_file_scan_resume_state_fn=_serialize_file_scan_resume_state,
+                profiling_payload_fn=_profiling_v1_payload_owner,
+                enclosing_class_fn=_enclosing_class,
+                enclosing_scopes_fn=_enclosing_scopes,
+                enclosing_function_scopes_fn=_enclosing_function_scopes,
+                function_key_fn=_function_key,
+                decorators_transparent_fn=_decorators_transparent,
+                param_names_fn=_param_names,
+                param_spans_fn=_param_spans,
+                collect_local_class_bases_fn=_collect_local_class_bases,
+                resolve_local_method_in_hierarchy_fn=_resolve_local_method_in_hierarchy,
+                is_test_path_fn=_is_test_path,
+                parent_annotator_factory=ParentAnnotator,
+                file_scan_progress_emit_interval=_FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds_owner(),
+                analyze_ingested_file_fn=_analyze_ingested_file_owner,
+            ),
+        ),
     )
 
 

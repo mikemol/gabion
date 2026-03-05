@@ -361,7 +361,7 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
-    decorator_name as _decorator_name_impl, resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_impl)
+    decorator_name as _decorator_name_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
     populate_bundle_forest_from_runtime_module as _populate_bundle_forest_impl_runtime)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
@@ -842,33 +842,18 @@ def _decorators_transparent(
 def _collect_local_class_bases(
     tree: ast.AST, parents: dict[ast.AST, ast.AST]
 ) -> dict[str, list[str]]:
-    check_deadline()
-    class_bases: dict[str, list[str]] = {}
-    for node in ast.walk(tree):
-        check_deadline()
-        if type(node) is ast.ClassDef:
-            class_node = cast(ast.ClassDef, node)
-            scopes = _enclosing_class_scopes(class_node, parents)
-            qual_parts = list(scopes)
-            qual_parts.append(class_node.name)
-            qual = ".".join(qual_parts)
-            bases: list[str] = []
-            for base in class_node.bases:
-                check_deadline()
-                base_name = _base_identifier(base)
-                if base_name:
-                    bases.append(base_name)
-            class_bases[qual] = bases
-    return class_bases
+    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+        _collect_local_class_bases as _collect_local_class_bases_impl,
+    )
+
+    return _collect_local_class_bases_impl(tree, parents)
 
 def _local_class_name(base: str, class_bases: dict[str, list[str]]):
-    if base in class_bases:
-        return base
-    if "." in base:
-        tail = base.split(".")[-1]
-        if tail in class_bases:
-            return tail
-    return None
+    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+        _local_class_name as _local_class_name_impl,
+    )
+
+    return _local_class_name_impl(base, class_bases)
 
 def _resolve_local_method_in_hierarchy(
     class_name: str,
@@ -878,14 +863,16 @@ def _resolve_local_method_in_hierarchy(
     local_functions: set[str],
     seen: set[str],
 ):
-    return _resolve_local_method_in_hierarchy_impl(
+    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+        _resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_owner,
+    )
+
+    return _resolve_local_method_in_hierarchy_owner(
         class_name,
         method,
         class_bases=class_bases,
         local_functions=local_functions,
         seen=seen,
-        check_deadline_fn=check_deadline,
-        local_class_name_fn=_local_class_name,
     )
 
 def _param_names(

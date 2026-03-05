@@ -1,5 +1,5 @@
 ---
-doc_revision: 64
+doc_revision: 65
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,9 +12,9 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2674
+- Monolith LOC (current): 2661
 - Monolith top-level import statements (current): 68
-- Direct monolith imports in `src/`: 2
+- Direct monolith imports in `src/`: 1
 - Direct monolith imports in `tests/`: 0
 
 ## Debt Ledger
@@ -1115,11 +1115,29 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index ingest delegate ownerization:
+    - `dataflow_analysis_index_owner._analyze_file_internal` now binds canonical indexed-scan `AnalyzeFileInternalDeps` directly (no monolith delegate import).
+    - Added canonical local-class hierarchy owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_local_class_hierarchy.py`
+    - Moved helper cluster:
+      - `_collect_local_class_bases`
+      - `_local_class_name`
+      - `_resolve_local_method_in_hierarchy`
+    - Monolith now aliases local-class hierarchy helpers from the canonical owner.
+  - Compatibility status:
+    - Direct monolith imports in `src` reduced to `1` (facade-only boundary import).
+    - Analysis-index owner no longer imports monolith for ingest-analysis delegation.
+    - Monolith LOC dropped to `2661`; top-level imports remain within target (`68`).
+  - ASPF no-change acknowledgement refreshed (`in-126`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Boundary ownerization for analysis-index delegated seam: canonicalize `_analyze_file_internal` to remove the last analysis-index-owner direct monolith import.
-2. Compatibility-owner contraction: collapse/retire compatibility-owner shims as canonical owners become complete.
-3. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
+1. Compatibility-owner contraction: collapse/retire compatibility-owner shims as canonical owners become complete.
+2. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`
