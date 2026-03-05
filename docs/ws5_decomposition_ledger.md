@@ -1,5 +1,5 @@
 ---
-doc_revision: 129
+doc_revision: 130
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2264,6 +2264,23 @@ doc_scope:
     - Broad-type lint caller-count behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-189`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Phase-progress carrier convergence:
+    - Added canonical phase-progress carrier in `dataflow_analysis_index_owner.py`:
+      - `_PhaseWorkProgress`
+      - `_phase_work_progress_owner`
+    - Replaced duplicate boundary carrier/function in `dataflow_analysis_index.py` with owner aliases:
+      - `_PhaseWorkProgress = _indexed_phase_work_progress_type`
+      - `_phase_work_progress = _indexed_phase_work_progress`
+    - Preserved boundary export names and existing call contracts while removing duplicate progress-normalization logic.
+  - Compatibility status:
+    - Phase-progress behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-190`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

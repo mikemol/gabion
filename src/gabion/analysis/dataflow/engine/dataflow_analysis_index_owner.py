@@ -216,6 +216,12 @@ class _FunctionIndexAccumulator:
     by_qual: dict[str, object] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class _PhaseWorkProgress:
+    work_done: int
+    work_total: int
+
+
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 
 _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
@@ -226,6 +232,15 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
+
+
+def _phase_work_progress_owner(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
+    check_deadline()
+    normalized_total = max(int(work_total), 0)
+    normalized_done = max(int(work_done), 0)
+    if normalized_total:
+        normalized_done = min(normalized_done, normalized_total)
+    return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
 
 
 def _default_parse_module(path: Path) -> ast.Module:
@@ -1052,6 +1067,8 @@ __all__ = [
     "_reduce_resolved_call_edges",
     "_resume_variant_for_identity",
     "_run_indexed_pass",
+    "_PhaseWorkProgress",
+    "_phase_work_progress_owner",
     "_IndexedPassContext",
     "_IndexedPassSpec",
     "_ModuleArtifactSpec",

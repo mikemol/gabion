@@ -5,32 +5,28 @@ from __future__ import annotations
 """Analysis-index ownership boundary during runtime retirement."""
 
 
-from dataclasses import dataclass
 from typing import Any
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS as _indexed_progress_emit_min_interval_seconds,
+    _PhaseWorkProgress as _indexed_phase_work_progress_type,
     _analyze_file_internal as _indexed_analyze_file_internal,
     _build_analysis_collection_resume_payload as _indexed_build_analysis_collection_resume_payload,
     _build_analysis_index as _indexed_build_analysis_index,
     _build_call_graph as _indexed_build_call_graph,
     _iter_monotonic_paths_owner as _indexed_iter_monotonic_paths,
     _load_analysis_collection_resume_payload as _indexed_load_analysis_collection_resume_payload,
+    _phase_work_progress_owner as _indexed_phase_work_progress,
     _profiling_v1_payload_owner as _indexed_profiling_v1_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
 )
-from gabion.analysis.foundation.timeout_context import check_deadline
 
 AnalysisIndex = Any
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = _indexed_progress_emit_min_interval_seconds
 
-
-@dataclass(frozen=True)
-class _PhaseWorkProgress:
-    work_done: int
-    work_total: int
+_PhaseWorkProgress = _indexed_phase_work_progress_type
 
 
 _analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key
@@ -39,13 +35,7 @@ _analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_k
 _iter_monotonic_paths = _indexed_iter_monotonic_paths
 
 
-def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
-    check_deadline()
-    normalized_total = max(int(work_total), 0)
-    normalized_done = max(int(work_done), 0)
-    if normalized_total:
-        normalized_done = min(normalized_done, normalized_total)
-    return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
+_phase_work_progress = _indexed_phase_work_progress
 
 
 _profiling_v1_payload = _indexed_profiling_v1_payload
