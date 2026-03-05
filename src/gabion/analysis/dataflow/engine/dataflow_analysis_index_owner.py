@@ -243,18 +243,13 @@ def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgre
     return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
 
 
-_phase_work_progress_owner = _phase_work_progress
-
-
 def _default_parse_module(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
 
 _analysis_index_ctor = _AnalysisIndexCarrier
-_analysis_index_ctor_runtime = _analysis_index_ctor
 
 _function_index_acc_ctor = _FunctionIndexAccumulator
-_function_index_acc_ctor_runtime = _function_index_acc_ctor
 
 
 _FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
@@ -288,7 +283,6 @@ _accumulate_function_index_for_tree = partial(
     _accumulate_function_index_for_tree_impl,
     deps=_FUNCTION_INDEX_ACCUMULATOR_DEPS,
 )
-_accumulate_function_index_for_tree_runtime = _accumulate_function_index_for_tree
 
 
 def _function_index_module_artifact_spec(
@@ -324,9 +318,6 @@ def _function_index_module_artifact_spec(
     )
 
 
-_function_index_module_artifact_spec_runtime = _function_index_module_artifact_spec
-
-
 def _build_single_module_artifact(
     paths: list[Path],
     *,
@@ -340,9 +331,6 @@ def _build_single_module_artifact(
         parse_failure_witnesses=parse_failure_witnesses,
     )
     return raw_artifact
-
-
-_build_single_module_artifact_runtime = _build_single_module_artifact
 
 
 def _build_function_index(
@@ -373,9 +361,6 @@ def _build_function_index(
     )
 
 
-_build_function_index_runtime = _build_function_index
-
-
 def _accumulate_symbol_table_for_tree(
     table,
     path: Path,
@@ -400,9 +385,6 @@ def _accumulate_symbol_table_for_tree(
     table.module_export_map[module] = export_map
 
 
-_accumulate_symbol_table_for_tree_runtime = _accumulate_symbol_table_for_tree
-
-
 def _symbol_table_module_artifact_spec(
     *,
     project_root,
@@ -420,9 +402,6 @@ def _symbol_table_module_artifact_spec(
         ),
         finish=lambda table: table,
     )
-
-
-_symbol_table_module_artifact_spec_runtime = _symbol_table_module_artifact_spec
 
 
 def _build_symbol_table(
@@ -446,9 +425,6 @@ def _build_symbol_table(
     return cast(SymbolTable, raw_table)
 
 
-_build_symbol_table_runtime = _build_symbol_table
-
-
 _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
     check_deadline_fn=check_deadline,
     parent_annotator_ctor=ParentAnnotator,
@@ -462,7 +438,6 @@ _accumulate_class_index_for_tree = partial(
     _accumulate_class_index_for_tree_impl,
     deps=_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS,
 )
-_accumulate_class_index_for_tree_runtime = _accumulate_class_index_for_tree
 
 
 def _iter_monotonic_paths(paths, *, source: str):
@@ -485,9 +460,6 @@ def _iter_monotonic_paths(paths, *, source: str):
     return ordered
 
 
-_iter_monotonic_paths_owner = _iter_monotonic_paths
-
-
 def _profiling_v1_payload(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
     return {
         "format_version": _ANALYSIS_PROFILING_FORMAT_VERSION,
@@ -496,14 +468,8 @@ def _profiling_v1_payload(*, stage_ns: Mapping[str, int], counters: Mapping[str,
     }
 
 
-_profiling_v1_payload_owner = _profiling_v1_payload
-
-
 def _progress_emit_min_interval_seconds() -> float:
     return float(_PROGRESS_EMIT_MIN_INTERVAL_SECONDS)
-
-
-_progress_emit_min_interval_seconds_owner = _progress_emit_min_interval_seconds
 
 
 def _path_dependency_payload(path: Path) -> dict[str, object]:
@@ -1068,10 +1034,8 @@ __all__ = [
     "_analysis_index_stage_cache",
     "_analysis_index_transitive_callers",
     "_analysis_index_ctor",
-    "_analysis_index_ctor_runtime",
     "_build_module_artifacts",
     "_build_single_module_artifact",
-    "_build_single_module_artifact_runtime",
     "_analyze_file_internal",
     "_build_stage_cache_identity_spec",
     "_CacheSemanticContext",
@@ -1080,11 +1044,8 @@ __all__ = [
     "_accumulate_function_index_for_tree",
     "_accumulate_symbol_table_for_tree",
     "_build_function_index",
-    "_build_function_index_runtime",
     "_build_symbol_table",
-    "_build_symbol_table_runtime",
     "_function_index_acc_ctor",
-    "_function_index_acc_ctor_runtime",
     "_canonical_cache_identity",
     "_canonical_stage_cache_detail",
     "_canonical_stage_cache_identity",
@@ -1096,9 +1057,7 @@ __all__ = [
     "_get_stage_cache_bucket",
     "_index_stage_cache_identity",
     "_function_index_module_artifact_spec",
-    "_function_index_module_artifact_spec_runtime",
     "_symbol_table_module_artifact_spec",
-    "_symbol_table_module_artifact_spec_runtime",
     "_iter_resolved_edge_param_events",
     "_load_analysis_collection_resume_payload",
     "_normalize_cache_config",
@@ -1113,7 +1072,6 @@ __all__ = [
     "_iter_monotonic_paths",
     "_phase_work_progress",
     "_PhaseWorkProgress",
-    "_phase_work_progress_owner",
     "_IndexedPassContext",
     "_IndexedPassSpec",
     "_ModuleArtifactSpec",

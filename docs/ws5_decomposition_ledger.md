@@ -1,5 +1,5 @@
 ---
-doc_revision: 182
+doc_revision: 183
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3097,6 +3097,32 @@ doc_scope:
     - Naming/provenance clarity improved in deadline compatibility-owner wiring without API drift.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-241`).
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index compatibility alias contraction:
+    - Removed unreferenced compatibility aliases from `dataflow_analysis_index_owner.py`:
+      - `_analysis_index_ctor_runtime`
+      - `_function_index_acc_ctor_runtime`
+      - `_build_single_module_artifact_runtime`
+      - `_accumulate_function_index_for_tree_runtime`
+      - `_function_index_module_artifact_spec_runtime`
+      - `_build_function_index_runtime`
+      - `_accumulate_symbol_table_for_tree_runtime`
+      - `_symbol_table_module_artifact_spec_runtime`
+      - `_build_symbol_table_runtime`
+      - `_accumulate_class_index_for_tree_runtime`
+      - `_phase_work_progress_owner`
+      - `_iter_monotonic_paths_owner`
+      - `_profiling_v1_payload_owner`
+      - `_progress_emit_min_interval_seconds_owner`
+    - Pruned corresponding runtime/owner compatibility entries from module `__all__`.
+  - Correctness impact:
+    - Owner surface reduced to canonical exports only for these paths; no external importers referenced removed aliases at cut time.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-242`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`52 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
