@@ -1,5 +1,5 @@
 ---
-doc_revision: 281
+doc_revision: 282
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,8 +15,8 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 160
-- Facade top-level import statements (current): 40
+- Facade LOC (current): 155
+- Facade top-level import statements (current): 38
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -31,6 +31,28 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-340`, this CU):
+  - Removed broad private deadline alias clusters from facade:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - removed `dataflow_deadline_contracts` private imports
+      - removed bulk `dataflow_deadline_helpers` private imports
+      - retained selected canonical `_resolve_callee` compatibility binding
+  - Ratcheted facade metrics guard budgets:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - `_MAX_FACADE_LOC: 160 -> 155`
+      - `_MAX_FACADE_TOP_LEVEL_IMPORTS: 40 -> 38`
+      - `_MAX_FACADE_IMPORTED_SYMBOLS: 270 -> 243`
+      - wildcard cap remains `0`
+  - Resulting facade metrics:
+    - wildcard imports remain `0`
+    - imported symbols `270 -> 243`
+    - LOC `160 -> 155`
+    - top-level import statements `40 -> 38`
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy facade/compat parity tests passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-339`, this CU):
   - Applied private-alias compatibility policy in facade parity tests:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
