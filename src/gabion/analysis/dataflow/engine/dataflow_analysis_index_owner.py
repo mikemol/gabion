@@ -596,7 +596,6 @@ def _analysis_index_module_trees(
     stage,
     parse_failure_witnesses,
 ):
-    runtime = _runtime_module()
     return cast(
         dict[Path, object | None],
         _analysis_index_module_trees_impl(

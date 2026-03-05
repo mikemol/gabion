@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -419,6 +419,17 @@ doc_scope:
     - Fixed missing fingerprint provenance output regression surfaced by:
       - `tests/gabion/analysis/dataflow_s1/dataflow_raw_runtime_edges_cases.py::test_run_fingerprint_outputs_write_files`
   - ASPF no-change acknowledgement refreshed (`in-86`).
+  - Validation:
+    - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner compatibility-fallback contraction (dead dependency removal):
+    - Removed unused runtime-module binding in `_analysis_index_module_trees`.
+    - Owner module-tree path now relies only on explicit owner deps in `_AnalysisIndexModuleTreesDeps`.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_analysis_index_owner.py` reduced from `6` to `5`.
+  - ASPF no-change acknowledgement refreshed (`in-87`).
   - Validation:
     - policy checks passed
     - targeted runtime/dataflow suites passed (`45 passed`)
