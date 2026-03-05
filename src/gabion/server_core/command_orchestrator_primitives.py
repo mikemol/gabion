@@ -42,6 +42,7 @@ from gabion.analysis.core.type_fingerprints import (Fingerprint, PrimeRegistry, 
 from gabion.refactor.rewrite_plan import (normalize_rewrite_plan_order, validate_rewrite_plan_payload)
 from gabion.schema import (LegacyDataflowMonolithResponseDTO, LintEntryDTO)
 from gabion.server_core.ingress_primitives import AnalysisDeps, ExecuteCommandDeps, OutputDeps, ProgressDeps
+from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
 
@@ -57,67 +58,53 @@ _ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR = 5
 
 _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 
-_DEFAULT_PHASE_TIMELINE_MD = Path(
-    "artifacts/audit_reports/dataflow_phase_timeline.md"
-)
+_DEFAULT_PHASE_TIMELINE_MD = runtime_contract.DEFAULT_PHASE_TIMELINE_MD
 
-_DEFAULT_PHASE_TIMELINE_JSONL = Path(
-    "artifacts/audit_reports/dataflow_phase_timeline.jsonl"
-)
+_DEFAULT_PHASE_TIMELINE_JSONL = runtime_contract.DEFAULT_PHASE_TIMELINE_JSONL
 
 _REPORT_SECTION_JOURNAL_FORMAT_VERSION = 1
 
-_DEFAULT_REPORT_SECTION_JOURNAL = Path(
-    "artifacts/audit_reports/dataflow_report_sections.json"
-)
+_DEFAULT_REPORT_SECTION_JOURNAL = runtime_contract.DEFAULT_REPORT_SECTION_JOURNAL
 
-_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
+_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = runtime_contract.COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
 
-_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = 1_000_000_000
+_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = runtime_contract.COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
 
-_COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
+_COLLECTION_REPORT_FLUSH_INTERVAL_NS = runtime_contract.COLLECTION_REPORT_FLUSH_INTERVAL_NS
 
-_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = runtime_contract.COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE
 
 _DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL = 16
 
-_DEFAULT_PROGRESS_HEARTBEAT_SECONDS = 55.0
+_DEFAULT_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.DEFAULT_PROGRESS_HEARTBEAT_SECONDS
 
-_MIN_PROGRESS_HEARTBEAT_SECONDS = 5.0
+_MIN_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.MIN_PROGRESS_HEARTBEAT_SECONDS
 
-_PROGRESS_DEADLINE_FLUSH_SECONDS = 5.0
+_PROGRESS_DEADLINE_FLUSH_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_SECONDS
 
-_PROGRESS_DEADLINE_WATCHDOG_SECONDS = 10.0
+_PROGRESS_DEADLINE_WATCHDOG_SECONDS = runtime_contract.PROGRESS_DEADLINE_WATCHDOG_SECONDS
 
-_PROGRESS_HEARTBEAT_POLL_SECONDS = 0.05
+_PROGRESS_HEARTBEAT_POLL_SECONDS = runtime_contract.PROGRESS_HEARTBEAT_POLL_SECONDS
 
-_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = 0.5
+_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS
 
 
-_LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
+_LSP_PROGRESS_NOTIFICATION_METHOD = runtime_contract.LSP_PROGRESS_NOTIFICATION_METHOD
 
-_LSP_PROGRESS_TOKEN_V2 = "gabion.dataflowAudit/progress-v2"
+_LSP_PROGRESS_TOKEN_V2 = runtime_contract.LSP_PROGRESS_TOKEN_V2
 
 _LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
 
 _CANONICAL_PROGRESS_EVENT_SCHEMA_V2 = "gabion/canonical_progress_event_v2"
 
-_STDOUT_ALIAS = "-"
+_STDOUT_ALIAS = runtime_contract.STDOUT_ALIAS
 
-_STDOUT_PATH = "/dev/stdout"
+_STDOUT_PATH = runtime_contract.STDOUT_PATH
 
-_PHASE_PRIMARY_UNITS: Mapping[str, str] = {
-    "collection": "collection_files",
-    "forest": "forest_mutable_steps",
-    "edge": "edge_tasks",
-    "post": "post_tasks",
-}
+_PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PHASE_PRIMARY_UNITS
 
 def _is_stdout_target(target: object) -> bool:
-    if not isinstance(target, (str, Path)):
-        return False
-    text = str(target).strip()
-    return text in {_STDOUT_ALIAS, _STDOUT_PATH}
+    return runtime_contract.is_stdout_target(target)
 
 def _analysis_resume_cache_verdict(
     *,
@@ -147,11 +134,7 @@ def _analysis_resume_cache_verdict(
     return "invalidated" if compatibility_status in invalidation_statuses else "miss"
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
-    limit = getattr(clock, "limit", None)
-    current = getattr(clock, "current", None)
-    if isinstance(limit, int) and isinstance(current, int):
-        return (limit - current) > 1
-    return True
+    return runtime_contract.deadline_tick_budget_allows_check(clock)
 
 def _collection_checkpoint_flush_due(
     *,
@@ -161,15 +144,13 @@ def _collection_checkpoint_flush_due(
     now_ns: int,
     last_flush_ns: int,
 ) -> bool:
-    if intro_changed or remaining_files == 0:
-        return True
-    elapsed_ns = max(0, now_ns - last_flush_ns)
-    if semantic_substantive_progress:
-        return (
-            elapsed_ns >= _COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
-            or elapsed_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
-        )
-    return elapsed_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+    return runtime_contract.collection_checkpoint_flush_due(
+        intro_changed=intro_changed,
+        remaining_files=remaining_files,
+        semantic_substantive_progress=semantic_substantive_progress,
+        now_ns=now_ns,
+        last_flush_ns=last_flush_ns,
+    )
 
 def _collection_report_flush_due(
     *,
@@ -179,13 +160,13 @@ def _collection_report_flush_due(
     last_flush_ns: int,
     last_flush_completed: int,
 ) -> bool:
-    if last_flush_completed < 0:
-        return True
-    if completed_files - last_flush_completed >= _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE:
-        return True
-    if now_ns - last_flush_ns >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS:
-        return True
-    return remaining_files == 0
+    return runtime_contract.collection_report_flush_due(
+        completed_files=completed_files,
+        remaining_files=remaining_files,
+        now_ns=now_ns,
+        last_flush_ns=last_flush_ns,
+        last_flush_completed=last_flush_completed,
+    )
 
 def _projection_phase_flush_due(
     *,
@@ -193,9 +174,11 @@ def _projection_phase_flush_due(
     now_ns: int,
     last_flush_ns: int,
 ) -> bool:
-    if phase == "post":
-        return True
-    return now_ns - last_flush_ns >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS
+    return runtime_contract.projection_phase_flush_due(
+        phase=phase,
+        now_ns=now_ns,
+        last_flush_ns=last_flush_ns,
+    )
 
 def _read_text_profiled(
     path: Path,
@@ -1277,28 +1260,7 @@ def _phase_timeline_jsonl_path(*, root: Path) -> Path:
     return root / _DEFAULT_PHASE_TIMELINE_JSONL
 
 def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
-    raw = payload.get("progress_heartbeat_seconds")
-    if isinstance(raw, bool):
-        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    if isinstance(raw, (int, float)):
-        parsed = float(raw)
-    elif isinstance(raw, str):
-        text = raw.strip()
-        if not text:
-            return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-        try:
-            parsed = float(text)
-        except ValueError:
-            return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    elif raw is None:
-        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    else:
-        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    if parsed <= 0:
-        return 0.0
-    if parsed < _MIN_PROGRESS_HEARTBEAT_SECONDS:
-        return _MIN_PROGRESS_HEARTBEAT_SECONDS
-    return parsed
+    return runtime_contract.progress_heartbeat_seconds(payload)
 
 def _markdown_table_cell(value: object) -> str:
     return ("" if value is None else str(value)).replace("\n", " ").replace("|", "\\|")
