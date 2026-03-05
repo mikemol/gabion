@@ -1,5 +1,5 @@
 ---
-doc_revision: 125
+doc_revision: 126
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2201,6 +2201,24 @@ doc_scope:
     - Analysis-index function-index/symbol-table build behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-185`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index boundary helper alias convergence:
+    - Replaced duplicate boundary helper implementations in `dataflow_analysis_index.py` with canonical owner aliases for:
+      - `_PROGRESS_EMIT_MIN_INTERVAL_SECONDS`
+      - `_iter_monotonic_paths`
+      - `_profiling_v1_payload`
+    - Retained boundary-local helpers still required for boundary contracts:
+      - `_analysis_collection_resume_path_key`
+      - `_phase_work_progress`
+    - Removed stale boundary imports no longer needed after alias cutover.
+  - Compatibility status:
+    - Analysis-index boundary semantics remain stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-186`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
