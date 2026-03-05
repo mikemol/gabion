@@ -1,5 +1,5 @@
 ---
-doc_revision: 44
+doc_revision: 45
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -742,6 +742,30 @@ doc_scope:
     - `dataflow_facade.py` no longer uses importlib-based dynamic loading.
     - Remaining monolith compatibility in facade is explicit and static.
   - ASPF no-change acknowledgement refreshed (`in-105`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade explicit-export hardening:
+    - Added explicit static exports in `dataflow_facade.py` for compatibility-owner consumers:
+      - `_accumulate_function_index_for_tree`
+      - `_analyze_file_internal`
+      - `_CalleeResolutionOutcome`
+      - `_DeadlineFunctionCollector`
+      - `_DeadlineFunctionFacts`
+      - `_DeadlineLoopFacts`
+      - `_collect_call_edges`
+      - `_collect_call_nodes_by_path`
+      - `_collect_deadline_function_facts`
+      - `_collect_deadline_local_info`
+      - `_normalize_snapshot_path`
+      - `_resolve_callee_outcome`
+      - `_populate_bundle_forest`
+    - Dynamic `__getattr__` passthrough retained for broader legacy compatibility surface.
+  - Compatibility status:
+    - Known compatibility-owner call paths are now statically satisfied from facade exports.
+  - ASPF no-change acknowledgement refreshed (`in-106`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

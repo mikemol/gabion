@@ -4,6 +4,21 @@ from __future__ import annotations
 """Facade compatibility module for legacy indexed-dataflow symbols."""
 
 from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
+from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+    _CalleeResolutionOutcome,
+    _DeadlineFunctionCollector,
+    _DeadlineFunctionFacts,
+    _DeadlineLoopFacts,
+    _accumulate_function_index_for_tree,
+    _analyze_file_internal,
+    _collect_call_edges,
+    _collect_call_nodes_by_path,
+    _collect_deadline_function_facts,
+    _collect_deadline_local_info,
+    _normalize_snapshot_path,
+    _populate_bundle_forest,
+    _resolve_callee_outcome,
+)
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index as _build_analysis_index_owner,
