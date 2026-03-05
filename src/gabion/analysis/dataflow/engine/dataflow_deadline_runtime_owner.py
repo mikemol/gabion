@@ -231,6 +231,7 @@ def _resolve_callee_outcome(
     project_root=None,
     class_index=None,
     call=None,
+    ambiguity_sink=None,
     local_lambda_bindings=None,
     resolve_callee_fn=_resolve_callee,
 ) -> _CalleeResolutionOutcome:

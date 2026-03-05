@@ -1,5 +1,5 @@
 ---
-doc_revision: 108
+doc_revision: 109
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1929,6 +1929,22 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-168`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-helper compatibility wrapper retirement:
+    - Replaced the two remaining wrapper bodies in `dataflow_deadline_helpers.py` with direct owner aliases:
+      - `_materialize_call_candidates`
+      - `_resolve_callee_outcome`
+    - Updated `dataflow_deadline_runtime_owner._resolve_callee_outcome` to accept boundary-compatible `ambiguity_sink` so aliasing preserves legacy helper call signatures.
+    - Removed now-unused indexed-scan direct import wiring for `materialize_call_candidates` from deadline helpers.
+  - Compatibility status:
+    - Deadline-helper API surface remains unchanged; owner-call routing is now alias-only for this cluster.
+    - Targeted WS-5 regression suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-169`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
