@@ -2,12 +2,18 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-"""Owned indexed file-scan and helper surfaces extracted from runtime.
+"""Compatibility facade for legacy indexed dataflow runtime symbols."""
 
-This module is the canonical owner for the indexed/file-scan helper graph
-used by analysis, deadline, ambiguity, and reporting surfaces during
-final runtime retirement.
-"""
+# Temporary boundary adapter retained for external import compatibility.
+_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
+    "actor": "codex",
+    "rationale": "WS-5 hard-cut completed; retain monolith alias surface while external importers migrate",
+    "scope": "dataflow_indexed_file_scan.alias_surface",
+    "start": "2026-03-05",
+    "expiry": "WS-5 compatibility-shim retirement",
+    "rollback_condition": "no external consumers require monolith path aliases",
+    "evidence_links": ["docs/ws5_decomposition_ledger.md"],
+}
 
 
 import argparse
@@ -239,6 +245,8 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     analyze_ingested_file,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
     _IndexedPassSpec,
@@ -365,7 +373,3 @@ NodeIdOrNone = NodeId | None
 ParseCacheValue = ast.Module | BaseException
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
-
-_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
-
-_PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0

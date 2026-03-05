@@ -1,5 +1,5 @@
 ---
-doc_revision: 233
+doc_revision: 234
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 371
+- Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -26,6 +26,22 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-293`, this CU):
+  - Converted monolith boundary semantics to explicit compatibility mode in:
+    - `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
+  - Added lifecycle metadata for monolith compatibility surface:
+    - `_BOUNDARY_ADAPTER_LIFECYCLE`
+  - Removed duplicated progress-constant literals from monolith by aliasing canonical values from:
+    - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+  - Extended compatibility smoke coverage to assert monolith lifecycle metadata:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+  - State delta:
+    - monolith LOC: `371 -> 375` (lifecycle metadata added, duplicate constant bodies removed)
+    - monolith top-level imports: unchanged (`52`)
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`22 passed`)
+    - evidence refresh/check passed (no evidence drift)
 - WS-5 continuation (`in-292`, this CU):
   - Added AST-level owner-import hygiene guard to prevent reintroduction of legacy `_owner` import paths in `src/tests`:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_import_hygiene.py`

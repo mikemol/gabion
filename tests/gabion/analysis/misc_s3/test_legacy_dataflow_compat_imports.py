@@ -39,6 +39,7 @@ def test_legacy_dataflow_compat_modules_import() -> None:
     assert hasattr(summary_owner, "_summarize_deadline_obligations")
     assert hasattr(facade, "_report_section_spec")
 
+    _assert_lifecycle_metadata(indexed)
     _assert_lifecycle_metadata(analysis_owner)
     _assert_lifecycle_metadata(deadline_owner)
     _assert_lifecycle_metadata(reporting_owner)
