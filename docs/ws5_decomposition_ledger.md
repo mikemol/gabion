@@ -1,5 +1,5 @@
 ---
-doc_revision: 151
+doc_revision: 152
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2586,6 +2586,27 @@ doc_scope:
     - Post-phase parse/failure handling behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-210`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-helper alias contraction:
+    - Replaced owner-local passthrough assignment shims in `dataflow_deadline_helpers.py` with direct canonical import aliases for deadline/index/call-graph surfaces, including:
+      - `_build_analysis_index`
+      - `_collect_recursive_nodes`, `_reachable_from_roots`
+      - `_collect_call_nodes_by_path`, `_collect_deadline_function_facts`
+      - `_materialize_call_candidates`, `_resolve_callee_outcome`
+      - `_caller_param_bindings_for_call`
+      - `_collect_call_edges_from_forest`
+      - `_collect_call_resolution_obligations_from_forest`
+      - `_collect_call_resolution_obligation_details_from_forest`
+      - `_deadline_arg_info_map`, `_deadline_loop_forwarded_params`
+    - Removed redundant owner-local reassignment layer while preserving export names.
+  - Compatibility status:
+    - Deadline-helper obligations/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-211`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

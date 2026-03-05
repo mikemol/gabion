@@ -9,12 +9,12 @@ from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
-    _build_analysis_index as _build_analysis_index_owner,
+    _build_analysis_index,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
-    _collect_recursive_nodes as _collect_recursive_nodes_owner,
-    _reachable_from_roots as _reachable_from_roots_owner,
+    _collect_recursive_nodes,
+    _reachable_from_roots,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo, OptionalSpan4
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
@@ -25,17 +25,28 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineFunctionCollector,
     _collect_call_edges as _collect_call_edges,
-    _collect_call_nodes_by_path as _indexed_collect_call_nodes_by_path,
-    _collect_deadline_function_facts as _indexed_collect_deadline_function_facts,
+    _collect_call_nodes_by_path,
+    _collect_deadline_function_facts,
     _collect_deadline_local_info,
-    _materialize_call_candidates as _indexed_materialize_call_candidates,
-    _resolve_callee_outcome as _indexed_resolve_callee_outcome,
+    _materialize_call_candidates,
+    _resolve_callee_outcome,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
-    DeadlineArgInfo as _DeadlineArgInfo, caller_param_bindings_for_call as _indexed_caller_param_bindings_for_call, classify_deadline_expr as _classify_deadline_expr, collect_call_edges_from_forest as _indexed_collect_call_edges_from_forest, collect_call_resolution_obligation_details_from_forest as _indexed_collect_call_resolution_obligation_details_from_forest, collect_call_resolution_obligations_from_forest as _indexed_collect_call_resolution_obligations_from_forest, deadline_arg_info_map as _indexed_deadline_arg_info_map, deadline_loop_forwarded_params as _indexed_deadline_loop_forwarded_params, function_suite_id as _function_suite_id, function_suite_key as _function_suite_key, is_deadline_origin_call as _is_deadline_origin_call)
+    DeadlineArgInfo as _DeadlineArgInfo,
+    caller_param_bindings_for_call as _caller_param_bindings_for_call,
+    classify_deadline_expr as _classify_deadline_expr,
+    collect_call_edges_from_forest as _collect_call_edges_from_forest,
+    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest,
+    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest,
+    deadline_arg_info_map as _deadline_arg_info_map,
+    deadline_loop_forwarded_params as _deadline_loop_forwarded_params,
+    function_suite_id as _function_suite_id,
+    function_suite_key as _function_suite_key,
+    is_deadline_origin_call as _is_deadline_origin_call,
+)
 from gabion.analysis.indexed_scan.deadline.deadline_fallback import (
     fallback_deadline_arg_info as _fallback_deadline_arg_info)
 from gabion.analysis.foundation.json_types import JSONObject
@@ -63,49 +74,6 @@ def _is_deadline_param(name: str, annot: object) -> bool:
     if annot is None and name.lower() == "deadline":
         return True
     return False
-
-
-_build_analysis_index = _build_analysis_index_owner
-
-
-_collect_call_edges_from_forest = _indexed_collect_call_edges_from_forest
-
-
-_collect_call_nodes_by_path = _indexed_collect_call_nodes_by_path
-
-
-_collect_call_resolution_obligations_from_forest = (
-    _indexed_collect_call_resolution_obligations_from_forest
-)
-
-
-_collect_call_resolution_obligation_details_from_forest = (
-    _indexed_collect_call_resolution_obligation_details_from_forest
-)
-
-
-_collect_deadline_function_facts = _indexed_collect_deadline_function_facts
-
-
-_collect_recursive_nodes = _collect_recursive_nodes_owner
-
-
-_caller_param_bindings_for_call = _indexed_caller_param_bindings_for_call
-
-
-_deadline_arg_info_map = _indexed_deadline_arg_info_map
-
-
-_deadline_loop_forwarded_params = _indexed_deadline_loop_forwarded_params
-
-
-_materialize_call_candidates = _indexed_materialize_call_candidates
-
-
-_reachable_from_roots = _reachable_from_roots_owner
-
-
-_resolve_callee_outcome = _indexed_resolve_callee_outcome
 
 
 __all__ = [
