@@ -1,5 +1,5 @@
 ---
-doc_revision: 193
+doc_revision: 194
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 454
+- Monolith LOC (current): 412
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -3306,6 +3306,25 @@ doc_scope:
     - Canonical owner internals and runtime semantics remain unchanged; this slice contracts monolith-only compatibility passthrough surfaces.
     - Monolith structural metrics improved (`LOC=454`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-252`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`44 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase/projection/resume compatibility-surface contraction:
+    - Removed unreferenced monolith passthrough imports for symbols with no in-repo consumers outside monolith from:
+      - `dataflow_post_phase_analyses.py`
+      - `dataflow_projection_materialization.py`
+      - `dataflow_resume_serialization.py`
+    - Pruned corresponding resume owner `__all__` export entries for unreferenced symbols.
+    - Symbols contracted in this slice:
+      - post-phase passthroughs: `ConstantFlowDetail`, `_ConstantFlowFoldAccumulator`, `_DIRECT_DECISION_SURFACE_SPEC`, `_DecisionSurfaceSpec`, `_ResolvedEdgeReducerSpec`, `_VALUE_DECISION_SURFACE_SPEC`, `_analyze_decision_surface_indexed`, `_analyze_decision_surfaces_indexed`, `_analyze_value_encoded_decisions_indexed`, `_boundary_tier_obligation`, `_dataclass_registry_for_tree`, `_dead_env_map`, `_decision_param_lint_line`, `_decision_predicate_evidence`, `_decision_reason_summary`, `_decision_surface_alt_evidence`, `_decision_tier_for`, `_decorator_matches`, `_enclosing_function_node`, `_exception_param_names`, `_exception_type_name`, `_expand_type_hint`, `_handler_label`, `_handler_type_names`, `_infer_type_flow`, `_is_marker_call`, `_is_never_marker_raise`, `_lint_line`, `_simple_store_name`, `_span_line_col`, `_suite_site_label`, `analyze_type_flow_repo`
+      - projection passthroughs: `_add_interned_alt`, `_materialize_statement_suite_contains`, `_materialize_structured_suite_sites`, `_materialize_structured_suite_sites_for_tree`
+      - resume passthroughs: `_ANALYSIS_INDEX_RESUME_MAX_VARIANTS`, `_ANALYSIS_INDEX_RESUME_VARIANTS_KEY`, `_analysis_index_resume_variants`, `_compute_invariant_evidence_key`, `_compute_invariant_id`, `_serialize_symbol_table_for_resume`
+  - Correctness impact:
+    - Canonical owner internals and runtime semantics remain unchanged; this slice contracts additional monolith-only compatibility passthrough surfaces.
+    - Monolith structural metrics improved (`LOC=412`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-253`).
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`44 passed`)

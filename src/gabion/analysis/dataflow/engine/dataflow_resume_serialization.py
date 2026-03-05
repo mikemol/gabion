@@ -869,7 +869,6 @@ def _load_analysis_collection_resume_payload(
 
 __all__ = [
     "_CacheIdentity",
-    "_analysis_index_resume_variants",
     "_analysis_collection_resume_path_key",
     "_build_analysis_collection_resume_payload",
     "_deserialize_function_info_for_resume",
@@ -880,5 +879,4 @@ __all__ = [
     "_load_file_scan_resume_state",
     "_serialize_analysis_index_resume_payload",
     "_serialize_file_scan_resume_state",
-    "_serialize_symbol_table_for_resume",
 ]
