@@ -1,5 +1,5 @@
 ---
-doc_revision: 98
+doc_revision: 99
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1760,6 +1760,21 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade loader hard-cut:
+    - `dataflow_facade.py` switched from importlib runtime loading to static module binding:
+      - `from ... import dataflow_indexed_file_scan as _runtime`
+    - Preserved compatibility passthrough semantics for:
+      - `__getattr__`
+      - `__dir__`
+  - Compatibility status:
+    - Facade routing behavior remains stable under targeted WS-5 regression suites.
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `src/tests direct imports=0`).
+  - ASPF no-change acknowledgement refreshed (`in-159`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

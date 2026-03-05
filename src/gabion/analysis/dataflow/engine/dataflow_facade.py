@@ -3,8 +3,6 @@ from __future__ import annotations
 
 """Facade compatibility module for legacy indexed-dataflow symbols."""
 
-from importlib import import_module
-
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
@@ -36,12 +34,7 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _internal_broad_type_lint_lines as _internal_broad_type_lint_lines_impl,
 )
-
-_RUNTIME_MODULE_NAME = "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan"
-
-
-def _runtime_module():
-    return import_module(_RUNTIME_MODULE_NAME)
+from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
 
 
 def _parse_lint_location(*args, **kwargs):
@@ -94,8 +87,8 @@ def _internal_broad_type_lint_lines(
 
 
 def __getattr__(name: str):
-    return getattr(_runtime_module(), name)
+    return getattr(_runtime, name)
 
 
 def __dir__() -> list[str]:
-    return sorted(set(dir(_runtime_module())))
+    return sorted(set(dir(_runtime)))
