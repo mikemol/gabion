@@ -1,5 +1,5 @@
 ---
-doc_revision: 113
+doc_revision: 114
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2008,6 +2008,23 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-173`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade contract/protocol export rebinding:
+    - `dataflow_facade.py` now pre-binds core carrier/protocol symbols directly to canonical owners:
+      - contract carriers: `AuditConfig`, `CallArgs`, `ClassInfo`, `FunctionInfo`, `InvariantProposition`, `ParamUse`, `ReportCarrier`, `SymbolTable`
+      - protocol/status carriers: `Forest`, `NodeId`, `ParentAnnotator`, `TimeoutExceeded`, `DEADLINE_OBLIGATIONS_SUMMARY_SPEC`
+      - canonical runtime entrypoints: `analyze_file`, `_build_function_index`, `_build_symbol_table`, `parse_adapter_capabilities`, `_build_synth_registry_payload`, `render_report`, `verify_rewrite_plan`, `verify_rewrite_plans`, `check_deadline`
+      - canonical constants/types: `_DeadlineArgInfo`, `_FILE_SCAN_PROGRESS_EMIT_INTERVAL`, `_PROGRESS_EMIT_MIN_INTERVAL_SECONDS`, `CallAmbiguity`
+    - These bindings remove another fallback-heavy cluster from `_STATIC_FACADE_EXPORTS`.
+  - Compatibility status:
+    - Facade API remains stable; canonical owner coverage increased for contract/protocol surfaces.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-174`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
