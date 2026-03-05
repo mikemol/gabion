@@ -1,5 +1,5 @@
 ---
-doc_revision: 71
+doc_revision: 72
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1244,6 +1244,24 @@ doc_scope:
     - Monolith LOC dropped to `2396`; top-level imports remain within target (`68`).
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-131`).
+  - Validation:
+    - policy checks passed
+    - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index boundary wrapper hard-cut:
+    - Monolith wrapper bodies replaced by direct analysis-index owner aliases for:
+      - `_analyze_file_internal`
+      - `_accumulate_symbol_table_for_tree`
+      - `_accumulate_class_index_for_tree`
+      - `_accumulate_function_index_for_tree`
+    - `dataflow_indexed_file_scan.py` now imports these surfaces from `dataflow_analysis_index_owner` and routes fold/build callsites through owner-canonical delegates.
+    - Removed monolith runtime-module dependency path for these wrapper surfaces.
+  - Compatibility status:
+    - Analysis-index accumulation and ingest-entry wrappers are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2299`; top-level imports remain within target (`68`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-132`).
   - Validation:
     - policy checks passed
     - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)

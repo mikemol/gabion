@@ -308,6 +308,10 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _analysis_index_resolved_call_edges_by_caller,
     _analysis_index_stage_cache,
     _analysis_index_transitive_callers,
+    _analyze_file_internal as _analyze_file_internal_owner,
+    _accumulate_class_index_for_tree_runtime as _accumulate_class_index_for_tree_owner,
+    _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree_owner,
+    _accumulate_symbol_table_for_tree_runtime as _accumulate_symbol_table_for_tree_owner,
     _build_analysis_index,
     _build_module_artifacts,
     _build_call_graph,
@@ -1715,40 +1719,7 @@ def analyze_ingested_file(
         on_profile=on_profile,
     )
 
-def _analyze_file_internal(
-    path: Path,
-    recursive: bool = True,
-    *,
-    config = None,
-    resume_state = None,
-    on_progress = None,
-    on_profile = None,
-    analyze_function_fn = None,
-) -> tuple[
-    dict[str, list[set[str]]],
-    dict[str, dict[str, tuple[int, int, int, int]]],
-    dict[str, list[list[JSONObject]]],
-]:
-    from gabion.analysis.indexed_scan.state.file_internal_analysis import (
-        analyze_file_internal_from_runtime_module_defaults as _analyze_file_internal_impl)
-
-    return cast(
-        tuple[
-            dict[str, list[set[str]]],
-            dict[str, dict[str, tuple[int, int, int, int]]],
-            dict[str, list[list[JSONObject]]],
-        ],
-        _analyze_file_internal_impl(
-            path,
-            recursive=recursive,
-            config=config,
-            resume_state=resume_state,
-            on_progress=on_progress,
-            on_profile=on_profile,
-            analyze_function_fn=analyze_function_fn,
-            runtime_module=sys.modules[__name__],
-        ),
-    )
+_analyze_file_internal = _analyze_file_internal_owner
 
 def analyze_file(
     path: Path,
@@ -1858,28 +1829,7 @@ def _collect_module_exports(
         ),
     )
 
-def _accumulate_symbol_table_for_tree(
-    table: SymbolTable,
-    path: Path,
-    tree: ast.Module,
-    *,
-    project_root,
-) -> None:
-    check_deadline()
-    module = _module_name(path, project_root)
-    table.internal_roots.add(module.split(".")[0])
-    visitor = ImportVisitor(module, table)
-    visitor.visit(tree)
-    import_map = {
-        local: fqn for (mod, local), fqn in table.imports.items() if mod == module
-    }
-    exports, export_map = _collect_module_exports(
-        tree,
-        module_name=module,
-        import_map=import_map,
-    )
-    table.module_exports[module] = exports
-    table.module_export_map[module] = export_map
+_accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_owner
 
 def _symbol_table_module_artifact_spec(
     *,
@@ -1922,32 +1872,7 @@ def _build_symbol_table(
     )
     return cast(SymbolTable, raw_table)
 
-def _accumulate_class_index_for_tree(
-    class_index: dict[str, ClassInfo],
-    path: Path,
-    tree: ast.Module,
-    *,
-    project_root,
-) -> None:
-    from gabion.analysis.indexed_scan.scanners.class_index_accumulator import (
-        AccumulateClassIndexForTreeDeps as _AccumulateClassIndexForTreeDeps)
-    from gabion.analysis.indexed_scan.scanners.class_index_accumulator import (
-        accumulate_class_index_for_tree as _accumulate_class_index_for_tree_impl)
-
-    _accumulate_class_index_for_tree_impl(
-        cast(dict[str, object], class_index),
-        path,
-        tree,
-        project_root=project_root,
-        deps=_AccumulateClassIndexForTreeDeps(
-            check_deadline_fn=check_deadline,
-            parent_annotator_ctor=ParentAnnotator,
-            module_name_fn=_module_name,
-            enclosing_class_scopes_fn=_enclosing_class_scopes,
-            base_identifier_fn=_base_identifier,
-            class_info_ctor=ClassInfo,
-        ),
-    )
+_accumulate_class_index_for_tree = _accumulate_class_index_for_tree_owner
 
 @dataclass
 class _FunctionIndexAccumulator:
@@ -1956,29 +1881,7 @@ class _FunctionIndexAccumulator:
     )
     by_qual: dict[str, FunctionInfo] = field(default_factory=dict)
 
-def _accumulate_function_index_for_tree(
-    acc: _FunctionIndexAccumulator,
-    path: Path,
-    tree: ast.Module,
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    transparent_decorators,
-) -> None:
-    from gabion.analysis.indexed_scan.state.function_index_accumulator import (
-        accumulate_function_index_for_tree_from_runtime_module as _accumulate_function_index_for_tree_impl_runtime)
-
-    _accumulate_function_index_for_tree_impl_runtime(
-        acc,
-        path,
-        tree,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        transparent_decorators=transparent_decorators,
-        runtime_module=sys.modules[__name__],
-    )
+_accumulate_function_index_for_tree = _accumulate_function_index_for_tree_owner
 
 def _synthetic_lambda_name(
     *,
