@@ -1,5 +1,5 @@
 ---
-doc_revision: 158
+doc_revision: 159
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 856
-- Monolith top-level import statements (current): 58
+- Monolith LOC (current): 792
+- Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -2697,6 +2697,27 @@ doc_scope:
       - `classes=0`
       - `functions=0`
     - This correction unit is documentation/state-only; no semantic/runtime code changes.
+- WS-5 continuation (this CU, follow-on):
+  - Monolith decision-surface alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_decision_root_name`
+      - `is_decision_surface`
+      - `_decision_surface_form_entries`
+      - `_decision_surface_reason_map`
+      - `_decision_surface_params`
+      - `_mark_param_roots`
+      - `_collect_param_roots`
+      - `_contains_boolish`
+      - `_value_encoded_decision_params`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade decision-surface behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=792`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-218`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

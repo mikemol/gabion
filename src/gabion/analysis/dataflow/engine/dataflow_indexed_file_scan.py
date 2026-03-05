@@ -124,17 +124,17 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _synthetic_lambda_name as _synthetic_lambda_name_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
-    _collect_param_roots as _collect_param_roots_owner,
-    _contains_boolish as _contains_boolish_owner,
+    _collect_param_roots,
+    _contains_boolish,
     _decorator_name,
-    _decision_surface_form_entries as _decision_surface_form_entries_owner,
-    _decision_surface_params as _decision_surface_params_owner,
-    _decision_surface_reason_map as _decision_surface_reason_map_owner,
-    _decision_root_name as _decision_root_name_owner,
+    _decision_surface_form_entries,
+    _decision_surface_params,
+    _decision_surface_reason_map,
+    _decision_root_name,
     _decorators_transparent,
-    _mark_param_roots as _mark_param_roots_owner,
-    _value_encoded_decision_params as _value_encoded_decision_params_owner,
-    is_decision_surface as _is_decision_surface_owner,
+    _mark_param_roots,
+    _value_encoded_decision_params,
+    is_decision_surface,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_class_runtime as _enclosing_class_owner,
@@ -549,24 +549,6 @@ _local_class_name = _local_class_name_owner
 _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
 _param_names = _param_names_owner
-
-_decision_root_name = _decision_root_name_owner
-
-is_decision_surface = _is_decision_surface_owner
-
-_decision_surface_form_entries = _decision_surface_form_entries_owner
-
-_decision_surface_reason_map = _decision_surface_reason_map_owner
-
-_decision_surface_params = _decision_surface_params_owner
-
-_mark_param_roots = _mark_param_roots_owner
-
-_collect_param_roots = _collect_param_roots_owner
-
-_contains_boolish = _contains_boolish_owner
-
-_value_encoded_decision_params = _value_encoded_decision_params_owner
 
 _DecisionSurfaceSpec = _DecisionSurfaceSpec_owner
 
