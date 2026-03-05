@@ -1,5 +1,5 @@
 ---
-doc_revision: 166
+doc_revision: 167
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 658
+- Monolith LOC (current): 648
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2848,6 +2848,23 @@ doc_scope:
     - Monolith facade post-phase runtime behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=658`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-225`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith analysis-index carrier alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical imports for:
+      - `AnalysisIndex`
+      - `_ResolvedCallEdge`
+      - `_ResolvedEdgeReducerSpec`
+      - `_ResolvedEdgeParamEvent`
+      - `_StageCacheSpec`
+    - Removed the corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade analysis-index carrier behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=648`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-226`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)

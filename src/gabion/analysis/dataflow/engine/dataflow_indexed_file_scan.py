@@ -289,11 +289,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _simple_store_name,
     _span_line_col,
     _split_top_level,
-    _StageCacheSpec as _StageCacheSpec_owner,
+    _StageCacheSpec,
     _suite_site_label,
     _type_from_const_repr,
     _VALUE_DECISION_SURFACE_SPEC,
-    _ResolvedEdgeReducerSpec as _ResolvedEdgeReducerSpec_owner,
+    _ResolvedEdgeReducerSpec,
     analyze_decision_surfaces_repo,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
@@ -349,7 +349,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP,
-    _AnalysisIndexCarrier as _AnalysisIndex_owner,
+    _AnalysisIndexCarrier as AnalysisIndex,
     _PhaseWorkProgress as _PhaseWorkProgress_owner,
     OptionalAnalysisIndex,
     _CacheSemanticContext,
@@ -358,8 +358,8 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _IndexedPassContext,
     _IndexedPassSpec,
     _ModuleArtifactSpec,
-    _ResolvedCallEdge as _ResolvedCallEdge_owner,
-    _ResolvedEdgeParamEvent as _ResolvedEdgeParamEvent_owner,
+    _ResolvedCallEdge,
+    _ResolvedEdgeParamEvent,
     _StageCacheIdentitySpec,
     _analysis_index_module_trees,
     _analysis_index_resolved_call_edges,
@@ -555,16 +555,6 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
 )
 
 _add_interned_alt = _add_interned_alt_owner
-
-AnalysisIndex = _AnalysisIndex_owner
-
-_ResolvedCallEdge = _ResolvedCallEdge_owner
-
-_ResolvedEdgeReducerSpec = _ResolvedEdgeReducerSpec_owner
-
-_ResolvedEdgeParamEvent = _ResolvedEdgeParamEvent_owner
-
-_StageCacheSpec = _StageCacheSpec_owner
 
 _parse_module_source = _parse_module_source_owner
 
