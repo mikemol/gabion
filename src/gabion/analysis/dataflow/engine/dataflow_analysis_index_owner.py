@@ -29,11 +29,12 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
 from gabion.analysis.indexed_scan.index.analysis_index_builder import (
     AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps,
     build_analysis_index as _build_analysis_index_impl,
@@ -58,12 +59,6 @@ from gabion.analysis.indexed_scan.scanners.key_aliases import (
 )
 from gabion.invariants import never
 from gabion.order_contract import sort_once
-
-
-def _runtime_module():
-    from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
-
-    return _runtime
 
 
 _IndexedPassResult = TypeVar("_IndexedPassResult")
@@ -143,6 +138,123 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
 
 def _default_parse_module(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
+
+
+def _analysis_index_ctor_runtime(
+    *,
+    by_name,
+    by_qual,
+    symbol_table,
+    class_index,
+    index_cache_identity: str = "",
+    projection_cache_identity: str = "",
+):
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import AnalysisIndex
+
+    return AnalysisIndex(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        class_index=class_index,
+        index_cache_identity=index_cache_identity,
+        projection_cache_identity=projection_cache_identity,
+    )
+
+
+def _function_index_acc_ctor_runtime(*, by_name, by_qual):
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import _FunctionIndexAccumulator
+
+    return _FunctionIndexAccumulator(
+        by_name=by_name,
+        by_qual=by_qual,
+    )
+
+
+def _accumulate_function_index_for_tree_runtime(
+    acc,
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    transparent_decorators,
+) -> None:
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+        _accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl_runtime,
+    )
+
+    _accumulate_function_index_for_tree_impl_runtime(
+        acc,
+        path,
+        tree,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        transparent_decorators=transparent_decorators,
+    )
+
+
+def _accumulate_symbol_table_for_tree_runtime(
+    table,
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root,
+) -> None:
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+        _accumulate_symbol_table_for_tree as _accumulate_symbol_table_for_tree_impl_runtime,
+    )
+
+    _accumulate_symbol_table_for_tree_impl_runtime(
+        table,
+        path,
+        tree,
+        project_root=project_root,
+    )
+
+
+def _accumulate_class_index_for_tree_runtime(
+    class_index: dict[str, object],
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root,
+) -> None:
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+        _accumulate_class_index_for_tree as _accumulate_class_index_for_tree_impl_runtime,
+    )
+
+    _accumulate_class_index_for_tree_impl_runtime(
+        class_index,
+        path,
+        tree,
+        project_root=project_root,
+    )
+
+
+def _iter_monotonic_paths_owner(paths, *, source: str):
+    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+        _iter_monotonic_paths as _iter_monotonic_paths_impl,
+    )
+
+    return _iter_monotonic_paths_impl(paths, source=source)
+
+
+def _profiling_v1_payload_owner(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
+    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+        _profiling_v1_payload as _profiling_v1_payload_impl,
+    )
+
+    return _profiling_v1_payload_impl(stage_ns=stage_ns, counters=counters)
+
+
+def _progress_emit_min_interval_seconds_owner() -> float:
+    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+        _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+    )
+
+    return float(_PROGRESS_EMIT_MIN_INTERVAL_SECONDS)
 
 
 def _path_dependency_payload(path: Path) -> dict[str, object]:
@@ -520,8 +632,11 @@ def _get_stage_cache_bucket(
 
 
 def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress, on_profile):
-    runtime = _runtime_module()
-    return runtime._analyze_file_internal(
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+        _analyze_file_internal as _analyze_file_internal_runtime,
+    )
+
+    return _analyze_file_internal_runtime(
         path,
         recursive=recursive,
         config=config,
@@ -570,7 +685,6 @@ def _build_analysis_index(
     decision_ignore_params=None,
     decision_require_tiers=False,
 ):
-    runtime = _runtime_module()
     return cast(
         object,
         _build_analysis_index_impl(
@@ -590,16 +704,16 @@ def _build_analysis_index(
             decision_require_tiers=decision_require_tiers,
             deps=_AnalysisIndexBuildDeps(
                 check_deadline_fn=check_deadline,
-                accumulate_function_index_for_tree_default_fn=runtime._accumulate_function_index_for_tree,
+                accumulate_function_index_for_tree_default_fn=_accumulate_function_index_for_tree_runtime,
                 sorted_text_fn=_sorted_text,
                 cache_context_ctor=_CacheSemanticContext,
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
-                iter_monotonic_paths_fn=runtime._iter_monotonic_paths,
+                iter_monotonic_paths_fn=_iter_monotonic_paths_owner,
                 load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload_owner,
-                function_index_acc_ctor=runtime._FunctionIndexAccumulator,
+                function_index_acc_ctor=_function_index_acc_ctor_runtime,
                 sort_once_fn=sort_once,
-                profiling_payload_fn=runtime._profiling_v1_payload,
+                profiling_payload_fn=_profiling_v1_payload_owner,
                 serialize_resume_payload_fn=_serialize_analysis_index_resume_payload_owner,
                 parse_module_source_fn=_default_parse_module,
                 parse_module_error_types=cast(
@@ -607,14 +721,14 @@ def _build_analysis_index(
                     _PARSE_MODULE_ERROR_TYPES,
                 ),
                 record_parse_failure_witness_fn=_record_parse_failure_witness,
-                parse_module_stage_function_index=runtime._ParseModuleStage.FUNCTION_INDEX,
-                parse_module_stage_symbol_table=runtime._ParseModuleStage.SYMBOL_TABLE,
-                parse_module_stage_class_index=runtime._ParseModuleStage.CLASS_INDEX,
-                accumulate_symbol_table_for_tree_fn=runtime._accumulate_symbol_table_for_tree,
-                accumulate_class_index_for_tree_fn=runtime._accumulate_class_index_for_tree,
-                timeout_exceeded_type=runtime.TimeoutExceeded,
-                analysis_index_ctor=runtime.AnalysisIndex,
-                progress_emit_min_interval_seconds=runtime._PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+                parse_module_stage_function_index=_ParseModuleStage.FUNCTION_INDEX,
+                parse_module_stage_symbol_table=_ParseModuleStage.SYMBOL_TABLE,
+                parse_module_stage_class_index=_ParseModuleStage.CLASS_INDEX,
+                accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree_runtime,
+                accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree_runtime,
+                timeout_exceeded_type=TimeoutExceeded,
+                analysis_index_ctor=_analysis_index_ctor_runtime,
+                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds_owner(),
             ),
         ),
     )

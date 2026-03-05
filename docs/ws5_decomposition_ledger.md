@@ -1,5 +1,5 @@
 ---
-doc_revision: 34
+doc_revision: 35
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -597,9 +597,31 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner runtime-fallback hard cut:
+    - Removed `_runtime_module` fallback indirection from `dataflow_analysis_index_owner.py`.
+    - Replaced dynamic fallback reads with explicit boundary delegates / local canonical imports for:
+      - `_analysis_index_ctor_runtime`
+      - `_function_index_acc_ctor_runtime`
+      - `_accumulate_function_index_for_tree_runtime`
+      - `_accumulate_symbol_table_for_tree_runtime`
+      - `_accumulate_class_index_for_tree_runtime`
+      - `_iter_monotonic_paths_owner`
+      - `_profiling_v1_payload_owner`
+      - `_progress_emit_min_interval_seconds_owner`
+      - `_analyze_file_internal` local import path
+    - Corrected boundary ctor callable shapes to match canonical builder dependency contracts:
+      - `_function_index_acc_ctor_runtime(*, by_name, by_qual)`
+      - `_analysis_index_ctor_runtime(..., index_cache_identity, projection_cache_identity)`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_analysis_index_owner.py` reduced from `2` to `0`.
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Compatibility-owner contraction: retire remaining runtime-module fallbacks in `dataflow_post_phase_analyses.py` and `dataflow_analysis_index_owner.py`.
+1. Compatibility-owner contraction: replace remaining compatibility-owner local imports from monolith with canonical owner/type carriers where available.
 2. Facade hardening: keep monolith boundary-only aliases while minimizing dead compatibility exports.
 3. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
