@@ -1,5 +1,5 @@
 ---
-doc_revision: 153
+doc_revision: 154
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2625,6 +2625,25 @@ doc_scope:
     - Monolith facade behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-212`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith reporting/ambiguity alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_profiling_v1_payload`
+      - `ReportProjectionSpec`
+      - `_report_section_identity_render`
+      - `_report_section_no_violations`
+      - `_report_section_text`
+      - `_report_section_spec`
+      - `CallAmbiguity`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade reporting/ambiguity behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-213`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

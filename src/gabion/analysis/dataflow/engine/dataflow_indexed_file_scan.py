@@ -305,7 +305,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
-    CallAmbiguity as _CallAmbiguity_owner,
+    CallAmbiguity,
     _ProjectionSpan,
     _add_interned_alt as _add_interned_alt_owner,
     _ambiguity_suite_relation,
@@ -396,7 +396,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _resume_variant_for_identity,
     _run_indexed_pass,
     _phase_work_progress_owner,
-    _profiling_v1_payload_owner,
+    _profiling_v1_payload,
     _sorted_text,
     _stage_cache_key_aliases,
 )
@@ -440,12 +440,12 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _parse_module_tree_or_none as _parse_module_tree_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
-    ReportProjectionSpec as _ReportProjectionSpec_owner,
+    ReportProjectionSpec,
     _compute_violations as _compute_violations_owner,
-    _report_section_identity_render as _report_section_identity_render_owner,
-    _report_section_no_violations as _report_section_no_violations_owner,
-    _report_section_spec as _report_section_spec_owner,
-    _report_section_text as _report_section_text_owner,
+    _report_section_identity_render,
+    _report_section_no_violations,
+    _report_section_spec,
+    _report_section_text,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
@@ -543,20 +543,6 @@ AuditConfig = _ContractAuditConfig
 
 _summarize_deadline_obligations = _summarize_deadline_obligations_owner
 
-
-_profiling_v1_payload = _profiling_v1_payload_owner
-
-ReportProjectionSpec = _ReportProjectionSpec_owner
-
-_report_section_identity_render = _report_section_identity_render_owner
-
-_report_section_no_violations = _report_section_no_violations_owner
-
-_report_section_text = _report_section_text_owner
-
-_report_section_spec = _report_section_spec_owner
-
-CallAmbiguity = _CallAmbiguity_owner
 
 _callee_name = _callee_name_owner
 
