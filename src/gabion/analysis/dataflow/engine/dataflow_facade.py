@@ -3,6 +3,17 @@ from __future__ import annotations
 
 """Facade compatibility module for legacy indexed-dataflow symbols."""
 
+# Temporary boundary adapter retained for external import compatibility.
+_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
+    "actor": "codex",
+    "rationale": "WS-5 hard-cut completed; retain facade alias surface while external importers migrate",
+    "scope": "dataflow_facade.alias_surface",
+    "start": "2026-03-05",
+    "expiry": "WS-5 compatibility-shim retirement",
+    "rollback_condition": "no external consumers require facade path aliases",
+    "evidence_links": ["docs/ws5_decomposition_ledger.md"],
+}
+
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _DeadlineFunctionFacts,
     _DeadlineLocalInfo,

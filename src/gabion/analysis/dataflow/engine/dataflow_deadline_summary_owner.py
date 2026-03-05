@@ -8,4 +8,15 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,
 )
 
+# Temporary boundary adapter retained for external import compatibility.
+_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
+    "actor": "codex",
+    "rationale": "WS-5 hard-cut completed; retain compatibility alias while external importers migrate",
+    "scope": "dataflow_deadline_summary_owner.alias_surface",
+    "start": "2026-03-05",
+    "expiry": "WS-5 compatibility-shim retirement",
+    "rollback_condition": "no external consumers require owner path aliases",
+    "evidence_links": ["docs/ws5_decomposition_ledger.md"],
+}
+
 __all__ = ["_summarize_deadline_obligations"]
