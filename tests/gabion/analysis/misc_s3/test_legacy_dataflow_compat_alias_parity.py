@@ -75,11 +75,21 @@ def _monolith_aliases_for(module_path: str) -> tuple[str, ...]:
 
 
 def _monolith_alias_bindings_for(module_path: str) -> tuple[tuple[str, str], ...]:
-    repo_root = Path(__file__).resolve().parents[4]
-    monolith_path = (
-        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    return _module_alias_bindings_for(
+        source_path=(
+            Path(__file__).resolve().parents[4]
+            / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+        ),
+        module_path=module_path,
     )
-    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
+
+
+def _module_alias_bindings_for(
+    *,
+    source_path: Path,
+    module_path: str,
+) -> tuple[tuple[str, str], ...]:
+    tree = ast.parse(source_path.read_text(encoding="utf-8"))
     bindings: list[tuple[str, str]] = []
     seen_bound_names: set[str] = set()
     for node in tree.body:
@@ -91,8 +101,39 @@ def _monolith_alias_bindings_for(module_path: str) -> tuple[tuple[str, str], ...
                 seen_bound_names.add(bound_name)
                 bindings.append((bound_name, alias.name))
     if not bindings:
-        raise AssertionError(f"monolith import surface not found for {module_path}")
+        raise AssertionError(
+            f"import surface not found for {module_path} in {source_path}"
+        )
     return tuple(bindings)
+
+
+def _module_alias_bindings_by_module(*, source_path: Path) -> dict[str, tuple[tuple[str, str], ...]]:
+    repo_root = Path(__file__).resolve().parents[4]
+    if not source_path.is_absolute():
+        source_path = repo_root / source_path
+    tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    by_module: dict[str, list[tuple[str, str]]] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = node.module or ""
+        if not module:
+            continue
+        by_module.setdefault(module, [])
+        for alias in node.names:
+            by_module[module].append((alias.asname or alias.name, alias.name))
+
+    normalized: dict[str, tuple[tuple[str, str], ...]] = {}
+    for module, bindings in by_module.items():
+        seen_bound_names: set[str] = set()
+        deduped: list[tuple[str, str]] = []
+        for bound_name, source_name in bindings:
+            if bound_name in seen_bound_names:
+                continue
+            seen_bound_names.add(bound_name)
+            deduped.append((bound_name, source_name))
+        normalized[module] = tuple(deduped)
+    return normalized
 
 
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
@@ -302,3 +343,28 @@ def test_facade_covers_monolith_reporting_alias_surface() -> None:
             "facade reporting symbol must remain an alias to canonical owner; "
             f"bound={bound_name} source={source_name}"
         )
+
+
+def test_facade_covers_all_common_monolith_import_surfaces() -> None:
+    repo_root = Path(__file__).resolve().parents[4]
+    monolith_path = (
+        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    )
+    facade_path = repo_root / "src/gabion/analysis/dataflow/engine/dataflow_facade.py"
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+
+    monolith_by_module = _module_alias_bindings_by_module(source_path=monolith_path)
+    facade_by_module = _module_alias_bindings_by_module(source_path=facade_path)
+
+    for module_path in sorted(set(monolith_by_module) & set(facade_by_module)):
+        canonical = _load(module_path)
+        facade_bound_names = {bound for bound, _ in facade_by_module[module_path]}
+        for bound_name, source_name in monolith_by_module[module_path]:
+            assert bound_name in facade_bound_names, (
+                "facade must cover all common monolith import surfaces; "
+                f"module={module_path} missing={bound_name}"
+            )
+            assert getattr(facade, bound_name) is getattr(canonical, source_name), (
+                "facade common-surface symbol must alias canonical source symbol; "
+                f"module={module_path} bound={bound_name} source={source_name}"
+            )
