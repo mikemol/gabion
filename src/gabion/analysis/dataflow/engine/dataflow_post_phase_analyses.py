@@ -44,7 +44,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleSuccess,
     _forbid_adhoc_bundle_discovery,
     _parse_module_tree,
-    _parse_module_tree_or_none as _parse_module_tree_or_none_owner,
+    _parse_module_tree_or_none,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details as _constant_smells_from_details_impl,
@@ -187,9 +187,6 @@ _NONE_TYPES = {"None", "NoneType", "type(None)"}
 
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
-
-
-_parse_module_tree_or_none = _parse_module_tree_or_none_owner
 
 
 def _simple_store_name(target: ast.AST):

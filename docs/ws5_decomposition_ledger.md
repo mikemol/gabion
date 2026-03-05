@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2573,6 +2573,19 @@ doc_scope:
     - Analysis-index resume payload behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-209`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase parse-helper alias contraction:
+    - Replaced owner-local parse alias shim in `dataflow_post_phase_analyses.py` with direct canonical import alias:
+      - `_parse_module_tree_or_none`
+    - Removed redundant assignment indirection from post-phase owner surface.
+  - Compatibility status:
+    - Post-phase parse/failure handling behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-210`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
