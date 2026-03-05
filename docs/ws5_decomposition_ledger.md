@@ -1,5 +1,5 @@
 ---
-doc_revision: 272
+doc_revision: 273
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,27 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-331`, this CU):
+  - Reduced facade wildcard re-export surface in:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - replaced wildcard imports with explicit symbol imports for:
+        - `dataflow_fingerprint_helpers`
+        - `dataflow_evidence_helpers`
+        - `dataflow_resume_serialization`
+        - `dataflow_lint_helpers`
+      - retained remaining wildcard re-exports only for larger owner bundles (`deadline_helpers`, `analysis_index`, `projection_materialization`, `post_phase_analyses`)
+  - Ratcheted facade wildcard budget:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - `_MAX_FACADE_WILDCARD_IMPORTS: 9 -> 4`
+  - Resulting facade metrics:
+    - wildcard imports `8 -> 4`
+    - LOC unchanged (`168`)
+    - top-level import statements unchanged
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy facade/compat parity tests passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 stability (`psi-4`, this CU):
   - Hardened contributor governance for hybrid DI and private-symbol import ratcheting in:
     - `CONTRIBUTING.md`
