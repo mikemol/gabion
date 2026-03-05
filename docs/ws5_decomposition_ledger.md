@@ -1,5 +1,5 @@
 ---
-doc_revision: 51
+doc_revision: 52
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -879,6 +879,27 @@ doc_scope:
   - Compatibility status:
     - Deadline-owner function-fact collection no longer routes through facade helper indirection.
   - ASPF no-change acknowledgement refreshed (`in-112`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner callee-outcome ownerization:
+    - `dataflow_deadline_runtime_owner._resolve_callee_outcome` now delegates to canonical indexed-scan owner:
+      - `indexed_scan.calls.callee_outcome_runtime.resolve_callee_outcome`
+    - Added owner-local callee-resolution adapters:
+      - `_is_dynamic_dispatch_callee_key`
+      - `_dedupe_resolution_candidates`
+    - Explicit owner deps now bind canonical callee-resolution surfaces:
+      - `CalleeResolutionContext`
+      - `resolve_callee_with_effects`
+      - `collect_callee_resolution_effects`
+      - `_callee_key`
+      - `_resolve_callee`
+    - Removed facade import dependency on `_resolve_callee_outcome`.
+  - Compatibility status:
+    - Deadline-owner callee-outcome resolution no longer routes through facade helper indirection.
+  - ASPF no-change acknowledgement refreshed (`in-113`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
