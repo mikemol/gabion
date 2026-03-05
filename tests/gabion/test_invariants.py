@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from gabion.analysis.foundation.marker_protocol import (
-    MarkerKind, MarkerLifecycleState, MarkerPayload, MarkerReasoning, SemanticLinkKind, SemanticReference)
+    MarkerKind,
+    MarkerLifecycleState,
+    MarkerPayload,
+    MarkerReasoning,
+    SemanticLinkKind,
+    SemanticReference,
+)
 from gabion import invariants
 from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
@@ -44,6 +50,35 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+def test_helper_functions_delegate_to_invariant_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object, dict[str, object]]] = []
+
+    def _fake_factory(marker_kind: str, reasoning: object = "", **env: object) -> None:
+        calls.append((marker_kind, reasoning, dict(env)))
+        raise NeverThrown("delegated")
+
+    monkeypatch.setattr(invariants, "invariant_factory", _fake_factory)
+
+    for helper, marker_kind in (
+        (invariants.never, "never"),
+        (invariants.todo, "todo"),
+        (invariants.deprecated, "deprecated"),
+    ):
+        with pytest.raises(NeverThrown):
+            helper("reason", owner="core")
+
+    assert calls == [
+        ("never", "", {"reason": "reason", "owner": "core"}),
+        ("todo", "", {"reason": "reason", "owner": "core"}),
+        ("deprecated", "", {"reason": "reason", "owner": "core"}),
+    ]
+
+
 def test_never_reasoning_boundary_normalizer_sets_summary_and_dependencies() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         invariants.never(
