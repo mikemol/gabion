@@ -1,8 +1,29 @@
 from __future__ import annotations
 
 import ast
+from types import SimpleNamespace
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
+from gabion.analysis.aspf.aspf import NodeId
+from gabion.analysis.dataflow.engine import dataflow_adapter_contract as adapter_contract
+from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_evidence_helpers as evidence_helpers
+from gabion.analysis.dataflow.engine import dataflow_function_index_decision_support as decision_support
+from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
+
+da = SimpleNamespace(
+    NodeId=NodeId,
+    _annotation_exception_candidates=post_phase._annotation_exception_candidates,
+    _collect_module_exports=evidence_helpers._collect_module_exports,
+    _decorator_name=decision_support._decorator_name,
+    _keyword_links_literal=post_phase._keyword_links_literal,
+    _keyword_string_literal=post_phase._keyword_string_literal,
+    _phase_work_progress=index_owner._phase_work_progress,
+    _refine_exception_name_from_annotations=post_phase._refine_exception_name_from_annotations,
+    _split_top_level=post_phase._split_top_level,
+    _stage_cache_key_aliases=index_owner._stage_cache_key_aliases,
+    _type_from_const_repr=post_phase._type_from_const_repr,
+    parse_adapter_capabilities=adapter_contract.parse_adapter_capabilities,
+)
 
 
 def _expr(source: str) -> ast.AST:
