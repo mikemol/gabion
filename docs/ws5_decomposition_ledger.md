@@ -1,5 +1,5 @@
 ---
-doc_revision: 68
+doc_revision: 69
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2661
+- Monolith LOC (current): 2517
 - Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1179,6 +1179,26 @@ doc_scope:
     - monolith LOC `2661` (target `<=3200`)
     - monolith top-level imports `68` (target `<=70`)
     - direct monolith imports `src=0`, `tests=0`
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-wrapper owner hard-cut:
+    - Monolith wrapper bodies replaced by direct owner aliases for:
+      - `_collect_deadline_local_info`
+      - `_collect_deadline_function_facts`
+      - `_deadline_function_facts_for_tree`
+      - `_collect_call_nodes_by_path`
+      - `_call_nodes_for_tree`
+      - `_collect_call_edges`
+    - `dataflow_deadline_runtime_owner._collect_call_edges` signature expanded to preserve compatibility override (`resolve_callee_outcome_fn`) used by monolith call sites/tests.
+    - Removed redundant monolith runtime imports for call-node materialization internals now owned by deadline runtime owner.
+  - Compatibility status:
+    - Deadline call-edge/local-info/facts orchestration is owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2517`; top-level imports remain within target (`68`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-129`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.

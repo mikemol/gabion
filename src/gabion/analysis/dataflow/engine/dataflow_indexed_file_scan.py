@@ -330,6 +330,14 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _sorted_text,
     _stage_cache_key_aliases,
 )
+from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+    _call_nodes_for_tree as _call_nodes_for_tree_owner,
+    _collect_call_edges as _collect_call_edges_owner,
+    _collect_call_nodes_by_path as _collect_call_nodes_by_path_owner,
+    _collect_deadline_function_facts as _collect_deadline_function_facts_owner,
+    _collect_deadline_local_info as _collect_deadline_local_info_owner,
+    _deadline_function_facts_for_tree as _deadline_function_facts_for_tree_owner,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
@@ -370,8 +378,6 @@ from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     ResolveCalleeDeps as _ResolveCalleeDeps, resolve_callee as _resolve_callee_impl, resolve_callee_outcome as _resolve_callee_outcome_impl, resolve_callee_outcome_from_runtime_module as _resolve_callee_outcome_impl_runtime)
-from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
-    CallNodesForTreeDeps as _CallNodesForTreeDeps, CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps, call_nodes_for_tree as _call_nodes_for_tree_impl, collect_call_nodes_by_path as _collect_call_nodes_by_path_impl)
 from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
 _AST_UNPARSE_ERROR_TYPES = (
@@ -1395,162 +1401,12 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
-
-def _collect_deadline_local_info(
-    assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]],
-    params: set[str],
-) -> _DeadlineLocalInfo:
-    from gabion.analysis.indexed_scan.deadline.deadline_local_info import (
-        CollectDeadlineLocalInfoDeps as _CollectDeadlineLocalInfoDeps)
-    from gabion.analysis.indexed_scan.deadline.deadline_local_info import (
-        collect_deadline_local_info as _collect_deadline_local_info_impl)
-
-    return cast(
-        _DeadlineLocalInfo,
-        _collect_deadline_local_info_impl(
-            assignments,
-            params,
-            deps=_CollectDeadlineLocalInfoDeps(
-                check_deadline_fn=check_deadline,
-                is_deadline_origin_call_fn=_is_deadline_origin_call,
-                target_names_fn=_target_names,
-                deadline_local_info_ctor=_DeadlineLocalInfo,
-            ),
-        ),
-    )
-
-def _collect_deadline_function_facts(
-    paths: list[Path],
-    *,
-    project_root = None,
-    ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
-    trees = None,
-    analysis_index = None,
-    stage_cache_fn = None,
-) -> dict[str, _DeadlineFunctionFacts]:
-    from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
-        collect_deadline_function_facts_from_runtime_module as _collect_deadline_function_facts_impl)
-
-    return cast(
-        dict[str, _DeadlineFunctionFacts],
-        _collect_deadline_function_facts_impl(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            parse_failure_witnesses=parse_failure_witnesses,
-            trees=trees,
-            analysis_index=analysis_index,
-            stage_cache_fn=stage_cache_fn,
-            runtime_module=sys.modules[__name__],
-        ),
-    )
-
-def _deadline_function_facts_for_tree(
-    path: Path,
-    tree: ast.AST,
-    *,
-    project_root,
-    ignore_params: set[str],
-) -> dict[str, _DeadlineFunctionFacts]:
-    check_deadline()
-    parents = ParentAnnotator()
-    parents.visit(tree)
-    module = _module_name(path, project_root)
-    facts: dict[str, _DeadlineFunctionFacts] = {}
-    for fn in _collect_functions(tree):
-        check_deadline()
-        scopes = _enclosing_scopes(fn, parents.parents)
-        qual_parts = [module] if module else []
-        if scopes:
-            qual_parts.extend(scopes)
-        qual_parts.append(fn.name)
-        qual = ".".join(qual_parts)
-        params = set(_param_names(fn, ignore_params))
-        collector = _DeadlineFunctionCollector(fn, params)
-        collector.visit(fn)
-        local_info = _collect_deadline_local_info(collector.assignments, params)
-        facts[qual] = _DeadlineFunctionFacts(
-            path=path,
-            qual=qual,
-            span=_node_span(fn),
-            loop=collector.loop,
-            check_params=set(collector.check_params),
-            ambient_check=collector.ambient_check,
-            loop_sites=list(collector.loop_sites),
-            local_info=local_info,
-        )
-    return facts
-
-def _collect_call_nodes_by_path(
-    paths: list[Path],
-    *,
-    trees = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
-    return cast(
-        dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]],
-        _collect_call_nodes_by_path_impl(
-            paths,
-            trees=trees,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-            deps=_CollectCallNodesByPathDeps(
-                check_deadline_fn=check_deadline,
-                analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-                stage_cache_spec_ctor=_StageCacheSpec,
-                parse_module_stage_call_nodes=_ParseModuleStage.CALL_NODES,
-                parse_stage_cache_key_fn=_parse_stage_cache_key,
-                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-                call_nodes_for_tree_fn=_call_nodes_for_tree,
-                parse_module_tree_fn=_parse_module_tree,
-            ),
-        ),
-    )
-
-def _call_nodes_for_tree(
-    tree: ast.AST,
-) -> dict[tuple[int, int, int, int], list[ast.Call]]:
-    return cast(
-        dict[tuple[int, int, int, int], list[ast.Call]],
-        _call_nodes_for_tree_impl(
-            tree,
-            deps=_CallNodesForTreeDeps(
-                check_deadline_fn=check_deadline,
-                node_span_fn=_node_span,
-            ),
-        ),
-    )
-
-def _collect_call_edges(
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    symbol_table: SymbolTable,
-    project_root,
-    class_index: dict[str, ClassInfo],
-    resolve_callee_outcome_fn = None,
-) -> dict[str, set[str]]:
-    from gabion.analysis.indexed_scan.calls.call_edges import CollectCallEdgesDeps as _CollectCallEdgesDeps
-    from gabion.analysis.indexed_scan.calls.call_edges import collect_call_edges as _collect_call_edges_impl
-
-    return cast(
-        dict[str, set[str]],
-        _collect_call_edges_impl(
-            by_name=cast(dict[str, list[object]], by_name),
-            by_qual=cast(dict[str, object], by_qual),
-            symbol_table=symbol_table,
-            project_root=project_root,
-            class_index=cast(dict[str, object], class_index),
-            resolve_callee_outcome_fn=resolve_callee_outcome_fn
-            or _resolve_callee_outcome,
-            deps=_CollectCallEdgesDeps(
-                check_deadline_fn=check_deadline,
-                is_test_path_fn=_is_test_path,
-            ),
-        ),
-    )
+_collect_deadline_local_info = _collect_deadline_local_info_owner
+_collect_deadline_function_facts = _collect_deadline_function_facts_owner
+_deadline_function_facts_for_tree = _deadline_function_facts_for_tree_owner
+_collect_call_nodes_by_path = _collect_call_nodes_by_path_owner
+_call_nodes_for_tree = _call_nodes_for_tree_owner
+_collect_call_edges = _collect_call_edges_owner
 
 def _function_suite_key(path: str, qual: str) -> _FunctionSuiteKey:
     return cast(_FunctionSuiteKey, _function_suite_key_impl(path, qual))

@@ -146,14 +146,16 @@ def _collect_call_edges(
     symbol_table,
     project_root,
     class_index,
+    resolve_callee_outcome_fn=None,
 ):
+    resolver = resolve_callee_outcome_fn or _resolve_callee_outcome
     return _collect_call_edges_impl(
         by_name=by_name,
         by_qual=by_qual,
         symbol_table=symbol_table,
         project_root=project_root,
         class_index=class_index,
-        resolve_callee_outcome_fn=_resolve_callee_outcome,
+        resolve_callee_outcome_fn=resolver,
         deps=_CollectCallEdgesDeps(
             check_deadline_fn=check_deadline,
             is_test_path_fn=_is_test_path,
@@ -344,12 +346,14 @@ __all__ = [
     "_DeadlineFunctionFacts",
     "_DeadlineLoopFacts",
     "_build_analysis_index",
+    "_call_nodes_for_tree",
     "_collect_call_edges",
     "_collect_call_nodes_by_path",
     "_collect_deadline_function_facts",
     "_collect_deadline_local_info",
     "_collect_recursive_functions",
     "_collect_recursive_nodes",
+    "_deadline_function_facts_for_tree",
     "_normalize_snapshot_path",
     "_reachable_from_roots",
     "_resolve_callee_outcome",
