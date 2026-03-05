@@ -15,8 +15,11 @@ from typer.testing import CliRunner
 
 from gabion import cli
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.commands import check_contract
 from gabion.commands import progress_contract as progress_timeline
 from gabion.commands import transport_policy
+from gabion.cli_support.check import check_runtime
+from gabion.cli_support.synth import synth_runtime
 from gabion.exceptions import NeverThrown
 from gabion.runtime import env_policy
 from gabion.tooling.runtime import tool_specs
@@ -1893,6 +1896,130 @@ def test_legacy_dataflow_monolith_emits_fingerprint_outputs(capsys) -> None:
     assert "\"plan_id\"" in captured.out
     assert "\"exception_path_id\"" in captured.out
     assert "\"handledness_id\"" in captured.out
+
+
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_check::aspf_delta_jsonl,aspf_equivalence_against,aspf_import_state,aspf_import_trace,aspf_opportunities_json,aspf_semantic_surface,aspf_state_json,aspf_trace_json,exclude,filter_bundle,paths,root,strictness E:decision_surface/direct::cli.py::gabion.cli._run_synth::aspf_delta_jsonl,aspf_equivalence_against,aspf_import_state,aspf_import_trace,aspf_opportunities_json,aspf_semantic_surface,aspf_state_json,aspf_trace_json,exclude,filter_bundle,paths,root,strictness
+def test_check_and_synth_encode_common_payload_fields_identically(tmp_path: Path) -> None:
+    check_payload: dict[str, object] = {}
+    synth_payload: dict[str, object] = {}
+
+    def _dispatch_check(*, payload: dict[str, object], **_kwargs: object) -> dict[str, object]:
+        check_payload.update(payload)
+        return {"exit_code": 0}
+
+    def _dispatch_synth(*, payload: dict[str, object], **_kwargs: object) -> dict[str, object]:
+        synth_payload.update(payload)
+        return {"exit_code": 0}
+
+    policy = check_contract.CheckPolicyFlags(
+        fail_on_violations=False,
+        fail_on_type_ambiguities=False,
+        lint=False,
+    )
+    artifact_flags = check_contract.CheckArtifactFlags(
+        emit_test_obsolescence=False,
+        emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
+        emit_call_cluster_consolidation=False,
+        emit_test_annotation_drift=False,
+    )
+    delta_options = check_contract.CheckDeltaOptions(
+        obsolescence_mode=check_contract.CheckAuxMode(kind="off"),
+        annotation_drift_mode=check_contract.CheckAuxMode(kind="off"),
+        ambiguity_mode=check_contract.CheckAuxMode(kind="off"),
+        semantic_coverage_mapping=None,
+    )
+    filter_bundle = check_contract.DataflowFilterBundle("x, y", "deco")
+    common_paths = [tmp_path / "pkg"]
+    root = tmp_path
+    aspf_trace_json = tmp_path / "trace.json"
+    aspf_import_trace = [tmp_path / "trace_a.json"]
+    aspf_equivalence_against = [tmp_path / "equiv.json"]
+    aspf_opportunities_json = tmp_path / "opp.json"
+    aspf_state_json = tmp_path / "state.json"
+    aspf_import_state = [tmp_path / "state_import.json"]
+    aspf_delta_jsonl = tmp_path / "delta.jsonl"
+    aspf_semantic_surface = ["bundle", "state"]
+
+    check_runtime.run_check(
+        paths=common_paths,
+        report=tmp_path / "check_report.md",
+        policy=policy,
+        root=root,
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        artifact_flags=artifact_flags,
+        delta_options=delta_options,
+        exclude=["a, b"],
+        filter_bundle=filter_bundle,
+        allow_external=None,
+        strictness="high",
+        runner=lambda *_a, **_k: {"exit_code": 0},
+        resolve_check_report_path_fn=lambda report, *, root: report or (root / "report.md"),
+        build_check_payload_fn=check_contract.build_check_payload,
+        build_check_execution_plan_request_fn=lambda **_kwargs: object(),
+        dispatch_command_fn=_dispatch_check,
+        dataflow_command="dataflow.check",
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_semantic_surface=aspf_semantic_surface,
+    )
+
+    synth_runtime.run_synth(
+        paths=common_paths,
+        root=root,
+        out_dir=tmp_path / "synth_out",
+        no_timestamp=True,
+        config=None,
+        exclude=["a, b"],
+        filter_bundle=filter_bundle,
+        allow_external=None,
+        strictness="high",
+        no_recursive=False,
+        max_components=3,
+        type_audit_report=True,
+        type_audit_max=5,
+        synthesis_max_tier=2,
+        synthesis_min_bundle_size=1,
+        synthesis_allow_singletons=False,
+        synthesis_protocols_kind="dataclass",
+        refactor_plan=False,
+        fail_on_violations=False,
+        runner=lambda *_a, **_k: {"exit_code": 0},
+        dispatch_command_fn=_dispatch_synth,
+        check_deadline_fn=lambda: None,
+        dataflow_command="dataflow.synth",
+        aspf_trace_json=aspf_trace_json,
+        aspf_import_trace=aspf_import_trace,
+        aspf_equivalence_against=aspf_equivalence_against,
+        aspf_opportunities_json=aspf_opportunities_json,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+        aspf_delta_jsonl=aspf_delta_jsonl,
+        aspf_semantic_surface=aspf_semantic_surface,
+    )
+
+    for key in (
+        "paths",
+        "root",
+        "strictness",
+        "aspf_trace_json",
+        "aspf_import_trace",
+        "aspf_equivalence_against",
+        "aspf_opportunities_json",
+        "aspf_state_json",
+        "aspf_import_state",
+        "aspf_delta_jsonl",
+        "aspf_semantic_surface",
+    ):
+        assert synth_payload[key] == check_payload[key]
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synth::config,exclude,filter_bundle,no_timestamp,paths,refactor_plan,strictness,synthesis_protocols_kind

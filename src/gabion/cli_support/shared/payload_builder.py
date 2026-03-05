@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -13,6 +14,69 @@ from gabion.json_types import JSONObject
 
 NormalizeOptionalOutputTargetFn = Callable[[object], str | None]
 BuildDataflowPayloadCommonFn = Callable[..., JSONObject]
+
+
+@dataclass(frozen=True)
+class SynthPayloadOptions:
+    no_recursive: bool
+    max_components: int
+    type_audit_report: bool
+    type_audit_max: int
+    synthesis_plan: Path
+    synthesis_report: bool
+    synthesis_protocols: Path
+    synthesis_protocols_kind: str
+    synthesis_max_tier: int
+    synthesis_min_bundle_size: int
+    synthesis_allow_singletons: bool
+    refactor_plan: bool
+    refactor_plan_json: Path | None
+    fingerprint_synth_json: Path
+    fingerprint_provenance_json: Path
+    fingerprint_coherence_json: Path
+    fingerprint_rewrite_plans_json: Path
+    fingerprint_exception_obligations_json: Path
+    fingerprint_handledness_json: Path
+
+
+def build_synth_payload(
+    *,
+    options: DataflowPayloadCommonOptions,
+    synth_options: SynthPayloadOptions,
+    build_dataflow_payload_common_fn: BuildDataflowPayloadCommonFn,
+) -> JSONObject:
+    payload = build_dataflow_payload_common_fn(options=options)
+    payload.update(
+        {
+            "dot": None,
+            "no_recursive": synth_options.no_recursive,
+            "max_components": synth_options.max_components,
+            "type_audit_report": synth_options.type_audit_report,
+            "type_audit_max": synth_options.type_audit_max,
+            "synthesis_plan": str(synth_options.synthesis_plan),
+            "synthesis_report": synth_options.synthesis_report,
+            "synthesis_protocols": str(synth_options.synthesis_protocols),
+            "synthesis_protocols_kind": synth_options.synthesis_protocols_kind,
+            "synthesis_max_tier": synth_options.synthesis_max_tier,
+            "synthesis_min_bundle_size": synth_options.synthesis_min_bundle_size,
+            "synthesis_allow_singletons": synth_options.synthesis_allow_singletons,
+            "refactor_plan": synth_options.refactor_plan,
+            "refactor_plan_json": str(synth_options.refactor_plan_json)
+            if synth_options.refactor_plan_json is not None
+            else None,
+            "fingerprint_synth_json": str(synth_options.fingerprint_synth_json),
+            "fingerprint_provenance_json": str(synth_options.fingerprint_provenance_json),
+            "fingerprint_coherence_json": str(synth_options.fingerprint_coherence_json),
+            "fingerprint_rewrite_plans_json": str(
+                synth_options.fingerprint_rewrite_plans_json
+            ),
+            "fingerprint_exception_obligations_json": str(
+                synth_options.fingerprint_exception_obligations_json
+            ),
+            "fingerprint_handledness_json": str(synth_options.fingerprint_handledness_json),
+        }
+    )
+    return payload
 
 
 def build_dataflow_payload(
