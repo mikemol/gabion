@@ -49,3 +49,44 @@ def test_analysis_timeout_budget_parity() -> None:
     assert server._analysis_timeout_budget_ns(payload) == (
         command_orchestrator_primitives._analysis_timeout_budget_ns(payload)
     )
+
+
+def test_flush_decision_helpers_parity() -> None:
+    checkpoint_kwargs = {
+        "intro_changed": False,
+        "remaining_files": 2,
+        "semantic_substantive_progress": True,
+        "now_ns": 5_000_000_000,
+        "last_flush_ns": 3_000_000_000,
+    }
+    assert server._collection_checkpoint_flush_due(**checkpoint_kwargs) == (
+        command_orchestrator_primitives._collection_checkpoint_flush_due(**checkpoint_kwargs)
+    )
+
+    report_kwargs = {
+        "completed_files": 9,
+        "remaining_files": 1,
+        "now_ns": 20_000_000_000,
+        "last_flush_ns": 5_000_000_000,
+        "last_flush_completed": 0,
+    }
+    assert server._collection_report_flush_due(**report_kwargs) == (
+        command_orchestrator_primitives._collection_report_flush_due(**report_kwargs)
+    )
+
+    assert server._projection_phase_flush_due(
+        phase="post",
+        now_ns=0,
+        last_flush_ns=10_000_000_000,
+    ) == command_orchestrator_primitives._projection_phase_flush_due(
+        phase="post",
+        now_ns=0,
+        last_flush_ns=10_000_000_000,
+    )
+
+
+def test_progress_heartbeat_seconds_parity() -> None:
+    payload = {"progress_heartbeat_seconds": "4"}
+    assert server._progress_heartbeat_seconds(payload) == (
+        command_orchestrator_primitives._progress_heartbeat_seconds(payload)
+    )
