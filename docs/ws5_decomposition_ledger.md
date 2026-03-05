@@ -1,5 +1,5 @@
 ---
-doc_revision: 118
+doc_revision: 119
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2088,6 +2088,23 @@ doc_scope:
     - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-178`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime compatibility-shim consolidation:
+    - Consolidated call-edge and call-candidate wrappers onto static dep-bound delegates:
+      - `_collect_call_edges_with_static_deps`
+      - `_materialize_call_candidates_with_static_deps`
+    - Preserved boundary compatibility by retaining explicit `None`-to-default resolver coercion in:
+      - `_collect_call_edges`
+      - `_materialize_call_candidates`
+    - Removed dead imports from owner module (`Mapping`, `JSONObject`) surfaced by prior wrapper hard-cuts.
+  - Compatibility status:
+    - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-179`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

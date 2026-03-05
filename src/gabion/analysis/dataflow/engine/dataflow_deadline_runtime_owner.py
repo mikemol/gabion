@@ -6,7 +6,6 @@ from __future__ import annotations
 from functools import partial
 from pathlib import Path
 import re
-from collections.abc import Mapping
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
@@ -53,7 +52,6 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path,
 )
-from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleFailure,
     _ParseModuleStage,
@@ -170,6 +168,11 @@ _COLLECT_CALL_EDGES_DEPS = _CollectCallEdgesDeps(
     is_test_path_fn=_is_test_path,
 )
 
+_collect_call_edges_with_static_deps = partial(
+    _collect_call_edges_impl,
+    deps=_COLLECT_CALL_EDGES_DEPS,
+)
+
 
 def _collect_call_edges(
     *,
@@ -180,15 +183,18 @@ def _collect_call_edges(
     class_index,
     resolve_callee_outcome_fn=None,
 ):
-    resolver = resolve_callee_outcome_fn or _resolve_callee_outcome
-    return _collect_call_edges_impl(
+    resolver = (
+        _resolve_callee_outcome
+        if resolve_callee_outcome_fn is None
+        else resolve_callee_outcome_fn
+    )
+    return _collect_call_edges_with_static_deps(
         by_name=by_name,
         by_qual=by_qual,
         symbol_table=symbol_table,
         project_root=project_root,
         class_index=class_index,
         resolve_callee_outcome_fn=resolver,
-        deps=_COLLECT_CALL_EDGES_DEPS,
     )
 
 
@@ -373,6 +379,11 @@ _collect_call_resolution_obligation_details_from_forest = (
 
 _call_candidate_target_site = _call_candidate_target_site_impl
 
+_materialize_call_candidates_with_static_deps = partial(
+    _materialize_call_candidates_impl,
+    normalize_snapshot_path_fn=_normalize_snapshot_path,
+)
+
 
 def _materialize_call_candidates(
     *,
@@ -384,8 +395,12 @@ def _materialize_call_candidates(
     class_index: dict[str, object],
     resolve_callee_outcome_fn=None,
 ) -> None:
-    resolver = resolve_callee_outcome_fn or _resolve_callee_outcome
-    _materialize_call_candidates_impl(
+    resolver = (
+        _resolve_callee_outcome
+        if resolve_callee_outcome_fn is None
+        else resolve_callee_outcome_fn
+    )
+    _materialize_call_candidates_with_static_deps(
         forest=forest,
         by_name=by_name,
         by_qual=by_qual,
@@ -393,7 +408,6 @@ def _materialize_call_candidates(
         project_root=project_root,
         class_index=class_index,
         resolve_callee_outcome_fn=resolver,
-        normalize_snapshot_path_fn=_normalize_snapshot_path,
     )
 
 
