@@ -222,6 +222,8 @@ _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
     version=1,
     scope="gabion.analysis.dataflow_indexed_file_scan",
 )
+_ANALYSIS_PROFILING_FORMAT_VERSION = 1
+_PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 
@@ -414,26 +416,34 @@ _accumulate_class_index_for_tree_runtime = partial(
 
 
 def _iter_monotonic_paths_owner(paths, *, source: str):
-    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-        _iter_monotonic_paths as _iter_monotonic_paths_impl,
-    )
-
-    return _iter_monotonic_paths_impl(paths, source=source)
+    ordered: list[Path] = []
+    previous_path_key = ""
+    has_previous_path_key = False
+    for path in paths:
+        check_deadline()
+        path_key = str(path)
+        if has_previous_path_key and previous_path_key > path_key:
+            never(
+                "path order regression",
+                source=source,
+                previous_path=previous_path_key,
+                current_path=path_key,
+            )
+        previous_path_key = path_key
+        has_previous_path_key = True
+        ordered.append(path)
+    return ordered
 
 
 def _profiling_v1_payload_owner(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
-    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-        _profiling_v1_payload as _profiling_v1_payload_impl,
-    )
-
-    return _profiling_v1_payload_impl(stage_ns=stage_ns, counters=counters)
+    return {
+        "format_version": _ANALYSIS_PROFILING_FORMAT_VERSION,
+        "stage_ns": {str(key): int(stage_ns[key]) for key in stage_ns},
+        "counters": {str(key): int(counters[key]) for key in counters},
+    }
 
 
 def _progress_emit_min_interval_seconds_owner() -> float:
-    from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-        _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    )
-
     return float(_PROGRESS_EMIT_MIN_INTERVAL_SECONDS)
 
 
