@@ -154,6 +154,8 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _sorted_graph_nodes,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _constant_smells_from_details as _constant_smells_from_details_owner,
+    _deadness_witnesses_from_constant_details as _deadness_witnesses_from_constant_details_owner,
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
     _internal_broad_type_lint_lines,
@@ -164,6 +166,11 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _lint_lines_from_unused_arg_smells,
     _normalize_type_name,
     _parse_exception_path_id,
+)
+from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
+    _collect_local_class_bases as _collect_local_class_bases_owner,
+    _local_class_name as _local_class_name_owner,
+    _resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _PARSE_MODULE_ERROR_TYPES,
@@ -376,13 +383,16 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _deadline_arg_info_map as _deadline_arg_info_map_owner,
     _deadline_loop_forwarded_params as _deadline_loop_forwarded_params_owner,
     _deadline_function_facts_for_tree as _deadline_function_facts_for_tree_owner,
+    _dedupe_resolution_candidates as _dedupe_resolution_candidates_owner,
     _fallback_deadline_arg_info as _fallback_deadline_arg_info_owner,
     _function_suite_id as _function_suite_id_owner,
     _function_suite_key as _function_suite_key_owner,
+    _is_dynamic_dispatch_callee_key as _is_dynamic_dispatch_callee_key_owner,
     _materialize_call_candidates as _materialize_call_candidates_owner,
     _node_to_function_suite_id as _node_to_function_suite_id_owner,
     _node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_owner,
     _obligation_candidate_suite_ids as _obligation_candidate_suite_ids_owner,
+    _resolve_callee_outcome as _resolve_callee_outcome_owner,
     _suite_caller_function_id as _suite_caller_function_id_owner,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
@@ -419,7 +429,9 @@ from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry im
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
-    ResolveCalleeDeps as _ResolveCalleeDeps, resolve_callee as _resolve_callee_impl, resolve_callee_outcome as _resolve_callee_outcome_impl, resolve_callee_outcome_from_runtime_module as _resolve_callee_outcome_impl_runtime)
+    ResolveCalleeDeps as _ResolveCalleeDeps,
+    resolve_callee as _resolve_callee_impl,
+)
 from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
 _AST_UNPARSE_ERROR_TYPES = (
@@ -887,41 +899,9 @@ def _decorators_transparent(
 ) -> bool:
     return _decorators_transparent_owner(fn, transparent_decorators)
 
-def _collect_local_class_bases(
-    tree: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> dict[str, list[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
-        _collect_local_class_bases as _collect_local_class_bases_impl,
-    )
-
-    return _collect_local_class_bases_impl(tree, parents)
-
-def _local_class_name(base: str, class_bases: dict[str, list[str]]):
-    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
-        _local_class_name as _local_class_name_impl,
-    )
-
-    return _local_class_name_impl(base, class_bases)
-
-def _resolve_local_method_in_hierarchy(
-    class_name: str,
-    method: str,
-    *,
-    class_bases: dict[str, list[str]],
-    local_functions: set[str],
-    seen: set[str],
-):
-    from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
-        _resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_owner,
-    )
-
-    return _resolve_local_method_in_hierarchy_owner(
-        class_name,
-        method,
-        class_bases=class_bases,
-        local_functions=local_functions,
-        seen=seen,
-    )
+_collect_local_class_bases = _collect_local_class_bases_owner
+_local_class_name = _local_class_name_owner
+_resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
 def _param_names(
     fn: FunctionNode,
@@ -1850,38 +1830,11 @@ def _resolve_callee(
         ),
     )
 
-def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
-    """Classify obvious syntax-level dynamic-dispatch call shapes."""
-    check_deadline()
-    text = callee_key.strip()
-    if not text:
-        return False
-    if text.startswith("getattr("):
-        return True
-    if "." not in text:
-        return False
-    base, _, _ = text.partition(".")
-    base = base.strip()
-    if not base or base in {"self", "cls"}:
-        return False
-    if any(token in base for token in ("(", "[", "{")):
-        return True
-    if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", base) is None:
-        return True
-    return False
+_is_dynamic_dispatch_callee_key = _is_dynamic_dispatch_callee_key_owner
 
 _CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
 
-def _dedupe_resolution_candidates(
-    candidates: Iterable[FunctionInfo],
-) -> tuple[FunctionInfo, ...]:
-    deduped: dict[str, FunctionInfo] = {}
-    for candidate in candidates:
-        check_deadline()
-        if _is_test_path(candidate.path):
-            continue
-        deduped[candidate.qual] = candidate
-    return tuple(sort_once(deduped.values(), key=lambda info: info.qual, source = 'gabion.analysis.dataflow_indexed_file_scan._dedupe_resolution_candidates.site_1'))
+_dedupe_resolution_candidates = _dedupe_resolution_candidates_owner
 
 def _resolve_callee_outcome(
     callee_key: str,
@@ -1898,7 +1851,7 @@ def _resolve_callee_outcome(
 ) -> _CalleeResolutionOutcome:
     return cast(
         _CalleeResolutionOutcome,
-        _resolve_callee_outcome_impl_runtime(
+        _resolve_callee_outcome_owner(
             callee_key,
             caller,
             by_name,
@@ -1909,7 +1862,6 @@ def _resolve_callee_outcome(
             call=call,
             local_lambda_bindings=local_lambda_bindings,
             resolve_callee_fn=resolve_callee_fn,
-            runtime_module=sys.modules[__name__],
         ),
     )
 
@@ -1951,18 +1903,17 @@ class ConstantFlowDetail:
 def _constant_smells_from_details(
     details: Iterable[ConstantFlowDetail],
 ) -> list[str]:
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _constant_smells_from_details as _impl
-
-    return _impl(details)
+    return _constant_smells_from_details_owner(details)
 
 def _deadness_witnesses_from_constant_details(
     details: Iterable[ConstantFlowDetail],
     *,
     project_root,
 ) -> list[JSONObject]:
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _deadness_witnesses_from_constant_details as _impl
-
-    return _impl(details, project_root=project_root)
+    return _deadness_witnesses_from_constant_details_owner(
+        details,
+        project_root=project_root,
+    )
 
 
 _iter_documented_bundles = _iter_documented_bundles_owner

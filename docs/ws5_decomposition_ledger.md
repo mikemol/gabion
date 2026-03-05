@@ -1,5 +1,5 @@
 ---
-doc_revision: 75
+doc_revision: 76
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1323,6 +1323,27 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Callee-outcome and local-hierarchy wrapper contraction:
+    - Monolith helper surfaces routed to canonical owner modules:
+      - `_is_dynamic_dispatch_callee_key`
+      - `_dedupe_resolution_candidates`
+      - `_resolve_callee_outcome` (delegates to deadline-owner resolver while preserving caller-provided `resolve_callee_fn`)
+      - `_collect_local_class_bases`
+      - `_local_class_name`
+      - `_resolve_local_method_in_hierarchy`
+      - `_constant_smells_from_details`
+      - `_deadness_witnesses_from_constant_details`
+    - Removed now-unused runtime-module callee-outcome imports from monolith.
+  - Compatibility status:
+    - Resolver/hierarchy/lint helper surfaces are owner-canonicalized; monolith keeps boundary delegates only.
+    - Monolith LOC dropped to `2025`; top-level imports now `69`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-136`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
