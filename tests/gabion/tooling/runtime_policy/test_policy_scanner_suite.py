@@ -45,6 +45,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="server_orchestrator_helper_duplicates") == []
 
     second = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
@@ -120,6 +121,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     )
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
+    assert normalized["server_orchestrator_helper_duplicates"] == []
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -292,6 +294,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="server_orchestrator_helper_duplicates") == []
 
 
 def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path: Path) -> None:
@@ -304,3 +307,25 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
     violations = policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel")
     assert violations
     assert any(item.get("kind") == "line_threshold" for item in violations)
+
+
+
+def test_policy_scanner_suite_flags_duplicate_server_orchestrator_helpers(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/server.py",
+        "def _normalize_dataflow_response(response):\n    return response\n",
+    )
+    _write(
+        root / "src/gabion/server_core/command_orchestrator_primitives.py",
+        "def _normalize_dataflow_response(response):\n    return response\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="server_orchestrator_helper_duplicates",
+    )
+    assert len(violations) == 1
+    assert violations[0]["kind"] == "duplicate_helper"
+    assert violations[0]["qualname"] == "_normalize_dataflow_response"

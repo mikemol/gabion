@@ -115,19 +115,6 @@ def _is_stdout_target(target: object) -> bool:
     return runtime_contract.is_stdout_target(target)
 
 
-def _analysis_resume_cache_verdict(
-    *,
-    status: str | None,
-    reused_files: int,
-    compatibility_status: str | None,
-) -> Literal["hit", "miss", "invalidated", "seeded"]:
-    return orchestrator_primitives._analysis_resume_cache_verdict(
-        status=status,
-        reused_files=reused_files,
-        compatibility_status=compatibility_status,
-    )
-
-
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
     return runtime_contract.deadline_tick_budget_allows_check(clock)
 
@@ -142,6 +129,14 @@ _analysis_input_manifest_digest = (
 _collection_semantic_progress = orchestrator_primitives._collection_semantic_progress
 _materialize_execution_plan = orchestrator_primitives._materialize_execution_plan
 _default_execute_command_deps = orchestrator_primitives._default_execute_command_deps
+_analysis_resume_cache_verdict = orchestrator_primitives._analysis_resume_cache_verdict
+_phase_timeline_md_path = orchestrator_primitives._phase_timeline_md_path
+_phase_timeline_jsonl_path = orchestrator_primitives._phase_timeline_jsonl_path
+_phase_timeline_header_columns = orchestrator_primitives._phase_timeline_header_columns
+_phase_timeline_header_block = orchestrator_primitives._phase_timeline_header_block
+_normalize_dataflow_response = orchestrator_primitives._normalize_dataflow_response
+_analysis_timeout_total_ns = orchestrator_primitives._analysis_timeout_total_ns
+_analysis_timeout_budget_ns = orchestrator_primitives._analysis_timeout_budget_ns
 
 
 def _collection_checkpoint_flush_due(
@@ -1146,14 +1141,6 @@ def _render_incremental_report(
     return "\n".join(lines).rstrip() + "\n", pending_reasons
 
 
-def _phase_timeline_md_path(*, root: Path) -> Path:
-    return root / _DEFAULT_PHASE_TIMELINE_MD
-
-
-def _phase_timeline_jsonl_path(*, root: Path) -> Path:
-    return root / _DEFAULT_PHASE_TIMELINE_JSONL
-
-
 def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
     return runtime_contract.progress_heartbeat_seconds(payload)
 
@@ -1219,14 +1206,6 @@ def _append_phase_timeline_event(
     with jsonl_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(progress_value, sort_keys=False) + "\n")
     return header_block, row_line
-
-
-def _phase_timeline_header_columns() -> list[str]:
-    return progress_timeline.phase_timeline_header_columns()
-
-
-def _phase_timeline_header_block() -> str:
-    return progress_timeline.phase_timeline_header_block()
 
 
 def _collection_progress_intro_lines(
@@ -1585,10 +1564,6 @@ def _normalize_dataflow_boundary_controls(
     )
 
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
-    return orchestrator_primitives._normalize_dataflow_response(response)
-
-
 def _truthy_flag(value: object) -> bool:
     return orchestrator_primitives._truthy_flag(value)
 
@@ -1604,10 +1579,6 @@ def _server_deadline_overhead_ns(
     )
 
 
-def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ns(payload)
-
-
 def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
     return orchestrator_primitives._analysis_timeout_total_ticks(payload)
 
@@ -1621,12 +1592,6 @@ def _analysis_timeout_grace_ns(
         payload,
         total_ns=total_ns,
     )
-
-
-def _analysis_timeout_budget_ns(
-    payload: dict[str, object],
-) -> tuple[int, int, int]:
-    return orchestrator_primitives._analysis_timeout_budget_ns(payload)
 
 
 def _deadline_profile_sample_interval(

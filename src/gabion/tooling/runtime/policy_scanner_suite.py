@@ -22,6 +22,69 @@ _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
 
 
+
+_SERVER_MODULE_PATH = Path("src/gabion/server.py")
+_ORCHESTRATOR_DUPLICATE_HELPERS = frozenset(
+    {
+        "_analysis_resume_cache_verdict",
+        "_phase_timeline_md_path",
+        "_phase_timeline_jsonl_path",
+        "_phase_timeline_header_columns",
+        "_phase_timeline_header_block",
+        "_normalize_dataflow_response",
+        "_analysis_timeout_total_ns",
+        "_analysis_timeout_budget_ns",
+    }
+)
+
+
+def _module_function_names(*, root: Path, module_path: Path) -> set[str]:
+    path = root / module_path
+    if not path.exists():
+        return set()
+    source = path.read_text(encoding="utf-8")
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+    names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            names.add(node.name)
+    return names
+
+
+def _scan_server_orchestrator_helper_duplicates(*, root: Path) -> list[dict[str, object]]:
+    server_names = _module_function_names(root=root, module_path=_SERVER_MODULE_PATH)
+    if not server_names:
+        return []
+    orchestrator_names = _module_function_names(root=root, module_path=_ORCHESTRATOR_PRIMITIVE_BARREL_PATH)
+    if not orchestrator_names:
+        return []
+    duplicate_names = sorted(
+        _ORCHESTRATOR_DUPLICATE_HELPERS.intersection(server_names).intersection(orchestrator_names)
+    )
+    violations: list[dict[str, object]] = []
+    for helper_name in duplicate_names:
+        violations.append(
+            {
+                "path": _SERVER_MODULE_PATH.as_posix(),
+                "line": 1,
+                "column": 1,
+                "kind": "duplicate_helper",
+                "qualname": helper_name,
+                "message": (
+                    "server helper duplicates command_orchestrator_primitives helper; "
+                    "import from server_core authority"
+                ),
+                "render": (
+                    f"{_SERVER_MODULE_PATH.as_posix()}:1:1: duplicate_helper: "
+                    f"{helper_name} also defined in {_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}"
+                ),
+            }
+        )
+    return violations
+
 def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, object]]:
     path = root / _ORCHESTRATOR_PRIMITIVE_BARREL_PATH
     if not path.exists():
@@ -143,6 +206,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         "defensive_fallback": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
+        "server_orchestrator_helper_duplicates": [],
     }
 
     legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
@@ -161,6 +225,9 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
 
     violations_by_rule["orchestrator_primitive_barrel"].extend(
         _scan_orchestrator_primitive_barrel(root=resolved_root)
+    )
+    violations_by_rule["server_orchestrator_helper_duplicates"].extend(
+        _scan_server_orchestrator_helper_duplicates(root=resolved_root)
     )
 
     for path in inventory:
@@ -255,9 +322,11 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "branchless": [],
             "defensive_fallback": [],
             "no_legacy_monolith_import": [],
+            "orchestrator_primitive_barrel": [],
+            "server_orchestrator_helper_duplicates": [],
         }
     normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel"):
+    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel", "server_orchestrator_helper_duplicates"):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -296,6 +365,7 @@ def _rule_set_hash() -> str:
             "defensive_fallback:v1",
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
+            "server_orchestrator_helper_duplicates:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()

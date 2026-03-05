@@ -90,3 +90,36 @@ def test_progress_heartbeat_seconds_parity() -> None:
     assert server._progress_heartbeat_seconds(payload) == (
         command_orchestrator_primitives._progress_heartbeat_seconds(payload)
     )
+
+
+
+def test_phase_timeline_path_and_header_parity(tmp_path: Path) -> None:
+    assert server._phase_timeline_md_path(root=tmp_path) == (
+        command_orchestrator_primitives._phase_timeline_md_path(root=tmp_path)
+    )
+    assert server._phase_timeline_jsonl_path(root=tmp_path) == (
+        command_orchestrator_primitives._phase_timeline_jsonl_path(root=tmp_path)
+    )
+    assert server._phase_timeline_header_columns() == (
+        command_orchestrator_primitives._phase_timeline_header_columns()
+    )
+    assert server._phase_timeline_header_block() == (
+        command_orchestrator_primitives._phase_timeline_header_block()
+    )
+
+
+def test_analysis_resume_cache_verdict_parity() -> None:
+    kwargs = {
+        "status": "hit",
+        "reused_files": 5,
+        "compatibility_status": "stable",
+    }
+    assert server._analysis_resume_cache_verdict(**kwargs) == (
+        command_orchestrator_primitives._analysis_resume_cache_verdict(**kwargs)
+    )
+
+
+def test_server_authoritative_helper_aliases() -> None:
+    assert server._normalize_dataflow_response is command_orchestrator_primitives._normalize_dataflow_response
+    assert server._analysis_timeout_total_ns is command_orchestrator_primitives._analysis_timeout_total_ns
+    assert server._analysis_timeout_budget_ns is command_orchestrator_primitives._analysis_timeout_budget_ns
