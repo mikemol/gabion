@@ -1,5 +1,5 @@
 ---
-doc_revision: 167
+doc_revision: 168
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 648
+- Monolith LOC (current): 618
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2865,6 +2865,35 @@ doc_scope:
     - Monolith facade analysis-index carrier behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=648`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-226`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith ingest/index-runtime alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical imports for:
+      - `_group_by_signature`
+      - `_union_groups`
+      - `_propagate_groups`
+      - `_adapt_ingest_carrier_to_analysis_maps`
+      - `analyze_ingested_file`
+      - `_analyze_file_internal`
+      - `analyze_file`
+      - `_accumulate_symbol_table_for_tree`
+      - `_symbol_table_module_artifact_spec`
+      - `_build_symbol_table`
+      - `_accumulate_class_index_for_tree`
+      - `_FunctionIndexAccumulator`
+      - `_accumulate_function_index_for_tree`
+      - `_function_index_module_artifact_spec`
+      - `_build_function_index`
+      - `_callee_key`
+      - `_iter_documented_bundles`
+    - Removed the corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade ingest/index-runtime behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=618`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-227`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)

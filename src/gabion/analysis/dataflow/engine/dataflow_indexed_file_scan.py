@@ -68,7 +68,7 @@ from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
-    _callee_key as _callee_key_owner,
+    _callee_key,
     _resolve_class_candidates,
     _resolve_method_in_hierarchy,
 )
@@ -334,18 +334,18 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _suite_order_row_to_site,
 )
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
-    _iter_documented_bundles as _iter_documented_bundles_owner,
+    _iter_documented_bundles,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
     _iter_paths,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-    _adapt_ingest_carrier_to_analysis_maps as _adapt_ingest_carrier_to_analysis_maps_owner,
-    _group_by_signature as _group_by_signature_owner,
-    _propagate_groups as _propagate_groups_owner,
-    _union_groups as _union_groups_owner,
-    analyze_ingested_file as _analyze_ingested_file_owner,
+    _adapt_ingest_carrier_to_analysis_maps,
+    _group_by_signature,
+    _propagate_groups,
+    _union_groups,
+    analyze_ingested_file,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP,
@@ -354,7 +354,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     OptionalAnalysisIndex,
     _CacheSemanticContext,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
-    _FunctionIndexAccumulator as _FunctionIndexAccumulator_owner,
+    _FunctionIndexAccumulator,
     _IndexedPassContext,
     _IndexedPassSpec,
     _ModuleArtifactSpec,
@@ -366,14 +366,14 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _analysis_index_resolved_call_edges_by_caller,
     _analysis_index_stage_cache,
     _analysis_index_transitive_callers,
-    analyze_file as _analyze_file_owner,
-    _analyze_file_internal as _analyze_file_internal_owner,
-    _accumulate_class_index_for_tree_runtime as _accumulate_class_index_for_tree_owner,
-    _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree_owner,
-    _accumulate_symbol_table_for_tree_runtime as _accumulate_symbol_table_for_tree_owner,
+    analyze_file,
+    _analyze_file_internal,
+    _accumulate_class_index_for_tree_runtime as _accumulate_class_index_for_tree,
+    _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree,
+    _accumulate_symbol_table_for_tree_runtime as _accumulate_symbol_table_for_tree,
     _build_analysis_index,
-    _build_function_index_runtime as _build_function_index_owner,
-    _build_symbol_table_runtime as _build_symbol_table_owner,
+    _build_function_index_runtime as _build_function_index,
+    _build_symbol_table_runtime as _build_symbol_table,
     _build_module_artifacts,
     _build_call_graph,
     _build_stage_cache_identity_spec,
@@ -386,8 +386,8 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _index_stage_cache_identity,
     _iter_monotonic_paths_owner,
     _iter_resolved_edge_param_events,
-    _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec_owner,
-    _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec_owner,
+    _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec,
+    _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec,
     _normalize_cache_config,
     _parse_stage_cache_key,
     _path_dependency_payload,
@@ -568,39 +568,11 @@ _populate_bundle_forest = _populate_bundle_forest_owner
 
 _unused_params = _unused_params_owner
 
-_group_by_signature = _group_by_signature_owner
-_union_groups = _union_groups_owner
-_propagate_groups = _propagate_groups_owner
-_adapt_ingest_carrier_to_analysis_maps = _adapt_ingest_carrier_to_analysis_maps_owner
-analyze_ingested_file = _analyze_ingested_file_owner
-
-_analyze_file_internal = _analyze_file_internal_owner
-
-analyze_file = _analyze_file_owner
-
-_callee_key = _callee_key_owner
-
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 FunctionInfo = _ContractFunctionInfo
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 ClassInfo = _ContractClassInfo
-
-_accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_owner
-
-_symbol_table_module_artifact_spec = _symbol_table_module_artifact_spec_owner
-
-_build_symbol_table = _build_symbol_table_owner
-
-_accumulate_class_index_for_tree = _accumulate_class_index_for_tree_owner
-
-_FunctionIndexAccumulator = _FunctionIndexAccumulator_owner
-
-_accumulate_function_index_for_tree = _accumulate_function_index_for_tree_owner
-
-_function_index_module_artifact_spec = _function_index_module_artifact_spec_owner
-
-_build_function_index = _build_function_index_owner
 
 _CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
 
@@ -614,8 +586,6 @@ _deadness_witnesses_from_constant_details = (
     _deadness_witnesses_from_constant_details_owner
 )
 
-
-_iter_documented_bundles = _iter_documented_bundles_owner
 
 _dataclass_registry_for_tree = _dataclass_registry_for_tree_owner
 
