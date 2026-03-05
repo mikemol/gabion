@@ -28,7 +28,9 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _collect_call_nodes_by_path,
     _collect_deadline_function_facts,
     _collect_deadline_local_info,
+    _is_dynamic_dispatch_callee_key,
     _materialize_call_candidates,
+    _resolve_callee,
     _resolve_callee_outcome,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
@@ -102,8 +104,10 @@ __all__ = [
     "_function_suite_key",
     "_is_deadline_origin_call",
     "_is_deadline_param",
+    "_is_dynamic_dispatch_callee_key",
     "_materialize_call_candidates",
     "_normalize_snapshot_path",
     "_reachable_from_roots",
+    "_resolve_callee",
     "_resolve_callee_outcome",
 ]

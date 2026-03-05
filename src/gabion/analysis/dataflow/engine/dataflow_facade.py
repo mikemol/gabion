@@ -8,7 +8,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _DeadlineLocalInfo,
     _DeadlineLoopFacts,
 )
-from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _DeadlineFunctionCollector,
     _DeadlineArgInfo,
     _bind_call_args,
@@ -23,6 +23,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _fallback_deadline_arg_info,
     _is_dynamic_dispatch_callee_key,
     _is_deadline_origin_call,
+    _is_deadline_param,
     _resolve_callee,
     _resolve_callee_outcome,
 )
@@ -108,9 +109,6 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations,
-)
-from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
-    _is_deadline_param,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     _report_section_spec,
