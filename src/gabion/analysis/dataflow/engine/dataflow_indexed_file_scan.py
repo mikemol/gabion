@@ -126,6 +126,17 @@ from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _normalize_key_expr,
     _return_aliases,
 )
+from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
+    _collect_param_roots as _collect_param_roots_owner,
+    _contains_boolish as _contains_boolish_owner,
+    _decision_surface_form_entries as _decision_surface_form_entries_owner,
+    _decision_surface_params as _decision_surface_params_owner,
+    _decision_surface_reason_map as _decision_surface_reason_map_owner,
+    _decorators_transparent as _decorators_transparent_owner,
+    _mark_param_roots as _mark_param_roots_owner,
+    _value_encoded_decision_params as _value_encoded_decision_params_owner,
+    is_decision_surface as _is_decision_surface_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
     _collect_recursive_nodes,
@@ -829,19 +840,7 @@ def _decorators_transparent(
     fn: FunctionNode,
     transparent_decorators,
 ) -> bool:
-    check_deadline()
-    if not fn.decorator_list:
-        return True
-    if not transparent_decorators:
-        return True
-    for deco in fn.decorator_list:
-        check_deadline()
-        name = _decorator_name(deco)
-        if not name:
-            return False
-        if not _decorator_matches(name, transparent_decorators):
-            return False
-    return True
+    return _decorators_transparent_owner(fn, transparent_decorators)
 
 def _collect_local_class_bases(
     tree: ast.AST, parents: dict[ast.AST, ast.AST]
@@ -927,125 +926,39 @@ def _decision_root_name(node: ast.AST):
     return None
 
 def is_decision_surface(node: ast.AST) -> bool:
-    node_type = type(node)
-    return (
-        node_type is ast.If
-        or node_type is ast.While
-        or node_type is ast.Assert
-        or node_type is ast.IfExp
-        or node_type is ast.Match
-        or node_type is ast.comprehension
-    )
+    return _is_decision_surface_owner(node)
 
 def _decision_surface_form_entries(
     fn: ast.AST,
 ) -> list[tuple[str, ast.AST]]:
-    check_deadline()
-    entries: list[tuple[str, ast.AST]] = []
-    for node in ast.walk(fn):
-        check_deadline()
-        if not is_decision_surface(node):
-            continue
-        node_type = type(node)
-        if node_type is ast.If:
-            entries.append(("if", cast(ast.If, node).test))
-            continue
-        if node_type is ast.While:
-            entries.append(("while", cast(ast.While, node).test))
-            continue
-        if node_type is ast.Assert:
-            entries.append(("assert", cast(ast.Assert, node).test))
-            continue
-        if node_type is ast.IfExp:
-            entries.append(("ifexp", cast(ast.IfExp, node).test))
-            continue
-        if node_type is ast.Match:
-            match_node = cast(ast.Match, node)
-            entries.append(("match_subject", match_node.subject))
-            for case in match_node.cases:
-                check_deadline()
-                if case.guard is not None:
-                    entries.append(("match_guard", case.guard))
-            continue
-        for guard in cast(ast.comprehension, node).ifs:
-            check_deadline()
-            entries.append(("comprehension_guard", guard))
-    return entries
+    return _decision_surface_form_entries_owner(fn)
 
 def _decision_surface_reason_map(
     fn: FunctionNode,
     ignore_params: OptionalIgnoredParams = None,
 ) -> dict[str, set[str]]:
-    check_deadline()
-    params = set(_param_names(fn, ignore_params))
-    if not params:
-        return {}
-    reason_map: dict[str, set[str]] = defaultdict(set)
-    for reason, expr in _decision_surface_form_entries(fn):
-        check_deadline()
-        found = _collect_param_roots(expr, params)
-        for param in found:
-            check_deadline()
-            reason_map[param].add(reason)
-    return reason_map
+    return _decision_surface_reason_map_owner(fn, ignore_params)
 
 def _decision_surface_params(
     fn: FunctionNode,
     ignore_params: OptionalIgnoredParams = None,
 ) -> set[str]:
-    check_deadline()
-    reason_map = _decision_surface_reason_map(fn, ignore_params)
-    return set(reason_map)
+    return _decision_surface_params_owner(fn, ignore_params)
 
 def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
-    check_deadline()
-    for node in ast.walk(expr):
-        check_deadline()
-        node_type = type(node)
-        if node_type is ast.Name and cast(ast.Name, node).id in params:
-            out.add(cast(ast.Name, node).id)
-            continue
-        if node_type is ast.Attribute or node_type is ast.Subscript:
-            root = _decision_root_name(node)
-            if root in params:
-                out.add(root)
+    _mark_param_roots_owner(expr, params, out)
 
 def _collect_param_roots(expr: ast.AST, params: set[str]) -> set[str]:
-    found: set[str] = set()
-    _mark_param_roots(expr, params, found)
-    return found
+    return _collect_param_roots_owner(expr, params)
 
 def _contains_boolish(expr: ast.AST) -> bool:
-    check_deadline()
-    for node in ast.walk(expr):
-        check_deadline()
-        node_type = type(node)
-        if node_type is ast.Compare or node_type is ast.BoolOp:
-            return True
-        if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) is ast.Not:
-            return True
-    return False
+    return _contains_boolish_owner(expr)
 
 def _value_encoded_decision_params(
     fn: ast.AST,
     ignore_params = None,
 ) -> tuple[set[str], set[str]]:
-    from gabion.analysis.indexed_scan.scanners.flow.value_encoded_decision_params import (
-        ValueEncodedDecisionParamsDeps as _ValueEncodedDecisionParamsDeps)
-    from gabion.analysis.indexed_scan.scanners.flow.value_encoded_decision_params import (
-        value_encoded_decision_params as _value_encoded_decision_params_impl)
-
-    return _value_encoded_decision_params_impl(
-        fn,
-        ignore_params,
-        deps=_ValueEncodedDecisionParamsDeps(
-            check_deadline_fn=check_deadline,
-            param_names_fn=_param_names,
-            mark_param_roots_fn=_mark_param_roots,
-            contains_boolish_fn=_contains_boolish,
-            collect_param_roots_fn=_collect_param_roots,
-        ),
-    )
+    return _value_encoded_decision_params_owner(fn, ignore_params)
 
 @dataclass(frozen=True)
 class _DecisionSurfaceSpec:

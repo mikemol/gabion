@@ -1,5 +1,5 @@
 ---
-doc_revision: 61
+doc_revision: 62
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2805
-- Monolith top-level import statements (current): 69
+- Monolith LOC (current): 2718
+- Monolith top-level import statements (current): 70
 - Direct monolith imports in `src/`: 3
 - Direct monolith imports in `tests/`: 0
 
@@ -1052,6 +1052,29 @@ doc_scope:
     - `dataflow_projection_materialization` no longer imports monolith.
     - Direct monolith imports in `src` reduced to `3` (facade + two analysis-index-owner delegates).
   - ASPF no-change acknowledgement refreshed (`in-122`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Function-index decision/decorator helper extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_function_index_decision_support.py`
+    - Moved function-index decision/decorator helper cluster:
+      - `_decorators_transparent`
+      - `is_decision_surface`
+      - `_decision_surface_form_entries`
+      - `_decision_surface_reason_map`
+      - `_decision_surface_params`
+      - `_mark_param_roots`
+      - `_collect_param_roots`
+      - `_contains_boolish`
+      - `_value_encoded_decision_params`
+    - Monolith now routes this helper cluster through canonical owner wrappers.
+  - Compatibility status:
+    - Decision/decorator helper ownership is centralized, preparing the remaining analysis-index owner function-index delegate cut.
+    - Monolith LOC dropped to `2718`; top-level imports remain within target (`70`).
+  - ASPF no-change acknowledgement refreshed (`in-123`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
