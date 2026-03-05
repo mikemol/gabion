@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 43
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -715,6 +715,19 @@ doc_scope:
     - `dataflow_deadline_runtime_owner.py` no longer has direct runtime-module indirection.
     - Remaining runtime-module importlib indirection in WS-5 compatibility surface is isolated to `dataflow_facade.py`.
   - ASPF no-change acknowledgement refreshed (`in-103`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade hardening (owner-path routing):
+    - `dataflow_facade._resolve_method_in_hierarchy` now uses canonical callee-resolution support outcome helper.
+    - `dataflow_facade._internal_broad_type_lint_lines` now uses canonical owner paths:
+      - analysis-index owner builder (`_build_analysis_index`)
+      - lint helper owner (`_internal_broad_type_lint_lines`)
+  - Compatibility status:
+    - `dataflow_facade.py` runtime-module importlib is now retained only for dynamic compatibility passthrough (`__getattr__` / `__dir__`), not for primary helper execution paths above.
+  - ASPF no-change acknowledgement refreshed (`in-104`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
