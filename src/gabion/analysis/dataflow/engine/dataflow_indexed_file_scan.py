@@ -407,7 +407,14 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
 )
 from gabion.analysis.semantics.semantic_primitives import (
     CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
-from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier, SymbolTable as _ContractSymbolTable
+from gabion.analysis.dataflow.engine.dataflow_contracts import (
+    AuditConfig as _ContractAuditConfig,
+    ClassInfo as _ContractClassInfo,
+    FunctionInfo as _ContractFunctionInfo,
+    InvariantProposition,
+    ReportCarrier as _DataflowReportCarrier,
+    SymbolTable as _ContractSymbolTable,
+)
 
 from gabion.analysis.dataflow.io.dataflow_reporting import (
     emit_report as _emit_report,
@@ -658,90 +665,11 @@ def _normalize_invariant_proposition(
         evidence_keys=tuple(str(key) for key in evidence_keys),
     )
 
-@dataclass
-class SymbolTable:
-    imports: dict[tuple[str, str], str] = field(default_factory=dict)
-    internal_roots: set[str] = field(default_factory=set)
-    external_filter: bool = True
-    star_imports: dict[str, set[str]] = field(default_factory=dict)
-    module_exports: dict[str, set[str]] = field(default_factory=dict)
-    module_export_map: dict[str, dict[str, str]] = field(default_factory=dict)
-
-    def resolve(self, current_module: str, name: str) -> OptionalString:
-        if (current_module, name) in self.imports:
-            fqn = self.imports[(current_module, name)]
-            if self.external_filter:
-                root = fqn.split(".")[0]
-                if root not in self.internal_roots:
-                    return None
-            return fqn
-        return f"{current_module}.{name}"
-
-    def resolve_star(self, current_module: str, name: str) -> OptionalString:
-        check_deadline()
-        candidates = self.star_imports.get(current_module, set())
-        if not candidates:
-            return None
-        for module in sort_once(
-            candidates,
-            source="SymbolTable.resolve_star.candidates",
-        ):
-            check_deadline()
-            exports = self.module_exports.get(module)
-            if exports is not None and name in exports:
-                export_map = self.module_export_map.get(module, {})
-                mapped = export_map.get(name)
-                if mapped:
-                    if self.external_filter:
-                        root = mapped.split(".")[0]
-                        if root in self.internal_roots:
-                            return mapped
-                    else:
-                        return mapped
-                resolved = f"{module}.{name}".strip(".")
-                if not module:
-                    return resolved
-                if self.external_filter:
-                    root = module.split(".")[0]
-                    if root in self.internal_roots:
-                        return resolved
-                    continue
-                return resolved
-        return None
-
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 SymbolTable = _ContractSymbolTable
 
-@dataclass
-class AuditConfig:
-    project_root: OptionalPath = None
-    exclude_dirs: set[str] = field(default_factory=set)
-    ignore_params: set[str] = field(default_factory=set)
-    decision_ignore_params: set[str] = field(default_factory=set)
-    external_filter: bool = True
-    strictness: str = "high"
-    transparent_decorators: OptionalStringSet = None
-    decision_tiers: dict[str, int] = field(default_factory=dict)
-    decision_require_tiers: bool = False
-    never_exceptions: set[str] = field(default_factory=set)
-    deadline_roots: set[str] = field(default_factory=set)
-    fingerprint_registry: OptionalPrimeRegistry = None
-    fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
-    constructor_registry: OptionalTypeConstructorRegistry = None
-    fingerprint_seed_revision: OptionalString = None
-    fingerprint_synth_min_occurrences: int = 0
-    fingerprint_synth_version: str = "synth@1"
-    fingerprint_synth_registry: OptionalSynthRegistry = None
-    invariant_emitters: tuple[
-        Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
-        ...,
-    ] = field(default_factory=tuple)
-    adapter_contract: OptionalJsonObject = None
-    required_analysis_surfaces: set[str] = field(default_factory=set)
-
-    def is_ignored_path(self, path: Path) -> bool:
-        parts = set(path.parts)
-        return bool(self.exclude_dirs & parts)
+# Canonical owner contract class (WS-5 hard-cut compatibility).
+AuditConfig = _ContractAuditConfig
 
 _ANALYSIS_PROFILING_FORMAT_VERSION = 1
 
@@ -1579,39 +1507,11 @@ def _callee_key(name: str) -> str:
         return name
     return name.split(".")[-1]
 
-@dataclass
-class FunctionInfo:
-    name: str
-    qual: str
-    path: Path
-    params: list[str]
-    annots: ParamAnnotationMap
-    calls: list[CallArgs]
-    unused_params: set[str]
-    unknown_key_carriers: set[str] = field(default_factory=set)
-    defaults: set[str] = field(default_factory=set)
-    transparent: bool = True
-    class_name: OptionalString = None
-    scope: tuple[str, ...] = ()
-    lexical_scope: tuple[str, ...] = ()
-    decision_params: set[str] = field(default_factory=set)
-    decision_surface_reasons: dict[str, set[str]] = field(default_factory=dict)
-    value_decision_params: set[str] = field(default_factory=set)
-    value_decision_reasons: set[str] = field(default_factory=set)
-    positional_params: tuple[str, ...] = ()
-    kwonly_params: tuple[str, ...] = ()
-    vararg: OptionalString = None
-    kwarg: OptionalString = None
-    param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
-    function_span: OptionalSpan4 = None
-    local_lambda_bindings: dict[str, tuple[str, ...]] = field(default_factory=dict)
+# Canonical owner contract class (WS-5 hard-cut compatibility).
+FunctionInfo = _ContractFunctionInfo
 
-@dataclass
-class ClassInfo:
-    qual: str
-    module: str
-    bases: list[str]
-    methods: set[str]
+# Canonical owner contract class (WS-5 hard-cut compatibility).
+ClassInfo = _ContractClassInfo
 
 _module_name = _module_name_owner
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 81
+doc_revision: 82
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1424,6 +1424,23 @@ doc_scope:
     - Monolith LOC dropped to `1834`; top-level imports remain `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-141`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Contract-class hard-cut:
+    - Monolith-local contract class bodies removed and replaced by canonical `dataflow_contracts` aliases:
+      - `SymbolTable`
+      - `AuditConfig`
+      - `FunctionInfo`
+      - `ClassInfo`
+    - Monolith now consumes canonical contract carriers directly for index/pipeline/report/runtime surfaces.
+  - Compatibility status:
+    - Contract carrier behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1734`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-142`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
