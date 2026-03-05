@@ -1,5 +1,5 @@
 ---
-doc_revision: 107
+doc_revision: 108
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -10,7 +10,7 @@ doc_scope:
 # WS-5 Decomposition Ledger
 
 ## Current State
-- Date: 2026-03-04
+- Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
 - Monolith LOC (current): 856
 - Monolith top-level import statements (current): 58
@@ -1912,6 +1912,23 @@ doc_scope:
     - Analysis-index/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-167`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade canonical-owner export rebinding:
+    - `dataflow_facade.py` now binds high-use compatibility exports directly from canonical owner modules instead of monolith `_runtime` lookups:
+      - post-phase owners: `_annotation_exception_candidates`, `_collect_dataclass_registry`, `_iter_config_fields`, `_iter_dataclass_call_bundles`, `_keyword_string_literal`, `_type_from_const_repr`
+      - deadline owners/contracts: `_bind_call_args`, `_deadline_loop_forwarded_params`, `_is_deadline_origin_call`, `_DeadlineLocalInfo`, `_summarize_deadline_obligations`
+      - projection/analysis/report owners: `_materialize_projection_spec_rows`, `_suite_site_label`, `_stage_cache_key_aliases`, `_phase_work_progress`, `_report_section_spec`, `_emit_report`, `_render_mermaid_component`, `_merge_counts_by_knobs`
+      - shared helpers: `_collect_recursive_functions`, `_decision_surface_params`, `_value_encoded_decision_params`, `_iter_documented_bundles`
+    - `_parse_lint_location` switched from lazy runtime wrapper to direct canonical lint-helper alias.
+  - Compatibility status:
+    - Facade API surface remains unchanged; only owner binding sources changed.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-168`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
