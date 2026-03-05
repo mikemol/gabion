@@ -1,5 +1,5 @@
 ---
-doc_revision: 183
+doc_revision: 184
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3122,6 +3122,20 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`52 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade canonical-import convergence:
+    - `dataflow_facade.py` switched runtime-suffix compatibility imports to canonical owner exports for:
+      - `_resolve_method_in_hierarchy`
+      - `_internal_broad_type_lint_lines`
+    - No facade symbol names changed; import provenance only normalized.
+  - Correctness impact:
+    - Call-resolution and lint helper wiring remains behavior-equivalent.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-243`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`54 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

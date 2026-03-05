@@ -187,7 +187,7 @@ from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
 )
 
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
-    _resolve_method_in_hierarchy_runtime as _resolve_method_in_hierarchy,
+    _resolve_method_in_hierarchy,
     _resolve_class_candidates,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
@@ -199,7 +199,7 @@ from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
-    _internal_broad_type_lint_lines_runtime as _internal_broad_type_lint_lines,
+    _internal_broad_type_lint_lines,
     _is_broad_internal_type,
     _lint_lines_from_bundle_evidence,
     _lint_lines_from_constant_smells,
