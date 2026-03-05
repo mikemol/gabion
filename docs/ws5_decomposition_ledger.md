@@ -1,5 +1,5 @@
 ---
-doc_revision: 192
+doc_revision: 193
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 467
+- Monolith LOC (current): 454
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -3292,6 +3292,23 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index/deadline compatibility-surface contraction:
+    - Removed unreferenced monolith passthrough imports for symbols with no in-repo consumers outside monolith from:
+      - `dataflow_analysis_index_owner.py`
+      - `dataflow_deadline_runtime_owner.py`
+    - Pruned corresponding owner `__all__` export entries for those unreferenced symbols.
+    - Symbols contracted in this slice:
+      - analysis-index owner passthroughs: `AnalysisIndex` (`_AnalysisIndexCarrier`), `_PhaseWorkProgress`, `_FunctionIndexAccumulator`, `_ResolvedCallEdge`, `_ResolvedEdgeParamEvent`, `_resume_variant_for_identity`
+      - deadline owner passthroughs: `_call_candidate_target_site`, `_caller_param_bindings_for_call`, `_collect_call_resolution_obligation_details_from_forest`, `_collect_call_resolution_obligations_from_forest`, `_dedupe_resolution_candidates`, `_function_suite_id`, `_function_suite_key`
+  - Correctness impact:
+    - Canonical owner internals and runtime semantics remain unchanged; this slice contracts monolith-only compatibility passthrough surfaces.
+    - Monolith structural metrics improved (`LOC=454`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-252`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`44 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
