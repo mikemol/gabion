@@ -1,5 +1,5 @@
 ---
-doc_revision: 140
+doc_revision: 141
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2433,6 +2433,19 @@ doc_scope:
     - Indexed-file-scan compatibility behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-200`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith parse-runtime coupling convergence:
+    - Switched `dataflow_indexed_file_scan.py` parse-runtime import from compatibility owner `dataflow_parse_runtime_owner.py` to canonical parse helper:
+      - `dataflow_parse_helpers._parse_module_tree_or_none` (aliased to `_parse_module_tree_owner`)
+    - Removed residual monolith dependency on parse-runtime compatibility owner for this surface.
+  - Compatibility status:
+    - Monolith parse/failure behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-201`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

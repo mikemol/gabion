@@ -436,8 +436,8 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations as _summarize_deadline_obligations_owner,
 )
-from gabion.analysis.dataflow.engine.dataflow_parse_runtime_owner import (
-    _parse_module_tree_runtime as _parse_module_tree_owner,
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _parse_module_tree_or_none as _parse_module_tree_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     ReportProjectionSpec as _ReportProjectionSpec_owner,
