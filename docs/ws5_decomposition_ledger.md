@@ -1,5 +1,5 @@
 ---
-doc_revision: 232
+doc_revision: 233
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,13 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-292`, this CU):
+  - Added AST-level owner-import hygiene guard to prevent reintroduction of legacy `_owner` import paths in `src/tests`:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_import_hygiene.py`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`2 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected new-test mapping drift
 - WS-5 continuation (`in-291`, this CU):
   - Refreshed ledger state metrics after recent hard-cuts and importer migrations.
   - State refresh:
