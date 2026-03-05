@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from hashlib import sha1
+import warnings
 from typing import Callable, NoReturn, TypeVar, cast
 
 from gabion.exceptions import NeverThrown
@@ -28,6 +30,38 @@ _PROOF_MODE_CONFIG: ContextVar[ProofModeConfig] = ContextVar(
 
 T = TypeVar("T")
 FuncT = TypeVar("FuncT", bound=Callable[..., object])
+
+
+@dataclass(frozen=True)
+class InvariantBehavior:
+    throws: bool
+    emits_warning: bool
+    warning_limit: int
+
+
+INVARIANT_PROFILE_BEHAVIOR: dict[str, dict[str, InvariantBehavior]] = {
+    "never": {
+        "strict": InvariantBehavior(throws=True, emits_warning=False, warning_limit=0),
+        "warn": InvariantBehavior(throws=True, emits_warning=False, warning_limit=0),
+        "silent": InvariantBehavior(throws=True, emits_warning=False, warning_limit=0),
+    },
+    "todo": {
+        "strict": InvariantBehavior(throws=True, emits_warning=False, warning_limit=0),
+        "warn": InvariantBehavior(throws=False, emits_warning=True, warning_limit=1),
+        "silent": InvariantBehavior(throws=False, emits_warning=False, warning_limit=0),
+    },
+    "deprecated": {
+        "strict": InvariantBehavior(throws=True, emits_warning=False, warning_limit=0),
+        "warn": InvariantBehavior(throws=False, emits_warning=True, warning_limit=1),
+        "silent": InvariantBehavior(throws=False, emits_warning=False, warning_limit=0),
+    },
+}
+
+_DEFAULT_INVARIANT_PROFILE = "strict"
+_INVARIANT_WARNING_COUNTS: ContextVar[dict[str, int]] = ContextVar(
+    "gabion_invariant_warning_counts",
+    default={},
+)
 
 
 def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
@@ -73,23 +107,77 @@ def _raise_marker(marker_kind: str, reason: str = "", **env: object) -> NoReturn
     raise NeverThrown(payload.reason, marker_payload=payload)
 
 
+def _invariant_behavior(marker_kind: str, profile_name: str) -> InvariantBehavior:
+    marker_profiles = INVARIANT_PROFILE_BEHAVIOR.get(marker_kind)
+    if marker_profiles is None:
+        return InvariantBehavior(throws=True, emits_warning=False, warning_limit=0)
+    return marker_profiles.get(
+        profile_name,
+        marker_profiles[_DEFAULT_INVARIANT_PROFILE],
+    )
+
+
+def _warning_key(marker_kind: str, reason: str, **env: object) -> str:
+    owner = str(env.get("owner", "")).strip()
+    expiry = str(env.get("expiry", "")).strip()
+    links = _normalized_marker_links(env.get("links", ()))
+    stable_env = {
+        str(key): value
+        for key, value in sorted(env.items(), key=lambda entry: str(entry[0]))
+        if key not in {"owner", "expiry", "links", "profile"}
+    }
+    encoded = repr((marker_kind, str(reason), owner, expiry, links, stable_env)).encode("utf-8")
+    return sha1(encoded).hexdigest()
+
+
+def _emit_warning_once(message: str, key: str, limit: int) -> None:
+    if limit <= 0:
+        return
+    counts = dict(_INVARIANT_WARNING_COUNTS.get())
+    if counts.get(key, 0) >= limit:
+        return
+    counts[key] = counts.get(key, 0) + 1
+    _INVARIANT_WARNING_COUNTS.set(counts)
+    warnings.warn(message, RuntimeWarning, stacklevel=3)
+
+
+def invariant_factory(marker_kind: str, reasoning: str = "", **env: object) -> None:
+    profile_name = str(env.get("profile", _DEFAULT_INVARIANT_PROFILE) or _DEFAULT_INVARIANT_PROFILE).strip().lower()
+    behavior = _invariant_behavior(marker_kind, profile_name)
+    message = str(reasoning)
+    if behavior.emits_warning:
+        warning_key = _warning_key(marker_kind, message, **env)
+        _emit_warning_once(
+            f"{marker_kind}() marker reached: {message or f'{marker_kind}() marker reached'}",
+            warning_key,
+            behavior.warning_limit,
+        )
+    if behavior.throws:
+        _raise_marker(marker_kind, message, **env)
+
+
+def reset_invariant_warning_counts() -> None:
+    _INVARIANT_WARNING_COUNTS.set({})
+
+
 def never(reason: str = "", **env: object) -> NoReturn:
     """Mark a code path as intentionally unreachable.
 
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
-    _raise_marker("never", reason, **env)
+    invariant_factory("never", reason, **env)
+    raise AssertionError("never() marker must throw")
 
 
-def todo(reason: str = "", **env: object) -> NoReturn:
+def todo(reason: str = "", **env: object) -> None:
     """Mark a code path as intentionally pending implementation."""
-    _raise_marker("todo", reason, **env)
+    invariant_factory("todo", reason, **env)
 
 
-def deprecated(reason: str = "", **env: object) -> NoReturn:
+def deprecated(reason: str = "", **env: object) -> None:
     """Mark a code path as a deprecated/blocked semantic surface."""
-    _raise_marker("deprecated", reason, **env)
+    invariant_factory("deprecated", reason, **env)
 
 
 def proof_mode() -> bool:

@@ -9,6 +9,11 @@ from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
 
 
+@pytest.fixture(autouse=True)
+def _reset_invariant_warning_counts() -> None:
+    invariants.reset_invariant_warning_counts()
+
+
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
 def test_never_raises_never_thrown() -> None:
     with pytest.raises(NeverThrown):
@@ -82,3 +87,48 @@ def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
             "value": "taint_kind:control_ambiguity",
         }
     ]
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+@pytest.mark.parametrize(
+    ("marker", "profile", "throws", "warns"),
+    [
+        ("never", "strict", True, False),
+        ("never", "warn", True, False),
+        ("never", "silent", True, False),
+        ("todo", "strict", True, False),
+        ("todo", "warn", False, True),
+        ("todo", "silent", False, False),
+        ("deprecated", "strict", True, False),
+        ("deprecated", "warn", False, True),
+        ("deprecated", "silent", False, False),
+    ],
+)
+def test_invariant_factory_profile_behavior_matrix(
+    marker: str,
+    profile: str,
+    throws: bool,
+    warns: bool,
+) -> None:
+    kwargs = {"profile": profile}
+    if warns:
+        with pytest.warns(RuntimeWarning):
+            invariants.invariant_factory(marker, "matrix", **kwargs)
+    elif throws:
+        with pytest.raises(NeverThrown):
+            invariants.invariant_factory(marker, "matrix", **kwargs)
+    else:
+        invariants.invariant_factory(marker, "matrix", **kwargs)
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+def test_invariant_factory_warning_rate_limit_is_deterministic() -> None:
+    with pytest.warns(RuntimeWarning) as record:
+        invariants.todo("later", profile="warn", owner="core", ticket="G-1")
+        invariants.todo("later", profile="warn", owner="core", ticket="G-1")
+        invariants.todo("later", profile="warn", owner="core", ticket="G-1")
+    assert len(record) == 1
+
+    with pytest.warns(RuntimeWarning) as next_record:
+        invariants.todo("later", profile="warn", owner="core", ticket="G-2")
+    assert len(next_record) == 1
