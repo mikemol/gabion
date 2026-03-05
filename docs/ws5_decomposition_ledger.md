@@ -1,5 +1,5 @@
 ---
-doc_revision: 106
+doc_revision: 107
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1893,6 +1893,25 @@ doc_scope:
     - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-166`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index boundary wrapper contraction:
+    - Converted pure pass-through wrappers in `dataflow_analysis_index.py` to direct aliases:
+      - `_analyze_file_internal`
+      - `_build_analysis_collection_resume_payload`
+      - `_build_analysis_index`
+      - `_build_call_graph`
+      - `_load_analysis_collection_resume_payload`
+    - Converted owner resume payload pass-through wrappers in `dataflow_analysis_index_owner.py` to direct aliases:
+      - `_build_analysis_collection_resume_payload`
+      - `_load_analysis_collection_resume_payload`
+  - Compatibility status:
+    - Analysis-index/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-167`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

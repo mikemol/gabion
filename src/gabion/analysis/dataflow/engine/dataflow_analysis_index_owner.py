@@ -912,27 +912,7 @@ def analyze_file(path: Path, recursive: bool = True, *, config=None):
     return groups, spans
 
 
-def _build_analysis_collection_resume_payload(
-    *,
-    groups_by_path,
-    param_spans_by_path,
-    bundle_sites_by_path,
-    invariant_propositions,
-    completed_paths,
-    in_progress_scan_by_path,
-    analysis_index_resume,
-    file_stage_timings_v1_by_path,
-):
-    return _build_analysis_collection_resume_payload_owner(
-        groups_by_path=groups_by_path,
-        param_spans_by_path=param_spans_by_path,
-        bundle_sites_by_path=bundle_sites_by_path,
-        invariant_propositions=invariant_propositions,
-        completed_paths=completed_paths,
-        in_progress_scan_by_path=in_progress_scan_by_path,
-        analysis_index_resume=analysis_index_resume,
-        file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
-    )
+_build_analysis_collection_resume_payload = _build_analysis_collection_resume_payload_owner
 
 
 def _build_analysis_index(
@@ -1091,17 +1071,7 @@ def _run_indexed_pass(
     return spec.run(context)
 
 
-def _load_analysis_collection_resume_payload(
-    *,
-    payload,
-    file_paths,
-    include_invariant_propositions,
-):
-    return _load_analysis_collection_resume_payload_owner(
-        payload=payload,
-        file_paths=file_paths,
-        include_invariant_propositions=include_invariant_propositions,
-    )
+_load_analysis_collection_resume_payload = _load_analysis_collection_resume_payload_owner
 
 
 __all__ = [
