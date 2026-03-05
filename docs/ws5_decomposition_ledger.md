@@ -1,5 +1,5 @@
 ---
-doc_revision: 31
+doc_revision: 32
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -538,6 +538,24 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted config/dataclass/constant-flow + runtime/dataflow suites passed (`67 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase knob-flow fallback contraction:
+    - Removed runtime-module fallback wiring in `_compute_knob_param_names`.
+    - Added owner-local analysis-index carrier constructor for knob-flow reduction:
+      - `_AnalysisIndexLite`
+    - Switched knob-flow deps to canonical owner wiring:
+      - `_iter_resolved_edge_param_events`
+      - `_reduce_resolved_call_edges`
+      - `_ResolvedEdgeReducerSpec`
+  - Ambiguity-contract remediation:
+    - `_AnalysisIndexLite` optional cache fields collapsed to deterministic single-shape `object` carriers (no union alternation annotations).
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `3` to `2`.
+  - ASPF no-change acknowledgement refreshed (`in-93`).
+  - Validation:
+    - policy checks passed
+    - targeted constant-flow/knob + runtime/dataflow suites passed (`55 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

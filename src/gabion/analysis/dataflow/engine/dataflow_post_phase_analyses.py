@@ -1040,6 +1040,18 @@ class _StageCacheSpec:
     build: Callable[[ast.Module, Path], object]
 
 
+@dataclass
+class _AnalysisIndexLite:
+    by_name: dict[str, list[FunctionInfo]]
+    by_qual: dict[str, FunctionInfo]
+    symbol_table: SymbolTable
+    class_index: dict[str, ClassInfo]
+    transitive_callers: object = None
+    resolved_call_edges: object = None
+    resolved_transparent_call_edges: object = None
+    resolved_transparent_edges_by_caller: object = None
+
+
 def _dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
@@ -1472,7 +1484,6 @@ def _compute_knob_param_names(
     strictness: str,
     analysis_index=None,
 ) -> set[str]:
-    runtime = _runtime_module()
     return cast(
         set[str],
         _compute_knob_param_names_impl(
@@ -1484,11 +1495,11 @@ def _compute_knob_param_names(
             strictness=strictness,
             analysis_index=analysis_index,
             deps=_ComputeKnobParamNamesDeps(
-                check_deadline_fn=runtime.check_deadline,
-                analysis_index_ctor=runtime.AnalysisIndex,
-                iter_resolved_edge_param_events_fn=runtime._iter_resolved_edge_param_events,
-                reduce_resolved_call_edges_fn=runtime._reduce_resolved_call_edges,
-                resolved_edge_reducer_spec_ctor=runtime._ResolvedEdgeReducerSpec,
+                check_deadline_fn=check_deadline,
+                analysis_index_ctor=_AnalysisIndexLite,
+                iter_resolved_edge_param_events_fn=_iter_resolved_edge_param_events,
+                reduce_resolved_call_edges_fn=_reduce_resolved_call_edges,
+                resolved_edge_reducer_spec_ctor=_ResolvedEdgeReducerSpec,
                 knob_flow_fold_acc_ctor=_KnobFlowFoldAccumulator,
             ),
         ),
