@@ -8,6 +8,8 @@ from typing import Callable, Optional
 
 import typer
 
+from gabion.cli_support.shared import payload_builder
+from gabion.commands import check_contract
 from gabion.commands.check_contract import DataflowFilterBundle
 from gabion.json_types import JSONObject
 from gabion.lsp_client import run_command
@@ -51,15 +53,7 @@ def run_synth(
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
     check_deadline_fn()
     resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
-    if not paths:
-        paths = [Path(".")]
-    exclude_dirs: list[str] | None = None
-    if exclude is not None:
-        exclude_dirs = []
-        for entry in exclude:
-            check_deadline_fn()
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list, transparent_list = resolved_filter_bundle.to_payload_lists()
+    resolved_paths = paths or [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     if synthesis_protocols_kind not in {"dataclass", "protocol", "contextvar"}:
@@ -90,54 +84,55 @@ def run_synth(
     )
     fingerprint_handledness_path = output_root / "fingerprint_handledness.json"
 
-    payload: JSONObject = {
-        "paths": [str(p) for p in paths],
-        "root": str(root),
-        "config": str(config) if config is not None else None,
-        "report": str(report_path),
-        "dot": str(dot_path),
-        "fail_on_violations": fail_on_violations,
-        "no_recursive": no_recursive,
-        "max_components": max_components,
-        "type_audit_report": type_audit_report,
-        "type_audit_max": type_audit_max,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": allow_external,
-        "strictness": strictness,
-        "synthesis_plan": str(plan_path),
-        "synthesis_report": True,
-        "synthesis_protocols": str(protocol_path),
-        "synthesis_protocols_kind": synthesis_protocols_kind,
-        "synthesis_max_tier": synthesis_max_tier,
-        "synthesis_min_bundle_size": synthesis_min_bundle_size,
-        "synthesis_allow_singletons": synthesis_allow_singletons,
-        "refactor_plan": refactor_plan,
-        "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
-        "fingerprint_synth_json": str(fingerprint_synth_path),
-        "fingerprint_provenance_json": str(fingerprint_provenance_path),
-        "fingerprint_coherence_json": str(fingerprint_coherence_path),
-        "fingerprint_rewrite_plans_json": str(fingerprint_rewrite_plans_path),
-        "fingerprint_exception_obligations_json": str(
-            fingerprint_exception_obligations_path
+    payload = payload_builder.build_synth_payload(
+        options=check_contract.DataflowPayloadCommonOptions(
+            paths=resolved_paths,
+            root=root,
+            config=config,
+            report=report_path,
+            fail_on_violations=fail_on_violations,
+            fail_on_type_ambiguities=False,
+            baseline=None,
+            baseline_write=None,
+            decision_snapshot=None,
+            exclude=exclude,
+            filter_bundle=resolved_filter_bundle,
+            allow_external=allow_external,
+            strictness=strictness,
+            lint=False,
+            aspf_trace_json=aspf_trace_json,
+            aspf_import_trace=aspf_import_trace,
+            aspf_equivalence_against=aspf_equivalence_against,
+            aspf_opportunities_json=aspf_opportunities_json,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aspf_semantic_surface=aspf_semantic_surface,
         ),
-        "fingerprint_handledness_json": str(fingerprint_handledness_path),
-        "aspf_trace_json": str(aspf_trace_json) if aspf_trace_json is not None else None,
-        "aspf_import_trace": [str(path) for path in (aspf_import_trace or [])],
-        "aspf_equivalence_against": [
-            str(path) for path in (aspf_equivalence_against or [])
-        ],
-        "aspf_opportunities_json": (
-            str(aspf_opportunities_json) if aspf_opportunities_json is not None else None
+        synth_options=payload_builder.SynthPayloadOptions(
+            no_recursive=no_recursive,
+            max_components=max_components,
+            type_audit_report=type_audit_report,
+            type_audit_max=type_audit_max,
+            synthesis_plan=plan_path,
+            synthesis_report=True,
+            synthesis_protocols=protocol_path,
+            synthesis_protocols_kind=synthesis_protocols_kind,
+            synthesis_max_tier=synthesis_max_tier,
+            synthesis_min_bundle_size=synthesis_min_bundle_size,
+            synthesis_allow_singletons=synthesis_allow_singletons,
+            refactor_plan=refactor_plan,
+            refactor_plan_json=refactor_plan_path if refactor_plan else None,
+            fingerprint_synth_json=fingerprint_synth_path,
+            fingerprint_provenance_json=fingerprint_provenance_path,
+            fingerprint_coherence_json=fingerprint_coherence_path,
+            fingerprint_rewrite_plans_json=fingerprint_rewrite_plans_path,
+            fingerprint_exception_obligations_json=fingerprint_exception_obligations_path,
+            fingerprint_handledness_json=fingerprint_handledness_path,
         ),
-        "aspf_state_json": str(aspf_state_json) if aspf_state_json is not None else None,
-        "aspf_import_state": [str(path) for path in (aspf_import_state or [])],
-        "aspf_delta_jsonl": str(aspf_delta_jsonl) if aspf_delta_jsonl is not None else None,
-        "aspf_semantic_surface": [
-            str(surface) for surface in (aspf_semantic_surface or [])
-        ],
-    }
+        build_dataflow_payload_common_fn=check_contract.build_dataflow_payload_common,
+    )
+    payload["dot"] = str(dot_path)
     result = dispatch_command_fn(
         command=dataflow_command,
         payload=payload,
