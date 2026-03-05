@@ -1,5 +1,5 @@
 ---
-doc_revision: 186
+doc_revision: 187
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3165,6 +3165,21 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`66 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Indexed-scan compatibility-entry retirement:
+    - Removed remaining unreferenced runtime-module wrapper entrypoints from:
+      - `indexed_scan/obligations/exception_obligations.py`
+      - `indexed_scan/scanners/run_entry.py`
+      - `indexed_scan/state/file_internal_analysis.py`
+    - Removed corresponding `__all__` compatibility exports where present.
+  - Correctness impact:
+    - Canonical typed deps-path entrypoints remain unchanged and are now the sole contract.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-246`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`62 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

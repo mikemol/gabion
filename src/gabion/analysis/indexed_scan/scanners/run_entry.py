@@ -389,52 +389,6 @@ def run_impl(
     ).exit_code
 
 
-def run_impl_from_runtime_module(
-    args: argparse.Namespace,
-    *,
-    runtime_module,
-    analyze_paths_fn: Callable[..., AnalysisResult],
-    emit_report_fn: Callable[..., tuple[str, list[str]]],
-    compute_violations_fn: Callable[..., list[str]],
-) -> int:
-    return run_impl(
-        args,
-        deps=RunImplDeps(
-            dataflow_defaults_fn=runtime_module.dataflow_defaults,
-            synthesis_defaults_fn=runtime_module.synthesis_defaults,
-            decision_defaults_fn=runtime_module.decision_defaults,
-            decision_tier_map_fn=runtime_module.decision_tier_map,
-            decision_require_tiers_fn=runtime_module.decision_require_tiers,
-            decision_ignore_list_fn=runtime_module.decision_ignore_list,
-            exception_defaults_fn=runtime_module.exception_defaults,
-            exception_marker_family_fn=runtime_module.exception_marker_family,
-            exception_never_list_fn=runtime_module.exception_never_list,
-            fingerprint_defaults_fn=runtime_module.fingerprint_defaults,
-            merge_payload_fn=runtime_module.merge_payload,
-            dataflow_deadline_roots_fn=runtime_module.dataflow_deadline_roots,
-            dataflow_adapter_payload_fn=runtime_module.dataflow_adapter_payload,
-            dataflow_required_surfaces_fn=runtime_module.dataflow_required_surfaces,
-            normalize_adapter_contract_fn=runtime_module.normalize_adapter_contract,
-            resolve_baseline_path_fn=runtime_module._resolve_baseline_path,
-            resolve_synth_registry_path_fn=runtime_module._resolve_synth_registry_path,
-            iter_paths_fn=runtime_module._iter_paths,
-            load_json_fn=runtime_module.load_json,
-            build_fingerprint_registry_fn=runtime_module.build_fingerprint_registry,
-            build_synth_registry_from_payload_fn=runtime_module.build_synth_registry_from_payload,
-            type_constructor_registry_cls=runtime_module.TypeConstructorRegistry,
-            default_marker_aliases=runtime_module.DEFAULT_MARKER_ALIASES,
-            audit_config_cls=runtime_module.AuditConfig,
-            forest_cls=runtime_module.Forest,
-            run_output_context_factory=runtime_module._RunImplOutputContextCore,
-            finalize_run_outputs_fn=runtime_module._finalize_run_outputs_impl,
-        ),
-        analyze_paths_fn=analyze_paths_fn,
-        emit_report_fn=emit_report_fn,
-        compute_violations_fn=compute_violations_fn,
-        check_deadline_fn=runtime_module.check_deadline,
-    )
-
-
 __all__ = [
     "RunImplDeps",
     "analysis_deadline_scope",
@@ -442,5 +396,4 @@ __all__ = [
     "resolve_baseline_path",
     "resolve_synth_registry_path",
     "run_impl",
-    "run_impl_from_runtime_module",
 ]
