@@ -1,5 +1,5 @@
 ---
-doc_revision: 100
+doc_revision: 101
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1791,10 +1791,27 @@ doc_scope:
     - Thresholds remain satisfied: `LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`.
   - Validation:
     - broad convergence suites passed as listed above
+- WS-5 continuation (this CU, follow-on):
+  - Facade static-export expansion:
+    - Added explicit static compatibility aliases in `dataflow_facade.py` for high-use private helper surfaces while retaining `__getattr__` fallback:
+      - report/projection helpers (`_emit_report`, `_report_section_spec`, `_materialize_projection_spec_rows`)
+      - config/dataclass helpers (`_iter_config_fields`, `_collect_dataclass_registry`, `_iter_dataclass_call_bundles`, `_iter_documented_bundles`)
+      - decision/decorator/type helpers (`_decision_surface_params`, `_value_encoded_decision_params`, `_decorator_name`, `_type_from_const_repr`, `_suite_site_label`)
+      - deadline/call graph helpers (`_bind_call_args`, `_is_deadline_origin_call`, `_deadline_loop_forwarded_params`, `_collect_recursive_functions`, `_summarize_deadline_obligations`, `_DeadlineLocalInfo`)
+      - stage/progress/reporting helpers (`_phase_work_progress`, `_stage_cache_key_aliases`, `_merge_counts_by_knobs`, `_render_mermaid_component`, `_annotation_exception_candidates`, `_keyword_string_literal`)
+    - This reduces dynamic-fallback dependence without changing facade behavior.
+  - Compatibility status:
+    - Targeted facade-heavy regression suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-161`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
-2. WS-5 completion declaration + follow-on backlog split (post-WS5 cleanup unit vs. optional compatibility-owner retirements).
+2. Dynamic-fallback retirement: continue replacing `dataflow_facade.__getattr__` dependency with explicit static exports until fallback removal is safe.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`

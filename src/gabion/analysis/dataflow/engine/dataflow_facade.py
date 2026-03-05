@@ -86,6 +86,33 @@ def _internal_broad_type_lint_lines(
     )
 
 
+# Explicit static compatibility exports for high-use helper surfaces.
+_annotation_exception_candidates = _runtime._annotation_exception_candidates
+_bind_call_args = _runtime._bind_call_args
+_collect_dataclass_registry = _runtime._collect_dataclass_registry
+_collect_recursive_functions = _runtime._collect_recursive_functions
+_deadline_loop_forwarded_params = _runtime._deadline_loop_forwarded_params
+_decision_surface_params = _runtime._decision_surface_params
+_decorator_name = _runtime._decorator_name
+_emit_report = _runtime._emit_report
+_is_deadline_origin_call = _runtime._is_deadline_origin_call
+_iter_config_fields = _runtime._iter_config_fields
+_iter_dataclass_call_bundles = _runtime._iter_dataclass_call_bundles
+_iter_documented_bundles = _runtime._iter_documented_bundles
+_keyword_string_literal = _runtime._keyword_string_literal
+_materialize_projection_spec_rows = _runtime._materialize_projection_spec_rows
+_merge_counts_by_knobs = _runtime._merge_counts_by_knobs
+_phase_work_progress = _runtime._phase_work_progress
+_render_mermaid_component = _runtime._render_mermaid_component
+_report_section_spec = _runtime._report_section_spec
+_stage_cache_key_aliases = _runtime._stage_cache_key_aliases
+_suite_site_label = _runtime._suite_site_label
+_summarize_deadline_obligations = _runtime._summarize_deadline_obligations
+_type_from_const_repr = _runtime._type_from_const_repr
+_value_encoded_decision_params = _runtime._value_encoded_decision_params
+_DeadlineLocalInfo = _runtime._DeadlineLocalInfo
+
+
 def __getattr__(name: str):
     return getattr(_runtime, name)
 
