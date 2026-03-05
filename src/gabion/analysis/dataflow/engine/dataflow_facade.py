@@ -51,7 +51,12 @@ from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
     _iter_paths,
 )
-from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
+    _group_by_signature,
+    _propagate_groups,
+    _union_groups,
+    analyze_ingested_file,
+)
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,

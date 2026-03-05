@@ -1,5 +1,5 @@
 ---
-doc_revision: 267
+doc_revision: 268
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,7 +15,7 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 158
+- Facade LOC (current): 163
 - Facade top-level import statements (current): 41
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
@@ -31,6 +31,22 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-329`, this CU):
+  - Continued facade wildcard-import contraction by converting one additional owner surface from wildcard to explicit symbol imports:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - replaced `dataflow_ingested_analysis_support` wildcard import with explicit imports (`_group_by_signature`, `_propagate_groups`, `_union_groups`, `analyze_ingested_file`)
+  - Ratcheted wildcard budget:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - wildcard cap `10 -> 9`
+      - facade LOC cap adjusted `160 -> 170` to reflect explicit-import baseline
+  - Resulting facade metrics:
+    - wildcard imports `10 -> 9`
+    - LOC `158 -> 163`
+    - top-level imports unchanged (`41`)
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`19 passed`)
+    - evidence refresh executed; `git diff --exit-code out/test_evidence.json` passed (no evidence drift)
 - WS-5 continuation (`in-328`, this CU):
   - Reduced facade wildcard-import usage on smaller stable owner surfaces by converting wildcard imports to explicit symbol imports in:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
