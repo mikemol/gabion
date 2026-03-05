@@ -84,8 +84,6 @@ from gabion.analysis.core.forest_spec import (
 from gabion.analysis.foundation.timeout_context import (
     Deadline, GasMeter, TimeoutExceeded, TimeoutTickCarrier, build_timeout_context_from_stack, check_deadline, deadline_loop_iter, deadline_clock_scope, deadline_scope, forest_scope, reset_forest, set_forest)
 
-from gabion.analysis.projection.projection_exec import apply_spec
-
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 
 from gabion.analysis.foundation.baseline_io import load_json
@@ -99,7 +97,7 @@ from gabion.analysis.foundation.resume_codec import (
 from gabion.analysis.indexed_scan.index.analysis_carriers import AnalysisResult, ReportCarrier
 
 from gabion.analysis.projection.projection_registry import (
-    AMBIGUITY_SUMMARY_SPEC, DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, NEVER_INVARIANTS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC, spec_metadata_lines_from_payload, spec_metadata_payload)
+    DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, NEVER_INVARIANTS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
 
 from gabion.analysis.core.wl_refinement import emit_wl_refinement_facets
 
@@ -277,13 +275,19 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _ambiguity_suite_relation,
     _ambiguity_suite_row_to_suite,
     _ambiguity_virtual_count_gt_1,
+    _collect_call_ambiguities,
+    _collect_call_ambiguities_indexed,
     _decode_ambiguity_suite_row,
     _decode_projection_span,
+    _dedupe_call_ambiguities,
+    _emit_call_ambiguities,
+    _lint_lines_from_call_ambiguities,
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
     _materialize_projection_spec_rows,
     _materialize_suite_order_spec,
     _spec_row_span,
+    _summarize_call_ambiguities,
     _suite_order_depth,
     _suite_order_relation,
     _suite_order_row_to_site,
@@ -376,8 +380,6 @@ from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder
     populate_bundle_forest_from_runtime_module as _populate_bundle_forest_impl_runtime)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
-from gabion.analysis.indexed_scan.calls.call_ambiguities import (
-    CallAmbiguitiesEmitDeps as _CallAmbiguitiesEmitDeps, emit_call_ambiguities as _emit_call_ambiguities_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
 from gabion.analysis.indexed_scan.scanners.flow.type_flow import (
@@ -390,8 +392,6 @@ from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
     CallNodesForTreeDeps as _CallNodesForTreeDeps, CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps, call_nodes_for_tree as _call_nodes_for_tree_impl, collect_call_nodes_by_path as _collect_call_nodes_by_path_impl)
 from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
-from gabion.analysis.indexed_scan.calls.call_ambiguity_summary import (
-    CallAmbiguitySummaryDeps as _CallAmbiguitySummaryDeps, summarize_call_ambiguities as _summarize_call_ambiguities_impl)
 from gabion.analysis.indexed_scan.ast.lambda_bindings import (
     ClosureLambdaFactoriesDeps as _ClosureLambdaFactoriesDeps, LambdaBindingsByCallerDeps as _LambdaBindingsByCallerDeps, collect_closure_lambda_factories as _collect_closure_lambda_factories_impl, collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl)
 from gabion.schema import SynthesisResponse
@@ -2127,25 +2127,6 @@ def _span_line_col(span):
 
     return _impl(span)
 
-def _summarize_call_ambiguities(
-    entries: list[JSONObject],
-    *,
-    max_entries: int = 20,
-) -> list[str]:
-    return _summarize_call_ambiguities_impl(
-        entries,
-        max_entries=max_entries,
-        deps=_CallAmbiguitySummaryDeps(
-            check_deadline_fn=check_deadline,
-            apply_spec_fn=apply_spec,
-            ambiguity_summary_spec=AMBIGUITY_SUMMARY_SPEC,
-            spec_metadata_lines_from_payload_fn=spec_metadata_lines_from_payload,
-            spec_metadata_payload_fn=spec_metadata_payload,
-            sort_once_fn=sort_once,
-            format_span_fields_fn=_format_span_fields,
-        ),
-    )
-
 def _format_span_fields(
     line: object,
     col: object,
@@ -2262,135 +2243,6 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
-def _collect_call_ambiguities_indexed(
-    context: _IndexedPassContext,
-    *,
-    resolve_callee_fn = None,
-) -> list[CallAmbiguity]:
-    ambiguities: list[CallAmbiguity] = []
-    resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
-
-    def _sink(
-        caller: FunctionInfo,
-        call,
-        candidates: list[FunctionInfo],
-        phase: str,
-        callee_key: str,
-    ) -> None:
-        ordered = tuple(sort_once(candidates, key=lambda info: info.qual, source = 'gabion.analysis.dataflow_indexed_file_scan._sink.site_1'))
-        ambiguities.append(
-            CallAmbiguity(
-                kind="local_resolution_ambiguous",
-                caller=caller,
-                call=call,
-                callee_key=callee_key,
-                candidates=ordered,
-                phase=phase,
-            )
-        )
-
-    for infos in context.analysis_index.by_name.values():
-        check_deadline()
-        for info in infos:
-            check_deadline()
-            for call in info.calls:
-                check_deadline()
-                if call.is_test:
-                    continue
-                resolve_callee(
-                    call.callee,
-                    info,
-                    context.analysis_index.by_name,
-                    context.analysis_index.by_qual,
-                    context.analysis_index.symbol_table,
-                    context.project_root,
-                    context.analysis_index.class_index,
-                    call=call,
-                    ambiguity_sink=_sink,
-                )
-    return ambiguities
-
-def _collect_call_ambiguities(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-) -> list[CallAmbiguity]:
-    check_deadline()
-    return _run_indexed_pass(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        spec=_IndexedPassSpec(
-            pass_id="collect_call_ambiguities",
-            run=_collect_call_ambiguities_indexed,
-        ),
-    )
-
-def _dedupe_call_ambiguities(
-    ambiguities: Iterable[CallAmbiguity],
-) -> list[CallAmbiguity]:
-    check_deadline()
-    seen: set[tuple[object, ...]] = set()
-    ordered: list[CallAmbiguity] = []
-    for entry in ambiguities:
-        check_deadline()
-        span = entry.call.span if entry.call is not None else None
-        candidate_keys = tuple(
-            (candidate.path, candidate.qual) for candidate in entry.candidates
-        )
-        key = (
-            entry.kind,
-            entry.caller.path,
-            entry.caller.qual,
-            span,
-            entry.callee_key,
-            candidate_keys,
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        ordered.append(entry)
-    return ordered
-
-def _emit_call_ambiguities(
-    ambiguities: Iterable[CallAmbiguity],
-    *,
-    project_root,
-    forest: Forest,
-) -> list[JSONObject]:
-    return _emit_call_ambiguities_impl(
-        ambiguities,
-        project_root=project_root,
-        forest=forest,
-        deps=_CallAmbiguitiesEmitDeps(
-            check_deadline_fn=check_deadline,
-            normalize_snapshot_path_fn=_normalize_snapshot_path,
-            normalize_targets_fn=evidence_keys.normalize_targets,
-            never_fn=never,
-            call_candidate_target_site_fn=_call_candidate_target_site,
-            add_interned_alt_fn=_add_interned_alt,
-            make_ambiguity_set_key_fn=evidence_keys.make_ambiguity_set_key,
-            normalize_key_fn=evidence_keys.normalize_key,
-            make_partition_witness_key_fn=evidence_keys.make_partition_witness_key,
-            key_identity_fn=evidence_keys.key_identity,
-        ),
-    )
-
-def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _lint_lines_from_call_ambiguities as _impl
-
-    return _impl(entries)
 
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:
     if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":

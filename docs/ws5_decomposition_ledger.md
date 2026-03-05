@@ -1,5 +1,5 @@
 ---
-doc_revision: 14
+doc_revision: 15
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3407
-- Monolith top-level import statements (current): 97
+- Monolith LOC (current): 3259
+- Monolith top-level import statements (current): 94
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -251,6 +251,22 @@ doc_scope:
     - policy checks passed
     - CU-WS5-C suites passed (`26 passed`)
     - broader edge/deadline/runtime suite passed (`80 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Ambiguity call-runtime owner cut to `dataflow_projection_materialization.py`:
+    - `_collect_call_ambiguities_indexed`
+    - `_collect_call_ambiguities`
+    - `_dedupe_call_ambiguities`
+    - `_emit_call_ambiguities`
+    - `_summarize_call_ambiguities`
+    - `_lint_lines_from_call_ambiguities`
+  - Monolith bodies removed and replaced with owner aliases.
+  - Boundary compatibility retained in monolith for `_add_interned_alt` because bundle-forest runtime dependency wiring still references `runtime_module._add_interned_alt`.
+  - Removed now-unused monolith imports tied to moved ambiguity cluster.
+  - ASPF no-change acknowledgement refreshed (`in-76`).
+  - Validation:
+    - policy checks passed
+    - CU-WS5-C + structure + edge/deadline/runtime suites passed (`84 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
