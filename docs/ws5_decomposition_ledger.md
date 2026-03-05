@@ -1,5 +1,5 @@
 ---
-doc_revision: 55
+doc_revision: 56
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -950,6 +950,23 @@ doc_scope:
   - Compatibility status:
     - Facade deadline helper surfaces no longer route through direct monolith imports.
   - ASPF no-change acknowledgement refreshed (`in-116`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Shared deadline collector extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_deadline_collector.py`
+    - Moved duplicated collector logic behind a shared injected-dependency factory:
+      - `make_deadline_function_collector(...)`
+    - Monolith and deadline-runtime owner now alias `_DeadlineFunctionCollector` from shared owner factory with local dependency bindings:
+      - `node_span`
+      - `check_deadline`
+      - `_DeadlineLoopFacts`
+  - Compatibility status:
+    - Collector behavior is centralized; monolith and deadline runtime owner no longer carry duplicated collector bodies.
+  - ASPF no-change acknowledgement refreshed (`in-117`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
