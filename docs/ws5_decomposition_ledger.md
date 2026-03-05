@@ -1,5 +1,5 @@
 ---
-doc_revision: 137
+doc_revision: 138
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2379,6 +2379,29 @@ doc_scope:
     - IO/runtime synthesis/refactor/profiling behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-197`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Pipeline owner coupling convergence:
+    - Switched `dataflow_pipeline.py` analysis-index runtime imports from boundary `dataflow_analysis_index.py` to canonical owner/resume modules:
+      - `dataflow_analysis_index_owner.py`:
+        - `_PROGRESS_EMIT_MIN_INTERVAL_SECONDS`
+        - `_analyze_file_internal`
+        - `_build_analysis_collection_resume_payload`
+        - `_build_analysis_index`
+        - `_iter_monotonic_paths_owner` (aliased to `_iter_monotonic_paths`)
+        - `_load_analysis_collection_resume_payload`
+        - `_phase_work_progress_owner` (aliased to `_phase_work_progress`)
+        - `_profiling_v1_payload_owner` (aliased to `_profiling_v1_payload`)
+      - `dataflow_resume_serialization.py`:
+        - `_analysis_collection_resume_path_key`
+    - Removed pipeline dependency on boundary `AnalysisIndex` alias via local type alias `AnalysisIndex = object`.
+  - Compatibility status:
+    - Pipeline edge/post-phase orchestration behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-198`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
