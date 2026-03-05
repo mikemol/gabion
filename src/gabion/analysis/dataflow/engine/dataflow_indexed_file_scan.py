@@ -282,13 +282,13 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _resolve_callee,
     _resolve_callee_outcome,
 )
-from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _parse_module_tree_or_none as _parse_module_tree,
 )
-from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
+from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
     _report_section_spec,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (

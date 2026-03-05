@@ -17,7 +17,7 @@ def _load():
     from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
     from gabion.analysis.dataflow.engine import dataflow_call_graph_algorithms as call_graph
     from gabion.analysis.dataflow.engine import dataflow_deadline_helpers as deadline_helpers
-    from gabion.analysis.dataflow.engine import dataflow_deadline_summary_owner as deadline_summary
+    from gabion.analysis.dataflow.engine import dataflow_deadline_summary as deadline_summary
     from gabion.analysis.dataflow.engine import dataflow_lint_helpers as lint_helpers
     from gabion.analysis.dataflow.engine import dataflow_projection_materialization as projection
     from gabion.analysis.dataflow.engine.dataflow_contracts import (

@@ -14,7 +14,7 @@ def _load():
         InvariantProposition,
         ReportCarrier,
     )
-    from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import _report_section_spec
+    from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import _report_section_spec
     from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
         _topologically_order_report_projection_specs,
     )

@@ -107,10 +107,10 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     analyze_decision_surfaces_repo,
     analyze_value_encoded_decisions_repo,
 )
-from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,
 )
-from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
+from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
     _report_section_spec,
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
