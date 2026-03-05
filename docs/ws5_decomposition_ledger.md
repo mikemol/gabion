@@ -1,5 +1,5 @@
 ---
-doc_revision: 115
+doc_revision: 116
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2041,6 +2041,19 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-175`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade static-inventory retirement:
+    - Removed dead `_STATIC_FACADE_EXPORTS` inventory constant from `dataflow_facade.py`.
+    - No runtime fallback remained after `in-175`, so the static inventory was redundant metadata only; export surface remains provided by explicit canonical imports/aliases.
+  - Compatibility status:
+    - Facade symbol availability and behavior unchanged; only dead bookkeeping surface removed.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-176`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
