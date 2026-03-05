@@ -50,6 +50,107 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
     assert invariants.boundary_normalization(_sample) is _sample
 
 
+def test_invariant_decorator_attaches_marker_payload_metadata() -> None:
+    @invariants.todo_decorator(
+        "debt marker",
+        owner="core",
+        reasoning={
+            "summary": "debt marker",
+            "control": "refactor-plan",
+            "blocking_dependencies": ["dep-b", "dep-a", "dep-b"],
+        },
+    )
+    def _flagged_function() -> str:
+        return "ok"
+
+    @invariants.deprecated_decorator("legacy class marker", owner="runtime")
+    class _FlaggedClass:
+        pass
+
+    function_payloads = invariants.invariant_decorations(_flagged_function)
+    assert len(function_payloads) == 1
+    function_payload = function_payloads[0]
+    assert function_payload.marker_kind is MarkerKind.TODO
+    assert function_payload.reasoning.control == "refactor-plan"
+    assert function_payload.reasoning.blocking_dependencies == ("dep-a", "dep-b")
+
+    class_payloads = invariants.invariant_decorations(_FlaggedClass)
+    assert len(class_payloads) == 1
+    assert class_payloads[0].marker_kind is MarkerKind.DEPRECATED
+    assert _flagged_function() == "ok"
+
+
+def test_invariant_decorator_stacks_and_emits_no_runtime_warning() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        @invariants.never_decorator("outer never")
+        @invariants.todo_decorator("inner todo")
+        def _stacked_function() -> str:
+            return "stacked"
+
+    payloads = invariants.invariant_decorations(_stacked_function)
+    assert [payload.marker_kind for payload in payloads] == [
+        MarkerKind.TODO,
+        MarkerKind.NEVER,
+    ]
+    assert _stacked_function() == "stacked"
+    assert caught == []
+
+
+def test_never_string_only_call_emits_deprecation_marker_before_never(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deprecated_calls: list[tuple[str, dict[str, object]]] = []
+    factory_calls: list[tuple[str, dict[str, object]]] = []
+
+    def _fake_deprecated(reason: str = "", **env: object) -> MarkerPayload:
+        deprecated_calls.append((reason, dict(env)))
+        raise NeverThrown("deprecated marker path")
+
+    def _fake_factory(marker_kind: str, reasoning: object = "", **env: object) -> MarkerPayload:
+        _ = reasoning
+        factory_calls.append((marker_kind, dict(env)))
+        raise RuntimeError("never factory reached")
+
+    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
+    monkeypatch.setattr(invariants, "invariant_factory", _fake_factory)
+
+    with pytest.raises(RuntimeError, match="never factory reached"):
+        invariants.never("legacy reason")
+
+    assert len(deprecated_calls) == 1
+    deprecation_reason, deprecation_env = deprecated_calls[0]
+    assert "string-only API is deprecated" in deprecation_reason
+    assert deprecation_env.get("legacy_api") == "never(reason: str)"
+    assert len(factory_calls) == 1
+    assert factory_calls[0][0] == "never"
+
+
+def test_never_with_structured_or_metadata_kwargs_skips_string_only_deprecation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deprecated_calls = 0
+
+    def _fake_deprecated(reason: str = "", **env: object) -> MarkerPayload:
+        _ = (reason, env)
+        nonlocal deprecated_calls
+        deprecated_calls += 1
+        return cast(MarkerPayload, {"marker_kind": "deprecated"})
+
+    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
+
+    with pytest.raises(NeverThrown):
+        invariants.never(
+            "legacy-style message still present",
+            reasoning={"summary": "structured path"},
+        )
+    with pytest.raises(NeverThrown):
+        invariants.never("legacy-style message still present", owner="core")
+
+    assert deprecated_calls == 0
+
+
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
 
 

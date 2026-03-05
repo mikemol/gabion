@@ -116,6 +116,19 @@ _PROFILE_RUNTIME_BEHAVIOR_MATRIX: dict[
 
 T = TypeVar("T")
 FuncT = TypeVar("FuncT", bound=Callable[..., object])
+DecoratableT = TypeVar("DecoratableT")
+
+
+_INVARIANT_DECORATIONS_ATTR = "__gabion_invariant_decorations__"
+_LEGACY_NEVER_STRING_REASON_DEPRECATION_CONTROL: dict[str, object] = {
+    "actor": "codex",
+    "rationale": "Deprecate string-only never() calls in favor of structured reasoning payloads.",
+    "scope": "invariants.never.legacy_string_reason",
+    "start": "2026-03-05",
+    "expiry": "invariants.legacy-never-string deprecation window closure",
+    "rollback_condition": "all in-repo callsites migrate to structured never() reasoning payloads",
+    "evidence_links": ["docs/invariants_system_design.md"],
+}
 
 
 def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
@@ -211,8 +224,10 @@ def _emit_invariant_marker_warning(
     )
 
 
-def invariant_factory(
-    marker_kind: str, reasoning: object = "", **env: object
+def _normalized_invariant_marker_payload(
+    marker_kind: str,
+    reasoning: object = "",
+    **env: object,
 ) -> MarkerPayload:
     from gabion.analysis.foundation.marker_protocol import (
         MarkerKind,
@@ -241,7 +256,7 @@ def invariant_factory(
     }
     marker_kind_enum = MarkerKind(marker_kind)
     if marker_kind_enum is MarkerKind.NEVER:
-        payload = never_marker_payload(
+        return never_marker_payload(
             reason=reason,
             reasoning=normalized_reasoning,
             env=extra_env,
@@ -249,24 +264,29 @@ def invariant_factory(
             expiry=expiry,
             links=links,
         )
-    else:
-        fallback_reasoning = normalized_reasoning
-        if not fallback_reasoning.summary:
-            fallback_reasoning = normalize_marker_reasoning(
-                f"{marker_kind_enum.value}() marker reached"
-            )
-        payload = normalize_marker_payload(
-            reason=reason or f"{marker_kind_enum.value}() marker reached",
-            reasoning=fallback_reasoning,
-            env=extra_env,
-            marker_kind=marker_kind_enum,
-            owner=owner,
-            expiry=expiry,
-            links=links,
+    fallback_reasoning = normalized_reasoning
+    if not fallback_reasoning.summary:
+        fallback_reasoning = normalize_marker_reasoning(
+            f"{marker_kind_enum.value}() marker reached"
         )
+    return normalize_marker_payload(
+        reason=reason or f"{marker_kind_enum.value}() marker reached",
+        reasoning=fallback_reasoning,
+        env=extra_env,
+        marker_kind=marker_kind_enum,
+        owner=owner,
+        expiry=expiry,
+        links=links,
+    )
+
+
+def invariant_factory(
+    marker_kind: str, reasoning: object = "", **env: object
+) -> MarkerPayload:
+    payload = _normalized_invariant_marker_payload(marker_kind, reasoning, **env)
     runtime_config = invariant_runtime_behavior_config()
     behavior = resolve_marker_runtime_behavior(
-        marker_kind_enum.value,
+        payload.marker_kind.value,
         config=runtime_config,
     )
     if behavior.emits_warning:
@@ -280,12 +300,40 @@ def invariant_factory(
     return payload
 
 
+def _emit_legacy_never_string_reason_deprecation(reason: str) -> None:
+    try:
+        deprecated(
+            "never() string-only API is deprecated; use structured reasoning",
+            reasoning={
+                "summary": "never() string-only API is deprecated; use structured reasoning",
+                "control": str(
+                    _LEGACY_NEVER_STRING_REASON_DEPRECATION_CONTROL["scope"]
+                ),
+                "blocking_dependencies": (
+                    "migrate_never_callsites_to_structured_reasoning",
+                ),
+            },
+            control_id=str(_LEGACY_NEVER_STRING_REASON_DEPRECATION_CONTROL["scope"]),
+            legacy_api="never(reason: str)",
+            replacement_api=(
+                "never(reasoning={summary, control, blocking_dependencies}, ...)"
+            ),
+            legacy_reason=reason,
+            links=[{"kind": "doc_id", "value": "invariants_system_design"}],
+        )
+    except NeverThrown:
+        # In strict profiles, deprecated() throws; never() remains the terminal signal.
+        return
+
+
 def never(reason: str = "", **env: object) -> MarkerPayload:
     """Mark a code path as intentionally unreachable.
 
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
+    if not env and reason.strip():
+        _emit_legacy_never_string_reason_deprecation(reason)
     return invariant_factory("never", reason=reason, **env)
 
 
@@ -297,6 +345,41 @@ def todo(reason: str = "", **env: object) -> MarkerPayload:
 def deprecated(reason: str = "", **env: object) -> MarkerPayload:
     """Mark a code path as a deprecated/blocked semantic surface."""
     return invariant_factory("deprecated", reason=reason, **env)
+
+
+def invariant_decorations(target: object) -> tuple[MarkerPayload, ...]:
+    raw = getattr(target, _INVARIANT_DECORATIONS_ATTR, ())
+    return raw if isinstance(raw, tuple) else ()
+
+
+def invariant_decorator(
+    marker_kind: str,
+    reason: str = "",
+    **env: object,
+) -> Callable[[DecoratableT], DecoratableT]:
+    payload = _normalized_invariant_marker_payload(marker_kind, reason=reason, **env)
+
+    def _decorate(target: DecoratableT) -> DecoratableT:
+        existing = invariant_decorations(target)
+        setattr(target, _INVARIANT_DECORATIONS_ATTR, (*existing, payload))
+        return target
+
+    return _decorate
+
+
+def never_decorator(reason: str = "", **env: object) -> Callable[[DecoratableT], DecoratableT]:
+    return invariant_decorator("never", reason=reason, **env)
+
+
+def todo_decorator(reason: str = "", **env: object) -> Callable[[DecoratableT], DecoratableT]:
+    return invariant_decorator("todo", reason=reason, **env)
+
+
+def deprecated_decorator(
+    reason: str = "",
+    **env: object,
+) -> Callable[[DecoratableT], DecoratableT]:
+    return invariant_decorator("deprecated", reason=reason, **env)
 
 
 def invariant_runtime_behavior_config() -> InvariantRuntimeBehaviorConfig:
