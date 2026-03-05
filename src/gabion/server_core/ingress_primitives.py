@@ -5,6 +5,7 @@ from typing import Callable
 
 from gabion.analysis import AnalysisResult
 from gabion.json_types import JSONObject
+from gabion.server_core.command_contract import ProgressTraceStateContract
 
 
 @dataclass(frozen=True)
@@ -28,12 +29,12 @@ class OutputDeps:
 
 @dataclass(frozen=True)
 class ProgressDeps:
-    start_trace_fn: Callable[..., object]
-    record_1cell_fn: Callable[..., object]
-    record_2cell_witness_fn: Callable[..., object]
-    record_cofibration_fn: Callable[..., object]
-    merge_imported_trace_fn: Callable[..., object]
-    finalize_trace_fn: Callable[..., object]
+    start_trace_fn: Callable[..., ProgressTraceStateContract]
+    record_1cell_fn: Callable[..., ProgressTraceStateContract]
+    record_2cell_witness_fn: Callable[..., ProgressTraceStateContract]
+    record_cofibration_fn: Callable[..., ProgressTraceStateContract]
+    merge_imported_trace_fn: Callable[..., ProgressTraceStateContract]
+    finalize_trace_fn: Callable[..., ProgressTraceStateContract]
 
 
 @dataclass(frozen=True)

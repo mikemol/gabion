@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Mapping
 
 from gabion.server_core.stage_contracts import (
+    ExecutionPayloadOptionsContract,
+    IngressStageMode,
     IngressModeSelector,
     PayloadNormalizer,
     PayloadOptionsParser,
@@ -25,7 +27,10 @@ def run_ingress_stage(
     return StageIngressResult(payload=normalized_payload, options=options, mode=mode)
 
 
-def default_mode_selector(*, payload: Mapping[str, object], options: object) -> str:
+def default_mode_selector(
+    *, payload: Mapping[str, object], options: ExecutionPayloadOptionsContract
+) -> IngressStageMode:
+    del options
     if payload.get("aux_operation") is not None:
-        return "aux_operation"
-    return "analysis"
+        return IngressStageMode.AUX_OPERATION
+    return IngressStageMode.ANALYSIS

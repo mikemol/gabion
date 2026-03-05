@@ -3,8 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.server_core.analysis_stage import run_analysis_stage
+from gabion.server_core.command_contract import IngressStageMode
 from gabion.server_core.ingress_stage import default_mode_selector, run_ingress_stage
 from gabion.server_core.output_stage import run_output_stage
+from gabion.server_core.stage_contracts import AuxiliaryOutputRequest, PrimaryOutputRequest
 from gabion.server_core.timeout_stage import (
     render_timeout_payload,
     run_timeout_stage,
@@ -29,7 +31,7 @@ def test_ingress_stage_normalizes_options_and_mode() -> None:
     )
 
     assert stage.payload["normalized"] is True
-    assert stage.mode == "aux_operation"
+    assert stage.mode is IngressStageMode.AUX_OPERATION
     assert stage.options["root"] == "."
 
 
@@ -55,7 +57,10 @@ def test_output_stage_calls_primary_and_auxiliary_emitters() -> None:
     def _aux(*_args: object, **_kwargs: object) -> None:
         called.append("aux")
 
-    stage = run_output_stage(primary_output_emitter=_primary, auxiliary_output_emitter=_aux)
+    stage = run_output_stage(
+        primary_request=PrimaryOutputRequest(emit=_primary),
+        auxiliary_request=AuxiliaryOutputRequest(emit=_aux),
+    )
 
     assert called == ["primary", "aux"]
     assert stage.phase_checkpoint_state == {"phase": "emit"}
