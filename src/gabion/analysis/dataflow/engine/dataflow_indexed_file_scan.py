@@ -56,7 +56,7 @@ from gabion.analysis.core.deprecated_substrate import (
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
-    _CalleeResolutionOutcome as _CalleeResolutionOutcome_owner,
+    _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
     _DeadlineLocalInfo,
     _DeadlineLoopFacts,
@@ -114,7 +114,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
 from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
     _direct_lambda_callee_by_call_span,
     _materialize_direct_lambda_callees,
-    _unused_params as _unused_params_owner,
+    _unused_params,
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _collect_closure_lambda_factories,
@@ -154,7 +154,7 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _sorted_graph_nodes,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
-    _constant_smells_from_details as _constant_smells_from_details_owner,
+    _constant_smells_from_details,
     _deadness_witnesses_from_constant_details as _deadness_witnesses_from_constant_details_owner,
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
@@ -172,9 +172,9 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _is_deadline_param,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
-    _collect_local_class_bases as _collect_local_class_bases_owner,
-    _local_class_name as _local_class_name_owner,
-    _resolve_local_method_in_hierarchy as _resolve_local_method_in_hierarchy_owner,
+    _collect_local_class_bases,
+    _local_class_name,
+    _resolve_local_method_in_hierarchy,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
@@ -207,7 +207,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _invariant_confidence,
     _invariant_digest,
     _load_analysis_collection_resume_payload,
-    _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
+    _load_analysis_index_resume_payload,
     _load_file_scan_resume_state,
     _serialize_analysis_index_resume_payload,
     _serialize_bundle_sites_for_resume,
@@ -226,14 +226,14 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
-    ConstantFlowDetail as _ConstantFlowDetail_owner,
+    ConstantFlowDetail,
     _ConstantFlowFoldAccumulator,
     _analyze_decision_surface_indexed,
     _analyze_decision_surfaces_indexed,
     _analyze_value_encoded_decisions_indexed,
     _annotation_exception_candidates,
     _boundary_tier_obligation,
-    _dataclass_registry_for_tree as _dataclass_registry_for_tree_owner,
+    _dataclass_registry_for_tree,
     _exception_handler_compatibility,
     _exception_param_names,
     _exception_path_id,
@@ -297,7 +297,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     analyze_decision_surfaces_repo,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
-    analyze_type_flow_repo as _analyze_type_flow_repo_owner,
+    analyze_type_flow_repo,
     analyze_unused_arg_flow_repo,
     analyze_value_encoded_decisions_repo,
     generate_property_hook_manifest,
@@ -384,7 +384,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _collect_transitive_callers,
     _get_stage_cache_bucket,
     _index_stage_cache_identity,
-    _iter_monotonic_paths_owner,
+    _iter_monotonic_paths,
     _iter_resolved_edge_param_events,
     _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec,
     _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec,
@@ -434,7 +434,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _suite_caller_function_id,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
-    _summarize_deadline_obligations as _summarize_deadline_obligations_owner,
+    _summarize_deadline_obligations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _parse_module_tree_or_none as _parse_module_tree,
@@ -539,13 +539,6 @@ SymbolTable = _ContractSymbolTable
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 AuditConfig = _ContractAuditConfig
 
-_summarize_deadline_obligations = _summarize_deadline_obligations_owner
-
-
-_collect_local_class_bases = _collect_local_class_bases_owner
-_local_class_name = _local_class_name_owner
-_resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
-
 _is_deadline_origin_call = _is_deadline_origin_call_impl
 
 _DeadlineFunctionCollector = make_deadline_function_collector(
@@ -559,28 +552,16 @@ _parse_module_source = _parse_module_source_owner
 
 _forbid_adhoc_bundle_discovery = _forbid_adhoc_bundle_discovery_owner
 
-_unused_params = _unused_params_owner
-
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 FunctionInfo = _ContractFunctionInfo
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 ClassInfo = _ContractClassInfo
 
-_CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
-
-analyze_type_flow_repo = _analyze_type_flow_repo_owner
-
-ConstantFlowDetail = _ConstantFlowDetail_owner
-
-_constant_smells_from_details = _constant_smells_from_details_owner
-
 _deadness_witnesses_from_constant_details = (
     _deadness_witnesses_from_constant_details_owner
 )
 
-
-_dataclass_registry_for_tree = _dataclass_registry_for_tree_owner
 
 _parse_report_section_marker = _parse_report_section_marker_impl
 
@@ -591,10 +572,6 @@ _normalize_snapshot_path = _normalize_snapshot_path_impl
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
-
-_iter_monotonic_paths = _iter_monotonic_paths_owner
-
-_load_analysis_index_resume_payload = _load_analysis_index_resume_payload_owner
 
 _resolve_baseline_path = _resolve_baseline_path_impl
 
