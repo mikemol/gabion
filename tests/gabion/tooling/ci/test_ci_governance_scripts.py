@@ -616,3 +616,56 @@ justification: no semantic coverage row changes
         policy_check.ASPF_TAINT_MAP = original_map
         policy_check.ASPF_TAINT_NO_CHANGE = original_no_change
         policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]
+
+
+def test_runtime_narrowing_policy_allows_named_boundary_functions(tmp_path: Path) -> None:
+    cli_path = tmp_path / "src" / "gabion" / "cli.py"
+    cli_path.parent.mkdir(parents=True)
+    cli_path.write_text(
+        """
+from typing import cast
+
+def _phase_progress_from_progress_notification(payload):
+    if isinstance(payload, dict):
+        return cast(dict, payload)
+    return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    original_root = policy_check.REPO_ROOT
+    original_diff = policy_check._git_added_lines_for_file
+    try:
+        policy_check.REPO_ROOT = tmp_path
+        policy_check._git_added_lines_for_file = lambda _path: {4, 5}  # type: ignore[assignment]
+        assert policy_check._runtime_narrowing_violations(cli_path) == []
+    finally:
+        policy_check.REPO_ROOT = original_root
+        policy_check._git_added_lines_for_file = original_diff  # type: ignore[assignment]
+
+
+def test_runtime_narrowing_policy_flags_semantic_core_callsites(tmp_path: Path) -> None:
+    cli_path = tmp_path / "src" / "gabion" / "cli.py"
+    cli_path.parent.mkdir(parents=True)
+    cli_path.write_text(
+        """
+from typing import cast
+
+def _emit_phase_progress_line(payload):
+    if isinstance(payload, dict):
+        return cast(dict, payload)
+    return None
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    original_root = policy_check.REPO_ROOT
+    original_diff = policy_check._git_added_lines_for_file
+    try:
+        policy_check.REPO_ROOT = tmp_path
+        policy_check._git_added_lines_for_file = lambda _path: {4, 5}  # type: ignore[assignment]
+        violations = policy_check._runtime_narrowing_violations(cli_path)
+        assert violations
+    finally:
+        policy_check.REPO_ROOT = original_root
+        policy_check._git_added_lines_for_file = original_diff  # type: ignore[assignment]

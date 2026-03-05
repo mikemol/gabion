@@ -1542,6 +1542,34 @@ _KNOWN_ADAPTER_SURFACES = {
     "rewrite-plan-support": "rewrite_plan_support",
 }
 
+_RUNTIME_NARROWING_HOTSPOTS: dict[str, dict[str, str]] = {
+    "src/gabion/server.py": {
+        "_analysis_manifest_digest_from_witness": "boundary-valid",
+        "_decode_collection_resume_boundary": "boundary-valid",
+        "_completed_path_set": "semantic-core-migrate",
+        "_in_progress_scan_states": "semantic-core-migrate",
+        "_analysis_index_resume_signature": "semantic-core-migrate",
+    },
+    "src/gabion/cli.py": {
+        "_phase_progress_from_progress_notification": "boundary-valid",
+        "_run_synthesis_plan": "boundary-valid",
+        "_emit_phase_progress_line": "semantic-core-migrate",
+        "_run_dataflow_raw_argv": "semantic-core-migrate",
+    },
+}
+
+_RUNTIME_NARROWING_BOUNDARY_FUNCTIONS: dict[str, set[str]] = {
+    "src/gabion/server.py": {
+        "_analysis_manifest_digest_from_witness",
+        "_decode_collection_resume_boundary",
+        "_normalize_impact_payload",
+    },
+    "src/gabion/cli.py": {
+        "_phase_progress_from_progress_notification",
+        "_run_synthesis_plan",
+    },
+}
+
 
 
 def _raw_payload_branching_violations(path: Path) -> list[str]:
@@ -1709,6 +1737,107 @@ def check_adapter_surface_policy() -> None:
     if errors:
         _fail(errors)
 
+
+def _git_added_lines_for_file(path: Path) -> set[int]:
+    check_deadline()
+    try:
+        completed = subprocess.run(
+            ["git", "diff", "--unified=0", "--", str(path)],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return set()
+    added: set[int] = set()
+    new_line = 0
+    for line in completed.stdout.splitlines():
+        if line.startswith("@@"):
+            match = re.search(r"\+(\d+)(?:,(\d+))?", line)
+            if match is None:
+                continue
+            new_line = int(match.group(1))
+            continue
+        if line.startswith("+") and not line.startswith("+++"):
+            added.add(new_line)
+            new_line += 1
+            continue
+        if line.startswith("-"):
+            continue
+        new_line += 1
+    return added
+
+
+def _runtime_narrowing_violations(path: Path) -> list[str]:
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read source ({exc})"]
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        return [f"{path}: failed to parse source ({exc})"]
+
+    added_lines = _git_added_lines_for_file(path)
+    if not added_lines:
+        return []
+
+    rel_path = path.relative_to(REPO_ROOT).as_posix()
+    boundary_functions = _RUNTIME_NARROWING_BOUNDARY_FUNCTIONS.get(rel_path, set())
+    function_ranges: list[tuple[int, int, str]] = []
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef):
+            start = int(getattr(node, "lineno", 0) or 0)
+            end = int(getattr(node, "end_lineno", start) or start)
+            function_ranges.append((start, end, node.name))
+
+    def _line_function_name(line_no: int) -> str | None:
+        best: tuple[int, str] | None = None
+        for start, end, name in function_ranges:
+            if start <= line_no <= end:
+                width = end - start
+                if best is None or width < best[0]:
+                    best = (width, name)
+        return None if best is None else best[1]
+
+    violations: list[str] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        line = int(getattr(node, "lineno", 0) or 0)
+        if line not in added_lines:
+            continue
+        narrowing_call = False
+        if isinstance(node.func, ast.Name) and node.func.id == "isinstance":
+            narrowing_call = True
+        if isinstance(node.func, ast.Name) and node.func.id == "cast":
+            narrowing_call = True
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "cast":
+            narrowing_call = True
+        if not narrowing_call:
+            continue
+        name = _line_function_name(line)
+        if name not in boundary_functions:
+            violations.append(
+                f"{rel_path}:{line}: runtime narrowing (isinstance/cast) only allowed in named boundary functions"
+            )
+    return violations
+
+
+def check_runtime_narrowing_boundary_policy() -> None:
+    changed = _changed_repo_paths()
+    python_changed = {
+        REPO_ROOT / path
+        for path in changed
+        if path.startswith("src/gabion/") and path.endswith(".py")
+    }
+    errors: list[str] = []
+    for path in sorted(python_changed):
+        errors.extend(_runtime_narrowing_violations(path))
+    if errors:
+        _fail(["runtime narrowing boundary policy check failed", *errors])
+
 def main():
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
@@ -1719,9 +1848,10 @@ def main():
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
+    parser.add_argument("--runtime-narrowing-boundary", action="store_true", help="forbid new isinstance/cast usage outside named boundary functions")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.runtime_narrowing_boundary:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1743,6 +1873,8 @@ def main():
             check_src_script_file_loading_policy()
         if args.aspf_taint_crosswalk or args.workflows:
             check_aspf_taint_crosswalk_ack()
+        if args.runtime_narrowing_boundary or args.workflows:
+            check_runtime_narrowing_boundary_policy()
     return 0
 
 

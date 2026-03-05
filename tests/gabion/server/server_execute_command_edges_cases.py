@@ -5627,3 +5627,36 @@ def test_server_module_entrypoint_executes_start_guard() -> None:
         runpy.run_module("gabion.server", run_name="__main__")
     finally:
         LanguageServer.start_io = original_start_io
+
+
+def test_collection_resume_boundary_decode_rejects_invalid_ingress_state() -> None:
+    assert (
+        server._decode_collection_resume_boundary(
+            {"completed_paths": "not-a-list", "in_progress_scan_by_path": []}
+        )
+        is None
+    )
+
+
+def test_analysis_index_signature_uses_typed_boundary_carrier(monkeypatch) -> None:
+    carrier = server._CollectionResumeBoundaryDTO.model_validate(
+        {
+            "analysis_index_resume": {
+                "hydrated_paths_count": 4,
+                "hydrated_paths_digest": "abc",
+                "function_count": 10,
+                "class_count": 2,
+                "phase": "analysis_index_hydration",
+                "resume_digest": "resume-digest",
+            }
+        }
+    )
+    monkeypatch.setattr(server, "_decode_collection_resume_boundary", lambda _raw: carrier)
+    assert server._analysis_index_resume_signature({"analysis_index_resume": "bad"}) == (
+        4,
+        "abc",
+        10,
+        2,
+        "analysis_index_hydration",
+        "resume-digest",
+    )

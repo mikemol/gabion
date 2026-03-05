@@ -19,7 +19,7 @@ from typing import Callable, Literal, Mapping, Sequence, cast
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN, TEXT_DOCUMENT_DID_SAVE, TEXT_DOCUMENT_CODE_ACTION, CodeAction, CodeActionKind, CodeActionParams, Command, Diagnostic, DiagnosticSeverity, Position, Range, WorkspaceEdit)
 
@@ -588,33 +588,68 @@ def _build_phase_progress_v2(
     )
 
 
+class _ResumeScanStateDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    phase: str = ""
+    processed_functions: list[str] = Field(default_factory=list)
+    processed_functions_count: int = 0
+    processed_functions_digest: str = ""
+    function_count: int = 0
+    fn_names: dict[str, object] = Field(default_factory=dict)
+
+
+class _AnalysisIndexResumeDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    hydrated_paths: list[str] = Field(default_factory=list)
+    hydrated_paths_count: int = 0
+    hydrated_paths_digest: str = ""
+    function_count: int = 0
+    class_count: int = 0
+    phase: str = ""
+    resume_digest: str = ""
+
+
+class _CollectionResumeBoundaryDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    completed_paths: list[str] = Field(default_factory=list)
+    in_progress_scan_by_path: dict[str, _ResumeScanStateDTO] = Field(default_factory=dict)
+    analysis_index_resume: _AnalysisIndexResumeDTO | None = None
+
+
+def _decode_collection_resume_boundary(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> _CollectionResumeBoundaryDTO | None:
+    if not isinstance(collection_resume, Mapping):
+        return None
+    payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
+    try:
+        return _CollectionResumeBoundaryDTO.model_validate(payload)
+    except ValidationError:
+        return None
+
+
 def _completed_path_set(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None:
         return set()
-    raw_completed_paths = collection_resume.get("completed_paths")
-    if not isinstance(raw_completed_paths, Sequence) or isinstance(
-        raw_completed_paths, (str, bytes)
-    ):
-        return set()
-    return {path for path in raw_completed_paths if isinstance(path, str)}
+    return set(normalized.completed_paths)
 
 
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> dict[str, Mapping[str, JSONValue]]:
     states: dict[str, Mapping[str, JSONValue]] = {}
-    if not isinstance(collection_resume, Mapping):
-        return states
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if not isinstance(raw_in_progress, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None:
         return states
     previous_path: str | None = None
-    for raw_path, raw_state in raw_in_progress.items():
+    for raw_path, raw_state in normalized.in_progress_scan_by_path.items():
         check_deadline()
-        if not isinstance(raw_path, str):
-            continue
         if previous_path is not None and previous_path > raw_path:
             never(
                 "in_progress_scan_by_path path order regression",
@@ -622,9 +657,8 @@ def _in_progress_scan_states(
                 current_path=raw_path,
             )
         previous_path = raw_path
-        if not isinstance(raw_state, Mapping):
-            continue
-        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
+        state_payload: JSONObject = raw_state.model_dump()
+        states[raw_path] = state_payload
     return states
 
 
@@ -640,7 +674,7 @@ def _state_processed_count(state: Mapping[str, JSONValue]) -> int:
     if processed_functions:
         return len(processed_functions)
     raw_count = state.get("processed_functions_count")
-    if isinstance(raw_count, int):
+    if type(raw_count) is int:
         return max(0, raw_count)
     return 0
 
@@ -662,15 +696,10 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
 def _analysis_index_resume_hydrated_paths(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None or normalized.analysis_index_resume is None:
         return set()
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return set()
-    raw_hydrated = raw_resume.get("hydrated_paths")
-    if not isinstance(raw_hydrated, Sequence) or isinstance(raw_hydrated, (str, bytes)):
-        return set()
-    return {entry for entry in raw_hydrated if isinstance(entry, str)}
+    return set(normalized.analysis_index_resume.hydrated_paths)
 
 
 def _analysis_index_resume_hydrated_count(
@@ -679,15 +708,10 @@ def _analysis_index_resume_hydrated_count(
     hydrated = _analysis_index_resume_hydrated_paths(collection_resume)
     if hydrated:
         return len(hydrated)
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None or normalized.analysis_index_resume is None:
         return 0
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return 0
-    raw_count = raw_resume.get("hydrated_paths_count")
-    if isinstance(raw_count, int):
-        return max(0, raw_count)
-    return 0
+    return max(0, normalized.analysis_index_resume.hydrated_paths_count)
 
 
 def _analysis_index_resume_hydrated_digest(
@@ -698,14 +722,11 @@ def _analysis_index_resume_hydrated_digest(
         return hashlib.sha1(
             _canonical_json_text(sort_once(hydrated, source = 'src/gabion/server.py:1418')).encode("utf-8")
         ).hexdigest()
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None or normalized.analysis_index_resume is None:
         return hashlib.sha1(b"[]").hexdigest()
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return hashlib.sha1(b"[]").hexdigest()
-    raw_digest = raw_resume.get("hydrated_paths_digest")
-    if isinstance(raw_digest, str) and raw_digest:
-        return raw_digest
+    if normalized.analysis_index_resume.hydrated_paths_digest:
+        return normalized.analysis_index_resume.hydrated_paths_digest
     return hashlib.sha1(
         _canonical_json_text({"count": _analysis_index_resume_hydrated_count(collection_resume)}).encode("utf-8")
     ).hexdigest()
@@ -716,22 +737,14 @@ def _analysis_index_resume_signature(
 ) -> tuple[int, str, int, int, str, str]:
     hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
     hydrated_digest = _analysis_index_resume_hydrated_digest(collection_resume)
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None or normalized.analysis_index_resume is None:
         return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
-    function_count = raw_resume.get("function_count")
-    class_count = raw_resume.get("class_count")
-    phase = raw_resume.get("phase")
-    resume_digest = raw_resume.get("resume_digest")
-    if not isinstance(function_count, int):
-        function_count = 0
-    if not isinstance(class_count, int):
-        class_count = 0
-    if not isinstance(phase, str):
-        phase = ""
-    if not isinstance(resume_digest, str) or not resume_digest:
+    function_count = normalized.analysis_index_resume.function_count
+    class_count = normalized.analysis_index_resume.class_count
+    phase = normalized.analysis_index_resume.phase
+    resume_digest = normalized.analysis_index_resume.resume_digest
+    if not resume_digest:
         resume_digest = hydrated_digest
     return (
         hydrated_count,
@@ -746,12 +759,11 @@ def _analysis_index_resume_signature(
 def _analysis_index_resume_summary(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject | None:
-    if not isinstance(collection_resume, Mapping):
+    normalized = _decode_collection_resume_boundary(collection_resume)
+    if normalized is None:
         return None
-    normalized_resume: JSONObject = {
-        str(key): collection_resume[key] for key in collection_resume
-    }
-    return _analysis_index_resume_summary_payload(normalized_resume)
+    payload: JSONObject = normalized.model_dump(exclude_none=True)
+    return _analysis_index_resume_summary_payload(payload)
 
 
 def _analysis_index_resume_summary_payload(

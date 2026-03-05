@@ -16,6 +16,7 @@ import subprocess
 import sys
 
 from click.core import ParameterSource
+from pydantic import BaseModel, ConfigDict
 import typer
 from gabion.cli_support.check.check_commands import (
     register_check_aux_commands as _register_check_aux_commands,
@@ -249,6 +250,21 @@ DataflowPayloadCommonOptions = check_contract.DataflowPayloadCommonOptions
 DataflowFilterBundle = check_contract.DataflowFilterBundle
 CheckDeltaOptions = check_contract.CheckDeltaOptions
 CheckAuxOperation = check_contract.CheckAuxOperation
+
+
+class _PhaseProgressDTO(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    phase: str = ""
+    analysis_state: str = ""
+    classification: str = ""
+    work_done: int | None = None
+    work_total: int | None = None
+    completed_files: int | None = None
+    remaining_files: int | None = None
+    total_files: int | None = None
+    done: bool = False
+    event_seq: int | None = None
 
 
 @dataclass(frozen=True)
@@ -808,41 +824,34 @@ def _phase_timeline_from_progress_notification(
 
 def _phase_progress_from_progress_notification(
     notification: Mapping[str, object],
-) -> dict[str, object] | None:
+) -> _PhaseProgressDTO | None:
     payload = progress_timeline.phase_progress_from_progress_notification(notification)
-    if isinstance(payload, Mapping):
-        return {str(key): payload[key] for key in payload}
-    return None
+    if not isinstance(payload, Mapping):
+        return None
+    return _PhaseProgressDTO.model_validate(payload)
 
 
-def _emit_phase_progress_line(phase_progress: Mapping[str, object]) -> None:
-    phase = str(phase_progress.get("phase", "") or "")
+def _emit_phase_progress_line(phase_progress: Mapping[str, object] | _PhaseProgressDTO) -> None:
+    normalized = _PhaseProgressDTO.model_validate(phase_progress)
+    phase = normalized.phase
     if not phase:
         return
-    analysis_state = str(phase_progress.get("analysis_state", "") or "")
-    classification = str(phase_progress.get("classification", "") or "")
-    work_done = phase_progress.get("work_done")
-    work_total = phase_progress.get("work_total")
-    completed_files = phase_progress.get("completed_files")
-    remaining_files = phase_progress.get("remaining_files")
-    total_files = phase_progress.get("total_files")
-    done = bool(phase_progress.get("done", False))
     fragments = [f"phase={phase}"]
-    if analysis_state:
-        fragments.append(f"analysis_state={analysis_state}")
-    if classification:
-        fragments.append(f"classification={classification}")
-    if isinstance(work_done, int) and isinstance(work_total, int):
-        fragments.append(f"work={work_done}/{work_total}")
+    if normalized.analysis_state:
+        fragments.append(f"analysis_state={normalized.analysis_state}")
+    if normalized.classification:
+        fragments.append(f"classification={normalized.classification}")
+    if normalized.work_done is not None and normalized.work_total is not None:
+        fragments.append(f"work={normalized.work_done}/{normalized.work_total}")
     if (
-        isinstance(completed_files, int)
-        and isinstance(remaining_files, int)
-        and isinstance(total_files, int)
+        normalized.completed_files is not None
+        and normalized.remaining_files is not None
+        and normalized.total_files is not None
     ):
         fragments.append(
-            f"files={completed_files}/{total_files} remaining={remaining_files}"
+            f"files={normalized.completed_files}/{normalized.total_files} remaining={normalized.remaining_files}"
         )
-    prefix = "progress done" if done else "progress"
+    prefix = "progress done" if normalized.done else "progress"
     typer.echo(f"{prefix} {' '.join(fragments)}")
 
 
@@ -887,19 +896,19 @@ def _run_dataflow_raw_argv(
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
         phase_progress = _phase_progress_from_progress_notification(notification)
-        if not isinstance(phase_progress, Mapping):
+        if phase_progress is None:
             return
-        event_seq = phase_progress.get("event_seq")
-        if isinstance(event_seq, int):
+        event_seq = phase_progress.event_seq
+        if event_seq is not None:
             if last_phase_event_seq == event_seq:
                 return
             last_phase_event_seq = event_seq
-        signature = progress_timeline.phase_progress_signature(phase_progress)
+        signature = progress_timeline.phase_progress_signature(phase_progress.model_dump(exclude_none=True))
         if signature == last_phase_progress_signature:
             return
         last_phase_progress_signature = signature
         timeline_update = progress_timeline.phase_timeline_from_phase_progress(
-            phase_progress
+            phase_progress.model_dump(exclude_none=True)
         )
         row = str(timeline_update.get("row") or "")
         header_value = timeline_update.get("header")
