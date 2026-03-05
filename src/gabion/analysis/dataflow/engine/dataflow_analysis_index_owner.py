@@ -20,6 +20,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
     _CacheIdentity,
+    _analysis_collection_resume_path_key as _analysis_collection_resume_path_key_resume,
     _build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_owner,
     _load_file_scan_resume_state,
     _load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_owner,
@@ -430,7 +431,7 @@ def _iter_monotonic_paths_owner(paths, *, source: str):
     has_previous_path_key = False
     for path in paths:
         check_deadline()
-        path_key = str(path)
+        path_key = _analysis_collection_resume_path_key_resume(path)
         if has_previous_path_key and previous_path_key > path_key:
             never(
                 "path order regression",

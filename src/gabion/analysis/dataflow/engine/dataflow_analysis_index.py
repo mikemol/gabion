@@ -6,7 +6,6 @@ from __future__ import annotations
 
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
@@ -18,6 +17,9 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _iter_monotonic_paths_owner as _indexed_iter_monotonic_paths,
     _load_analysis_collection_resume_payload as _indexed_load_analysis_collection_resume_payload,
     _profiling_v1_payload_owner as _indexed_profiling_v1_payload,
+)
+from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
 
@@ -31,8 +33,7 @@ class _PhaseWorkProgress:
     work_total: int
 
 
-def _analysis_collection_resume_path_key(path: Path) -> str:
-    return str(path)
+_analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key
 
 
 _iter_monotonic_paths = _indexed_iter_monotonic_paths

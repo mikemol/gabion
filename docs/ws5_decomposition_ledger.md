@@ -1,5 +1,5 @@
 ---
-doc_revision: 126
+doc_revision: 127
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2219,6 +2219,21 @@ doc_scope:
     - Analysis-index boundary semantics remain stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-186`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Resume path-key normalization convergence:
+    - Routed analysis-index owner monotonic ordering to canonical resume key helper:
+      - `_iter_monotonic_paths_owner` now uses `_analysis_collection_resume_path_key` from `dataflow_resume_serialization`.
+    - Routed boundary helper in `dataflow_analysis_index.py` to the same canonical resume key helper:
+      - `_analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key`
+    - Eliminated duplicate local path-key logic while preserving existing boundary helper name/contract.
+  - Compatibility status:
+    - Resume-key/order behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-187`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
