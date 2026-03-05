@@ -1,5 +1,5 @@
 ---
-doc_revision: 92
+doc_revision: 93
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1240
+- Monolith LOC (current): 1206
 - Monolith top-level import statements (current): 64
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1636,6 +1636,23 @@ doc_scope:
     - Monolith LOC dropped to `1240`; top-level imports remain `64`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-152`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites passed (`103 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Decision/monotonic/adhoc wrapper ownerization:
+    - Post-phase owner parity widened to accept `run_fn` override in `_analyze_decision_surfaces_indexed`.
+    - Monolith wrappers replaced by canonical owner aliases:
+      - `_analyze_decision_surfaces_indexed`
+      - `_iter_monotonic_paths`
+      - `_forbid_adhoc_bundle_discovery`
+    - Removed now-unused monolith `os` dependency edge and stale resume-path import indirection tied to replaced wrappers.
+  - Compatibility status:
+    - Decision/runtime ordering helper behavior remains stable under resolver/pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites.
+    - Monolith LOC dropped to `1206`; top-level imports remain `64`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-153`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites passed (`103 passed`)

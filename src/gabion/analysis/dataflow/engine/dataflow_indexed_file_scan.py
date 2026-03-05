@@ -14,8 +14,6 @@ import argparse
 
 import ast
 
-import os
-
 import sys
 
 
@@ -197,7 +195,6 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _record_parse_failure_witness,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
-    iter_monotonic_paths as _iter_monotonic_paths_impl,
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
@@ -207,7 +204,6 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_PREFIX,
     _CacheIdentity,
     _ResumeCacheIdentityPair,
-    _analysis_collection_resume_path_key,
     _analysis_index_resume_variant_payload,
     _analysis_index_resume_variants,
     _build_analysis_collection_resume_payload,
@@ -250,6 +246,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _ConstantFlowFoldAccumulator,
     _analyze_decision_surface_indexed as _analyze_decision_surface_indexed_owner,
+    _analyze_decision_surfaces_indexed as _analyze_decision_surfaces_indexed_owner,
     _analyze_value_encoded_decisions_indexed as _analyze_value_encoded_decisions_indexed_owner,
     _annotation_exception_candidates,
     _boundary_tier_obligation as _boundary_tier_obligation_owner,
@@ -363,6 +360,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _PhaseWorkProgress as _PhaseWorkProgress_owner,
+    _iter_monotonic_paths as _iter_monotonic_paths_owner,
     _phase_work_progress as _phase_work_progress_owner,
     _profiling_v1_payload as _profiling_v1_payload_owner,
 )
@@ -466,6 +464,9 @@ from gabion.analysis.dataflow.io.dataflow_reporting import (
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
+)
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _forbid_adhoc_bundle_discovery as _forbid_adhoc_bundle_discovery_owner,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     is_deadline_origin_call as _is_deadline_origin_call_impl,
@@ -849,27 +850,7 @@ _VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
 
 _analyze_decision_surface_indexed = _analyze_decision_surface_indexed_owner
 
-def _analyze_decision_surfaces_indexed(
-    context: _IndexedPassContext,
-    *,
-    decision_tiers,
-    require_tiers: bool,
-    forest: Forest,
-    run_fn: Callable[..., tuple[list[str], list[str], list[str], list[str]]] = _analyze_decision_surface_indexed,
-) -> tuple[list[str], list[str], list[str]]:
-    surfaces, warnings, rewrites, lint_lines = run_fn(
-        context,
-        spec=_DIRECT_DECISION_SURFACE_SPEC,
-        decision_tiers=decision_tiers,
-        require_tiers=require_tiers,
-        forest=forest,
-    )
-    if rewrites:
-        never(
-            "decision_surfaces rewrites must be empty",
-            pass_id=_DIRECT_DECISION_SURFACE_SPEC.pass_id,
-        )
-    return surfaces, warnings, lint_lines
+_analyze_decision_surfaces_indexed = _analyze_decision_surfaces_indexed_owner
 
 _analyze_value_encoded_decisions_indexed = _analyze_value_encoded_decisions_indexed_owner
 
@@ -1032,11 +1013,7 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
 _parse_module_source = _parse_module_source_owner
 
 
-def _forbid_adhoc_bundle_discovery(reason: str) -> None:
-    if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
-        raise AssertionError(
-            f"Ad-hoc bundle discovery invoked while forest-only invariant active: {reason}"
-        )
+_forbid_adhoc_bundle_discovery = _forbid_adhoc_bundle_discovery_owner
 
 _materialize_statement_suite_contains = _materialize_statement_suite_contains_owner
 _materialize_structured_suite_sites_for_tree = _materialize_structured_suite_sites_for_tree_owner
@@ -1198,18 +1175,7 @@ _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
-def _iter_monotonic_paths(
-    paths: Iterable[Path],
-    *,
-    source: str,
-) -> list[Path]:
-    return _iter_monotonic_paths_impl(
-        paths,
-        source=source,
-        analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
-        check_deadline_fn=check_deadline,
-        never_fn=never,
-    )
+_iter_monotonic_paths = _iter_monotonic_paths_owner
 
 _load_analysis_index_resume_payload = _load_analysis_index_resume_payload_owner
 

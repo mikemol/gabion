@@ -1662,8 +1662,12 @@ def _analyze_decision_surfaces_indexed(
     decision_tiers,
     require_tiers: bool,
     forest: object,
+    run_fn: Callable[
+        ...,
+        tuple[list[str], list[str], list[str], list[str]],
+    ] = _analyze_decision_surface_indexed,
 ) -> tuple[list[str], list[str], list[str]]:
-    surfaces, warnings, rewrites, lint_lines = _analyze_decision_surface_indexed(
+    surfaces, warnings, rewrites, lint_lines = run_fn(
         context,
         spec=_DIRECT_DECISION_SURFACE_SPEC,
         decision_tiers=decision_tiers,
