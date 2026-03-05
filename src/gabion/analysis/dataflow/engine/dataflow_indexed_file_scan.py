@@ -119,6 +119,7 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path as _is_test_path_owner,
     _module_name as _module_name_owner,
     _string_list as _string_list_owner,
+    _target_names as _target_names_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
@@ -243,7 +244,11 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _ConstantFlowFoldAccumulator,
+    _analyze_decision_surface_indexed as _analyze_decision_surface_indexed_owner,
+    _analyze_value_encoded_decisions_indexed as _analyze_value_encoded_decisions_indexed_owner,
     _annotation_exception_candidates,
+    _boundary_tier_obligation as _boundary_tier_obligation_owner,
+    _dataclass_registry_for_tree as _dataclass_registry_for_tree_owner,
     _exception_handler_compatibility,
     _exception_param_names,
     _exception_path_id,
@@ -265,6 +270,8 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details,
     _collect_dataclass_registry,
     _dead_env_map,
+    _decision_reason_summary as _decision_reason_summary_owner,
+    _decision_surface_alt_evidence as _decision_surface_alt_evidence_owner,
     _infer_type_flow as _infer_type_flow_owner,
     _decision_param_lint_line as _decision_param_lint_line_owner,
     _decision_tier_for as _decision_tier_for_owner,
@@ -290,8 +297,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _names_in_expr,
     _node_in_block,
     _param_annotations_by_path,
+    _parse_module_source as _parse_module_source_owner,
+    _simple_store_name as _simple_store_name_owner,
     _span_line_col as _span_line_col_owner,
     _split_top_level,
+    _suite_site_label as _suite_site_label_owner,
     _type_from_const_repr,
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
@@ -452,30 +462,10 @@ from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl)
-from gabion.analysis.indexed_scan.ast.expression_eval import (
-    BoolEvalOutcome as _BoolEvalOutcome, EvalDecision as _EvalDecision, ValueEvalOutcome as _ValueEvalOutcome)
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
-from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
-    DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
-from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
-    DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
-_AST_UNPARSE_ERROR_TYPES = (
-    AttributeError,
-    TypeError,
-    ValueError,
-    RecursionError,
-)
-
-_LITERAL_EVAL_ERROR_TYPES = (
-    SyntaxError,
-    ValueError,
-    TypeError,
-    MemoryError,
-    RecursionError,
-)
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -849,71 +839,13 @@ def _decision_predicate_evidence(
         spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
     )
 
-def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
-    labels: set[str] = set()
-    for param in params:
-        check_deadline()
-        evidence = _decision_predicate_evidence(info, param)
-        labels.update(evidence.reasons)
-    if not labels:
-        return "heuristic"
-    return ", ".join(
-        sort_once(labels, source="_decision_reason_summary.labels")
-    )
+_decision_reason_summary = _decision_reason_summary_owner
 
-def _boundary_tier_obligation(caller_count: int) -> str:
-    if caller_count > 0:
-        return "tier-2:decision-bundle-elevation"
-    return "tier-3:decision-table-boundary"
+_boundary_tier_obligation = _boundary_tier_obligation_owner
 
-def _decision_surface_alt_evidence(
-    *,
-    spec: _DecisionSurfaceSpec,
-    boundary: str,
-    descriptor: str,
-    params: Iterable[str],
-    caller_count: int,
-    reason_summary: str,
-) -> JSONObject:
-    base_evidence = dict(spec.alt_evidence(boundary, descriptor))
-    payload: JSONObject = {
-        "boundary": base_evidence.get("boundary", boundary),
-        "classification_descriptor": descriptor,
-        "classification_reason": reason_summary,
-        "decision_params": sort_once(
-            set(params),
-            source="_decision_surface_alt_evidence.params",
-        ),
-    }
-    if "meta" in base_evidence:
-        payload["meta"] = base_evidence["meta"]
-    for key in sort_once(
-        (str(k) for k in base_evidence if str(k) not in {"boundary", "meta"}),
-        source="_decision_surface_alt_evidence.base_evidence",
-    ):
-        payload[key] = base_evidence[key]
-    payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
-    payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
-    return payload
+_decision_surface_alt_evidence = _decision_surface_alt_evidence_owner
 
-def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
-    suite_node = forest.nodes.get(suite_id)
-    if suite_node is None:
-        never("suite site missing during label projection", suite_id=str(suite_id))  # pragma: no cover - invariant sink
-    path = str(suite_node.meta.get("path", "") or "")
-    qual = str(suite_node.meta.get("qual", "") or "")
-    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-    span = int_tuple4_or_none(suite_node.meta.get("span"))
-    if not path or not qual or not suite_kind or span is None:
-        never(  # pragma: no cover - invariant sink
-            "suite site label projection missing identity",
-            path=path,
-            qual=qual,
-            suite_kind=suite_kind,
-            span=suite_node.meta.get("span"),
-        )
-    span_text = _format_span_fields(*span)
-    return f"{path}:{qual}[{suite_kind}]@{span_text}" if span_text else f"{path}:{qual}[{suite_kind}]"
+_suite_site_label = _suite_site_label_owner
 
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
@@ -977,32 +909,7 @@ _VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     ),
 )
 
-def _analyze_decision_surface_indexed(
-    context: _IndexedPassContext,
-    *,
-    spec: _DecisionSurfaceSpec,
-    decision_tiers,
-    require_tiers: bool,
-    forest: Forest,
-) -> tuple[list[str], list[str], list[str], list[str]]:
-    return _analyze_decision_surface_indexed_impl(
-        context,
-        spec=spec,
-        decision_tiers=decision_tiers,
-        require_tiers=require_tiers,
-        forest=forest,
-        deps=_DecisionSurfaceAnalyzeDeps(
-            build_call_graph_fn=_build_call_graph,
-            check_deadline_fn=check_deadline,
-            is_test_path_fn=_is_test_path,
-            sort_once_fn=sort_once,
-            decision_reason_summary_fn=_decision_reason_summary,
-            decision_surface_alt_evidence_fn=_decision_surface_alt_evidence,
-            suite_site_label_fn=_suite_site_label,
-            decision_tier_for_fn=_decision_tier_for,
-            decision_param_lint_line_fn=_decision_param_lint_line,
-        ),
-    )
+_analyze_decision_surface_indexed = _analyze_decision_surface_indexed_owner
 
 def _analyze_decision_surfaces_indexed(
     context: _IndexedPassContext,
@@ -1026,20 +933,7 @@ def _analyze_decision_surfaces_indexed(
         )
     return surfaces, warnings, lint_lines
 
-def _analyze_value_encoded_decisions_indexed(
-    context: _IndexedPassContext,
-    *,
-    decision_tiers,
-    require_tiers: bool,
-    forest: Forest,
-) -> tuple[list[str], list[str], list[str], list[str]]:
-    return _analyze_decision_surface_indexed(
-        context,
-        spec=_VALUE_DECISION_SURFACE_SPEC,
-        decision_tiers=decision_tiers,
-        require_tiers=require_tiers,
-        forest=forest,
-    )
+_analyze_value_encoded_decisions_indexed = _analyze_value_encoded_decisions_indexed_owner
 
 def _node_span(node: ast.AST):
     if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
@@ -1133,21 +1027,9 @@ def _is_deadline_param(name: str, annot) -> bool:
 
 _is_deadline_origin_call = _is_deadline_origin_call_impl
 
-def _target_names(target: ast.AST) -> set[str]:
-    check_deadline()
-    names: set[str] = set()
-    for node in ast.walk(target):
-        check_deadline()
-        if type(node) is ast.Name:
-            name_node = cast(ast.Name, node)
-            if type(name_node.ctx) is ast.Store:
-                names.add(name_node.id)
-    return names
+_target_names = _target_names_owner
 
-def _simple_store_name(target: ast.AST) -> OptionalString:
-    if type(target) is ast.Name:
-        return cast(ast.Name, target).id
-    return None
+_simple_store_name = _simple_store_name_owner
 
 _DeadlineLoopFacts = _DeadlineLoopFacts_owner
 _DeadlineLocalInfo = _DeadlineLocalInfo_owner
@@ -1271,8 +1153,7 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
     cache_key: Hashable
     build: Callable[[ast.Module, Path], _StageCacheValue]
 
-def _parse_module_source(path: Path) -> ast.Module:
-    return ast.parse(path.read_text())
+_parse_module_source = _parse_module_source_owner
 
 
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:
@@ -1429,28 +1310,7 @@ _deadness_witnesses_from_constant_details = (
 
 _iter_documented_bundles = _iter_documented_bundles_owner
 
-def _dataclass_registry_for_tree(
-    path: Path,
-    tree: ast.AST,
-    *,
-    project_root = None,
-) -> dict[str, list[str]]:
-    return cast(
-        dict[str, list[str]],
-        _dataclass_registry_for_tree_impl(
-            path,
-            tree,
-            project_root=project_root,
-            deps=_DataclassRegistryForTreeDeps(
-                check_deadline_fn=check_deadline,
-                module_name_fn=_module_name,
-                simple_store_name_fn=_simple_store_name,
-                decorator_text_fn=lambda dec: (
-                    ast.unparse(dec) if hasattr(ast, "unparse") else ""
-                ),
-            ),
-        ),
-    )
+_dataclass_registry_for_tree = _dataclass_registry_for_tree_owner
 
 _parse_report_section_marker = _parse_report_section_marker_impl
 

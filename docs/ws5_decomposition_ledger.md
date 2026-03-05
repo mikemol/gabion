@@ -1,5 +1,5 @@
 ---
-doc_revision: 89
+doc_revision: 90
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1504
-- Monolith top-level import statements (current): 68
+- Monolith LOC (current): 1364
+- Monolith top-level import statements (current): 65
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1573,6 +1573,29 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Decision/dataclass helper ownerization:
+    - Monolith wrappers replaced by canonical post-phase/evidence owner aliases:
+      - `_decision_reason_summary`
+      - `_boundary_tier_obligation`
+      - `_decision_surface_alt_evidence`
+      - `_suite_site_label`
+      - `_analyze_decision_surface_indexed`
+      - `_analyze_value_encoded_decisions_indexed`
+      - `_target_names`
+      - `_simple_store_name`
+      - `_parse_module_source`
+      - `_dataclass_registry_for_tree`
+    - Removed now-unused indexed-scan compatibility imports/constants tied to the replaced wrappers.
+  - Compatibility status:
+    - Decision/dataclass helper behavior remains stable under resolver/pipeline/obligation/deadline/structure plus decision/dataclass suites.
+    - Monolith LOC dropped to `1364`; top-level imports are `65`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-150`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass suites passed (`101 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
