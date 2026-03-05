@@ -347,15 +347,10 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _union_groups as _union_groups_owner,
     analyze_ingested_file as _analyze_ingested_file_owner,
 )
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _PhaseWorkProgress as _PhaseWorkProgress_owner,
-    _iter_monotonic_paths as _iter_monotonic_paths_owner,
-    _phase_work_progress as _phase_work_progress_owner,
-    _profiling_v1_payload as _profiling_v1_payload_owner,
-)
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
     _AnalysisIndexCarrier as _AnalysisIndex_owner,
+    _PhaseWorkProgress as _PhaseWorkProgress_owner,
     OptionalAnalysisIndex,
     _CacheSemanticContext,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
@@ -389,6 +384,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _collect_transitive_callers,
     _get_stage_cache_bucket,
     _index_stage_cache_identity,
+    _iter_monotonic_paths_owner,
     _iter_resolved_edge_param_events,
     _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec_owner,
     _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec_owner,
@@ -399,6 +395,8 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
     _run_indexed_pass,
+    _phase_work_progress_owner,
+    _profiling_v1_payload_owner,
     _sorted_text,
     _stage_cache_key_aliases,
 )
