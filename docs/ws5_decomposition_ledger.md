@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3171
-- Monolith top-level import statements (current): 94
+- Monolith LOC (current): 3113
+- Monolith top-level import statements (current): 69
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -282,11 +282,28 @@ doc_scope:
     - policy checks passed
     - CU-WS5-C + edge/deadline suites passed (`58 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith facade import-fanout contraction:
+    - Removed dormant top-level import surfaces no longer referenced by active runtime paths.
+    - Preserved required facade compatibility symbols by keeping explicit owner aliases for:
+      - `_resolve_class_candidates`
+      - `_resolve_method_in_hierarchy`
+      - `_merge_counts_by_knobs`
+      - `_render_mermaid_component`
+      - `_topologically_order_report_projection_specs`
+  - Threshold outcome:
+    - Monolith LOC reached `3113` (`<=3200` target satisfied).
+    - Monolith top-level import statements reached `69` (`<=70` target satisfied).
+  - ASPF no-change acknowledgement refreshed (`in-78`).
+  - Validation:
+    - policy checks passed
+    - dataflow + structure regression suites passed (`209 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Import fan-out contraction: move additional reporting/runtime helpers out of monolith and prune unused imports to approach `<=70`.
-2. Projection/ambiguity facade contraction: remove remaining compatibility-only pass-throughs in monolith.
-3. Post-phase cleanup: tighten remaining runtime dependency shims to explicit owner deps.
+1. Compatibility-owner contraction: retire remaining runtime-module fallbacks in `dataflow_post_phase_analyses.py` and `dataflow_analysis_index_owner.py`.
+2. Facade hardening: keep monolith boundary-only aliases while minimizing dead compatibility exports.
+3. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`

@@ -38,45 +38,24 @@ from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Map
 
 import re
 
-from gabion.analysis.projection.pattern_schema import (
-    PatternAxis, PatternInstance, PatternResidue, PatternSchema, execution_signature, mismatch_residue_payload)
-
 from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 
-from gabion.analysis.semantics.evidence import (
-    Site, exception_obligation_summary_for_site, normalize_bundle_key)
-
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 
-from gabion.analysis.semantics.schema_audit import find_anonymous_schema_surfaces
-
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
-
-from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 
 from gabion.analysis.semantics import evidence_keys
 
-from gabion.exceptions import NeverThrown
-
 from gabion.invariants import never, require_not_none
 
 from gabion.order_contract import OrderPolicy, sort_once
 
-from gabion.config import (
-    dataflow_defaults, dataflow_adapter_payload, dataflow_deadline_roots, dataflow_required_surfaces, decision_defaults, decision_ignore_list, decision_require_tiers, decision_tier_map, exception_defaults, exception_marker_family, exception_never_list, fingerprint_defaults, merge_payload, synthesis_defaults)
-
-from gabion.analysis.foundation.marker_protocol import (
-    DEFAULT_MARKER_ALIASES)
-
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint, FingerprintDimension, PrimeRegistry, TypeConstructorRegistry, _collect_base_atoms, _collect_constructors, SynthRegistry, build_synth_registry, build_fingerprint_registry, build_synth_registry_from_payload, bundle_fingerprint_dimensional, format_fingerprint, fingerprint_carrier_soundness, fingerprint_identity_payload, synth_registry_payload)
-
-from gabion.analysis.core.forest_signature import (
-    build_forest_signature, build_forest_signature_from_groups)
 
 from gabion.analysis.core.forest_spec import (
     ForestSpec, build_forest_spec, default_forest_spec, forest_spec_metadata)
@@ -86,11 +65,6 @@ from gabion.analysis.foundation.timeout_context import (
 
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 
-from gabion.analysis.foundation.baseline_io import load_json
-
-from gabion.analysis.projection.decision_flow import (
-    build_decision_tables, detect_repeated_guard_bundles, enforce_decision_protocol_contracts)
-
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_or_none, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_or_empty, mapping_or_none, payload_with_format, payload_with_phase, sequence_or_none, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
 
@@ -99,16 +73,8 @@ from gabion.analysis.indexed_scan.index.analysis_carriers import AnalysisResult,
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, NEVER_INVARIANTS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
 
-from gabion.analysis.core.wl_refinement import emit_wl_refinement_facets
-
-from gabion.analysis.aspf.aspf_core import parse_2cell_witness
-
 from gabion.analysis.core.deprecated_substrate import (
     DeprecatedExtractionArtifacts, DeprecatedFiber, detect_report_section_extinction)
-
-from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
-
-from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotopy
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
@@ -335,13 +301,10 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
-
 from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites, CallArgumentMapping, CallableId, DecisionPredicateEvidence, ParameterId, SpanIdentity)
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition, ReportCarrier as _DataflowReportCarrier, SymbolTable as _ContractSymbolTable
 
-from gabion.analysis.dataflow.io.dataflow_report_rendering import (
-    render_unsupported_by_adapter_section as _report_render_unsupported_section, render_synthesis_section as _report_render_synthesis_section)
 from gabion.analysis.dataflow.io.dataflow_reporting import (
     emit_report as _emit_report,
     render_report,
@@ -349,12 +312,6 @@ from gabion.analysis.dataflow.io.dataflow_reporting import (
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
-
-from gabion.analysis.dataflow.io.dataflow_snapshot_contracts import (
-    DecisionSnapshotSurfaces, StructureSnapshotDiffRequest)
-
-from gabion.analysis.projection.pattern_schema_projection import (
-    bundle_pattern_instances as _bundle_pattern_instances_impl, detect_execution_pattern_matches as _detect_execution_pattern_matches_impl, execution_pattern_instances as _execution_pattern_instances_impl, execution_pattern_suggestions as _execution_pattern_suggestions_impl, pattern_schema_matches as _pattern_schema_matches_impl, pattern_schema_residue_entries as _pattern_schema_residue_entries_impl, pattern_schema_residue_lines as _pattern_schema_residue_lines_impl, pattern_schema_snapshot_entries as _pattern_schema_snapshot_entries_impl, pattern_schema_suggestions as _pattern_schema_suggestions_impl, pattern_schema_suggestions_from_instances as _pattern_schema_suggestions_from_instances_impl, tier2_unreified_residue_entries as _tier2_unreified_residue_entries_impl)
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfoRuntime, FunctionSuiteKey as _FunctionSuiteKeyRuntime, FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime, FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime, bind_call_args as _bind_call_args_impl, call_candidate_target_site as _call_candidate_target_site_impl, caller_param_bindings_for_call as _caller_param_bindings_for_call_impl, classify_deadline_expr as _classify_deadline_expr_impl, collect_call_edges_from_forest as _collect_call_edges_from_forest_impl, collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl, collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl, deadline_arg_info_map as _deadline_arg_info_map_impl, deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl, fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl, function_suite_id as _function_suite_id_impl, function_suite_key as _function_suite_key_impl, is_deadline_origin_call as _is_deadline_origin_call_impl, materialize_call_candidates as _materialize_call_candidates_impl, node_to_function_suite_id as _node_to_function_suite_id_impl, node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl, obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl, suite_caller_function_id as _suite_caller_function_id_impl)
 from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
@@ -373,8 +330,6 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
-from gabion.analysis.indexed_scan.scanners.key_aliases import (
-    normalize_key_expr as _normalize_key_expr_impl)
 from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
     analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
@@ -387,8 +342,6 @@ from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
 from gabion.analysis.indexed_scan.scanners.flow.type_flow import (
     TypeFlowInferDeps as _TypeFlowInferDeps, infer_type_flow as _infer_type_flow_impl)
-from gabion.analysis.indexed_scan.state.function_index_accumulator import (
-    FunctionIndexAccumulatorDeps as _FunctionIndexAccumulatorDeps, accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl)
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     ResolveCalleeDeps as _ResolveCalleeDeps, resolve_callee as _resolve_callee_impl, resolve_callee_outcome as _resolve_callee_outcome_impl, resolve_callee_outcome_from_runtime_module as _resolve_callee_outcome_impl_runtime)
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
@@ -397,17 +350,6 @@ from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
 from gabion.analysis.indexed_scan.ast.lambda_bindings import (
     ClosureLambdaFactoriesDeps as _ClosureLambdaFactoriesDeps, LambdaBindingsByCallerDeps as _LambdaBindingsByCallerDeps, collect_closure_lambda_factories as _collect_closure_lambda_factories_impl, collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl)
-from gabion.schema import SynthesisResponse
-
-from gabion.refactor.rewrite_plan import rewrite_plan_schema, validate_rewrite_plan_payload
-
-from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
-
-from gabion.synthesis.emission import render_protocol_stubs as _render_protocol_stubs
-
-from gabion.synthesis.merge import merge_bundles
-
-from gabion.synthesis.schedule import topological_schedule
 
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
