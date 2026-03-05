@@ -9,14 +9,93 @@ def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.core.visitors import ParentAnnotator
     from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
-    from gabion.analysis.dataflow.engine import dataflow_deadline_runtime_owner as deadline_runtime
     from gabion.analysis.dataflow.engine import dataflow_function_index_runtime_support as index_runtime
     from gabion.analysis.dataflow.engine import dataflow_lambda_runtime_support as lambda_runtime
+    from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
+        CalleeResolutionContext as _CalleeResolutionContextCore,
+        collect_callee_resolution_effects as _collect_callee_resolution_effects,
+        resolve_callee_with_effects as _resolve_callee_with_effects,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import _callee_key
     from gabion.analysis.dataflow.engine.dataflow_contracts import (
         ClassInfo,
         FunctionInfo,
         SymbolTable,
     )
+    from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
+        _CalleeResolutionOutcome,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+        _is_test_path,
+        _module_name,
+    )
+    from gabion.analysis.foundation.timeout_context import check_deadline
+    from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
+        CalleeOutcomeDeps,
+        ResolveCalleeDeps,
+        resolve_callee as _resolve_callee_indexed,
+        resolve_callee_outcome as _resolve_callee_outcome_indexed,
+    )
+    from gabion.order_contract import sort_once
+
+    def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
+        check_deadline()
+        text = callee_key.strip()
+        if not text:
+            return False
+        if text.startswith("getattr("):
+            return True
+        if "." not in text:
+            return False
+        base, _, _ = text.partition(".")
+        base = base.strip()
+        if not base or base in {"self", "cls"}:
+            return False
+        if any(token in base for token in ("(", "[", "{")):
+            return True
+        return base.isidentifier() is False
+
+    def _dedupe_resolution_candidates(candidates):
+        deduped: dict[str, FunctionInfo] = {}
+        for candidate in candidates:
+            check_deadline()
+            if _is_test_path(candidate.path):
+                continue
+            deduped[candidate.qual] = candidate
+        return tuple(
+            sort_once(
+                deduped.values(),
+                key=lambda info: info.qual,
+                source="tests.test_dataflow_resolve_callee._dedupe_resolution_candidates",
+            )
+        )
+
+    _resolve_deps = ResolveCalleeDeps(
+        check_deadline_fn=check_deadline,
+        callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
+        resolve_callee_with_effects_fn=_resolve_callee_with_effects,
+        collect_callee_resolution_effects_fn=_collect_callee_resolution_effects,
+        module_name_fn=_module_name,
+    )
+
+    def _resolve_callee(*args, **kwargs):
+        return _resolve_callee_indexed(*args, deps=_resolve_deps, **kwargs)
+
+    _outcome_deps = CalleeOutcomeDeps(
+        check_deadline_fn=check_deadline,
+        callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
+        resolve_callee_with_effects_fn=_resolve_callee_with_effects,
+        collect_callee_resolution_effects_fn=_collect_callee_resolution_effects,
+        module_name_fn=_module_name,
+        dedupe_resolution_candidates_fn=_dedupe_resolution_candidates,
+        callee_key_fn=_callee_key,
+        is_dynamic_dispatch_callee_key_fn=_is_dynamic_dispatch_callee_key,
+        outcome_ctor=_CalleeResolutionOutcome,
+        default_resolve_callee_fn=_resolve_callee,
+    )
+
+    def _resolve_callee_outcome(*args, **kwargs):
+        return _resolve_callee_outcome_indexed(*args, deps=_outcome_deps, **kwargs)
 
     return SimpleNamespace(
         ClassInfo=ClassInfo,
@@ -27,9 +106,9 @@ def _load():
         _collect_lambda_bindings_by_caller=lambda_runtime._collect_lambda_bindings_by_caller,
         _collect_lambda_function_infos=lambda_runtime._collect_lambda_function_infos,
         _direct_lambda_callee_by_call_span=index_runtime._direct_lambda_callee_by_call_span,
-        _is_dynamic_dispatch_callee_key=deadline_runtime._is_dynamic_dispatch_callee_key,
-        _resolve_callee=deadline_runtime._resolve_callee,
-        _resolve_callee_outcome=deadline_runtime._resolve_callee_outcome,
+        _is_dynamic_dispatch_callee_key=_is_dynamic_dispatch_callee_key,
+        _resolve_callee=_resolve_callee,
+        _resolve_callee_outcome=_resolve_callee_outcome,
     )
 
 def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):

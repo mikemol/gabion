@@ -1,5 +1,5 @@
 ---
-doc_revision: 220
+doc_revision: 221
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,20 @@ doc_scope:
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
+- WS-5 continuation (`in-280`, this CU):
+  - Reduced `dataflow_deadline_runtime_owner` fan-in by migrating one remaining test adapter to canonical indexed/runtime deps:
+    - `tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py`
+    - removed direct owner import in `_load()` and rebuilt local adapter on:
+      - `indexed_scan.calls.callee_outcome_runtime` (`ResolveCalleeDeps`, `CalleeOutcomeDeps`, resolver/outcome entrypoints)
+      - `dataflow_callee_resolution` core context/effect resolvers
+      - `dataflow_evidence_helpers` module/test-path helpers
+      - `dataflow_deadline_contracts._CalleeResolutionOutcome`
+  - State delta:
+    - `dataflow_deadline_runtime_owner` direct imports in `src/tests`: `5 -> 4`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`26 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift drift from importer migration
 - WS-5 continuation (`in-279`, this CU):
   - Started post-facade hard-cut discovery for compatibility-owner retirement.
   - Current dependency inventory snapshot:
