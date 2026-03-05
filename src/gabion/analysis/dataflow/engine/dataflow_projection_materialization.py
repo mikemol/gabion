@@ -3,17 +3,48 @@ from __future__ import annotations
 
 """Projection/spec materialization owners extracted from the legacy monolith."""
 
+import ast
 from dataclasses import dataclass
 from collections.abc import Callable, Iterable, Mapping
+from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+    _build_analysis_index,
+    _iter_monotonic_paths,
+)
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _IndexedPassSpec,
+    _analysis_index_module_trees,
     _run_indexed_pass,
 )
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
+    _iter_documented_bundles,
+)
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    ParentAnnotator,
+    _build_symbol_table,
+    _resolve_callee,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _collect_functions,
+    _enclosing_scopes,
+    _is_test_path,
+    _module_name,
+    _node_span,
+)
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _collect_config_bundles,
+    _collect_dataclass_registry,
+    _iter_dataclass_call_bundles,
+)
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
+)
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _ParseModuleStage,
+    _parse_module_tree,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import int_tuple4_or_none
@@ -29,6 +60,19 @@ from gabion.analysis.indexed_scan.calls.call_ambiguity_summary import (
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     call_candidate_target_site as _call_candidate_target_site_impl,
+)
+from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
+    BundleForestBuildDeps as _BundleForestBuildDeps,
+    populate_bundle_forest as _populate_bundle_forest_impl,
+)
+from gabion.analysis.indexed_scan.scanners.materialization.statement_materialization import (
+    materialize_statement_suite_contains as _materialize_statement_suite_contains_impl,
+)
+from gabion.analysis.indexed_scan.scanners.materialization.structured_suite_sites import (
+    MaterializeStructuredSuiteSitesDeps as _MaterializeStructuredSuiteSitesDeps,
+    MaterializeStructuredSuiteSitesForTreeDeps as _MaterializeStructuredSuiteSitesForTreeDeps,
+    materialize_structured_suite_sites as _materialize_structured_suite_sites_impl,
+    materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_impl,
 )
 from gabion.analysis.indexed_scan.scanners.materialization.suite_order_relation import (
     AmbiguitySuiteRelationDeps as _AmbiguitySuiteRelationDeps,
@@ -509,12 +553,118 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
     return _impl(entries)
 
 
-def _populate_bundle_forest(*args, **kwargs):
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _populate_bundle_forest as _populate_bundle_forest_runtime,
+def _materialize_statement_suite_contains(
+    *,
+    forest: Forest,
+    path_name: str,
+    qual: str,
+    statements: list[ast.stmt],
+    parent_suite: NodeId,
+) -> None:
+    _materialize_statement_suite_contains_impl(
+        forest=forest,
+        path_name=path_name,
+        qual=qual,
+        statements=statements,
+        parent_suite=parent_suite,
+        node_span_fn=_node_span,
+        check_deadline_fn=check_deadline,
     )
 
-    return _populate_bundle_forest_runtime(*args, **kwargs)
+
+def _materialize_structured_suite_sites_for_tree(
+    *,
+    forest: Forest,
+    path: Path,
+    tree: ast.Module,
+    project_root,
+) -> None:
+    _materialize_structured_suite_sites_for_tree_impl(
+        forest=forest,
+        path=path,
+        tree=tree,
+        project_root=project_root,
+        deps=_MaterializeStructuredSuiteSitesForTreeDeps(
+            check_deadline_fn=check_deadline,
+            parent_annotator_factory=ParentAnnotator,
+            module_name_fn=_module_name,
+            collect_functions_fn=_collect_functions,
+            enclosing_scopes_fn=_enclosing_scopes,
+            node_span_fn=_node_span,
+            materialize_statement_suite_contains_fn=_materialize_statement_suite_contains,
+        ),
+    )
+
+
+def _materialize_structured_suite_sites(
+    *,
+    forest: Forest,
+    file_paths: list[Path],
+    project_root,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+) -> None:
+    _materialize_structured_suite_sites_impl(
+        forest=forest,
+        file_paths=file_paths,
+        project_root=project_root,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        deps=_MaterializeStructuredSuiteSitesDeps(
+            check_deadline_fn=check_deadline,
+            iter_monotonic_paths_fn=_iter_monotonic_paths,
+            analysis_index_module_trees_fn=_analysis_index_module_trees,
+            parse_module_tree_fn=_parse_module_tree,
+            parse_module_stage_suite_containment=_ParseModuleStage.SUITE_CONTAINMENT,
+            materialize_structured_suite_sites_for_tree_fn=_materialize_structured_suite_sites_for_tree,
+        ),
+    )
+
+
+def _populate_bundle_forest(
+    forest: Forest,
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    file_paths: list[Path],
+    project_root=None,
+    include_all_sites: bool = True,
+    ignore_params=None,
+    strictness: str = "high",
+    transparent_decorators=None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index=None,
+    on_progress=None,
+) -> None:
+    _populate_bundle_forest_impl(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=file_paths,
+        project_root=project_root,
+        include_all_sites=include_all_sites,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        on_progress=on_progress,
+        deps=_BundleForestBuildDeps(
+            check_deadline_fn=check_deadline,
+            iter_monotonic_paths_fn=_iter_monotonic_paths,
+            build_analysis_index_fn=_build_analysis_index,
+            sort_once_fn=sort_once,
+            is_test_path_fn=_is_test_path,
+            materialize_structured_suite_sites_fn=_materialize_structured_suite_sites,
+            add_interned_alt_fn=_add_interned_alt,
+            collect_config_bundles_fn=_collect_config_bundles,
+            collect_dataclass_registry_fn=_collect_dataclass_registry,
+            build_symbol_table_fn=_build_symbol_table,
+            iter_documented_bundles_fn=_iter_documented_bundles,
+            iter_dataclass_call_bundles_fn=_iter_dataclass_call_bundles,
+            progress_emit_min_interval_seconds=_PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+        ),
+    )
+
+    return None
 
 
 __all__ = [
