@@ -21,6 +21,7 @@ def _load():
     from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
     from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
         render_mermaid_component,
+        summarize_never_invariants,
     )
     from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
         _populate_bundle_forest,
@@ -35,6 +36,7 @@ def _load():
         _merge_counts_by_knobs=_merge_counts_by_knobs,
         _populate_bundle_forest=_populate_bundle_forest,
         _render_mermaid_component=render_mermaid_component,
+        _summarize_never_invariants=summarize_never_invariants,
         _report_section_spec=_report_section_spec,
         _topologically_order_report_projection_specs=_topologically_order_report_projection_specs,
     )
@@ -63,6 +65,50 @@ def test_emit_report_empty_groups() -> None:
     )
     assert "No bundle components detected." in report
     assert violations == []
+
+
+def test_summarize_never_invariants_renders_marker_kind() -> None:
+    da = _load()
+    lines = da._summarize_never_invariants(
+        [
+            {
+                "site": {
+                    "path": "a.py",
+                    "function": "f",
+                    "suite_kind": "prod",
+                },
+                "status": "OBLIGATION",
+                "reason": "fill me",
+                "marker_kind": "todo",
+            },
+            {
+                "site": {
+                    "path": "b.py",
+                    "function": "g",
+                    "suite_kind": "prod",
+                },
+                "status": "VIOLATION",
+                "reason": "legacy",
+                "marker_kind": "deprecated",
+            },
+            {
+                "site": {
+                    "path": "c.py",
+                    "function": "h",
+                    "suite_kind": "prod",
+                },
+                "status": "VIOLATION",
+                "reason": "fallback",
+                "marker_kind": "surprise",
+            },
+        ]
+    )
+
+    assert any("todo() (status=OBLIGATION; reason=fill me)" in line for line in lines)
+    assert any(
+        "deprecated() (status=VIOLATION; reason=legacy)" in line for line in lines
+    )
+    assert any("never() (status=VIOLATION; reason=fallback)" in line for line in lines)
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_parse_failure_witnesses() -> None:

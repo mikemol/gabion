@@ -397,11 +397,16 @@ def summarize_never_invariants(entries: list[JSONObject]) -> list[str]:
         span = _format_span_fields(*_span4(entry.get("span")))
         status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
         reason = str(entry.get("reason", "") or "")
+        marker_kind = str(entry.get("marker_kind", "never") or "never")
+        if marker_kind not in {"never", "todo", "deprecated"}:
+            marker_kind = "never"
         suffix = f"@{span}" if span else ""
         bits = [f"status={status}"]
         if reason:
             bits.append(f"reason={reason}")
-        lines.append(f"{path}:{function}[{suite_kind}]{suffix} never() ({'; '.join(bits)})")
+        lines.append(
+            f"{path}:{function}[{suite_kind}]{suffix} {marker_kind}() ({'; '.join(bits)})"
+        )
     return lines
 
 
