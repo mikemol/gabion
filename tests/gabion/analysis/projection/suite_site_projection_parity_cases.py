@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
+from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
+    _suite_site_label,
+)
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
-
-
-def _load():
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
-
-    return da
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_decision_surface_indexed
 def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
-    da = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "def choose(flag, mode):\n"
@@ -22,7 +20,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
         "    return mode\n"
     )
 
-    forest = da.Forest()
+    forest = Forest()
     analysis = _analyze_paths(
         forest=forest,
         paths=[path],
@@ -33,7 +31,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
         include_constant_smells=False,
         include_unused_arg_smells=False,
         include_decision_surfaces=True,
-        config=da.AuditConfig(project_root=tmp_path),
+        config=AuditConfig(project_root=tmp_path),
     )
 
     decision_alts = [alt for alt in forest.alts if alt.kind == "DecisionSurface"]
@@ -45,7 +43,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
         assert suite_node.meta.get("suite_kind") == "function_body"
         params = list(forest.nodes[alt.inputs[1]].meta.get("params", []))
         descriptor = str(alt.evidence.get("classification_descriptor", "") or "")
-        label = da._suite_site_label(forest=forest, suite_id=alt.inputs[0])
+        label = _suite_site_label(forest=forest, suite_id=alt.inputs[0])
         projected.append(
             f"{label} decision surface params: {', '.join(params)} ({descriptor})"
         )
@@ -55,7 +53,6 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_never_invariants
 def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
-    da = _load()
     path = tmp_path / "never_case.py"
     path.write_text(
         "from gabion.invariants import never\n\n"
@@ -64,7 +61,7 @@ def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: P
         "        never('stop')\n"
     )
 
-    forest = da.Forest()
+    forest = Forest()
     analysis = _analyze_paths(
         forest=forest,
         paths=[path],
@@ -75,7 +72,7 @@ def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: P
         include_constant_smells=False,
         include_unused_arg_smells=False,
         include_never_invariants=True,
-        config=da.AuditConfig(project_root=tmp_path),
+        config=AuditConfig(project_root=tmp_path),
     )
 
     sink_alts = [alt for alt in forest.alts if alt.kind == "NeverInvariantSink"]

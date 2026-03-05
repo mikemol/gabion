@@ -1,5 +1,5 @@
 ---
-doc_revision: 199
+doc_revision: 200
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3431,6 +3431,23 @@ doc_scope:
     - policy checks passed
     - facade importer sweep pytest bundle passed (`190 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection test importer migration off facade:
+    - Migrated projection-focused tests from `dataflow_facade` to canonical modules:
+      - `tests/gabion/analysis/projection/test_suite_order_projection_spec.py`
+      - `tests/gabion/analysis/projection/suite_site_projection_parity_cases.py`
+    - Replaced facade alias usage with direct imports from:
+      - `dataflow_projection_materialization`
+      - `dataflow_contracts`
+      - `gabion.analysis.aspf.aspf`
+  - Correctness impact:
+    - Runtime behavior unchanged; test import surfaces now align with canonical owners instead of compatibility facade.
+    - Monolith structural metrics unchanged (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-259`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`18 passed`)
+    - evidence refreshed; `out/test_evidence.json` updated for test line-shift drift
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
