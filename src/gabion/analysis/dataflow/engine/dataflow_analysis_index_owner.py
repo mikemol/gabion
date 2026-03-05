@@ -117,8 +117,7 @@ _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 
 
 def _default_parse_module(path: Path) -> ast.Module:
-    runtime = _runtime_module()
-    return runtime._parse_module_source(path)
+    return ast.parse(path.read_text())
 
 
 def _build_module_artifacts(
@@ -573,7 +572,7 @@ def _build_analysis_index(
                 sort_once_fn=sort_once,
                 profiling_payload_fn=runtime._profiling_v1_payload,
                 serialize_resume_payload_fn=_serialize_analysis_index_resume_payload_owner,
-                parse_module_source_fn=runtime._parse_module_source,
+                parse_module_source_fn=_default_parse_module,
                 parse_module_error_types=cast(
                     tuple[type[BaseException], ...],
                     _PARSE_MODULE_ERROR_TYPES,
@@ -609,7 +608,7 @@ def _analysis_index_module_trees(
             parse_failure_witnesses=parse_failure_witnesses,
             deps=_AnalysisIndexModuleTreesDeps(
                 check_deadline_fn=check_deadline,
-                parse_module_source_fn=runtime._parse_module_source,
+                parse_module_source_fn=_default_parse_module,
                 parse_module_error_types=_PARSE_MODULE_ERROR_TYPES,
                 record_parse_failure_witness_fn=_record_parse_failure_witness,
             ),

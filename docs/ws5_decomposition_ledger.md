@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -326,6 +326,17 @@ doc_scope:
       - `_serialize_analysis_index_resume_payload`
     - Removed these resume payload calls from runtime-module fallback wiring in analysis-index owner deps.
   - ASPF no-change acknowledgement refreshed (`in-80`).
+  - Validation:
+    - policy checks passed
+    - targeted resume/runtime/dataflow suites passed (`42 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner parse-source fallback contraction:
+    - `dataflow_analysis_index_owner._default_parse_module` is now owner-local (`ast.parse(path.read_text())`).
+    - Analysis-index owner deps now use owner-local parse source function directly for:
+      - `_build_analysis_index` parse-module dependency
+      - `_analysis_index_module_trees` parse-module dependency
+  - ASPF no-change acknowledgement refreshed (`in-81`).
   - Validation:
     - policy checks passed
     - targeted resume/runtime/dataflow suites passed (`42 passed`)
