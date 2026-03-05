@@ -53,10 +53,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleFailure,
     _ParseModuleStage,
-    _ParseModuleSuccess,
-    _parse_module_tree as _parse_module_tree_outcome,
+    _parse_module_tree_or_none as _parse_module_tree_or_none_owner,
 )
 from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -256,22 +254,7 @@ _call_nodes_for_tree = partial(
 )
 
 
-def _parse_module_tree_or_none(
-    path,
-    *,
-    stage,
-    parse_failure_witnesses,
-):
-    outcome = _parse_module_tree_outcome(
-        path,
-        stage=stage,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    match outcome:
-        case _ParseModuleSuccess(kind="parsed", tree=tree):
-            return tree
-        case _ParseModuleFailure(kind="parse_failure"):
-            return None
+_parse_module_tree_or_none = _parse_module_tree_or_none_owner
 
 
 _COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(

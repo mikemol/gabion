@@ -1,5 +1,5 @@
 ---
-doc_revision: 130
+doc_revision: 131
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2281,6 +2281,21 @@ doc_scope:
     - Phase-progress behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-190`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Parse-wrapper convergence across owners:
+    - Added canonical `_parse_module_tree_or_none` helper in `dataflow_parse_helpers.py`.
+    - Replaced duplicate local parse-wrapper bodies with canonical alias wiring in:
+      - `dataflow_deadline_runtime_owner.py`
+      - `dataflow_post_phase_analyses.py`
+    - Removed redundant parse-outcome branching from owner modules while preserving stage-tagged parse-failure witness behavior.
+  - Compatibility status:
+    - Parse/failure behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-191`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

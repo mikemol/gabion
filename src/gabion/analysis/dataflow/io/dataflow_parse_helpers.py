@@ -79,6 +79,22 @@ def _parse_module_tree(
         return _ParseModuleFailure(kind="parse_failure", witness=witness)
 
 
+def _parse_module_tree_or_none(
+    path: Path,
+    *,
+    stage: _ParseModuleStage,
+    parse_failure_witnesses: list[JSONObject],
+):
+    outcome = _parse_module_tree(
+        path,
+        stage=stage,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    if type(outcome) is _ParseModuleSuccess:
+        return outcome.tree
+    return None
+
+
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:
     if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
         raise AssertionError(

@@ -44,6 +44,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleSuccess,
     _forbid_adhoc_bundle_discovery,
     _parse_module_tree,
+    _parse_module_tree_or_none as _parse_module_tree_or_none_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details as _constant_smells_from_details_impl,
@@ -188,20 +189,7 @@ def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
 
-def _parse_module_tree_or_none(
-    path: Path,
-    *,
-    stage: _ParseModuleStage,
-    parse_failure_witnesses: list[JSONObject],
-):
-    outcome = _parse_module_tree(
-        path,
-        stage=stage,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    if type(outcome) is _ParseModuleSuccess:
-        return outcome.tree
-    return None
+_parse_module_tree_or_none = _parse_module_tree_or_none_owner
 
 
 def _simple_store_name(target: ast.AST):
