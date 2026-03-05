@@ -1,5 +1,5 @@
 ---
-doc_revision: 213
+doc_revision: 214
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,18 @@ doc_scope:
 - Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-273`, this CU):
+  - Migrated decision-surface tests off `dataflow_facade` via local canonical-owner adapter:
+    - `tests/gabion/analysis/decision/test_decision_surfaces.py`
+    - owner bindings:
+      - `dataflow_function_index_decision_support` (`_decision_surface_params`, `_value_encoded_decision_params`)
+      - `dataflow_post_phase_analyses` (`analyze_decision_surfaces_repo`, `analyze_value_encoded_decisions_repo`)
+      - `dataflow_projection_materialization` (`_populate_bundle_forest`)
+      - `dataflow_reporting.emit_report` + contracts (`AuditConfig`, `ReportCarrier`) + `aspf.Forest`
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`12 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift drift from importer migration
 - WS-5 continuation (`in-272`, this CU):
   - Migrated callee-resolution tests off `dataflow_facade` via local canonical-owner adapter:
     - `tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py`

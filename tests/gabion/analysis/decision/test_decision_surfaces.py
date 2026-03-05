@@ -3,15 +3,34 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _analyze_paths
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.aspf.aspf import Forest
+    from gabion.analysis.dataflow.engine import dataflow_function_index_decision_support as decision_support
+    from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
+    from gabion.analysis.dataflow.engine import dataflow_projection_materialization as projection
+    from gabion.analysis.dataflow.engine.dataflow_contracts import (
+        AuditConfig,
+        ReportCarrier,
+    )
+    from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
 
-    return da
+    return SimpleNamespace(
+        AuditConfig=AuditConfig,
+        Forest=Forest,
+        ReportCarrier=ReportCarrier,
+        _decision_surface_params=decision_support._decision_surface_params,
+        _emit_report=emit_report,
+        _populate_bundle_forest=projection._populate_bundle_forest,
+        _value_encoded_decision_params=decision_support._value_encoded_decision_params,
+        analyze_decision_surfaces_repo=post_phase.analyze_decision_surfaces_repo,
+        analyze_value_encoded_decisions_repo=post_phase.analyze_value_encoded_decisions_repo,
+    )
 
 
 def _suite_label(path: str, qual: str, span: str) -> str:
