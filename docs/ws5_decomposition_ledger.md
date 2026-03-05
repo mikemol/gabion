@@ -1,5 +1,5 @@
 ---
-doc_revision: 159
+doc_revision: 160
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 792
+- Monolith LOC (current): 770
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2714,6 +2714,29 @@ doc_scope:
     - Monolith facade decision-surface behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=792`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-218`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith post-phase decision-spec alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_DecisionSurfaceSpec`
+      - `_decision_predicate_evidence`
+      - `_decision_reason_summary`
+      - `_boundary_tier_obligation`
+      - `_decision_surface_alt_evidence`
+      - `_suite_site_label`
+      - `_DIRECT_DECISION_SURFACE_SPEC`
+      - `_VALUE_DECISION_SURFACE_SPEC`
+      - `_analyze_decision_surface_indexed`
+      - `_analyze_decision_surfaces_indexed`
+      - `_analyze_value_encoded_decisions_indexed`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade post-phase decision-spec behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=770`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-219`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)

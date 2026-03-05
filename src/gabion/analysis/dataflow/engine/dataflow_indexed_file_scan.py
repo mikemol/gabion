@@ -228,11 +228,11 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     ConstantFlowDetail as _ConstantFlowDetail_owner,
     _ConstantFlowFoldAccumulator,
-    _analyze_decision_surface_indexed as _analyze_decision_surface_indexed_owner,
-    _analyze_decision_surfaces_indexed as _analyze_decision_surfaces_indexed_owner,
-    _analyze_value_encoded_decisions_indexed as _analyze_value_encoded_decisions_indexed_owner,
+    _analyze_decision_surface_indexed,
+    _analyze_decision_surfaces_indexed,
+    _analyze_value_encoded_decisions_indexed,
     _annotation_exception_candidates,
-    _boundary_tier_obligation as _boundary_tier_obligation_owner,
+    _boundary_tier_obligation,
     _dataclass_registry_for_tree as _dataclass_registry_for_tree_owner,
     _exception_handler_compatibility,
     _exception_param_names,
@@ -255,9 +255,9 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details,
     _collect_dataclass_registry,
     _dead_env_map,
-    _decision_predicate_evidence as _decision_predicate_evidence_owner,
-    _decision_reason_summary as _decision_reason_summary_owner,
-    _decision_surface_alt_evidence as _decision_surface_alt_evidence_owner,
+    _decision_predicate_evidence,
+    _decision_reason_summary,
+    _decision_surface_alt_evidence,
     _infer_type_flow as _infer_type_flow_owner,
     _decision_param_lint_line as _decision_param_lint_line_owner,
     _decision_tier_for as _decision_tier_for_owner,
@@ -268,8 +268,8 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_invariant_propositions,
     _collect_never_invariants,
     _combine_type_hints,
-    _DecisionSurfaceSpec as _DecisionSurfaceSpec_owner,
-    _DIRECT_DECISION_SURFACE_SPEC as _DIRECT_DECISION_SURFACE_SPEC_owner,
+    _DecisionSurfaceSpec,
+    _DIRECT_DECISION_SURFACE_SPEC,
     _enclosing_function_node,
     _eval_bool_expr,
     _eval_value_expr,
@@ -290,9 +290,9 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _span_line_col as _span_line_col_owner,
     _split_top_level,
     _StageCacheSpec as _StageCacheSpec_owner,
-    _suite_site_label as _suite_site_label_owner,
+    _suite_site_label,
     _type_from_const_repr,
-    _VALUE_DECISION_SURFACE_SPEC as _VALUE_DECISION_SURFACE_SPEC_owner,
+    _VALUE_DECISION_SURFACE_SPEC,
     _ResolvedEdgeReducerSpec as _ResolvedEdgeReducerSpec_owner,
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
@@ -549,28 +549,6 @@ _local_class_name = _local_class_name_owner
 _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
 _param_names = _param_names_owner
-
-_DecisionSurfaceSpec = _DecisionSurfaceSpec_owner
-
-_decision_predicate_evidence = _decision_predicate_evidence_owner
-
-_decision_reason_summary = _decision_reason_summary_owner
-
-_boundary_tier_obligation = _boundary_tier_obligation_owner
-
-_decision_surface_alt_evidence = _decision_surface_alt_evidence_owner
-
-_suite_site_label = _suite_site_label_owner
-
-_DIRECT_DECISION_SURFACE_SPEC = _DIRECT_DECISION_SURFACE_SPEC_owner
-
-_VALUE_DECISION_SURFACE_SPEC = _VALUE_DECISION_SURFACE_SPEC_owner
-
-_analyze_decision_surface_indexed = _analyze_decision_surface_indexed_owner
-
-_analyze_decision_surfaces_indexed = _analyze_decision_surfaces_indexed_owner
-
-_analyze_value_encoded_decisions_indexed = _analyze_value_encoded_decisions_indexed_owner
 
 _node_span = _node_span_owner
 
