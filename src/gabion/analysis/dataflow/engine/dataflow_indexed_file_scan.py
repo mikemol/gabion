@@ -285,7 +285,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _names_in_expr,
     _node_in_block,
     _param_annotations_by_path,
-    _parse_module_source as _parse_module_source_owner,
+    _parse_module_source,
     _simple_store_name,
     _span_line_col,
     _split_top_level,
@@ -350,7 +350,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP,
     _AnalysisIndexCarrier as AnalysisIndex,
-    _PhaseWorkProgress as _PhaseWorkProgress_owner,
+    _PhaseWorkProgress,
     OptionalAnalysisIndex,
     _CacheSemanticContext,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
@@ -395,7 +395,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
     _run_indexed_pass,
-    _phase_work_progress_owner,
+    _phase_work_progress_owner as _phase_work_progress,
     _profiling_v1_payload,
     _sorted_text,
     _stage_cache_key_aliases,
@@ -469,7 +469,7 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleStage,
-    _forbid_adhoc_bundle_discovery as _forbid_adhoc_bundle_discovery_owner,
+    _forbid_adhoc_bundle_discovery,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     is_deadline_origin_call as _is_deadline_origin_call_impl,
@@ -525,10 +525,6 @@ ParseCacheValue = ast.Module | BaseException
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
-_PhaseWorkProgress = _PhaseWorkProgress_owner
-
-_phase_work_progress = _phase_work_progress_owner
-
 ParamUse = _ContractParamUse
 
 CallArgs = _ContractCallArgs
@@ -546,11 +542,6 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
-
-_parse_module_source = _parse_module_source_owner
-
-
-_forbid_adhoc_bundle_discovery = _forbid_adhoc_bundle_discovery_owner
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 FunctionInfo = _ContractFunctionInfo
