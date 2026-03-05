@@ -252,3 +252,24 @@ def test_facade_covers_monolith_analysis_support_alias_surfaces() -> None:
                 "facade analysis-support symbol must remain an alias to canonical "
                 f"owner; module={module_path} symbol={symbol}"
             )
+
+
+def test_facade_covers_monolith_external_support_alias_surfaces() -> None:
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+    module_paths = (
+        "gabion.analysis.aspf.aspf",
+        "gabion.analysis.core.visitors",
+        "gabion.analysis.foundation.timeout_context",
+        "gabion.analysis.projection.projection_registry",
+    )
+    for module_path in module_paths:
+        canonical = _load(module_path)
+        for symbol in _monolith_aliases_for(module_path):
+            assert hasattr(facade, symbol), (
+                "facade must carry full monolith external-support compatibility "
+                f"surface; module={module_path} missing={symbol}"
+            )
+            assert getattr(facade, symbol) is getattr(canonical, symbol), (
+                "facade external-support symbol must remain an alias to canonical "
+                f"owner; module={module_path} symbol={symbol}"
+            )

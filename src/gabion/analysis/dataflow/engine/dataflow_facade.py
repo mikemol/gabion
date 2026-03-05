@@ -257,8 +257,8 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _collect_local_class_bases,
     _resolve_local_method_in_hierarchy,
 )
-from gabion.analysis.aspf.aspf import Forest, NodeId
-from gabion.analysis.core.visitors import ParentAnnotator
+from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
+from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details,
     _deadness_witnesses_from_constant_details,
@@ -274,10 +274,26 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _parse_exception_path_id,
     _parse_lint_location,
 )
-from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import (
+    Deadline,
+    GasMeter,
+    TimeoutExceeded,
+    TimeoutTickCarrier,
+    build_timeout_context_from_stack,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_loop_iter,
+    deadline_scope,
+    forest_scope,
+    reset_forest,
+    set_forest,
+)
 from gabion.analysis.indexed_scan.ast.expression_eval import EvalDecision as _EvalDecision
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+    LINT_FINDINGS_SPEC,
+    REPORT_SECTION_LINES_SPEC,
+    WL_REFINEMENT_SPEC,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
