@@ -1,5 +1,5 @@
 ---
-doc_revision: 90
+doc_revision: 91
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1364
-- Monolith top-level import statements (current): 65
+- Monolith LOC (current): 1296
+- Monolith top-level import statements (current): 64
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1593,6 +1593,27 @@ doc_scope:
     - Monolith LOC dropped to `1364`; top-level imports are `65`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-150`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass suites passed (`101 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Invariant/progress helper ownerization:
+    - Monolith wrappers replaced by canonical analysis-index/resume owner aliases:
+      - `_PhaseWorkProgress`
+      - `_phase_work_progress`
+      - `_profiling_v1_payload`
+      - `_invariant_digest`
+      - `_invariant_confidence`
+      - `_compute_invariant_id`
+      - `_compute_invariant_evidence_key`
+      - `_normalize_invariant_proposition`
+    - Removed now-unused monolith `json`/`hashlib` dependency edges that were only supporting replaced helper bodies.
+  - Compatibility status:
+    - Invariant/progress helper behavior remains stable under resolver/pipeline/obligation/deadline/structure plus decision/dataclass suites.
+    - Monolith LOC dropped to `1296`; top-level imports are `64`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-151`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass suites passed (`101 passed`)

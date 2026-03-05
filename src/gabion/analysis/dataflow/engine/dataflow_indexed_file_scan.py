@@ -14,10 +14,6 @@ import argparse
 
 import ast
 
-import json
-
-import hashlib
-
 import os
 
 import sys
@@ -211,6 +207,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_index_resume_variant_payload,
     _analysis_index_resume_variants,
     _build_analysis_collection_resume_payload,
+    _compute_invariant_evidence_key as _compute_invariant_evidence_key_owner,
+    _compute_invariant_id as _compute_invariant_id_owner,
     _deserialize_bundle_sites_for_resume,
     _deserialize_call_args,
     _deserialize_call_args_list,
@@ -224,6 +222,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _deserialize_symbol_table_for_resume,
     _empty_analysis_collection_resume_payload,
     _empty_file_scan_resume_state,
+    _invariant_confidence as _invariant_confidence_owner,
+    _invariant_digest as _invariant_digest_owner,
     _load_analysis_collection_resume_payload,
     _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
     _load_file_scan_resume_state,
@@ -240,6 +240,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _serialize_param_use,
     _serialize_param_use_map,
     _serialize_symbol_table_for_resume,
+    _normalize_invariant_proposition as _normalize_invariant_proposition_owner,
     _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
@@ -353,6 +354,11 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _propagate_groups as _propagate_groups_owner,
     _union_groups as _union_groups_owner,
     analyze_ingested_file as _analyze_ingested_file_owner,
+)
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _PhaseWorkProgress as _PhaseWorkProgress_owner,
+    _phase_work_progress as _phase_work_progress_owner,
+    _profiling_v1_payload as _profiling_v1_payload_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
@@ -524,18 +530,9 @@ class _ParseModuleStage(StrEnum):
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
-@dataclass(frozen=True)
-class _PhaseWorkProgress:
-    work_done: int
-    work_total: int
+_PhaseWorkProgress = _PhaseWorkProgress_owner
 
-def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
-    check_deadline()
-    normalized_total = max(int(work_total), 0)
-    normalized_done = max(int(work_done), 0)
-    if normalized_total:
-        normalized_done = min(normalized_done, normalized_total)
-    return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
+_phase_work_progress = _phase_work_progress_owner
 
 _FunctionSuiteKey = _FunctionSuiteKey_owner
 
@@ -601,81 +598,21 @@ class CallArgs:
             star_keywords=tuple(ParameterId.from_raw(param) for param in self.star_kw),
         )
 
-def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
-    encoded = json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
-    digest = hashlib.blake2s(encoded, digest_size=12).hexdigest()
-    return f"{prefix}:{digest}"
+_invariant_digest = _invariant_digest_owner
 
-def _invariant_confidence(value: OptionalFloat) -> float:
-    if value is None:
-        return 1.0
-    return max(0.0, min(1.0, float(value)))
+_invariant_confidence = _invariant_confidence_owner
 
-def _compute_invariant_id(
-    *,
-    form: str,
-    terms: tuple[str, ...],
-    scope: str,
-    source: str,
-) -> str:
-    payload = {
-        "form": form,
-        "terms": list(terms),
-        "scope": scope,
-        "source": source,
-    }
-    return _invariant_digest(payload, prefix="inv")
+_compute_invariant_id = _compute_invariant_id_owner
 
-def _compute_invariant_evidence_key(
-    *,
-    invariant_id: str,
-    form: str,
-    terms: tuple[str, ...],
-    scope: str,
-) -> str:
-    term_display = ",".join(terms)
-    return f"E:invariant::{scope}::{form}::{term_display}::{invariant_id}"
+_compute_invariant_evidence_key = _compute_invariant_evidence_key_owner
 
-def _normalize_invariant_proposition(
-    proposition: InvariantProposition,
-    *,
-    default_scope: str,
-    default_source: str,
-) -> InvariantProposition:
-    scope = proposition.scope or default_scope
-    source = proposition.source or default_source
-    invariant_id = proposition.invariant_id or _compute_invariant_id(
-        form=proposition.form,
-        terms=proposition.terms,
-        scope=scope,
-        source=source,
-    )
-    evidence_keys = proposition.evidence_keys or (
-        _compute_invariant_evidence_key(
-            invariant_id=invariant_id,
-            form=proposition.form,
-            terms=proposition.terms,
-            scope=scope,
-        ),
-    )
-    return InvariantProposition(
-        form=proposition.form,
-        terms=proposition.terms,
-        scope=scope,
-        source=source,
-        invariant_id=invariant_id,
-        confidence=_invariant_confidence(proposition.confidence),
-        evidence_keys=tuple(str(key) for key in evidence_keys),
-    )
+_normalize_invariant_proposition = _normalize_invariant_proposition_owner
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 SymbolTable = _ContractSymbolTable
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 AuditConfig = _ContractAuditConfig
-
-_ANALYSIS_PROFILING_FORMAT_VERSION = 1
-
 
 def _summarize_deadline_obligations(entries, *, max_entries=20, forest):
     return _summarize_deadline_obligations_impl(
@@ -693,12 +630,7 @@ def _summarize_deadline_obligations(entries, *, max_entries=20, forest):
     )
 
 
-def _profiling_v1_payload(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
-    return {
-        "format_version": _ANALYSIS_PROFILING_FORMAT_VERSION,
-        "stage_ns": {str(key): int(stage_ns[key]) for key in stage_ns},
-        "counters": {str(key): int(counters[key]) for key in counters},
-    }
+_profiling_v1_payload = _profiling_v1_payload_owner
 
 _ReportSectionValue = TypeVar("_ReportSectionValue")
 
