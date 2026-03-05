@@ -3,12 +3,25 @@ from __future__ import annotations
 from pathlib import Path
 from tests.path_helpers import REPO_ROOT
 import ast
+from types import SimpleNamespace
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.core.visitors import ParentAnnotator
+    from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
+    from gabion.analysis.indexed_scan.ast.expression_eval import EvalDecision
 
-    return da
+    return SimpleNamespace(
+        ParentAnnotator=ParentAnnotator,
+        _EvalDecision=EvalDecision,
+        _branch_reachability_under_env=post_phase._branch_reachability_under_env,
+        _collect_exception_obligations=post_phase._collect_exception_obligations,
+        _eval_bool_expr=post_phase._eval_bool_expr,
+        _eval_value_expr=post_phase._eval_value_expr,
+        _names_in_expr=post_phase._names_in_expr,
+        _node_in_block=post_phase._node_in_block,
+        analyze_deadness_flow_repo=post_phase.analyze_deadness_flow_repo,
+    )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._eval_bool_expr::env,expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._eval_value_expr::env,expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._node_in_block::node
 def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
