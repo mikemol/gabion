@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
-from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, ClassInfo, FunctionInfo, InvariantProposition, SymbolTable
+from gabion.analysis.dataflow.engine import dataflow_resume_serialization as da
+from gabion.analysis.dataflow.engine.dataflow_raw_runtime import _resolve_synth_registry_path
+from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, ClassInfo, FunctionInfo, InvariantProposition, ParamUse, SymbolTable
 
 
 def _fn(path: Path) -> FunctionInfo:
@@ -120,7 +121,7 @@ def test_analysis_index_resume_payload_round_trip_and_variant_selection(tmp_path
     assert loaded_mismatch[0] == set()
     assert loaded_mismatch[1] == {}
     assert loaded_mismatch[3] == {}
-    assert isinstance(loaded_mismatch[2], da.SymbolTable)
+    assert isinstance(loaded_mismatch[2], SymbolTable)
     assert loaded_mismatch[2].imports == {}
 
 
@@ -198,7 +199,7 @@ def test_load_file_scan_resume_state_round_trip_and_invalid_payload() -> None:
     fn_key = "pkg.mod.f"
     fn_use = {
         fn_key: {
-            "x": da.ParamUse(
+            "x": ParamUse(
                 direct_forward={("pkg.mod.g", "arg[0]")},
                 non_forward=False,
                 current_aliases={"x"},
@@ -289,9 +290,9 @@ def test_analysis_collection_resume_round_trip_and_synth_registry_resolution(tmp
     )
     assert empty == ({}, {}, {}, [], set(), {}, None)
 
-    assert da._resolve_synth_registry_path(None, tmp_path) is None
-    assert da._resolve_synth_registry_path("  ", tmp_path) is None
-    resolved_relative = da._resolve_synth_registry_path("fingerprint.json", tmp_path)
+    assert _resolve_synth_registry_path(None, tmp_path) is None
+    assert _resolve_synth_registry_path("  ", tmp_path) is None
+    resolved_relative = _resolve_synth_registry_path("fingerprint.json", tmp_path)
     assert resolved_relative == (tmp_path / "fingerprint.json").resolve()
 
     latest_root = tmp_path / "artifacts"
@@ -302,7 +303,7 @@ def test_analysis_collection_resume_round_trip_and_synth_registry_resolution(tmp
     expected.parent.mkdir(parents=True, exist_ok=True)
     expected.write_text("{}", encoding="utf-8")
     # Canonical marker path contract resolves through LATEST.txt indirection.
-    resolved_latest = da._resolve_synth_registry_path(
+    resolved_latest = _resolve_synth_registry_path(
         "artifacts/LATEST/fingerprint_synth.json",
         tmp_path,
     )

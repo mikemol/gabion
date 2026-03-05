@@ -1,5 +1,5 @@
 ---
-doc_revision: 203
+doc_revision: 204
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,17 @@ doc_scope:
 - Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-263`, this CU):
+  - Migrated resume-payload tests off `dataflow_facade` to canonical owner imports:
+    - `tests/gabion/analysis/dataflow_s2/test_dataflow_resume_payloads.py`
+    - owner cutover:
+      - `dataflow_resume_serialization` for resume payload/codec helpers
+      - `dataflow_raw_runtime._resolve_synth_registry_path` for synth registry path resolution
+      - direct `ParamUse`/`SymbolTable` contract references
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`5 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift drift from importer migration
 - WS-5 continuation (`in-262`, this CU):
   - Migrated fingerprint soundness tests off `dataflow_facade` to canonical fingerprint owner import:
     - `tests/gabion/analysis/misc_s1/test_fingerprint_soundness.py` -> `dataflow_fingerprint_helpers`
