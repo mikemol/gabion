@@ -1,5 +1,5 @@
 ---
-doc_revision: 123
+doc_revision: 124
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2172,6 +2172,20 @@ doc_scope:
     - Analysis-index profiling/progress/path-order behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-183`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime resolver-default decision-protocol extraction:
+    - Added `_resolve_outcome_or_default` helper in `dataflow_deadline_runtime_owner.py` and routed both compatibility wrappers through it:
+      - `_collect_call_edges`
+      - `_materialize_call_candidates`
+    - Removed duplicated inline default-resolution branching while preserving `None => canonical default resolver` behavior.
+  - Compatibility status:
+    - Deadline resolver/materialization behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-184`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

@@ -174,6 +174,12 @@ _collect_call_edges_with_static_deps = partial(
 )
 
 
+def _resolve_outcome_or_default(resolve_callee_outcome_fn):
+    if resolve_callee_outcome_fn is None:
+        return _resolve_callee_outcome
+    return resolve_callee_outcome_fn
+
+
 def _collect_call_edges(
     *,
     by_name,
@@ -183,11 +189,7 @@ def _collect_call_edges(
     class_index,
     resolve_callee_outcome_fn=None,
 ):
-    resolver = (
-        _resolve_callee_outcome
-        if resolve_callee_outcome_fn is None
-        else resolve_callee_outcome_fn
-    )
+    resolver = _resolve_outcome_or_default(resolve_callee_outcome_fn)
     return _collect_call_edges_with_static_deps(
         by_name=by_name,
         by_qual=by_qual,
@@ -395,11 +397,7 @@ def _materialize_call_candidates(
     class_index: dict[str, object],
     resolve_callee_outcome_fn=None,
 ) -> None:
-    resolver = (
-        _resolve_callee_outcome
-        if resolve_callee_outcome_fn is None
-        else resolve_callee_outcome_fn
-    )
+    resolver = _resolve_outcome_or_default(resolve_callee_outcome_fn)
     _materialize_call_candidates_with_static_deps(
         forest=forest,
         by_name=by_name,
