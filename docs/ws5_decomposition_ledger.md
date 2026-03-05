@@ -1,5 +1,5 @@
 ---
-doc_revision: 241
+doc_revision: 242
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -36,7 +36,7 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest passed (`6 passed`)
-    - evidence refresh/check passed (no evidence drift)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected line-shift mapping drift
 - WS-5 continuation (`in-299`, this CU):
   - Added hard-cut regression guard for legacy monolith contraction budgets:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_metrics_guard.py`
@@ -58,7 +58,7 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest passed (`5 passed`)
-    - evidence refresh/check passed (no evidence drift)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected line-shift mapping drift
 - WS-5 continuation (`in-297`, this CU):
   - Added compatibility-boundary shape guard to prevent runtime logic reintroduction in legacy alias modules:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_boundary_shape.py`
