@@ -64,128 +64,38 @@ def _is_deadline_param(name: str, annot: object) -> bool:
     return False
 
 
-def _build_analysis_index(
-    paths: list[Path],
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators,
-    parse_failure_witnesses: list[JSONObject],
-):
-    return _build_analysis_index_owner(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+_build_analysis_index = _build_analysis_index_owner
 
 
-def _collect_call_edges_from_forest(
-    forest: Forest,
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-) -> dict[NodeId, set[NodeId]]:
-    return _indexed_collect_call_edges_from_forest(forest, by_name=by_name)
+_collect_call_edges_from_forest = _indexed_collect_call_edges_from_forest
 
 
-def _collect_call_nodes_by_path(
-    paths: list[Path],
-    *,
-    trees=None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index=None,
-):
-    return _indexed_collect_call_nodes_by_path(
-        paths,
-        trees=trees,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-    )
+_collect_call_nodes_by_path = _indexed_collect_call_nodes_by_path
 
 
-def _collect_call_resolution_obligations_from_forest(
-    forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str]]:
-    return _indexed_collect_call_resolution_obligations_from_forest(forest)
+_collect_call_resolution_obligations_from_forest = (
+    _indexed_collect_call_resolution_obligations_from_forest
+)
 
 
-def _collect_call_resolution_obligation_details_from_forest(
-    forest: Forest,
-) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int], str, str]]:
-    return _indexed_collect_call_resolution_obligation_details_from_forest(forest)
+_collect_call_resolution_obligation_details_from_forest = (
+    _indexed_collect_call_resolution_obligation_details_from_forest
+)
 
 
-def _collect_deadline_function_facts(
-    paths: list[Path],
-    *,
-    project_root=None,
-    ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
-    trees=None,
-    analysis_index=None,
-    stage_cache_fn=None,
-) -> dict[str, _DeadlineFunctionFacts]:
-    return _indexed_collect_deadline_function_facts(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        parse_failure_witnesses=parse_failure_witnesses,
-        trees=trees,
-        analysis_index=analysis_index,
-        stage_cache_fn=stage_cache_fn,
-    )
+_collect_deadline_function_facts = _indexed_collect_deadline_function_facts
 
 
-def _collect_recursive_nodes(edges) -> set[object]:
-    return _collect_recursive_nodes_owner(edges)
+_collect_recursive_nodes = _collect_recursive_nodes_owner
 
 
-def _caller_param_bindings_for_call(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, set[str]]:
-    return _indexed_caller_param_bindings_for_call(call, callee, strictness=strictness)
+_caller_param_bindings_for_call = _indexed_caller_param_bindings_for_call
 
 
-def _deadline_arg_info_map(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    call_node,
-    alias_to_param,
-    origin_vars,
-    strictness: str,
-) -> dict[str, _DeadlineArgInfo]:
-    return _indexed_deadline_arg_info_map(
-        call,
-        callee,
-        call_node=call_node,
-        alias_to_param=alias_to_param,
-        origin_vars=origin_vars,
-        strictness=strictness,
-    )
+_deadline_arg_info_map = _indexed_deadline_arg_info_map
 
 
-def _deadline_loop_forwarded_params(
-    *,
-    qual: str,
-    loop_fact: _DeadlineLoopFacts,
-    deadline_params,
-    call_infos,
-) -> set[str]:
-    return _indexed_deadline_loop_forwarded_params(
-        qual=qual,
-        loop_fact=loop_fact,
-        deadline_params=deadline_params,
-        call_infos=call_infos,
-    )
+_deadline_loop_forwarded_params = _indexed_deadline_loop_forwarded_params
 
 
 def _materialize_call_candidates(
@@ -212,8 +122,7 @@ def _materialize_call_candidates(
     )
 
 
-def _reachable_from_roots(edges, roots):
-    return _reachable_from_roots_owner(edges, roots)
+_reachable_from_roots = _reachable_from_roots_owner
 
 
 def _resolve_callee_outcome(

@@ -1,5 +1,5 @@
 ---
-doc_revision: 104
+doc_revision: 105
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1842,6 +1842,29 @@ doc_scope:
     - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-164`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-helper wrapper contraction:
+    - Converted pure pass-through wrappers in `dataflow_deadline_helpers.py` to direct aliases:
+      - `_build_analysis_index`
+      - `_collect_call_edges_from_forest`
+      - `_collect_call_nodes_by_path`
+      - `_collect_call_resolution_obligations_from_forest`
+      - `_collect_call_resolution_obligation_details_from_forest`
+      - `_collect_deadline_function_facts`
+      - `_collect_recursive_nodes`
+      - `_caller_param_bindings_for_call`
+      - `_deadline_arg_info_map`
+      - `_deadline_loop_forwarded_params`
+      - `_reachable_from_roots`
+    - Retained wrappers that still add compatibility behavior (`_materialize_call_candidates`, `_resolve_callee_outcome`).
+  - Compatibility status:
+    - Deadline/helper behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-165`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
