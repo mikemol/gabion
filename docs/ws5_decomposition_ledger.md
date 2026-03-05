@@ -1,5 +1,5 @@
 ---
-doc_revision: 84
+doc_revision: 85
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2465
-- Monolith top-level import statements (current): 68
+- Monolith LOC (current): 1665
+- Monolith top-level import statements (current): 67
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1485,6 +1485,22 @@ doc_scope:
     - Monolith LOC dropped to `1678`; top-level imports remain `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-144`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Identifier helper ownerization:
+    - Monolith pass-through wrappers replaced by direct canonical aliases:
+      - `_callee_name`
+      - `_normalize_callee`
+      - `_callee_key`
+      - `_function_key`
+  - Compatibility status:
+    - Identifier helper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1665`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-145`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

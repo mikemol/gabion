@@ -88,6 +88,7 @@ from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
+    _callee_key as _callee_key_owner,
     _resolve_class_candidates,
     _resolve_method_in_hierarchy,
 )
@@ -121,9 +122,11 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
+    _callee_name as _callee_name_owner,
     _call_context,
     _collect_return_aliases,
     _const_repr,
+    _normalize_callee as _normalize_callee_owner,
     _normalize_key_expr,
     _return_aliases,
 )
@@ -136,6 +139,7 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _collect_closure_lambda_factories as _collect_closure_lambda_factories_owner,
     _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_owner,
     _collect_lambda_function_infos as _collect_lambda_function_infos_owner,
+    _function_key as _function_key_owner,
     _synthetic_lambda_name as _synthetic_lambda_name_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
@@ -761,20 +765,9 @@ class CallAmbiguity:
     candidates: tuple[FunctionInfo, ...]
     phase: str
 
-def _callee_name(call: ast.Call) -> str:
-    try:
-        return ast.unparse(call.func)
-    except _AST_UNPARSE_ERROR_TYPES:
-        return "<call>"
+_callee_name = _callee_name_owner
 
-def _normalize_callee(name: str, class_name) -> str:
-    if not class_name:
-        return name
-    if name.startswith("self.") or name.startswith("cls."):
-        parts = name.split(".")
-        if len(parts) == 2:
-            return f"{class_name}.{parts[1]}"
-    return name
+_normalize_callee = _normalize_callee_owner
 
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
     return iter_python_paths(
@@ -1146,10 +1139,7 @@ def _param_spans(
                 spans[name] = span
     return spans
 
-def _function_key(scope: Iterable[str], name: str) -> str:
-    parts = list(scope)
-    parts.append(name)
-    return ".".join(parts)
+_function_key = _function_key_owner
 
 def _enclosing_class(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
@@ -1478,10 +1468,7 @@ def analyze_file(
     groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
     return groups, spans
 
-def _callee_key(name: str) -> str:
-    if not name:
-        return name
-    return name.split(".")[-1]
+_callee_key = _callee_key_owner
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 FunctionInfo = _ContractFunctionInfo
