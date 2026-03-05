@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import ast
+import importlib
 from pathlib import Path
 
 
 _FACADE_RELATIVE_PATH = "src/gabion/analysis/dataflow/engine/dataflow_facade.py"
 _MAX_FACADE_LOC = 150
 _MAX_FACADE_TOP_LEVEL_IMPORTS = 41
+_MAX_FACADE_IMPORTED_SYMBOLS = 300
 
 
 def test_legacy_facade_metrics_stay_within_budget() -> None:
@@ -19,6 +21,20 @@ def test_legacy_facade_metrics_stay_within_budget() -> None:
     top_level_imports = sum(
         1 for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
     )
+    imported_symbols = 0
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            imported_symbols += len(node.names)
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module_path = node.module or ""
+        for alias in node.names:
+            if alias.name != "*":
+                imported_symbols += 1
+                continue
+            canonical = importlib.import_module(module_path)
+            imported_symbols += len(getattr(canonical, "__all__", ()))
 
     assert loc <= _MAX_FACADE_LOC, (
         "legacy facade LOC budget exceeded; "
@@ -27,4 +43,8 @@ def test_legacy_facade_metrics_stay_within_budget() -> None:
     assert top_level_imports <= _MAX_FACADE_TOP_LEVEL_IMPORTS, (
         "legacy facade import budget exceeded; "
         f"imports={top_level_imports} max={_MAX_FACADE_TOP_LEVEL_IMPORTS}"
+    )
+    assert imported_symbols <= _MAX_FACADE_IMPORTED_SYMBOLS, (
+        "legacy facade imported-symbol budget exceeded; "
+        f"symbols={imported_symbols} max={_MAX_FACADE_IMPORTED_SYMBOLS}"
     )
