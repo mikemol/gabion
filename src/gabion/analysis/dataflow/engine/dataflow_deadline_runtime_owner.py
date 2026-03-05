@@ -9,10 +9,11 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_nodes,
     _reachable_from_roots,
 )
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _is_test_path
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _is_test_path, _target_names
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
+    _DeadlineLocalInfo,
     _DeadlineLoopFacts,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
@@ -22,13 +23,19 @@ from gabion.analysis.dataflow.engine.dataflow_facade import (
     _DeadlineFunctionCollector,
     _collect_call_nodes_by_path,
     _collect_deadline_function_facts,
-    _collect_deadline_local_info,
     _resolve_callee_outcome,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.calls.call_edges import (
     CollectCallEdgesDeps as _CollectCallEdgesDeps,
     collect_call_edges as _collect_call_edges_impl,
+)
+from gabion.analysis.indexed_scan.deadline.deadline_local_info import (
+    CollectDeadlineLocalInfoDeps as _CollectDeadlineLocalInfoDeps,
+    collect_deadline_local_info as _collect_deadline_local_info_impl,
+)
+from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
+    is_deadline_origin_call as _is_deadline_origin_call,
 )
 
 
@@ -50,6 +57,22 @@ def _collect_call_edges(
         deps=_CollectCallEdgesDeps(
             check_deadline_fn=check_deadline,
             is_test_path_fn=_is_test_path,
+        ),
+    )
+
+
+def _collect_deadline_local_info(
+    assignments,
+    params,
+):
+    return _collect_deadline_local_info_impl(
+        assignments,
+        params,
+        deps=_CollectDeadlineLocalInfoDeps(
+            check_deadline_fn=check_deadline,
+            is_deadline_origin_call_fn=_is_deadline_origin_call,
+            target_names_fn=_target_names,
+            deadline_local_info_ctor=_DeadlineLocalInfo,
         ),
     )
 
