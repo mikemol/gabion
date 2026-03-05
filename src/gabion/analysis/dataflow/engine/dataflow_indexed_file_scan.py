@@ -19,11 +19,9 @@ import sys
 
 from contextlib import ExitStack
 
-from dataclasses import dataclass, field
-
 from pathlib import Path
 
-from typing import Callable, Iterable, Iterator, Literal, Mapping, Sequence
+from typing import Iterable, Iterator, Literal, Mapping, Sequence
 
 from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
@@ -34,10 +32,6 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 
 from gabion.analysis.semantics import evidence_keys
-
-from gabion.invariants import never, require_not_none
-
-from gabion.order_contract import OrderPolicy, sort_once
 
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint, FingerprintDimension, PrimeRegistry, TypeConstructorRegistry, _collect_base_atoms, _collect_constructors, SynthRegistry, build_synth_registry, build_fingerprint_registry, build_synth_registry_from_payload, bundle_fingerprint_dimensional, format_fingerprint, fingerprint_carrier_soundness, fingerprint_identity_payload, synth_registry_payload)
@@ -458,13 +452,13 @@ from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
 )
-from gabion.analysis.semantics.semantic_primitives import (
-    CallArgumentMapping, CallableId, ParameterId)
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig as _ContractAuditConfig,
+    CallArgs as _ContractCallArgs,
     ClassInfo as _ContractClassInfo,
     FunctionInfo as _ContractFunctionInfo,
     InvariantProposition,
+    ParamUse as _ContractParamUse,
     SymbolTable as _ContractSymbolTable,
 )
 
@@ -541,67 +535,9 @@ _phase_work_progress = _phase_work_progress_owner
 
 _FunctionSuiteKey = _FunctionSuiteKey_owner
 
-@dataclass
-class ParamUse:
-    direct_forward: set[tuple[str, str]]
-    non_forward: bool
-    current_aliases: set[str]
-    forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = field(
-        default_factory=dict
-    )
-    unknown_key_carrier: bool = False
-    unknown_key_sites: set[tuple[int, int, int, int]] = field(default_factory=set)
+ParamUse = _ContractParamUse
 
-@dataclass(frozen=True)
-class CallArgs:
-    callee: str
-    pos_map: dict[str, str]
-    kw_map: dict[str, str]
-    const_pos: dict[str, str]
-    const_kw: dict[str, str]
-    non_const_pos: set[str]
-    non_const_kw: set[str]
-    star_pos: list[tuple[int, str]]
-    star_kw: list[str]
-    is_test: bool
-    span: OptionalSpan4 = None
-    callable_kind: str = "function"
-    callable_source: str = "symbol"
-
-    def __post_init__(self) -> None:
-        if set(self.pos_map) & set(self.const_pos):
-            never("positional slot cannot be both param and constant")  # pragma: no cover - invariant sink
-        if set(self.pos_map) & set(self.non_const_pos):
-            never("positional slot cannot be both param and non-const")  # pragma: no cover - invariant sink
-        if set(self.const_pos) & set(self.non_const_pos):
-            never("positional slot cannot be both const and non-const")  # pragma: no cover - invariant sink
-        if set(self.kw_map) & set(self.const_kw):
-            never("keyword slot cannot be both param and constant")  # pragma: no cover - invariant sink
-        if set(self.kw_map) & set(self.non_const_kw):
-            never("keyword slot cannot be both param and non-const")  # pragma: no cover - invariant sink
-        if set(self.const_kw) & set(self.non_const_kw):
-            never("keyword slot cannot be both const and non-const")  # pragma: no cover - invariant sink
-
-    def callable_id(self) -> CallableId:
-        return CallableId.from_raw(self.callee)
-
-    def argument_mapping(self) -> CallArgumentMapping:
-        positional = {
-            int(idx): ParameterId.from_raw(param)
-            for idx, param in self.pos_map.items()
-        }
-        keywords = {
-            key: ParameterId.from_raw(param)
-            for key, param in self.kw_map.items()
-        }
-        return CallArgumentMapping(
-            positional=positional,
-            keywords=keywords,
-            star_positional=tuple(
-                (idx, ParameterId.from_raw(param)) for idx, param in self.star_pos
-            ),
-            star_keywords=tuple(ParameterId.from_raw(param) for param in self.star_kw),
-        )
+CallArgs = _ContractCallArgs
 
 _invariant_digest = _invariant_digest_owner
 

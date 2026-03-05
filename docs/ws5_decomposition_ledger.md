@@ -1,5 +1,5 @@
 ---
-doc_revision: 97
+doc_revision: 98
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 920
-- Monolith top-level import statements (current): 62
+- Monolith LOC (current): 856
+- Monolith top-level import statements (current): 58
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1740,6 +1740,23 @@ doc_scope:
     - Monolith now has only two local classes (`ParamUse`, `CallArgs`).
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-157`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Final local carrier cut:
+    - Canonicalized `CallArgs` invariant ownership in `dataflow_contracts.py` by adding `__post_init__` guard checks.
+    - Monolith local carrier classes replaced by canonical contract aliases:
+      - `ParamUse`
+      - `CallArgs`
+    - Removed now-unused monolith imports tied to eliminated local class bodies.
+  - Compatibility status:
+    - Argument/parameter carrier semantics preserved under targeted WS-5 regression suites.
+    - Monolith LOC dropped to `856`; top-level imports dropped to `58`.
+    - Monolith now has `0` local classes and `0` local functions (pure alias facade).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-158`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)

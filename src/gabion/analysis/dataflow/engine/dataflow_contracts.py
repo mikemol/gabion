@@ -19,6 +19,7 @@ from gabion.analysis.semantics.semantic_primitives import (
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint, PrimeRegistry, SynthRegistry, TypeConstructorRegistry)
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 from gabion.analysis.core.deprecated_substrate import DeprecatedFiber
 from gabion.analysis.core.forest_spec import ForestSpec
@@ -65,6 +66,20 @@ class CallArgs:
     span: OptionalSpan4 = None
     callable_kind: str = "function"
     callable_source: str = "symbol"
+
+    def __post_init__(self) -> None:
+        if set(self.pos_map) & set(self.const_pos):
+            never("positional slot cannot be both param and constant")  # pragma: no cover - invariant sink
+        if set(self.pos_map) & set(self.non_const_pos):
+            never("positional slot cannot be both param and non-const")  # pragma: no cover - invariant sink
+        if set(self.const_pos) & set(self.non_const_pos):
+            never("positional slot cannot be both const and non-const")  # pragma: no cover - invariant sink
+        if set(self.kw_map) & set(self.const_kw):
+            never("keyword slot cannot be both param and constant")  # pragma: no cover - invariant sink
+        if set(self.kw_map) & set(self.non_const_kw):
+            never("keyword slot cannot be both param and non-const")  # pragma: no cover - invariant sink
+        if set(self.const_kw) & set(self.non_const_kw):
+            never("keyword slot cannot be both const and non-const")  # pragma: no cover - invariant sink
 
     def callable_id(self) -> CallableId:
         return CallableId.from_raw(self.callee)
