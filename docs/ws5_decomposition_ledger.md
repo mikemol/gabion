@@ -1,5 +1,5 @@
 ---
-doc_revision: 254
+doc_revision: 255
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,15 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-314`, this CU):
+  - Tightened lifecycle metadata governance assertions for compatibility surfaces:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+  - New enforcement:
+    - exact module-specific `scope` value checks (replacing broad pattern-only checks)
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`43 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected line-shift mapping drift
 - WS-5 continuation (`in-313`, this CU):
   - Added hard-cut regression guard for legacy compatibility owner module budgets:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`

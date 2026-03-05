@@ -8,7 +8,7 @@ def _load(module_path: str):
     return importlib.import_module(module_path)
 
 
-def _assert_lifecycle_metadata(module: object) -> None:
+def _assert_lifecycle_metadata(module: object, *, expected_scope: str) -> None:
     lifecycle = getattr(module, "_BOUNDARY_ADAPTER_LIFECYCLE")
     assert isinstance(lifecycle, dict)
     for key in (
@@ -33,8 +33,7 @@ def _assert_lifecycle_metadata(module: object) -> None:
         assert isinstance(value, str)
         assert value.strip()
     scope = lifecycle["scope"]
-    assert scope.startswith("dataflow_")
-    assert scope.endswith("alias_surface")
+    assert scope == expected_scope
     date.fromisoformat(lifecycle["start"])
     evidence_links = lifecycle["evidence_links"]
     assert isinstance(evidence_links, list)
@@ -60,9 +59,21 @@ def test_legacy_dataflow_compat_modules_import() -> None:
     assert hasattr(summary_owner, "_summarize_deadline_obligations")
     assert hasattr(facade, "_report_section_spec")
 
-    _assert_lifecycle_metadata(indexed)
-    _assert_lifecycle_metadata(analysis_owner)
-    _assert_lifecycle_metadata(deadline_owner)
-    _assert_lifecycle_metadata(reporting_owner)
-    _assert_lifecycle_metadata(summary_owner)
-    _assert_lifecycle_metadata(facade)
+    _assert_lifecycle_metadata(
+        indexed, expected_scope="dataflow_indexed_file_scan.alias_surface"
+    )
+    _assert_lifecycle_metadata(
+        analysis_owner, expected_scope="dataflow_analysis_index_owner.alias_surface"
+    )
+    _assert_lifecycle_metadata(
+        deadline_owner, expected_scope="dataflow_deadline_runtime_owner.alias_surface"
+    )
+    _assert_lifecycle_metadata(
+        reporting_owner, expected_scope="dataflow_runtime_reporting_owner.alias_surface"
+    )
+    _assert_lifecycle_metadata(
+        summary_owner, expected_scope="dataflow_deadline_summary_owner.alias_surface"
+    )
+    _assert_lifecycle_metadata(
+        facade, expected_scope="dataflow_facade.alias_surface"
+    )
