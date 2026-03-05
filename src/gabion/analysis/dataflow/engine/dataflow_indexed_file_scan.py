@@ -31,8 +31,6 @@ from pathlib import Path
 
 from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
 
-import re
-
 from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -157,9 +155,11 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_class_scopes_runtime as _enclosing_class_scopes_owner,
     _enclosing_function_scopes_runtime as _enclosing_function_scopes_owner,
     _enclosing_scopes_runtime as _enclosing_scopes_owner,
+    _node_span_runtime as _node_span_owner,
     _param_annotations_runtime as _param_annotations_owner,
     _param_defaults_runtime as _param_defaults_owner,
     _param_names_runtime as _param_names_owner,
+    _param_spans_runtime as _param_spans_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
@@ -180,6 +180,10 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _lint_lines_from_unused_arg_smells,
     _normalize_type_name,
     _parse_exception_path_id,
+)
+from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
+    _is_deadline_annot as _is_deadline_annot_owner,
+    _is_deadline_param as _is_deadline_param_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _collect_local_class_bases as _collect_local_class_bases_owner,
@@ -317,6 +321,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
     _ProjectionSpan,
+    _add_interned_alt as _add_interned_alt_owner,
     _ambiguity_suite_relation,
     _ambiguity_suite_row_to_suite,
     _ambiguity_virtual_count_gt_1,
@@ -326,6 +331,7 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _decode_projection_span,
     _dedupe_call_ambiguities,
     _emit_call_ambiguities,
+    _format_span_fields as _format_span_fields_owner,
     _lint_lines_from_call_ambiguities,
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
@@ -867,48 +873,9 @@ def _analyze_decision_surfaces_indexed(
 
 _analyze_value_encoded_decisions_indexed = _analyze_value_encoded_decisions_indexed_owner
 
-def _node_span(node: ast.AST):
-    if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
-        return None
-    start_line = max(getattr(node, "lineno", 1) - 1, 0)
-    start_col = max(getattr(node, "col_offset", 0), 0)
-    end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
-    end_col = getattr(node, "end_col_offset", start_col + 1)
-    if end_line == start_line and end_col <= start_col:
-        end_col = start_col + 1
-    return (start_line, start_col, end_line, end_col)
+_node_span = _node_span_owner
 
-def _param_spans(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> dict[str, tuple[int, int, int, int]]:
-    check_deadline()
-    spans: dict[str, tuple[int, int, int, int]] = {}
-    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    names = [a.arg for a in args]
-    if names and names[0] in {"self", "cls"}:
-        args = args[1:]
-        names = names[1:]
-    for arg in args:
-        check_deadline()
-        if ignore_params and arg.arg in ignore_params:
-            continue
-        span = _node_span(arg)
-        if span is not None:
-            spans[arg.arg] = span
-    if fn.args.vararg:
-        name = fn.args.vararg.arg
-        if not ignore_params or name not in ignore_params:
-            span = _node_span(fn.args.vararg)
-            if span is not None:
-                spans[name] = span
-    if fn.args.kwarg:
-        name = fn.args.kwarg.arg
-        if not ignore_params or name not in ignore_params:
-            span = _node_span(fn.args.kwarg)
-            if span is not None:
-                spans[name] = span
-    return spans
+_param_spans = _param_spans_owner
 
 _function_key = _function_key_owner
 
@@ -945,17 +912,9 @@ def _parse_module_tree(
         )
         return None
 
-def _is_deadline_annot(annot) -> bool:
-    if not annot:
-        return False
-    return bool(re.search(r"\bDeadline\b", annot))
+_is_deadline_annot = _is_deadline_annot_owner
 
-def _is_deadline_param(name: str, annot) -> bool:
-    if _is_deadline_annot(annot):
-        return True
-    if annot is None and name.lower() == "deadline":
-        return True
-    return False
+_is_deadline_param = _is_deadline_param_owner
 
 _is_deadline_origin_call = _is_deadline_origin_call_impl
 
@@ -1012,26 +971,11 @@ _infer_type_flow = _infer_type_flow_owner
 
 _analyze_unused_arg_flow_indexed = _analyze_unused_arg_flow_indexed_owner
 
-def _format_span_fields(
-    line: object,
-    col: object,
-    end_line: object,
-    end_col: object,
-) -> str:
-    from gabion.analysis.dataflow.io.dataflow_reporting_helpers import _format_span_fields as _impl
-
-    return _impl(line, col, end_line, end_col)
+_format_span_fields = _format_span_fields_owner
 
 _lint_line = _lint_line_owner
 
-def _add_interned_alt(
-    *,
-    forest: Forest,
-    kind: str,
-    inputs: Iterable[NodeId],
-    evidence = None,
-) -> Alt:
-    return forest.add_alt(kind, inputs, evidence=evidence)
+_add_interned_alt = _add_interned_alt_owner
 
 _decision_param_lint_line = _decision_param_lint_line_owner
 

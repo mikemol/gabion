@@ -1,5 +1,5 @@
 ---
-doc_revision: 91
+doc_revision: 92
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1296
+- Monolith LOC (current): 1240
 - Monolith top-level import statements (current): 64
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1617,6 +1617,28 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass suites passed (`101 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Span/deadline/projection helper ownerization:
+    - Added canonical runtime-span helpers in `dataflow_function_index_helpers`:
+      - `_node_span_runtime`
+      - `_param_spans_runtime`
+    - Monolith wrappers replaced by canonical owner aliases:
+      - `_node_span`
+      - `_param_spans`
+      - `_is_deadline_annot`
+      - `_is_deadline_param`
+      - `_format_span_fields`
+      - `_add_interned_alt`
+    - Removed now-unused monolith `re` dependency edge tied to replaced deadline annotation helper body.
+  - Compatibility status:
+    - Span/deadline/projection helper behavior remains stable under resolver/pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites.
+    - Monolith LOC dropped to `1240`; top-level imports remain `64`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-152`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity suites passed (`103 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

@@ -54,6 +54,18 @@ def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
     return (lineno - 1, col, end_lineno - 1, end_col)
 
 
+def _node_span_runtime(node: ast.AST) -> tuple[int, int, int, int] | None:
+    if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
+        return None
+    start_line = max(getattr(node, "lineno", 1) - 1, 0)
+    start_col = max(getattr(node, "col_offset", 0), 0)
+    end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
+    end_col = getattr(node, "end_col_offset", start_col + 1)
+    if end_line == start_line and end_col <= start_col:
+        end_col = start_col + 1
+    return (start_line, start_col, end_line, end_col)
+
+
 def _build_parent_map(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     parent_map: dict[ast.AST, ast.AST] = {}
     for parent in ast.walk(tree):
@@ -261,6 +273,38 @@ def _param_spans(
         span = _node_span(fn.args.kwarg)
         if span is not None:
             spans[fn.args.kwarg.arg] = span
+    return spans
+
+
+def _param_spans_runtime(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> dict[str, tuple[int, int, int, int]]:
+    check_deadline()
+    spans: dict[str, tuple[int, int, int, int]] = {}
+    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
+    names = [arg.arg for arg in args]
+    if names and names[0] in {"self", "cls"}:
+        args = args[1:]
+    for arg in args:
+        check_deadline()
+        if ignore_params and arg.arg in ignore_params:
+            continue
+        span = _node_span_runtime(arg)
+        if span is not None:
+            spans[arg.arg] = span
+    if fn.args.vararg:
+        name = fn.args.vararg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span_runtime(fn.args.vararg)
+            if span is not None:
+                spans[name] = span
+    if fn.args.kwarg:
+        name = fn.args.kwarg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span_runtime(fn.args.kwarg)
+            if span is not None:
+                spans[name] = span
     return spans
 
 
