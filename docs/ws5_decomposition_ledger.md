@@ -1,5 +1,5 @@
 ---
-doc_revision: 185
+doc_revision: 186
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3149,6 +3149,22 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`55 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Indexed-scan runtime-wrapper retirement:
+    - Removed unreferenced `*_from_runtime_module` compatibility wrappers from:
+      - `indexed_scan/calls/callee_outcome_runtime.py`
+      - `indexed_scan/state/function_index_accumulator.py`
+      - `indexed_scan/scanners/flow/constant_flow_details.py`
+      - `indexed_scan/deadline/deadline_function_facts.py`
+      - `indexed_scan/scanners/materialization/bundle_forest_builder.py`
+  - Correctness impact:
+    - Canonical deps-injection call paths remain unchanged; removed wrappers had zero in-repo callsites.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-245`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`66 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

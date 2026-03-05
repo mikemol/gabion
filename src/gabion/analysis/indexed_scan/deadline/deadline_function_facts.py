@@ -91,35 +91,3 @@ def collect_deadline_function_facts(
             )
     return facts
 
-
-def collect_deadline_function_facts_from_runtime_module(
-    paths: list[Path],
-    *,
-    project_root=None,
-    ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
-    trees=None,
-    analysis_index=None,
-    stage_cache_fn=None,
-    runtime_module,
-) -> dict[str, object]:
-    return collect_deadline_function_facts(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        parse_failure_witnesses=parse_failure_witnesses,
-        trees=trees,
-        analysis_index=analysis_index,
-        stage_cache_fn=stage_cache_fn,
-        deps=CollectDeadlineFunctionFactsDeps(
-            check_deadline_fn=runtime_module.check_deadline,
-            analysis_index_stage_cache_fn=runtime_module._analysis_index_stage_cache,
-            stage_cache_spec_ctor=runtime_module._StageCacheSpec,
-            parse_stage_cache_key_fn=runtime_module._parse_stage_cache_key,
-            deadline_function_facts_stage=runtime_module._ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-            empty_cache_semantic_context=runtime_module._EMPTY_CACHE_SEMANTIC_CONTEXT,
-            sorted_text_fn=runtime_module._sorted_text,
-            deadline_function_facts_for_tree_fn=runtime_module._deadline_function_facts_for_tree,
-            parse_module_tree_fn=runtime_module._parse_module_tree,
-        ),
-    )
