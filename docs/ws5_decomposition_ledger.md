@@ -1,5 +1,5 @@
 ---
-doc_revision: 218
+doc_revision: 219
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,16 @@ doc_scope:
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
+- WS-5 continuation (`in-278`, this CU):
+  - Post-cut stabilization pass after facade importer migration + adapter retirement.
+  - Validation:
+    - policy checks passed
+    - server/core regression passed (`266 passed`)
+    - CLI/runtime regression passed (`209 passed`)
+    - governance regression passed (`5 passed`)
+    - refactor regression passed (`133 passed`)
+    - dataflow s1+s2 regression passed (`205 passed`)
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-277`, this CU):
   - Retired temporary `dataflow_facade` boundary adapters after importer-migration completion:
     - removed facade-local compatibility wrapper bodies:
