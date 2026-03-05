@@ -1,5 +1,5 @@
 ---
-doc_revision: 146
+doc_revision: 147
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2510,6 +2510,18 @@ doc_scope:
     - Deadline runtime call-node parsing behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-205`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime stage-cache alias contraction:
+    - Removed `_StageCacheSpec = _StageCacheSpec_owner` alias shim from `dataflow_deadline_runtime_owner.py`.
+    - Bound `stage_cache_spec_ctor` directly to canonical `_StageCacheSpec_owner` in the call-node dependency bundle.
+  - Compatibility status:
+    - Deadline runtime stage-cache parse-node collection remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-206`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

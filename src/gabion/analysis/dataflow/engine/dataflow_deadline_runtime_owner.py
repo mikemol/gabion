@@ -109,9 +109,6 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
 from gabion.order_contract import sort_once
 
 
-_StageCacheSpec = _StageCacheSpec_owner
-
-
 _DeadlineFunctionCollector = make_deadline_function_collector(
     node_span_fn=_node_span,
     check_deadline_fn=check_deadline,
@@ -257,7 +254,7 @@ _call_nodes_for_tree = partial(
 _COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(
     check_deadline_fn=check_deadline,
     analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-    stage_cache_spec_ctor=_StageCacheSpec,
+    stage_cache_spec_ctor=_StageCacheSpec_owner,
     parse_module_stage_call_nodes=_ParseModuleStage.CALL_NODES,
     parse_stage_cache_key_fn=_parse_stage_cache_key,
     empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
@@ -311,7 +308,7 @@ def _deadline_function_facts_for_tree(
 _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
     check_deadline_fn=check_deadline,
     analysis_index_stage_cache_fn=_analysis_index_stage_cache,
-    stage_cache_spec_ctor=_StageCacheSpec,
+    stage_cache_spec_ctor=_StageCacheSpec_owner,
     parse_stage_cache_key_fn=_parse_stage_cache_key,
     deadline_function_facts_stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
     empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
