@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from gabion.analysis.foundation.marker_protocol import (
@@ -99,4 +101,70 @@ def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
             "kind": "object_id",
             "value": "taint_kind:control_ambiguity",
         }
+    ]
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.never::invariants.py::gabion.invariants.todo::invariants.py::gabion.invariants.deprecated
+def test_marker_behavior_profile_supports_no_throw_and_warn_matrix() -> None:
+    config = RuntimePolicyConfig(
+        marker_behavior_profile=invariants.MarkerBehaviorProfile(
+            throw_never=False,
+            throw_todo=False,
+            throw_deprecated=True,
+            warn_never=True,
+            warn_todo=False,
+            warn_deprecated=True,
+            warning_cap=1,
+        )
+    )
+    with runtime_policy_scope(config):
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            assert invariants.never("reachable") is None
+            assert invariants.todo("later") is None
+            with pytest.raises(NeverThrown):
+                invariants.deprecated("legacy")
+    warning_messages = [str(item.message) for item in captured]
+    assert warning_messages == ["never() marker reached: reachable", "deprecated() marker reached: legacy"]
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.todo
+def test_marker_warning_cap_uses_normalized_reasoning_key_for_todo() -> None:
+    config = RuntimePolicyConfig(
+        marker_behavior_profile=invariants.MarkerBehaviorProfile(
+            throw_todo=False,
+            warn_todo=True,
+            warning_cap=1,
+        )
+    )
+    with runtime_policy_scope(config):
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            assert invariants.todo("  same summary  ") is None
+            assert invariants.todo(reasoning={"summary": "same summary"}) is None
+            assert invariants.todo(reasoning={"summary": "different summary"}) is None
+    assert [str(item.message) for item in captured] == [
+        "todo() marker reached: same summary",
+        "todo() marker reached: different summary",
+    ]
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.never
+def test_marker_warning_cap_saturates_for_never_identity() -> None:
+    config = RuntimePolicyConfig(
+        marker_behavior_profile=invariants.MarkerBehaviorProfile(
+            throw_never=False,
+            warn_never=True,
+            warning_cap=2,
+        )
+    )
+    with runtime_policy_scope(config):
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            assert invariants.never("repeat") is None
+            assert invariants.never("repeat") is None
+            assert invariants.never("repeat") is None
+    assert [str(item.message) for item in captured] == [
+        "never() marker reached: repeat",
+        "never() marker reached: repeat",
     ]

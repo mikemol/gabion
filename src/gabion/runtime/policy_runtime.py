@@ -13,7 +13,13 @@ from gabion.commands.transport_override import (
     TransportOverrideConfig,
     transport_override_scope,
 )
-from gabion.invariants import ProofModeConfig, proof_mode_config_scope
+from gabion.invariants import (
+    MarkerBehaviorProfile,
+    MarkerRuntimePolicyConfig,
+    ProofModeConfig,
+    marker_runtime_policy_scope,
+    proof_mode_config_scope,
+)
 from gabion.order_contract import OrderPolicy, OrderRuntimeConfig, order_runtime_config_scope
 
 
@@ -32,11 +38,24 @@ class RuntimePolicyConfig:
     transport_override_record_json: str | None = None
     derivation_cache_max_entries: int = 4096
     projection_registry_gas_limit: int = 1_000_000
+    marker_behavior_profile: MarkerBehaviorProfile = MarkerBehaviorProfile()
 
 
 def _env_flag(name: str) -> bool:
     value = os.getenv(name, "")
     return value.strip().lower() in _STRICT_VALUES
+
+
+def _env_optional_flag(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in _STRICT_VALUES:
+        return True
+    if normalized in {"0", "false", "off", "no"}:
+        return False
+    return None
 
 
 # gabion:boundary_normalization
@@ -60,6 +79,25 @@ def _env_optional_policy(name: str) -> OrderPolicy | None:
 def runtime_policy_from_env() -> RuntimePolicyConfig:
     direct_requested = _env_flag("GABION_DIRECT_RUN")
     override_record_json = os.getenv("GABION_OVERRIDE_RECORD_JSON")
+    marker_throw_default = _env_optional_flag("GABION_MARKER_THROW")
+    marker_warn_default = _env_optional_flag("GABION_MARKER_WARN")
+
+    def marker_throw(kind: str) -> bool:
+        value = _env_optional_flag(f"GABION_MARKER_THROW_{kind.upper()}")
+        if value is not None:
+            return value
+        if marker_throw_default is not None:
+            return marker_throw_default
+        return True
+
+    def marker_warn(kind: str) -> bool:
+        value = _env_optional_flag(f"GABION_MARKER_WARN_{kind.upper()}")
+        if value is not None:
+            return value
+        if marker_warn_default is not None:
+            return marker_warn_default
+        return False
+
     return RuntimePolicyConfig(
         proof_mode_enabled=_env_flag("GABION_PROOF_MODE"),
         order_policy=_env_optional_policy("GABION_ORDER_POLICY"),
@@ -83,6 +121,18 @@ def runtime_policy_from_env() -> RuntimePolicyConfig:
             1,
             int(os.getenv("GABION_PROJECTION_REGISTRY_GAS_LIMIT", "1000000") or "1000000"),
         ),
+        marker_behavior_profile=MarkerBehaviorProfile(
+            throw_never=marker_throw("never"),
+            throw_todo=marker_throw("todo"),
+            throw_deprecated=marker_throw("deprecated"),
+            warn_never=marker_warn("never"),
+            warn_todo=marker_warn("todo"),
+            warn_deprecated=marker_warn("deprecated"),
+            warning_cap=max(
+                0,
+                int(os.getenv("GABION_MARKER_WARNING_CAP", "1") or "1"),
+            ),
+        ),
     )
 
 
@@ -92,7 +142,7 @@ def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
     from gabion.analysis.derivation.derivation_cache import set_derivation_cache_config
     from gabion.analysis.projection.projection_registry import set_projection_registry_runtime_config
     from gabion.commands.transport_override import set_transport_override
-    from gabion.invariants import set_proof_mode_config
+    from gabion.invariants import set_marker_runtime_policy_config, set_proof_mode_config
     from gabion.order_contract import set_order_runtime_config
 
     set_proof_mode_config(ProofModeConfig(enabled=config.proof_mode_enabled))
@@ -117,6 +167,9 @@ def apply_runtime_policy(config: RuntimePolicyConfig) -> None:
     set_projection_registry_runtime_config(
         ProjectionRegistryRuntimeConfig(gas_limit=config.projection_registry_gas_limit)
     )
+    set_marker_runtime_policy_config(
+        MarkerRuntimePolicyConfig(behavior_profile=config.marker_behavior_profile)
+    )
 
 
 def apply_runtime_policy_from_env() -> None:
@@ -128,6 +181,11 @@ def runtime_policy_scope(config: RuntimePolicyConfig) -> Iterator[None]:
     with ExitStack() as stack:
         stack.enter_context(
             proof_mode_config_scope(ProofModeConfig(enabled=config.proof_mode_enabled))
+        )
+        stack.enter_context(
+            marker_runtime_policy_scope(
+                MarkerRuntimePolicyConfig(behavior_profile=config.marker_behavior_profile)
+            )
         )
         stack.enter_context(
             order_runtime_config_scope(
