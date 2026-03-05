@@ -9,17 +9,19 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _DeadlineLoopFacts,
 )
 from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineFunctionCollector,
-    _accumulate_function_index_for_tree,
-    _analyze_file_internal,
     _collect_call_edges,
     _collect_call_nodes_by_path,
     _collect_deadline_function_facts,
     _collect_deadline_local_info,
     _normalize_snapshot_path,
-    _populate_bundle_forest,
     _resolve_callee_outcome,
+)
+from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+    _accumulate_function_index_for_tree,
+    _analyze_file_internal,
+    _populate_bundle_forest,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (

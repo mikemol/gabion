@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -930,6 +930,26 @@ doc_scope:
   - Compatibility status:
     - Deadline-helper shared contracts/algorithms no longer route through compatibility-owner indirection.
   - ASPF no-change acknowledgement refreshed (`in-115`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade deadline-export contraction:
+    - `dataflow_facade` deadline compatibility exports now source from canonical owner:
+      - `dataflow_deadline_runtime_owner`
+    - Moved facade bindings for:
+      - `_DeadlineFunctionCollector`
+      - `_collect_call_edges`
+      - `_collect_call_nodes_by_path`
+      - `_collect_deadline_function_facts`
+      - `_collect_deadline_local_info`
+      - `_normalize_snapshot_path`
+      - `_resolve_callee_outcome`
+    - Retained monolith import only for remaining non-deadline compatibility exports.
+  - Compatibility status:
+    - Facade deadline helper surfaces no longer route through direct monolith imports.
+  - ASPF no-change acknowledgement refreshed (`in-116`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
