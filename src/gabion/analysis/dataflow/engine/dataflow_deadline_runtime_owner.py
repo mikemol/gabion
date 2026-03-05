@@ -83,10 +83,10 @@ from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
     collect_deadline_function_facts as _collect_deadline_function_facts_impl,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
-    DeadlineArgInfo as _DeadlineArgInfoRuntime,
-    FunctionSuiteKey as _FunctionSuiteKeyRuntime,
-    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime,
-    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime,
+    DeadlineArgInfo as _DeadlineArgInfo,
+    FunctionSuiteKey as _FunctionSuiteKey,
+    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcome,
+    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatus,
     bind_call_args as _bind_call_args_impl,
     call_candidate_target_site as _call_candidate_target_site_impl,
     caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
@@ -114,10 +114,6 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
-_DeadlineArgInfo = _DeadlineArgInfoRuntime
-_FunctionSuiteKey = _FunctionSuiteKeyRuntime
-_FunctionSuiteLookupStatus = _FunctionSuiteLookupStatusRuntime
-_FunctionSuiteLookupOutcome = _FunctionSuiteLookupOutcomeRuntime
 
 
 def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
