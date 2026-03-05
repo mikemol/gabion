@@ -145,9 +145,11 @@ from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots as _collect_param_roots_owner,
     _contains_boolish as _contains_boolish_owner,
+    _decorator_name as _decorator_name_owner,
     _decision_surface_form_entries as _decision_surface_form_entries_owner,
     _decision_surface_params as _decision_surface_params_owner,
     _decision_surface_reason_map as _decision_surface_reason_map_owner,
+    _decision_root_name as _decision_root_name_owner,
     _decorators_transparent as _decorators_transparent_owner,
     _mark_param_roots as _mark_param_roots_owner,
     _value_encoded_decision_params as _value_encoded_decision_params_owner,
@@ -447,8 +449,6 @@ from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
-from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
-    decorator_name as _decorator_name_impl)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
@@ -780,8 +780,7 @@ _iter_paths = _iter_paths_owner
 
 _collect_functions = _collect_functions_owner
 
-def _decorator_name(node: ast.AST):
-    return _decorator_name_impl(node, check_deadline_fn=check_deadline)
+_decorator_name = _decorator_name_owner
 
 _decorator_matches = _decorator_matches_owner
 
@@ -813,21 +812,7 @@ def _param_names(
         names = [name for name in names if name not in ignore_params]
     return names
 
-def _decision_root_name(node: ast.AST):
-    check_deadline()
-    current = node
-    while True:
-        check_deadline()
-        current_type = type(current)
-        if current_type is ast.Attribute:
-            current = cast(ast.Attribute, current).value
-        elif current_type is ast.Subscript:
-            current = cast(ast.Subscript, current).value
-        else:
-            break
-    if type(current) is ast.Name:
-        return cast(ast.Name, current).id
-    return None
+_decision_root_name = _decision_root_name_owner
 
 is_decision_surface = _is_decision_surface_owner
 

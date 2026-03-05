@@ -1,5 +1,5 @@
 ---
-doc_revision: 87
+doc_revision: 88
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1639
-- Monolith top-level import statements (current): 68
+- Monolith LOC (current): 1624
+- Monolith top-level import statements (current): 67
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1532,6 +1532,21 @@ doc_scope:
     - Monolith LOC dropped to `1639`; top-level imports remain `68`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-147`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Decision/decorator root helper ownerization:
+    - Monolith pass-through wrappers replaced by direct canonical aliases:
+      - `_decorator_name`
+      - `_decision_root_name`
+    - Removed now-unused direct indexed-scan decorator helper import from monolith.
+  - Compatibility status:
+    - Decision/decorator root helper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1624`; top-level imports returned to `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-148`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
