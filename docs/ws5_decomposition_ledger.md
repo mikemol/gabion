@@ -1,5 +1,5 @@
 ---
-doc_revision: 219
+doc_revision: 220
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,14 @@ doc_scope:
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
+- WS-5 continuation (`in-279`, this CU):
+  - Started post-facade hard-cut discovery for compatibility-owner retirement.
+  - Current dependency inventory snapshot:
+    - `dataflow_facade` direct imports in `src/tests`: `0`
+    - `dataflow_deadline_runtime_owner` direct imports in `src/tests`: `5`
+    - `dataflow_analysis_index_owner` direct imports in `src/tests`: `19`
+  - Next contraction target identified:
+    - reduce compatibility-owner fan-in beginning with `dataflow_deadline_runtime_owner` import surfaces in engine owners (`dataflow_deadline_helpers`, `dataflow_indexed_file_scan`) before broader `analysis_index_owner` contraction.
 - WS-5 continuation (`in-278`, this CU):
   - Post-cut stabilization pass after facade importer migration + adapter retirement.
   - Validation:
