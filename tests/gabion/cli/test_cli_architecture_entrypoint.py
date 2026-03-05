@@ -48,3 +48,17 @@ def test_cli_runtime_logic_resides_in_support_modules() -> None:
     assert "result_emitters." in source
     assert "check_runtime_facade." in source
     assert "context_cli_runtime_deps(" in source
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_architecture_entrypoint.py::test_cli_composition_root_avoids_regex_business_logic
+def test_cli_composition_root_avoids_regex_business_logic() -> None:
+    tree = ast.parse(CLI_PATH.read_text(encoding="utf-8"), filename=str(CLI_PATH))
+    assert all(
+        not isinstance(node, ast.Import) or all(alias.name != "re" for alias in node.names)
+        for node in tree.body
+    )
+    assert all(
+        not isinstance(node, ast.ImportFrom) or node.module != "re"
+        for node in tree.body
+    )
+    assert "re.compile(" not in CLI_PATH.read_text(encoding="utf-8")

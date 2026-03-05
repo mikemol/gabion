@@ -11,7 +11,6 @@ from typing import Callable, Generator, List, Literal, Mapping, MutableMapping, 
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -40,9 +39,9 @@ from gabion.cli_support.shared.payload_builder import (
     build_dataflow_payload as _build_dataflow_payload_impl)
 from gabion.cli_support.shared import dataflow_runtime_common
 from gabion.cli_support.shared.output_emitters import (
-    emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, is_stdout_target as _is_stdout_target_impl,
-    normalize_output_target as _normalize_output_target_impl, write_lint_sarif as _write_lint_sarif_impl,
-    write_text_to_target as _write_text_to_target_impl)
+    emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, write_lint_sarif as _write_lint_sarif_impl)
+from gabion.cli_support.shared import output_targets as output_target_services
+from gabion.cli_support.shared import sppf_sync as sppf_sync_services
 from gabion.cli_support.shared import result_emitters
 from gabion.cli_support.shared.runtime_deps import (
     CliRuntimeDeps,
@@ -144,15 +143,6 @@ _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_CHECK_REPORT_REL_PATH = path_policy.DEFAULT_CHECK_REPORT_REL_PATH
 _DEFAULT_STATUS_WATCH_ARTIFACT_ROOT = Path("artifacts/out/ci_watch")
-_SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
-_SPPF_KEYWORD_REF_RE = re.compile(
-    r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
-)
-_SPPF_PLACEHOLDER_ISSUE_BY_COMMIT: dict[str, str] = {
-    "683da24bd121524dc48c218d9771dfbdf181d6f0": "214",
-    "61c5d617e7b1d4e734a476adf69bc92c19f35e0f": "214",
-}
-
 _LSP_PROGRESS_NOTIFICATION_METHOD = progress_timeline.LSP_PROGRESS_NOTIFICATION_METHOD
 _LSP_PROGRESS_TOKEN_V2 = progress_timeline.LSP_PROGRESS_TOKEN_V2
 _LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
@@ -194,11 +184,7 @@ class CheckStrictnessMode(str, Enum):
     low = "low"
 
 
-@dataclass(frozen=True)
-class SppfSyncCommitInfo:
-    sha: str
-    subject: str
-    body: str
+SppfSyncCommitInfo = sppf_sync_services.SppfSyncCommitInfo
 
 
 def _context_cli_deps(ctx: typer.Context) -> CliRuntimeDeps:
@@ -265,18 +251,14 @@ def _run_sppf_git(
     *,
     check_output_fn: Callable[..., str] = subprocess.check_output,
 ) -> str:
-    return check_output_fn(["git", *args], text=True).strip()
+    return sppf_sync_services.run_sppf_git(args, check_output_fn=check_output_fn)
 
 
 def _default_sppf_rev_range(
     *,
     run_sppf_git_fn: Callable[[list[str]], str] = _run_sppf_git,
 ) -> str:
-    try:
-        run_sppf_git_fn(["rev-parse", "origin/stage"])
-        return "origin/stage..HEAD"
-    except Exception:
-        return "HEAD~20..HEAD"
+    return sppf_sync_services.default_sppf_rev_range(run_sppf_git_fn=run_sppf_git_fn)
 
 
 def _collect_sppf_commits(
@@ -284,74 +266,37 @@ def _collect_sppf_commits(
     *,
     check_output_fn: Callable[..., str] = subprocess.check_output,
 ) -> list[SppfSyncCommitInfo]:
-    try:
-        raw = check_output_fn(
-            [
-                "git",
-                "log",
-                "--format=%H%x1f%s%x1f%B%x1e",
-                rev_range,
-            ],
-            text=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        raise typer.BadParameter(f"git log failed for range {rev_range}: {exc}") from exc
-
-    commits: list[SppfSyncCommitInfo] = []
-    for record in raw.split("\x1e"):
-        check_deadline()
-        if not record.strip():
-            continue
-        parts = record.split("\x1f")
-        if len(parts) < 3:
-            continue
-        sha, subject, body = parts[0].strip(), parts[1].strip(), parts[2].strip()
-        commits.append(SppfSyncCommitInfo(sha=sha, subject=subject, body=body))
-    return commits
+    return sppf_sync_services.collect_sppf_commits(
+        rev_range,
+        check_deadline_fn=check_deadline,
+        check_output_fn=check_output_fn,
+    )
 
 
 def _extract_sppf_issue_ids(text: str) -> set[str]:
-    def _canonical(issue_id: str) -> str:
-        normalized = issue_id.lstrip("0")
-        return normalized or "0"
-
-    issues = set(_canonical(match.group(1)) for match in _SPPF_GH_REF_RE.finditer(text))
-    issues.update(_canonical(match.group(1)) for match in _SPPF_KEYWORD_REF_RE.finditer(text))
-    return issues
+    return sppf_sync_services.extract_sppf_issue_ids(text)
 
 
 def _normalize_sppf_issue_ids_for_commit(
     commit: SppfSyncCommitInfo,
     issue_ids: set[str],
 ) -> set[str]:
-    normalized = set(issue_ids)
-    if "0" not in normalized:
-        return normalized
-    normalized.discard("0")
-    replacement = _SPPF_PLACEHOLDER_ISSUE_BY_COMMIT.get(commit.sha)
-    if replacement is not None:
-        normalized.add(replacement)
-    else:
-        normalized.add("0")
-    return normalized
+    return sppf_sync_services.normalize_sppf_issue_ids_for_commit(commit, issue_ids)
 
 
 def _issue_ids_from_sppf_commits(commits: list[SppfSyncCommitInfo]) -> set[str]:
-    issues: set[str] = set()
-    for commit in commits:
-        check_deadline()
-        commit_issue_ids = _extract_sppf_issue_ids(commit.subject)
-        commit_issue_ids.update(_extract_sppf_issue_ids(commit.body))
-        issues.update(_normalize_sppf_issue_ids_for_commit(commit, commit_issue_ids))
-    return issues
+    return sppf_sync_services.issue_ids_from_sppf_commits(
+        commits,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _build_sppf_comment(rev_range: str, commits: list[SppfSyncCommitInfo]) -> str:
-    lines = [f"SPPF sync from `{rev_range}`:"]
-    for commit in commits:
-        check_deadline()
-        lines.append(f"- {commit.sha[:8]} {commit.subject}")
-    return "\n".join(lines)
+    return sppf_sync_services.build_sppf_comment(
+        rev_range,
+        commits,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _run_sppf_gh(
@@ -360,10 +305,11 @@ def _run_sppf_gh(
     dry_run: bool,
     run_fn: Callable[..., object] = subprocess.run,
 ) -> None:
-    if dry_run:
-        typer.echo("DRY RUN: " + " ".join(["gh", *args]))
-        return
-    run_fn(["gh", *args], check=True)
+    return sppf_sync_services.run_sppf_gh(
+        args,
+        dry_run=dry_run,
+        run_fn=run_fn,
+    )
 
 
 def _run_sppf_sync(
@@ -377,31 +323,19 @@ def _run_sppf_sync(
     collect_sppf_commits_fn: Callable[[str], list[SppfSyncCommitInfo]] = _collect_sppf_commits,
     run_sppf_gh_fn: Callable[[list[str]], None] | None = None,
 ) -> int:
-    resolved_range = rev_range or default_rev_range_fn()
-    commits = collect_sppf_commits_fn(resolved_range)
-    if not commits:
-        typer.echo("No commits in range; nothing to sync.")
-        return 0
-
-    issue_ids = sort_once(
-        _issue_ids_from_sppf_commits(commits),
-        source="gabion.cli.sppf_sync.issue_ids",
+    return sppf_sync_services.run_sppf_sync(
+        rev_range=rev_range,
+        comment=comment,
+        close=close,
+        label=label,
+        dry_run=dry_run,
+        check_deadline_fn=check_deadline,
+        default_rev_range_fn=default_rev_range_fn,
+        collect_sppf_commits_fn=collect_sppf_commits_fn,
+        run_sppf_gh_fn=run_sppf_gh_fn,
+        sort_once_fn=sort_once,
+        echo_fn=typer.echo,
     )
-    if not issue_ids:
-        typer.echo("No issue references found in commit messages.")
-        return 0
-
-    summary_comment = _build_sppf_comment(resolved_range, commits)
-    gh_runner = run_sppf_gh_fn or (lambda args: _run_sppf_gh(args, dry_run=dry_run))
-    for issue_id in issue_ids:
-        check_deadline()
-        if close:
-            gh_runner(["issue", "close", issue_id, "-c", summary_comment])
-        elif comment:
-            gh_runner(["issue", "comment", issue_id, "-b", summary_comment])
-        if label:
-            gh_runner(["issue", "edit", issue_id, "--add-label", label])
-    return 0
 
 
 def run_sppf_sync_compat(
@@ -461,15 +395,18 @@ def _split_csv(value: str) -> list[str]:
 
 
 def _parse_lint_line(line: str) -> dict[str, object] | None:
-    return result_emitters.parse_lint_line_entry(line)
+    return output_target_services.parse_lint_line(line)
 
 
 def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
-    return result_emitters.collect_lint_entries(lines, check_deadline_fn=check_deadline)
+    return output_target_services.collect_lint_entries(
+        lines,
+        check_deadline_fn=check_deadline,
+    )
 
 
 def _is_stdout_target(target: object) -> bool:
-    return _is_stdout_target_impl(
+    return output_target_services.is_stdout_target(
         target,
         stdout_alias=_STDOUT_ALIAS,
         stdout_path=_STDOUT_PATH,
@@ -477,7 +414,7 @@ def _is_stdout_target(target: object) -> bool:
 
 
 def _normalize_output_target(target: str | Path) -> str:
-    return _normalize_output_target_impl(
+    return output_target_services.normalize_output_target(
         target,
         stdout_alias=_STDOUT_ALIAS,
         stdout_path=_STDOUT_PATH,
@@ -491,8 +428,8 @@ def _write_text_to_target(
     ensure_trailing_newline: bool = False,
     encoding: str = "utf-8",
 ) -> None:
-    _write_text_to_target_impl(
-        _normalize_output_target(target),
+    output_target_services.write_text_to_target(
+        target,
         payload,
         ensure_trailing_newline=ensure_trailing_newline,
         encoding=encoding,
@@ -502,10 +439,10 @@ def _write_text_to_target(
 
 
 def _emit_result_json_to_stdout(*, payload: object) -> None:
-    _write_text_to_target(
-        _STDOUT_PATH,
-        json.dumps(payload, indent=2, sort_keys=False),
-        ensure_trailing_newline=True,
+    output_target_services.emit_result_json_to_stdout(
+        payload=payload,
+        write_text_to_target_fn=_write_text_to_target,
+        stdout_path=_STDOUT_PATH,
     )
 
 
