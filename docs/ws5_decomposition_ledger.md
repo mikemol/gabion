@@ -1,5 +1,5 @@
 ---
-doc_revision: 231
+doc_revision: 232
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,20 +12,28 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 380
-- Monolith top-level import statements (current): 53
+- Monolith LOC (current): 371
+- Monolith top-level import statements (current): 52
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - Direct `dataflow_facade` imports in `src/` + `tests/`: 0
+- Direct `_owner` compatibility imports in `src/` + `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
 - WS-5 broad completion regression status: passed as of `in-160`
 
 ## Debt Ledger
-- Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
-- Medium: monolith remains a broad compatibility alias surface with a non-trivial import fan-in/out contract despite being within WS-5 hard-cut thresholds.
-- Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
+- Medium: compatibility alias modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_runtime_reporting_owner.py`, `dataflow_deadline_summary_owner.py`, `dataflow_facade.py`) and now carry explicit lifecycle metadata; retirement requires an explicit external-compat decision.
+- Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-291`, this CU):
+  - Refreshed ledger state metrics after recent hard-cuts and importer migrations.
+  - State refresh:
+    - monolith LOC: `380 -> 371`
+    - monolith top-level imports: `53 -> 52`
+    - direct `_owner` compatibility imports in `src/tests`: remains `0`
+  - Debt refresh:
+    - compatibility adapter debt moved to lifecycle-managed state with explicit retirement gate.
 - WS-5 continuation (`in-290`, this CU):
   - Strengthened compatibility-surface enforcement in smoke coverage:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
