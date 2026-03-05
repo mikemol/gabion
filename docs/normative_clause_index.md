@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 11
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -117,6 +117,14 @@ link to clause IDs instead of duplicating long-form normative prose.
 - `# pragma: no cover` is allowed only when the branch is protected by a `never()` invariant.
 - Enum exhaustiveness fallbacks should pair `never(...)` with `# pragma: no cover` so drift is explicit and correction is local.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8), `CONTRIBUTING.md#contributing_contract`, `AGENTS.md#agent_obligations`.
+
+<a id="clause-runtime-narrowing-boundary"></a>
+### `NCI-RUNTIME-NARROWING-BOUNDARY` — Runtime narrowing only at named ingress boundaries
+- Runtime narrowing is permitted only in named boundary ingress surfaces.
+- Allowlisted ingress surfaces: `src/gabion/server.py::_require_payload`, `src/gabion/server.py::_parse_dataflow_command_payload`, and DTO adapters that canonicalize payloads via `*.model_validate(...)` before semantic-core execution.
+- Narrowing-forbidden semantic-core surfaces include `src/gabion/analysis/**`, `src/gabion/server_core/**`, and post-normalization command execution paths in `src/gabion/server.py`.
+- New runtime narrowing locations require policy + contributor guidance updates in the same change-set.
+- Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8.1), `CONTRIBUTING.md#contributing_contract`.
 
 <a id="clause-baseline-ratchet"></a>
 ### `NCI-BASELINE-RATCHET` — Baseline ratchet integrity

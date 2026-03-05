@@ -1,5 +1,5 @@
 ---
-doc_revision: 52
+doc_revision: 53
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -560,6 +560,53 @@ Forward-remediation order (normative):
    of preserving dual paths.
 3. Rollback is allowed only when forward remediation cannot preserve behavior
    or cannot converge.
+
+### 4.8.1 Runtime narrowing boundary contract
+Canonical clause: [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
+
+Runtime narrowing (shape discrimination, `isinstance`/`Union` alternation,
+dict-key probing used to choose schema variants, and compatibility fallback
+selection) is permitted only in named boundary ingress surfaces.
+
+Allowed narrowing ingress surfaces (allowlist):
+
+- `src/gabion/server.py::_require_payload`
+- `src/gabion/server.py::_parse_dataflow_command_payload`
+- DTO ingress adapters that canonicalize inbound payloads with
+  `*.model_validate(...)` before semantic-core execution.
+
+Narrowing-forbidden semantic-core surfaces:
+
+- `src/gabion/analysis/**`
+- `src/gabion/server_core/**`
+- command-execution logic after payload normalization in
+  `src/gabion/server.py` handlers.
+
+Required behavior:
+
+1. Ingress narrowing happens once, then downstream code consumes
+   deterministic DTO/Protocol carriers.
+2. Semantic-core modules must not add repeated runtime narrowing or
+   compatibility fallback branches.
+3. Adding any new narrowing ingress location requires a same-change policy and
+   contributor-guide update before merge.
+
+Allowed pattern:
+
+```py
+payload = _require_payload(params)
+request = SynthesisRequest.model_validate(payload)
+```
+
+Disallowed semantic-core pattern:
+
+```py
+# inside src/gabion/analysis/** or src/gabion/server_core/**
+if isinstance(payload, dict) and "lint_lines" in payload:
+    ...
+elif isinstance(payload, dict) and "lint_entries" in payload:
+    ...
+```
 
 ### 4.9 Sort-Disclosure Ratchet
 

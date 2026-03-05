@@ -1,5 +1,5 @@
 ---
-doc_revision: 113
+doc_revision: 114
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -108,6 +108,7 @@ valid.
 - **Controller drift + override lifecycle:** [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - **Temporal dual-sensor correction loop:** [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop) (mandatory for agents; recommendation-level interoperability guidance for contributors).
+- **Runtime narrowing boundary contract:** [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
@@ -172,6 +173,44 @@ sequence in order:
 - If an internal state is impossible after ingress validation, enforce it with `never()`.
 - `# pragma: no cover` is permitted only on branches protected by `never(...)`.
 - For enum exhaustiveness, prefer an explicit `never(...)` fallback with `# pragma: no cover` on the dead path so drift is immediately attributable.
+
+## Runtime narrowing boundary contract (normative)
+Canonical rule: [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
+
+Runtime narrowing is allowed only at named boundary ingress surfaces.
+
+Allowed (boundary ingress allowlist):
+
+- `src/gabion/server.py::_require_payload`
+- `src/gabion/server.py::_parse_dataflow_command_payload`
+- DTO adapters that canonicalize inbound payloads with `*.model_validate(...)`
+  before semantic-core execution.
+
+Forbidden (semantic-core narrowing):
+
+- `src/gabion/analysis/**`
+- `src/gabion/server_core/**`
+- post-normalization command execution paths in `src/gabion/server.py`.
+
+Examples:
+
+Allowed:
+
+```py
+payload = _require_payload(params)
+command_payload = _parse_dataflow_command_payload(payload)
+request = SynthesisRequest.model_validate(payload)
+```
+
+Disallowed:
+
+```py
+# semantic-core module (e.g., src/gabion/analysis/**)
+if isinstance(payload, dict) and "lint_entries" in payload:
+    entries = payload["lint_entries"]
+elif isinstance(payload, dict) and "lint_lines" in payload:
+    entries = _parse_lines(payload["lint_lines"])
+```
 
 ## Sortedness Disclosure Ratchet (normative)
 When sortedness is enforced, it must be treated as part of semantic behavior.
