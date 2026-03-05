@@ -31,10 +31,10 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree,
+    _accumulate_function_index_for_tree,
     _analyze_file_internal,
-    _build_function_index_runtime as _build_function_index,
-    _build_symbol_table_runtime as _build_symbol_table,
+    _build_function_index,
+    _build_symbol_table,
     _phase_work_progress,
     _profiling_v1_payload,
     _stage_cache_key_aliases,

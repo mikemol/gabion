@@ -1,5 +1,5 @@
 ---
-doc_revision: 173
+doc_revision: 174
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2990,6 +2990,26 @@ doc_scope:
     - Fixed latent monolith import break caused by missing `_iter_monotonic_paths` export in owner module; `dataflow_indexed_file_scan.py` now imports successfully.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-232`).
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner runtime-suffix alias convergence:
+    - Added canonical owner export aliases in `dataflow_analysis_index_owner.py` for ingest/index builder and artifact-spec helper surfaces:
+      - `_accumulate_function_index_for_tree`
+      - `_accumulate_symbol_table_for_tree`
+      - `_accumulate_class_index_for_tree`
+      - `_function_index_module_artifact_spec`
+      - `_symbol_table_module_artifact_spec`
+      - `_build_function_index`
+      - `_build_symbol_table`
+    - Retained `_runtime`-suffixed aliases for compatibility.
+  - Importer convergence to canonical names:
+    - `dataflow_facade.py`
+    - `dataflow_indexed_file_scan.py`
+  - Owner-internal convergence:
+    - Owner dependency wiring now consumes canonical names for function-index/symbol-table/class-index accumulator paths in build/module-artifact deps.
+  - Correctness impact:
+    - Monolith and facade import checks remain green after suffix convergence.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-233`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

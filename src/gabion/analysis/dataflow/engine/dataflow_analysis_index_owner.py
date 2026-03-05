@@ -286,6 +286,7 @@ _accumulate_function_index_for_tree_runtime = partial(
     _accumulate_function_index_for_tree_impl,
     deps=_FUNCTION_INDEX_ACCUMULATOR_DEPS,
 )
+_accumulate_function_index_for_tree = _accumulate_function_index_for_tree_runtime
 
 
 def _function_index_module_artifact_spec_runtime(
@@ -305,7 +306,7 @@ def _function_index_module_artifact_spec_runtime(
         artifact_id="function_index",
         stage=_ParseModuleStage.FUNCTION_INDEX,
         init=_FunctionIndexAccumulator,
-        fold=lambda acc, path, tree: _accumulate_function_index_for_tree_runtime(
+        fold=lambda acc, path, tree: _accumulate_function_index_for_tree(
             acc,
             path,
             tree,
@@ -319,6 +320,9 @@ def _function_index_module_artifact_spec_runtime(
             cast(dict[str, FunctionInfo], acc.by_qual),
         ),
     )
+
+
+_function_index_module_artifact_spec = _function_index_module_artifact_spec_runtime
 
 
 def _build_single_module_artifact_runtime(
@@ -349,7 +353,7 @@ def _build_function_index_runtime(
         paths,
         spec=cast(
             _ModuleArtifactSpec[object, object],
-            _function_index_module_artifact_spec_runtime(
+            _function_index_module_artifact_spec(
                 project_root=project_root,
                 ignore_params=ignore_params,
                 strictness=strictness,
@@ -362,6 +366,9 @@ def _build_function_index_runtime(
         tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
         raw_index,
     )
+
+
+_build_function_index = _build_function_index_runtime
 
 
 def _accumulate_symbol_table_for_tree_runtime(
@@ -388,6 +395,9 @@ def _accumulate_symbol_table_for_tree_runtime(
     table.module_export_map[module] = export_map
 
 
+_accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_runtime
+
+
 def _symbol_table_module_artifact_spec_runtime(
     *,
     project_root,
@@ -397,7 +407,7 @@ def _symbol_table_module_artifact_spec_runtime(
         artifact_id="symbol_table",
         stage=_ParseModuleStage.SYMBOL_TABLE,
         init=lambda: SymbolTable(external_filter=external_filter),
-        fold=lambda table, path, tree: _accumulate_symbol_table_for_tree_runtime(
+        fold=lambda table, path, tree: _accumulate_symbol_table_for_tree(
             table,
             path,
             tree,
@@ -405,6 +415,9 @@ def _symbol_table_module_artifact_spec_runtime(
         ),
         finish=lambda table: table,
     )
+
+
+_symbol_table_module_artifact_spec = _symbol_table_module_artifact_spec_runtime
 
 
 def _build_symbol_table_runtime(
@@ -418,7 +431,7 @@ def _build_symbol_table_runtime(
         paths,
         spec=cast(
             _ModuleArtifactSpec[object, object],
-            _symbol_table_module_artifact_spec_runtime(
+            _symbol_table_module_artifact_spec(
                 project_root=project_root,
                 external_filter=external_filter,
             ),
@@ -426,6 +439,9 @@ def _build_symbol_table_runtime(
         parse_failure_witnesses=parse_failure_witnesses,
     )
     return cast(SymbolTable, raw_table)
+
+
+_build_symbol_table = _build_symbol_table_runtime
 
 
 _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
@@ -441,6 +457,7 @@ _accumulate_class_index_for_tree_runtime = partial(
     _accumulate_class_index_for_tree_impl,
     deps=_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS,
 )
+_accumulate_class_index_for_tree = _accumulate_class_index_for_tree_runtime
 
 
 def _iter_monotonic_paths(paths, *, source: str):
@@ -942,7 +959,7 @@ def _build_analysis_index(
             decision_require_tiers=decision_require_tiers,
             deps=_AnalysisIndexBuildDeps(
                 check_deadline_fn=check_deadline,
-                accumulate_function_index_for_tree_default_fn=_accumulate_function_index_for_tree_runtime,
+                accumulate_function_index_for_tree_default_fn=_accumulate_function_index_for_tree,
                 sorted_text_fn=_sorted_text,
                 cache_context_ctor=_CacheSemanticContext,
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
@@ -962,8 +979,8 @@ def _build_analysis_index(
                 parse_module_stage_function_index=_ParseModuleStage.FUNCTION_INDEX,
                 parse_module_stage_symbol_table=_ParseModuleStage.SYMBOL_TABLE,
                 parse_module_stage_class_index=_ParseModuleStage.CLASS_INDEX,
-                accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree_runtime,
-                accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree_runtime,
+                accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree,
+                accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree,
                 timeout_exceeded_type=TimeoutExceeded,
                 analysis_index_ctor=_analysis_index_ctor_runtime,
                 progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds(),
@@ -1050,7 +1067,12 @@ __all__ = [
     "_build_stage_cache_identity_spec",
     "_CacheSemanticContext",
     "_cache_identity_aliases",
+    "_accumulate_class_index_for_tree",
+    "_accumulate_function_index_for_tree",
+    "_accumulate_symbol_table_for_tree",
+    "_build_function_index",
     "_build_function_index_runtime",
+    "_build_symbol_table",
     "_build_symbol_table_runtime",
     "_canonical_cache_identity",
     "_canonical_stage_cache_detail",
@@ -1062,7 +1084,9 @@ __all__ = [
     "_collect_transitive_callers",
     "_get_stage_cache_bucket",
     "_index_stage_cache_identity",
+    "_function_index_module_artifact_spec",
     "_function_index_module_artifact_spec_runtime",
+    "_symbol_table_module_artifact_spec",
     "_symbol_table_module_artifact_spec_runtime",
     "_iter_resolved_edge_param_events",
     "_load_analysis_collection_resume_payload",
