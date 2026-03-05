@@ -87,11 +87,6 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
 )
-from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
-    CalleeResolutionContext as _CalleeResolutionContextCore,
-    collect_callee_resolution_effects as _collect_callee_resolution_effects_impl,
-    resolve_callee_with_effects as _resolve_callee_with_effects_impl,
-)
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
     _resolve_class_candidates,
     _resolve_method_in_hierarchy,
@@ -392,6 +387,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _node_to_function_suite_id as _node_to_function_suite_id_owner,
     _node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_owner,
     _obligation_candidate_suite_ids as _obligation_candidate_suite_ids_owner,
+    _resolve_callee as _resolve_callee_owner,
     _resolve_callee_outcome as _resolve_callee_outcome_owner,
     _suite_caller_function_id as _suite_caller_function_id_owner,
 )
@@ -428,10 +424,6 @@ from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry im
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
-from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
-    ResolveCalleeDeps as _ResolveCalleeDeps,
-    resolve_callee as _resolve_callee_impl,
-)
 from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
 _AST_UNPARSE_ERROR_TYPES = (
@@ -1795,40 +1787,7 @@ def _build_function_index(
         raw_index,
     )
 
-def _resolve_callee(
-    callee_key: str,
-    caller: FunctionInfo,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    symbol_table = None,
-    project_root = None,
-    class_index = None,
-    call = None,
-    ambiguity_sink = None,
-    local_lambda_bindings = None,
-):
-    return cast(
-        FunctionInfo | None,
-        _resolve_callee_impl(
-            callee_key,
-            caller,
-            cast(dict[str, list[object]], by_name),
-            cast(dict[str, object], by_qual),
-            symbol_table=symbol_table,
-            project_root=project_root,
-            class_index=class_index,
-            call=call,
-            ambiguity_sink=ambiguity_sink,
-            local_lambda_bindings=local_lambda_bindings,
-            deps=_ResolveCalleeDeps(
-                check_deadline_fn=check_deadline,
-                callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
-                resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
-                collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
-                module_name_fn=_module_name,
-            ),
-        ),
-    )
+_resolve_callee = _resolve_callee_owner
 
 _is_dynamic_dispatch_callee_key = _is_dynamic_dispatch_callee_key_owner
 

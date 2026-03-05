@@ -1,5 +1,5 @@
 ---
-doc_revision: 76
+doc_revision: 77
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1341,6 +1341,20 @@ doc_scope:
     - Monolith LOC dropped to `2025`; top-level imports now `69`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-136`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Canonical callee-resolver ownerization:
+    - Added canonical `_resolve_callee` implementation to `dataflow_deadline_runtime_owner` using indexed-scan `ResolveCalleeDeps`.
+    - Monolith `_resolve_callee` now aliases to owner implementation.
+    - Removed now-unused monolith callee-resolution core/deps imports tied to former local `_resolve_callee` body.
+  - Compatibility status:
+    - `_resolve_callee` behavior remains validated against existing resolver suite while reducing monolith body ownership.
+    - Monolith LOC dropped to `1984`; top-level imports now `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-137`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

@@ -23,7 +23,6 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
     _module_name,
-    _resolve_callee,
     _target_names,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
@@ -66,6 +65,8 @@ from gabion.analysis.indexed_scan.calls.call_edges import (
 )
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     CalleeOutcomeDeps as _CalleeOutcomeDeps,
+    ResolveCalleeDeps as _ResolveCalleeDeps,
+    resolve_callee as _resolve_callee_impl,
     resolve_callee_outcome as _resolve_callee_outcome_impl,
 )
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
@@ -185,6 +186,39 @@ def _collect_call_edges(
         deps=_CollectCallEdgesDeps(
             check_deadline_fn=check_deadline,
             is_test_path_fn=_is_test_path,
+        ),
+    )
+
+
+def _resolve_callee(
+    callee_key: str,
+    caller: FunctionInfo,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table=None,
+    project_root=None,
+    class_index=None,
+    call=None,
+    ambiguity_sink=None,
+    local_lambda_bindings=None,
+):
+    return _resolve_callee_impl(
+        callee_key,
+        caller,
+        by_name,
+        by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        call=call,
+        ambiguity_sink=ambiguity_sink,
+        local_lambda_bindings=local_lambda_bindings,
+        deps=_ResolveCalleeDeps(
+            check_deadline_fn=check_deadline,
+            callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
+            resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
+            collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
+            module_name_fn=_module_name,
         ),
     )
 
@@ -564,6 +598,7 @@ __all__ = [
     "_normalize_snapshot_path",
     "_obligation_candidate_suite_ids",
     "_reachable_from_roots",
+    "_resolve_callee",
     "_resolve_callee_outcome",
     "_suite_caller_function_id",
 ]
