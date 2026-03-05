@@ -188,7 +188,7 @@ def _execute_total_with_deps(
         active_deps = server._default_execute_command_deps().with_overrides(**overrides)
     elif overrides:
         active_deps = active_deps.with_overrides(**overrides)
-    return server._execute_command_total(ls, payload, deps=active_deps)
+    return server._execute_command_total(ls, server.DataflowCommandPayload(payload=payload), deps=active_deps)
 
 
 
@@ -1528,16 +1528,18 @@ def test_externalize_and_inflate_analysis_index_resume_state_ref(
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest::server.py::gabion.server._analysis_index_resume_signature
 def test_analysis_index_resume_signature_prefers_resume_digest() -> None:
     signature = server._analysis_index_resume_signature(
-        {
-            "analysis_index_resume": {
-                "phase": "analysis_index_hydration",
-                "hydrated_paths": ["a.py"],
-                "hydrated_paths_count": 1,
-                "function_count": 2,
-                "class_count": 1,
-                "resume_digest": "abc123",
+        server._collection_resume_dto(
+            {
+                "analysis_index_resume": {
+                    "phase": "analysis_index_hydration",
+                    "hydrated_paths": ["a.py"],
+                    "hydrated_paths_count": 1,
+                    "function_count": 2,
+                    "class_count": 1,
+                    "resume_digest": "abc123",
+                }
             }
-        }
+        )
     )
     assert signature == (1, hashlib.sha1(b'[\"a.py\"]').hexdigest(), 2, 1, "analysis_index_hydration", "abc123")
 
@@ -1774,23 +1776,27 @@ def test_analysis_resume_progress_uses_observed_file_counts() -> None:
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_in_progress_scan_states_filters_malformed_entries::server.py::gabion.server._in_progress_scan_states
 def test_in_progress_scan_states_filters_malformed_entries() -> None:
     states = server._in_progress_scan_states(
-        {
-            "in_progress_scan_by_path": {
-                "a.py": {"phase": "scan_pending"},
-                "b.py": "bad",
-                1: {"phase": "ignored"},
-            }
-        }
-    )
-    assert states == {"a.py": {"phase": "scan_pending"}}
-    with pytest.raises(NeverThrown):
-        server._in_progress_scan_states(
+        server._collection_resume_dto(
             {
                 "in_progress_scan_by_path": {
-                    "b.py": {"phase": "scan_pending"},
                     "a.py": {"phase": "scan_pending"},
+                    "b.py": "bad",
+                    1: {"phase": "ignored"},
                 }
             }
+        )
+    )
+    assert states["a.py"].phase == "scan_pending"
+    with pytest.raises(NeverThrown):
+        server._in_progress_scan_states(
+            server._collection_resume_dto(
+                {
+                    "in_progress_scan_by_path": {
+                        "b.py": {"phase": "scan_pending"},
+                        "a.py": {"phase": "scan_pending"},
+                    }
+                }
+            )
         )
 
 
@@ -1806,14 +1812,14 @@ def test_analysis_index_resume_helpers_fallbacks() -> None:
             "resume_digest": "",
         }
     }
-    assert server._analysis_index_resume_hydrated_count(resume) == 0
-    digest = server._analysis_index_resume_hydrated_digest(resume)
+    assert server._analysis_index_resume_hydrated_count(server._collection_resume_dto(resume)) == 0
+    digest = server._analysis_index_resume_hydrated_digest(server._collection_resume_dto(resume))
     assert isinstance(digest, str) and digest
-    signature = server._analysis_index_resume_signature(resume)
+    signature = server._analysis_index_resume_signature(server._collection_resume_dto(resume))
     assert signature[2] == 0
     assert signature[3] == 0
     assert signature[4] == ""
-    summary = server._analysis_index_resume_summary(resume)
+    summary = server._analysis_index_resume_summary(server._collection_resume_dto(resume))
     assert isinstance(summary, dict)
     assert summary["phase"] == "analysis_index_hydration"
 
@@ -1826,8 +1832,8 @@ def test_analysis_index_resume_hydrated_helpers_non_int_fallback() -> None:
             "hydrated_paths_digest": "",
         }
     }
-    assert server._analysis_index_resume_hydrated_count(resume) == 0
-    digest = server._analysis_index_resume_hydrated_digest(resume)
+    assert server._analysis_index_resume_hydrated_count(server._collection_resume_dto(resume)) == 0
+    digest = server._analysis_index_resume_hydrated_digest(server._collection_resume_dto(resume))
     expected = hashlib.sha1(
         server._canonical_json_text({"count": 0}).encode("utf-8")
     ).hexdigest()
@@ -2905,13 +2911,13 @@ def test_load_analysis_resume_checkpoint_manifest_invalid_shapes(tmp_path: Path)
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_resume_helpers_default_paths_and_digests::server.py::gabion.server._analysis_index_resume_hydrated_count::server.py::gabion.server._analysis_index_resume_hydrated_digest::server.py::gabion.server._analysis_index_resume_hydrated_paths::server.py::gabion.server._analysis_index_resume_signature::server.py::gabion.server._analysis_index_resume_summary::server.py::gabion.server._completed_path_set::server.py::gabion.server._in_progress_scan_states::server.py::gabion.server._state_processed_count::server.py::gabion.server._state_processed_digest
 def test_resume_helpers_default_paths_and_digests() -> None:
     assert server._completed_path_set(None) == set()
-    assert server._completed_path_set({"completed_paths": "bad"}) == set()
+    assert server._completed_path_set(server._collection_resume_dto({"completed_paths": "bad"})) == set()
     assert server._in_progress_scan_states(None) == {}
-    assert server._in_progress_scan_states({"in_progress_scan_by_path": []}) == {}
-    assert server._state_processed_count({}) == 0
-    assert server._state_processed_count({"processed_functions_count": 3}) == 3
-    assert server._state_processed_digest({})
-    assert server._state_processed_digest({"processed_functions_digest": "x"}) == "x"
+    assert server._in_progress_scan_states(server._collection_resume_dto({"in_progress_scan_by_path": []})) == {}
+    assert server._state_processed_count(server.InProgressScanStateDTO.model_validate({})) == 0
+    assert server._state_processed_count(server.InProgressScanStateDTO.model_validate({"processed_functions_count": 3})) == 3
+    assert server._state_processed_digest(server.InProgressScanStateDTO.model_validate({}))
+    assert server._state_processed_digest(server.InProgressScanStateDTO.model_validate({"processed_functions_digest": "x"})) == "x"
     assert server._analysis_index_resume_hydrated_paths(None) == set()
     assert server._analysis_index_resume_hydrated_count(None) == 0
     assert server._analysis_index_resume_hydrated_digest(None) == hashlib.sha1(b"[]").hexdigest()
@@ -5626,13 +5632,15 @@ def test_execute_impact_total_rejects_reverse_edge_with_missing_caller(tmp_path:
         with pytest.raises(NeverThrown):
             server._execute_impact_total(
                 ls,  # type: ignore[arg-type]
-                _with_timeout(
-                    {
-                        "root": str(tmp_path),
-                        "changes": [
-                            {"path": "mod.py", "start_line": 1, "end_line": 1}
-                        ],
-                    }
+                server.ImpactCommandPayload(
+                    payload=_with_timeout(
+                        {
+                            "root": str(tmp_path),
+                            "changes": [
+                                {"path": "mod.py", "start_line": 1, "end_line": 1}
+                            ],
+                        }
+                    )
                 ),
             )
     finally:
