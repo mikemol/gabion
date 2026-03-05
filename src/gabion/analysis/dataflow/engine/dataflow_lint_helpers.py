@@ -16,8 +16,8 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
-    _build_analysis_index as _build_analysis_index,
-    _analysis_index_transitive_callers as _analysis_index_transitive_callers,
+    _build_analysis_index,
+    _analysis_index_transitive_callers,
     _iter_monotonic_paths,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (

@@ -207,7 +207,7 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _lint_lines_from_unused_arg_smells,
     _normalize_type_name,
     _parse_exception_path_id,
-    _parse_lint_location as _parse_lint_location,
+    _parse_lint_location,
 )
 from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
 from gabion.analysis.projection.projection_registry import (

@@ -24,7 +24,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineFunctionCollector,
-    _collect_call_edges as _collect_call_edges,
+    _collect_call_edges,
     _collect_call_nodes_by_path,
     _collect_deadline_function_facts,
     _collect_deadline_local_info,

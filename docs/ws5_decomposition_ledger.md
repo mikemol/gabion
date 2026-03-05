@@ -1,5 +1,5 @@
 ---
-doc_revision: 180
+doc_revision: 181
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3075,6 +3075,16 @@ doc_scope:
     - Export surface is now explicit for canonicalized internal helpers; runtime behavior unchanged.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-239`).
+- WS-5 continuation (this CU, follow-on):
+  - Redundant self-alias import cleanup:
+    - Removed `as <same_name>` import aliases in:
+      - `dataflow_deadline_helpers.py`
+      - `dataflow_lint_helpers.py`
+      - `dataflow_facade.py`
+  - Correctness impact:
+    - Pure import-surface normalization; no call-target or behavior change.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-240`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
