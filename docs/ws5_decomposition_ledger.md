@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 22
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -364,6 +364,21 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted post-phase/dataflow suites passed (`32 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner compatibility-fallback contraction:
+    - `dataflow_analysis_index_owner._build_module_artifacts` removed dead runtime-module coupling.
+    - `dataflow_analysis_index_owner._build_call_graph` now uses canonical owner `_build_analysis_index` directly.
+    - `dataflow_analysis_index_owner._run_indexed_pass` now constructs owner `_IndexedPassContext` directly (runtime-module context constructor dependency removed).
+    - Cache identity coercion now uses canonical resume owner `_CacheIdentity.from_boundary` and invariant sink `never(...)` directly:
+      - `_canonical_cache_identity`
+      - `_cache_identity_aliases`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_analysis_index_owner.py` reduced from `11` to `6`.
+  - ASPF no-change acknowledgement refreshed (`in-83`).
+  - Validation:
+    - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

@@ -18,6 +18,7 @@ from gabion.analysis.core.type_fingerprints import fingerprint_stage_cache_ident
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
     _CACHE_IDENTITY_PREFIX,
+    _CacheIdentity,
     _build_analysis_collection_resume_payload as _build_analysis_collection_resume_payload_owner,
     _load_analysis_collection_resume_payload as _load_analysis_collection_resume_payload_owner,
     _load_analysis_index_resume_payload as _load_analysis_index_resume_payload_owner,
@@ -53,6 +54,7 @@ from gabion.analysis.indexed_scan.scanners.edge_param_events import (
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
     stage_cache_key_aliases as _stage_cache_key_aliases_impl,
 )
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 
@@ -127,7 +129,6 @@ def _build_module_artifacts(
     parse_failure_witnesses: list[JSONObject],
     parse_module: Callable[[Path], ast.Module] = _default_parse_module,
 ) -> tuple[object, ...]:
-    runtime = _runtime_module()
     return cast(
         tuple[object, ...],
         _build_module_artifacts_impl(
@@ -301,11 +302,10 @@ def _build_call_graph(
     parse_failure_witnesses: list[dict[str, object]],
     analysis_index=None,
 ) -> tuple[dict[str, list[object]], dict[str, object], dict[str, set[str]]]:
-    runtime = _runtime_module()
     check_deadline()
     index = analysis_index
     if index is None:
-        index = runtime._build_analysis_index(
+        index = _build_analysis_index(
             list(paths),
             project_root=project_root,
             ignore_params=set(ignore_params),
@@ -384,21 +384,19 @@ def _canonical_cache_identity(
     cache_context,
     config_subset: Mapping[str, object],
 ):
-    runtime = _runtime_module()
     spec = _build_stage_cache_identity_spec(
         stage=stage,
         cache_context=cache_context,
         config_subset=config_subset,
     )
-    canonical = runtime._CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
+    canonical = _CacheIdentity.from_boundary(_canonical_stage_cache_identity(spec))
     if canonical is None:
-        runtime.never("failed to construct canonical cache identity", stage=stage)  # pragma: no cover - invariant sink
+        never("failed to construct canonical cache identity", stage=stage)  # pragma: no cover - invariant sink
     return canonical
 
 
 def _cache_identity_aliases(identity: str) -> tuple[str, ...]:
-    runtime = _runtime_module()
-    canonical = runtime._CacheIdentity.from_boundary(identity)
+    canonical = _CacheIdentity.from_boundary(identity)
     if canonical is None:
         return ("",)
     return (canonical.value,)
@@ -658,7 +656,6 @@ def _run_indexed_pass(
     spec,
     build_index=_build_analysis_index,
 ):
-    runtime = _runtime_module()
     check_deadline()
     sink = _parse_failure_sink(parse_failure_witnesses)
     index = analysis_index
@@ -672,7 +669,7 @@ def _run_indexed_pass(
             transparent_decorators=transparent_decorators,
             parse_failure_witnesses=sink,
         )
-    context = runtime._IndexedPassContext(
+    context = _IndexedPassContext(
         paths=paths,
         project_root=project_root,
         ignore_params=ignore_params,
