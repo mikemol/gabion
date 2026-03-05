@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 import textwrap
 import pytest
@@ -12,9 +13,65 @@ from gabion.analysis.dataflow.engine.dataflow_obligations import (
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.aspf.aspf import Forest, NodeId
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_call_graph_algorithms as call_graph
+    from gabion.analysis.dataflow.engine import dataflow_deadline_helpers as deadline_helpers
+    from gabion.analysis.dataflow.engine import dataflow_deadline_runtime_owner as deadline_runtime
+    from gabion.analysis.dataflow.engine import dataflow_deadline_summary_owner as deadline_summary
+    from gabion.analysis.dataflow.engine import dataflow_lint_helpers as lint_helpers
+    from gabion.analysis.dataflow.engine import dataflow_projection_materialization as projection
+    from gabion.analysis.dataflow.engine.dataflow_contracts import (
+        AuditConfig,
+        CallArgs,
+        FunctionInfo,
+        ReportCarrier,
+        SymbolTable,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
+        _DeadlineFunctionFacts,
+        _DeadlineLocalInfo,
+        _DeadlineLoopFacts,
+    )
+    from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
+    from gabion.analysis.projection.projection_registry import (
+        DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+    )
 
-    return da
+    return SimpleNamespace(
+        AuditConfig=AuditConfig,
+        CallArgs=CallArgs,
+        DEADLINE_OBLIGATIONS_SUMMARY_SPEC=DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+        Forest=Forest,
+        FunctionInfo=FunctionInfo,
+        NodeId=NodeId,
+        ReportCarrier=ReportCarrier,
+        SymbolTable=SymbolTable,
+        _DeadlineArgInfo=deadline_runtime._DeadlineArgInfo,
+        _DeadlineFunctionCollector=deadline_runtime._DeadlineFunctionCollector,
+        _DeadlineFunctionFacts=_DeadlineFunctionFacts,
+        _DeadlineLocalInfo=_DeadlineLocalInfo,
+        _DeadlineLoopFacts=_DeadlineLoopFacts,
+        _bind_call_args=deadline_runtime._bind_call_args,
+        _build_function_index=index_owner._build_function_index,
+        _classify_deadline_expr=deadline_runtime._classify_deadline_expr,
+        _collect_call_edges=deadline_runtime._collect_call_edges,
+        _collect_call_edges_from_forest=deadline_runtime._collect_call_edges_from_forest,
+        _collect_call_nodes_by_path=deadline_runtime._collect_call_nodes_by_path,
+        _collect_deadline_function_facts=deadline_runtime._collect_deadline_function_facts,
+        _collect_deadline_local_info=deadline_runtime._collect_deadline_local_info,
+        _collect_recursive_functions=call_graph._collect_recursive_functions,
+        _deadline_arg_info_map=deadline_runtime._deadline_arg_info_map,
+        _deadline_lint_lines=lint_helpers._deadline_lint_lines,
+        _deadline_loop_forwarded_params=deadline_runtime._deadline_loop_forwarded_params,
+        _emit_report=emit_report,
+        _fallback_deadline_arg_info=deadline_runtime._fallback_deadline_arg_info,
+        _is_deadline_origin_call=deadline_runtime._is_deadline_origin_call,
+        _is_deadline_param=deadline_helpers._is_deadline_param,
+        _materialize_projection_spec_rows=projection._materialize_projection_spec_rows,
+        _spec_row_span=projection._spec_row_span,
+        _summarize_deadline_obligations=deadline_summary._summarize_deadline_obligations,
+    )
 
 def _make_fn_info(
     da,

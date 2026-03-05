@@ -1,5 +1,5 @@
 ---
-doc_revision: 216
+doc_revision: 217
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,21 @@ doc_scope:
 - Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
+- WS-5 continuation (`in-276`, this CU):
+  - Migrated deadline-coverage tests off `dataflow_facade` via canonical-owner adapter:
+    - `tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py`
+    - owner bindings:
+      - `dataflow_deadline_runtime_owner` (collector/runtime/call-edge/deadline argument helpers)
+      - `dataflow_deadline_contracts` carriers (`_DeadlineLoopFacts`, `_DeadlineLocalInfo`, `_DeadlineFunctionFacts`)
+      - `dataflow_deadline_helpers._is_deadline_param`
+      - `dataflow_deadline_summary_owner._summarize_deadline_obligations`
+      - `dataflow_projection_materialization` (`_materialize_projection_spec_rows`, `_spec_row_span`)
+      - `dataflow_lint_helpers._deadline_lint_lines`
+      - contracts/reporting/registry/call-graph owners (`AuditConfig`, `CallArgs`, `FunctionInfo`, `ReportCarrier`, `SymbolTable`, `emit_report`, `DEADLINE_OBLIGATIONS_SUMMARY_SPEC`, `_collect_recursive_functions`, `_build_function_index`)
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`32 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift drift from importer migration
 - WS-5 continuation (`in-275`, this CU):
   - Migrated python-ingest tests off `dataflow_facade` via canonical-owner namespace binding:
     - `tests/gabion/ingest/test_python_ingest.py`
