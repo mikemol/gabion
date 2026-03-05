@@ -8,7 +8,15 @@ from typing import cast
 
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.marker_protocol import (
-    DEFAULT_MARKER_ALIASES, MarkerKind, MarkerLifecycleState, marker_identity, normalize_marker_payload)
+    DEFAULT_MARKER_ALIASES,
+    DEFAULT_MARKER_KIND_MAPPING_CONFIG,
+    MarkerKind,
+    MarkerKindMappingConfig,
+    MarkerLifecycleState,
+    marker_identity,
+    normalize_marker_payload,
+    resolve_marker_kind_for_profile,
+)
 
 
 def keyword_string_literal(
@@ -136,10 +144,15 @@ def never_marker_metadata(
     reason: str,
     *,
     marker_kind: MarkerKind,
+    marker_kind_mapping: MarkerKindMappingConfig = DEFAULT_MARKER_KIND_MAPPING_CONFIG,
     check_deadline_fn: Callable[[], None],
     sort_once_fn: Callable[..., object],
 ) -> JSONObject:
     check_deadline_fn()
+    resolved_marker_kind = resolve_marker_kind_for_profile(
+        marker_kind,
+        mapping_config=marker_kind_mapping,
+    )
     owner = keyword_string_literal(call, "owner", check_deadline_fn=check_deadline_fn)
     expiry = keyword_string_literal(call, "expiry", check_deadline_fn=check_deadline_fn)
     links = keyword_links_literal(
@@ -150,14 +163,14 @@ def never_marker_metadata(
     payload = normalize_marker_payload(
         reason=reason,
         env={},
-        marker_kind=marker_kind,
+        marker_kind=resolved_marker_kind,
         owner=owner,
         expiry=expiry,
         lifecycle_state=MarkerLifecycleState.ACTIVE,
         links=tuple(cast(dict[str, str], link) for link in links),
     )
     return {
-        "marker_kind": marker_kind.value,
+        "marker_kind": resolved_marker_kind.value,
         "marker_id": marker_identity(payload),
         "marker_site_id": never_id,
         "owner": owner,

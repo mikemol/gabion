@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 
 import pytest
 
 from gabion.analysis.foundation.marker_protocol import (
+    MarkerKind,
+    MarkerKindProfile,
     MarkerReasoning,
     marker_identity,
+    marker_kind_mapping_config,
     normalize_marker_payload,
     normalize_marker_reasoning,
     normalize_semantic_links,
+    resolve_marker_kind_for_profile,
 )
+from gabion.analysis.indexed_scan.scanners import marker_metadata
 from gabion.exceptions import NeverThrown
 from gabion.invariants import deprecated, never, todo
 
@@ -144,3 +150,62 @@ def test_todo_and_deprecated_markers_carry_kind() -> None:
     with pytest.raises(NeverThrown) as deprecated_exc:
         deprecated("legacy", links=[{"kind": "policy_id", "value": "NCI-LSP-FIRST"}])
     assert deprecated_exc.value.marker_kind == "deprecated"
+
+
+def _call(source: str) -> ast.Call:
+    node = ast.parse(source, mode="eval").body
+    assert isinstance(node, ast.Call)
+    return node
+
+
+def _check_deadline() -> None:
+    return None
+
+
+def _sort_once(values, *, key=None, **_kwargs):
+    return sorted(values, key=key)
+
+
+# gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.resolve_marker_kind_for_profile
+def test_marker_kind_profile_native_preserves_extracted_kind() -> None:
+    profile = marker_kind_mapping_config(MarkerKindProfile.NATIVE)
+    assert resolve_marker_kind_for_profile(MarkerKind.TODO, mapping_config=profile) is MarkerKind.TODO
+    assert resolve_marker_kind_for_profile(MarkerKind.DEPRECATED, mapping_config=profile) is MarkerKind.DEPRECATED
+
+
+# gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.resolve_marker_kind_for_profile
+def test_marker_kind_profile_collapse_to_never_remaps_non_never_kinds() -> None:
+    profile = marker_kind_mapping_config(MarkerKindProfile.COLLAPSE_TO_NEVER)
+    assert resolve_marker_kind_for_profile(MarkerKind.NEVER, mapping_config=profile) is MarkerKind.NEVER
+    assert resolve_marker_kind_for_profile(MarkerKind.TODO, mapping_config=profile) is MarkerKind.NEVER
+    assert resolve_marker_kind_for_profile(MarkerKind.DEPRECATED, mapping_config=profile) is MarkerKind.NEVER
+
+
+# gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.never_marker_metadata
+def test_marker_metadata_site_identity_fields_stable_across_kind_remaps() -> None:
+    call = _call("todo(reason='defer', owner='team')")
+    native = marker_metadata.never_marker_metadata(
+        call,
+        "never:mod.py:f:1:1",
+        "defer",
+        marker_kind=MarkerKind.TODO,
+        marker_kind_mapping=marker_kind_mapping_config(MarkerKindProfile.NATIVE),
+        check_deadline_fn=_check_deadline,
+        sort_once_fn=_sort_once,
+    )
+    collapsed = marker_metadata.never_marker_metadata(
+        call,
+        "never:mod.py:f:1:1",
+        "defer",
+        marker_kind=MarkerKind.TODO,
+        marker_kind_mapping=marker_kind_mapping_config(MarkerKindProfile.COLLAPSE_TO_NEVER),
+        check_deadline_fn=_check_deadline,
+        sort_once_fn=_sort_once,
+    )
+
+    assert native["marker_kind"] == MarkerKind.TODO.value
+    assert collapsed["marker_kind"] == MarkerKind.NEVER.value
+    assert native["marker_site_id"] == collapsed["marker_site_id"]
+    assert native["owner"] == collapsed["owner"]
+    assert native["expiry"] == collapsed["expiry"]
+    assert native["links"] == collapsed["links"]
