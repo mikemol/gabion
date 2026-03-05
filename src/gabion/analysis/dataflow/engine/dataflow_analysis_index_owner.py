@@ -282,14 +282,14 @@ _FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
     function_info_ctor=FunctionInfo,
 )
 
-_accumulate_function_index_for_tree_runtime = partial(
+_accumulate_function_index_for_tree = partial(
     _accumulate_function_index_for_tree_impl,
     deps=_FUNCTION_INDEX_ACCUMULATOR_DEPS,
 )
-_accumulate_function_index_for_tree = _accumulate_function_index_for_tree_runtime
+_accumulate_function_index_for_tree_runtime = _accumulate_function_index_for_tree
 
 
-def _function_index_module_artifact_spec_runtime(
+def _function_index_module_artifact_spec(
     *,
     project_root,
     ignore_params: set[str],
@@ -322,7 +322,7 @@ def _function_index_module_artifact_spec_runtime(
     )
 
 
-_function_index_module_artifact_spec = _function_index_module_artifact_spec_runtime
+_function_index_module_artifact_spec_runtime = _function_index_module_artifact_spec
 
 
 def _build_single_module_artifact_runtime(
@@ -340,7 +340,7 @@ def _build_single_module_artifact_runtime(
     return raw_artifact
 
 
-def _build_function_index_runtime(
+def _build_function_index(
     paths: list[Path],
     project_root,
     ignore_params: set[str],
@@ -368,10 +368,10 @@ def _build_function_index_runtime(
     )
 
 
-_build_function_index = _build_function_index_runtime
+_build_function_index_runtime = _build_function_index
 
 
-def _accumulate_symbol_table_for_tree_runtime(
+def _accumulate_symbol_table_for_tree(
     table,
     path: Path,
     tree: ast.Module,
@@ -395,10 +395,10 @@ def _accumulate_symbol_table_for_tree_runtime(
     table.module_export_map[module] = export_map
 
 
-_accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_runtime
+_accumulate_symbol_table_for_tree_runtime = _accumulate_symbol_table_for_tree
 
 
-def _symbol_table_module_artifact_spec_runtime(
+def _symbol_table_module_artifact_spec(
     *,
     project_root,
     external_filter: bool,
@@ -417,10 +417,10 @@ def _symbol_table_module_artifact_spec_runtime(
     )
 
 
-_symbol_table_module_artifact_spec = _symbol_table_module_artifact_spec_runtime
+_symbol_table_module_artifact_spec_runtime = _symbol_table_module_artifact_spec
 
 
-def _build_symbol_table_runtime(
+def _build_symbol_table(
     paths: list[Path],
     project_root,
     *,
@@ -441,7 +441,7 @@ def _build_symbol_table_runtime(
     return cast(SymbolTable, raw_table)
 
 
-_build_symbol_table = _build_symbol_table_runtime
+_build_symbol_table_runtime = _build_symbol_table
 
 
 _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
@@ -453,11 +453,11 @@ _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
     class_info_ctor=ClassInfo,
 )
 
-_accumulate_class_index_for_tree_runtime = partial(
+_accumulate_class_index_for_tree = partial(
     _accumulate_class_index_for_tree_impl,
     deps=_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS,
 )
-_accumulate_class_index_for_tree = _accumulate_class_index_for_tree_runtime
+_accumulate_class_index_for_tree_runtime = _accumulate_class_index_for_tree
 
 
 def _iter_monotonic_paths(paths, *, source: str):
