@@ -1,5 +1,5 @@
 ---
-doc_revision: 74
+doc_revision: 75
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1299,6 +1299,27 @@ doc_scope:
     - Monolith LOC dropped to `2159`; top-level imports now `66`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-134`).
+  - Validation:
+    - policy checks passed
+    - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Lambda/runtime-support wrapper hard-cut:
+    - Monolith wrapper bodies replaced by direct owner aliases for:
+      - `_unused_params`
+      - `_synthetic_lambda_name`
+      - `_collect_lambda_function_infos`
+      - `_collect_lambda_bindings_by_caller`
+      - `_collect_closure_lambda_factories`
+      - `_direct_lambda_callee_by_call_span`
+      - `_materialize_direct_lambda_callees`
+    - Monolith now imports this cluster from canonical runtime-support owner modules.
+    - Removed local import-wrappers for lambda/function-index runtime helper surfaces.
+  - Compatibility status:
+    - Lambda/function-index runtime helper surfaces are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2074`; top-level imports remain within target (`68`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-135`).
   - Validation:
     - policy checks passed
     - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)

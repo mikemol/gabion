@@ -125,6 +125,17 @@ from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _normalize_key_expr,
     _return_aliases,
 )
+from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
+    _direct_lambda_callee_by_call_span as _direct_lambda_callee_by_call_span_owner,
+    _materialize_direct_lambda_callees as _materialize_direct_lambda_callees_owner,
+    _unused_params as _unused_params_owner,
+)
+from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+    _collect_closure_lambda_factories as _collect_closure_lambda_factories_owner,
+    _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_owner,
+    _collect_lambda_function_infos as _collect_lambda_function_infos_owner,
+    _synthetic_lambda_name as _synthetic_lambda_name_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots as _collect_param_roots_owner,
     _contains_boolish as _contains_boolish_owner,
@@ -1566,12 +1577,7 @@ def _is_test_path(path: Path) -> bool:
         return True
     return path.name.startswith("test_")
 
-def _unused_params(use_map: dict[str, ParamUse]) -> tuple[set[str], set[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
-        _unused_params as _unused_params_impl,
-    )
-
-    return _unused_params_impl(use_map)
+_unused_params = _unused_params_owner
 
 _group_by_signature = _group_by_signature_owner
 _union_groups = _union_groups_owner
@@ -1743,103 +1749,12 @@ class _FunctionIndexAccumulator:
 
 _accumulate_function_index_for_tree = _accumulate_function_index_for_tree_owner
 
-def _synthetic_lambda_name(
-    *,
-    module: str,
-    lexical_scope: Sequence[str],
-    span: tuple[int, int, int, int],
-) -> str:
-    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-        _synthetic_lambda_name as _synthetic_lambda_name_impl,
-    )
-
-    return _synthetic_lambda_name_impl(
-        module=module,
-        lexical_scope=lexical_scope,
-        span=span,
-    )
-
-def _collect_lambda_function_infos(
-    tree: ast.AST,
-    *,
-    path: Path,
-    module: str,
-    parent_map: Mapping[ast.AST, ast.AST],
-    ignore_params,
-) -> list[FunctionInfo]:
-    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-        _collect_lambda_function_infos as _collect_lambda_function_infos_impl,
-    )
-
-    return _collect_lambda_function_infos_impl(
-        tree,
-        path=path,
-        module=module,
-        parent_map=parent_map,
-        ignore_params=ignore_params,
-    )
-
-def _collect_lambda_bindings_by_caller(
-    tree: ast.AST,
-    *,
-    module: str,
-    parent_map: dict[ast.AST, ast.AST],
-    lambda_infos: Sequence[FunctionInfo],
-) -> dict[str, dict[str, tuple[str, ...]]]:
-    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-        _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl,
-    )
-
-    return _collect_lambda_bindings_by_caller_impl(
-        tree,
-        module=module,
-        parent_map=parent_map,
-        lambda_infos=lambda_infos,
-    )
-
-def _collect_closure_lambda_factories(
-    tree: ast.AST,
-    *,
-    module: str,
-    parent_map: dict[ast.AST, ast.AST],
-    lambda_qual_by_span: Mapping[tuple[int, int, int, int], str],
-) -> dict[str, set[str]]:
-    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-        _collect_closure_lambda_factories as _collect_closure_lambda_factories_impl,
-    )
-
-    return _collect_closure_lambda_factories_impl(
-        tree,
-        module=module,
-        parent_map=parent_map,
-        lambda_qual_by_span=lambda_qual_by_span,
-    )
-
-def _direct_lambda_callee_by_call_span(
-    tree: ast.AST,
-    *,
-    lambda_infos: Sequence[FunctionInfo],
-) -> dict[tuple[int, int, int, int], str]:
-    from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
-        _direct_lambda_callee_by_call_span as _direct_lambda_callee_by_call_span_impl,
-    )
-
-    return _direct_lambda_callee_by_call_span_impl(tree, lambda_infos=lambda_infos)
-
-
-def _materialize_direct_lambda_callees(
-    call_args: Sequence[CallArgs],
-    *,
-    direct_lambda_callee_by_call_span: Mapping[tuple[int, int, int, int], str],
-) -> list[CallArgs]:
-    from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
-        _materialize_direct_lambda_callees as _materialize_direct_lambda_callees_impl,
-    )
-
-    return _materialize_direct_lambda_callees_impl(
-        call_args,
-        direct_lambda_callee_by_call_span=direct_lambda_callee_by_call_span,
-    )
+_synthetic_lambda_name = _synthetic_lambda_name_owner
+_collect_lambda_function_infos = _collect_lambda_function_infos_owner
+_collect_lambda_bindings_by_caller = _collect_lambda_bindings_by_caller_owner
+_collect_closure_lambda_factories = _collect_closure_lambda_factories_owner
+_direct_lambda_callee_by_call_span = _direct_lambda_callee_by_call_span_owner
+_materialize_direct_lambda_callees = _materialize_direct_lambda_callees_owner
 
 def _function_index_module_artifact_spec(
     *,
