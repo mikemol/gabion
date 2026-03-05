@@ -88,6 +88,20 @@ def _monolith_resume_aliases() -> tuple[str, ...]:
     raise AssertionError("monolith resume import surface not found")
 
 
+def _monolith_analysis_index_aliases() -> tuple[str, ...]:
+    repo_root = Path(__file__).resolve().parents[4]
+    monolith_path = (
+        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    )
+    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module == (
+            "gabion.analysis.dataflow.engine.dataflow_analysis_index"
+        ):
+            return tuple(alias.name for alias in node.names)
+    raise AssertionError("monolith analysis-index import surface not found")
+
+
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
     _assert_alias_parity(
         owner_module_path=(
@@ -215,5 +229,19 @@ def test_facade_covers_monolith_resume_alias_surface() -> None:
         )
         assert getattr(facade, symbol) is getattr(canonical, symbol), (
             "facade resume symbol must remain an alias to canonical owner; "
+            f"symbol={symbol}"
+        )
+
+
+def test_facade_covers_monolith_analysis_index_alias_surface() -> None:
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+    canonical = _load("gabion.analysis.dataflow.engine.dataflow_analysis_index")
+    for symbol in _monolith_analysis_index_aliases():
+        assert hasattr(facade, symbol), (
+            "facade must carry full monolith analysis-index compatibility surface; "
+            f"missing={symbol}"
+        )
+        assert getattr(facade, symbol) is getattr(canonical, symbol), (
+            "facade analysis-index symbol must remain an alias to canonical owner; "
             f"symbol={symbol}"
         )
