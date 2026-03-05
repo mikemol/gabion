@@ -1,5 +1,5 @@
 ---
-doc_revision: 124
+doc_revision: 125
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2186,6 +2186,21 @@ doc_scope:
     - Deadline resolver/materialization behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-184`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index artifact-build abstraction:
+    - Added shared helper `_build_single_module_artifact_runtime` in `dataflow_analysis_index_owner.py`.
+    - Rewired both artifact builders to use the shared helper:
+      - `_build_function_index_runtime`
+      - `_build_symbol_table_runtime`
+    - Preserved existing artifact-spec contracts and parse-failure witness routing while reducing duplicated build-path logic.
+  - Compatibility status:
+    - Analysis-index function-index/symbol-table build behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-185`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

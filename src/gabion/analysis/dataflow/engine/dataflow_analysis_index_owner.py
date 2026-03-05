@@ -302,6 +302,21 @@ def _function_index_module_artifact_spec_runtime(
     )
 
 
+def _build_single_module_artifact_runtime(
+    paths: list[Path],
+    *,
+    spec: _ModuleArtifactSpec[object, object],
+    parse_failure_witnesses: list[JSONObject],
+) -> object:
+    check_deadline()
+    raw_artifact, = _build_module_artifacts(
+        paths,
+        specs=(spec,),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return raw_artifact
+
+
 def _build_function_index_runtime(
     paths: list[Path],
     project_root,
@@ -311,18 +326,15 @@ def _build_function_index_runtime(
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
-    check_deadline()
-    raw_index, = _build_module_artifacts(
+    raw_index = _build_single_module_artifact_runtime(
         paths,
-        specs=(
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _function_index_module_artifact_spec_runtime(
-                    project_root=project_root,
-                    ignore_params=ignore_params,
-                    strictness=strictness,
-                    transparent_decorators=transparent_decorators,
-                ),
+        spec=cast(
+            _ModuleArtifactSpec[object, object],
+            _function_index_module_artifact_spec_runtime(
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                transparent_decorators=transparent_decorators,
             ),
         ),
         parse_failure_witnesses=parse_failure_witnesses,
@@ -383,16 +395,13 @@ def _build_symbol_table_runtime(
     external_filter: bool,
     parse_failure_witnesses: list[JSONObject],
 ) -> SymbolTable:
-    check_deadline()
-    raw_table, = _build_module_artifacts(
+    raw_table = _build_single_module_artifact_runtime(
         paths,
-        specs=(
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _symbol_table_module_artifact_spec_runtime(
-                    project_root=project_root,
-                    external_filter=external_filter,
-                ),
+        spec=cast(
+            _ModuleArtifactSpec[object, object],
+            _symbol_table_module_artifact_spec_runtime(
+                project_root=project_root,
+                external_filter=external_filter,
             ),
         ),
         parse_failure_witnesses=parse_failure_witnesses,
