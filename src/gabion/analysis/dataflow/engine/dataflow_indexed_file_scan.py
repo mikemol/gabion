@@ -94,12 +94,12 @@ from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
     parse_adapter_capabilities,
 )
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
-    _base_identifier as _base_identifier_owner,
-    _collect_module_exports as _collect_module_exports_owner,
-    _is_test_path as _is_test_path_owner,
-    _module_name as _module_name_owner,
-    _string_list as _string_list_owner,
-    _target_names as _target_names_owner,
+    _base_identifier,
+    _collect_module_exports,
+    _is_test_path,
+    _module_name,
+    _string_list,
+    _target_names,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
@@ -560,8 +560,6 @@ _is_deadline_param = _is_deadline_param_owner
 
 _is_deadline_origin_call = _is_deadline_origin_call_impl
 
-_target_names = _target_names_owner
-
 _simple_store_name = _simple_store_name_owner
 
 _DeadlineLoopFacts = _DeadlineLoopFacts_owner
@@ -643,8 +641,6 @@ _materialize_structured_suite_sites_for_tree = _materialize_structured_suite_sit
 _materialize_structured_suite_sites = _materialize_structured_suite_sites_owner
 _populate_bundle_forest = _populate_bundle_forest_owner
 
-_is_test_path = _is_test_path_owner
-
 _unused_params = _unused_params_owner
 
 _group_by_signature = _group_by_signature_owner
@@ -664,14 +660,6 @@ FunctionInfo = _ContractFunctionInfo
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 ClassInfo = _ContractClassInfo
-
-_module_name = _module_name_owner
-
-_string_list = _string_list_owner
-
-_base_identifier = _base_identifier_owner
-
-_collect_module_exports = _collect_module_exports_owner
 
 _accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_owner
 
