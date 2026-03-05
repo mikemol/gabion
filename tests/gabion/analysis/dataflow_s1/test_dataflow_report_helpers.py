@@ -1,15 +1,43 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from tests.path_helpers import REPO_ROOT
 from tests.env_helpers import env_scope
 from tests.order_helpers import contract_sorted
 
 def _load():
     repo_root = REPO_ROOT
-    from gabion.analysis.dataflow.engine import dataflow_facade as da
+    from gabion.analysis.aspf.aspf import Forest, NodeId
+    from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
+    from gabion.analysis.dataflow.engine.dataflow_contracts import (
+        InvariantProposition,
+        ReportCarrier,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import _report_section_spec
+    from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
+        _topologically_order_report_projection_specs,
+    )
+    from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
+    from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
+        render_mermaid_component,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
+        _populate_bundle_forest,
+    )
 
-    return da
+    return SimpleNamespace(
+        Forest=Forest,
+        InvariantProposition=InvariantProposition,
+        NodeId=NodeId,
+        ReportCarrier=ReportCarrier,
+        _emit_report=emit_report,
+        _merge_counts_by_knobs=_merge_counts_by_knobs,
+        _populate_bundle_forest=_populate_bundle_forest,
+        _render_mermaid_component=render_mermaid_component,
+        _report_section_spec=_report_section_spec,
+        _topologically_order_report_projection_specs=_topologically_order_report_projection_specs,
+    )
 
 def _write(path: Path, content: str) -> None:
     path.write_text(content)
