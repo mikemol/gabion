@@ -1,5 +1,5 @@
 ---
-doc_revision: 59
+doc_revision: 60
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2825
-- Monolith top-level import statements (current): 70
+- Monolith LOC (current): 2805
+- Monolith top-level import statements (current): 69
 - Direct monolith imports in `src/`: 4
 - Direct monolith imports in `tests/`: 0
 
@@ -1014,6 +1014,24 @@ doc_scope:
     - Function-index helper cluster is centralized for pending analysis-index owner cutovers.
     - Monolith top-level import count remains at target boundary (`70`) via local-import wrappers.
   - ASPF no-change acknowledgement refreshed (`in-120`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Lambda-runtime support extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py`
+    - Moved lambda function-index helper cluster:
+      - `_synthetic_lambda_name`
+      - `_collect_lambda_function_infos`
+      - `_collect_lambda_bindings_by_caller`
+      - `_collect_closure_lambda_factories`
+    - Monolith now routes this helper cluster through canonical owner wrappers.
+  - Compatibility status:
+    - Lambda function-index helper ownership is centralized for future analysis-index owner cutovers.
+    - Monolith top-level import count declined to `69`.
+  - ASPF no-change acknowledgement refreshed (`in-121`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

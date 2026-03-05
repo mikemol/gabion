@@ -366,9 +366,6 @@ from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
     CallNodesForTreeDeps as _CallNodesForTreeDeps, CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps, call_nodes_for_tree as _call_nodes_for_tree_impl, collect_call_nodes_by_path as _collect_call_nodes_by_path_impl)
 from gabion.analysis.indexed_scan.state.module_exports import (
     ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
-from gabion.analysis.indexed_scan.ast.lambda_bindings import (
-    ClosureLambdaFactoriesDeps as _ClosureLambdaFactoriesDeps, LambdaBindingsByCallerDeps as _LambdaBindingsByCallerDeps, collect_closure_lambda_factories as _collect_closure_lambda_factories_impl, collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl)
-
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
     TypeError,
@@ -2398,11 +2395,15 @@ def _synthetic_lambda_name(
     lexical_scope: Sequence[str],
     span: tuple[int, int, int, int],
 ) -> str:
-    check_deadline()
-    lexical = ".".join(lexical_scope) if lexical_scope else "<module>"
-    stable_payload = f"{module}|{lexical}|{span[0]}:{span[1]}:{span[2]}:{span[3]}"
-    digest = hashlib.sha1(stable_payload.encode("utf-8")).hexdigest()[:12]
-    return f"<lambda:{digest}>"
+    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+        _synthetic_lambda_name as _synthetic_lambda_name_impl,
+    )
+
+    return _synthetic_lambda_name_impl(
+        module=module,
+        lexical_scope=lexical_scope,
+        span=span,
+    )
 
 def _collect_lambda_function_infos(
     tree: ast.AST,
@@ -2412,29 +2413,16 @@ def _collect_lambda_function_infos(
     parent_map: Mapping[ast.AST, ast.AST],
     ignore_params,
 ) -> list[FunctionInfo]:
-    from gabion.analysis.indexed_scan.ast.lambda_bindings import (
-        CollectLambdaFunctionInfosDeps as _CollectLambdaFunctionInfosDeps)
-    from gabion.analysis.indexed_scan.ast.lambda_bindings import (
-        collect_lambda_function_infos as _collect_lambda_function_infos_impl)
+    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+        _collect_lambda_function_infos as _collect_lambda_function_infos_impl,
+    )
 
-    return cast(
-        list[FunctionInfo],
-        _collect_lambda_function_infos_impl(
-            tree,
-            path=path,
-            module=module,
-            parent_map=parent_map,
-            ignore_params=ignore_params,
-            deps=_CollectLambdaFunctionInfosDeps(
-                check_deadline_fn=check_deadline,
-                node_span_fn=_node_span,
-                enclosing_function_scopes_fn=_enclosing_function_scopes,
-                enclosing_scopes_fn=_enclosing_scopes,
-                enclosing_class_fn=_enclosing_class,
-                synthetic_lambda_name_fn=_synthetic_lambda_name,
-                function_info_ctor=FunctionInfo,
-            ),
-        ),
+    return _collect_lambda_function_infos_impl(
+        tree,
+        path=path,
+        module=module,
+        parent_map=parent_map,
+        ignore_params=ignore_params,
     )
 
 def _collect_lambda_bindings_by_caller(
@@ -2444,20 +2432,15 @@ def _collect_lambda_bindings_by_caller(
     parent_map: dict[ast.AST, ast.AST],
     lambda_infos: Sequence[FunctionInfo],
 ) -> dict[str, dict[str, tuple[str, ...]]]:
+    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+        _collect_lambda_bindings_by_caller as _collect_lambda_bindings_by_caller_impl,
+    )
+
     return _collect_lambda_bindings_by_caller_impl(
         tree,
         module=module,
         parent_map=parent_map,
-        lambda_infos=cast(Sequence[object], lambda_infos),
-        deps=_LambdaBindingsByCallerDeps(
-            check_deadline_fn=check_deadline,
-            require_not_none_fn=require_not_none,
-            collect_closure_lambda_factories_fn=_collect_closure_lambda_factories,
-            node_span_fn=_node_span,
-            enclosing_scopes_fn=_enclosing_scopes,
-            target_names_fn=_target_names,
-            sort_once_fn=sort_once,
-        ),
+        lambda_infos=lambda_infos,
     )
 
 def _collect_closure_lambda_factories(
@@ -2467,18 +2450,15 @@ def _collect_closure_lambda_factories(
     parent_map: dict[ast.AST, ast.AST],
     lambda_qual_by_span: Mapping[tuple[int, int, int, int], str],
 ) -> dict[str, set[str]]:
+    from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+        _collect_closure_lambda_factories as _collect_closure_lambda_factories_impl,
+    )
+
     return _collect_closure_lambda_factories_impl(
         tree,
         module=module,
         parent_map=parent_map,
         lambda_qual_by_span=lambda_qual_by_span,
-        deps=_ClosureLambdaFactoriesDeps(
-            check_deadline_fn=check_deadline,
-            node_span_fn=_node_span,
-            target_names_fn=_target_names,
-            enclosing_scopes_fn=_enclosing_scopes,
-            function_key_fn=_function_key,
-        ),
     )
 
 def _direct_lambda_callee_by_call_span(
