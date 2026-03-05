@@ -258,11 +258,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _decision_predicate_evidence,
     _decision_reason_summary,
     _decision_surface_alt_evidence,
-    _infer_type_flow as _infer_type_flow_owner,
-    _decision_param_lint_line as _decision_param_lint_line_owner,
-    _decision_tier_for as _decision_tier_for_owner,
+    _infer_type_flow,
+    _decision_param_lint_line,
+    _decision_tier_for,
     _branch_reachability_under_env,
-    _analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_owner,
+    _analyze_unused_arg_flow_indexed,
     _collect_exception_obligations,
     _collect_handledness_witnesses,
     _collect_invariant_propositions,
@@ -281,27 +281,27 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _is_reachability_true,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
-    _lint_line as _lint_line_owner,
+    _lint_line,
     _names_in_expr,
     _node_in_block,
     _param_annotations_by_path,
     _parse_module_source as _parse_module_source_owner,
     _simple_store_name,
-    _span_line_col as _span_line_col_owner,
+    _span_line_col,
     _split_top_level,
     _StageCacheSpec as _StageCacheSpec_owner,
     _suite_site_label,
     _type_from_const_repr,
     _VALUE_DECISION_SURFACE_SPEC,
     _ResolvedEdgeReducerSpec as _ResolvedEdgeReducerSpec_owner,
-    analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
+    analyze_decision_surfaces_repo,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
     analyze_type_flow_repo as _analyze_type_flow_repo_owner,
     analyze_unused_arg_flow_repo,
-    analyze_value_encoded_decisions_repo as _analyze_value_encoded_decisions_repo_owner,
+    analyze_value_encoded_decisions_repo,
     generate_property_hook_manifest,
-    run_scan_domain_orchestrator as _run_scan_domain_orchestrator_owner,
+    run_scan_domain_orchestrator,
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
@@ -317,7 +317,7 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _decode_projection_span,
     _dedupe_call_ambiguities,
     _emit_call_ambiguities,
-    _format_span_fields as _format_span_fields_owner,
+    _format_span_fields,
     _lint_lines_from_call_ambiguities,
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
@@ -554,27 +554,7 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
 
-run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
-
-analyze_decision_surfaces_repo = _analyze_decision_surfaces_repo_owner
-
-analyze_value_encoded_decisions_repo = _analyze_value_encoded_decisions_repo_owner
-
-_span_line_col = _span_line_col_owner
-
-_infer_type_flow = _infer_type_flow_owner
-
-_analyze_unused_arg_flow_indexed = _analyze_unused_arg_flow_indexed_owner
-
-_format_span_fields = _format_span_fields_owner
-
-_lint_line = _lint_line_owner
-
 _add_interned_alt = _add_interned_alt_owner
-
-_decision_param_lint_line = _decision_param_lint_line_owner
-
-_decision_tier_for = _decision_tier_for_owner
 
 AnalysisIndex = _AnalysisIndex_owner
 
