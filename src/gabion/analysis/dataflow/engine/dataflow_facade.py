@@ -61,13 +61,31 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
 )
+from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
+    _group_by_signature,
+    _propagate_groups,
+    _union_groups,
+    analyze_ingested_file,
+)
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _annotation_exception_candidates,
+    _collect_config_bundles,
     _collect_dataclass_registry,
+    _collect_exception_obligations,
+    _eval_bool_expr,
+    _eval_value_expr,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
     _keyword_string_literal,
+    _names_in_expr,
+    _node_in_block,
+    _parse_module_source,
+    _refine_exception_name_from_annotations,
+    _split_top_level,
     _type_from_const_repr,
+    analyze_deadness_flow_repo,
+    analyze_decision_surfaces_repo,
+    analyze_value_encoded_decisions_repo,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations,
@@ -83,6 +101,16 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
     _function_key,
+)
+from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _build_analysis_collection_resume_payload,
+    _deserialize_function_info_for_resume,
+    _deserialize_symbol_table_for_resume,
+    _load_analysis_collection_resume_payload,
+    _load_analysis_index_resume_payload,
+    _load_file_scan_resume_state,
+    _serialize_analysis_index_resume_payload,
+    _serialize_file_scan_resume_state,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (

@@ -1,5 +1,5 @@
 ---
-doc_revision: 110
+doc_revision: 111
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1960,6 +1960,21 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-170`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade resume/ingest/post-phase export rebinding:
+    - `dataflow_facade.py` now pre-binds another compatibility cluster to canonical owners (instead of monolith fallback):
+      - resume owners: `_build_analysis_collection_resume_payload`, `_load_analysis_collection_resume_payload`, `_load_analysis_index_resume_payload`, `_load_file_scan_resume_state`, `_serialize_analysis_index_resume_payload`, `_serialize_file_scan_resume_state`, `_deserialize_function_info_for_resume`, `_deserialize_symbol_table_for_resume`
+      - ingest owners: `_group_by_signature`, `_union_groups`, `_propagate_groups`, `analyze_ingested_file`
+      - post-phase owners: `_collect_config_bundles`, `_collect_exception_obligations`, `_parse_module_source`, `_split_top_level`, `_names_in_expr`, `_node_in_block`, `_eval_bool_expr`, `_eval_value_expr`, `_refine_exception_name_from_annotations`, `analyze_deadness_flow_repo`, `analyze_decision_surfaces_repo`, `analyze_value_encoded_decisions_repo`
+  - Compatibility status:
+    - Facade compatibility names remain unchanged; canonical owner source coverage expanded.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-171`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
