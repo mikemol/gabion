@@ -1,5 +1,5 @@
 ---
-doc_revision: 24
+doc_revision: 25
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -408,6 +408,20 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted post-phase/dataflow suites passed (`44 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase parameter-annotation fallback fix-forward:
+    - Normalized `_parse_module_tree` outcome handling in `_param_annotations_by_path` to consume parse carriers structurally:
+      - parsed path: `_ParseModuleSuccess.tree`
+      - parse-failure path: skip annotation extraction (witness already recorded by carrier)
+    - Restored provenance-emission parity for fingerprint-output flows while keeping owner-local parse helper wiring in place.
+  - Regression remediation:
+    - Fixed missing fingerprint provenance output regression surfaced by:
+      - `tests/gabion/analysis/dataflow_s1/dataflow_raw_runtime_edges_cases.py::test_run_fingerprint_outputs_write_files`
+  - ASPF no-change acknowledgement refreshed (`in-86`).
+  - Validation:
+    - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
