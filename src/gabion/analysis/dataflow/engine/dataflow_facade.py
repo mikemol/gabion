@@ -42,6 +42,7 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _collect_call_ambiguities,
     _dedupe_call_ambiguities,
     _emit_call_ambiguities,
+    _lint_lines_from_call_ambiguities,
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
     _materialize_projection_spec_rows,
@@ -91,6 +92,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _annotation_exception_candidates,
+    _branch_reachability_under_env,
     _collect_config_bundles,
     _collect_dataclass_registry,
     _collect_exception_obligations,
@@ -98,6 +100,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _eval_value_expr,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
+    _keyword_links_literal,
     _keyword_string_literal,
     _names_in_expr,
     _node_in_block,
@@ -112,6 +115,9 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations,
 )
+from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
+    _is_deadline_param,
+)
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     _report_section_spec,
 )
@@ -121,9 +127,19 @@ from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _phase_work_progress,
+    _profiling_v1_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+    _collect_lambda_bindings_by_caller,
+    _collect_lambda_function_infos,
     _function_key,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
+    _direct_lambda_callee_by_call_span,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
+    _analyze_function,
+    _collect_return_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _build_analysis_collection_resume_payload,
@@ -150,8 +166,26 @@ from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
 )
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     _build_synth_registry_payload,
+    _collect_fingerprint_atom_keys,
+    _compute_fingerprint_coherence,
+    _compute_fingerprint_matches,
+    _compute_fingerprint_provenance,
+    _compute_fingerprint_rewrite_plans,
+    _compute_fingerprint_synth,
+    _compute_fingerprint_warnings,
+    _find_provenance_entry_for_site,
+    _fingerprint_soundness_issues,
+    _glossary_match_strata,
+    _summarize_fingerprint_provenance,
     verify_rewrite_plan,
     verify_rewrite_plans,
+)
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    _collect_module_exports,
+)
+from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
+    _build_parser,
+    _resolve_synth_registry_path,
 )
 
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
@@ -165,19 +199,30 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
 from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
+    _deadline_lint_lines,
+    _exception_protocol_lint_lines,
     _internal_broad_type_lint_lines_runtime as _internal_broad_type_lint_lines,
+    _is_broad_internal_type,
+    _lint_lines_from_bundle_evidence,
+    _lint_lines_from_constant_smells,
+    _lint_lines_from_type_evidence,
+    _lint_lines_from_unused_arg_smells,
+    _normalize_type_name,
+    _parse_exception_path_id,
     _parse_lint_location as _parse_lint_location,
 )
 from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
 )
+from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
+    _topologically_order_report_projection_specs,
+)
 from gabion.analysis.dataflow.io.dataflow_reporting import emit_report as _emit_report
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
-from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
 
 
 # Explicit static compatibility exports for high-use helper surfaces.
@@ -296,6 +341,3 @@ _STATIC_FACADE_EXPORTS = (
     "verify_rewrite_plan",
     "verify_rewrite_plans",
 )
-
-for _name in _STATIC_FACADE_EXPORTS:
-    globals().setdefault(_name, getattr(_runtime, _name))

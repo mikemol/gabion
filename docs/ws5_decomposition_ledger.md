@@ -1,5 +1,5 @@
 ---
-doc_revision: 114
+doc_revision: 115
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2029,10 +2029,26 @@ doc_scope:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade fallback hard cut:
+    - Completed canonical prebinding for the remaining `_STATIC_FACADE_EXPORTS` gap set (fingerprint/lint/lambda/function-semantics/raw-runtime/projection-order helpers), reducing prebinding gaps to zero.
+    - Removed monolith fallback wiring from `dataflow_facade.py`:
+      - deleted `dataflow_indexed_file_scan as _runtime` import
+      - deleted `globals().setdefault(... getattr(_runtime, ...))` export loop
+    - Facade compatibility exports are now fully static canonical-owner bindings.
+  - Compatibility status:
+    - `dataflow_facade` no longer depends on monolith runtime fallback for export materialization.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-175`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
-2. Facade surface minimization: reduce explicit export inventory to canonical owner entrypoints and prune legacy-only aliases that are no longer exercised.
+1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
+2. Facade surface curation: with runtime fallback removed, evaluate pruning legacy-only aliases that are no longer exercised while preserving intended compatibility guarantees.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`
