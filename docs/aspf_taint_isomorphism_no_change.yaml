@@ -496,3 +496,5 @@ justification: marker protocol generalization now classifies todo/deprecated mar
 # CU: runtime policy profile extension for invariant behavior + marker-kind mapping is ambient config plumbing only; ASPF taint crosswalk identifiers and in-step coverage unchanged.
 # CU: invariant runtime profile reification (`strict`/`diagnostic`/`debt_gate`/`sunset_gate`), warning-key rate caps, and runtime policy env migration to `GABION_INVARIANT_PROFILE` change runtime marker behavior plumbing only and preserve ASPF taint crosswalk identifiers and in-step obligations.
 # CU: never() legacy string deprecation preflight detection now keys on reasoning-shape presence (`"reasoning" not in env`) instead of empty metadata env, so metadata-only kwargs still trigger migration warnings while structured reasoning payload calls remain exempt; marker kinds and ASPF taint crosswalk identifiers are unchanged.
+
+# CU: dataflow reporting helper marker-kind label propagation (summarize_never_invariants reads row marker_kind with legacy default never and emits marker-specific labels) is formatting-only output stabilization; ASPF taint crosswalk identifiers remain unchanged.
