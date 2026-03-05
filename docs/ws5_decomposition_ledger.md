@@ -1,5 +1,5 @@
 ---
-doc_revision: 62
+doc_revision: 63
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -14,7 +14,7 @@ doc_scope:
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
 - Monolith LOC (current): 2718
 - Monolith top-level import statements (current): 70
-- Direct monolith imports in `src/`: 3
+- Direct monolith imports in `src/`: 2
 - Direct monolith imports in `tests/`: 0
 
 ## Debt Ledger
@@ -1079,10 +1079,26 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index function-index delegate ownerization:
+    - `dataflow_analysis_index_owner._accumulate_function_index_for_tree_runtime` now binds canonical function-index helpers directly through indexed-scan accumulator deps (no monolith delegate import).
+    - Canonical owner wiring includes:
+      - function-index helpers
+      - function-semantics owners
+      - function-index runtime support owner
+      - lambda runtime support owner
+      - decision/decorator support owner
+  - Compatibility status:
+    - Direct monolith imports in `src` reduced to `2` (facade + analysis-index owner `_analyze_file_internal` delegate).
+  - ASPF no-change acknowledgement refreshed (`in-124`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Boundary ownerization for analysis-index delegated seams: canonicalize `_accumulate_function_index_for_tree` and `_analyze_file_internal` to remove remaining direct monolith imports in compatibility owners.
-2. Compatibility-owner contraction: replace remaining compatibility-owner local imports from monolith with canonical owner/type carriers where available.
+1. Boundary ownerization for analysis-index delegated seam: canonicalize `_analyze_file_internal` to remove the last analysis-index-owner direct monolith import.
+2. Compatibility-owner contraction: collapse/retire compatibility-owner shims as canonical owners become complete.
 3. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
 ## Validation Checklist Per CU

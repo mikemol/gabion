@@ -29,7 +29,7 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
-from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo
+from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo, FunctionInfo
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ImportVisitor,
@@ -39,6 +39,36 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _enclosing_class_scopes,
     _module_name,
     _resolve_callee,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _collect_functions,
+    _enclosing_class,
+    _enclosing_function_scopes,
+    _enclosing_scopes,
+    _is_test_path,
+    _node_span,
+    _param_annotations,
+    _param_defaults,
+    _param_names,
+    _param_spans,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
+    _analyze_function,
+    _collect_return_aliases,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
+    _direct_lambda_callee_by_call_span,
+    _materialize_direct_lambda_callees,
+    _unused_params,
+)
+from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
+    _collect_lambda_bindings_by_caller,
+    _collect_lambda_function_infos,
+)
+from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
+    _decision_surface_reason_map,
+    _decorators_transparent,
+    _value_encoded_decision_params,
 )
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
@@ -59,6 +89,10 @@ from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
 from gabion.analysis.indexed_scan.state.module_artifacts import (
     BuildModuleArtifactsDeps as _BuildModuleArtifactsDeps,
     build_module_artifacts as _build_module_artifacts_impl,
+)
+from gabion.analysis.indexed_scan.state.function_index_accumulator import (
+    FunctionIndexAccumulatorDeps as _FunctionIndexAccumulatorDeps,
+    accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl,
 )
 from gabion.analysis.indexed_scan.scanners.edge_param_events import (
     iter_resolved_edge_param_events as _iter_resolved_edge_param_events_impl,
@@ -212,11 +246,7 @@ def _accumulate_function_index_for_tree_runtime(
     strictness: str,
     transparent_decorators,
 ) -> None:
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl_runtime,
-    )
-
-    _accumulate_function_index_for_tree_impl_runtime(
+    _accumulate_function_index_for_tree_impl(
         acc,
         path,
         tree,
@@ -224,6 +254,32 @@ def _accumulate_function_index_for_tree_runtime(
         ignore_params=ignore_params,
         strictness=strictness,
         transparent_decorators=transparent_decorators,
+        deps=_FunctionIndexAccumulatorDeps(
+            check_deadline_fn=check_deadline,
+            collect_functions_fn=_collect_functions,
+            parent_annotator_ctor=ParentAnnotator,
+            module_name_fn=_module_name,
+            collect_lambda_function_infos_fn=_collect_lambda_function_infos,
+            collect_lambda_bindings_by_caller_fn=_collect_lambda_bindings_by_caller,
+            direct_lambda_callee_by_call_span_fn=_direct_lambda_callee_by_call_span,
+            collect_return_aliases_fn=_collect_return_aliases,
+            enclosing_class_fn=_enclosing_class,
+            enclosing_scopes_fn=_enclosing_scopes,
+            enclosing_function_scopes_fn=_enclosing_function_scopes,
+            analyze_function_fn=_analyze_function,
+            is_test_path_fn=_is_test_path,
+            materialize_direct_lambda_callees_fn=_materialize_direct_lambda_callees,
+            unused_params_fn=_unused_params,
+            decision_surface_reason_map_fn=_decision_surface_reason_map,
+            value_encoded_decision_params_fn=_value_encoded_decision_params,
+            param_names_fn=_param_names,
+            param_annotations_fn=_param_annotations,
+            param_defaults_fn=_param_defaults,
+            decorators_transparent_fn=_decorators_transparent,
+            param_spans_fn=_param_spans,
+            node_span_fn=_node_span,
+            function_info_ctor=FunctionInfo,
+        ),
     )
 
 
