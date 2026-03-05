@@ -1,5 +1,5 @@
 ---
-doc_revision: 257
+doc_revision: 258
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,7 +15,7 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 306
+- Facade LOC (current): 247
 - Facade top-level import statements (current): 37
 - Compatibility owner max metrics (current): `loc=21`, `imports=3`
 - Direct monolith imports in `src/`: 0
@@ -31,6 +31,24 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-320`, this CU):
+  - Converged selected facade import surfaces to canonical wildcard re-exports where owner `__all__` already exactly covered the existing symbol set:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+  - Hard-cut details:
+    - replaced large explicit symbol import blocks with `*` re-exports for:
+      - `dataflow_deadline_contracts`
+      - `dataflow_deadline_helpers`
+      - `dataflow_ingested_analysis_support`
+      - `dataflow_function_semantics`
+      - `dataflow_contracts`
+      - `dataflow_fingerprint_helpers`
+    - reduced facade LOC from `306` to `247` without changing top-level import statement count
+    - updated common-surface parity parser to expand wildcard imports via canonical `__all__`:
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`16 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected line-shift mapping drift
 - WS-5 continuation (`in-319`, this CU):
   - Converged remaining compatibility-owner modules to canonical alias-export form:
     - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime_owner.py`

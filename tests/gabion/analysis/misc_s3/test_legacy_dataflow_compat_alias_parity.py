@@ -121,7 +121,13 @@ def _module_alias_bindings_by_module(*, source_path: Path) -> dict[str, tuple[tu
             continue
         by_module.setdefault(module, [])
         for alias in node.names:
-            by_module[module].append((alias.asname or alias.name, alias.name))
+            if alias.name != "*":
+                by_module[module].append((alias.asname or alias.name, alias.name))
+                continue
+            canonical = _load(module)
+            canonical_all = getattr(canonical, "__all__", ())
+            for symbol in canonical_all:
+                by_module[module].append((symbol, symbol))
 
     normalized: dict[str, tuple[tuple[str, str], ...]] = {}
     for module, bindings in by_module.items():
