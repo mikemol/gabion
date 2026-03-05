@@ -1,5 +1,5 @@
 ---
-doc_revision: 256
+doc_revision: 257
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -17,7 +17,7 @@ doc_scope:
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
 - Facade LOC (current): 306
 - Facade top-level import statements (current): 37
-- Compatibility owner max metrics (current): `loc=69`, `imports=3`
+- Compatibility owner max metrics (current): `loc=21`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - Direct `dataflow_facade` imports in `src/` + `tests/`: 0
@@ -31,6 +31,19 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-319`, this CU):
+  - Converged remaining compatibility-owner modules to canonical alias-export form:
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime_owner.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_runtime_reporting_owner.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_summary_owner.py`
+  - Hard-cut details:
+    - removed duplicated explicit import lists in each owner module
+    - removed duplicated manual `__all__` symbol lists in each owner module
+    - re-export surfaces now bind directly to canonical module `__all__` via `list(getattr(..., "__all__", ()))`
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed
+    - evidence refresh executed; `git diff --exit-code out/test_evidence.json` passed (no evidence drift)
 - WS-5 continuation (`in-315`, this CU):
   - Refreshed current-state snapshot after convergence guard expansion:
     - added facade and compatibility-owner metric rows

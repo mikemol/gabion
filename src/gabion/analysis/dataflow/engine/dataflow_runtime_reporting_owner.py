@@ -4,12 +4,8 @@ from __future__ import annotations
 
 """Runtime-reporting compatibility owner during WS-5 migration."""
 
-from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
-    ReportProjectionPhase,
-    ReportProjectionSpec,
-    _compute_violations,
-    _report_section_spec,
-)
+from gabion.analysis.dataflow.engine import dataflow_runtime_reporting as _runtime_reporting
+from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import *  # noqa: F401,F403
 
 # Temporary boundary adapter retained for external import compatibility.
 _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
@@ -22,9 +18,4 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
     "evidence_links": ["docs/ws5_decomposition_ledger.md"],
 }
 
-__all__ = [
-    "ReportProjectionPhase",
-    "ReportProjectionSpec",
-    "_compute_violations",
-    "_report_section_spec",
-]
+__all__ = list(getattr(_runtime_reporting, "__all__", ()))
