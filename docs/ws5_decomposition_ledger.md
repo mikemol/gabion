@@ -1,5 +1,5 @@
 ---
-doc_revision: 194
+doc_revision: 195
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 412
-- Monolith top-level import statements (current): 57
+- Monolith LOC (current): 380
+- Monolith top-level import statements (current): 53
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -3328,6 +3328,33 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`44 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith import-statement contraction (dead passthrough removal):
+    - Removed monolith-only passthrough imports for symbols with no in-repo consumers outside monolith from:
+      - `dataflow_function_index_helpers.py`
+      - `indexed_scan.scanners.run_entry`
+      - `indexed_scan.scanners.parser_builder`
+      - `indexed_scan.index.analysis_carriers`
+      - `dataflow_runtime_reporting_owner.py`
+      - `dataflow_function_semantics.py`
+      - `dataflow_adapter_contract.py`
+      - `dataflow_local_class_hierarchy.py`
+      - `dataflow_function_index_decision_support.py`
+      - `dataflow_evidence_helpers.py`
+      - `dataflow_deadline_helpers.py`
+    - Retired entire monolith passthrough import blocks for:
+      - runtime-suffix function-index helper aliases
+      - run-entry path/deadline helper aliases
+      - parser-builder passthrough alias
+      - analysis-carrier passthrough aliases
+  - Correctness impact:
+    - Canonical owner/runtime semantics unchanged; this slice removes dead monolith passthrough surface only.
+    - Monolith structural metrics improved (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-254`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`45 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

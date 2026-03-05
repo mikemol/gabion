@@ -45,8 +45,6 @@ from gabion.analysis.foundation.timeout_context import (
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_or_none, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_or_empty, mapping_or_none, payload_with_format, payload_with_phase, sequence_or_none, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
 
-from gabion.analysis.indexed_scan.index.analysis_carriers import AnalysisResult, ReportCarrier
-
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, NEVER_INVARIANTS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
 
@@ -89,8 +87,6 @@ from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     verify_rewrite_plans,
 )
 from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
-    AdapterCapabilities,
-    normalize_adapter_contract,
     parse_adapter_capabilities,
 )
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
@@ -98,16 +94,13 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _collect_module_exports,
     _is_test_path,
     _module_name,
-    _string_list,
     _target_names,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
-    _callee_name,
     _call_context,
     _collect_return_aliases,
     _const_repr,
-    _normalize_callee,
     _normalize_key_expr,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
@@ -127,22 +120,10 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support im
     _decision_surface_form_entries,
     _decision_surface_params,
     _decision_surface_reason_map,
-    _decision_root_name,
     _decorators_transparent,
     _mark_param_roots,
     _value_encoded_decision_params,
     is_decision_surface,
-)
-from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
-    _enclosing_class_runtime as _enclosing_class,
-    _enclosing_class_scopes_runtime as _enclosing_class_scopes,
-    _enclosing_function_scopes_runtime as _enclosing_function_scopes,
-    _enclosing_scopes_runtime as _enclosing_scopes,
-    _node_span_runtime as _node_span,
-    _param_annotations_runtime as _param_annotations,
-    _param_defaults_runtime as _param_defaults,
-    _param_names_runtime as _param_names,
-    _param_spans_runtime as _param_spans,
 )
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
@@ -164,12 +145,10 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _parse_exception_path_id,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
-    _is_deadline_annot,
     _is_deadline_param,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _collect_local_class_bases,
-    _local_class_name,
     _resolve_local_method_in_hierarchy,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
@@ -313,8 +292,6 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _parse_module_tree_or_none as _parse_module_tree,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
-    ReportProjectionSpec,
-    _compute_violations,
     _report_section_spec,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
@@ -346,15 +323,6 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
 )
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections,
-)
-from gabion.analysis.indexed_scan.scanners.parser_builder import (
-    build_parser as _build_parser,
-)
-from gabion.analysis.indexed_scan.scanners.run_entry import (
-    analysis_deadline_scope as _analysis_deadline_scope,
-    normalize_transparent_decorators as _normalize_transparent_decorators,
-    resolve_baseline_path as _resolve_baseline_path,
-    resolve_synth_registry_path as _resolve_synth_registry_path,
 )
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
