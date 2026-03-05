@@ -1,5 +1,5 @@
 ---
-doc_revision: 157
+doc_revision: 158
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2689,6 +2689,14 @@ doc_scope:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Ledger metrics reconciliation:
+    - Refreshed current monolith structure metrics after latest alias-shim contraction:
+      - `LOC=810`
+      - `imports=57`
+      - `classes=0`
+      - `functions=0`
+    - This correction unit is documentation/state-only; no semantic/runtime code changes.
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
