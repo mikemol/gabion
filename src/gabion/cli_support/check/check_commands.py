@@ -22,12 +22,94 @@ class CheckAuxCommandRegistration:
     action: str
     option_profile: "CheckAuxOptionProfile"
 
+    @property
+    def identity(self) -> str:
+        return f"{self.domain}:{self.action}"
+
 
 @dataclass(frozen=True)
 class CheckAuxOptionProfile:
     name: str
     baseline_required: bool
     out_md_allowed: bool
+
+
+@dataclass(frozen=True)
+class CheckAuxCommandSpec:
+    registration: CheckAuxCommandRegistration
+
+    def validate(self) -> None:
+        profile = self.registration.option_profile
+        if profile.baseline_required and self.registration.action not in {"delta", "baseline-write"}:
+            raise typer.BadParameter("baseline_required profile only supports delta/baseline-write actions")
+        if not profile.out_md_allowed and self.registration.action == "report":
+            raise typer.BadParameter("report actions require out_md_allowed profile")
+
+    @property
+    def option_profile(self) -> CheckAuxOptionProfile:
+        return self.registration.option_profile
+
+    @property
+    def domain(self) -> str:
+        return self.registration.domain
+
+    @property
+    def action(self) -> str:
+        return self.registration.action
+
+    @property
+    def identity(self) -> str:
+        return self.registration.identity
+
+
+@dataclass(frozen=True)
+class CheckAuxOperationPayload:
+    ctx: typer.Context
+    spec: CheckAuxCommandSpec
+    paths: list[Path]
+    root: Path
+    config: Path | None
+    strictness: object
+    allow_external: bool | None
+    baseline: Path | None
+    state_in: Path | None
+    out_json: Path | None
+    out_md: Path | None
+    report: Path | None
+    decision_snapshot: Path | None
+    analysis_budget_checks: int | None
+    aspf_state_json: Path | None
+    aspf_import_state: list[Path] | None
+
+    def validate(self) -> None:
+        self.spec.validate()
+        profile = self.spec.option_profile
+        if profile.baseline_required and self.baseline is None:
+            raise typer.BadParameter("--baseline is required for this command profile")
+        if not profile.out_md_allowed and self.out_md is not None:
+            raise typer.BadParameter("--out-md is not allowed for this command profile")
+
+    def to_runtime_kwargs(self) -> dict[str, object]:
+        self.validate()
+        return {
+            "ctx": self.ctx,
+            "domain": self.spec.domain,
+            "action": self.spec.action,
+            "paths": self.paths,
+            "root": self.root,
+            "config": self.config,
+            "strictness": self.strictness,
+            "allow_external": self.allow_external,
+            "baseline": self.baseline,
+            "state_in": self.state_in,
+            "out_json": self.out_json,
+            "out_md": self.out_md,
+            "report": self.report,
+            "decision_snapshot": self.decision_snapshot,
+            "analysis_budget_checks": self.analysis_budget_checks,
+            "aspf_state_json": self.aspf_state_json,
+            "aspf_import_state": self.aspf_import_state,
+        }
 
 
 CHECK_AUX_OPTION_PROFILE_REPORT = CheckAuxOptionProfile(
@@ -75,26 +157,24 @@ def register_check_aux_commands(
 ) -> dict[str, Callable[..., None]]:
     commands: dict[str, Callable[..., None]] = {}
     for registration in command_registrations:
+        spec = CheckAuxCommandSpec(registration=registration)
+        spec.validate()
         command_app = command_domains[registration.domain]
         command = _build_check_aux_command(
             command_app=command_app,
             command_name=registration.action,
-            domain=registration.domain,
-            action=registration.action,
-            option_profile=registration.option_profile,
+            spec=spec,
             check_strictness_mode=check_strictness_mode,
             run_check_aux_operation_fn=run_check_aux_operation_fn,
         )
-        commands[f"{registration.domain}:{registration.action}"] = command
+        commands[spec.identity] = command
     return commands
 
 
-def _build_check_aux_operation_kwargs(
+def _build_check_aux_operation_payload(
     *,
-    option_profile: CheckAuxOptionProfile,
     ctx: typer.Context,
-    domain: str,
-    action: str,
+    spec: CheckAuxCommandSpec,
     paths: list[Path],
     root: Path,
     config: Path | None,
@@ -109,97 +189,38 @@ def _build_check_aux_operation_kwargs(
     analysis_budget_checks: int | None,
     aspf_state_json: Path | None,
     aspf_import_state: list[Path] | None,
-) -> dict[str, object]:
-    if option_profile.baseline_required and baseline is None:
-        raise typer.BadParameter("--baseline is required for this command profile")
-    return {
-        "ctx": ctx,
-        "domain": domain,
-        "action": action,
-        "paths": paths,
-        "root": root,
-        "config": config,
-        "strictness": strictness,
-        "allow_external": allow_external,
-        "baseline": baseline,
-        "state_in": state_in,
-        "out_json": out_json,
-        "out_md": out_md if option_profile.out_md_allowed else None,
-        "report": report,
-        "decision_snapshot": decision_snapshot,
-        "analysis_budget_checks": analysis_budget_checks,
-        "aspf_state_json": aspf_state_json,
-        "aspf_import_state": aspf_import_state,
-    }
+) -> CheckAuxOperationPayload:
+    payload = CheckAuxOperationPayload(
+        ctx=ctx,
+        spec=spec,
+        paths=paths,
+        root=root,
+        config=config,
+        strictness=strictness,
+        allow_external=allow_external,
+        baseline=baseline,
+        state_in=state_in,
+        out_json=out_json,
+        out_md=out_md,
+        report=report,
+        decision_snapshot=decision_snapshot,
+        analysis_budget_checks=analysis_budget_checks,
+        aspf_state_json=aspf_state_json,
+        aspf_import_state=aspf_import_state,
+    )
+    payload.validate()
+    return payload
 
 
 def _build_check_aux_command(
     *,
     command_app: typer.Typer,
     command_name: str,
-    domain: str,
-    action: str,
-    option_profile: CheckAuxOptionProfile,
+    spec: CheckAuxCommandSpec,
     check_strictness_mode: type,
     run_check_aux_operation_fn: RunCheckAuxOperationFn,
 ) -> Callable[..., None]:
-    if option_profile.out_md_allowed:
-
-        @command_app.command(command_name)
-        def command(
-            ctx: typer.Context,
-            paths: list[Path] = typer.Argument(None),
-            root: Path = typer.Option(Path("."), "--root"),
-            config: Path | None = typer.Option(None, "--config"),
-            strictness: check_strictness_mode = typer.Option(check_strictness_mode.high, "--strictness"),
-            allow_external: bool | None = typer.Option(
-                None, "--allow-external/--no-allow-external"
-            ),
-            baseline: Path | None = typer.Option(
-                ..., "--baseline"
-            )
-            if option_profile.baseline_required
-            else typer.Option(None, "--baseline"),
-            state_in: Path | None = typer.Option(None, "--state-in"),
-            out_json: Path | None = typer.Option(None, "--out-json"),
-            out_md: Path | None = typer.Option(None, "--out-md"),
-            report: Path | None = typer.Option(None, "--report"),
-            decision_snapshot: Path | None = typer.Option(None, "--decision-snapshot"),
-            analysis_budget_checks: int | None = typer.Option(
-                None,
-                "--analysis-budget-checks",
-                min=1,
-            ),
-            aspf_state_json: Path | None = typer.Option(None, "--aspf-state-json"),
-            aspf_import_state: list[Path] | None = typer.Option(
-                None,
-                "--aspf-import-state",
-            ),
-        ) -> None:
-            run_check_aux_operation_fn(
-                **_build_check_aux_operation_kwargs(
-                    option_profile=option_profile,
-                    ctx=ctx,
-                    domain=domain,
-                    action=action,
-                    paths=paths,
-                    root=root,
-                    config=config,
-                    strictness=strictness,
-                    allow_external=allow_external,
-                    baseline=baseline,
-                    state_in=state_in,
-                    out_json=out_json,
-                    out_md=out_md,
-                    report=report,
-                    decision_snapshot=decision_snapshot,
-                    analysis_budget_checks=analysis_budget_checks,
-                    aspf_state_json=aspf_state_json,
-                    aspf_import_state=aspf_import_state,
-                )
-            )
-
-        return command
+    option_profile = spec.option_profile
 
     @command_app.command(command_name)
     def command(
@@ -225,33 +246,33 @@ def _build_check_aux_command(
             "--analysis-budget-checks",
             min=1,
         ),
+        out_md: Path | None = typer.Option(None, "--out-md", hidden=not option_profile.out_md_allowed),
         aspf_state_json: Path | None = typer.Option(None, "--aspf-state-json"),
         aspf_import_state: list[Path] | None = typer.Option(
             None,
             "--aspf-import-state",
         ),
     ) -> None:
+        payload = _build_check_aux_operation_payload(
+            ctx=ctx,
+            spec=spec,
+            paths=paths,
+            root=root,
+            config=config,
+            strictness=strictness,
+            allow_external=allow_external,
+            baseline=baseline,
+            state_in=state_in,
+            out_json=out_json,
+            out_md=out_md,
+            report=report,
+            decision_snapshot=decision_snapshot,
+            analysis_budget_checks=analysis_budget_checks,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+        )
         run_check_aux_operation_fn(
-            **_build_check_aux_operation_kwargs(
-                option_profile=option_profile,
-                ctx=ctx,
-                domain=domain,
-                action=action,
-                paths=paths,
-                root=root,
-                config=config,
-                strictness=strictness,
-                allow_external=allow_external,
-                baseline=baseline,
-                state_in=state_in,
-                out_json=out_json,
-                out_md=None,
-                report=report,
-                decision_snapshot=decision_snapshot,
-                analysis_budget_checks=analysis_budget_checks,
-                aspf_state_json=aspf_state_json,
-                aspf_import_state=aspf_import_state,
-            )
+            **payload.to_runtime_kwargs()
         )
 
     return command

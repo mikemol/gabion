@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -37,6 +38,83 @@ DeadlineLoopIterFn = Callable[[list[str]], list[str] | tuple[str, ...] | object]
 RawProfileUnsupportedFlagsFn = Callable[[typer.Context], list[str]]
 CheckRawProfileArgsFn = Callable[..., list[str]]
 RunDataflowRawArgvFn = Callable[[list[str]], None]
+
+
+@dataclass(frozen=True)
+class CheckRunForwardingPayload:
+    ctx: typer.Context
+    paths: list[Path] | None
+    report: Path | None
+    root: Path
+    config: Path | None
+    decision_snapshot: Path | None
+    allow_external: bool | None
+    strictness: object
+    analysis_budget_checks: int | None
+    aspf_state_json: Path | None
+    aspf_import_state: list[Path] | None
+    aspf_delta_jsonl: Path | None
+    aux_operation: CheckAuxOperation
+
+    def validate(self) -> None:
+        if not self.aux_operation.domain:
+            raise typer.BadParameter("aux operation domain is required")
+        if not self.aux_operation.action:
+            raise typer.BadParameter("aux operation action is required")
+
+
+@dataclass(frozen=True)
+class CheckAuxRuntimePayload:
+    forwarding: CheckRunForwardingPayload
+
+    def validate(self) -> None:
+        self.forwarding.validate()
+
+    def run(
+        self,
+        *,
+        run_check_command_fn: RunCheckCommandFn,
+        default_check_artifact_flags_fn: DefaultCheckArtifactFlagsFn,
+        default_check_delta_options_fn: DefaultCheckDeltaOptionsFn,
+        dataflow_filter_bundle_ctor: DataflowFilterBundleCtor,
+        gate_none: object,
+        lint_mode_none: object,
+    ) -> None:
+        self.validate()
+        strictness_value = getattr(self.forwarding.strictness, "value", self.forwarding.strictness)
+        run_check_command_fn(
+            ctx=self.forwarding.ctx,
+            paths=self.forwarding.paths,
+            report=self.forwarding.report,
+            root=self.forwarding.root,
+            config=self.forwarding.config,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=self.forwarding.decision_snapshot,
+            artifact_flags=default_check_artifact_flags_fn(),
+            delta_options=default_check_delta_options_fn(),
+            exclude=None,
+            filter_bundle=dataflow_filter_bundle_ctor(
+                ignore_params_csv=None,
+                transparent_decorators_csv=None,
+            ),
+            allow_external=self.forwarding.allow_external,
+            strictness=str(strictness_value),
+            analysis_budget_checks=self.forwarding.analysis_budget_checks,
+            gate=gate_none,
+            lint_mode=lint_mode_none,
+            lint_jsonl_out=None,
+            lint_sarif_out=None,
+            aspf_trace_json=None,
+            aspf_import_trace=None,
+            aspf_equivalence_against=None,
+            aspf_opportunities_json=None,
+            aspf_state_json=self.forwarding.aspf_state_json,
+            aspf_import_state=self.forwarding.aspf_import_state,
+            aspf_delta_jsonl=self.forwarding.aspf_delta_jsonl,
+            aspf_semantic_surface=None,
+            aux_operation=self.forwarding.aux_operation,
+        )
 
 
 def run_check_command(
@@ -213,47 +291,37 @@ def run_check_aux_operation(
     gate_none: object,
     lint_mode_none: object,
 ) -> None:
-    strictness_value = getattr(strictness, "value", strictness)
-    aux_operation = CheckAuxOperation(
-        domain=domain,
-        action=action,
-        baseline_path=baseline,
-        state_in_path=state_in,
-        out_json=out_json,
-        out_md=out_md,
+    payload = CheckAuxRuntimePayload(
+        forwarding=CheckRunForwardingPayload(
+            ctx=ctx,
+            paths=paths,
+            report=report,
+            root=root,
+            config=config,
+            decision_snapshot=decision_snapshot,
+            allow_external=allow_external,
+            strictness=strictness,
+            analysis_budget_checks=analysis_budget_checks,
+            aspf_state_json=aspf_state_json,
+            aspf_import_state=aspf_import_state,
+            aspf_delta_jsonl=aspf_delta_jsonl,
+            aux_operation=CheckAuxOperation(
+                domain=domain,
+                action=action,
+                baseline_path=baseline,
+                state_in_path=state_in,
+                out_json=out_json,
+                out_md=out_md,
+            ),
+        )
     )
-    run_check_command_fn(
-        ctx=ctx,
-        paths=paths,
-        report=report,
-        root=root,
-        config=config,
-        baseline=None,
-        baseline_write=False,
-        decision_snapshot=decision_snapshot,
-        artifact_flags=default_check_artifact_flags_fn(),
-        delta_options=default_check_delta_options_fn(),
-        exclude=None,
-        filter_bundle=dataflow_filter_bundle_ctor(
-            ignore_params_csv=None,
-            transparent_decorators_csv=None,
-        ),
-        allow_external=allow_external,
-        strictness=str(strictness_value),
-        analysis_budget_checks=analysis_budget_checks,
-        gate=gate_none,
-        lint_mode=lint_mode_none,
-        lint_jsonl_out=None,
-        lint_sarif_out=None,
-        aspf_trace_json=None,
-        aspf_import_trace=None,
-        aspf_equivalence_against=None,
-        aspf_opportunities_json=None,
-        aspf_state_json=aspf_state_json,
-        aspf_import_state=aspf_import_state,
-        aspf_delta_jsonl=aspf_delta_jsonl,
-        aspf_semantic_surface=None,
-        aux_operation=aux_operation,
+    payload.run(
+        run_check_command_fn=run_check_command_fn,
+        default_check_artifact_flags_fn=default_check_artifact_flags_fn,
+        default_check_delta_options_fn=default_check_delta_options_fn,
+        dataflow_filter_bundle_ctor=dataflow_filter_bundle_ctor,
+        gate_none=gate_none,
+        lint_mode_none=lint_mode_none,
     )
 
 
