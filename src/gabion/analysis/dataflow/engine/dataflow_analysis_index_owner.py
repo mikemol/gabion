@@ -212,7 +212,7 @@ def _accumulate_function_index_for_tree_runtime(
     strictness: str,
     transparent_decorators,
 ) -> None:
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+    from gabion.analysis.dataflow.engine.dataflow_facade import (
         _accumulate_function_index_for_tree as _accumulate_function_index_for_tree_impl_runtime,
     )
 
