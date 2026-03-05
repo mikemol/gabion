@@ -1,5 +1,5 @@
 ---
-doc_revision: 65
+doc_revision: 66
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -14,7 +14,7 @@ doc_scope:
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
 - Monolith LOC (current): 2661
 - Monolith top-level import statements (current): 68
-- Direct monolith imports in `src/`: 1
+- Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
 ## Debt Ledger
@@ -1134,9 +1134,29 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade compatibility-owner contraction:
+    - `dataflow_facade` no longer statically imports `dataflow_indexed_file_scan`.
+    - Compatibility passthrough is retained via lazy runtime module loading (`import_module`) for legacy symbols.
+    - Facade exports now bind explicitly to canonical owners:
+      - analysis-index owner (`_accumulate_function_index_for_tree_runtime`, `_analyze_file_internal`)
+      - projection owner (`_populate_bundle_forest`)
+      - deadline owner and canonical lint/callee helpers
+    - Added explicit `__all__` for the retained compatibility surface.
+  - Analysis-index owner parity hardening:
+    - `_analyze_file_internal` signature now preserves compatibility defaults and optional `analyze_function_fn` passthrough while remaining owner-native.
+  - Compatibility status:
+    - Direct monolith imports in `src` reduced to `0`.
+    - Direct monolith imports in `tests` remain `0`.
+    - Monolith remains facade-compatible while no internal importer now depends on direct monolith imports.
+  - ASPF no-change acknowledgement refreshed (`in-127`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Compatibility-owner contraction: collapse/retire compatibility-owner shims as canonical owners become complete.
+1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
 2. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
 
 ## Validation Checklist Per CU

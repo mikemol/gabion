@@ -3,12 +3,13 @@ from __future__ import annotations
 
 """Facade compatibility module for legacy indexed-dataflow symbols."""
 
+from importlib import import_module
+
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
     _DeadlineLoopFacts,
 )
-from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _DeadlineFunctionCollector,
     _collect_call_edges,
@@ -18,9 +19,11 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
     _normalize_snapshot_path,
     _resolve_callee_outcome,
 )
-from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-    _accumulate_function_index_for_tree,
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree,
     _analyze_file_internal,
+)
+from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _populate_bundle_forest,
 )
 
@@ -33,6 +36,13 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _internal_broad_type_lint_lines as _internal_broad_type_lint_lines_impl,
 )
+
+_RUNTIME_MODULE_NAME = "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan"
+
+
+def _runtime_module():
+    return import_module(_RUNTIME_MODULE_NAME)
+
 
 def _parse_lint_location(*args, **kwargs):
     from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
@@ -84,8 +94,8 @@ def _internal_broad_type_lint_lines(
 
 
 def __getattr__(name: str):
-    return getattr(_runtime, name)
+    return getattr(_runtime_module(), name)
 
 
 def __dir__() -> list[str]:
-    return sorted(set(dir(_runtime)))
+    return sorted(set(dir(_runtime_module())))

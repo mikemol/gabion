@@ -741,7 +741,16 @@ def _get_stage_cache_bucket(
     return stage_cache_by_key.setdefault(scoped_cache_key, {})
 
 
-def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress, on_profile):
+def _analyze_file_internal(
+    path,
+    recursive: bool = True,
+    *,
+    config=None,
+    resume_state=None,
+    on_progress=None,
+    on_profile=None,
+    analyze_function_fn=None,
+):
     from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
         analyze_ingested_file as _analyze_ingested_file_owner,
     )
@@ -755,6 +764,7 @@ def _analyze_file_internal(path, *, recursive, config, resume_state, on_progress
             resume_state=resume_state,
             on_progress=on_progress,
             on_profile=on_profile,
+            analyze_function_fn=analyze_function_fn,
             deps=_AnalyzeFileInternalDeps(
                 check_deadline_fn=check_deadline,
                 analyze_function_default_fn=_analyze_function,
