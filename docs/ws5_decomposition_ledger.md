@@ -1,5 +1,5 @@
 ---
-doc_revision: 82
+doc_revision: 83
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1441,6 +1441,28 @@ doc_scope:
     - Monolith LOC dropped to `1734`; top-level imports remain `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-142`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Wrapper-contraction hard-cut:
+    - Monolith pass-through wrapper bodies replaced by direct canonical aliases:
+      - `_parse_report_section_marker`
+      - `extract_report_sections`
+      - `_normalize_snapshot_path`
+      - `_load_analysis_index_resume_payload`
+      - `_resolve_baseline_path`
+      - `_resolve_synth_registry_path`
+      - `_build_parser`
+      - `_normalize_transparent_decorators`
+      - `_analysis_deadline_scope`
+    - Removed local contextmanager shim indirection for analysis-deadline scope.
+  - Compatibility status:
+    - Wrapper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1702`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-143`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

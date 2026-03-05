@@ -25,7 +25,7 @@ import sys
 
 from collections import Counter, defaultdict
 
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 
 from dataclasses import dataclass, field
 
@@ -1650,14 +1650,11 @@ def _dataclass_registry_for_tree(
         ),
     )
 
-def _parse_report_section_marker(line: str):
-    return _parse_report_section_marker_impl(line)
+_parse_report_section_marker = _parse_report_section_marker_impl
 
-def extract_report_sections(markdown: str) -> dict[str, list[str]]:
-    return _extract_report_sections_impl(markdown, check_deadline_fn=check_deadline)
+extract_report_sections = _extract_report_sections_impl
 
-def _normalize_snapshot_path(path: Path, root) -> str:
-    return _normalize_snapshot_path_impl(path, root)
+_normalize_snapshot_path = _normalize_snapshot_path_impl
 
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
@@ -1676,27 +1673,7 @@ def _iter_monotonic_paths(
         never_fn=never,
     )
 
-def _load_analysis_index_resume_payload(
-    *,
-    payload,
-    file_paths: Sequence[Path],
-    expected_index_cache_identity: str = "",
-    expected_projection_cache_identity: str = "",
-) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
-    hydrated_paths, by_qual_raw, symbol_table_raw, class_index_raw = (
-        _load_analysis_index_resume_payload_owner(
-            payload=payload,
-            file_paths=file_paths,
-            expected_index_cache_identity=expected_index_cache_identity,
-            expected_projection_cache_identity=expected_projection_cache_identity,
-        )
-    )
-    return (
-        hydrated_paths,
-        cast(dict[str, FunctionInfo], by_qual_raw),
-        cast(SymbolTable, symbol_table_raw),
-        cast(dict[str, ClassInfo], class_index_raw),
-    )
+_load_analysis_index_resume_payload = _load_analysis_index_resume_payload_owner
 
 def _compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -1714,21 +1691,12 @@ def _compute_violations(
         source="_compute_violations.violations",
     )
 
-def _resolve_baseline_path(path, root: Path):
-    return _resolve_baseline_path_impl(path, root)
+_resolve_baseline_path = _resolve_baseline_path_impl
 
-def _resolve_synth_registry_path(path, root: Path):
-    return _resolve_synth_registry_path_impl(path, root)
+_resolve_synth_registry_path = _resolve_synth_registry_path_impl
 
-def _build_parser() -> argparse.ArgumentParser:
-    return _build_parser_impl()
+_build_parser = _build_parser_impl
 
-def _normalize_transparent_decorators(
-    value: object,
-) -> object:
-    return _normalize_transparent_decorators_impl(value, check_deadline_fn=check_deadline)
+_normalize_transparent_decorators = _normalize_transparent_decorators_impl
 
-@contextmanager
-def _analysis_deadline_scope(args: argparse.Namespace):
-    with _analysis_deadline_scope_impl(args):
-        yield
+_analysis_deadline_scope = _analysis_deadline_scope_impl
