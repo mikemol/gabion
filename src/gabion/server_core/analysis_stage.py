@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from gabion.server_core.stage_contracts import AnalysisRunner, JSONObject, StageAnalysisResult
+from gabion.server_core.stage_contracts import (
+    AnalysisContextContract,
+    AnalysisRunner,
+    AnalysisStateContract,
+    JSONObject,
+    StageAnalysisResult,
+)
 
 
 def run_analysis_stage(
     *,
-    context: object,
-    state: object,
+    context: AnalysisContextContract,
+    state: AnalysisStateContract,
     collection_resume_payload: JSONObject | None,
     run_analysis_with_progress: AnalysisRunner,
 ) -> StageAnalysisResult:

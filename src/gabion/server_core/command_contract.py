@@ -1,15 +1,38 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Protocol
+
+from gabion.json_types import JSONObject, JSONValue
+
+
+class IngressStageMode(str, Enum):
+    ANALYSIS = "analysis"
+    AUX_OPERATION = "aux_operation"
+
+
+class ExecutionPayloadOptionsContract(Protocol):
+    emit_phase_timeline: bool
+    progress_heartbeat_seconds: float
+
+
+class AnalysisOutcomeContract(Protocol):
+    semantic_progress_cumulative: JSONObject | None
+    latest_collection_progress: JSONObject
+    last_collection_resume_payload: JSONObject | None
+
+
+class ProgressTraceStateContract(Protocol):
+    """Opaque progress trace state transported across progress hooks."""
 
 
 @dataclass(frozen=True)
 class CommandRuntimeInput:
     """Normalized command boundary inputs for server-core orchestration."""
 
-    payload: Mapping[str, object]
+    payload: Mapping[str, JSONValue]
     root: Path
     report_path_text: str | None
     timeout_total_ticks: int
@@ -20,19 +43,19 @@ class CommandRuntimeState:
     """Mutable runtime state carried through command execution."""
 
     latest_collection_progress: dict[str, int]
-    semantic_progress_cumulative: dict[str, object] | None = None
+    semantic_progress_cumulative: JSONObject | None = None
 
 
 @dataclass(frozen=True)
 class ProgressEvent:
     event_kind: str
     phase: str
-    dimensions: Mapping[str, object] = field(default_factory=dict)
+    dimensions: Mapping[str, JSONValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class CommandRuntimeOutcome:
-    response: dict[str, object]
+    response: JSONObject
     terminal_phase: str
 
 

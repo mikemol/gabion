@@ -2,23 +2,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol
+from typing import Callable, Mapping, Protocol
+
+from gabion.json_types import JSONObject
+from gabion.server_core.command_contract import (
+    AnalysisOutcomeContract,
+    ExecutionPayloadOptionsContract,
+    IngressStageMode,
+)
 
 
-JSONValue = object
-JSONObject = dict[str, JSONValue]
+class AnalysisContextContract(Protocol):
+    payload: Mapping[str, object]
+
+
+class AnalysisStateContract(Protocol):
+    latest_collection_progress: Mapping[str, int]
 
 
 @dataclass(frozen=True)
 class StageIngressResult:
     payload: dict[str, object]
-    options: Any
-    mode: str
+    options: ExecutionPayloadOptionsContract
+    mode: IngressStageMode
 
 
 @dataclass(frozen=True)
 class StageAnalysisResult:
-    analysis_outcome: Any
+    analysis_outcome: AnalysisOutcomeContract
     semantic_progress_cumulative: JSONObject | None
     latest_collection_progress: JSONObject
     last_collection_resume_payload: JSONObject | None
@@ -40,27 +51,42 @@ class PayloadNormalizer(Protocol):
 
 
 class PayloadOptionsParser(Protocol):
-    def __call__(self, *, payload: Mapping[str, object], root: Path) -> Any: ...
+    def __call__(
+        self, *, payload: Mapping[str, object], root: Path
+    ) -> ExecutionPayloadOptionsContract: ...
 
 
 class IngressModeSelector(Protocol):
-    def __call__(self, *, payload: Mapping[str, object], options: Any) -> str: ...
+    def __call__(
+        self,
+        *,
+        payload: Mapping[str, object],
+        options: ExecutionPayloadOptionsContract,
+    ) -> IngressStageMode: ...
 
 
 class AnalysisRunner(Protocol):
-    def __call__(self, *, context: Any, state: Any, collection_resume_payload: JSONObject | None) -> Any: ...
+    def __call__(
+        self,
+        *,
+        context: AnalysisContextContract,
+        state: AnalysisStateContract,
+        collection_resume_payload: JSONObject | None,
+    ) -> AnalysisOutcomeContract: ...
 
 
-class PrimaryOutputEmitter(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> dict[str, object]: ...
+@dataclass(frozen=True)
+class PrimaryOutputRequest:
+    emit: Callable[[], dict[str, object]]
 
 
-class AuxiliaryOutputEmitter(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> None: ...
+@dataclass(frozen=True)
+class AuxiliaryOutputRequest:
+    emit: Callable[[], None]
 
 
 class TimeoutCleanupHandler(Protocol):
-    def __call__(self, *, exc: BaseException, context: Any) -> dict[str, object]: ...
+    def __call__(self, *, exc: BaseException, context: object) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
