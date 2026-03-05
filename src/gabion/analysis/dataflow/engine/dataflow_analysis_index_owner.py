@@ -229,30 +229,9 @@ def _default_parse_module(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
 
-def _analysis_index_ctor_runtime(
-    *,
-    by_name,
-    by_qual,
-    symbol_table,
-    class_index,
-    index_cache_identity: str = "",
-    projection_cache_identity: str = "",
-):
-    return _AnalysisIndexCarrier(
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        class_index=class_index,
-        index_cache_identity=index_cache_identity,
-        projection_cache_identity=projection_cache_identity,
-    )
+_analysis_index_ctor_runtime = _AnalysisIndexCarrier
 
-
-def _function_index_acc_ctor_runtime(*, by_name, by_qual):
-    return _FunctionIndexAccumulator(
-        by_name=by_name,
-        by_qual=by_qual,
-    )
+_function_index_acc_ctor_runtime = _FunctionIndexAccumulator
 
 
 _FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
