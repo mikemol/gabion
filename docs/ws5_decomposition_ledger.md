@@ -1,5 +1,5 @@
 ---
-doc_revision: 12
+doc_revision: 13
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3669
+- Monolith LOC (current): 3603
 - Monolith top-level import statements (current): 97
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -212,6 +212,26 @@ doc_scope:
   - Monolith type/builder bodies removed and replaced with owner aliases.
   - Ambiguity-contract remediation: `_build_module_artifacts` now uses a single callable boundary contract (`_default_parse_module`) with no dynamic type alternation.
   - ASPF no-change acknowledgement refreshed (`in-73`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`80 passed` for touched suites)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Cache/resume carrier deduplication:
+    - Monolith now aliases canonical cache/resume constants and identity carriers from resume owner:
+      - `_ANALYSIS_INDEX_RESUME_VARIANTS_KEY`
+      - `_ANALYSIS_INDEX_RESUME_MAX_VARIANTS`
+      - `_CACHE_IDENTITY_PREFIX`
+      - `_CACHE_IDENTITY_DIGEST_HEX`
+      - `_CacheIdentity`
+      - `_ResumeCacheIdentityPair`
+    - Cache semantic context and stage cache identity spec moved to analysis-index owner:
+      - `_CacheSemanticContext`
+      - `_StageCacheIdentitySpec`
+      - `_EMPTY_CACHE_SEMANTIC_CONTEXT`
+  - Removed corresponding monolith duplicate class/constant bodies.
+  - Ambiguity-contract remediation: owner cache-context annotations collapsed to deterministic single-shape fields.
+  - ASPF no-change acknowledgement refreshed (`in-74`).
   - Validation:
     - policy checks passed
     - targeted pytest passed (`80 passed` for touched suites)

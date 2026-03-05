@@ -178,6 +178,12 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
+    _ANALYSIS_INDEX_RESUME_MAX_VARIANTS,
+    _ANALYSIS_INDEX_RESUME_VARIANTS_KEY,
+    _CACHE_IDENTITY_DIGEST_HEX,
+    _CACHE_IDENTITY_PREFIX,
+    _CacheIdentity,
+    _ResumeCacheIdentityPair,
     _analysis_collection_resume_path_key,
     _analysis_index_resume_variant_payload,
     _analysis_index_resume_variants,
@@ -270,9 +276,12 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     OptionalDecorators,
     OptionalParseFailures,
     OptionalProjectRoot,
+    _CacheSemanticContext,
+    _EMPTY_CACHE_SEMANTIC_CONTEXT,
     _IndexedPassContext,
     _IndexedPassSpec,
     _ModuleArtifactSpec,
+    _StageCacheIdentitySpec,
     _analysis_index_module_trees,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
@@ -2445,81 +2454,6 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
     stage: _ParseModuleStage
     cache_key: Hashable
     build: Callable[[ast.Module, Path], _StageCacheValue]
-
-@dataclass(frozen=True)
-class _CacheSemanticContext:
-    forest_spec_id: OptionalString = None
-    fingerprint_seed_revision: OptionalString = None
-
-@dataclass(frozen=True)
-class _StageCacheIdentitySpec:
-    stage: Literal["parse", "index", "projection"]
-    forest_spec_id: str
-    fingerprint_seed_revision: str
-    normalized_config: JSONValue
-
-_EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
-
-_ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
-
-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
-
-_CACHE_IDENTITY_PREFIX = "aspf:sha1:"
-
-_CACHE_IDENTITY_DIGEST_HEX = re.compile(r"^[0-9a-f]{40}$")
-
-@dataclass(frozen=True)
-class _CacheIdentity:
-    value: str
-
-    @classmethod
-    def from_digest(cls, digest: str) -> "_CacheIdentity | None":
-        cleaned = str(digest or "").strip().lower()
-        if not _CACHE_IDENTITY_DIGEST_HEX.fullmatch(cleaned):
-            return None
-        return cls(f"{_CACHE_IDENTITY_PREFIX}{cleaned}")
-
-    @classmethod
-    def from_boundary(cls, raw_identity) -> "_CacheIdentity | None":
-        identity = str(raw_identity or "").strip()
-        if not identity:
-            return None
-        if identity.startswith(_CACHE_IDENTITY_PREFIX):
-            digest = identity[len(_CACHE_IDENTITY_PREFIX) :]
-            return cls.from_digest(digest)
-        return cls.from_digest(identity)
-
-    @classmethod
-    def from_boundary_required(cls, raw_identity, *, field: str) -> "_CacheIdentity":
-        identity = cls.from_boundary(raw_identity)
-        if identity is None:
-            never("invalid cache identity", field=field)
-            return cls(value="")  # pragma: no cover - never() raises
-        return identity
-
-@dataclass(frozen=True)
-class _ResumeCacheIdentityPair:
-    canonical_index: _CacheIdentity
-    canonical_projection: _CacheIdentity
-
-    def encode(self) -> dict[str, str]:
-        return {
-            "index_cache_identity": self.canonical_index.value,
-            "projection_cache_identity": self.canonical_projection.value,
-        }
-
-    @classmethod
-    def decode_required(cls, payload: Mapping[str, JSONValue]) -> "_ResumeCacheIdentityPair":
-        return cls(
-            canonical_index=_CacheIdentity.from_boundary_required(
-                payload.get("index_cache_identity"),
-                field="index_cache_identity",
-            ),
-            canonical_projection=_CacheIdentity.from_boundary_required(
-                payload.get("projection_cache_identity"),
-                field="projection_cache_identity",
-            ),
-        )
 
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())

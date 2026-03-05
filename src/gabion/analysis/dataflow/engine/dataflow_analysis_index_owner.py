@@ -57,10 +57,10 @@ _IndexedPassResult = TypeVar("_IndexedPassResult")
 _ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
 _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
 
-OptionalProjectRoot = Path | None
-OptionalDecorators = set[str] | None
-OptionalParseFailures = list[JSONObject] | None
-OptionalAnalysisIndex = object | None
+OptionalProjectRoot = Path
+OptionalDecorators = set[str]
+OptionalParseFailures = list[JSONObject]
+OptionalAnalysisIndex = object
 
 
 @dataclass(frozen=True)
@@ -88,6 +88,23 @@ class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
     init: Callable[[], _ModuleArtifactAcc]
     fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
     finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
+
+
+@dataclass(frozen=True)
+class _CacheSemanticContext:
+    forest_spec_id: str = ""
+    fingerprint_seed_revision: str = ""
+
+
+@dataclass(frozen=True)
+class _StageCacheIdentitySpec:
+    stage: str
+    forest_spec_id: str
+    fingerprint_seed_revision: str
+    normalized_config: object
+
+
+_EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 
 
 def _default_parse_module(path: Path) -> ast.Module:
@@ -331,9 +348,8 @@ def _build_stage_cache_identity_spec(
     cache_context,
     config_subset: Mapping[str, object],
 ):
-    runtime = _runtime_module()
     normalized_config = _normalize_cache_config(config_subset)
-    return runtime._StageCacheIdentitySpec(
+    return _StageCacheIdentitySpec(
         stage=stage,
         forest_spec_id=str(cache_context.forest_spec_id or ""),
         fingerprint_seed_revision=fingerprint_stage_cache_identity(cache_context.fingerprint_seed_revision),
@@ -540,7 +556,7 @@ def _build_analysis_index(
                 check_deadline_fn=check_deadline,
                 accumulate_function_index_for_tree_default_fn=runtime._accumulate_function_index_for_tree,
                 sorted_text_fn=_sorted_text,
-                cache_context_ctor=runtime._CacheSemanticContext,
+                cache_context_ctor=_CacheSemanticContext,
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
                 iter_monotonic_paths_fn=runtime._iter_monotonic_paths,
@@ -685,10 +701,12 @@ __all__ = [
     "_build_module_artifacts",
     "_analyze_file_internal",
     "_build_stage_cache_identity_spec",
+    "_CacheSemanticContext",
     "_cache_identity_aliases",
     "_canonical_cache_identity",
     "_canonical_stage_cache_detail",
     "_canonical_stage_cache_identity",
+    "_EMPTY_CACHE_SEMANTIC_CONTEXT",
     "_build_analysis_collection_resume_payload",
     "_build_analysis_index",
     "_build_call_graph",
@@ -710,6 +728,7 @@ __all__ = [
     "OptionalDecorators",
     "OptionalParseFailures",
     "OptionalProjectRoot",
+    "_StageCacheIdentitySpec",
     "_sorted_text",
     "_stage_cache_key_aliases",
 ]
