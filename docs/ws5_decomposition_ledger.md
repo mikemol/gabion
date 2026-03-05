@@ -1,5 +1,5 @@
 ---
-doc_revision: 244
+doc_revision: 245
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,19 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-304`, this CU):
+  - Completed post-phase compatibility convergence on facade boundary:
+    - expanded `dataflow_facade` post-phase alias surface to cover the full monolith post-phase symbol set used for compatibility
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+  - Added full-surface parity guard to prevent drift between monolith post-phase aliases and facade exports:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+    - `test_facade_covers_monolith_post_phase_alias_surface`
+  - Policy acknowledgement updated for ASPF-sensitive touched paths:
+    - `docs/aspf_taint_isomorphism_no_change.yaml` (`in-304`)
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`34 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated with expected new-test mapping drift
 - WS-5 continuation (`in-303`, this CU):
   - Expanded alias-parity coverage to selected monolith/facade symbols across phase owners:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`

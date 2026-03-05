@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import importlib
+from pathlib import Path
 
 
 def _load(module_path: str):
@@ -42,6 +44,20 @@ def _assert_symbol_alias(
     assert hasattr(module, symbol)
     assert hasattr(canonical, symbol)
     assert getattr(module, symbol) is getattr(canonical, symbol)
+
+
+def _monolith_post_phase_aliases() -> tuple[str, ...]:
+    repo_root = Path(__file__).resolve().parents[4]
+    monolith_path = (
+        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
+    )
+    tree = ast.parse(monolith_path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module == (
+            "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses"
+        ):
+            return tuple(alias.name for alias in node.names)
+    raise AssertionError("monolith post-phase import surface not found")
 
 
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
@@ -129,3 +145,17 @@ def test_legacy_monolith_and_facade_selected_symbol_alias_parity() -> None:
         ),
         symbol="_report_section_spec",
     )
+
+
+def test_facade_covers_monolith_post_phase_alias_surface() -> None:
+    facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
+    canonical = _load("gabion.analysis.dataflow.engine.dataflow_post_phase_analyses")
+    for symbol in _monolith_post_phase_aliases():
+        assert hasattr(facade, symbol), (
+            "facade must carry full monolith post-phase compatibility surface; "
+            f"missing={symbol}"
+        )
+        assert getattr(facade, symbol) is getattr(canonical, symbol), (
+            "facade post-phase symbol must remain an alias to canonical owner; "
+            f"symbol={symbol}"
+        )
