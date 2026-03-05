@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -837,6 +837,28 @@ doc_scope:
   - Compatibility status:
     - Deadline-owner local-info collection no longer routes through facade helper indirection.
   - ASPF no-change acknowledgement refreshed (`in-110`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner call-node ownerization:
+    - `dataflow_deadline_runtime_owner._collect_call_nodes_by_path` now delegates to canonical indexed-scan owner:
+      - `indexed_scan.calls.call_nodes_by_path.collect_call_nodes_by_path`
+    - Added owner-local canonical adapters for call-node collection:
+      - `_StageCacheSpec`
+      - `_call_nodes_for_tree`
+      - `_parse_module_tree_or_none`
+    - Explicit owner deps now bind canonical cache/parse surfaces:
+      - `_analysis_index_stage_cache`
+      - `_parse_stage_cache_key`
+      - `_EMPTY_CACHE_SEMANTIC_CONTEXT`
+      - `_ParseModuleStage.CALL_NODES`
+      - `_node_span`
+    - Removed facade import dependency on `_collect_call_nodes_by_path`.
+  - Compatibility status:
+    - Deadline-owner call-node collection no longer routes through facade helper indirection.
+  - ASPF no-change acknowledgement refreshed (`in-111`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
