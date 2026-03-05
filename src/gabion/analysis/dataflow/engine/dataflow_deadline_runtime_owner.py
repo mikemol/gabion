@@ -397,144 +397,41 @@ def _collect_deadline_function_facts(
         ),
     )
 
-def _bind_call_args(
-    call_node,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-):
-    return _bind_call_args_impl(call_node, callee, strictness=strictness)
+_bind_call_args = _bind_call_args_impl
 
+_caller_param_bindings_for_call = _caller_param_bindings_for_call_impl
 
-def _caller_param_bindings_for_call(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, set[str]]:
-    return _caller_param_bindings_for_call_impl(call, callee, strictness=strictness)
+_classify_deadline_expr = _classify_deadline_expr_impl
 
+_fallback_deadline_arg_info = _fallback_deadline_arg_info_runtime_impl
 
-def _classify_deadline_expr(
-    expr,
-    *,
-    alias_to_param: Mapping[str, str],
-    origin_vars: set[str],
-) -> _DeadlineArgInfo:
-    return _classify_deadline_expr_impl(
-        expr,
-        alias_to_param=alias_to_param,
-        origin_vars=origin_vars,
-    )
+_deadline_arg_info_map = _deadline_arg_info_map_impl
 
+_deadline_loop_forwarded_params = _deadline_loop_forwarded_params_impl
 
-def _fallback_deadline_arg_info(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, _DeadlineArgInfo]:
-    return _fallback_deadline_arg_info_runtime_impl(call, callee, strictness=strictness)
+_function_suite_key = _function_suite_key_impl
 
+_function_suite_id = _function_suite_id_impl
 
-def _deadline_arg_info_map(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    call_node,
-    alias_to_param: Mapping[str, str],
-    origin_vars: set[str],
-    strictness: str,
-) -> dict[str, _DeadlineArgInfo]:
-    return _deadline_arg_info_map_impl(
-        call,
-        callee,
-        call_node=call_node,
-        alias_to_param=alias_to_param,
-        origin_vars=origin_vars,
-        strictness=strictness,
-    )
+_node_to_function_suite_lookup_outcome = _node_to_function_suite_lookup_outcome_impl
 
+_suite_caller_function_id = _suite_caller_function_id_impl
 
-def _deadline_loop_forwarded_params(
-    *,
-    qual: str,
-    loop_fact: _DeadlineLoopFacts,
-    deadline_params: Mapping[str, set[str]],
-    call_infos: Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]],
-) -> set[str]:
-    return _deadline_loop_forwarded_params_impl(
-        qual=qual,
-        loop_fact=loop_fact,
-        deadline_params=deadline_params,
-        call_infos=call_infos,
-    )
+_node_to_function_suite_id = _node_to_function_suite_id_impl
 
-def _function_suite_key(path: str, qual: str):
-    return _function_suite_key_impl(path, qual)
+_obligation_candidate_suite_ids = _obligation_candidate_suite_ids_impl
 
+_collect_call_edges_from_forest = _collect_call_edges_from_forest_impl
 
-def _function_suite_id(key):
-    return _function_suite_id_impl(key)
+_collect_call_resolution_obligations_from_forest = (
+    _collect_call_resolution_obligations_from_forest_impl
+)
 
+_collect_call_resolution_obligation_details_from_forest = (
+    _collect_call_resolution_obligation_details_from_forest_impl
+)
 
-def _node_to_function_suite_lookup_outcome(
-    forest,
-    node_id,
-):
-    return _node_to_function_suite_lookup_outcome_impl(forest, node_id)
-
-
-def _suite_caller_function_id(
-    suite_node,
-):
-    return _suite_caller_function_id_impl(suite_node)
-
-
-def _node_to_function_suite_id(
-    forest,
-    node_id,
-):
-    return _node_to_function_suite_id_impl(forest, node_id)
-
-
-def _obligation_candidate_suite_ids(
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-    callee_key: str,
-):
-    return _obligation_candidate_suite_ids_impl(
-        by_name=by_name,
-        callee_key=callee_key,
-    )
-
-
-def _collect_call_edges_from_forest(
-    forest,
-    *,
-    by_name: dict[str, list[FunctionInfo]],
-):
-    return _collect_call_edges_from_forest_impl(forest, by_name=by_name)
-
-
-def _collect_call_resolution_obligations_from_forest(
-    forest,
-):
-    return _collect_call_resolution_obligations_from_forest_impl(forest)
-
-
-def _collect_call_resolution_obligation_details_from_forest(
-    forest,
-):
-    return _collect_call_resolution_obligation_details_from_forest_impl(forest)
-
-
-def _call_candidate_target_site(
-    *,
-    forest,
-    candidate: FunctionInfo,
-):
-    return _call_candidate_target_site_impl(forest=forest, candidate=candidate)
+_call_candidate_target_site = _call_candidate_target_site_impl
 
 
 def _materialize_call_candidates(

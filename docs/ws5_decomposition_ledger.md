@@ -1,5 +1,5 @@
 ---
-doc_revision: 105
+doc_revision: 106
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1865,6 +1865,34 @@ doc_scope:
     - Deadline/helper behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-165`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime wrapper contraction:
+    - Converted pure pass-through wrappers in `dataflow_deadline_runtime_owner.py` to direct aliases:
+      - `_bind_call_args`
+      - `_caller_param_bindings_for_call`
+      - `_classify_deadline_expr`
+      - `_fallback_deadline_arg_info`
+      - `_deadline_arg_info_map`
+      - `_deadline_loop_forwarded_params`
+      - `_function_suite_key`
+      - `_function_suite_id`
+      - `_node_to_function_suite_lookup_outcome`
+      - `_suite_caller_function_id`
+      - `_node_to_function_suite_id`
+      - `_obligation_candidate_suite_ids`
+      - `_collect_call_edges_from_forest`
+      - `_collect_call_resolution_obligations_from_forest`
+      - `_collect_call_resolution_obligation_details_from_forest`
+      - `_call_candidate_target_site`
+    - Retained wrappers that still add owner-specific behavior (`_collect_call_edges`, `_resolve_callee`, `_resolve_callee_outcome`, `_collect_call_nodes_by_path`, `_collect_deadline_function_facts`, `_materialize_call_candidates`).
+  - Compatibility status:
+    - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-166`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
