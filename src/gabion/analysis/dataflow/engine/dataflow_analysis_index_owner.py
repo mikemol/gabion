@@ -876,7 +876,7 @@ def _analyze_file_internal(
     analyze_function_fn=None,
 ):
     from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
-        analyze_ingested_file as _analyze_ingested_file_owner,
+        analyze_ingested_file as _analyze_ingested_file,
     )
 
     return cast(
@@ -913,7 +913,7 @@ def _analyze_file_internal(
                 parent_annotator_factory=ParentAnnotator,
                 file_scan_progress_emit_interval=_FILE_SCAN_PROGRESS_EMIT_INTERVAL,
                 progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds(),
-                analyze_ingested_file_fn=_analyze_ingested_file_owner,
+                analyze_ingested_file_fn=_analyze_ingested_file,
             ),
         ),
     )

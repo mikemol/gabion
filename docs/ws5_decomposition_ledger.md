@@ -1,5 +1,5 @@
 ---
-doc_revision: 176
+doc_revision: 177
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3035,6 +3035,13 @@ doc_scope:
     - Owner/monolith import compatibility preserved via retained runtime aliases.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-235`).
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index local import suffix convergence:
+    - `dataflow_analysis_index_owner._analyze_file_internal` now imports/binds `analyze_ingested_file` under canonical local naming (owner-suffix alias removed).
+  - Correctness impact:
+    - Ingested analysis dependency wiring remains unchanged semantically; naming surface now converges with canonical owner naming.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-236`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
