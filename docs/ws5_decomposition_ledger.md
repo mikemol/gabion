@@ -1,5 +1,5 @@
 ---
-doc_revision: 141
+doc_revision: 142
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2446,6 +2446,21 @@ doc_scope:
     - Monolith parse/failure behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-201`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Synthesis bridge retirement convergence:
+    - Rewired `dataflow_synthesis.py` to import canonical owner/post-phase helpers directly:
+      - `dataflow_analysis_index_owner._build_call_graph`
+      - `dataflow_post_phase_analyses` synthesis/post-phase helper surfaces
+    - Rewired `dataflow_structure_reuse.py` to import config/dataclass collectors directly from `dataflow_post_phase_analyses`.
+    - Eliminated internal `src` dependency edges on `dataflow_synthesis_runtime_bridge.py`.
+  - Compatibility status:
+    - Synthesis/structure-reuse behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-202`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

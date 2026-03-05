@@ -16,7 +16,7 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
 from gabion.analysis.dataflow.io.dataflow_projection_preview_bridge import preview_section_lines
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import extract_report_sections
-from gabion.analysis.dataflow.io.dataflow_synthesis_runtime_bridge import (
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_dataclass_registry,
 )

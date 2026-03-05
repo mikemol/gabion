@@ -9,13 +9,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
-from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import _build_analysis_index
+from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _build_analysis_index,
+    _build_call_graph,
+)
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig, ClassInfo, FunctionInfo, InvariantProposition, SymbolTable)
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _collect_config_bundles,
+    _collect_dataclass_registry,
+    _combine_type_hints,
+    _compute_knob_param_names,
+    _type_from_const_repr,
+    analyze_type_flow_repo_with_map,
+    generate_property_hook_manifest,
+)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
-from gabion.analysis.dataflow.io.dataflow_synthesis_runtime_bridge import (
-    _build_call_graph, _collect_config_bundles, _collect_dataclass_registry, _combine_type_hints, _compute_knob_param_names, _type_from_const_repr, analyze_type_flow_repo_with_map, generate_property_hook_manifest)
 from gabion.analysis.core.forest_signature import build_forest_signature_from_groups
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
