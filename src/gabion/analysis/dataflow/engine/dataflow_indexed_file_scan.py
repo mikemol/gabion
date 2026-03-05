@@ -46,8 +46,6 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 
-from gabion.analysis.derivation.derivation_contract import DerivationOp
-
 from gabion.analysis.semantics import evidence_keys
 
 from gabion.invariants import never, require_not_none
@@ -270,6 +268,7 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _suite_order_row_to_site,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
     OptionalAnalysisIndex,
     OptionalDecorators,
     OptionalParseFailures,
@@ -299,6 +298,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _iter_resolved_edge_param_events,
     _normalize_cache_config,
     _parse_stage_cache_key,
+    _path_dependency_payload as _path_dependency_payload_owner,
     _projection_stage_cache_identity,
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
@@ -1427,22 +1427,9 @@ def _param_defaults(
         defaults = {name for name in defaults if name not in ignore_params}
     return defaults
 
-_ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
-    name="analysis_index.stage_cache",
-    version=1,
-    scope="gabion.analysis.dataflow_indexed_file_scan",
-)
+_ANALYSIS_INDEX_STAGE_CACHE_OP = _ANALYSIS_INDEX_STAGE_CACHE_OP_owner
 
-def _path_dependency_payload(
-    path: Path,
-) -> dict[str, object]:
-    resolved = path.resolve()
-    stat = resolved.stat()
-    return {
-        "path": str(resolved),
-        "mtime_ns": int(stat.st_mtime_ns),
-        "size": int(stat.st_size),
-    }
+_path_dependency_payload = _path_dependency_payload_owner
 
 def _parse_module_tree(
     path: Path,

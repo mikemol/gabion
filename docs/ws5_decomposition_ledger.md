@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3028
-- Monolith top-level import statements (current): 68
+- Monolith LOC (current): 3015
+- Monolith top-level import statements (current): 67
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -451,6 +451,26 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted WS5-D + runtime/dataflow suites passed (`78 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner stage-cache fallback contraction:
+    - Moved stage-cache derivation payload/op ownership into `dataflow_analysis_index_owner.py`:
+      - `_ANALYSIS_INDEX_STAGE_CACHE_OP`
+      - `_path_dependency_payload`
+    - `dataflow_analysis_index_owner._analysis_index_stage_cache` now consumes owner-local payload/op deps directly.
+    - Monolith switched to boundary aliases for moved symbols:
+      - `_ANALYSIS_INDEX_STAGE_CACHE_OP`
+      - `_path_dependency_payload`
+    - Pruned now-unused monolith `DerivationOp` import.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_analysis_index_owner.py` reduced from `5` to `4`.
+  - Threshold outcome:
+    - Monolith LOC reduced to `3015`.
+    - Monolith top-level import statements reduced to `67`.
+  - ASPF no-change acknowledgement refreshed (`in-89`).
+  - Validation:
+    - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

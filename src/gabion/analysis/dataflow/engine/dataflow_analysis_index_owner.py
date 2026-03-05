@@ -29,6 +29,7 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
+from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -117,9 +118,25 @@ class _StageCacheIdentitySpec:
 
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 
+_ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
+    name="analysis_index.stage_cache",
+    version=1,
+    scope="gabion.analysis.dataflow_indexed_file_scan",
+)
+
 
 def _default_parse_module(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
+
+
+def _path_dependency_payload(path: Path) -> dict[str, object]:
+    resolved = path.resolve()
+    stat = resolved.stat()
+    return {
+        "path": str(resolved),
+        "mtime_ns": int(stat.st_mtime_ns),
+        "size": int(stat.st_size),
+    }
 
 
 def _build_module_artifacts(
@@ -621,7 +638,6 @@ def _analysis_index_stage_cache(
     parse_failure_witnesses,
     module_trees_fn=None,
 ):
-    runtime = _runtime_module()
     return cast(
         dict[Path, object | None],
         _analysis_index_stage_cache_impl(
@@ -635,8 +651,8 @@ def _analysis_index_stage_cache(
                 get_global_derivation_cache_fn=get_global_derivation_cache,
                 analysis_index_module_trees_fn=_analysis_index_module_trees,
                 get_stage_cache_bucket_fn=_get_stage_cache_bucket,
-                path_dependency_payload_fn=runtime._path_dependency_payload,
-                analysis_index_stage_cache_op=runtime._ANALYSIS_INDEX_STAGE_CACHE_OP,
+                path_dependency_payload_fn=_path_dependency_payload,
+                analysis_index_stage_cache_op=_ANALYSIS_INDEX_STAGE_CACHE_OP,
             ),
         ),
     )
@@ -695,6 +711,7 @@ def _load_analysis_collection_resume_payload(
 
 
 __all__ = [
+    "_ANALYSIS_INDEX_STAGE_CACHE_OP",
     "_analysis_index_module_trees",
     "_analysis_index_resolved_call_edges",
     "_analysis_index_resolved_call_edges_by_caller",
@@ -719,6 +736,7 @@ __all__ = [
     "_load_analysis_collection_resume_payload",
     "_normalize_cache_config",
     "_parse_stage_cache_key",
+    "_path_dependency_payload",
     "_projection_stage_cache_identity",
     "_reduce_resolved_call_edges",
     "_resume_variant_for_identity",
