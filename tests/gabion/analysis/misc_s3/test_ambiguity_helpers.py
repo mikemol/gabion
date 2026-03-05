@@ -1,11 +1,47 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
 from gabion.exceptions import NeverThrown
+
+
+def _load():
+    from gabion.analysis.aspf.aspf import Forest
+    from gabion.analysis.dataflow.engine.dataflow_contracts import (
+        CallArgs,
+        FunctionInfo,
+        ReportCarrier,
+    )
+    from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
+        CallAmbiguity,
+        _collect_call_ambiguities,
+        _dedupe_call_ambiguities,
+        _emit_call_ambiguities,
+        _lint_lines_from_call_ambiguities,
+        _materialize_ambiguity_suite_agg_spec,
+        _materialize_ambiguity_virtual_set_spec,
+        _summarize_call_ambiguities,
+    )
+    from gabion.analysis.dataflow.io.dataflow_reporting import render_report
+
+    return SimpleNamespace(
+        CallArgs=CallArgs,
+        CallAmbiguity=CallAmbiguity,
+        Forest=Forest,
+        FunctionInfo=FunctionInfo,
+        ReportCarrier=ReportCarrier,
+        _collect_call_ambiguities=_collect_call_ambiguities,
+        _dedupe_call_ambiguities=_dedupe_call_ambiguities,
+        _emit_call_ambiguities=_emit_call_ambiguities,
+        _lint_lines_from_call_ambiguities=_lint_lines_from_call_ambiguities,
+        _materialize_ambiguity_suite_agg_spec=_materialize_ambiguity_suite_agg_spec,
+        _materialize_ambiguity_virtual_set_spec=_materialize_ambiguity_virtual_set_spec,
+        _summarize_call_ambiguities=_summarize_call_ambiguities,
+        render_report=render_report,
+    )
 
 
 def _make_function(path: Path, qual: str) -> da.FunctionInfo:
@@ -19,6 +55,9 @@ def _make_function(path: Path, qual: str) -> da.FunctionInfo:
         unused_params=set(),
         function_span=(0, 0, 0, 1),
     )
+
+
+da = _load()
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_ambiguities::stale_584c89f239e5_d202bfed
