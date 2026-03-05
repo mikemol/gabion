@@ -25,7 +25,14 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _run_indexed_pass,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _collect_functions,
+    _enclosing_scopes,
     _is_test_path,
+    _param_annotations,
+)
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _ParseModuleStage,
+    _parse_module_tree,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details as _constant_smells_from_details_impl,
@@ -53,6 +60,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
@@ -1087,26 +1095,25 @@ def _param_annotations_by_path(
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[Path, dict[str, object]]:
-    runtime = _runtime_module()
-    runtime.check_deadline()
+    check_deadline()
     annotations: dict[Path, dict[str, object]] = {}
     for path in paths:
-        runtime.check_deadline()
-        tree = runtime._parse_module_tree(
+        check_deadline()
+        tree = _parse_module_tree(
             path,
-            stage=runtime._ParseModuleStage.PARAM_ANNOTATIONS,
+            stage=_ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if tree is not None:
-            parent = runtime.ParentAnnotator()
+        if type(tree) is ast.Module:
+            parent = ParentAnnotator()
             parent.visit(tree)
             parents = parent.parents
             by_fn: dict[str, object] = {}
-            for fn in runtime._collect_functions(tree):
-                runtime.check_deadline()
-                scopes = runtime._enclosing_scopes(fn, parents)
-                fn_key = runtime._function_key(scopes, fn.name)
-                by_fn[fn_key] = runtime._param_annotations(fn, ignore_params)
+            for fn in _collect_functions(tree):
+                check_deadline()
+                scopes = _enclosing_scopes(fn, parents)
+                fn_key = _function_key(scopes, fn.name)
+                by_fn[fn_key] = _param_annotations(fn, ignore_params)
             annotations[path] = by_fn
     return annotations
 

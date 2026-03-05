@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 23
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -379,6 +379,20 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted runtime/dataflow suites passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase compatibility-fallback contraction for parameter-annotation ingestion:
+    - `_param_annotations_by_path` now uses canonical owner deps directly:
+      - parse helpers: `_parse_module_tree`, `_ParseModuleStage.PARAM_ANNOTATIONS`
+      - AST parent visitor: `ParentAnnotator`
+      - function-index helpers: `_collect_functions`, `_enclosing_scopes`, `_param_annotations`
+    - Removed runtime-module dependency in `_param_annotations_by_path` and kept existing path/function-key semantics unchanged.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `17` to `16`.
+  - ASPF no-change acknowledgement refreshed (`in-84`).
+  - Validation:
+    - policy checks passed
+    - targeted post-phase/dataflow suites passed (`44 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
