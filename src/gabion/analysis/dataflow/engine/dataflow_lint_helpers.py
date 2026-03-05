@@ -787,6 +787,7 @@ __all__ = [
     "_compute_lint_lines",
     "_constant_smells_from_details",
     "_deadness_witnesses_from_constant_details",
+    "_deadline_lint_lines",
     "_exception_protocol_lint_lines",
     "_internal_broad_type_lint_lines",
     "_internal_broad_type_lint_lines_indexed",

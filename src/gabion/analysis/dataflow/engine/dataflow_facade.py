@@ -16,126 +16,24 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
 
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import *  # noqa: F401,F403
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _FILE_SCAN_PROGRESS_EMIT_INTERVAL,
-    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    _EMPTY_CACHE_SEMANTIC_CONTEXT,
-    _IndexedPassContext,
-    _IndexedPassSpec,
-    _accumulate_function_index_for_tree,
-    _analyze_file_internal,
-    _analysis_index_module_trees,
-    _analysis_index_resolved_call_edges,
-    _analysis_index_resolved_call_edges_by_caller,
-    _analysis_index_stage_cache,
-    _analysis_index_transitive_callers,
-    _build_analysis_index,
-    _build_call_graph,
-    _build_function_index,
-    _build_symbol_table,
-    _iter_monotonic_paths,
-    _iter_resolved_edge_param_events,
-    _parse_stage_cache_key,
-    _phase_work_progress,
-    _profiling_v1_payload,
-    _reduce_resolved_call_edges,
-    _run_indexed_pass,
-    _sorted_text,
-    _stage_cache_key_aliases,
-    analyze_file,
-)
-from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
-    CallAmbiguity,
-    _ambiguity_suite_relation,
-    _ambiguity_suite_row_to_suite,
-    _ambiguity_virtual_count_gt_1,
-    _collect_call_ambiguities,
-    _collect_call_ambiguities_indexed,
-    _dedupe_call_ambiguities,
-    _emit_call_ambiguities,
-    _format_span_fields,
-    _lint_lines_from_call_ambiguities,
-    _materialize_ambiguity_suite_agg_spec,
-    _materialize_ambiguity_virtual_set_spec,
-    _materialize_projection_spec_rows,
-    _materialize_suite_order_spec,
-    _populate_bundle_forest,
-    _spec_row_span,
-    _suite_order_relation,
-    _suite_order_row_to_site,
-    _suite_site_label,
-    _summarize_call_ambiguities,
-)
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_projection_materialization import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
 )
-from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
-    _collect_param_roots,
-    _contains_boolish,
-    _decision_surface_params,
-    _decision_surface_form_entries,
-    _decision_surface_reason_map,
-    _decorator_name,
-    _decorators_transparent,
-    _mark_param_roots,
-    _value_encoded_decision_params,
-    is_decision_surface,
-)
+from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
     _collect_recursive_nodes,
     _reachable_from_roots,
 )
-from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
-    _enclosing_class,
-    _enclosing_function_scopes,
-    _enclosing_scopes,
-    _is_test_path,
-    _param_names,
-    _param_spans,
-)
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
     _iter_paths,
 )
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import *  # noqa: F401,F403
-from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
-    _StageCacheSpec,
-    _annotation_exception_candidates,
-    _build_property_hook_callable_index,
-    _branch_reachability_under_env,
-    _callsite_evidence_for_bundle,
-    _collect_config_bundles,
-    _collect_constant_flow_details,
-    _collect_dataclass_registry,
-    _collect_exception_obligations,
-    _collect_handledness_witnesses,
-    _collect_invariant_propositions,
-    _collect_never_invariants,
-    _combine_type_hints,
-    _compute_knob_param_names,
-    _eval_bool_expr,
-    _eval_value_expr,
-    _format_call_site,
-    _format_type_flow_site,
-    _iter_config_fields,
-    _iter_dataclass_call_bundles,
-    _keyword_links_literal,
-    _keyword_string_literal,
-    _names_in_expr,
-    _node_in_block,
-    _param_annotations_by_path,
-    _parse_module_source,
-    _refine_exception_name_from_annotations,
-    _split_top_level,
-    _type_from_const_repr,
-    analyze_constant_flow_repo,
-    analyze_deadness_flow_repo,
-    analyze_decision_surfaces_repo,
-    analyze_unused_arg_flow_repo,
-    analyze_value_encoded_decisions_repo,
-    generate_property_hook_manifest,
-)
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,
 )
@@ -156,35 +54,13 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support imp
     _unused_params,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import *  # noqa: F401,F403
-from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
-    _CACHE_IDENTITY_DIGEST_HEX,
-    _CACHE_IDENTITY_PREFIX,
-    _CacheIdentity,
-    _build_analysis_collection_resume_payload,
-    _deserialize_function_info_for_resume,
-    _deserialize_invariants_for_resume,
-    _deserialize_symbol_table_for_resume,
-    _invariant_confidence,
-    _invariant_digest,
-    _load_analysis_collection_resume_payload,
-    _load_analysis_index_resume_payload,
-    _load_file_scan_resume_state,
-    _normalize_invariant_proposition,
-    _serialize_analysis_index_resume_payload,
-    _serialize_file_scan_resume_state,
-)
+from gabion.analysis.dataflow.engine.dataflow_resume_serialization import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_contracts import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
     parse_adapter_capabilities,
 )
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import *  # noqa: F401,F403
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
-    _base_identifier,
-    _collect_module_exports,
-    _is_test_path,
-    _module_name,
-    _target_names,
-)
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
     _resolve_synth_registry_path,
 )
@@ -200,20 +76,20 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
 )
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
-from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
-    _constant_smells_from_details,
-    _deadness_witnesses_from_constant_details,
-    _deadline_lint_lines,
-    _exception_protocol_lint_lines,
-    _internal_broad_type_lint_lines,
-    _is_broad_internal_type,
-    _lint_lines_from_bundle_evidence,
-    _lint_lines_from_constant_smells,
-    _lint_lines_from_type_evidence,
-    _lint_lines_from_unused_arg_smells,
-    _normalize_type_name,
-    _parse_exception_path_id,
-    _parse_lint_location,
+from gabion.analysis.dataflow.engine.dataflow_lint_helpers import *  # noqa: F401,F403
+# Preserve canonical owner identity for overlapping wildcard symbols.
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _build_symbol_table,
+    _build_function_index,
+)
+from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
+    _resolve_callee,
+)
+from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
+    _lint_lines_from_call_ambiguities,
+)
+from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
+    _merge_counts_by_knobs,
 )
 from gabion.analysis.foundation.timeout_context import (
     Deadline,

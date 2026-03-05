@@ -415,4 +415,12 @@ def _build_function_index(
                 pass
     return dict(by_name), by_qual
 
-__all__ = ["_build_function_index"]
+__all__ = [
+    "_build_function_index",
+    "_enclosing_class",
+    "_enclosing_function_scopes",
+    "_enclosing_scopes",
+    "_is_test_path",
+    "_param_names",
+    "_param_spans",
+]

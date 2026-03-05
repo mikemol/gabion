@@ -378,11 +378,13 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
 
 __all__ = [
     "ParentAnnotator",
+    "_base_identifier",
     "_callee_key",
     "_alt_input",
     "_build_function_index",
     "_build_symbol_table",
     "_collect_class_index",
+    "_collect_module_exports",
     "_enclosing_scopes",
     "_is_test_path",
     "_module_name",
@@ -391,4 +393,5 @@ __all__ = [
     "_resolve_callee",
     "_resolve_method_in_hierarchy",
     "_resolve_method_in_hierarchy_outcome",
+    "_target_names",
 ]

@@ -674,6 +674,7 @@ __all__ = [
     "_collect_call_ambiguities_indexed",
     "_dedupe_call_ambiguities",
     "_emit_call_ambiguities",
+    "_format_span_fields",
     "_lint_lines_from_call_ambiguities",
     "_materialize_ambiguity_suite_agg_spec",
     "_materialize_ambiguity_virtual_set_spec",

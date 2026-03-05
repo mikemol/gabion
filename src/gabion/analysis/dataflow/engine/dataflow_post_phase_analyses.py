@@ -1858,6 +1858,7 @@ def _iter_dataclass_call_bundles(
 
 
 __all__ = [
+    "_StageCacheSpec",
     "_annotation_exception_candidates",
     "_branch_reachability_under_env",
     "_build_property_hook_callable_index",
@@ -1893,6 +1894,7 @@ __all__ = [
     "_iter_config_fields",
     "_iter_dataclass_call_bundles",
     "_param_annotations_by_path",
+    "_parse_module_source",
     "_span_line_col",
     "_split_top_level",
     "_type_from_const_repr",

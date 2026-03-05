@@ -1,5 +1,5 @@
 ---
-doc_revision: 261
+doc_revision: 262
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,7 +15,7 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 247
+- Facade LOC (current): 109
 - Facade top-level import statements (current): 37
 - Compatibility owner max metrics (current): `loc=21`, `imports=3`
 - Direct monolith imports in `src/`: 0
@@ -31,6 +31,24 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-324`, this CU):
+  - Converged canonical owner export surfaces to cover remaining facade compatibility imports:
+    - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_function_index_decision_support.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_resume_serialization.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`
+  - Facade contraction:
+    - switched remaining large explicit import blocks in `src/gabion/analysis/dataflow/engine/dataflow_facade.py` to wildcard re-exports
+    - added deterministic post-wildcard canonical rebindings for overlapping symbols (`_build_function_index`, `_build_symbol_table`, `_resolve_callee`, `_lint_lines_from_call_ambiguities`, `_merge_counts_by_knobs`)
+    - reduced facade LOC from `247` to `109` while preserving top-level import count (`37`)
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`18 passed`)
+    - evidence refresh executed; `git diff --exit-code out/test_evidence.json` passed (no evidence drift)
 - WS-5 continuation (`in-323`, this CU):
   - Hardened compatibility-owner export-surface parity checks:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`

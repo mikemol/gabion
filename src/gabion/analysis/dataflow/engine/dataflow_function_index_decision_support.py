@@ -196,6 +196,7 @@ def _value_encoded_decision_params(
 __all__ = [
     "_collect_param_roots",
     "_contains_boolish",
+    "_decorator_name",
     "_decision_surface_form_entries",
     "_decision_surface_params",
     "_decision_surface_reason_map",

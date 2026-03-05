@@ -1027,6 +1027,8 @@ def _run_indexed_pass(
 
 
 __all__ = [
+    "_FILE_SCAN_PROGRESS_EMIT_INTERVAL",
+    "_PROGRESS_EMIT_MIN_INTERVAL_SECONDS",
     "_analysis_index_module_trees",
     "_analysis_index_resolved_call_edges",
     "_analysis_index_resolved_call_edges_by_caller",
@@ -1059,4 +1061,5 @@ __all__ = [
     "OptionalProjectRoot",
     "_sorted_text",
     "_stage_cache_key_aliases",
+    "analyze_file",
 ]

@@ -868,6 +868,8 @@ def _load_analysis_collection_resume_payload(
 
 
 __all__ = [
+    "_CACHE_IDENTITY_DIGEST_HEX",
+    "_CACHE_IDENTITY_PREFIX",
     "_CacheIdentity",
     "_analysis_collection_resume_path_key",
     "_build_analysis_collection_resume_payload",
@@ -877,6 +879,9 @@ __all__ = [
     "_load_analysis_collection_resume_payload",
     "_load_analysis_index_resume_payload",
     "_load_file_scan_resume_state",
+    "_invariant_confidence",
+    "_invariant_digest",
+    "_normalize_invariant_proposition",
     "_serialize_analysis_index_resume_payload",
     "_serialize_file_scan_resume_state",
 ]
