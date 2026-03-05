@@ -255,51 +255,37 @@ def _function_index_acc_ctor_runtime(*, by_name, by_qual):
     )
 
 
-def _accumulate_function_index_for_tree_runtime(
-    acc,
-    path: Path,
-    tree: ast.Module,
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    transparent_decorators,
-) -> None:
-    _accumulate_function_index_for_tree_impl(
-        acc,
-        path,
-        tree,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        transparent_decorators=transparent_decorators,
-        deps=_FunctionIndexAccumulatorDeps(
-            check_deadline_fn=check_deadline,
-            collect_functions_fn=_collect_functions,
-            parent_annotator_ctor=ParentAnnotator,
-            module_name_fn=_module_name,
-            collect_lambda_function_infos_fn=_collect_lambda_function_infos,
-            collect_lambda_bindings_by_caller_fn=_collect_lambda_bindings_by_caller,
-            direct_lambda_callee_by_call_span_fn=_direct_lambda_callee_by_call_span,
-            collect_return_aliases_fn=_collect_return_aliases,
-            enclosing_class_fn=_enclosing_class,
-            enclosing_scopes_fn=_enclosing_scopes,
-            enclosing_function_scopes_fn=_enclosing_function_scopes,
-            analyze_function_fn=_analyze_function,
-            is_test_path_fn=_is_test_path,
-            materialize_direct_lambda_callees_fn=_materialize_direct_lambda_callees,
-            unused_params_fn=_unused_params,
-            decision_surface_reason_map_fn=_decision_surface_reason_map,
-            value_encoded_decision_params_fn=_value_encoded_decision_params,
-            param_names_fn=_param_names,
-            param_annotations_fn=_param_annotations,
-            param_defaults_fn=_param_defaults,
-            decorators_transparent_fn=_decorators_transparent,
-            param_spans_fn=_param_spans,
-            node_span_fn=_node_span,
-            function_info_ctor=FunctionInfo,
-        ),
-    )
+_FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
+    check_deadline_fn=check_deadline,
+    collect_functions_fn=_collect_functions,
+    parent_annotator_ctor=ParentAnnotator,
+    module_name_fn=_module_name,
+    collect_lambda_function_infos_fn=_collect_lambda_function_infos,
+    collect_lambda_bindings_by_caller_fn=_collect_lambda_bindings_by_caller,
+    direct_lambda_callee_by_call_span_fn=_direct_lambda_callee_by_call_span,
+    collect_return_aliases_fn=_collect_return_aliases,
+    enclosing_class_fn=_enclosing_class,
+    enclosing_scopes_fn=_enclosing_scopes,
+    enclosing_function_scopes_fn=_enclosing_function_scopes,
+    analyze_function_fn=_analyze_function,
+    is_test_path_fn=_is_test_path,
+    materialize_direct_lambda_callees_fn=_materialize_direct_lambda_callees,
+    unused_params_fn=_unused_params,
+    decision_surface_reason_map_fn=_decision_surface_reason_map,
+    value_encoded_decision_params_fn=_value_encoded_decision_params,
+    param_names_fn=_param_names,
+    param_annotations_fn=_param_annotations,
+    param_defaults_fn=_param_defaults,
+    decorators_transparent_fn=_decorators_transparent,
+    param_spans_fn=_param_spans,
+    node_span_fn=_node_span,
+    function_info_ctor=FunctionInfo,
+)
+
+_accumulate_function_index_for_tree_runtime = partial(
+    _accumulate_function_index_for_tree_impl,
+    deps=_FUNCTION_INDEX_ACCUMULATOR_DEPS,
+)
 
 
 def _function_index_module_artifact_spec_runtime(
@@ -433,27 +419,19 @@ def _build_symbol_table_runtime(
     return cast(SymbolTable, raw_table)
 
 
-def _accumulate_class_index_for_tree_runtime(
-    class_index: dict[str, object],
-    path: Path,
-    tree: ast.Module,
-    *,
-    project_root,
-) -> None:
-    _accumulate_class_index_for_tree_impl(
-        class_index,
-        path,
-        tree,
-        project_root=project_root,
-        deps=_AccumulateClassIndexForTreeDeps(
-            check_deadline_fn=check_deadline,
-            parent_annotator_ctor=ParentAnnotator,
-            module_name_fn=_module_name,
-            enclosing_class_scopes_fn=_enclosing_class_scopes,
-            base_identifier_fn=_base_identifier,
-            class_info_ctor=ClassInfo,
-        ),
-    )
+_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
+    check_deadline_fn=check_deadline,
+    parent_annotator_ctor=ParentAnnotator,
+    module_name_fn=_module_name,
+    enclosing_class_scopes_fn=_enclosing_class_scopes,
+    base_identifier_fn=_base_identifier,
+    class_info_ctor=ClassInfo,
+)
+
+_accumulate_class_index_for_tree_runtime = partial(
+    _accumulate_class_index_for_tree_impl,
+    deps=_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS,
+)
 
 
 def _iter_monotonic_paths_owner(paths, *, source: str):

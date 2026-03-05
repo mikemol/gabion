@@ -1,5 +1,5 @@
 ---
-doc_revision: 120
+doc_revision: 121
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2124,6 +2124,23 @@ doc_scope:
     - Analysis-index/cache/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-180`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index accumulator wrapper contraction:
+    - Replaced pure deps-only accumulator wrappers in `dataflow_analysis_index_owner.py` with static dependency-bound delegates:
+      - `_accumulate_function_index_for_tree_runtime`
+      - `_accumulate_class_index_for_tree_runtime`
+    - Introduced static owner dep bundles:
+      - `_FUNCTION_INDEX_ACCUMULATOR_DEPS`
+      - `_ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS`
+    - Preserved existing accumulator call contracts and index-build integration points.
+  - Compatibility status:
+    - Analysis-index/function-index/class-index behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-181`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
