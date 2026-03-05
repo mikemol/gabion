@@ -1,5 +1,5 @@
 ---
-doc_revision: 198
+doc_revision: 199
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -23,7 +23,7 @@ doc_scope:
 - Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
 - Medium: monolith remains a broad compatibility alias surface with a non-trivial import fan-in/out contract despite being within WS-5 hard-cut thresholds.
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
-- High: `dataflow_facade` compatibility drift is still present for some legacy test expectations (`sort_once`, `_EvalDecision`, and hierarchy/lint helper return-shape parity), exposed during broad facade importer sweep; needs dedicated fix-forward compatibility slice.
+- Medium: temporary boundary adapters in `dataflow_facade` now preserve legacy return contracts (`_resolve_method_in_hierarchy`, `_internal_broad_type_lint_lines`) and should be retired after importer migration to canonical owner contracts.
 
 ## Progress Ledger
 - WS-1 through WS-4 completed previously (server/core, CLI/runtime, governance, CST convergence).
@@ -3412,6 +3412,24 @@ doc_scope:
   - Validation:
     - policy checks passed
     - focused touched-surface pytest bundle passed (`37 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade compatibility-adapter hardening:
+    - Added explicit boundary adapter lifecycle metadata in `dataflow_facade.py`.
+    - Restored legacy utility export parity required by facade importers:
+      - `sort_once`
+      - `_EvalDecision` (mapped to canonical expression-eval enum identity).
+    - Added boundary compatibility adapters:
+      - `_resolve_method_in_hierarchy`: returns legacy `FunctionInfo | None` shape from structured owner outcomes.
+      - `_internal_broad_type_lint_lines`: rehydrates missing `analysis_index` via canonical owner builder when omitted by legacy callers.
+  - Correctness impact:
+    - Canonical owner semantics unchanged; compatibility behavior remains confined to the facade boundary.
+    - Facade importer broad sweep now passes.
+    - Monolith structural metrics unchanged (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-258`).
+  - Validation:
+    - policy checks passed
+    - facade importer sweep pytest bundle passed (`190 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
