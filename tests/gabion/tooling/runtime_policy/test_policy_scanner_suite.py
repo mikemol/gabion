@@ -45,6 +45,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="typing_surface") == []
 
     second = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
@@ -81,6 +82,8 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["defensive_fallback"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
     assert normalized.violations_by_rule["no_legacy_monolith_import"] == []
+    assert normalized.violations_by_rule["orchestrator_primitive_barrel"] == []
+    assert normalized.violations_by_rule["typing_surface"] == []
 
     _write(
         root / "src/gabion/new_file.py",
@@ -120,6 +123,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     )
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
+    assert normalized["typing_surface"] == []
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -292,6 +296,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="typing_surface") == []
 
 
 def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path: Path) -> None:
@@ -304,3 +309,69 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
     violations = policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel")
     assert violations
     assert any(item.get("kind") == "line_threshold" for item in violations)
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/analysis/core/sample.py",
+        "from typing import Any\n\ndef normalize(payload: dict[str, object], raw: Any, marker: object) -> None:\n    return None\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(result, rule="typing_surface")
+    assert len(violations) == 3
+
+    baseline_path = root / "baselines/typing_surface_policy_baseline.json"
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    baseline_path.write_text(
+        json.dumps({"version": 1, "violations": violations}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    with_baseline = policy_scanner_suite.scan_policy_suite(root=root)
+    assert policy_scanner_suite.violations_for_rule(with_baseline, rule="typing_surface") == []
+
+    baseline_path.write_text(json.dumps({"version": 1, "violations": []}, indent=2) + "\n", encoding="utf-8")
+    waivers_path = root / "baselines/typing_surface_policy_waivers.json"
+    waivers_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "waivers": [
+                    {
+                        "path": "src/gabion/analysis/core/sample.py",
+                        "qualname": "normalize",
+                        "line": 3,
+                        "kind": "dict_str_object_annotation",
+                        "rationale": "legacy inbound payload shape",
+                        "scope": "semantic_core",
+                        "expiry": "2027-01-01",
+                        "owner": "@gabion-core",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with_waiver = policy_scanner_suite.scan_policy_suite(root=root)
+    waiver_violations = policy_scanner_suite.violations_for_rule(with_waiver, rule="typing_surface")
+    assert len(waiver_violations) == 2
+
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / "src/gabion/analysis/core/sample.py", "from typing import Any\n\nvalue: Any = 'x'\n")
+    waivers_path = root / "baselines/typing_surface_policy_waivers.json"
+    waivers_path.parent.mkdir(parents=True, exist_ok=True)
+    waivers_path.write_text(
+        json.dumps({"version": 1, "waivers": [{"path": "src/gabion/analysis/core/sample.py"}]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(result, rule="typing_surface")
+    assert any(item.get("kind") == "invalid_waiver" for item in violations)

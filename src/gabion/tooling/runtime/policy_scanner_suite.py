@@ -8,12 +8,14 @@ import json
 from pathlib import Path
 from typing import Iterable
 import ast
-from gabion.tooling.policy_rules import branchless_rule, defensive_fallback_rule, no_monkeypatch_rule
+from gabion.tooling.policy_rules import branchless_rule, defensive_fallback_rule, no_monkeypatch_rule, typing_surface_rule
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
+_TYPING_SURFACE_BASELINE = Path("baselines/typing_surface_policy_baseline.json")
+_TYPING_SURFACE_WAIVERS = Path("baselines/typing_surface_policy_waivers.json")
 _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 
 
@@ -136,6 +138,13 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         module=defensive_fallback_rule,
         baseline_path=resolved_root / _DEFENSIVE_BASELINE,
     )
+    typing_surface_allowed = _load_rule_baseline_keys(
+        module=typing_surface_rule,
+        baseline_path=resolved_root / _TYPING_SURFACE_BASELINE,
+    )
+    typing_surface_waiver_result = typing_surface_rule.load_waivers(
+        resolved_root / _TYPING_SURFACE_WAIVERS,
+    )
 
     violations_by_rule: dict[str, list[dict[str, object]]] = {
         "no_monkeypatch": [],
@@ -143,7 +152,24 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         "defensive_fallback": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
+        "typing_surface": [],
     }
+
+    for invalid in typing_surface_waiver_result.invalid_waivers:
+        violations_by_rule["typing_surface"].append(
+            {
+                "path": _TYPING_SURFACE_WAIVERS.as_posix(),
+                "line": int(invalid.index),
+                "column": 1,
+                "qualname": "<waiver>",
+                "kind": "invalid_waiver",
+                "scope": "waiver",
+                "annotation": "<none>",
+                "message": f"invalid typing-surface waiver metadata: {invalid.reason}",
+                "key": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
+                "render": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
+            }
+        )
 
     legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
     if legacy_module_path.exists():
@@ -210,6 +236,18 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
                     _serialize_defensive(item) for item in defensive_violations
                 )
 
+                typing_surface_violations = _filter_baseline_violations(
+                    typing_surface_rule.collect_violations(
+                        rel_path=rel_path,
+                        source=source,
+                        tree=tree,
+                    ),
+                    allowed_keys=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
+                )
+                violations_by_rule["typing_surface"].extend(
+                    _serialize_typing_surface(item) for item in typing_surface_violations
+                )
+
     for rule, items in list(violations_by_rule.items()):
         violations_by_rule[rule] = sorted(
             items,
@@ -255,9 +293,11 @@ def _violations_from_payload(payload: dict[str, object]) -> dict[str, list[dict[
             "branchless": [],
             "defensive_fallback": [],
             "no_legacy_monolith_import": [],
+            "orchestrator_primitive_barrel": [],
+            "typing_surface": [],
         }
     normalized: dict[str, list[dict[str, object]]] = {}
-    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel"):
+    for rule in ("no_monkeypatch", "branchless", "defensive_fallback", "no_legacy_monolith_import", "orchestrator_primitive_barrel", "typing_surface"):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
             normalized[rule] = []
@@ -296,6 +336,7 @@ def _rule_set_hash() -> str:
             "defensive_fallback:v1",
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
+            "typing_surface:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -453,6 +494,21 @@ def _serialize_legacy_monolith(violation: object) -> dict[str, object]:
         "line": getattr(violation, "line"),
         "column": getattr(violation, "column"),
         "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_typing_surface(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "scope": getattr(violation, "scope"),
+        "annotation": getattr(violation, "annotation"),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
