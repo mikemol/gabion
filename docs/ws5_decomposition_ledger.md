@@ -1,5 +1,5 @@
 ---
-doc_revision: 119
+doc_revision: 120
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2105,6 +2105,25 @@ doc_scope:
     - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-179`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner wrapper contraction:
+    - Replaced pure deps-only wrappers in `dataflow_analysis_index_owner.py` with static dependency-bound delegates:
+      - `_build_module_artifacts`
+      - `_analysis_index_module_trees`
+      - `_analysis_index_stage_cache`
+    - Introduced static owner dep bundles:
+      - `_BUILD_MODULE_ARTIFACTS_DEPS`
+      - `_ANALYSIS_INDEX_MODULE_TREES_DEPS`
+      - `_ANALYSIS_INDEX_STAGE_CACHE_DEPS`
+    - Preserved public owner compatibility surface and call contracts (same callable names; deps now bound once).
+  - Compatibility status:
+    - Analysis-index/cache/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-180`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

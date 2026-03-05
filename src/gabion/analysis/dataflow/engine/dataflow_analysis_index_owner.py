@@ -8,6 +8,7 @@ import ast
 import hashlib
 import json
 from dataclasses import dataclass, field
+from functools import partial
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -489,30 +490,20 @@ def _path_dependency_payload(path: Path) -> dict[str, object]:
     }
 
 
-def _build_module_artifacts(
-    paths: list[Path],
-    *,
-    specs: tuple[_ModuleArtifactSpec[object, object], ...],
-    parse_failure_witnesses: list[JSONObject],
-    parse_module: Callable[[Path], ast.Module] = _default_parse_module,
-) -> tuple[object, ...]:
-    return cast(
-        tuple[object, ...],
-        _build_module_artifacts_impl(
-            paths,
-            specs=cast(tuple[object, ...], specs),
-            parse_failure_witnesses=cast(list[object], parse_failure_witnesses),
-            parse_module=parse_module,
-            deps=_BuildModuleArtifactsDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_error_types=cast(
-                    tuple[type[BaseException], ...],
-                    _PARSE_MODULE_ERROR_TYPES,
-                ),
-                record_parse_failure_witness_fn=_record_parse_failure_witness,
-            ),
-        ),
-    )
+_BUILD_MODULE_ARTIFACTS_DEPS = _BuildModuleArtifactsDeps(
+    check_deadline_fn=check_deadline,
+    parse_module_error_types=cast(
+        tuple[type[BaseException], ...],
+        _PARSE_MODULE_ERROR_TYPES,
+    ),
+    record_parse_failure_witness_fn=_record_parse_failure_witness,
+)
+
+_build_module_artifacts = partial(
+    _build_module_artifacts_impl,
+    parse_module=_default_parse_module,
+    deps=_BUILD_MODULE_ARTIFACTS_DEPS,
+)
 
 
 def _collect_transitive_callers(
@@ -980,56 +971,31 @@ def _build_analysis_index(
     )
 
 
-def _analysis_index_module_trees(
-    analysis_index,
-    paths,
-    *,
-    stage,
-    parse_failure_witnesses,
-):
-    return cast(
-        dict[Path, object | None],
-        _analysis_index_module_trees_impl(
-            analysis_index,
-            paths,
-            stage=stage,
-            parse_failure_witnesses=parse_failure_witnesses,
-            deps=_AnalysisIndexModuleTreesDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_source_fn=_default_parse_module,
-                parse_module_error_types=_PARSE_MODULE_ERROR_TYPES,
-                record_parse_failure_witness_fn=_record_parse_failure_witness,
-            ),
-        ),
-    )
+_ANALYSIS_INDEX_MODULE_TREES_DEPS = _AnalysisIndexModuleTreesDeps(
+    check_deadline_fn=check_deadline,
+    parse_module_source_fn=_default_parse_module,
+    parse_module_error_types=_PARSE_MODULE_ERROR_TYPES,
+    record_parse_failure_witness_fn=_record_parse_failure_witness,
+)
 
+_analysis_index_module_trees = partial(
+    _analysis_index_module_trees_impl,
+    deps=_ANALYSIS_INDEX_MODULE_TREES_DEPS,
+)
 
-def _analysis_index_stage_cache(
-    analysis_index,
-    paths,
-    *,
-    spec,
-    parse_failure_witnesses,
-    module_trees_fn=None,
-):
-    return cast(
-        dict[Path, object | None],
-        _analysis_index_stage_cache_impl(
-            analysis_index,
-            paths,
-            spec=spec,
-            parse_failure_witnesses=parse_failure_witnesses,
-            module_trees_fn=module_trees_fn,
-            deps=_AnalysisIndexStageCacheDeps(
-                check_deadline_fn=check_deadline,
-                get_global_derivation_cache_fn=get_global_derivation_cache,
-                analysis_index_module_trees_fn=_analysis_index_module_trees,
-                get_stage_cache_bucket_fn=_get_stage_cache_bucket,
-                path_dependency_payload_fn=_path_dependency_payload,
-                analysis_index_stage_cache_op=_ANALYSIS_INDEX_STAGE_CACHE_OP,
-            ),
-        ),
-    )
+_ANALYSIS_INDEX_STAGE_CACHE_DEPS = _AnalysisIndexStageCacheDeps(
+    check_deadline_fn=check_deadline,
+    get_global_derivation_cache_fn=get_global_derivation_cache,
+    analysis_index_module_trees_fn=_analysis_index_module_trees,
+    get_stage_cache_bucket_fn=_get_stage_cache_bucket,
+    path_dependency_payload_fn=_path_dependency_payload,
+    analysis_index_stage_cache_op=_ANALYSIS_INDEX_STAGE_CACHE_OP,
+)
+
+_analysis_index_stage_cache = partial(
+    _analysis_index_stage_cache_impl,
+    deps=_ANALYSIS_INDEX_STAGE_CACHE_DEPS,
+)
 
 
 def _run_indexed_pass(
