@@ -1,5 +1,5 @@
 ---
-doc_revision: 268
+doc_revision: 269
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,25 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 stability (`psi-1`, this CU):
+  - Added private-symbol import ratchet guard + policy artifacts:
+    - `scripts/policy/private_symbol_import_guard.py`
+    - `docs/policy/private_symbol_import_allowlist.txt`
+    - `docs/baselines/private_symbol_import_baseline.json`
+  - Guard behavior:
+    - scans `src/**/*.py` + `tests/**/*.py` for private symbol imports (`from ... import _symbol`, `import ... ._symbol`)
+    - ignores dunder symbols
+    - applies explicit allowlist exemptions for compatibility alias surfaces/tests
+    - enforces ratchet in `--check` mode: current non-exempt set must be a subset of baseline
+    - writes deterministic report to `out/private_symbol_import_report.json`
+  - Added tests:
+    - `tests/gabion/tooling/policy/test_private_symbol_import_guard.py`
+    - `tests/gabion/analysis/misc_s3/test_private_symbol_import_guard.py`
+  - Validation:
+    - policy checks passed
+    - private-symbol guard script check passed
+    - targeted private-symbol guard pytest passed
+    - evidence refresh executed; no drift
 - WS-5 continuation (`in-329`, this CU):
   - Continued facade wildcard-import contraction by converting one additional owner surface from wildcard to explicit symbol imports:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`

@@ -14,7 +14,12 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
     "evidence_links": ["docs/ws5_decomposition_ledger.md"],
 }
 
-from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
+    _CalleeResolutionOutcome,
+    _DeadlineFunctionFacts,
+    _DeadlineLocalInfo,
+    _DeadlineLoopFacts,
+)
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import *  # noqa: F401,F403
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import *  # noqa: F401,F403
