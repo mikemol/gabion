@@ -1,5 +1,5 @@
 ---
-doc_revision: 88
+doc_revision: 89
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1624
-- Monolith top-level import statements (current): 67
+- Monolith LOC (current): 1504
+- Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1547,6 +1547,29 @@ doc_scope:
     - Monolith LOC dropped to `1624`; top-level imports returned to `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-148`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Function-index helper ownerization:
+    - Monolith wrapper/helper bodies replaced by canonical `dataflow_function_index_helpers` aliases:
+      - `_param_names`
+      - `_param_annotations`
+      - `_param_defaults`
+      - `_enclosing_class`
+      - `_enclosing_scopes`
+      - `_enclosing_class_scopes`
+      - `_enclosing_function_scopes`
+    - Removed now-duplicate monolith annotation helper carriers:
+      - `AnnotationValue`
+      - `OptionalAstNode`
+      - `_extract_annotation_value`
+  - Compatibility status:
+    - Function-index parameter/scope helper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1504`; top-level imports are `68`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-149`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

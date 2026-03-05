@@ -155,6 +155,15 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support im
     _value_encoded_decision_params as _value_encoded_decision_params_owner,
     is_decision_surface as _is_decision_surface_owner,
 )
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _enclosing_class_runtime as _enclosing_class_owner,
+    _enclosing_class_scopes_runtime as _enclosing_class_scopes_owner,
+    _enclosing_function_scopes_runtime as _enclosing_function_scopes_owner,
+    _enclosing_scopes_runtime as _enclosing_scopes_owner,
+    _param_annotations_runtime as _param_annotations_owner,
+    _param_defaults_runtime as _param_defaults_owner,
+    _param_names_runtime as _param_names_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
     _collect_recursive_nodes,
@@ -474,11 +483,6 @@ OptionalIgnoredParams = set[str] | None
 
 ParamAnnotationMap = dict[str, str | None]
 
-@dataclass(frozen=True)
-class AnnotationValue:
-    text: str
-    parse_status: Literal["present", "missing", "unparse_failure"]
-
 ReturnAliasMap = dict[str, tuple[list[str], list[str]]]
 
 OptionalReturnAliasMap = ReturnAliasMap | None
@@ -508,8 +512,6 @@ OptionalJsonObject = JSONObject | None
 OptionalForestSpec = ForestSpec | None
 
 OptionalDeprecatedExtractionArtifacts = DeprecatedExtractionArtifacts | None
-
-OptionalAstNode = ast.AST | None
 
 OptionalAstCall = ast.Call | None
 
@@ -794,23 +796,7 @@ _collect_local_class_bases = _collect_local_class_bases_owner
 _local_class_name = _local_class_name_owner
 _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
-def _param_names(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> list[str]:
-    args = (
-        fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    )
-    names = [a.arg for a in args]
-    if fn.args.vararg:
-        names.append(fn.args.vararg.arg)
-    if fn.args.kwarg:
-        names.append(fn.args.kwarg.arg)
-    if names and names[0] in {"self", "cls"}:
-        names = names[1:]
-    if ignore_params:
-        names = [name for name in names if name not in ignore_params]
-    return names
+_param_names = _param_names_owner
 
 _decision_root_name = _decision_root_name_owner
 
@@ -1100,123 +1086,17 @@ def _param_spans(
 
 _function_key = _function_key_owner
 
-def _enclosing_class(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-):
-    check_deadline()
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.ClassDef:
-            return cast(ast.ClassDef, current).name
-        current = parents.get(current)
-    return None
+_enclosing_class = _enclosing_class_owner
 
-def _enclosing_scopes(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        current_type = type(current)
-        if current_type is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
-        elif current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
-            scopes.append(cast(FunctionNode, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
+_enclosing_scopes = _enclosing_scopes_owner
 
-def _enclosing_class_scopes(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        if type(current) is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
+_enclosing_class_scopes = _enclosing_class_scopes_owner
 
-def _enclosing_function_scopes(
-    node: ast.AST, parents: dict[ast.AST, ast.AST]
-) -> list[str]:
-    check_deadline()
-    scopes: list[str] = []
-    current = parents.get(node)
-    while current is not None:
-        check_deadline()
-        current_type = type(current)
-        if current_type is ast.FunctionDef or current_type is ast.AsyncFunctionDef:
-            scopes.append(cast(FunctionNode, current).name)
-        current = parents.get(current)
-    return list(reversed(scopes))
+_enclosing_function_scopes = _enclosing_function_scopes_owner
 
-def _param_annotations(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> ParamAnnotationMap:
-    check_deadline()
-    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
-    names = [a.arg for a in args]
-    annots: ParamAnnotationMap = {}
+_param_annotations = _param_annotations_owner
 
-    for name, arg in zip(names, args):
-        check_deadline()
-        annotation_value = _extract_annotation_value(arg.annotation)
-        annots[name] = annotation_value.text if annotation_value.parse_status == "present" else None
-    if fn.args.vararg:
-        vararg = fn.args.vararg
-        annotation_value = _extract_annotation_value(vararg.annotation)
-        annots[vararg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
-    if fn.args.kwarg:
-        kwarg = fn.args.kwarg
-        annotation_value = _extract_annotation_value(kwarg.annotation)
-        annots[kwarg.arg] = annotation_value.text if annotation_value.parse_status == "present" else None
-    if names and names[0] in {"self", "cls"}:
-        annots.pop(names[0], None)
-    if ignore_params:
-        for name in list(annots.keys()):
-            check_deadline()
-            if name in ignore_params:
-                annots.pop(name, None)
-    return annots
-
-def _extract_annotation_value(annotation: OptionalAstNode) -> AnnotationValue:
-    check_deadline()
-    if annotation is None:
-        return AnnotationValue(text="", parse_status="missing")
-    try:
-        return AnnotationValue(
-            text=ast.unparse(annotation),
-            parse_status="present",
-        )
-    except _AST_UNPARSE_ERROR_TYPES:
-        return AnnotationValue(text="", parse_status="unparse_failure")
-
-def _param_defaults(
-    fn: FunctionNode,
-    ignore_params: OptionalIgnoredParams = None,
-) -> set[str]:
-    check_deadline()
-    defaults: set[str] = set()
-    args = fn.args.posonlyargs + fn.args.args
-    names = [a.arg for a in args]
-    if fn.args.defaults:
-        defaulted = names[-len(fn.args.defaults) :]
-        defaults.update(defaulted)
-    for kw_arg, default in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
-        check_deadline()
-        if default is not None:
-            defaults.add(kw_arg.arg)
-    if names and names[0] in {"self", "cls"}:
-        defaults.discard(names[0])
-    if ignore_params:
-        defaults = {name for name in defaults if name not in ignore_params}
-    return defaults
+_param_defaults = _param_defaults_owner
 
 _ANALYSIS_INDEX_STAGE_CACHE_OP = _ANALYSIS_INDEX_STAGE_CACHE_OP_owner
 
