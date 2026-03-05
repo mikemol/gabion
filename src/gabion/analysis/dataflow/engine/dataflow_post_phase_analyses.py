@@ -155,6 +155,8 @@ from gabion.analysis.dataflow.engine.dataflow_bundle_iteration import (
 )
 from gabion.analysis.semantics.semantic_primitives import (
     AnalysisPassPrerequisites,
+    DecisionPredicateEvidence,
+    ParameterId,
     SpanIdentity,
 )
 from gabion.invariants import never, require_not_none
@@ -1526,6 +1528,24 @@ def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
         return "heuristic"
     return ", ".join(
         sort_once(labels, source="_decision_reason_summary.labels"),
+    )
+
+
+def _decision_predicate_evidence(
+    info: FunctionInfo,
+    param: str,
+) -> DecisionPredicateEvidence:
+    reasons = tuple(
+        sort_once(
+            info.decision_surface_reasons.get(param, set()),
+            source="_decision_predicate_evidence.reasons",
+        )
+    )
+    span = info.param_spans.get(param)
+    return DecisionPredicateEvidence(
+        parameter=ParameterId.from_raw(param),
+        reasons=reasons,
+        spans=(SpanIdentity.from_tuple(span),) if span is not None else (),
     )
 
 

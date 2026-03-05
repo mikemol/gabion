@@ -1,5 +1,5 @@
 ---
-doc_revision: 94
+doc_revision: 95
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,18 +12,17 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1156
+- Monolith LOC (current): 1054
 - Monolith top-level import statements (current): 64
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
-- WS-5 broad completion regression status: passed as of `in-128`
+- WS-5 broad completion regression status: passed as of `in-128` (targeted WS-5 slices validated through `in-155`)
 
 ## Debt Ledger
-- High: monolith still carries large post-phase analysis ownership (type/constant/unused/config/dataclass/decision surfaces).
-- High: monolith still carries index/materialization ownership and cache identity carrier definitions.
-- Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership lands.
-- Medium: monolith top-level import surface is in target band but remains fragile while compatibility-owner fallbacks persist.
+- Medium: compatibility owner modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_facade.py`) and should collapse after canonical ownership landing is declared final.
+- Medium: monolith remains a broad compatibility alias surface with a non-trivial import fan-in/out contract despite being within WS-5 hard-cut thresholds.
+- Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
 - WS-1 through WS-4 completed previously (server/core, CLI/runtime, governance, CST convergence).
@@ -1672,6 +1671,34 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`105 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Residual helper ownerization and monolith function-body elimination:
+    - Added canonical owner modules for remaining runtime helper clusters:
+      - `dataflow_runtime_reporting_owner.py`
+      - `dataflow_parse_runtime_owner.py`
+      - `dataflow_deadline_summary_owner.py`
+    - Monolith helper bodies replaced by canonical owner aliases:
+      - `_summarize_deadline_obligations`
+      - `ReportProjectionSpec`
+      - `_report_section_identity_render`
+      - `_report_section_no_violations`
+      - `_report_section_text`
+      - `_report_section_spec`
+      - `_decision_predicate_evidence`
+      - `_parse_module_tree`
+      - `analyze_file`
+      - `_compute_violations`
+    - Analysis-index owner now exports canonical `analyze_file` wrapper.
+    - Boundary compatibility alias retained for `_emit_report` to preserve legacy test/runtime expectations.
+  - Compatibility status:
+    - Monolith top-level function definitions reduced to `0` (alias-facade only).
+    - Monolith LOC dropped to `1054`; top-level imports remain `64`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-155`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

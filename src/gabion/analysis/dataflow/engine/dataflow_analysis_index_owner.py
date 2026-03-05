@@ -907,6 +907,11 @@ def _analyze_file_internal(
     )
 
 
+def analyze_file(path: Path, recursive: bool = True, *, config=None):
+    groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
+    return groups, spans
+
+
 def _build_analysis_collection_resume_payload(
     *,
     groups_by_path,
