@@ -752,6 +752,86 @@ def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> No
     assert payload["rewrite_plans"][0]["kind"] == "AMBIENT_REWRITE"
 
 
+def test_check_aux_registration_matrix_matches_expected_identities() -> None:
+    expected = {
+        "obsolescence:report",
+        "obsolescence:state",
+        "obsolescence:delta",
+        "obsolescence:baseline-write",
+        "annotation-drift:report",
+        "annotation-drift:state",
+        "annotation-drift:delta",
+        "annotation-drift:baseline-write",
+        "ambiguity:state",
+        "ambiguity:delta",
+        "ambiguity:baseline-write",
+        "taint:state",
+        "taint:delta",
+        "taint:baseline-write",
+        "taint:lifecycle",
+    }
+    observed = {entry.identity for entry in check_commands.CHECK_AUX_COMMAND_REGISTRATIONS}
+    assert observed == expected
+
+
+def test_check_aux_command_spec_rejects_invalid_profile_mapping() -> None:
+    spec = check_commands.CheckAuxCommandSpec(
+        registration=check_commands.CheckAuxCommandRegistration(
+            domain="obsolescence",
+            action="report",
+            option_profile=check_commands.CHECK_AUX_OPTION_PROFILE_DELTA,
+        )
+    )
+    with pytest.raises(typer.BadParameter, match="baseline_required profile"):
+        spec.validate()
+
+
+def test_check_aux_profile_validation_errors() -> None:
+    runner = CliRunner()
+    app = typer.Typer()
+    apps = {
+        "obsolescence": typer.Typer(),
+        "annotation-drift": typer.Typer(),
+        "ambiguity": typer.Typer(),
+        "taint": typer.Typer(),
+    }
+    check_commands.register_check_aux_commands(
+        command_domains=apps,
+        check_strictness_mode=cli.CheckStrictnessMode,
+        run_check_aux_operation_fn=lambda **_kwargs: None,
+    )
+    for domain, domain_app in apps.items():
+        app.add_typer(domain_app, name=domain)
+
+    missing_baseline = runner.invoke(app, ["obsolescence", "delta", "sample.py"])
+    assert missing_baseline.exit_code != 0
+    assert "Missing option '--baseline'" in missing_baseline.output
+
+    out_md_disallowed = runner.invoke(
+        app,
+        ["taint", "state", "sample.py", "--out-md", "state.md"],
+    )
+    assert out_md_disallowed.exit_code != 0
+    assert "--out-md is not allowed for this command profile" in out_md_disallowed.output
+
+
+def test_check_aux_help_snapshot_representative_commands() -> None:
+    runner = CliRunner()
+    report_help = _invoke(runner, ["check", "obsolescence", "report", "--help"])
+    assert report_help.exit_code == 0
+    assert "--out-md" in report_help.output
+
+    state_help = _invoke(runner, ["check", "taint", "state", "--help"])
+    assert state_help.exit_code == 0
+    assert "--out-md" not in state_help.output
+    assert "--baseline" in state_help.output
+
+    delta_help = _invoke(runner, ["check", "annotation-drift", "delta", "--help"])
+    assert delta_help.exit_code == 0
+    assert "--baseline" in delta_help.output
+    assert "[required]" in delta_help.output
+
+
 def test_register_check_aux_commands_uses_registration_table() -> None:
     observed: list[tuple[str, str]] = []
 
