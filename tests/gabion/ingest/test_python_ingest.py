@@ -1,9 +1,51 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
+from gabion.analysis.core.visitors import ParentAnnotator
+from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_function_index_decision_support as decision_support
+from gabion.analysis.dataflow.engine import dataflow_function_index_helpers as function_index_helpers
+from gabion.analysis.dataflow.engine import dataflow_function_semantics as function_semantics
+from gabion.analysis.dataflow.engine import dataflow_ingest_helpers as ingest_helpers
+from gabion.analysis.dataflow.engine import dataflow_ingested_analysis_support as ingested_support
+from gabion.analysis.dataflow.engine import dataflow_lambda_runtime_support as lambda_runtime
+from gabion.analysis.dataflow.engine import dataflow_local_class_hierarchy as class_hierarchy
+from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
+from gabion.analysis.dataflow.engine import dataflow_resume_serialization as resume_serialization
+from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
+from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.ingest.python_ingest import _default_deadline, ingest_python_file, iter_python_paths
+from gabion.order_contract import sort_once
+
+da = SimpleNamespace(
+    AuditConfig=AuditConfig,
+    ParentAnnotator=ParentAnnotator,
+    _FILE_SCAN_PROGRESS_EMIT_INTERVAL=index_owner._FILE_SCAN_PROGRESS_EMIT_INTERVAL,
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS=index_owner._PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
+    _analyze_file_internal=index_owner._analyze_file_internal,
+    _analyze_function=function_semantics._analyze_function,
+    _collect_functions=ingest_helpers._collect_functions,
+    _collect_local_class_bases=class_hierarchy._collect_local_class_bases,
+    _collect_return_aliases=function_semantics._collect_return_aliases,
+    _decorators_transparent=decision_support._decorators_transparent,
+    _enclosing_class=function_index_helpers._enclosing_class,
+    _enclosing_function_scopes=function_index_helpers._enclosing_function_scopes,
+    _enclosing_scopes=function_index_helpers._enclosing_scopes,
+    _function_key=lambda_runtime._function_key,
+    _is_test_path=function_index_helpers._is_test_path,
+    _load_file_scan_resume_state=resume_serialization._load_file_scan_resume_state,
+    _param_names=function_index_helpers._param_names,
+    _param_spans=function_index_helpers._param_spans,
+    _parse_module_source=post_phase._parse_module_source,
+    _profiling_v1_payload=index_owner._profiling_v1_payload,
+    _resolve_local_method_in_hierarchy=class_hierarchy._resolve_local_method_in_hierarchy,
+    _serialize_file_scan_resume_state=resume_serialization._serialize_file_scan_resume_state,
+    analyze_ingested_file=ingested_support.analyze_ingested_file,
+    check_deadline=check_deadline,
+    sort_once=sort_once,
+)
 
 
 def test_iter_python_paths_expands_and_filters(tmp_path: Path) -> None:
