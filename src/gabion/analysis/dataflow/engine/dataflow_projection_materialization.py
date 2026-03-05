@@ -9,14 +9,12 @@ from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
-    _build_analysis_index,
-    _iter_monotonic_paths,
-)
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS,
     _IndexedPassSpec,
     _analysis_index_module_trees,
+    _build_analysis_index,
+    _iter_monotonic_paths_owner as _iter_monotonic_paths,
     _run_indexed_pass,
 )
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
