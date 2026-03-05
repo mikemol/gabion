@@ -1,5 +1,5 @@
 ---
-doc_revision: 53
+doc_revision: 54
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -915,6 +915,21 @@ doc_scope:
   - Compatibility status:
     - Deadline-runtime owner no longer imports helper symbols from `dataflow_facade`.
   - ASPF no-change acknowledgement refreshed (`in-114`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-helper canonical import contraction:
+    - `dataflow_deadline_helpers` now imports canonical owners directly for shared surfaces:
+      - analysis-index builder
+      - call-graph traversal helpers
+      - deadline contract carriers
+      - resume-path normalization
+    - Reduced `dataflow_deadline_runtime_owner` dependency to runtime-bridge helper surfaces only.
+  - Compatibility status:
+    - Deadline-helper shared contracts/algorithms no longer route through compatibility-owner indirection.
+  - ASPF no-change acknowledgement refreshed (`in-115`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

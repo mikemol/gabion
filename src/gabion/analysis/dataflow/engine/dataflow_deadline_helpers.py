@@ -8,22 +8,30 @@ import re
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Forest, NodeId
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _build_analysis_index as _build_analysis_index_owner,
+)
+from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
+    _collect_recursive_functions,
+    _collect_recursive_nodes as _collect_recursive_nodes_owner,
+    _reachable_from_roots as _reachable_from_roots_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo, OptionalSpan4
-from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
-    _DeadlineFunctionCollector,
     _DeadlineFunctionFacts,
     _DeadlineLoopFacts,
-    _build_analysis_index as _indexed_build_analysis_index,
+)
+from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+    _DeadlineFunctionCollector,
     _collect_call_edges as _collect_call_edges,
     _collect_call_nodes_by_path as _indexed_collect_call_nodes_by_path,
     _collect_deadline_function_facts as _indexed_collect_deadline_function_facts,
     _collect_deadline_local_info,
-    _collect_recursive_functions,
-    _collect_recursive_nodes as _indexed_collect_recursive_nodes,
-    _normalize_snapshot_path,
-    _reachable_from_roots as _indexed_reachable_from_roots,
     _resolve_callee_outcome as _indexed_resolve_callee_outcome,
+)
+from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
+    normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo, caller_param_bindings_for_call as _indexed_caller_param_bindings_for_call, classify_deadline_expr as _classify_deadline_expr, collect_call_edges_from_forest as _indexed_collect_call_edges_from_forest, collect_call_resolution_obligation_details_from_forest as _indexed_collect_call_resolution_obligation_details_from_forest, collect_call_resolution_obligations_from_forest as _indexed_collect_call_resolution_obligations_from_forest, deadline_arg_info_map as _indexed_deadline_arg_info_map, deadline_loop_forwarded_params as _indexed_deadline_loop_forwarded_params, function_suite_id as _function_suite_id, function_suite_key as _function_suite_key, is_deadline_origin_call as _is_deadline_origin_call, materialize_call_candidates as _indexed_materialize_call_candidates)
@@ -66,7 +74,7 @@ def _build_analysis_index(
     transparent_decorators,
     parse_failure_witnesses: list[JSONObject],
 ):
-    return _indexed_build_analysis_index(
+    return _build_analysis_index_owner(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -134,7 +142,7 @@ def _collect_deadline_function_facts(
 
 
 def _collect_recursive_nodes(edges) -> set[object]:
-    return _indexed_collect_recursive_nodes(edges)
+    return _collect_recursive_nodes_owner(edges)
 
 
 def _caller_param_bindings_for_call(
@@ -205,7 +213,7 @@ def _materialize_call_candidates(
 
 
 def _reachable_from_roots(edges, roots):
-    return _indexed_reachable_from_roots(edges, roots)
+    return _reachable_from_roots_owner(edges, roots)
 
 
 def _resolve_callee_outcome(
