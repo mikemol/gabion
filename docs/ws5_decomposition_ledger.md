@@ -1,5 +1,5 @@
 ---
-doc_revision: 28
+doc_revision: 29
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -470,6 +470,33 @@ doc_scope:
   - ASPF no-change acknowledgement refreshed (`in-89`).
   - Validation:
     - policy checks passed
+    - targeted runtime/dataflow suites passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase obligation/invariant fallback contraction:
+    - Removed runtime-module fallback wiring in:
+      - `_collect_exception_obligations`
+      - `_collect_handledness_witnesses`
+      - `_collect_never_invariants`
+      - `_collect_invariant_propositions`
+    - Switched these collectors to direct owner dependencies for:
+      - deadline, parent annotation, function/param/scope walkers
+      - marker/decorator matching and marker-kind lookup adapters
+      - parse-source loading for invariant collection
+      - order-policy + resume-codec helpers
+    - Added owner-local compatibility adapters to preserve downstream callable contracts:
+      - `_decorator_matches`
+      - `_decorator_name_local`
+      - `_is_marker_call`
+      - `_is_never_marker_raise`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `11` to `7`.
+  - Regression remediation:
+    - Fixed decorator-name callable-shape regressions surfaced by runtime suites by normalizing local adapter signatures.
+  - ASPF no-change acknowledgement refreshed (`in-90`).
+  - Validation:
+    - policy checks passed
+    - targeted WS5-D suites passed (`33 passed`)
     - targeted runtime/dataflow suites passed (`45 passed`)
     - evidence refresh/check passed
 

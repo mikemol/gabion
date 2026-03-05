@@ -28,6 +28,8 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _collect_functions,
     _enclosing_scopes,
     _is_test_path,
+    _node_span,
+    _param_names,
     _param_annotations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
@@ -161,6 +163,41 @@ def _runtime_module():
     from gabion.analysis.dataflow.engine import dataflow_indexed_file_scan as _runtime
 
     return _runtime
+
+
+def _parse_module_source(path: Path) -> ast.Module:
+    return ast.parse(path.read_text())
+
+
+def _decorator_matches(name: str, allowlist: set[str]) -> bool:
+    if name in allowlist:
+        return True
+    if "." in name and name.split(".")[-1] in allowlist:
+        return True
+    return False
+
+
+def _decorator_name_local(node: ast.AST):
+    return _decorator_name(node, check_deadline_fn=check_deadline)
+
+
+def _is_marker_call(call: ast.Call, aliases: set[str]) -> bool:
+    name = _decorator_name_local(call.func)
+    if not name:
+        return False
+    return _decorator_matches(name, aliases)
+
+
+def _is_never_marker_raise(
+    function: str,
+    exception_name,
+    never_exceptions: set[str],
+) -> bool:
+    if not exception_name or not never_exceptions:
+        return False
+    if not _decorator_matches(exception_name, never_exceptions):
+        return False
+    return function == "never" or function.endswith(".never")
 
 
 def _function_key(scope, name: str) -> str:
@@ -947,7 +984,6 @@ def _collect_exception_obligations(
     deadness_witnesses=None,
     never_exceptions=None,
 ):
-    runtime = _runtime_module()
     return cast(
         list[JSONObject],
         _collect_exception_obligations_impl(
@@ -958,27 +994,27 @@ def _collect_exception_obligations(
             deadness_witnesses=deadness_witnesses,
             never_exceptions=never_exceptions,
             check_deadline_fn=check_deadline,
-            parent_annotator_factory=runtime.ParentAnnotator,
-            collect_functions_fn=runtime._collect_functions,
-            param_names_fn=runtime._param_names,
+            parent_annotator_factory=ParentAnnotator,
+            collect_functions_fn=_collect_functions,
+            param_names_fn=_param_names,
             normalize_snapshot_path_fn=_normalize_snapshot_path,
             enclosing_function_node_fn=_enclosing_function_node,
-            enclosing_scopes_fn=runtime._enclosing_scopes,
+            enclosing_scopes_fn=_enclosing_scopes,
             function_key_fn=_function_key,
             exception_type_name_fn=_exception_type_name,
-            decorator_matches_fn=runtime._decorator_matches,
-            is_never_marker_raise_fn=runtime._is_never_marker_raise,
+            decorator_matches_fn=_decorator_matches,
+            is_never_marker_raise_fn=_is_never_marker_raise,
             exception_param_names_fn=_exception_param_names,
             exception_path_id_fn=_exception_path_id,
-            sequence_or_none_fn=runtime.sequence_or_none,
+            sequence_or_none_fn=sequence_or_none,
             branch_reachability_under_env_fn=_branch_reachability_under_env,
             is_reachability_false_fn=_is_reachability_false,
             is_reachability_true_fn=_is_reachability_true,
             names_in_expr_fn=_names_in_expr,
             sort_once_fn=sort_once,
-            order_policy_sort=runtime.OrderPolicy.SORT,
-            order_policy_enforce=runtime.OrderPolicy.ENFORCE,
-            mapping_or_none_fn=runtime.mapping_or_none,
+            order_policy_sort=OrderPolicy.SORT,
+            order_policy_enforce=OrderPolicy.ENFORCE,
+            mapping_or_none_fn=mapping_or_none,
             literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
         ),
     )
@@ -990,22 +1026,21 @@ def _collect_handledness_witnesses(
     project_root,
     ignore_params: set[str],
 ) -> list[JSONObject]:
-    runtime = _runtime_module()
     return cast(
         list[JSONObject],
         _collect_handledness_witnesses_impl(
             paths,
             project_root=project_root,
             ignore_params=ignore_params,
-            check_deadline_fn=runtime.check_deadline,
-            parent_annotator_factory=runtime.ParentAnnotator,
-            collect_functions_fn=runtime._collect_functions,
-            param_names_fn=runtime._param_names,
-            param_annotations_fn=runtime._param_annotations,
+            check_deadline_fn=check_deadline,
+            parent_annotator_factory=ParentAnnotator,
+            collect_functions_fn=_collect_functions,
+            param_names_fn=_param_names,
+            param_annotations_fn=_param_annotations,
             normalize_snapshot_path_fn=_normalize_snapshot_path,
             find_handling_try_fn=_find_handling_try,
             enclosing_function_node_fn=_enclosing_function_node,
-            enclosing_scopes_fn=runtime._enclosing_scopes,
+            enclosing_scopes_fn=_enclosing_scopes,
             function_key_fn=_function_key,
             refine_exception_name_from_annotations_fn=_refine_exception_name_from_annotations,
             exception_param_names_fn=_exception_param_names,
@@ -1026,7 +1061,6 @@ def _collect_never_invariants(
     marker_aliases: Sequence[str] = (),
     deadness_witnesses=None,
 ) -> list[JSONObject]:
-    runtime = _runtime_module()
     return cast(
         list[JSONObject],
         _collect_never_invariants_impl(
@@ -1036,26 +1070,26 @@ def _collect_never_invariants(
             forest=forest,
             marker_aliases=marker_aliases,
             deadness_witnesses=deadness_witnesses,
-            check_deadline_fn=runtime.check_deadline,
-            parent_annotator_factory=runtime.ParentAnnotator,
-            collect_functions_fn=runtime._collect_functions,
-            param_names_fn=runtime._param_names,
+            check_deadline_fn=check_deadline,
+            parent_annotator_factory=ParentAnnotator,
+            collect_functions_fn=_collect_functions,
+            param_names_fn=_param_names,
             normalize_snapshot_path_fn=_normalize_snapshot_path,
             enclosing_function_node_fn=_enclosing_function_node,
-            enclosing_scopes_fn=runtime._enclosing_scopes,
+            enclosing_scopes_fn=_enclosing_scopes,
             function_key_fn=_function_key,
             exception_param_names_fn=_exception_param_names,
-            node_span_fn=runtime._node_span,
+            node_span_fn=_node_span,
             dead_env_map_fn=_dead_env_map,
             branch_reachability_under_env_fn=_branch_reachability_under_env,
             is_reachability_false_fn=_is_reachability_false,
             is_reachability_true_fn=_is_reachability_true,
             names_in_expr_fn=_names_in_expr,
             sort_once_fn=sort_once,
-            order_policy_sort=runtime.OrderPolicy.SORT,
-            order_policy_enforce=runtime.OrderPolicy.ENFORCE,
-            is_marker_call_fn=runtime._is_marker_call,
-            decorator_name_fn=runtime._decorator_name,
+            order_policy_sort=OrderPolicy.SORT,
+            order_policy_enforce=OrderPolicy.ENFORCE,
+            is_marker_call_fn=_is_marker_call,
+            decorator_name_fn=_decorator_name_local,
             require_not_none_fn=require_not_none,
         ),
     )
@@ -1068,7 +1102,6 @@ def _collect_invariant_propositions(
     project_root,
     emitters: Iterable[Callable[[ast.FunctionDef], Iterable[InvariantProposition]]] = (),
 ) -> list[InvariantProposition]:
-    runtime = _runtime_module()
     return cast(
         list[InvariantProposition],
         _collect_invariant_propositions_impl(
@@ -1077,10 +1110,10 @@ def _collect_invariant_propositions(
             project_root=project_root,
             emitters=cast(Iterable[Callable[[object], Iterable[object]]], emitters),
             deps=_CollectInvariantPropositionsDeps(
-                check_deadline_fn=runtime.check_deadline,
-                parse_module_source_fn=runtime._parse_module_source,
-                collect_functions_fn=cast(Callable[[object], Iterable[object]], runtime._collect_functions),
-                param_names_fn=runtime._param_names,
+                check_deadline_fn=check_deadline,
+                parse_module_source_fn=_parse_module_source,
+                collect_functions_fn=cast(Callable[[object], Iterable[object]], _collect_functions),
+                param_names_fn=_param_names,
                 scope_path_fn=_scope_path,
                 invariant_collector_ctor=cast(Callable[..., object], _InvariantCollector),
                 invariant_proposition_type=InvariantProposition,
