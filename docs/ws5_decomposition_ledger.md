@@ -1,5 +1,5 @@
 ---
-doc_revision: 181
+doc_revision: 182
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3085,6 +3085,18 @@ doc_scope:
     - Pure import-surface normalization; no call-target or behavior change.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-240`).
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime dependency-alias convergence:
+    - `dataflow_deadline_runtime_owner.py` now uses explicit `_indexed` dependency alias names for indexed-scan imports:
+      - call edges / call nodes
+      - callee outcome runtime
+      - deadline local-info / function-facts
+      - call-candidate materialization
+    - Static `partial(...)` bindings updated accordingly; runtime behavior unchanged.
+  - Correctness impact:
+    - Naming/provenance clarity improved in deadline compatibility-owner wiring without API drift.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-241`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

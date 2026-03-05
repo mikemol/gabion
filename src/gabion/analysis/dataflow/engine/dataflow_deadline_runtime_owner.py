@@ -60,27 +60,27 @@ from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.calls.call_edges import (
     CollectCallEdgesDeps as _CollectCallEdgesDeps,
-    collect_call_edges as _collect_call_edges_core,
+    collect_call_edges as _collect_call_edges_indexed,
 )
 from gabion.analysis.indexed_scan.calls.callee_outcome_runtime import (
     CalleeOutcomeDeps as _CalleeOutcomeDeps,
     ResolveCalleeDeps as _ResolveCalleeDeps,
-    resolve_callee as _resolve_callee_core,
-    resolve_callee_outcome as _resolve_callee_outcome_core,
+    resolve_callee as _resolve_callee_indexed,
+    resolve_callee_outcome as _resolve_callee_outcome_indexed,
 )
 from gabion.analysis.indexed_scan.calls.call_nodes_by_path import (
     CallNodesForTreeDeps as _CallNodesForTreeDeps,
     CollectCallNodesByPathDeps as _CollectCallNodesByPathDeps,
-    call_nodes_for_tree as _call_nodes_for_tree_core,
-    collect_call_nodes_by_path as _collect_call_nodes_by_path_core,
+    call_nodes_for_tree as _call_nodes_for_tree_indexed,
+    collect_call_nodes_by_path as _collect_call_nodes_by_path_indexed,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_local_info import (
     CollectDeadlineLocalInfoDeps as _CollectDeadlineLocalInfoDeps,
-    collect_deadline_local_info as _collect_deadline_local_info_core,
+    collect_deadline_local_info as _collect_deadline_local_info_indexed,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
     CollectDeadlineFunctionFactsDeps as _CollectDeadlineFunctionFactsDeps,
-    collect_deadline_function_facts as _collect_deadline_function_facts_core,
+    collect_deadline_function_facts as _collect_deadline_function_facts_indexed,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo,
@@ -100,7 +100,7 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     function_suite_id as _function_suite_id,
     function_suite_key as _function_suite_key,
     is_deadline_origin_call as _is_deadline_origin_call,
-    materialize_call_candidates as _materialize_call_candidates_core,
+    materialize_call_candidates as _materialize_call_candidates_indexed,
     node_to_function_suite_id as _node_to_function_suite_id,
     node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome,
     obligation_candidate_suite_ids as _obligation_candidate_suite_ids,
@@ -160,7 +160,7 @@ _COLLECT_CALL_EDGES_DEPS = _CollectCallEdgesDeps(
 )
 
 _collect_call_edges_with_static_deps = partial(
-    _collect_call_edges_core,
+    _collect_call_edges_indexed,
     deps=_COLLECT_CALL_EDGES_DEPS,
 )
 
@@ -200,7 +200,7 @@ _RESOLVE_CALLEE_DEPS = _ResolveCalleeDeps(
 )
 
 _resolve_callee = partial(
-    _resolve_callee_core,
+    _resolve_callee_indexed,
     deps=_RESOLVE_CALLEE_DEPS,
 )
 
@@ -218,7 +218,7 @@ _CALLEE_OUTCOME_DEPS = _CalleeOutcomeDeps(
 )
 
 _resolve_callee_outcome = partial(
-    _resolve_callee_outcome_core,
+    _resolve_callee_outcome_indexed,
     deps=_CALLEE_OUTCOME_DEPS,
 )
 
@@ -231,7 +231,7 @@ _COLLECT_DEADLINE_LOCAL_INFO_DEPS = _CollectDeadlineLocalInfoDeps(
 )
 
 _collect_deadline_local_info = partial(
-    _collect_deadline_local_info_core,
+    _collect_deadline_local_info_indexed,
     deps=_COLLECT_DEADLINE_LOCAL_INFO_DEPS,
 )
 
@@ -242,7 +242,7 @@ _CALL_NODES_FOR_TREE_DEPS = _CallNodesForTreeDeps(
 )
 
 _call_nodes_for_tree = partial(
-    _call_nodes_for_tree_core,
+    _call_nodes_for_tree_indexed,
     deps=_CALL_NODES_FOR_TREE_DEPS,
 )
 
@@ -259,7 +259,7 @@ _COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(
 )
 
 _collect_call_nodes_by_path = partial(
-    _collect_call_nodes_by_path_core,
+    _collect_call_nodes_by_path_indexed,
     deps=_COLLECT_CALL_NODES_BY_PATH_DEPS,
 )
 
@@ -314,12 +314,12 @@ _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
 )
 
 _collect_deadline_function_facts = partial(
-    _collect_deadline_function_facts_core,
+    _collect_deadline_function_facts_indexed,
     deps=_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS,
 )
 
 _materialize_call_candidates_with_static_deps = partial(
-    _materialize_call_candidates_core,
+    _materialize_call_candidates_indexed,
     normalize_snapshot_path_fn=_normalize_snapshot_path,
 )
 
