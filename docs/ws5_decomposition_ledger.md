@@ -1,5 +1,5 @@
 ---
-doc_revision: 255
+doc_revision: 256
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -14,10 +14,15 @@ doc_scope:
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
+- Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+- Facade LOC (current): 306
+- Facade top-level import statements (current): 37
+- Compatibility owner max metrics (current): `loc=69`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - Direct `dataflow_facade` imports in `src/` + `tests/`: 0
 - Direct `_owner` compatibility imports in `src/` + `tests/`: 0
+- Common monolith/facade bound-surface alias deltas: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
 - WS-5 broad completion regression status: passed as of `in-160`
 
@@ -26,6 +31,12 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-315`, this CU):
+  - Refreshed current-state snapshot after convergence guard expansion:
+    - added facade and compatibility-owner metric rows
+    - recorded zero common monolith/facade bound-surface alias deltas
+  - Validation:
+    - policy checks passed
 - WS-5 continuation (`in-314`, this CU):
   - Tightened lifecycle metadata governance assertions for compatibility surfaces:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
