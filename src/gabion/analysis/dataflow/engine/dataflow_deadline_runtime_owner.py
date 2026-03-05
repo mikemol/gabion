@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+from collections.abc import Mapping
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
@@ -31,7 +32,7 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
     resolve_callee_with_effects as _resolve_callee_with_effects_impl,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import _callee_key
-from gabion.analysis.dataflow.engine.dataflow_contracts import FunctionInfo
+from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
 from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
     make_deadline_function_collector,
 )
@@ -82,6 +83,13 @@ from gabion.analysis.indexed_scan.deadline.deadline_function_facts import (
     collect_deadline_function_facts as _collect_deadline_function_facts_impl,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
+    DeadlineArgInfo as _DeadlineArgInfoRuntime,
+    bind_call_args as _bind_call_args_impl,
+    caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
+    classify_deadline_expr as _classify_deadline_expr_impl,
+    deadline_arg_info_map as _deadline_arg_info_map_impl,
+    deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl,
+    fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl,
     is_deadline_origin_call as _is_deadline_origin_call,
 )
 from gabion.order_contract import sort_once
@@ -99,6 +107,7 @@ _DeadlineFunctionCollector = make_deadline_function_collector(
     check_deadline_fn=check_deadline,
     deadline_loop_facts_ctor=_DeadlineLoopFacts,
 )
+_DeadlineArgInfo = _DeadlineArgInfoRuntime
 
 
 def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
@@ -339,21 +348,101 @@ def _collect_deadline_function_facts(
         ),
     )
 
+def _bind_call_args(
+    call_node,
+    callee: FunctionInfo,
+    *,
+    strictness: str,
+):
+    return _bind_call_args_impl(call_node, callee, strictness=strictness)
+
+
+def _caller_param_bindings_for_call(
+    call: CallArgs,
+    callee: FunctionInfo,
+    *,
+    strictness: str,
+) -> dict[str, set[str]]:
+    return _caller_param_bindings_for_call_impl(call, callee, strictness=strictness)
+
+
+def _classify_deadline_expr(
+    expr,
+    *,
+    alias_to_param: Mapping[str, str],
+    origin_vars: set[str],
+) -> _DeadlineArgInfo:
+    return _classify_deadline_expr_impl(
+        expr,
+        alias_to_param=alias_to_param,
+        origin_vars=origin_vars,
+    )
+
+
+def _fallback_deadline_arg_info(
+    call: CallArgs,
+    callee: FunctionInfo,
+    *,
+    strictness: str,
+) -> dict[str, _DeadlineArgInfo]:
+    return _fallback_deadline_arg_info_runtime_impl(call, callee, strictness=strictness)
+
+
+def _deadline_arg_info_map(
+    call: CallArgs,
+    callee: FunctionInfo,
+    *,
+    call_node,
+    alias_to_param: Mapping[str, str],
+    origin_vars: set[str],
+    strictness: str,
+) -> dict[str, _DeadlineArgInfo]:
+    return _deadline_arg_info_map_impl(
+        call,
+        callee,
+        call_node=call_node,
+        alias_to_param=alias_to_param,
+        origin_vars=origin_vars,
+        strictness=strictness,
+    )
+
+
+def _deadline_loop_forwarded_params(
+    *,
+    qual: str,
+    loop_fact: _DeadlineLoopFacts,
+    deadline_params: Mapping[str, set[str]],
+    call_infos: Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]],
+) -> set[str]:
+    return _deadline_loop_forwarded_params_impl(
+        qual=qual,
+        loop_fact=loop_fact,
+        deadline_params=deadline_params,
+        call_infos=call_infos,
+    )
+
 
 __all__ = [
     "_CalleeResolutionOutcome",
+    "_DeadlineArgInfo",
     "_DeadlineFunctionCollector",
     "_DeadlineFunctionFacts",
     "_DeadlineLoopFacts",
+    "_bind_call_args",
     "_build_analysis_index",
     "_call_nodes_for_tree",
+    "_caller_param_bindings_for_call",
+    "_classify_deadline_expr",
     "_collect_call_edges",
     "_collect_call_nodes_by_path",
     "_collect_deadline_function_facts",
     "_collect_deadline_local_info",
     "_collect_recursive_functions",
     "_collect_recursive_nodes",
+    "_deadline_arg_info_map",
     "_deadline_function_facts_for_tree",
+    "_deadline_loop_forwarded_params",
+    "_fallback_deadline_arg_info",
     "_normalize_snapshot_path",
     "_reachable_from_roots",
     "_resolve_callee_outcome",

@@ -1,5 +1,5 @@
 ---
-doc_revision: 69
+doc_revision: 70
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2517
+- Monolith LOC (current): 2465
 - Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -1195,6 +1195,27 @@ doc_scope:
     - Monolith LOC dropped to `2517`; top-level imports remain within target (`68`).
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-129`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-argument runtime owner hard-cut:
+    - Monolith wrapper bodies replaced by direct owner aliases for:
+      - `_DeadlineArgInfo`
+      - `_bind_call_args`
+      - `_caller_param_bindings_for_call`
+      - `_classify_deadline_expr`
+      - `_fallback_deadline_arg_info`
+      - `_deadline_arg_info_map`
+      - `_deadline_loop_forwarded_params`
+    - Deadline owner now owns this cluster with canonical exports.
+    - Removed redundant monolith imports for deadline arg-info runtime internals now owned by deadline runtime owner.
+  - Compatibility status:
+    - Deadline argument classification/binding surfaces are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2465`; top-level imports remain within target (`68`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-130`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

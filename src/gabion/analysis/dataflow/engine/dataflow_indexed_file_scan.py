@@ -331,12 +331,19 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _stage_cache_key_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+    _DeadlineArgInfo as _DeadlineArgInfo_owner,
+    _bind_call_args as _bind_call_args_owner,
+    _caller_param_bindings_for_call as _caller_param_bindings_for_call_owner,
+    _classify_deadline_expr as _classify_deadline_expr_owner,
     _call_nodes_for_tree as _call_nodes_for_tree_owner,
     _collect_call_edges as _collect_call_edges_owner,
     _collect_call_nodes_by_path as _collect_call_nodes_by_path_owner,
     _collect_deadline_function_facts as _collect_deadline_function_facts_owner,
     _collect_deadline_local_info as _collect_deadline_local_info_owner,
+    _deadline_arg_info_map as _deadline_arg_info_map_owner,
+    _deadline_loop_forwarded_params as _deadline_loop_forwarded_params_owner,
     _deadline_function_facts_for_tree as _deadline_function_facts_for_tree_owner,
+    _fallback_deadline_arg_info as _fallback_deadline_arg_info_owner,
 )
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     _topologically_order_report_projection_specs,
@@ -353,7 +360,22 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
-    DeadlineArgInfo as _DeadlineArgInfoRuntime, FunctionSuiteKey as _FunctionSuiteKeyRuntime, FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime, FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime, bind_call_args as _bind_call_args_impl, call_candidate_target_site as _call_candidate_target_site_impl, caller_param_bindings_for_call as _caller_param_bindings_for_call_impl, classify_deadline_expr as _classify_deadline_expr_impl, collect_call_edges_from_forest as _collect_call_edges_from_forest_impl, collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl, collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl, deadline_arg_info_map as _deadline_arg_info_map_impl, deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl, fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl, function_suite_id as _function_suite_id_impl, function_suite_key as _function_suite_key_impl, is_deadline_origin_call as _is_deadline_origin_call_impl, materialize_call_candidates as _materialize_call_candidates_impl, node_to_function_suite_id as _node_to_function_suite_id_impl, node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl, obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl, suite_caller_function_id as _suite_caller_function_id_impl)
+    FunctionSuiteKey as _FunctionSuiteKeyRuntime,
+    FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcomeRuntime,
+    FunctionSuiteLookupStatus as _FunctionSuiteLookupStatusRuntime,
+    call_candidate_target_site as _call_candidate_target_site_impl,
+    collect_call_edges_from_forest as _collect_call_edges_from_forest_impl,
+    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl,
+    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl,
+    function_suite_id as _function_suite_id_impl,
+    function_suite_key as _function_suite_key_impl,
+    is_deadline_origin_call as _is_deadline_origin_call_impl,
+    materialize_call_candidates as _materialize_call_candidates_impl,
+    node_to_function_suite_id as _node_to_function_suite_id_impl,
+    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl,
+    obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl,
+    suite_caller_function_id as _suite_caller_function_id_impl,
+)
 from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
@@ -1491,87 +1513,13 @@ def _materialize_call_candidates(
         normalize_snapshot_path_fn=_normalize_snapshot_path,
     )
 
-_DeadlineArgInfo = _DeadlineArgInfoRuntime
-
-def _bind_call_args(
-    call_node: ast.Call,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, ast.AST]:
-    return _bind_call_args_impl(call_node, callee, strictness=strictness)
-
-def _caller_param_bindings_for_call(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, set[str]]:
-    return _caller_param_bindings_for_call_impl(call, callee, strictness=strictness)
-
-def _classify_deadline_expr(
-    expr: ast.AST,
-    *,
-    alias_to_param: Mapping[str, str],
-    origin_vars: set[str],
-) -> _DeadlineArgInfo:
-    return cast(
-        _DeadlineArgInfo,
-        _classify_deadline_expr_impl(
-            expr,
-            alias_to_param=alias_to_param,
-            origin_vars=origin_vars,
-        ),
-    )
-
-def _fallback_deadline_arg_info(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    strictness: str,
-) -> dict[str, _DeadlineArgInfo]:
-    return cast(
-        dict[str, _DeadlineArgInfo],
-        _fallback_deadline_arg_info_runtime_impl(call, callee, strictness=strictness),
-    )
-
-def _deadline_arg_info_map(
-    call: CallArgs,
-    callee: FunctionInfo,
-    *,
-    call_node: OptionalAstCall,
-    alias_to_param: Mapping[str, str],
-    origin_vars: set[str],
-    strictness: str,
-) -> dict[str, _DeadlineArgInfo]:
-    return cast(
-        dict[str, _DeadlineArgInfo],
-        _deadline_arg_info_map_impl(
-            call,
-            callee,
-            call_node=call_node,
-            alias_to_param=alias_to_param,
-            origin_vars=origin_vars,
-            strictness=strictness,
-        ),
-    )
-
-def _deadline_loop_forwarded_params(
-    *,
-    qual: str,
-    loop_fact: _DeadlineLoopFacts,
-    deadline_params: Mapping[str, set[str]],
-    call_infos: Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]],
-) -> set[str]:
-    return _deadline_loop_forwarded_params_impl(
-        qual=qual,
-        loop_fact=loop_fact,
-        deadline_params=deadline_params,
-        call_infos=cast(
-            Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfoRuntime]]]],
-            call_infos,
-        ),
-    )
+_DeadlineArgInfo = _DeadlineArgInfo_owner
+_bind_call_args = _bind_call_args_owner
+_caller_param_bindings_for_call = _caller_param_bindings_for_call_owner
+_classify_deadline_expr = _classify_deadline_expr_owner
+_fallback_deadline_arg_info = _fallback_deadline_arg_info_owner
+_deadline_arg_info_map = _deadline_arg_info_map_owner
+_deadline_loop_forwarded_params = _deadline_loop_forwarded_params_owner
 
 run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
 
