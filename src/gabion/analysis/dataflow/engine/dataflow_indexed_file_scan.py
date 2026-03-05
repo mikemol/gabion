@@ -395,7 +395,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
     _run_indexed_pass,
-    _phase_work_progress_owner as _phase_work_progress,
+    _phase_work_progress,
     _profiling_v1_payload,
     _sorted_text,
     _stage_cache_key_aliases,

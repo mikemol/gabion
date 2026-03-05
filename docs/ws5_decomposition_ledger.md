@@ -1,5 +1,5 @@
 ---
-doc_revision: 172
+doc_revision: 173
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2971,6 +2971,25 @@ doc_scope:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner canonical-export normalization:
+    - Added canonical owner exports in `dataflow_analysis_index_owner.py` for:
+      - `_phase_work_progress`
+      - `_iter_monotonic_paths`
+      - `_profiling_v1_payload`
+      - `_progress_emit_min_interval_seconds`
+    - Retained compatibility aliases (`*_owner`) to preserve boundary import compatibility.
+  - Importer convergence to canonical owner names:
+    - `dataflow_pipeline.py`
+    - `dataflow_projection_materialization.py`
+    - `dataflow_lint_helpers.py`
+    - `dataflow_ingested_analysis_support.py`
+    - `dataflow_facade.py`
+    - `dataflow_indexed_file_scan.py`
+  - Correctness impact:
+    - Fixed latent monolith import break caused by missing `_iter_monotonic_paths` export in owner module; `dataflow_indexed_file_scan.py` now imports successfully.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-232`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

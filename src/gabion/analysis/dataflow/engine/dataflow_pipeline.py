@@ -25,7 +25,7 @@ from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
-    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS, _analyze_file_internal, _build_analysis_collection_resume_payload, _build_analysis_index, _iter_monotonic_paths_owner as _iter_monotonic_paths, _load_analysis_collection_resume_payload, _phase_work_progress_owner as _phase_work_progress, _profiling_v1_payload_owner as _profiling_v1_payload)
+    _PROGRESS_EMIT_MIN_INTERVAL_SECONDS, _analyze_file_internal, _build_analysis_collection_resume_payload, _build_analysis_index, _iter_monotonic_paths, _load_analysis_collection_resume_payload, _phase_work_progress, _profiling_v1_payload)
 from gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers import (
     _collect_call_ambiguities, _emit_call_ambiguities, _materialize_ambiguity_suite_agg_spec, _materialize_ambiguity_virtual_set_spec, _materialize_suite_order_spec, _populate_bundle_forest)
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (

@@ -234,13 +234,16 @@ _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
 
-def _phase_work_progress_owner(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
+def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
     check_deadline()
     normalized_total = max(int(work_total), 0)
     normalized_done = max(int(work_done), 0)
     if normalized_total:
         normalized_done = min(normalized_done, normalized_total)
     return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
+
+
+_phase_work_progress_owner = _phase_work_progress
 
 
 def _default_parse_module(path: Path) -> ast.Module:
@@ -440,7 +443,7 @@ _accumulate_class_index_for_tree_runtime = partial(
 )
 
 
-def _iter_monotonic_paths_owner(paths, *, source: str):
+def _iter_monotonic_paths(paths, *, source: str):
     ordered: list[Path] = []
     previous_path_key = ""
     has_previous_path_key = False
@@ -460,7 +463,10 @@ def _iter_monotonic_paths_owner(paths, *, source: str):
     return ordered
 
 
-def _profiling_v1_payload_owner(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
+_iter_monotonic_paths_owner = _iter_monotonic_paths
+
+
+def _profiling_v1_payload(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
     return {
         "format_version": _ANALYSIS_PROFILING_FORMAT_VERSION,
         "stage_ns": {str(key): int(stage_ns[key]) for key in stage_ns},
@@ -468,8 +474,14 @@ def _profiling_v1_payload_owner(*, stage_ns: Mapping[str, int], counters: Mappin
     }
 
 
-def _progress_emit_min_interval_seconds_owner() -> float:
+_profiling_v1_payload_owner = _profiling_v1_payload
+
+
+def _progress_emit_min_interval_seconds() -> float:
     return float(_PROGRESS_EMIT_MIN_INTERVAL_SECONDS)
+
+
+_progress_emit_min_interval_seconds_owner = _progress_emit_min_interval_seconds
 
 
 def _path_dependency_payload(path: Path) -> dict[str, object]:
@@ -870,7 +882,7 @@ def _analyze_file_internal(
                 collect_return_aliases_fn=_collect_return_aliases,
                 load_file_scan_resume_state_fn=_load_file_scan_resume_state,
                 serialize_file_scan_resume_state_fn=_serialize_file_scan_resume_state,
-                profiling_payload_fn=_profiling_v1_payload_owner,
+                profiling_payload_fn=_profiling_v1_payload,
                 enclosing_class_fn=_enclosing_class,
                 enclosing_scopes_fn=_enclosing_scopes,
                 enclosing_function_scopes_fn=_enclosing_function_scopes,
@@ -883,7 +895,7 @@ def _analyze_file_internal(
                 is_test_path_fn=_is_test_path,
                 parent_annotator_factory=ParentAnnotator,
                 file_scan_progress_emit_interval=_FILE_SCAN_PROGRESS_EMIT_INTERVAL,
-                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds_owner(),
+                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds(),
                 analyze_ingested_file_fn=_analyze_ingested_file_owner,
             ),
         ),
@@ -935,11 +947,11 @@ def _build_analysis_index(
                 cache_context_ctor=_CacheSemanticContext,
                 index_stage_cache_identity_fn=_index_stage_cache_identity,
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
-                iter_monotonic_paths_fn=_iter_monotonic_paths_owner,
+                iter_monotonic_paths_fn=_iter_monotonic_paths,
                 load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload_owner,
                 function_index_acc_ctor=_function_index_acc_ctor_runtime,
                 sort_once_fn=sort_once,
-                profiling_payload_fn=_profiling_v1_payload_owner,
+                profiling_payload_fn=_profiling_v1_payload,
                 serialize_resume_payload_fn=_serialize_analysis_index_resume_payload_owner,
                 parse_module_source_fn=_default_parse_module,
                 parse_module_error_types=cast(
@@ -954,7 +966,7 @@ def _build_analysis_index(
                 accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree_runtime,
                 timeout_exceeded_type=TimeoutExceeded,
                 analysis_index_ctor=_analysis_index_ctor_runtime,
-                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds_owner(),
+                progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds(),
             ),
         ),
     )
@@ -1057,10 +1069,14 @@ __all__ = [
     "_normalize_cache_config",
     "_parse_stage_cache_key",
     "_path_dependency_payload",
+    "_profiling_v1_payload",
     "_projection_stage_cache_identity",
+    "_progress_emit_min_interval_seconds",
     "_reduce_resolved_call_edges",
     "_resume_variant_for_identity",
     "_run_indexed_pass",
+    "_iter_monotonic_paths",
+    "_phase_work_progress",
     "_PhaseWorkProgress",
     "_phase_work_progress_owner",
     "_IndexedPassContext",

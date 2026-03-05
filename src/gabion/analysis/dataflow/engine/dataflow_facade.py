@@ -35,8 +35,8 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _analyze_file_internal,
     _build_function_index_runtime as _build_function_index,
     _build_symbol_table_runtime as _build_symbol_table,
-    _phase_work_progress_owner as _phase_work_progress,
-    _profiling_v1_payload_owner as _profiling_v1_payload,
+    _phase_work_progress,
+    _profiling_v1_payload,
     _stage_cache_key_aliases,
     analyze_file,
 )

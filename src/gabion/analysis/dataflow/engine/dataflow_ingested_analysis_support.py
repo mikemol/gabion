@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import cast
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
-    _profiling_v1_payload_owner as _profiling_v1_payload,
+    _profiling_v1_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, CallArgs, ParamUse
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
