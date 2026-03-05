@@ -175,6 +175,33 @@ def test_legacy_owner_modules_preserve_alias_parity() -> None:
     )
 
 
+def test_legacy_owner_modules_match_canonical_all_surface_exactly() -> None:
+    owner_to_canonical = {
+        "gabion.analysis.dataflow.engine.dataflow_analysis_index_owner": (
+            "gabion.analysis.dataflow.engine.dataflow_analysis_index"
+        ),
+        "gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner": (
+            "gabion.analysis.dataflow.engine.dataflow_deadline_runtime"
+        ),
+        "gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner": (
+            "gabion.analysis.dataflow.engine.dataflow_runtime_reporting"
+        ),
+        "gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner": (
+            "gabion.analysis.dataflow.engine.dataflow_deadline_summary"
+        ),
+    }
+    for owner_module_path, canonical_module_path in owner_to_canonical.items():
+        owner = _load(owner_module_path)
+        canonical = _load(canonical_module_path)
+        owner_all = tuple(getattr(owner, "__all__", ()))
+        canonical_all = tuple(getattr(canonical, "__all__", ()))
+        assert owner_all == canonical_all, (
+            "legacy owner compatibility module must match canonical __all__ "
+            f"surface exactly; owner={owner_module_path} "
+            f"canonical={canonical_module_path}"
+        )
+
+
 def test_legacy_monolith_and_facade_selected_symbol_alias_parity() -> None:
     # Monolith compatibility aliases by phase owner.
     _assert_symbol_alias(

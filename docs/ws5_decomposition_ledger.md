@@ -1,5 +1,5 @@
 ---
-doc_revision: 260
+doc_revision: 261
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,16 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-323`, this CU):
+  - Hardened compatibility-owner export-surface parity checks:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+    - added `test_legacy_owner_modules_match_canonical_all_surface_exactly`
+  - Enforcement:
+    - each `_owner` compatibility module `__all__` must match canonical owner `__all__` exactly (ordered surface equality), not just alias exported members
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`18 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected new-test/line-shift mapping drift
 - WS-5 continuation (`in-322`, this CU):
   - Added dedicated facade-import hygiene enforcement for internal repo surfaces:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_import_hygiene.py`
