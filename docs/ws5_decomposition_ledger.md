@@ -1,5 +1,5 @@
 ---
-doc_revision: 178
+doc_revision: 179
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3050,6 +3050,21 @@ doc_scope:
     - Deadline runtime compatibility-owner API remains stable; only dependency-binding naming surface converged.
     - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-237`).
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index carrier/runtime-name convergence:
+    - `dataflow_analysis_index_owner.py` now defines canonical internal helper names for:
+      - `_analysis_index_ctor`
+      - `_function_index_acc_ctor`
+      - `_build_single_module_artifact`
+    - `_runtime` compatibility aliases retained:
+      - `_analysis_index_ctor_runtime`
+      - `_function_index_acc_ctor_runtime`
+      - `_build_single_module_artifact_runtime`
+    - Owner dependency wiring switched to canonical internal names in analysis-index builder deps.
+  - Correctness impact:
+    - Carrier/materialization behavior unchanged; this is naming-surface convergence only.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-238`).
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.

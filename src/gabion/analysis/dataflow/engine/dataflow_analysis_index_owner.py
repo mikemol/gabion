@@ -250,9 +250,11 @@ def _default_parse_module(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
 
-_analysis_index_ctor_runtime = _AnalysisIndexCarrier
+_analysis_index_ctor = _AnalysisIndexCarrier
+_analysis_index_ctor_runtime = _analysis_index_ctor
 
-_function_index_acc_ctor_runtime = _FunctionIndexAccumulator
+_function_index_acc_ctor = _FunctionIndexAccumulator
+_function_index_acc_ctor_runtime = _function_index_acc_ctor
 
 
 _FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
@@ -325,7 +327,7 @@ def _function_index_module_artifact_spec(
 _function_index_module_artifact_spec_runtime = _function_index_module_artifact_spec
 
 
-def _build_single_module_artifact_runtime(
+def _build_single_module_artifact(
     paths: list[Path],
     *,
     spec: _ModuleArtifactSpec[object, object],
@@ -340,6 +342,9 @@ def _build_single_module_artifact_runtime(
     return raw_artifact
 
 
+_build_single_module_artifact_runtime = _build_single_module_artifact
+
+
 def _build_function_index(
     paths: list[Path],
     project_root,
@@ -349,7 +354,7 @@ def _build_function_index(
     *,
     parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
-    raw_index = _build_single_module_artifact_runtime(
+    raw_index = _build_single_module_artifact(
         paths,
         spec=cast(
             _ModuleArtifactSpec[object, object],
@@ -427,7 +432,7 @@ def _build_symbol_table(
     external_filter: bool,
     parse_failure_witnesses: list[JSONObject],
 ) -> SymbolTable:
-    raw_table = _build_single_module_artifact_runtime(
+    raw_table = _build_single_module_artifact(
         paths,
         spec=cast(
             _ModuleArtifactSpec[object, object],
@@ -966,7 +971,7 @@ def _build_analysis_index(
                 projection_stage_cache_identity_fn=_projection_stage_cache_identity,
                 iter_monotonic_paths_fn=_iter_monotonic_paths,
                 load_analysis_index_resume_payload_fn=_load_analysis_index_resume_payload,
-                function_index_acc_ctor=_function_index_acc_ctor_runtime,
+                function_index_acc_ctor=_function_index_acc_ctor,
                 sort_once_fn=sort_once,
                 profiling_payload_fn=_profiling_v1_payload,
                 serialize_resume_payload_fn=_serialize_analysis_index_resume_payload,
@@ -982,7 +987,7 @@ def _build_analysis_index(
                 accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree,
                 accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree,
                 timeout_exceeded_type=TimeoutExceeded,
-                analysis_index_ctor=_analysis_index_ctor_runtime,
+                analysis_index_ctor=_analysis_index_ctor,
                 progress_emit_min_interval_seconds=_progress_emit_min_interval_seconds(),
             ),
         ),
