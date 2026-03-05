@@ -7,8 +7,8 @@ from pathlib import Path
 _MONOLITH_RELATIVE_PATH = (
     "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
 )
-_MAX_MONOLITH_LOC = 500
-_MAX_MONOLITH_TOP_LEVEL_IMPORTS = 55
+_MAX_MONOLITH_LOC = 450
+_MAX_MONOLITH_TOP_LEVEL_IMPORTS = 53
 
 
 def test_legacy_monolith_metrics_stay_within_budget() -> None:
