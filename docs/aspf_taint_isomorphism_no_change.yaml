@@ -514,3 +514,4 @@ justification: marker protocol generalization now classifies todo/deprecated mar
 
 # CU: never invariant lint-line formatter now reads per-entry marker_kind with legacy default `never` and emits `<marker_kind>() invariant (...)`; this is message-label formatting only and preserves ASPF taint crosswalk identifiers.
 # CU: WS-5 stability private-symbol import governance adds guard/baseline/allowlist artifacts and test-only policy enforcement without changing semantic runtime behavior; ASPF taint crosswalk identifiers remain unchanged.
+# CU: WS-5 stability deadline-runtime DI normalization replaces `None` resolver fallback branches with explicit default callable injection for `_collect_call_edges` and `_materialize_call_candidates`; behavior is preserved and ASPF taint crosswalk identifiers remain unchanged.

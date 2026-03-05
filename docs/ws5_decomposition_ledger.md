@@ -1,5 +1,5 @@
 ---
-doc_revision: 269
+doc_revision: 270
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,20 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 stability (`psi-2`, this CU):
+  - Normalized deadline-runtime helper injection to default-arg DI for local seams in:
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py`
+      - removed `_resolve_outcome_or_default` trampoline
+      - `_collect_call_edges(..., resolve_callee_outcome_fn=_resolve_callee_outcome)`
+      - `_materialize_call_candidates(..., resolve_callee_outcome_fn=_resolve_callee_outcome)`
+  - Added focused override-injection parity tests:
+    - `tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py`
+      - `test_collect_call_edges_uses_injected_resolver`
+      - `test_materialize_call_candidates_uses_injected_resolver`
+  - Validation:
+    - policy checks passed
+    - targeted deadline/callee compatibility pytest bundle passed
+    - evidence refresh executed; expected drift captured in `out/test_evidence.json`
 - WS-5 stability (`psi-1`, this CU):
   - Added private-symbol import ratchet guard + policy artifacts:
     - `scripts/policy/private_symbol_import_guard.py`

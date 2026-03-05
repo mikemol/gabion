@@ -6,6 +6,7 @@ from __future__ import annotations
 from functools import partial
 from pathlib import Path
 import re
+from typing import Callable
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
@@ -158,32 +159,6 @@ _collect_call_edges_with_static_deps = partial(
 )
 
 
-def _resolve_outcome_or_default(resolve_callee_outcome_fn):
-    if resolve_callee_outcome_fn is None:
-        return _resolve_callee_outcome
-    return resolve_callee_outcome_fn
-
-
-def _collect_call_edges(
-    *,
-    by_name,
-    by_qual,
-    symbol_table,
-    project_root,
-    class_index,
-    resolve_callee_outcome_fn=None,
-):
-    resolver = _resolve_outcome_or_default(resolve_callee_outcome_fn)
-    return _collect_call_edges_with_static_deps(
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-        resolve_callee_outcome_fn=resolver,
-    )
-
-
 _RESOLVE_CALLEE_DEPS = _ResolveCalleeDeps(
     check_deadline_fn=check_deadline,
     callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
@@ -214,6 +189,25 @@ _resolve_callee_outcome = partial(
     _resolve_callee_outcome_indexed,
     deps=_CALLEE_OUTCOME_DEPS,
 )
+
+
+def _collect_call_edges(
+    *,
+    by_name,
+    by_qual,
+    symbol_table,
+    project_root,
+    class_index,
+    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] = _resolve_callee_outcome,
+):
+    return _collect_call_edges_with_static_deps(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        resolve_callee_outcome_fn=resolve_callee_outcome_fn,
+    )
 
 
 _COLLECT_DEADLINE_LOCAL_INFO_DEPS = _CollectDeadlineLocalInfoDeps(
@@ -325,9 +319,8 @@ def _materialize_call_candidates(
     symbol_table,
     project_root,
     class_index: dict[str, object],
-    resolve_callee_outcome_fn=None,
+    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] = _resolve_callee_outcome,
 ) -> None:
-    resolver = _resolve_outcome_or_default(resolve_callee_outcome_fn)
     _materialize_call_candidates_with_static_deps(
         forest=forest,
         by_name=by_name,
@@ -335,7 +328,7 @@ def _materialize_call_candidates(
         symbol_table=symbol_table,
         project_root=project_root,
         class_index=class_index,
-        resolve_callee_outcome_fn=resolver,
+        resolve_callee_outcome_fn=resolve_callee_outcome_fn,
     )
 
 

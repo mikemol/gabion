@@ -79,6 +79,7 @@ def _load():
         _is_deadline_origin_call=deadline_helpers._is_deadline_origin_call,
         _is_deadline_param=deadline_helpers._is_deadline_param,
         _materialize_projection_spec_rows=projection._materialize_projection_spec_rows,
+        _materialize_call_candidates=deadline_helpers._materialize_call_candidates,
         _spec_row_span=projection._spec_row_span,
         _summarize_deadline_obligations=deadline_summary._summarize_deadline_obligations,
     )
@@ -317,6 +318,61 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
         {"a": {"a"}, "b": {"c"}, "c": {"b"}}
     )
     assert recursive == {"a", "b", "c"}
+
+
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_edges
+def test_collect_call_edges_uses_injected_resolver() -> None:
+    da = _load()
+    call = da.CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(1, 0, 1, 10),
+    )
+    caller = _make_fn_info(
+        da,
+        name="live",
+        qual="mod.live",
+        path=Path("mod.py"),
+        calls=[call],
+    )
+    candidate = _make_fn_info(
+        da,
+        name="callee",
+        qual="mod.callee",
+        path=Path("mod.py"),
+    )
+    by_name = {"live": [caller]}
+    by_qual = {caller.qual: caller, candidate.qual: candidate}
+    seen: list[str] = []
+
+    def _resolve(*_args, **_kwargs):
+        seen.append("called")
+        return SimpleNamespace(
+            status="resolved",
+            candidates=[candidate],
+            phase="injected",
+            callee_key="callee",
+        )
+
+    edges = da._collect_call_edges(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=da.SymbolTable(external_filter=True),
+        project_root=None,
+        class_index={},
+        resolve_callee_outcome_fn=_resolve,
+    )
+
+    assert seen == ["called"]
+    assert edges == {"mod.live": {"mod.callee"}}
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_forwarded_params_branches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deadline_loop_forwarded_params::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info
 def test_deadline_loop_forwarded_params_branches() -> None:
@@ -940,6 +996,63 @@ def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> 
         node.kind == "SuiteSite" and node.meta.get("suite_kind") == "function"
         for node in call_candidate_targets
     )
+
+
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_call_candidates
+def test_materialize_call_candidates_uses_injected_resolver() -> None:
+    da = _load()
+    forest = da.Forest()
+    call = da.CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    caller = _make_fn_info(
+        da,
+        name="root",
+        qual="mod.root",
+        path=Path("mod.py"),
+        calls=[call],
+    )
+    candidate = _make_fn_info(
+        da,
+        name="callee",
+        qual="mod.callee",
+        path=Path("mod.py"),
+    )
+    by_name = {"root": [caller], "callee": [candidate]}
+    by_qual = {caller.qual: caller, candidate.qual: candidate}
+    seen: list[str] = []
+
+    def _resolve(*_args, **_kwargs):
+        seen.append("called")
+        return SimpleNamespace(
+            status="resolved",
+            candidates=[candidate],
+            phase="injected",
+            callee_key="callee",
+        )
+
+    da._materialize_call_candidates(
+        forest=forest,
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=da.SymbolTable(external_filter=True),
+        project_root=None,
+        class_index={},
+        resolve_callee_outcome_fn=_resolve,
+    )
+
+    assert seen == ["called"]
+    assert any(alt.kind == "CallCandidate" for alt in forest.alts)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 def test_deadline_summary_handles_bad_span() -> None:
