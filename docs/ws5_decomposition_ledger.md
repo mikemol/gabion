@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 30
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -498,6 +498,22 @@ doc_scope:
     - policy checks passed
     - targeted WS5-D suites passed (`33 passed`)
     - targeted runtime/dataflow suites passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase constant-flow fallback contraction:
+    - `_collect_constant_flow_details` now uses canonical indexed-scan deps directly (no runtime-module wrapper path).
+    - Added owner-local reducer/detail carriers for explicit constant-flow folding contracts:
+      - `_ResolvedEdgeReducerSpec`
+      - `ConstantFlowDetail`
+    - Default edge-event/reduction deps now bind to analysis-index owner functions:
+      - `_iter_resolved_edge_param_events`
+      - `_reduce_resolved_call_edges`
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `7` to `6`.
+  - ASPF no-change acknowledgement refreshed (`in-91`).
+  - Validation:
+    - policy checks passed
+    - targeted constant-flow + runtime/dataflow suites passed (`55 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

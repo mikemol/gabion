@@ -22,6 +22,8 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _IndexedPassSpec,
     _analysis_index_resolved_call_edges,
     _analysis_index_resolved_call_edges_by_caller,
+    _iter_resolved_edge_param_events,
+    _reduce_resolved_call_edges,
     _run_indexed_pass,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
@@ -88,6 +90,10 @@ from gabion.analysis.indexed_scan.scanners.flow.type_flow import (
 )
 from gabion.analysis.indexed_scan.scanners.flow.unused_arg_flow import (
     analyze_unused_arg_flow_indexed as _analyze_unused_arg_flow_indexed_impl,
+)
+from gabion.analysis.indexed_scan.scanners.flow.constant_flow_details import (
+    CollectConstantFlowDetailsDeps as _CollectConstantFlowDetailsDeps,
+    collect_constant_flow_details as _collect_constant_flow_details_impl,
 )
 from gabion.analysis.indexed_scan.obligations.exception_obligations import (
     collect_exception_obligations as _collect_exception_obligations_impl,
@@ -932,15 +938,10 @@ def _collect_constant_flow_details(
     iter_resolved_edge_param_events_fn=None,
     reduce_resolved_call_edges_fn=None,
 ):
-    from gabion.analysis.indexed_scan.scanners.flow.constant_flow_details import (
-        collect_constant_flow_details_from_runtime_module as _collect_constant_flow_details_impl,
-    )
-
-    runtime = _runtime_module()
     if iter_resolved_edge_param_events_fn is None:
-        iter_resolved_edge_param_events_fn = runtime._iter_resolved_edge_param_events
+        iter_resolved_edge_param_events_fn = _iter_resolved_edge_param_events
     if reduce_resolved_call_edges_fn is None:
-        reduce_resolved_call_edges_fn = runtime._reduce_resolved_call_edges
+        reduce_resolved_call_edges_fn = _reduce_resolved_call_edges
     return cast(
         list[object],
         _collect_constant_flow_details_impl(
@@ -954,7 +955,16 @@ def _collect_constant_flow_details(
             analysis_index=analysis_index,
             iter_resolved_edge_param_events_fn=iter_resolved_edge_param_events_fn,
             reduce_resolved_call_edges_fn=reduce_resolved_call_edges_fn,
-            runtime_module=runtime,
+            deps=_CollectConstantFlowDetailsDeps(
+                check_deadline_fn=check_deadline,
+                require_not_none_fn=require_not_none,
+                resolved_edge_reducer_spec_ctor=_ResolvedEdgeReducerSpec,
+                constant_flow_fold_accumulator_ctor=_ConstantFlowFoldAccumulator,
+                format_call_site_fn=_format_call_site,
+                function_key_fn=_function_key,
+                sort_once_fn=sort_once,
+                constant_flow_detail_ctor=ConstantFlowDetail,
+            ),
         ),
     )
 
@@ -973,6 +983,25 @@ class _ConstantFlowFoldAccumulator:
     call_sites: dict[tuple[str, str], set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
+
+
+@dataclass(frozen=True)
+class _ResolvedEdgeReducerSpec:
+    reducer_id: str
+    init: Callable[[], object]
+    fold: Callable[[object, object], None]
+    finish: Callable[[object], object]
+
+
+@dataclass(frozen=True)
+class ConstantFlowDetail:
+    path: Path
+    qual: str
+    name: str
+    param: str
+    value: str
+    count: int
+    sites: tuple[str, ...] = ()
 
 
 def _collect_exception_obligations(
