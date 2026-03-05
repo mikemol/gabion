@@ -1,5 +1,5 @@
 ---
-doc_revision: 37
+doc_revision: 38
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -649,6 +649,26 @@ doc_scope:
   - Monolith-coupling status:
     - Direct local imports from `dataflow_indexed_file_scan.py` in `dataflow_analysis_index_owner.py` reduced from `6` to `4`.
   - ASPF no-change acknowledgement refreshed (`in-98`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner symbol/class accumulation contraction:
+    - Removed monolith fallback imports for:
+      - `_accumulate_symbol_table_for_tree`
+      - `_accumulate_class_index_for_tree`
+    - Switched symbol-table accumulation to owner-local canonical helper wiring:
+      - `ImportVisitor`
+      - `_module_name`
+      - `_collect_module_exports`
+    - Switched class-index accumulation to canonical indexed-scan accumulator deps:
+      - `AccumulateClassIndexForTreeDeps`
+      - `accumulate_class_index_for_tree`
+      - `ParentAnnotator`, `_enclosing_class_scopes`, `_base_identifier`, `ClassInfo`
+  - Monolith-coupling status:
+    - Direct local imports from `dataflow_indexed_file_scan.py` in `dataflow_analysis_index_owner.py` reduced from `4` to `2`.
+  - ASPF no-change acknowledgement refreshed (`in-99`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

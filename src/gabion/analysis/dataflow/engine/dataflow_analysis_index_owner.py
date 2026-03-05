@@ -29,8 +29,17 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
     _parse_failure_sink,
     _record_parse_failure_witness,
 )
+from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    ImportVisitor,
+    ParentAnnotator,
+    _base_identifier,
+    _collect_module_exports,
+    _enclosing_class_scopes,
+    _module_name,
+    _resolve_callee,
+)
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
 from gabion.analysis.foundation.json_types import JSONObject
@@ -56,6 +65,10 @@ from gabion.analysis.indexed_scan.scanners.edge_param_events import (
 )
 from gabion.analysis.indexed_scan.scanners.key_aliases import (
     stage_cache_key_aliases as _stage_cache_key_aliases_impl,
+)
+from gabion.analysis.indexed_scan.scanners.class_index_accumulator import (
+    AccumulateClassIndexForTreeDeps as _AccumulateClassIndexForTreeDeps,
+    accumulate_class_index_for_tree as _accumulate_class_index_for_tree_impl,
 )
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -221,16 +234,21 @@ def _accumulate_symbol_table_for_tree_runtime(
     *,
     project_root,
 ) -> None:
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _accumulate_symbol_table_for_tree as _accumulate_symbol_table_for_tree_impl_runtime,
-    )
-
-    _accumulate_symbol_table_for_tree_impl_runtime(
-        table,
-        path,
+    check_deadline()
+    module = _module_name(path, project_root)
+    table.internal_roots.add(module.split(".")[0])
+    visitor = ImportVisitor(module, table)
+    visitor.visit(tree)
+    import_map = {
+        local: fqn for (mod, local), fqn in table.imports.items() if mod == module
+    }
+    exports, export_map = _collect_module_exports(
         tree,
-        project_root=project_root,
+        module_name=module,
+        import_map=import_map,
     )
+    table.module_exports[module] = exports
+    table.module_export_map[module] = export_map
 
 
 def _accumulate_class_index_for_tree_runtime(
@@ -240,15 +258,19 @@ def _accumulate_class_index_for_tree_runtime(
     *,
     project_root,
 ) -> None:
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
-        _accumulate_class_index_for_tree as _accumulate_class_index_for_tree_impl_runtime,
-    )
-
-    _accumulate_class_index_for_tree_impl_runtime(
+    _accumulate_class_index_for_tree_impl(
         class_index,
         path,
         tree,
         project_root=project_root,
+        deps=_AccumulateClassIndexForTreeDeps(
+            check_deadline_fn=check_deadline,
+            parent_annotator_ctor=ParentAnnotator,
+            module_name_fn=_module_name,
+            enclosing_class_scopes_fn=_enclosing_class_scopes,
+            base_identifier_fn=_base_identifier,
+            class_info_ctor=ClassInfo,
+        ),
     )
 
 
