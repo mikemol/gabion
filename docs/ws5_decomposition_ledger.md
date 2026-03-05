@@ -1,5 +1,5 @@
 ---
-doc_revision: 102
+doc_revision: 103
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1822,10 +1822,22 @@ doc_scope:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade dynamic-fallback retirement:
+    - Removed `dataflow_facade.__getattr__` and `dataflow_facade.__dir__`.
+    - Static export bindings now fully satisfy tested facade symbol access without runtime attribute fallback.
+  - Compatibility status:
+    - Facade-heavy targeted suites remain green (`138 passed`) after fallback removal.
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-163`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
-2. Dynamic-fallback retirement: continue replacing `dataflow_facade.__getattr__` dependency with explicit static exports until fallback removal is safe.
+2. Facade surface minimization: reduce explicit export inventory to canonical owner entrypoints and prune legacy-only aliases that are no longer exercised.
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`

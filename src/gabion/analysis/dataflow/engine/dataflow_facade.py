@@ -229,11 +229,3 @@ _STATIC_FACADE_EXPORTS = (
 
 for _name in _STATIC_FACADE_EXPORTS:
     globals().setdefault(_name, getattr(_runtime, _name))
-
-
-def __getattr__(name: str):
-    return getattr(_runtime, name)
-
-
-def __dir__() -> list[str]:
-    return sorted(set(dir(_runtime)))
