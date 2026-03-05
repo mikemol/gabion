@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
+from gabion.analysis.dataflow.engine import dataflow_analysis_index_owner as index_owner
+from gabion.analysis.dataflow.engine import dataflow_ingested_analysis_support as ingest_support
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, CallArgs, ParamUse
+
+da = SimpleNamespace(
+    _group_by_signature=ingest_support._group_by_signature,
+    _union_groups=ingest_support._union_groups,
+    _propagate_groups=ingest_support._propagate_groups,
+    analyze_file=index_owner.analyze_file,
+)
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._union_groups::groups
