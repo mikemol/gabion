@@ -1,5 +1,5 @@
 ---
-doc_revision: 66
+doc_revision: 67
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1154,10 +1154,33 @@ doc_scope:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase exception-helper fix-forward:
+    - `dataflow_post_phase_analyses` now uses the owner-local decorator wrapper (`_decorator_name_local`) for:
+      - `_exception_type_name`
+      - `_handler_type_names`
+      - `_exception_handler_compatibility`
+    - This restores callable-shape compatibility after ownerization (required `check_deadline_fn` binding) and fixes the broad-suite failure in `test_dataflow_indexed_helper_branches`.
+  - WS-5 completion sweep status:
+    - Broad convergence suite passed (`612 passed`):
+      - server/core
+      - CLI/runtime
+      - governance
+      - refactor
+    - Broad dataflow + impacted suites passed (`252 passed`):
+      - `tests/gabion/analysis/dataflow_s1`
+      - `tests/gabion/analysis/dataflow_s2`
+      - impacted type/misc/structure suites
+    - Evidence refresh/check passed.
+  - ASPF no-change acknowledgement refreshed (`in-128`).
+  - WS-5 target check:
+    - monolith LOC `2661` (target `<=3200`)
+    - monolith top-level imports `68` (target `<=70`)
+    - direct monolith imports `src=0`, `tests=0`
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: evaluate whether `dataflow_facade`, `dataflow_analysis_index_owner`, and `dataflow_deadline_runtime_owner` can be reduced to pure re-export veneers or removed behind canonical owners.
-2. Final WS-5 regression sweep and stabilization pass before declaring WS-5 complete.
+2. WS-5 completion declaration + follow-on backlog split (post-WS5 cleanup unit vs. optional compatibility-owner retirements).
 
 ## Validation Checklist Per CU
 - `scripts/policy/policy_check.py --workflows`

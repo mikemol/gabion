@@ -425,7 +425,7 @@ def _exception_param_names(expr, params: set[str]) -> list[str]:
 
 
 def _exception_type_name(expr):
-    return _exc_exception_type_name(expr, decorator_name=_decorator_name)
+    return _exc_exception_type_name(expr, decorator_name=_decorator_name_local)
 
 
 def _annotation_exception_candidates(annotation) -> tuple[str, ...]:
@@ -481,7 +481,7 @@ def _refine_exception_name_from_annotations(
 def _handler_type_names(handler_type) -> tuple[str, ...]:
     return _exc_handler_type_names(
         handler_type,
-        decorator_name=_decorator_name,
+        decorator_name=_decorator_name_local,
         check_deadline=check_deadline,
     )
 
@@ -493,7 +493,7 @@ def _exception_handler_compatibility(
     return _exc_exception_handler_compatibility(
         exception_name,
         handler_type,
-        decorator_name=_decorator_name,
+        decorator_name=_decorator_name_local,
         check_deadline=check_deadline,
     )
 
