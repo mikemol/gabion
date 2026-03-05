@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from gabion.analysis.foundation.marker_protocol import (
-    MarkerKind, MarkerLifecycleState, MarkerPayload, SemanticLinkKind, SemanticReference)
+    MarkerKind, MarkerLifecycleState, MarkerPayload, MarkerReasoning, SemanticLinkKind, SemanticReference)
 from gabion import invariants
 from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
@@ -44,6 +44,23 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
+def test_never_reasoning_boundary_normalizer_sets_summary_and_dependencies() -> None:
+    with pytest.raises(NeverThrown) as exc_info:
+        invariants.never(
+            reasoning={
+                "summary": "  normalized summary  ",
+                "control": "  decision branch  ",
+                "blocking_dependencies": ["dep-b", "dep-a", " dep-b "],
+            }
+        )
+
+    payload = exc_info.value.marker_payload
+    assert payload.reason == "normalized summary"
+    assert payload.reasoning.control == "decision branch"
+    assert payload.reasoning.blocking_dependencies == ("dep-a", "dep-b")
+
+
+# gabion:evidence E:function_site::invariants.py::gabion.invariants.never
 def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         invariants.never(
@@ -64,6 +81,7 @@ def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
     custom_payload = MarkerPayload(
         marker_kind=MarkerKind.NEVER,
         reason="boom",
+        reasoning=MarkerReasoning(summary="boom", control="", blocking_dependencies=()),
         owner="core",
         expiry="2099-01-01",
         lifecycle_state=MarkerLifecycleState.ACTIVE,
