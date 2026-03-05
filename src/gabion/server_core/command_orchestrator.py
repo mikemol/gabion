@@ -2061,12 +2061,6 @@ def _run_analysis_with_progress(
     from gabion.runtime import policy_runtime
 
     runtime_policy = policy_runtime.runtime_policy_from_env()
-    payload_proof_mode = context.payload.get("proof_mode")
-    if payload_proof_mode in {"on", "off"}:
-        runtime_policy = dataclasses.replace(
-            runtime_policy,
-            proof_mode_enabled=(payload_proof_mode == "on"),
-        )
     payload_order_policy = context.payload.get("order_policy")
     if isinstance(payload_order_policy, str) and payload_order_policy.strip():
         runtime_policy = dataclasses.replace(

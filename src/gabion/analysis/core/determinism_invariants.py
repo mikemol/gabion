@@ -1,11 +1,11 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
 
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never, proof_mode
+from gabion.invariants import never
 
 
 T = TypeVar("T")
@@ -15,7 +15,7 @@ def _identity_key(value: T) -> object:
     return value
 
 
-def _noop_violation(_payload: dict[str, object]) -> None:
+def _noop_violation(_payload: object) -> None:
     return None
 
 
@@ -25,12 +25,10 @@ def require_sorted(
     *,
     key: Callable[[T], object] = _identity_key,
     reverse: bool = False,
-    on_violation: Callable[[dict[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
-    if not proof_mode():
-        return
     iterator = iter(xs)
     try:
         previous = next(iterator)
@@ -61,12 +59,10 @@ def require_no_dupes(
     xs: Iterable[T],
     *,
     key: Callable[[T], object] = _identity_key,
-    on_violation: Callable[[dict[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
-    if not proof_mode():
-        return
     seen: set[object] = set()
     for item in xs:
         check_deadline()
@@ -88,12 +84,10 @@ def require_canonical_multiset(
     name: str,
     pairs: Iterable[tuple[str, int]],
     *,
-    on_violation: Callable[[dict[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
-    if not proof_mode():
-        return
     seen_keys: set[str] = set()
     previous_key = ""
     has_previous = False
@@ -136,11 +130,9 @@ def require_canonical_multiset(
 def require_no_python_hash(
     name: str,
     *,
-    on_violation: Callable[[dict[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
     **env: object,
 ) -> None:
-    if not proof_mode():
-        return
     payload: dict[str, object] = {
         "constraint": "no_python_hash",
         "name": name,

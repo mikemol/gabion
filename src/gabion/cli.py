@@ -202,7 +202,9 @@ def _context_cli_deps(ctx: typer.Context) -> CliRuntimeDeps:
 configure_runtime_flags = _register_runtime_flags_callback(
     app=app,
     cli_transport_mode=CliTransportMode,
-    apply_runtime_policy_from_env_fn=policy_runtime.apply_runtime_policy_from_env,
+    apply_runtime_policy_from_env_fn=(
+        lambda: policy_runtime.apply_runtime_policy(policy_runtime.runtime_policy_from_env())
+    ),
     apply_cli_timeout_flag_fn=env_policy.apply_cli_timeout_flag,
     apply_cli_transport_flags_fn=transport_policy.apply_cli_transport_flags,
 )

@@ -105,7 +105,7 @@ def test_execute_command_total_starts_and_stops_identity_shadow_session(
     )
     response = orchestrator.execute_command_total(ls, payload, deps=deps)
 
-    assert response.get("analysis_state") == "succeeded"
+    assert response.canonical.analysis_state == "succeeded"
     assert mirror_events[0] == "build"
     assert mirror_events[1] == "start"
     assert mirror_events[-1] == "stop"
@@ -679,7 +679,6 @@ def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analys
     context = _analysis_context(
         tmp_path=tmp_path,
         payload={
-            "proof_mode": "on",
             "order_policy": "sort",
             "order_telemetry": True,
             "order_enforce_canonical_allowlist": True,
@@ -821,7 +820,7 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
         ),
     )
     outcome = orchestrator._build_success_response(context=context)
-    resume_payload = outcome.response.get("analysis_resume")
+    resume_payload = outcome.response.payload.get("analysis_resume")
     assert isinstance(resume_payload, dict)
     assert resume_payload["source"] == "resume_manifest"
     assert resume_payload["cache_verdict"] in {"seeded", "warm"}
@@ -869,4 +868,4 @@ def test_execute_command_total_uses_analysis_stage_module(
     )
 
     assert called["analysis_stage"] is True
-    assert response["analysis_state"] == "succeeded"
+    assert response.canonical.analysis_state == "succeeded"

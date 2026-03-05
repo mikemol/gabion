@@ -14,11 +14,21 @@ from gabion.analysis.foundation.marker_protocol import (
     normalize_marker_payload,
     normalize_marker_reasoning,
     normalize_semantic_links,
+    runtime_marker_kind_mapping_scope,
     resolve_marker_kind_for_profile,
 )
 from gabion.analysis.indexed_scan.scanners import marker_metadata
 from gabion.exceptions import NeverThrown
-from gabion.invariants import deprecated, invariant_factory, never, todo
+from gabion.invariants import (
+    InvariantMarkerWarning,
+    InvariantProfile,
+    InvariantRuntimeBehaviorConfig,
+    deprecated,
+    invariant_factory,
+    invariant_runtime_behavior_scope,
+    never,
+    todo,
+)
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.marker_identity
@@ -106,6 +116,14 @@ def test_normalize_marker_reasoning_supports_dataclass_mapping_and_scalar() -> N
         }
     )
     assert mapping_reasoning.blocking_dependencies == ("dep-a", "dep-c")
+
+    scalar_dependency_reasoning = normalize_marker_reasoning(
+        {
+            "summary": "single dependency",
+            "blocking_dependencies": " dep-z ",
+        }
+    )
+    assert scalar_dependency_reasoning.blocking_dependencies == ("dep-z",)
 
     scalar_reasoning = normalize_marker_reasoning("  scalar reason  ")
     assert scalar_reasoning == MarkerReasoning(
@@ -201,6 +219,27 @@ def test_marker_kind_profile_collapse_to_never_remaps_non_never_kinds() -> None:
     assert resolve_marker_kind_for_profile(MarkerKind.NEVER, mapping_config=profile) is MarkerKind.NEVER
     assert resolve_marker_kind_for_profile(MarkerKind.TODO, mapping_config=profile) is MarkerKind.NEVER
     assert resolve_marker_kind_for_profile(MarkerKind.DEPRECATED, mapping_config=profile) is MarkerKind.NEVER
+
+
+def test_runtime_marker_behavior_is_independent_from_marker_kind_mapping_profile() -> None:
+    collapse_profile = marker_kind_mapping_config(MarkerKindProfile.COLLAPSE_TO_NEVER)
+
+    with runtime_marker_kind_mapping_scope(collapse_profile):
+        with invariant_runtime_behavior_scope(
+            InvariantRuntimeBehaviorConfig(profile=InvariantProfile.DEBT_GATE)
+        ):
+            with pytest.warns(InvariantMarkerWarning):
+                with pytest.raises(NeverThrown) as exc_info:
+                    todo("debt gate marker")
+    assert exc_info.value.marker_kind == "todo"
+
+    with runtime_marker_kind_mapping_scope(collapse_profile):
+        with invariant_runtime_behavior_scope(
+            InvariantRuntimeBehaviorConfig(profile=InvariantProfile.DIAGNOSTIC)
+        ):
+            with pytest.warns(InvariantMarkerWarning):
+                payload = todo("diagnostic marker")
+    assert payload.marker_kind is MarkerKind.TODO
 
 
 # gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.never_marker_metadata

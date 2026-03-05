@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 
 import pytest
 
@@ -11,7 +12,11 @@ from gabion.analysis.projection.projection_registry import WL_REFINEMENT_SPEC
 from gabion.analysis.core.wl_refinement import (
     _bool_param, _int_param, _seed_struct, _string_list_param, emit_wl_refinement_facets)
 from gabion.exceptions import NeverThrown
-from gabion.invariants import proof_mode_scope
+from gabion.invariants import (
+    InvariantProfile,
+    InvariantRuntimeBehaviorConfig,
+    invariant_runtime_behavior_scope,
+)
 
 
 def _build_suite_forest(*, child_kinds: tuple[str, ...]) -> Forest:
@@ -60,8 +65,13 @@ def test_wl_refinement_is_deterministic_across_insertion_order() -> None:
     left = _build_suite_forest(child_kinds=("while_body", "if_body"))
     right = _build_suite_forest(child_kinds=("if_body", "while_body"))
 
-    emit_wl_refinement_facets(forest=left, spec=WL_REFINEMENT_SPEC)
-    emit_wl_refinement_facets(forest=right, spec=WL_REFINEMENT_SPEC)
+    with invariant_runtime_behavior_scope(
+        InvariantRuntimeBehaviorConfig(profile=InvariantProfile.DIAGNOSTIC)
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            emit_wl_refinement_facets(forest=left, spec=WL_REFINEMENT_SPEC)
+            emit_wl_refinement_facets(forest=right, spec=WL_REFINEMENT_SPEC)
 
     left_nodes, left_facets = _wl_facet_payload(left)
     right_nodes, right_facets = _wl_facet_payload(right)
@@ -73,12 +83,11 @@ def test_wl_refinement_is_deterministic_across_insertion_order() -> None:
     assert json.loads(first_key)[0] == "wl"
 
 
-# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_proof_mode_emits_sink_and_raises::invariants.py::gabion.invariants.proof_mode_scope::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
-def test_wl_refinement_proof_mode_emits_sink_and_raises() -> None:
+# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_strict_profile_emits_sink_and_raises::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+def test_wl_refinement_strict_profile_emits_sink_and_raises() -> None:
     forest = _build_suite_forest(child_kinds=("while_body", "if_body"))
-    with proof_mode_scope(True):
-        with pytest.raises(NeverThrown):
-            emit_wl_refinement_facets(forest=forest, spec=WL_REFINEMENT_SPEC)
+    with pytest.raises(NeverThrown):
+        emit_wl_refinement_facets(forest=forest, spec=WL_REFINEMENT_SPEC)
 
     assert any(alt.kind == "NeverInvariantSink" for alt in forest.alts)
 
@@ -263,7 +272,12 @@ def test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_target
     # Non-target child exercises adjacency skip branch.
     param = forest.add_param("x")
     forest.add_alt("SuiteContains", (root, param))
-    emit_wl_refinement_facets(forest=forest, spec=WL_REFINEMENT_SPEC)
+    with invariant_runtime_behavior_scope(
+        InvariantRuntimeBehaviorConfig(profile=InvariantProfile.DIAGNOSTIC)
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            emit_wl_refinement_facets(forest=forest, spec=WL_REFINEMENT_SPEC)
     assert any(node.kind == "WLLabel" for node in forest.nodes.values())
 
 

@@ -216,7 +216,6 @@ def build_dataflow_payload(
             "synthesis_merge_overlap": opts.synthesis_merge_overlap,
             "structure_tree": structure_tree_target,
             "structure_metrics": structure_metrics_target,
-            "proof_mode": getattr(opts, "proof_mode", None),
             "order_policy": getattr(opts, "order_policy", None),
             "order_telemetry": getattr(opts, "order_telemetry", None),
             "order_enforce_canonical_allowlist": getattr(

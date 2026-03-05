@@ -3,45 +3,116 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Callable, NoReturn, TypeVar, cast
+from typing import TYPE_CHECKING, Callable, TypeVar, cast
+import warnings
 
 from gabion.exceptions import NeverThrown
 
-_PROOF_MODE_OVERRIDE: ContextVar[bool | None] = ContextVar(
-    "gabion_proof_mode_override",
-    default=None,
-)
+if TYPE_CHECKING:
+    from gabion.analysis.foundation.marker_protocol import MarkerPayload
+
+class InvariantProfile(StrEnum):
+    STRICT = "strict"
+    DIAGNOSTIC = "diagnostic"
+    DEBT_GATE = "debt_gate"
+    SUNSET_GATE = "sunset_gate"
 
 
 @dataclass(frozen=True)
-class ProofModeConfig:
-    enabled: bool = False
-
-
-class InvariantRuntimeBehaviorProfile(StrEnum):
-    THROW = "throw"
-    WARN = "warn"
-    RATE = "rate"
+class MarkerRuntimeBehavior:
+    throws: bool
+    emits_warning: bool
+    warning_limit: int = 0
 
 
 @dataclass(frozen=True)
 class InvariantRuntimeBehaviorConfig:
-    profile: InvariantRuntimeBehaviorProfile = InvariantRuntimeBehaviorProfile.THROW
+    profile: InvariantProfile = InvariantProfile.STRICT
 
 
-_PROOF_MODE_CONFIG: ContextVar[ProofModeConfig] = ContextVar(
-    "gabion_proof_mode_config",
-    default=ProofModeConfig(),
-)
+InvariantWarningKey = tuple[str, str, str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class InvariantWarningState:
+    emitted_count: int = 0
+    seen_keys: frozenset[InvariantWarningKey] = frozenset()
+
+
+class InvariantMarkerWarning(UserWarning):
+    """Profile-scoped warning emitted by non-throwing marker behaviors."""
+
+    def __init__(self, *, payload: MarkerPayload, profile: InvariantProfile):
+        self.marker_payload = payload
+        self.profile = profile
+        super().__init__(
+            f"[{profile.value}] {payload.marker_kind.value}: {payload.reason}"
+        )
+
 
 _INVARIANT_RUNTIME_BEHAVIOR_CONFIG: ContextVar[InvariantRuntimeBehaviorConfig] = ContextVar(
     "gabion_invariant_runtime_behavior_config",
     default=InvariantRuntimeBehaviorConfig(),
 )
+
+_INVARIANT_WARNING_STATE: ContextVar[InvariantWarningState] = ContextVar(
+    "gabion_invariant_warning_state",
+    default=InvariantWarningState(),
+)
+
+_STRICT_BEHAVIOR = MarkerRuntimeBehavior(throws=True, emits_warning=False, warning_limit=0)
+_DIAGNOSTIC_BEHAVIOR = MarkerRuntimeBehavior(
+    throws=False,
+    emits_warning=True,
+    warning_limit=1000,
+)
+_DEBT_GATE_NEVER = MarkerRuntimeBehavior(throws=True, emits_warning=False, warning_limit=0)
+_DEBT_GATE_TODO = MarkerRuntimeBehavior(throws=True, emits_warning=True, warning_limit=50)
+_DEBT_GATE_DEPRECATED = MarkerRuntimeBehavior(
+    throws=False,
+    emits_warning=True,
+    warning_limit=50,
+)
+_SUNSET_GATE_NEVER = MarkerRuntimeBehavior(throws=True, emits_warning=False, warning_limit=0)
+_SUNSET_GATE_TODO = MarkerRuntimeBehavior(
+    throws=False,
+    emits_warning=True,
+    warning_limit=50,
+)
+_SUNSET_GATE_DEPRECATED = MarkerRuntimeBehavior(
+    throws=True,
+    emits_warning=True,
+    warning_limit=50,
+)
+
+_PROFILE_RUNTIME_BEHAVIOR_MATRIX: dict[
+    InvariantProfile, dict[str, MarkerRuntimeBehavior]
+] = {
+    InvariantProfile.STRICT: {
+        "never": _STRICT_BEHAVIOR,
+        "todo": _STRICT_BEHAVIOR,
+        "deprecated": _STRICT_BEHAVIOR,
+    },
+    InvariantProfile.DIAGNOSTIC: {
+        "never": _DIAGNOSTIC_BEHAVIOR,
+        "todo": _DIAGNOSTIC_BEHAVIOR,
+        "deprecated": _DIAGNOSTIC_BEHAVIOR,
+    },
+    InvariantProfile.DEBT_GATE: {
+        "never": _DEBT_GATE_NEVER,
+        "todo": _DEBT_GATE_TODO,
+        "deprecated": _DEBT_GATE_DEPRECATED,
+    },
+    InvariantProfile.SUNSET_GATE: {
+        "never": _SUNSET_GATE_NEVER,
+        "todo": _SUNSET_GATE_TODO,
+        "deprecated": _SUNSET_GATE_DEPRECATED,
+    },
+}
 
 T = TypeVar("T")
 FuncT = TypeVar("FuncT", bound=Callable[..., object])
@@ -63,9 +134,86 @@ def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
     return tuple(normalized)
 
 
+def resolve_marker_runtime_behavior(
+    marker_kind: str,
+    *,
+    config: InvariantRuntimeBehaviorConfig | None = None,
+) -> MarkerRuntimeBehavior:
+    active_config = config or invariant_runtime_behavior_config()
+    profile_matrix = _PROFILE_RUNTIME_BEHAVIOR_MATRIX[active_config.profile]
+    return profile_matrix[marker_kind]
+
+
+def invariant_warning_state() -> InvariantWarningState:
+    return _INVARIANT_WARNING_STATE.get()
+
+
+def set_invariant_warning_state(
+    state: InvariantWarningState,
+) -> Token[InvariantWarningState]:
+    return _INVARIANT_WARNING_STATE.set(state)
+
+
+def reset_invariant_warning_state(
+    token: Token[InvariantWarningState],
+) -> None:
+    _INVARIANT_WARNING_STATE.reset(token)
+
+
+def _marker_warning_key(payload: MarkerPayload) -> InvariantWarningKey:
+    return (
+        payload.marker_kind.value,
+        payload.reasoning.summary,
+        payload.reasoning.control,
+        payload.reasoning.blocking_dependencies,
+    )
+
+
+def _advance_warning_state(
+    *,
+    state: InvariantWarningState,
+    warning_key: InvariantWarningKey,
+    warning_limit: int,
+) -> tuple[InvariantWarningState, bool]:
+    if warning_key in state.seen_keys:
+        return state, False
+    if state.emitted_count >= warning_limit:
+        return state, False
+    return (
+        InvariantWarningState(
+            emitted_count=state.emitted_count + 1,
+            seen_keys=state.seen_keys | {warning_key},
+        ),
+        True,
+    )
+
+
+def _emit_invariant_marker_warning(
+    *,
+    payload: MarkerPayload,
+    profile: InvariantProfile,
+    warning_limit: int,
+) -> None:
+    warning_key = _marker_warning_key(payload)
+    state = invariant_warning_state()
+    next_state, should_emit = _advance_warning_state(
+        state=state,
+        warning_key=warning_key,
+        warning_limit=warning_limit,
+    )
+    if next_state != state:
+        set_invariant_warning_state(next_state)
+    if not should_emit:
+        return
+    warnings.warn(
+        InvariantMarkerWarning(payload=payload, profile=profile),
+        stacklevel=3,
+    )
+
+
 def invariant_factory(
     marker_kind: str, reasoning: object = "", **env: object
-) -> NoReturn:
+) -> MarkerPayload:
     from gabion.analysis.foundation.marker_protocol import (
         MarkerKind,
         never_marker_payload,
@@ -116,50 +264,39 @@ def invariant_factory(
             expiry=expiry,
             links=links,
         )
-    raise NeverThrown(payload.reason, marker_payload=payload)
+    runtime_config = invariant_runtime_behavior_config()
+    behavior = resolve_marker_runtime_behavior(
+        marker_kind_enum.value,
+        config=runtime_config,
+    )
+    if behavior.emits_warning:
+        _emit_invariant_marker_warning(
+            payload=payload,
+            profile=runtime_config.profile,
+            warning_limit=behavior.warning_limit,
+        )
+    if behavior.throws:
+        raise NeverThrown(payload.reason, marker_payload=payload)
+    return payload
 
 
-def never(reason: str = "", **env: object) -> NoReturn:
+def never(reason: str = "", **env: object) -> MarkerPayload:
     """Mark a code path as intentionally unreachable.
 
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
-    invariant_factory("never", reason=reason, **env)
+    return invariant_factory("never", reason=reason, **env)
 
 
-def todo(reason: str = "", **env: object) -> NoReturn:
+def todo(reason: str = "", **env: object) -> MarkerPayload:
     """Mark a code path as intentionally pending implementation."""
-    invariant_factory("todo", reason=reason, **env)
+    return invariant_factory("todo", reason=reason, **env)
 
 
-def deprecated(reason: str = "", **env: object) -> NoReturn:
+def deprecated(reason: str = "", **env: object) -> MarkerPayload:
     """Mark a code path as a deprecated/blocked semantic surface."""
-    invariant_factory("deprecated", reason=reason, **env)
-
-
-def proof_mode() -> bool:
-    override = _PROOF_MODE_OVERRIDE.get()
-    if override is not None:
-        return bool(override)
-    return bool(_PROOF_MODE_CONFIG.get().enabled)
-
-
-def set_proof_mode_config(config: ProofModeConfig) -> Token[ProofModeConfig]:
-    return _PROOF_MODE_CONFIG.set(config)
-
-
-def reset_proof_mode_config(token: Token[ProofModeConfig]) -> None:
-    _PROOF_MODE_CONFIG.reset(token)
-
-
-@contextmanager
-def proof_mode_config_scope(config: ProofModeConfig):
-    token = set_proof_mode_config(config)
-    try:
-        yield
-    finally:
-        reset_proof_mode_config(token)
+    return invariant_factory("deprecated", reason=reason, **env)
 
 
 def invariant_runtime_behavior_config() -> InvariantRuntimeBehaviorConfig:
@@ -180,20 +317,13 @@ def reset_invariant_runtime_behavior_config(
 
 @contextmanager
 def invariant_runtime_behavior_scope(config: InvariantRuntimeBehaviorConfig):
-    token = set_invariant_runtime_behavior_config(config)
+    config_token = set_invariant_runtime_behavior_config(config)
+    warning_token = set_invariant_warning_state(InvariantWarningState())
     try:
         yield
     finally:
-        reset_invariant_runtime_behavior_config(token)
-
-
-@contextmanager
-def proof_mode_scope(enabled: bool):
-    token = _PROOF_MODE_OVERRIDE.set(bool(enabled))
-    try:
-        yield
-    finally:
-        _PROOF_MODE_OVERRIDE.reset(token)
+        reset_invariant_warning_state(warning_token)
+        reset_invariant_runtime_behavior_config(config_token)
 
 
 def require_not_none(
@@ -204,9 +334,7 @@ def require_not_none(
     **env: object,
 ) -> T | None:
     if value is None:
-        if strict is None:
-            strict = proof_mode()
-        if strict:
+        if strict is not False:
             never(reason or "required value is None", **env)
     return value
 

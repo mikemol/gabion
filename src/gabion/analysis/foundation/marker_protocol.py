@@ -238,14 +238,10 @@ def never_marker_payload(
 
 
 def _normalize_dependency_values(raw_values: object) -> tuple[str, ...]:
-    if raw_values is None:
-        return ()
-    if type(raw_values) is str:
-        candidates = (raw_values,)
-    elif isinstance(raw_values, Sequence):
+    if isinstance(raw_values, Sequence) and not isinstance(raw_values, str):
         candidates = tuple(str(value) for value in raw_values)
     else:
-        candidates = (str(raw_values),)
+        candidates = ("" if raw_values is None else str(raw_values),)
     deduped = {value.strip() for value in candidates if value.strip()}
     return tuple(sorted(deduped))
 
@@ -275,9 +271,7 @@ def normalize_marker_reasoning(raw_reasoning: object = "") -> MarkerReasoning:
         )
 
     if is_dataclass(raw_reasoning):
-        raw_dataclass = asdict(raw_reasoning)
-        if isinstance(raw_dataclass, dict):
-            return _normalize_reasoning_mapping(raw_dataclass)
+        return _normalize_reasoning_mapping(asdict(raw_reasoning))
 
     if isinstance(raw_reasoning, Mapping):
         return _normalize_reasoning_mapping(raw_reasoning)
