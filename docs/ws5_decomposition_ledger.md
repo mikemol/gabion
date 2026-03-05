@@ -1,5 +1,5 @@
 ---
-doc_revision: 112
+doc_revision: 113
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1990,6 +1990,24 @@ doc_scope:
     - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-172`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade wrapper ownerization:
+    - Moved facade-only compatibility logic into canonical owners and replaced facade bodies with aliases:
+      - `dataflow_callee_resolution_support._resolve_method_in_hierarchy_runtime` added for legacy resolved-or-outcome behavior.
+      - `dataflow_lint_helpers._internal_broad_type_lint_lines_runtime` added for legacy “build analysis index when absent” behavior.
+      - `dataflow_facade` now aliases these runtime helpers directly instead of carrying local wrapper bodies.
+    - Removed facade-local wrapper implementations for:
+      - `_resolve_method_in_hierarchy`
+      - `_internal_broad_type_lint_lines`
+  - Compatibility status:
+    - Facade helper behavior preserved; wrapper ownership now canonicalized in owner modules.
+    - Targeted facade-heavy WS-5 suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-173`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)

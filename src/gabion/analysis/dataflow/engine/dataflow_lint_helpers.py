@@ -16,6 +16,9 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _is_test_path,
     _resolve_callee,
 )
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
+    _build_analysis_index,
+)
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot_path
@@ -660,6 +663,40 @@ def _internal_broad_type_lint_lines(
         analysis_index=analysis_index,
     )
     return _internal_broad_type_lint_lines_indexed(context)
+
+
+def _internal_broad_type_lint_lines_runtime(
+    paths,
+    *,
+    project_root,
+    ignore_params,
+    strictness,
+    external_filter,
+    transparent_decorators=None,
+    parse_failure_witnesses,
+    analysis_index=None,
+):
+    resolved_analysis_index = analysis_index
+    if resolved_analysis_index is None:
+        resolved_analysis_index = _build_analysis_index(
+            list(paths),
+            project_root=project_root,
+            ignore_params=set(ignore_params),
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=list(parse_failure_witnesses),
+        )
+    return _internal_broad_type_lint_lines(
+        list(paths),
+        project_root=project_root,
+        ignore_params=set(ignore_params),
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=list(parse_failure_witnesses),
+        analysis_index=resolved_analysis_index,
+    )
 
 
 _BROAD_SCALAR_TYPES = {
