@@ -1808,20 +1808,17 @@ def _resolve_callee_outcome(
     local_lambda_bindings = None,
     resolve_callee_fn = _resolve_callee,
 ) -> _CalleeResolutionOutcome:
-    return cast(
-        _CalleeResolutionOutcome,
-        _resolve_callee_outcome_owner(
-            callee_key,
-            caller,
-            by_name,
-            by_qual,
-            symbol_table=symbol_table,
-            project_root=project_root,
-            class_index=class_index,
-            call=call,
-            local_lambda_bindings=local_lambda_bindings,
-            resolve_callee_fn=resolve_callee_fn,
-        ),
+    return _resolve_callee_outcome_owner(
+        callee_key,
+        caller,
+        by_name,
+        by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        call=call,
+        local_lambda_bindings=local_lambda_bindings,
+        resolve_callee_fn=resolve_callee_fn,
     )
 
 
@@ -1859,20 +1856,11 @@ class ConstantFlowDetail:
     count: int
     sites: tuple[str, ...] = ()
 
-def _constant_smells_from_details(
-    details: Iterable[ConstantFlowDetail],
-) -> list[str]:
-    return _constant_smells_from_details_owner(details)
+_constant_smells_from_details = _constant_smells_from_details_owner
 
-def _deadness_witnesses_from_constant_details(
-    details: Iterable[ConstantFlowDetail],
-    *,
-    project_root,
-) -> list[JSONObject]:
-    return _deadness_witnesses_from_constant_details_owner(
-        details,
-        project_root=project_root,
-    )
+_deadness_witnesses_from_constant_details = (
+    _deadness_witnesses_from_constant_details_owner
+)
 
 
 _iter_documented_bundles = _iter_documented_bundles_owner

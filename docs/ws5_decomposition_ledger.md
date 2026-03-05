@@ -1,5 +1,5 @@
 ---
-doc_revision: 77
+doc_revision: 78
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1355,6 +1355,21 @@ doc_scope:
     - Monolith LOC dropped to `1984`; top-level imports now `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-137`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Resolver/detail wrapper contraction:
+    - Monolith `_resolve_callee_outcome` collapsed to a direct canonical owner delegate call (no runtime-module passthrough).
+    - Constant/deadness detail helper wrappers collapsed to owner aliases:
+      - `_constant_smells_from_details`
+      - `_deadness_witnesses_from_constant_details`
+  - Compatibility status:
+    - Resolver and constant/deadness detail helper behavior remains stable under resolver/pipeline/deadline/structure suites.
+    - Monolith LOC dropped to `1972`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-138`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
