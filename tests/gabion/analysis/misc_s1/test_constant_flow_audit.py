@@ -245,3 +245,111 @@ def test_format_call_site_handles_missing_span(tmp_path: Path) -> None:
         span=(4, 5, 4, 6),
     )
     assert _format_call_site(caller, call_with_span) == "mod.py:5:6:pkg.mod.caller"
+
+
+# gabion:evidence E:function_site::dataflow_post_phase_analyses.py::gabion.analysis.dataflow_post_phase_analyses._collect_constant_flow_details
+def test_collect_constant_flow_details_uses_injected_reduce_and_iter(
+    tmp_path: Path,
+) -> None:
+    from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
+    from gabion.analysis.dataflow.engine import dataflow_post_phase_analyses as post_phase
+
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def callee(a):\n"
+        "    return a\n"
+        "\n"
+        "def caller():\n"
+        "    return callee(1)\n"
+    )
+    parse_failure_witnesses: list[object] = []
+    analysis_index = index_owner._build_analysis_index(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+
+    baseline = post_phase._collect_constant_flow_details(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=[],
+        analysis_index=analysis_index,
+    )
+
+    seen: list[str] = []
+
+    def _iter(*args, **kwargs):
+        seen.append("iter")
+        return post_phase._iter_resolved_edge_param_events(*args, **kwargs)
+
+    def _reduce(*args, **kwargs):
+        seen.append("reduce")
+        return post_phase._reduce_resolved_call_edges(*args, **kwargs)
+
+    injected = post_phase._collect_constant_flow_details(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=[],
+        analysis_index=analysis_index,
+        iter_resolved_edge_param_events_fn=_iter,
+        reduce_resolved_call_edges_fn=_reduce,
+    )
+
+    assert "iter" in seen
+    assert "reduce" in seen
+    assert [
+        (detail.qual, detail.param, detail.value, detail.count)
+        for detail in injected
+    ] == [
+        (detail.qual, detail.param, detail.value, detail.count)
+        for detail in baseline
+    ]
+
+
+# gabion:evidence E:function_site::dataflow_lint_helpers.py::gabion.analysis.dataflow_lint_helpers._compute_lint_lines
+def test_compute_lint_lines_uses_injected_projector() -> None:
+    from gabion.analysis.dataflow.engine import dataflow_lint_helpers
+
+    forest = Forest()
+    seen: list[str] = []
+
+    def _project(*, forest):
+        seen.append("project")
+        return [
+            {
+                "path": "mod.py",
+                "line": 2,
+                "col": 3,
+                "code": "GABION_TEST",
+                "message": "injected",
+            }
+        ]
+
+    lines = dataflow_lint_helpers._compute_lint_lines(
+        forest=forest,
+        groups_by_path={},
+        bundle_sites_by_path={},
+        type_callsite_evidence=[],
+        ambiguity_witnesses=[],
+        exception_obligations=[],
+        never_invariants=[],
+        deadline_obligations=[],
+        decision_lint_lines=[],
+        broad_type_lint_lines=[],
+        constant_smells=[],
+        unused_arg_smells=[],
+        project_lint_rows_from_forest_fn=_project,
+    )
+
+    assert seen == ["project"]
+    assert lines == ["mod.py:2:3: GABION_TEST injected"]

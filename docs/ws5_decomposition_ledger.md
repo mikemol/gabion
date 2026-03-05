@@ -1,5 +1,5 @@
 ---
-doc_revision: 270
+doc_revision: 271
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,26 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 stability (`psi-3`, this CU):
+  - Normalized default-arg DI seams for single-consumer helper injections in:
+    - `src/gabion/analysis/dataflow/engine/dataflow_obligations.py`
+      - `_resolve_deadline_collection_fns` now uses explicit callable defaults
+      - `collect_deadline_obligations` callable injection seams now default directly to canonical helpers
+    - `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+      - `_collect_constant_flow_details` now defaults `iter_resolved_edge_param_events_fn` and `reduce_resolved_call_edges_fn` directly
+    - `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`
+      - `_compute_lint_lines` now defaults projection via callable default wrapper
+  - Added focused override-injection parity tests:
+    - `tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py`
+      - `test_collect_deadline_obligations_uses_injected_materializer`
+    - `tests/gabion/analysis/misc_s1/test_constant_flow_audit.py`
+      - `test_collect_constant_flow_details_uses_injected_reduce_and_iter`
+      - `test_compute_lint_lines_uses_injected_projector`
+  - Validation:
+    - policy checks passed (`--workflows`, `--ambiguity-contract`)
+    - private-symbol import guard passed (`new=0`)
+    - targeted DI/compat pytest bundle passed (`96 passed`)
+    - evidence refresh executed; expected drift captured in `out/test_evidence.json`
 - WS-5 stability (`psi-2`, this CU):
   - Normalized deadline-runtime helper injection to default-arg DI for local seams in:
     - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py`

@@ -1054,6 +1054,56 @@ def test_materialize_call_candidates_uses_injected_resolver() -> None:
     assert seen == ["called"]
     assert any(alt.kind == "CallCandidate" for alt in forest.alts)
 
+
+# gabion:evidence E:function_site::dataflow_obligations.py::gabion.analysis.dataflow_obligations.collect_deadline_obligations
+def test_collect_deadline_obligations_uses_injected_materializer(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+
+    baseline = collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+    )
+
+    seen: list[str] = []
+
+    def _materialize(*args, **kwargs):
+        seen.append("called")
+        return da._materialize_call_candidates(*args, **kwargs)
+
+    injected = collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+        materialize_call_candidates_fn=_materialize,
+    )
+
+    assert seen == ["called"]
+    assert injected == baseline
+
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 def test_deadline_summary_handles_bad_span() -> None:
     da = _load()

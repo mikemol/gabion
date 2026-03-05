@@ -979,13 +979,12 @@ def _collect_constant_flow_details(
     transparent_decorators=None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index=None,
-    iter_resolved_edge_param_events_fn=None,
-    reduce_resolved_call_edges_fn=None,
+    iter_resolved_edge_param_events_fn: Callable[
+        ...,
+        Iterable[tuple[object, str, object, object]],
+    ] = _iter_resolved_edge_param_events,
+    reduce_resolved_call_edges_fn: Callable[..., object] = _reduce_resolved_call_edges,
 ):
-    if iter_resolved_edge_param_events_fn is None:
-        iter_resolved_edge_param_events_fn = _iter_resolved_edge_param_events
-    if reduce_resolved_call_edges_fn is None:
-        reduce_resolved_call_edges_fn = _reduce_resolved_call_edges
     return cast(
         list[object],
         _collect_constant_flow_details_impl(

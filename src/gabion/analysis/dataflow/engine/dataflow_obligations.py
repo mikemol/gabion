@@ -712,33 +712,36 @@ class _DeadlineCollectionFns:
 
 def _resolve_deadline_collection_fns(
     *,
-    materialize_call_candidates_fn = None,
-    collect_call_nodes_by_path_fn = None,
-    collect_deadline_function_facts_fn = None,
-    collect_call_edges_from_forest_fn = None,
-    collect_call_resolution_obligations_from_forest_fn = None,
-    reachable_from_roots_fn = None,
-    collect_recursive_nodes_fn = None,
-    resolve_callee_outcome_fn = None,
+    materialize_call_candidates_fn: Callable[..., None] = _materialize_call_candidates,
+    collect_call_nodes_by_path_fn: Callable[
+        ...,
+        dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]],
+    ] = _collect_call_nodes_by_path,
+    collect_deadline_function_facts_fn: Callable[
+        ...,
+        dict[str, "_DeadlineFunctionFacts"],
+    ] = _collect_deadline_function_facts,
+    collect_call_edges_from_forest_fn: Callable[
+        ...,
+        dict[NodeId, set[NodeId]],
+    ] = _collect_call_edges_from_forest,
+    collect_call_resolution_obligations_from_forest_fn: Callable[
+        ...,
+        list[tuple[NodeId, NodeId, object, str]],
+    ] = _collect_call_resolution_obligations_from_forest,
+    reachable_from_roots_fn: Callable[
+        [Mapping[NodeId, set[NodeId]], set[NodeId]],
+        set[NodeId],
+    ] = _reachable_from_roots,
+    collect_recursive_nodes_fn: Callable[
+        [Mapping[NodeId, set[NodeId]]],
+        set[NodeId],
+    ] = _collect_recursive_nodes,
+    resolve_callee_outcome_fn: Callable[
+        ...,
+        _CalleeResolutionOutcome,
+    ] = _resolve_callee_outcome,
 ) -> _DeadlineCollectionFns:
-    if materialize_call_candidates_fn is None:
-        materialize_call_candidates_fn = _materialize_call_candidates
-    if collect_call_nodes_by_path_fn is None:
-        collect_call_nodes_by_path_fn = _collect_call_nodes_by_path
-    if collect_deadline_function_facts_fn is None:
-        collect_deadline_function_facts_fn = _collect_deadline_function_facts
-    if collect_call_edges_from_forest_fn is None:
-        collect_call_edges_from_forest_fn = _collect_call_edges_from_forest
-    if collect_call_resolution_obligations_from_forest_fn is None:
-        collect_call_resolution_obligations_from_forest_fn = (
-            _collect_call_resolution_obligations_from_forest
-        )
-    if reachable_from_roots_fn is None:
-        reachable_from_roots_fn = _reachable_from_roots
-    if collect_recursive_nodes_fn is None:
-        collect_recursive_nodes_fn = _collect_recursive_nodes
-    if resolve_callee_outcome_fn is None:
-        resolve_callee_outcome_fn = _resolve_callee_outcome
     return _DeadlineCollectionFns(
         materialize_call_candidates_fn=materialize_call_candidates_fn,
         collect_call_nodes_by_path_fn=collect_call_nodes_by_path_fn,
@@ -973,14 +976,35 @@ def collect_deadline_obligations(
     extra_deadline_params = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index = None,
-    materialize_call_candidates_fn = None,
-    collect_call_nodes_by_path_fn = None,
-    collect_deadline_function_facts_fn = None,
-    collect_call_edges_from_forest_fn = None,
-    collect_call_resolution_obligations_from_forest_fn = None,
-    reachable_from_roots_fn = None,
-    collect_recursive_nodes_fn = None,
-    resolve_callee_outcome_fn = None,
+    materialize_call_candidates_fn: Callable[..., None] = _materialize_call_candidates,
+    collect_call_nodes_by_path_fn: Callable[
+        ...,
+        dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]],
+    ] = _collect_call_nodes_by_path,
+    collect_deadline_function_facts_fn: Callable[
+        ...,
+        dict[str, "_DeadlineFunctionFacts"],
+    ] = _collect_deadline_function_facts,
+    collect_call_edges_from_forest_fn: Callable[
+        ...,
+        dict[NodeId, set[NodeId]],
+    ] = _collect_call_edges_from_forest,
+    collect_call_resolution_obligations_from_forest_fn: Callable[
+        ...,
+        list[tuple[NodeId, NodeId, object, str]],
+    ] = _collect_call_resolution_obligations_from_forest,
+    reachable_from_roots_fn: Callable[
+        [Mapping[NodeId, set[NodeId]], set[NodeId]],
+        set[NodeId],
+    ] = _reachable_from_roots,
+    collect_recursive_nodes_fn: Callable[
+        [Mapping[NodeId, set[NodeId]]],
+        set[NodeId],
+    ] = _collect_recursive_nodes,
+    resolve_callee_outcome_fn: Callable[
+        ...,
+        _CalleeResolutionOutcome,
+    ] = _resolve_callee_outcome,
     on_progress = None,
 ) -> list[JSONObject]:
     check_deadline()

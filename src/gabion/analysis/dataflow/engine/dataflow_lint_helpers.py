@@ -77,6 +77,10 @@ class ConstantFlowDetail:
     sites: tuple[str, ...] = ()
 
 
+def _project_lint_rows_from_forest_default(*, forest):
+    return _project_lint_rows_from_forest(forest=forest)
+
+
 def _compute_lint_lines(
     *,
     forest,
@@ -91,11 +95,11 @@ def _compute_lint_lines(
     broad_type_lint_lines,
     constant_smells,
     unused_arg_smells,
-    project_lint_rows_from_forest_fn = None,
+    project_lint_rows_from_forest_fn: Callable[
+        ...,
+        list[dict[str, JSONValue]],
+    ] = _project_lint_rows_from_forest_default,
 ):
-    if project_lint_rows_from_forest_fn is None:
-        project_lint_rows_from_forest_fn = _project_lint_rows_from_forest
-
     bundle_evidence = _collect_bundle_evidence_lines(
         forest=forest,
         groups_by_path=groups_by_path,
