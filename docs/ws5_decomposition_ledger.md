@@ -1,5 +1,5 @@
 ---
-doc_revision: 95
+doc_revision: 96
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 1054
-- Monolith top-level import statements (current): 64
+- Monolith LOC (current): 967
+- Monolith top-level import statements (current): 63
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1696,6 +1696,27 @@ doc_scope:
     - Monolith LOC dropped to `1054`; top-level imports remain `64`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-155`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Parse/decision carrier dedupe ownerization:
+    - Monolith duplicate carrier/spec ownership replaced with canonical owner aliases for:
+      - `_ParseModuleStage`
+      - `CallAmbiguity`
+      - `_DecisionSurfaceSpec`
+      - `_DIRECT_DECISION_SURFACE_SPEC`
+      - `_VALUE_DECISION_SURFACE_SPEC`
+    - Canonical ownership now routes through:
+      - `dataflow_parse_helpers`
+      - `dataflow_projection_materialization`
+      - `dataflow_post_phase_analyses`
+  - Compatibility status:
+    - Parse-stage and decision/ambiguity runtime semantics preserved under targeted WS-5 regression suites.
+    - Monolith LOC dropped to `967`; top-level imports dropped to `63`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-156`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)

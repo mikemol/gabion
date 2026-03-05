@@ -23,8 +23,6 @@ from contextlib import ExitStack
 
 from dataclasses import dataclass, field
 
-from enum import StrEnum
-
 from pathlib import Path
 
 from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
@@ -277,6 +275,8 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_invariant_propositions,
     _collect_never_invariants,
     _combine_type_hints,
+    _DecisionSurfaceSpec as _DecisionSurfaceSpec_owner,
+    _DIRECT_DECISION_SURFACE_SPEC as _DIRECT_DECISION_SURFACE_SPEC_owner,
     _enclosing_function_node,
     _eval_bool_expr,
     _eval_value_expr,
@@ -298,6 +298,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _split_top_level,
     _suite_site_label as _suite_site_label_owner,
     _type_from_const_repr,
+    _VALUE_DECISION_SURFACE_SPEC as _VALUE_DECISION_SURFACE_SPEC_owner,
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
@@ -309,6 +310,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
+    CallAmbiguity as _CallAmbiguity_owner,
     _ProjectionSpan,
     _add_interned_alt as _add_interned_alt_owner,
     _ambiguity_suite_relation,
@@ -469,6 +471,7 @@ from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _ParseModuleStage as _ParseModuleStage_owner,
     _forbid_adhoc_bundle_discovery as _forbid_adhoc_bundle_discovery_owner,
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
@@ -523,18 +526,7 @@ NodeIdOrNone = NodeId | None
 
 ParseCacheValue = ast.Module | BaseException
 
-class _ParseModuleStage(StrEnum):
-    PARAM_ANNOTATIONS = "param_annotations"
-    DEADLINE_FUNCTION_FACTS = "deadline_function_facts"
-    CALL_NODES = "call_nodes"
-    SUITE_CONTAINMENT = "suite_containment"
-    SYMBOL_TABLE = "symbol_table"
-    CLASS_INDEX = "class_index"
-    FUNCTION_INDEX = "function_index"
-    CONFIG_FIELDS = "config_fields"
-    DATACLASS_REGISTRY = "dataclass_registry"
-    DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
-    RAW_SORTED_AUDIT = "raw_sorted_audit"
+_ParseModuleStage = _ParseModuleStage_owner
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
@@ -637,14 +629,7 @@ _report_section_text = _report_section_text_owner
 
 _report_section_spec = _report_section_spec_owner
 
-@dataclass(frozen=True)
-class CallAmbiguity:
-    kind: str
-    caller: FunctionInfo
-    call: "CallArgs | None"
-    callee_key: str
-    candidates: tuple[FunctionInfo, ...]
-    phase: str
+CallAmbiguity = _CallAmbiguity_owner
 
 _callee_name = _callee_name_owner
 
@@ -688,21 +673,7 @@ _contains_boolish = _contains_boolish_owner
 
 _value_encoded_decision_params = _value_encoded_decision_params_owner
 
-@dataclass(frozen=True)
-class _DecisionSurfaceSpec:
-    pass_id: str
-    alt_kind: str
-    surface_label: str
-    params: Callable[[FunctionInfo], set[str]]
-    descriptor: Callable[[FunctionInfo, str], str]
-    alt_evidence: Callable[[str, str], JSONObject]
-    surface_lint_code: str
-    surface_lint_message: Callable[[str, str, str], str]
-    emit_surface_lint: Callable[[int, object], bool]
-    tier_lint_code: str
-    tier_missing_message: Callable[[str, str], str]
-    tier_internal_message: Callable[[str, int, str, str], str]
-    rewrite_line: object = None
+_DecisionSurfaceSpec = _DecisionSurfaceSpec_owner
 
 _decision_predicate_evidence = _decision_predicate_evidence_owner
 
@@ -714,67 +685,9 @@ _decision_surface_alt_evidence = _decision_surface_alt_evidence_owner
 
 _suite_site_label = _suite_site_label_owner
 
-_DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
-    pass_id="decision_surfaces",
-    alt_kind="DecisionSurface",
-    surface_label="decision surface params",
-    params=lambda info: info.decision_params,
-    descriptor=lambda info, boundary: (
-        f"{boundary}; reason={_decision_reason_summary(info, info.decision_params)}"
-    ),
-    alt_evidence=lambda boundary, _descriptor: {
-        "meta": boundary,
-        "boundary": boundary,
-    },
-    surface_lint_code="GABION_DECISION_SURFACE",
-    surface_lint_message=lambda param, boundary, _descriptor: (
-        f"decision surface param '{param}' ({boundary})"
-    ),
-    emit_surface_lint=lambda caller_count, tier: caller_count == 0 and tier is None,
-    tier_lint_code="GABION_DECISION_TIER",
-    tier_missing_message=lambda param, _descriptor: (
-        f"decision param '{param}' missing decision tier metadata"
-    ),
-    tier_internal_message=lambda param, tier, boundary, _descriptor: (
-        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
-    ),
-)
+_DIRECT_DECISION_SURFACE_SPEC = _DIRECT_DECISION_SURFACE_SPEC_owner
 
-_VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
-    pass_id="value_encoded_decisions",
-    alt_kind="ValueDecisionSurface",
-    surface_label="value-encoded decision params",
-    params=lambda info: info.value_decision_params,
-    descriptor=lambda info, _boundary: ", ".join(
-        sort_once(
-            info.value_decision_reasons,
-            source="_VALUE_DECISION_SURFACE_SPEC.descriptor",
-        )
-    )
-    or "heuristic",
-    alt_evidence=lambda boundary, descriptor: {
-        "meta": descriptor,
-        "boundary": boundary,
-        "reasons": descriptor,
-    },
-    surface_lint_code="GABION_VALUE_DECISION_SURFACE",
-    surface_lint_message=lambda param, boundary, descriptor: (
-        f"value-encoded decision param '{param}' ({boundary}; {descriptor})"
-    ),
-    emit_surface_lint=lambda _caller_count, tier: tier is None,
-    tier_lint_code="GABION_VALUE_DECISION_TIER",
-    tier_missing_message=lambda param, descriptor: (
-        f"value-encoded decision param '{param}' missing decision tier metadata ({descriptor})"
-    ),
-    tier_internal_message=lambda param, tier, boundary, descriptor: (
-        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {descriptor})"
-    ),
-    rewrite_line=lambda info, params, descriptor: (
-        f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
-        + ", ".join(params)
-        + f" ({descriptor})"
-    ),
-)
+_VALUE_DECISION_SURFACE_SPEC = _VALUE_DECISION_SURFACE_SPEC_owner
 
 _analyze_decision_surface_indexed = _analyze_decision_surface_indexed_owner
 
