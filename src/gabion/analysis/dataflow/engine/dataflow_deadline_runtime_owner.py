@@ -165,6 +165,12 @@ def _dedupe_resolution_candidates(
     )
 
 
+_COLLECT_CALL_EDGES_DEPS = _CollectCallEdgesDeps(
+    check_deadline_fn=check_deadline,
+    is_test_path_fn=_is_test_path,
+)
+
+
 def _collect_call_edges(
     *,
     by_name,
@@ -182,84 +188,40 @@ def _collect_call_edges(
         project_root=project_root,
         class_index=class_index,
         resolve_callee_outcome_fn=resolver,
-        deps=_CollectCallEdgesDeps(
-            check_deadline_fn=check_deadline,
-            is_test_path_fn=_is_test_path,
-        ),
+        deps=_COLLECT_CALL_EDGES_DEPS,
     )
 
 
-def _resolve_callee(
-    callee_key: str,
-    caller: FunctionInfo,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    symbol_table=None,
-    project_root=None,
-    class_index=None,
-    call=None,
-    ambiguity_sink=None,
-    local_lambda_bindings=None,
-):
-    return _resolve_callee_impl(
-        callee_key,
-        caller,
-        by_name,
-        by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-        call=call,
-        ambiguity_sink=ambiguity_sink,
-        local_lambda_bindings=local_lambda_bindings,
-        deps=_ResolveCalleeDeps(
-            check_deadline_fn=check_deadline,
-            callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
-            resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
-            collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
-            module_name_fn=_module_name,
-        ),
-    )
+_RESOLVE_CALLEE_DEPS = _ResolveCalleeDeps(
+    check_deadline_fn=check_deadline,
+    callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
+    resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
+    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
+    module_name_fn=_module_name,
+)
 
+_resolve_callee = partial(
+    _resolve_callee_impl,
+    deps=_RESOLVE_CALLEE_DEPS,
+)
 
-def _resolve_callee_outcome(
-    callee_key: str,
-    caller: FunctionInfo,
-    by_name: dict[str, list[FunctionInfo]],
-    by_qual: dict[str, FunctionInfo],
-    *,
-    symbol_table=None,
-    project_root=None,
-    class_index=None,
-    call=None,
-    ambiguity_sink=None,
-    local_lambda_bindings=None,
-    resolve_callee_fn=_resolve_callee,
-) -> _CalleeResolutionOutcome:
-    return _resolve_callee_outcome_impl(
-        callee_key,
-        caller,
-        by_name,
-        by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-        call=call,
-        local_lambda_bindings=local_lambda_bindings,
-        resolve_callee_fn=resolve_callee_fn,
-        deps=_CalleeOutcomeDeps(
-            check_deadline_fn=check_deadline,
-            callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
-            resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
-            collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
-            module_name_fn=_module_name,
-            dedupe_resolution_candidates_fn=_dedupe_resolution_candidates,
-            callee_key_fn=_callee_key,
-            is_dynamic_dispatch_callee_key_fn=_is_dynamic_dispatch_callee_key,
-            outcome_ctor=_CalleeResolutionOutcome,
-            default_resolve_callee_fn=_resolve_callee,
-        ),
-    )
+_CALLEE_OUTCOME_DEPS = _CalleeOutcomeDeps(
+    check_deadline_fn=check_deadline,
+    callee_resolution_context_core_ctor=_CalleeResolutionContextCore,
+    resolve_callee_with_effects_fn=_resolve_callee_with_effects_impl,
+    collect_callee_resolution_effects_fn=_collect_callee_resolution_effects_impl,
+    module_name_fn=_module_name,
+    dedupe_resolution_candidates_fn=_dedupe_resolution_candidates,
+    callee_key_fn=_callee_key,
+    is_dynamic_dispatch_callee_key_fn=_is_dynamic_dispatch_callee_key,
+    outcome_ctor=_CalleeResolutionOutcome,
+    default_resolve_callee_fn=_resolve_callee,
+)
+
+_resolve_callee_outcome = partial(
+    _resolve_callee_outcome_impl,
+    deps=_CALLEE_OUTCOME_DEPS,
+)
 
 
 _COLLECT_DEADLINE_LOCAL_INFO_DEPS = _CollectDeadlineLocalInfoDeps(

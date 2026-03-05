@@ -1,5 +1,5 @@
 ---
-doc_revision: 117
+doc_revision: 118
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2070,6 +2070,24 @@ doc_scope:
     - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-177`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime callee-resolution wrapper contraction:
+    - Replaced pure pass-through resolver wrappers in `dataflow_deadline_runtime_owner.py` with static dependency-bound delegates (`functools.partial`):
+      - `_resolve_callee`
+      - `_resolve_callee_outcome`
+    - Introduced static owner dep bundles:
+      - `_RESOLVE_CALLEE_DEPS`
+      - `_CALLEE_OUTCOME_DEPS`
+      - `_COLLECT_CALL_EDGES_DEPS`
+    - Kept `_collect_call_edges` as a boundary compatibility shim only for optional resolver override defaulting.
+  - Compatibility status:
+    - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-178`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
