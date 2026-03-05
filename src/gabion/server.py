@@ -19,7 +19,7 @@ from typing import Callable, Literal, Mapping, Protocol, Sequence, cast
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN, TEXT_DOCUMENT_DID_SAVE, TEXT_DOCUMENT_CODE_ACTION, CodeAction, CodeActionKind, CodeActionParams, Command, Diagnostic, DiagnosticSeverity, Position, Range, WorkspaceEdit)
 
@@ -594,72 +594,222 @@ def _build_phase_progress_v2(
     )
 
 
+class _InProgressScanStateDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    phase: str = ""
+    processed_functions: tuple[str, ...] = ()
+    processed_functions_count: int = 0
+    processed_functions_digest: str = ""
+    function_count: int = 0
+    fn_names: dict[str, object] = Field(default_factory=dict)
+
+
+class _AnalysisIndexResumeDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    hydrated_paths: tuple[str, ...] = ()
+    hydrated_paths_count: int = 0
+    hydrated_paths_digest: str = ""
+    function_count: int = 0
+    class_count: int = 0
+    phase: str = ""
+    resume_digest: str = ""
+
+
+class _CollectionResumeDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    completed_paths: tuple[str, ...] = ()
+    in_progress_scan_by_path: dict[str, _InProgressScanStateDTO] = Field(default_factory=dict)
+    analysis_index_resume: _AnalysisIndexResumeDTO | None = None
+
+
+class _PhaseProgressDimensionDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    done: int = 0
+    total: int = 0
+
+
+class _PhaseProgressPayloadDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    primary_unit: str = ""
+    primary_done: int | None = None
+    primary_total: int | None = None
+    dimensions: dict[str, _PhaseProgressDimensionDTO] = Field(default_factory=dict)
+
+
+def _collection_resume_carrier(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> _CollectionResumeDTO:
+    if not isinstance(collection_resume, Mapping):
+        return _CollectionResumeDTO.model_validate({})
+    raw_completed_paths = collection_resume.get("completed_paths")
+    completed_paths: list[str] = []
+    if isinstance(raw_completed_paths, Sequence) and not isinstance(raw_completed_paths, (str, bytes)):
+        completed_paths = [entry for entry in raw_completed_paths if isinstance(entry, str)]
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    in_progress_scan_by_path: dict[str, object] = {}
+    previous_path: str | None = None
+    if isinstance(raw_in_progress, Mapping):
+        for raw_path, raw_state in raw_in_progress.items():
+            check_deadline()
+            if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
+                continue
+            if previous_path is not None and previous_path > raw_path:
+                never(
+                    "in_progress_scan_by_path path order regression",
+                    previous_path=previous_path,
+                    current_path=raw_path,
+                )
+            previous_path = raw_path
+            normalized_state: dict[str, object] = {}
+            raw_phase = raw_state.get("phase")
+            if isinstance(raw_phase, str):
+                normalized_state["phase"] = raw_phase
+            raw_processed = raw_state.get("processed_functions")
+            if isinstance(raw_processed, Sequence) and not isinstance(raw_processed, (str, bytes)):
+                normalized_state["processed_functions"] = [
+                    entry for entry in raw_processed if isinstance(entry, str)
+                ]
+            raw_processed_count = raw_state.get("processed_functions_count")
+            if isinstance(raw_processed_count, int) and not isinstance(raw_processed_count, bool):
+                normalized_state["processed_functions_count"] = max(0, raw_processed_count)
+            raw_processed_digest = raw_state.get("processed_functions_digest")
+            if isinstance(raw_processed_digest, str):
+                normalized_state["processed_functions_digest"] = raw_processed_digest
+            raw_function_count = raw_state.get("function_count")
+            if isinstance(raw_function_count, int) and not isinstance(raw_function_count, bool):
+                normalized_state["function_count"] = max(0, raw_function_count)
+            raw_fn_names = raw_state.get("fn_names")
+            if isinstance(raw_fn_names, Mapping):
+                normalized_state["fn_names"] = {
+                    str(name): raw_fn_names[name]
+                    for name in raw_fn_names
+                    if isinstance(name, str)
+                }
+            in_progress_scan_by_path[raw_path] = normalized_state
+    raw_index_resume = collection_resume.get("analysis_index_resume")
+    analysis_index_resume: dict[str, object] | None = None
+    if isinstance(raw_index_resume, Mapping):
+        hydrated_paths = raw_index_resume.get("hydrated_paths")
+        analysis_index_resume = {
+            "hydrated_paths": [
+                entry
+                for entry in hydrated_paths
+                if isinstance(entry, str)
+            ]
+            if isinstance(hydrated_paths, Sequence) and not isinstance(hydrated_paths, (str, bytes))
+            else [],
+            "hydrated_paths_count": max(0, raw_index_resume.get("hydrated_paths_count", 0))
+            if isinstance(raw_index_resume.get("hydrated_paths_count"), int)
+            and not isinstance(raw_index_resume.get("hydrated_paths_count"), bool)
+            else 0,
+            "hydrated_paths_digest": raw_index_resume.get("hydrated_paths_digest", "")
+            if isinstance(raw_index_resume.get("hydrated_paths_digest"), str)
+            else "",
+            "function_count": max(0, raw_index_resume.get("function_count", 0))
+            if isinstance(raw_index_resume.get("function_count"), int)
+            and not isinstance(raw_index_resume.get("function_count"), bool)
+            else 0,
+            "class_count": max(0, raw_index_resume.get("class_count", 0))
+            if isinstance(raw_index_resume.get("class_count"), int)
+            and not isinstance(raw_index_resume.get("class_count"), bool)
+            else 0,
+            "phase": raw_index_resume.get("phase", "")
+            if isinstance(raw_index_resume.get("phase"), str)
+            else "",
+            "resume_digest": raw_index_resume.get("resume_digest", "")
+            if isinstance(raw_index_resume.get("resume_digest"), str)
+            else "",
+        }
+    return _CollectionResumeDTO.model_validate(
+        {
+            "completed_paths": completed_paths,
+            "in_progress_scan_by_path": in_progress_scan_by_path,
+            "analysis_index_resume": analysis_index_resume,
+        }
+    )
+
+
+def _analysis_index_resume_carrier(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> _AnalysisIndexResumeDTO | None:
+    return _collection_resume_carrier(collection_resume).analysis_index_resume
+
+
+def _phase_progress_payload_carrier(
+    phase_progress_v2: Mapping[str, JSONValue] | None,
+) -> _PhaseProgressPayloadDTO | None:
+    if not isinstance(phase_progress_v2, Mapping):
+        return None
+    raw_dimensions = phase_progress_v2.get("dimensions")
+    dimensions: dict[str, dict[str, int]] = {}
+    if isinstance(raw_dimensions, Mapping):
+        for dim_name, raw_payload in raw_dimensions.items():
+            if not isinstance(dim_name, str) or not isinstance(raw_payload, Mapping):
+                continue
+            raw_done = raw_payload.get("done")
+            raw_total = raw_payload.get("total")
+            if (
+                isinstance(raw_done, int)
+                and not isinstance(raw_done, bool)
+                and isinstance(raw_total, int)
+                and not isinstance(raw_total, bool)
+            ):
+                dimensions[dim_name] = {"done": max(raw_done, 0), "total": max(raw_total, 0)}
+    return _PhaseProgressPayloadDTO.model_validate(
+        {
+            "primary_unit": phase_progress_v2.get("primary_unit", "")
+            if isinstance(phase_progress_v2.get("primary_unit"), str)
+            else "",
+            "primary_done": max(0, phase_progress_v2.get("primary_done", 0))
+            if isinstance(phase_progress_v2.get("primary_done"), int)
+            and not isinstance(phase_progress_v2.get("primary_done"), bool)
+            else None,
+            "primary_total": max(0, phase_progress_v2.get("primary_total", 0))
+            if isinstance(phase_progress_v2.get("primary_total"), int)
+            and not isinstance(phase_progress_v2.get("primary_total"), bool)
+            else None,
+            "dimensions": dimensions,
+        }
+    )
+
+
 def _completed_path_set(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    if not isinstance(collection_resume, Mapping):
-        return set()
-    raw_completed_paths = collection_resume.get("completed_paths")
-    if not isinstance(raw_completed_paths, Sequence) or isinstance(
-        raw_completed_paths, (str, bytes)
-    ):
-        return set()
-    return {path for path in raw_completed_paths if isinstance(path, str)}
+    carrier = _collection_resume_carrier(collection_resume)
+    return set(carrier.completed_paths)
 
 
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
-) -> dict[str, Mapping[str, JSONValue]]:
-    states: dict[str, Mapping[str, JSONValue]] = {}
-    if not isinstance(collection_resume, Mapping):
-        return states
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if not isinstance(raw_in_progress, Mapping):
-        return states
-    previous_path: str | None = None
-    for raw_path, raw_state in raw_in_progress.items():
-        check_deadline()
-        if not isinstance(raw_path, str):
-            continue
-        if previous_path is not None and previous_path > raw_path:
-            never(
-                "in_progress_scan_by_path path order regression",
-                previous_path=previous_path,
-                current_path=raw_path,
-            )
-        previous_path = raw_path
-        if not isinstance(raw_state, Mapping):
-            continue
-        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
-    return states
+)-> dict[str, _InProgressScanStateDTO]:
+    return _collection_resume_carrier(collection_resume).in_progress_scan_by_path
 
 
-def _state_processed_functions(state: Mapping[str, JSONValue]) -> set[str]:
-    raw_processed = state.get("processed_functions")
-    if not isinstance(raw_processed, Sequence) or isinstance(raw_processed, (str, bytes)):
-        return set()
-    return {entry for entry in raw_processed if isinstance(entry, str)}
+def _state_processed_functions(state: _InProgressScanStateDTO) -> set[str]:
+    return set(state.processed_functions)
 
 
-def _state_processed_count(state: Mapping[str, JSONValue]) -> int:
+def _state_processed_count(state: _InProgressScanStateDTO) -> int:
     processed_functions = _state_processed_functions(state)
     if processed_functions:
         return len(processed_functions)
-    raw_count = state.get("processed_functions_count")
-    if isinstance(raw_count, int):
-        return max(0, raw_count)
-    return 0
+    return max(0, state.processed_functions_count)
 
 
-def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
+def _state_processed_digest(state: _InProgressScanStateDTO) -> str:
     processed_functions = _state_processed_functions(state)
     if processed_functions:
         return hashlib.sha1(
             _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:1371')).encode("utf-8")
         ).hexdigest()
-    raw_digest = state.get("processed_functions_digest")
-    if isinstance(raw_digest, str) and raw_digest:
-        return raw_digest
+    if state.processed_functions_digest:
+        return state.processed_functions_digest
     return hashlib.sha1(
         _canonical_json_text({"count": _state_processed_count(state)}).encode("utf-8")
     ).hexdigest()
@@ -668,15 +818,10 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
 def _analysis_index_resume_hydrated_paths(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    if not isinstance(collection_resume, Mapping):
+    resume = _analysis_index_resume_carrier(collection_resume)
+    if resume is None:
         return set()
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return set()
-    raw_hydrated = raw_resume.get("hydrated_paths")
-    if not isinstance(raw_hydrated, Sequence) or isinstance(raw_hydrated, (str, bytes)):
-        return set()
-    return {entry for entry in raw_hydrated if isinstance(entry, str)}
+    return set(resume.hydrated_paths)
 
 
 def _analysis_index_resume_hydrated_count(
@@ -685,15 +830,10 @@ def _analysis_index_resume_hydrated_count(
     hydrated = _analysis_index_resume_hydrated_paths(collection_resume)
     if hydrated:
         return len(hydrated)
-    if not isinstance(collection_resume, Mapping):
+    resume = _analysis_index_resume_carrier(collection_resume)
+    if resume is None:
         return 0
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return 0
-    raw_count = raw_resume.get("hydrated_paths_count")
-    if isinstance(raw_count, int):
-        return max(0, raw_count)
-    return 0
+    return max(0, resume.hydrated_paths_count)
 
 
 def _analysis_index_resume_hydrated_digest(
@@ -704,14 +844,11 @@ def _analysis_index_resume_hydrated_digest(
         return hashlib.sha1(
             _canonical_json_text(sort_once(hydrated, source = 'src/gabion/server.py:1418')).encode("utf-8")
         ).hexdigest()
-    if not isinstance(collection_resume, Mapping):
+    resume = _analysis_index_resume_carrier(collection_resume)
+    if resume is None:
         return hashlib.sha1(b"[]").hexdigest()
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return hashlib.sha1(b"[]").hexdigest()
-    raw_digest = raw_resume.get("hydrated_paths_digest")
-    if isinstance(raw_digest, str) and raw_digest:
-        return raw_digest
+    if resume.hydrated_paths_digest:
+        return resume.hydrated_paths_digest
     return hashlib.sha1(
         _canonical_json_text({"count": _analysis_index_resume_hydrated_count(collection_resume)}).encode("utf-8")
     ).hexdigest()
@@ -722,23 +859,13 @@ def _analysis_index_resume_signature(
 ) -> tuple[int, str, int, int, str, str]:
     hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
     hydrated_digest = _analysis_index_resume_hydrated_digest(collection_resume)
-    if not isinstance(collection_resume, Mapping):
+    resume = _analysis_index_resume_carrier(collection_resume)
+    if resume is None:
         return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
-    raw_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(raw_resume, Mapping):
-        return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
-    function_count = raw_resume.get("function_count")
-    class_count = raw_resume.get("class_count")
-    phase = raw_resume.get("phase")
-    resume_digest = raw_resume.get("resume_digest")
-    if not isinstance(function_count, int):
-        function_count = 0
-    if not isinstance(class_count, int):
-        class_count = 0
-    if not isinstance(phase, str):
-        phase = ""
-    if not isinstance(resume_digest, str) or not resume_digest:
-        resume_digest = hydrated_digest
+    function_count = resume.function_count
+    class_count = resume.class_count
+    phase = resume.phase
+    resume_digest = resume.resume_digest or hydrated_digest
     return (
         hydrated_count,
         hydrated_digest,
@@ -1079,27 +1206,26 @@ def _render_incremental_report(
                 lines.append(
                     f"- `work_percent`: `{(100.0 * work_done / work_total):.2f}`"
                 )
-        phase_progress_v2 = progress_payload.get("phase_progress_v2")
-        if isinstance(phase_progress_v2, Mapping):
-            primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
-            raw_primary_done = phase_progress_v2.get("primary_done")
-            raw_primary_total = phase_progress_v2.get("primary_total")
+        phase_progress_carrier = _phase_progress_payload_carrier(
+            cast(Mapping[str, JSONValue] | None, progress_payload.get("phase_progress_v2"))
+        )
+        if phase_progress_carrier is not None:
             if (
-                isinstance(raw_primary_done, int)
-                and not isinstance(raw_primary_done, bool)
-                and isinstance(raw_primary_total, int)
-                and not isinstance(raw_primary_total, bool)
+                phase_progress_carrier.primary_done is not None
+                and phase_progress_carrier.primary_total is not None
             ):
-                primary_done = max(int(raw_primary_done), 0)
-                primary_total = max(int(raw_primary_total), 0)
+                primary_done = max(phase_progress_carrier.primary_done, 0)
+                primary_total = max(phase_progress_carrier.primary_total, 0)
                 if primary_total:
                     primary_done = min(primary_done, primary_total)
                 lines.append(
                     f"- `primary_progress`: `{primary_done}/{primary_total}`"
                 )
-            if primary_unit:
-                lines.append(f"- `primary_unit`: `{primary_unit}`")
-            dimensions_summary = _phase_progress_dimensions_summary(phase_progress_v2)
+            if phase_progress_carrier.primary_unit:
+                lines.append(f"- `primary_unit`: `{phase_progress_carrier.primary_unit}`")
+            dimensions_summary = _phase_progress_dimensions_summary(
+                cast(Mapping[str, JSONValue], progress_payload.get("phase_progress_v2"))
+            )
             if dimensions_summary:
                 lines.append(f"- `dimensions`: `{dimensions_summary}`")
         stale_for_s = progress_payload.get("stale_for_s")
@@ -1171,33 +1297,21 @@ def _markdown_table_cell(value: object) -> str:
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> str:
-    if not isinstance(phase_progress_v2, Mapping):
-        return ""
-    raw_dimensions = phase_progress_v2.get("dimensions")
-    if not isinstance(raw_dimensions, Mapping):
+    carrier = _phase_progress_payload_carrier(phase_progress_v2)
+    if carrier is None:
         return ""
     fragments: list[str] = []
     dim_names = sort_once(
-        (name for name in raw_dimensions if isinstance(name, str)),
+        carrier.dimensions,
         source="src/gabion/server.py:2253",
     )
     for dim_name in dim_names:
-        raw_payload = raw_dimensions.get(dim_name)
-        if not isinstance(raw_payload, Mapping):
-            continue
-        raw_done = raw_payload.get("done")
-        raw_total = raw_payload.get("total")
-        if (
-            isinstance(raw_done, int)
-            and not isinstance(raw_done, bool)
-            and isinstance(raw_total, int)
-            and not isinstance(raw_total, bool)
-        ):
-            done = max(int(raw_done), 0)
-            total = max(int(raw_total), 0)
-            if total:
-                done = min(done, total)
-            fragments.append(f"{dim_name}={done}/{total}")
+        dimension = carrier.dimensions[dim_name]
+        done = max(dimension.done, 0)
+        total = max(dimension.total, 0)
+        if total:
+            done = min(done, total)
+        fragments.append(f"{dim_name}={done}/{total}")
     return "; ".join(fragments)
 
 
@@ -1302,30 +1416,11 @@ def _collection_progress_intro_lines(
         detail_entries: list[str] = []
         for raw_path, state_mapping in in_progress_states.items():
             check_deadline()
-            phase = state_mapping.get("phase")
-            phase_text = phase if isinstance(phase, str) and phase else "unknown"
-            processed_count = state_mapping.get("processed_functions_count")
-            if not isinstance(processed_count, int):
-                raw_processed = state_mapping.get("processed_functions")
-                if isinstance(raw_processed, Sequence):
-                    processed_count = 0
-                    for entry in raw_processed:
-                        check_deadline()
-                        if isinstance(entry, str):
-                            processed_count += 1
-                else:
-                    processed_count = 0
-            function_count = state_mapping.get("function_count")
-            if not isinstance(function_count, int):
-                raw_fn_names = state_mapping.get("fn_names")
-                if isinstance(raw_fn_names, Mapping):
-                    function_count = 0
-                    for key in raw_fn_names:
-                        check_deadline()
-                        if isinstance(key, str):
-                            function_count += 1
-                else:
-                    function_count = 0
+            phase_text = state_mapping.phase or "unknown"
+            processed_count = _state_processed_count(state_mapping)
+            function_count = state_mapping.function_count
+            if function_count <= 0:
+                function_count = len(state_mapping.fn_names)
             detail_entries.append(
                 (
                     f"{raw_path} "
@@ -1338,18 +1433,12 @@ def _collection_progress_intro_lines(
         for detail in detail_entries:
             check_deadline()
             lines.append(f"- `in_progress_detail`: `{detail}`")
-    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
-    if isinstance(raw_analysis_index_resume, Mapping):
-        hydrated_paths_count = raw_analysis_index_resume.get("hydrated_paths_count")
-        if not isinstance(hydrated_paths_count, int):
-            hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
+    analysis_index_resume = _analysis_index_resume_carrier(collection_resume)
+    if analysis_index_resume is not None:
+        hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
         lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        function_count = raw_analysis_index_resume.get("function_count")
-        if isinstance(function_count, int):
-            lines.append(f"- `hydrated_function_count`: `{function_count}`")
-        class_count = raw_analysis_index_resume.get("class_count")
-        if isinstance(class_count, int):
-            lines.append(f"- `hydrated_class_count`: `{class_count}`")
+        lines.append(f"- `hydrated_function_count`: `{analysis_index_resume.function_count}`")
+        lines.append(f"- `hydrated_class_count`: `{analysis_index_resume.class_count}`")
     return lines
 
 
@@ -1989,7 +2078,11 @@ def _execute_command_total(
 ) -> DataflowResponseEnvelopeDTO:
     from gabion.server_core.command_orchestrator import execute_command_total
 
-    command_payload = payload if isinstance(payload, DataflowCommandPayload) else DataflowCommandPayload(payload=_require_payload(payload, command=DATAFLOW_COMMAND))
+    command_payload = (
+        payload
+        if isinstance(payload, DataflowCommandPayload)
+        else DataflowCommandPayload(payload=_require_payload(payload, command=DATAFLOW_COMMAND))
+    )
     return execute_command_total(ls, command_payload.payload, deps=deps)
 
 
@@ -2907,7 +3000,11 @@ def execute_impact(
 
 
 def _execute_impact_total(ls: LanguageServer, payload: ImpactCommandPayload | Mapping[str, object]) -> dict:
-    command_payload = payload if isinstance(payload, ImpactCommandPayload) else ImpactCommandPayload(payload=_require_payload(payload, command=IMPACT_COMMAND))
+    command_payload = (
+        payload
+        if isinstance(payload, ImpactCommandPayload)
+        else ImpactCommandPayload(payload=_require_payload(payload, command=IMPACT_COMMAND))
+    )
     with _deadline_scope_from_payload(command_payload):
         try:
             options = _normalize_impact_payload(command_payload.payload, workspace_root=ls.workspace.root_path)
