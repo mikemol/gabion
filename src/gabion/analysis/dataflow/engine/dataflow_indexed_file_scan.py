@@ -238,6 +238,8 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_constant_flow_details,
     _collect_dataclass_registry,
     _dead_env_map,
+    _decision_param_lint_line as _decision_param_lint_line_owner,
+    _decision_tier_for as _decision_tier_for_owner,
     _branch_reachability_under_env,
     _collect_exception_obligations,
     _collect_handledness_witnesses,
@@ -255,19 +257,20 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _is_reachability_true,
     _iter_config_fields,
     _iter_dataclass_call_bundles,
+    _lint_line as _lint_line_owner,
     _names_in_expr,
     _node_in_block,
     _param_annotations_by_path,
+    _span_line_col as _span_line_col_owner,
     _split_top_level,
     _type_from_const_repr,
     analyze_constant_flow_repo,
-    analyze_decision_surfaces_repo,
     analyze_deadness_flow_repo,
     analyze_type_flow_repo_with_evidence,
     analyze_type_flow_repo_with_map,
     analyze_unused_arg_flow_repo,
-    analyze_value_encoded_decisions_repo,
     generate_property_hook_manifest,
+    run_scan_domain_orchestrator as _run_scan_domain_orchestrator_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
     _AmbiguitySuiteRow,
@@ -2072,60 +2075,9 @@ def _deadline_loop_forwarded_params(
         ),
     )
 
-def run_scan_domain_orchestrator(
-    *,
-    paths: list[Path],
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    forest: Forest,
-    transparent_decorators = None,
-    decision_tiers = None,
-    require_tiers: bool = False,
-    parse_failure_witnesses = None,
-    analysis_index = None,
-) -> dict[str, list[str]]:
-    decision_surfaces, decision_warnings, decision_lint = analyze_decision_surfaces_repo(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        decision_tiers=decision_tiers,
-        require_tiers=require_tiers,
-        forest=forest,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-    )
-    value_surfaces, value_warnings, value_rewrites, value_lint = analyze_value_encoded_decisions_repo(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        decision_tiers=decision_tiers,
-        require_tiers=require_tiers,
-        forest=forest,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-    )
-    return {
-        "decision_surfaces": decision_surfaces,
-        "decision_warnings": decision_warnings,
-        "decision_lint": decision_lint,
-        "value_surfaces": value_surfaces,
-        "value_warnings": value_warnings,
-        "value_rewrites": value_rewrites,
-        "value_lint": value_lint,
-    }
+run_scan_domain_orchestrator = _run_scan_domain_orchestrator_owner
 
-def _span_line_col(span):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _span_line_col as _impl
-
-    return _impl(span)
+_span_line_col = _span_line_col_owner
 
 def _format_span_fields(
     line: object,
@@ -2137,8 +2089,7 @@ def _format_span_fields(
 
     return _impl(line, col, end_line, end_col)
 
-def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
-    return f"{path}:{line}:{col}: {code} {message}".strip()
+_lint_line = _lint_line_owner
 
 def _add_interned_alt(
     *,
@@ -2149,48 +2100,9 @@ def _add_interned_alt(
 ) -> Alt:
     return forest.add_alt(kind, inputs, evidence=evidence)
 
-def _decision_param_lint_line(
-    info: "FunctionInfo",
-    param: str,
-    *,
-    project_root,
-    code: str,
-    message: str,
-):
-    from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _decision_param_lint_line as _impl
+_decision_param_lint_line = _decision_param_lint_line_owner
 
-    return _impl(
-        info,
-        param,
-        project_root=project_root,
-        code=code,
-        message=message,
-    )
-
-def _decision_tier_for(
-    info: "FunctionInfo",
-    param: str,
-    *,
-    tier_map: dict[str, int],
-    project_root,
-):
-    check_deadline()
-    if not tier_map:
-        return None
-    span = info.param_spans.get(param)
-    if span is not None:
-        path = _normalize_snapshot_path(info.path, project_root)
-        line, col, _, _ = span
-        location = f"{path}:{line + 1}:{col + 1}"
-        for key in (location, f"{location}:{param}"):
-            check_deadline()
-            if key in tier_map:
-                return tier_map[key]
-    for key in (f"{info.qual}:{param}", f"{info.qual}.{param}", param):
-        check_deadline()
-        if key in tier_map:
-            return tier_map[key]
-    return None
+_decision_tier_for = _decision_tier_for_owner
 
 @dataclass
 class AnalysisIndex:

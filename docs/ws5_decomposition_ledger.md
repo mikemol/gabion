@@ -1,5 +1,5 @@
 ---
-doc_revision: 15
+doc_revision: 16
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3259
+- Monolith LOC (current): 3171
 - Monolith top-level import statements (current): 94
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -268,10 +268,24 @@ doc_scope:
     - policy checks passed
     - CU-WS5-C + structure + edge/deadline/runtime suites passed (`84 passed`)
     - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase decision-orchestrator helper ownership moved to `dataflow_post_phase_analyses.py`:
+    - `run_scan_domain_orchestrator`
+    - `_span_line_col`
+    - `_lint_line`
+    - `_decision_param_lint_line`
+    - `_decision_tier_for`
+  - Monolith bodies removed and replaced with owner aliases.
+  - Pruned now-unused monolith imports for `analyze_decision_surfaces_repo` and `analyze_value_encoded_decisions_repo`.
+  - ASPF no-change acknowledgement refreshed (`in-77`).
+  - Validation:
+    - policy checks passed
+    - CU-WS5-C + edge/deadline suites passed (`58 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
-1. Analysis-index ownership expansion: cache identity carriers + indexed pass/build/module-tree/stage-cache surfaces.
-2. Projection/ambiguity ownership expansion and remaining facade contraction.
+1. Import fan-out contraction: move additional reporting/runtime helpers out of monolith and prune unused imports to approach `<=70`.
+2. Projection/ambiguity facade contraction: remove remaining compatibility-only pass-throughs in monolith.
 3. Post-phase cleanup: tighten remaining runtime dependency shims to explicit owner deps.
 
 ## Validation Checklist Per CU
