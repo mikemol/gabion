@@ -1,5 +1,5 @@
 ---
-doc_revision: 45
+doc_revision: 46
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -766,6 +766,24 @@ doc_scope:
   - Compatibility status:
     - Known compatibility-owner call paths are now statically satisfied from facade exports.
   - ASPF no-change acknowledgement refreshed (`in-106`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline/callee carrier extraction:
+    - Added canonical carrier owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_deadline_contracts.py`
+    - Moved carrier dataclasses out of monolith:
+      - `_DeadlineLoopFacts`
+      - `_DeadlineLocalInfo`
+      - `_DeadlineFunctionFacts`
+      - `_CalleeResolutionOutcome`
+    - Monolith now aliases these carriers from the new owner module for compatibility.
+    - `dataflow_facade` now exports deadline/callee carrier types from canonical owner module (collector class remains monolith-owned).
+  - Compatibility status:
+    - Deadline/callee carrier identity no longer originates in monolith definitions.
+  - ASPF no-change acknowledgement refreshed (`in-107`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)

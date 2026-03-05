@@ -76,6 +76,12 @@ from gabion.analysis.core.deprecated_substrate import (
 
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans, extract_smell_sample as _ds_extract_smell_sample, lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location, summarize_coherence_witnesses as _ds_summarize_coherence_witnesses, summarize_deadness_witnesses as _ds_summarize_deadness_witnesses, summarize_rewrite_plans as _ds_summarize_rewrite_plans)
+from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
+    _CalleeResolutionOutcome as _CalleeResolutionOutcome_owner,
+    _DeadlineFunctionFacts as _DeadlineFunctionFacts_owner,
+    _DeadlineLocalInfo as _DeadlineLocalInfo_owner,
+    _DeadlineLoopFacts as _DeadlineLoopFacts_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
 )
@@ -1622,31 +1628,9 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
         self.assignments.append(([node.target], node.value, _node_span(node)))
         self.generic_visit(node)
 
-@dataclass
-class _DeadlineLoopFacts:
-    span: OptionalSpan4
-    kind: str
-    depth: int = 1
-    check_params: set[str] = field(default_factory=set)
-    ambient_check: bool = False
-    call_spans: set[tuple[int, int, int, int]] = field(default_factory=set)
-
-@dataclass(frozen=True)
-class _DeadlineLocalInfo:
-    origin_vars: set[str]
-    origin_spans: dict[str, tuple[int, int, int, int]]
-    alias_to_param: dict[str, str]
-
-@dataclass(frozen=True)
-class _DeadlineFunctionFacts:
-    path: Path
-    qual: str
-    span: OptionalSpan4
-    loop: bool
-    check_params: set[str]
-    ambient_check: bool
-    loop_sites: list[_DeadlineLoopFacts]
-    local_info: _DeadlineLocalInfo
+_DeadlineLoopFacts = _DeadlineLoopFacts_owner
+_DeadlineLocalInfo = _DeadlineLocalInfo_owner
+_DeadlineFunctionFacts = _DeadlineFunctionFacts_owner
 
 def _collect_deadline_local_info(
     assignments: list[tuple[list[ast.AST], OptionalAstNode, OptionalSpan4]],
@@ -2789,12 +2773,7 @@ def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
         return True
     return False
 
-@dataclass(frozen=True)
-class _CalleeResolutionOutcome:
-    status: str
-    phase: str
-    callee_key: str
-    candidates: tuple[FunctionInfo, ...] = ()
+_CalleeResolutionOutcome = _CalleeResolutionOutcome_owner
 
 def _dedupe_resolution_candidates(
     candidates: Iterable[FunctionInfo],
