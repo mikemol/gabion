@@ -1,5 +1,5 @@
 ---
-doc_revision: 52
+doc_revision: 53
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -900,6 +900,21 @@ doc_scope:
   - Compatibility status:
     - Deadline-owner callee-outcome resolution no longer routes through facade helper indirection.
   - ASPF no-change acknowledgement refreshed (`in-113`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner collector ownerization:
+    - `dataflow_deadline_runtime_owner` now defines `_DeadlineFunctionCollector` locally.
+    - Removed facade import dependency on `_DeadlineFunctionCollector`.
+    - Collector semantics preserved for:
+      - loop-site depth/span/call-span tracking
+      - ambient and parameter check tracking
+      - assignment capture for local-info extraction
+  - Compatibility status:
+    - Deadline-runtime owner no longer imports helper symbols from `dataflow_facade`.
+  - ASPF no-change acknowledgement refreshed (`in-114`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
