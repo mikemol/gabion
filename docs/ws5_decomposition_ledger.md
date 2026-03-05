@@ -1,5 +1,5 @@
 ---
-doc_revision: 259
+doc_revision: 260
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,16 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-322`, this CU):
+  - Added dedicated facade-import hygiene enforcement for internal repo surfaces:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_import_hygiene.py`
+  - Enforcement:
+    - forbids `src/` + `tests/` imports of `gabion.analysis.dataflow.engine.dataflow_facade`
+    - covers both `import ...` and `from ... import ...` forms
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`17 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected new-test mapping drift
 - WS-5 continuation (`in-321`, this CU):
   - Ratcheted legacy compatibility guard budgets to lock in current contraction state:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`
