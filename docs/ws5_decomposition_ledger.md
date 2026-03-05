@@ -1,5 +1,5 @@
 ---
-doc_revision: 223
+doc_revision: 224
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,19 @@ doc_scope:
 - Low: newly introduced owner wrappers (`dataflow_runtime_reporting_owner.py`, `dataflow_parse_runtime_owner.py`, `dataflow_deadline_summary_owner.py`) should be reviewed for consolidation opportunities after compatibility-owner retirement.
 
 ## Progress Ledger
+- WS-5 continuation (`in-283`, this CU):
+  - Reduced direct `dataflow_deadline_runtime_owner` fan-in in `src/tests` by rebinding monolith deadline runtime imports through `dataflow_deadline_helpers`:
+    - `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py`
+  - Deadline helper export surface expanded to carry canonical routing for:
+    - `_bind_call_args`
+  - State delta:
+    - `dataflow_deadline_runtime_owner` direct imports in `src/tests`: `2 -> 1`
+    - remaining direct importer: `dataflow_deadline_helpers.py` compatibility shim only
+  - Validation:
+    - policy checks passed
+    - targeted pytest passed (`64 passed`)
+    - evidence refresh/check passed (no evidence drift)
 - WS-5 continuation (`in-282`, this CU):
   - Reduced direct `dataflow_deadline_runtime_owner` fan-in in `src` by rebinding facade deadline exports through `dataflow_deadline_helpers`:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`

@@ -38,6 +38,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
 )
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo,
+    bind_call_args as _bind_call_args,
     caller_param_bindings_for_call as _caller_param_bindings_for_call,
     classify_deadline_expr as _classify_deadline_expr,
     collect_call_edges_from_forest as _collect_call_edges_from_forest,
@@ -86,6 +87,7 @@ __all__ = [
     "_DeadlineFunctionCollector",
     "_DeadlineFunctionFacts",
     "_build_analysis_index",
+    "_bind_call_args",
     "_caller_param_bindings_for_call",
     "_classify_deadline_expr",
     "_collect_call_edges",

@@ -268,7 +268,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _sorted_text,
     _stage_cache_key_aliases,
 )
-from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _DeadlineArgInfo,
     _bind_call_args,
     _classify_deadline_expr,
