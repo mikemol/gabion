@@ -1,5 +1,5 @@
 ---
-doc_revision: 143
+doc_revision: 144
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2475,6 +2475,19 @@ doc_scope:
     - Runtime parse/synthesis behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-203`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index boundary retirement convergence:
+    - Deleted now-internal-orphan boundary module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+    - All in-repo callers were already migrated to canonical owner/resume modules in prior CUs (`in-196`..`in-200`), so this removes a dead compatibility surface with no behavioral path.
+  - Compatibility status:
+    - Analysis-index behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-204`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
