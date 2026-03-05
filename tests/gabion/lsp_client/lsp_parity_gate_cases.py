@@ -101,7 +101,7 @@ def test_command_executor_transport_filtering_is_stable() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_command_dispatch_registry_covers_semantic_command_ids::server.py::gabion.server._validate_command_dispatch_registry_coverage
 def test_command_dispatch_registry_covers_semantic_command_ids() -> None:
-    assert set(server._COMMAND_DISPATCH_REGISTRY) == set(server.command_ids.SEMANTIC_COMMAND_IDS)
+    assert set(server._command_dispatch_registry()) == set(server.command_ids.SEMANTIC_COMMAND_IDS)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_strip_parity_ignored_keys_filters_requested_fields::server.py::gabion.server._strip_parity_ignored_keys

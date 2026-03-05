@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from gabion import server
 from gabion.commands import command_ids, direct_dispatch
+from gabion.commands.dispatch_registry import (
+    CommandDispatchRegistration,
+    executor_for_transport,
+)
 
 
 # gabion:evidence E:call_footprint::tests/test_command_dispatch_registry.py::test_semantic_command_ids_sorted::command_ids.py::gabion.commands.command_ids
@@ -21,3 +26,24 @@ def test_direct_dispatch_registry_sorted_and_complete() -> None:
         assert callable(direct_dispatch.direct_executor(command))
     assert direct_dispatch.direct_executor(command_ids.CHECK_COMMAND) is not None
     assert direct_dispatch.direct_executor(command_ids.DATAFLOW_COMMAND) is not None
+
+
+# gabion:evidence E:call_footprint::tests/test_command_dispatch_registry.py::test_semantic_command_transport_behavior_is_consistent::dispatch_registry.py::gabion.commands.dispatch_registry.executor_for_transport
+def test_semantic_command_transport_behavior_is_consistent() -> None:
+    registry = server._command_dispatch_registry()
+    for command in command_ids.SEMANTIC_COMMAND_IDS:
+        registration = registry[command]
+        assert isinstance(registration, CommandDispatchRegistration)
+        lsp_executor = executor_for_transport(
+            registry=registry,
+            command=command,
+            transport="lsp",
+        )
+        direct_executor = executor_for_transport(
+            registry=registry,
+            command=command,
+            transport="direct",
+        )
+        assert (lsp_executor is not None) is registration.transport_lsp
+        assert (direct_executor is not None) is registration.transport_direct
+        assert (direct_dispatch.direct_executor(command) is not None) is registration.transport_direct
