@@ -19,7 +19,7 @@ def _repo_python_files(root: Path):
 
 
 def test_no_internal_owner_module_imports() -> None:
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = Path(__file__).resolve().parents[4]
     violations: list[str] = []
 
     for path in _repo_python_files(repo_root):
