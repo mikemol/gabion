@@ -7,7 +7,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -127,6 +127,29 @@ class _StageCacheIdentitySpec:
     normalized_config: object
 
 
+@dataclass
+class _AnalysisIndexCarrier:
+    by_name: dict[str, list[object]]
+    by_qual: dict[str, object]
+    symbol_table: object
+    class_index: dict[str, object]
+    parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
+    module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
+    stage_cache_by_key: dict[object, dict[Path, object]] = field(default_factory=dict)
+    index_cache_identity: str = ""
+    projection_cache_identity: str = ""
+    transitive_callers: object = None
+    resolved_call_edges: object = None
+    resolved_transparent_call_edges: object = None
+    resolved_transparent_edges_by_caller: object = None
+
+
+@dataclass
+class _FunctionIndexAccumulator:
+    by_name: dict[str, list[object]] = field(default_factory=lambda: defaultdict(list))
+    by_qual: dict[str, object] = field(default_factory=dict)
+
+
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
 
 _ANALYSIS_INDEX_STAGE_CACHE_OP = DerivationOp(
@@ -149,9 +172,7 @@ def _analysis_index_ctor_runtime(
     index_cache_identity: str = "",
     projection_cache_identity: str = "",
 ):
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import AnalysisIndex
-
-    return AnalysisIndex(
+    return _AnalysisIndexCarrier(
         by_name=by_name,
         by_qual=by_qual,
         symbol_table=symbol_table,
@@ -162,8 +183,6 @@ def _analysis_index_ctor_runtime(
 
 
 def _function_index_acc_ctor_runtime(*, by_name, by_qual):
-    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import _FunctionIndexAccumulator
-
     return _FunctionIndexAccumulator(
         by_name=by_name,
         by_qual=by_qual,

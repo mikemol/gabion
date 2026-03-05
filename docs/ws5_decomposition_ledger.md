@@ -1,5 +1,5 @@
 ---
-doc_revision: 36
+doc_revision: 37
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -632,6 +632,26 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted WS5-C + runtime/dataflow suites passed (`48 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index owner compatibility-carrier contraction:
+    - Added owner-local carrier dataclasses:
+      - `_AnalysisIndexCarrier`
+      - `_FunctionIndexAccumulator`
+    - Switched boundary constructor delegates to owner-local carriers:
+      - `_analysis_index_ctor_runtime`
+      - `_function_index_acc_ctor_runtime`
+    - Removed monolith class imports for:
+      - `AnalysisIndex`
+      - `_FunctionIndexAccumulator`
+    - Ambiguity-policy remediation:
+      - `_AnalysisIndexCarrier` optional cache/edge fields normalized to deterministic single-shape `object` carriers.
+  - Monolith-coupling status:
+    - Direct local imports from `dataflow_indexed_file_scan.py` in `dataflow_analysis_index_owner.py` reduced from `6` to `4`.
+  - ASPF no-change acknowledgement refreshed (`in-98`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
