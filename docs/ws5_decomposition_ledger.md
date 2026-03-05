@@ -1,5 +1,5 @@
 ---
-doc_revision: 78
+doc_revision: 79
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1370,6 +1370,24 @@ doc_scope:
     - Monolith LOC dropped to `1972`; top-level imports remain `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-138`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Function-index build-wrapper ownerization:
+    - Monolith wrapper bodies replaced by canonical analysis-index owner aliases:
+      - `_function_index_module_artifact_spec`
+      - `_build_function_index`
+    - Added canonical owner implementations:
+      - `dataflow_analysis_index_owner._function_index_module_artifact_spec_runtime`
+      - `dataflow_analysis_index_owner._build_function_index_runtime`
+    - Monolith function-index build paths now route through owner-canonical helpers.
+  - Compatibility status:
+    - Function-index build behavior remains stable under resolver/pipeline/deadline/structure suites.
+    - Monolith LOC dropped to `1919`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-139`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

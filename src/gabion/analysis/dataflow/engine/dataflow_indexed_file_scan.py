@@ -337,6 +337,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _accumulate_function_index_for_tree_runtime as _accumulate_function_index_for_tree_owner,
     _accumulate_symbol_table_for_tree_runtime as _accumulate_symbol_table_for_tree_owner,
     _build_analysis_index,
+    _build_function_index_runtime as _build_function_index_owner,
     _build_module_artifacts,
     _build_call_graph,
     _build_stage_cache_identity_spec,
@@ -348,6 +349,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _get_stage_cache_bucket,
     _index_stage_cache_identity,
     _iter_resolved_edge_param_events,
+    _function_index_module_artifact_spec_runtime as _function_index_module_artifact_spec_owner,
     _normalize_cache_config,
     _parse_stage_cache_key,
     _path_dependency_payload as _path_dependency_payload_owner,
@@ -1728,64 +1730,9 @@ _collect_closure_lambda_factories = _collect_closure_lambda_factories_owner
 _direct_lambda_callee_by_call_span = _direct_lambda_callee_by_call_span_owner
 _materialize_direct_lambda_callees = _materialize_direct_lambda_callees_owner
 
-def _function_index_module_artifact_spec(
-    *,
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    transparent_decorators,
-) -> _ModuleArtifactSpec[
-    _FunctionIndexAccumulator,
-    tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
-]:
-    return _ModuleArtifactSpec[
-        _FunctionIndexAccumulator,
-        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
-    ](
-        artifact_id="function_index",
-        stage=_ParseModuleStage.FUNCTION_INDEX,
-        init=_FunctionIndexAccumulator,
-        fold=lambda acc, path, tree: _accumulate_function_index_for_tree(
-            acc,
-            path,
-            tree,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            transparent_decorators=transparent_decorators,
-        ),
-        finish=lambda acc: (acc.by_name, acc.by_qual),
-    )
+_function_index_module_artifact_spec = _function_index_module_artifact_spec_owner
 
-def _build_function_index(
-    paths: list[Path],
-    project_root,
-    ignore_params: set[str],
-    strictness: str,
-    transparent_decorators = None,
-    *,
-    parse_failure_witnesses: list[JSONObject],
-) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
-    check_deadline()
-    raw_index, = _build_module_artifacts(
-        paths,
-        specs=(
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _function_index_module_artifact_spec(
-                    project_root=project_root,
-                    ignore_params=ignore_params,
-                    strictness=strictness,
-                    transparent_decorators=transparent_decorators,
-                ),
-            ),
-        ),
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    return cast(
-        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
-        raw_index,
-    )
+_build_function_index = _build_function_index_owner
 
 _resolve_callee = _resolve_callee_owner
 

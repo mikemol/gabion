@@ -296,6 +296,70 @@ def _accumulate_function_index_for_tree_runtime(
     )
 
 
+def _function_index_module_artifact_spec_runtime(
+    *,
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    transparent_decorators,
+) -> _ModuleArtifactSpec[
+    _FunctionIndexAccumulator,
+    tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+]:
+    return _ModuleArtifactSpec[
+        _FunctionIndexAccumulator,
+        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+    ](
+        artifact_id="function_index",
+        stage=_ParseModuleStage.FUNCTION_INDEX,
+        init=_FunctionIndexAccumulator,
+        fold=lambda acc, path, tree: _accumulate_function_index_for_tree_runtime(
+            acc,
+            path,
+            tree,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            transparent_decorators=transparent_decorators,
+        ),
+        finish=lambda acc: (
+            cast(dict[str, list[FunctionInfo]], acc.by_name),
+            cast(dict[str, FunctionInfo], acc.by_qual),
+        ),
+    )
+
+
+def _build_function_index_runtime(
+    paths: list[Path],
+    project_root,
+    ignore_params: set[str],
+    strictness: str,
+    transparent_decorators=None,
+    *,
+    parse_failure_witnesses: list[JSONObject],
+) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
+    check_deadline()
+    raw_index, = _build_module_artifacts(
+        paths,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _function_index_module_artifact_spec_runtime(
+                    project_root=project_root,
+                    ignore_params=ignore_params,
+                    strictness=strictness,
+                    transparent_decorators=transparent_decorators,
+                ),
+            ),
+        ),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return cast(
+        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+        raw_index,
+    )
+
+
 def _accumulate_symbol_table_for_tree_runtime(
     table,
     path: Path,
@@ -999,6 +1063,7 @@ __all__ = [
     "_build_stage_cache_identity_spec",
     "_CacheSemanticContext",
     "_cache_identity_aliases",
+    "_build_function_index_runtime",
     "_canonical_cache_identity",
     "_canonical_stage_cache_detail",
     "_canonical_stage_cache_identity",
@@ -1009,6 +1074,7 @@ __all__ = [
     "_collect_transitive_callers",
     "_get_stage_cache_bucket",
     "_index_stage_cache_identity",
+    "_function_index_module_artifact_spec_runtime",
     "_iter_resolved_edge_param_events",
     "_load_analysis_collection_resume_payload",
     "_normalize_cache_config",
