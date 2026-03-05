@@ -281,7 +281,11 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
     _materialize_ambiguity_suite_agg_spec,
     _materialize_ambiguity_virtual_set_spec,
     _materialize_projection_spec_rows,
+    _materialize_statement_suite_contains as _materialize_statement_suite_contains_owner,
+    _materialize_structured_suite_sites as _materialize_structured_suite_sites_owner,
+    _materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_owner,
     _materialize_suite_order_spec,
+    _populate_bundle_forest as _populate_bundle_forest_owner,
     _spec_row_span,
     _summarize_call_ambiguities,
     _suite_order_depth,
@@ -391,20 +395,14 @@ from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps as _SummarizeDeadlineObligationsDeps, summarize_deadline_obligations as _summarize_deadline_obligations_impl)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     extract_report_sections as _extract_report_sections_impl, parse_report_section_marker as _parse_report_section_marker_impl)
-from gabion.analysis.indexed_scan.scanners.materialization.structured_suite_sites import (
-    MaterializeStructuredSuiteSitesDeps as _MaterializeStructuredSuiteSitesDeps, MaterializeStructuredSuiteSitesForTreeDeps as _MaterializeStructuredSuiteSitesForTreeDeps, materialize_structured_suite_sites as _materialize_structured_suite_sites_impl, materialize_structured_suite_sites_for_tree as _materialize_structured_suite_sites_for_tree_impl)
 from gabion.analysis.indexed_scan.ast.expression_eval import (
     BoolEvalOutcome as _BoolEvalOutcome, EvalDecision as _EvalDecision, ValueEvalOutcome as _ValueEvalOutcome)
-from gabion.analysis.indexed_scan.scanners.materialization.statement_materialization import (
-    materialize_statement_suite_contains as _materialize_statement_suite_contains_impl)
 from gabion.analysis.indexed_scan.scanners.parser_builder import (
     build_parser as _build_parser_impl)
 from gabion.analysis.indexed_scan.scanners.run_entry import (
     analysis_deadline_scope as _analysis_deadline_scope_impl, normalize_transparent_decorators as _normalize_transparent_decorators_impl, resolve_baseline_path as _resolve_baseline_path_impl, resolve_synth_registry_path as _resolve_synth_registry_path_impl)
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
     decorator_name as _decorator_name_impl)
-from gabion.analysis.indexed_scan.scanners.materialization.bundle_forest_builder import (
-    populate_bundle_forest_from_runtime_module as _populate_bundle_forest_impl_runtime)
 from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry import (
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
@@ -1558,99 +1556,10 @@ def _forbid_adhoc_bundle_discovery(reason: str) -> None:
             f"Ad-hoc bundle discovery invoked while forest-only invariant active: {reason}"
         )
 
-def _materialize_statement_suite_contains(
-    *,
-    forest: Forest,
-    path_name: str,
-    qual: str,
-    statements: Sequence[ast.stmt],
-    parent_suite: NodeId,
-) -> None:
-    _materialize_statement_suite_contains_impl(
-        forest=forest,
-        path_name=path_name,
-        qual=qual,
-        statements=statements,
-        parent_suite=parent_suite,
-        node_span_fn=_node_span,
-        check_deadline_fn=check_deadline,
-    )
-
-def _materialize_structured_suite_sites_for_tree(
-    *,
-    forest: Forest,
-    path: Path,
-    tree: ast.Module,
-    project_root,
-) -> None:
-    _materialize_structured_suite_sites_for_tree_impl(
-        forest=forest,
-        path=path,
-        tree=tree,
-        project_root=project_root,
-        deps=_MaterializeStructuredSuiteSitesForTreeDeps(
-            check_deadline_fn=check_deadline,
-            parent_annotator_factory=ParentAnnotator,
-            module_name_fn=_module_name,
-            collect_functions_fn=_collect_functions,
-            enclosing_scopes_fn=_enclosing_scopes,
-            node_span_fn=_node_span,
-            materialize_statement_suite_contains_fn=_materialize_statement_suite_contains,
-        ),
-    )
-
-def _materialize_structured_suite_sites(
-    *,
-    forest: Forest,
-    file_paths: list[Path],
-    project_root,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-) -> None:
-    _materialize_structured_suite_sites_impl(
-        forest=forest,
-        file_paths=file_paths,
-        project_root=project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        deps=_MaterializeStructuredSuiteSitesDeps(
-            check_deadline_fn=check_deadline,
-            iter_monotonic_paths_fn=_iter_monotonic_paths,
-            analysis_index_module_trees_fn=_analysis_index_module_trees,
-            parse_module_tree_fn=_parse_module_tree,
-            parse_module_stage_suite_containment=_ParseModuleStage.SUITE_CONTAINMENT,
-            materialize_structured_suite_sites_for_tree_fn=_materialize_structured_suite_sites_for_tree,
-        ),
-    )
-
-def _populate_bundle_forest(
-    forest: Forest,
-    *,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]],
-    file_paths: list[Path],
-    project_root = None,
-    include_all_sites: bool = True,
-    ignore_params = None,
-    strictness: str = "high",
-    transparent_decorators = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index = None,
-    on_progress = None,
-) -> None:
-    _populate_bundle_forest_impl_runtime(
-        forest,
-        groups_by_path=groups_by_path,
-        file_paths=file_paths,
-        project_root=project_root,
-        include_all_sites=include_all_sites,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
-        on_progress=on_progress,
-        runtime_module=sys.modules[__name__],
-    )
+_materialize_statement_suite_contains = _materialize_statement_suite_contains_owner
+_materialize_structured_suite_sites_for_tree = _materialize_structured_suite_sites_for_tree_owner
+_materialize_structured_suite_sites = _materialize_structured_suite_sites_owner
+_populate_bundle_forest = _populate_bundle_forest_owner
 
 def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:

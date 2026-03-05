@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1281,6 +1281,24 @@ doc_scope:
     - Monolith LOC dropped to `2250`; top-level imports remain within target (`69`).
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-133`).
+  - Validation:
+    - policy checks passed
+    - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection materialization wrapper hard-cut:
+    - Monolith wrapper bodies replaced by direct canonical projection owner aliases for:
+      - `_materialize_statement_suite_contains`
+      - `_materialize_structured_suite_sites_for_tree`
+      - `_materialize_structured_suite_sites`
+      - `_populate_bundle_forest`
+    - Monolith now imports these surfaces from `dataflow_projection_materialization`.
+    - Removed now-unused monolith top-level imports for structured-site deps and runtime bundle-forest materialization passthrough.
+  - Compatibility status:
+    - Projection/site materialization surfaces are owner-canonicalized; monolith keeps boundary aliases only.
+    - Monolith LOC dropped to `2159`; top-level imports now `66`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-134`).
   - Validation:
     - policy checks passed
     - targeted pipeline/obligation/deadline/structure suites passed (`58 passed`)
