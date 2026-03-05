@@ -15,8 +15,6 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
 }
 
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
-    _CalleeResolutionOutcome,
-    _DeadlineFunctionFacts,
     _DeadlineLocalInfo,
     _DeadlineLoopFacts,
 )

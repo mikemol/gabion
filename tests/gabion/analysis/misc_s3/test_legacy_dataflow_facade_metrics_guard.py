@@ -6,9 +6,9 @@ from pathlib import Path
 
 
 _FACADE_RELATIVE_PATH = "src/gabion/analysis/dataflow/engine/dataflow_facade.py"
-_MAX_FACADE_LOC = 162
+_MAX_FACADE_LOC = 160
 _MAX_FACADE_TOP_LEVEL_IMPORTS = 40
-_MAX_FACADE_IMPORTED_SYMBOLS = 272
+_MAX_FACADE_IMPORTED_SYMBOLS = 270
 _MAX_FACADE_WILDCARD_IMPORTS = 0
 
 

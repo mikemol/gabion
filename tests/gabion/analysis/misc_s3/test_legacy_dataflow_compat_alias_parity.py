@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import ast
 import importlib
+from functools import lru_cache
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_FACADE_MODULE_PATH = "gabion.analysis.dataflow.engine.dataflow_facade"
 
 
 def _load(module_path: str):
@@ -77,7 +81,7 @@ def _monolith_aliases_for(module_path: str) -> tuple[str, ...]:
 def _monolith_alias_bindings_for(module_path: str) -> tuple[tuple[str, str], ...]:
     return _module_alias_bindings_for(
         source_path=(
-            Path(__file__).resolve().parents[4]
+            _REPO_ROOT
             / "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
         ),
         module_path=module_path,
@@ -108,9 +112,8 @@ def _module_alias_bindings_for(
 
 
 def _module_alias_bindings_by_module(*, source_path: Path) -> dict[str, tuple[tuple[str, str], ...]]:
-    repo_root = Path(__file__).resolve().parents[4]
     if not source_path.is_absolute():
-        source_path = repo_root / source_path
+        source_path = _REPO_ROOT / source_path
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
     by_module: dict[str, list[tuple[str, str]]] = {}
     for node in tree.body:
@@ -140,6 +143,43 @@ def _module_alias_bindings_by_module(*, source_path: Path) -> dict[str, tuple[tu
             deduped.append((bound_name, source_name))
         normalized[module] = tuple(deduped)
     return normalized
+
+
+def _is_private_symbol(symbol: str) -> bool:
+    return symbol.startswith("_") and not symbol.startswith("__")
+
+
+def _is_owner_or_boundary_module(path: Path) -> bool:
+    if path.name.endswith("_owner.py"):
+        return True
+    return path.name in {"dataflow_facade.py", "dataflow_indexed_file_scan.py"}
+
+
+@lru_cache(maxsize=None)
+def _non_owner_non_test_facade_private_import_consumers(symbol: str) -> int:
+    count = 0
+    for importer in (_REPO_ROOT / "src").rglob("*.py"):
+        if _is_owner_or_boundary_module(importer):
+            continue
+        tree = ast.parse(importer.read_text(encoding="utf-8"))
+        imported = False
+        for node in tree.body:
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if node.module != _FACADE_MODULE_PATH:
+                continue
+            if any(alias.name == symbol for alias in node.names):
+                imported = True
+                break
+        if imported:
+            count += 1
+    return count
+
+
+def _require_private_facade_alias(symbol: str) -> bool:
+    if not _is_private_symbol(symbol):
+        return True
+    return _non_owner_non_test_facade_private_import_consumers(symbol) > 1
 
 
 def test_legacy_owner_modules_preserve_alias_parity() -> None:
@@ -260,6 +300,8 @@ def test_facade_covers_monolith_post_phase_alias_surface() -> None:
     facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
     canonical = _load("gabion.analysis.dataflow.engine.dataflow_post_phase_analyses")
     for symbol in _monolith_post_phase_aliases():
+        if not _require_private_facade_alias(symbol):
+            continue
         assert hasattr(facade, symbol), (
             "facade must carry full monolith post-phase compatibility surface; "
             f"missing={symbol}"
@@ -276,6 +318,8 @@ def test_facade_covers_monolith_projection_alias_surface() -> None:
         "gabion.analysis.dataflow.engine.dataflow_projection_materialization"
     )
     for symbol in _monolith_projection_aliases():
+        if not _require_private_facade_alias(symbol):
+            continue
         assert hasattr(facade, symbol), (
             "facade must carry full monolith projection compatibility surface; "
             f"missing={symbol}"
@@ -290,6 +334,8 @@ def test_facade_covers_monolith_resume_alias_surface() -> None:
     facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
     canonical = _load("gabion.analysis.dataflow.engine.dataflow_resume_serialization")
     for symbol in _monolith_resume_aliases():
+        if not _require_private_facade_alias(symbol):
+            continue
         assert hasattr(facade, symbol), (
             "facade must carry full monolith resume compatibility surface; "
             f"missing={symbol}"
@@ -304,6 +350,8 @@ def test_facade_covers_monolith_analysis_index_alias_surface() -> None:
     facade = _load("gabion.analysis.dataflow.engine.dataflow_facade")
     canonical = _load("gabion.analysis.dataflow.engine.dataflow_analysis_index")
     for symbol in _monolith_analysis_index_aliases():
+        if not _require_private_facade_alias(symbol):
+            continue
         assert hasattr(facade, symbol), (
             "facade must carry full monolith analysis-index compatibility surface; "
             f"missing={symbol}"
@@ -331,6 +379,8 @@ def test_facade_covers_monolith_analysis_support_alias_surfaces() -> None:
     for module_path in module_paths:
         canonical = _load(module_path)
         for symbol in _monolith_aliases_for(module_path):
+            if not _require_private_facade_alias(symbol):
+                continue
             assert hasattr(facade, symbol), (
                 "facade must carry full monolith analysis-support compatibility "
                 f"surface; module={module_path} missing={symbol}"
@@ -352,6 +402,8 @@ def test_facade_covers_monolith_external_support_alias_surfaces() -> None:
     for module_path in module_paths:
         canonical = _load(module_path)
         for symbol in _monolith_aliases_for(module_path):
+            if not _require_private_facade_alias(symbol):
+                continue
             assert hasattr(facade, symbol), (
                 "facade must carry full monolith external-support compatibility "
                 f"surface; module={module_path} missing={symbol}"
@@ -368,6 +420,8 @@ def test_facade_covers_monolith_reporting_alias_surface() -> None:
     for bound_name, source_name in _monolith_alias_bindings_for(
         "gabion.analysis.dataflow.io.dataflow_reporting"
     ):
+        if not _require_private_facade_alias(bound_name):
+            continue
         assert hasattr(facade, bound_name), (
             "facade must carry full monolith reporting compatibility surface; "
             f"missing={bound_name}"
@@ -393,6 +447,8 @@ def test_facade_covers_all_common_monolith_import_surfaces() -> None:
         canonical = _load(module_path)
         facade_bound_names = {bound for bound, _ in facade_by_module[module_path]}
         for bound_name, source_name in monolith_by_module[module_path]:
+            if not _require_private_facade_alias(bound_name):
+                continue
             assert bound_name in facade_bound_names, (
                 "facade must cover all common monolith import surfaces; "
                 f"module={module_path} missing={bound_name}"

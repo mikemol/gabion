@@ -1,5 +1,5 @@
 ---
-doc_revision: 280
+doc_revision: 281
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,7 +15,7 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 162
+- Facade LOC (current): 160
 - Facade top-level import statements (current): 40
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
@@ -31,6 +31,29 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-339`, this CU):
+  - Applied private-alias compatibility policy in facade parity tests:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+      - private symbols are now required only when `>1` non-owner, non-test `src/` consumers import them from `dataflow_facade`
+      - owner/boundary modules are excluded from the consumer count
+  - Contracted low-value private facade aliases under the new policy:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - removed `_CalleeResolutionOutcome` and `_DeadlineFunctionFacts` imports from `dataflow_deadline_contracts`
+  - Ratcheted facade metrics guard budgets:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - `_MAX_FACADE_LOC: 162 -> 160`
+      - `_MAX_FACADE_IMPORTED_SYMBOLS: 272 -> 270`
+      - top-level import cap remains `40`; wildcard cap remains `0`
+  - Resulting facade metrics:
+    - wildcard imports remain `0`
+    - imported symbols `272 -> 270`
+    - LOC `162 -> 160`
+    - top-level import statements unchanged (`40`)
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy facade/compat parity tests passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
 - WS-5 continuation (`in-338`, this CU):
   - Contracted same-module duplicate facade imports in:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
