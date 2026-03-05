@@ -3,42 +3,36 @@ from __future__ import annotations
 from typing import Callable
 
 from gabion.commands import command_ids
+from gabion.commands.dispatch_registry import (
+    CommandExecutorRefs,
+    build_command_dispatch_registry,
+    direct_executor_registry as build_direct_executor_registry,
+)
 from gabion.order_contract import sort_once
 
-DirectExecutor = Callable[[object, dict[str, object]], dict]
+DirectExecutor = Callable[[object, dict[str, object] | None], dict]
 
 
-def _server_direct_executor(name: str) -> DirectExecutor:
-    def _executor(ls: object, params: dict[str, object]) -> dict:
-        from gabion import server
+def _server_command_registry() -> dict[str, DirectExecutor]:
+    from gabion import server
 
-        candidate = getattr(server, name)
-        return candidate(ls, params)
-
-    return _executor
-
-
-_UNORDERED_DIRECT_EXECUTORS: dict[str, DirectExecutor] = {
-    command_ids.CHECK_COMMAND: _server_direct_executor("execute_command"),
-    command_ids.DATAFLOW_COMMAND: _server_direct_executor("execute_command"),
-    command_ids.STRUCTURE_DIFF_COMMAND: _server_direct_executor("execute_structure_diff"),
-    command_ids.STRUCTURE_REUSE_COMMAND: _server_direct_executor("execute_structure_reuse"),
-    command_ids.DECISION_DIFF_COMMAND: _server_direct_executor("execute_decision_diff"),
-    command_ids.SYNTHESIS_COMMAND: _server_direct_executor("execute_synthesis"),
-    command_ids.REFACTOR_COMMAND: _server_direct_executor("execute_refactor"),
-    command_ids.IMPACT_COMMAND: _server_direct_executor("execute_impact"),
-    command_ids.LSP_PARITY_GATE_COMMAND: _server_direct_executor(
-        "execute_lsp_parity_gate"
-    ),
-}
+    registry = build_command_dispatch_registry(
+        CommandExecutorRefs(
+            execute_command=server.execute_command,
+            execute_structure_diff=server.execute_structure_diff,
+            execute_structure_reuse=server.execute_structure_reuse,
+            execute_decision_diff=server.execute_decision_diff,
+            execute_synthesis=server.execute_synthesis,
+            execute_refactor=server.execute_refactor,
+            execute_impact=server.execute_impact,
+            execute_lsp_parity_gate=server.execute_lsp_parity_gate,
+        )
+    )
+    return build_direct_executor_registry(registry)
 
 
 def direct_executor_registry() -> dict[str, DirectExecutor]:
-    return {
-        command: _UNORDERED_DIRECT_EXECUTORS[command]
-        for command in command_ids.SEMANTIC_COMMAND_IDS
-        if command in _UNORDERED_DIRECT_EXECUTORS
-    }
+    return _server_command_registry()
 
 
 DIRECT_EXECUTOR_REGISTRY: dict[str, DirectExecutor] = direct_executor_registry()
