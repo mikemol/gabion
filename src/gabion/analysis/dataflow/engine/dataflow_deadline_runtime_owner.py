@@ -3,7 +3,6 @@ from __future__ import annotations
 
 """Deadline-runtime compatibility owner during WS-5 migration."""
 
-from dataclasses import dataclass
 from pathlib import Path
 import re
 from collections.abc import Mapping
@@ -34,6 +33,9 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import _
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
 from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
     make_deadline_function_collector,
+)
+from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    _StageCacheSpec as _StageCacheSpec_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
@@ -110,11 +112,7 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
 from gabion.order_contract import sort_once
 
 
-@dataclass(frozen=True)
-class _StageCacheSpec:
-    stage: object
-    cache_key: object
-    build: object
+_StageCacheSpec = _StageCacheSpec_owner
 
 
 _DeadlineFunctionCollector = make_deadline_function_collector(

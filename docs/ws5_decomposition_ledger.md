@@ -1,5 +1,5 @@
 ---
-doc_revision: 103
+doc_revision: 104
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1830,6 +1830,18 @@ doc_scope:
     - Facade-heavy targeted suites remain green (`138 passed`) after fallback removal.
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-163`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner stage-cache carrier dedupe:
+    - `dataflow_deadline_runtime_owner._StageCacheSpec` now aliases canonical `dataflow_post_phase_analyses._StageCacheSpec`.
+    - Removed local `_StageCacheSpec` class definition and `dataclass` dependency from deadline owner module.
+  - Compatibility status:
+    - Deadline/runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-164`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
