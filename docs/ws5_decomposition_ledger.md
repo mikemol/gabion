@@ -1,5 +1,5 @@
 ---
-doc_revision: 195
+doc_revision: 196
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3352,6 +3352,18 @@ doc_scope:
     - Canonical owner/runtime semantics unchanged; this slice removes dead monolith passthrough surface only.
     - Monolith structural metrics improved (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-254`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection-registry passthrough contraction:
+    - Removed final monolith-only projection-registry passthrough import symbol:
+      - `NEVER_INVARIANTS_SPEC`
+  - Correctness impact:
+    - Canonical projection/reporting semantics unchanged; this slice removes a dead monolith passthrough alias.
+    - Monolith structural metrics unchanged (`LOC=380`, `imports=53`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-255`).
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`45 passed`)

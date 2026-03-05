@@ -46,7 +46,7 @@ from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_or_none, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_or_empty, mapping_or_none, payload_with_format, payload_with_phase, sequence_or_none, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
 
 from gabion.analysis.projection.projection_registry import (
-    DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, NEVER_INVARIANTS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
+    DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
 
 from gabion.analysis.core.deprecated_substrate import (
     DeprecatedExtractionArtifacts, DeprecatedFiber, detect_report_section_extinction)
