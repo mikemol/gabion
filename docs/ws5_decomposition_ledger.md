@@ -1,5 +1,5 @@
 ---
-doc_revision: 80
+doc_revision: 81
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1406,6 +1406,24 @@ doc_scope:
     - Monolith LOC dropped to `1884`; top-level imports remain `67`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-140`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Utility-wrapper ownerization:
+    - Monolith helper wrapper bodies replaced by canonical evidence-helper aliases:
+      - `_is_test_path`
+      - `_module_name`
+      - `_string_list`
+      - `_base_identifier`
+      - `_collect_module_exports`
+    - Removed monolith-local module-export scanner adapter wiring in favor of canonical owner entry points.
+  - Compatibility status:
+    - Utility helper behavior remains stable under resolver/pipeline/obligation/deadline/structure suites.
+    - Monolith LOC dropped to `1834`; top-level imports remain `67`.
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-141`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure suites passed (`84 passed`)

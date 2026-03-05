@@ -112,6 +112,13 @@ from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
     normalize_adapter_contract,
     parse_adapter_capabilities,
 )
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
+    _base_identifier as _base_identifier_owner,
+    _collect_module_exports as _collect_module_exports_owner,
+    _is_test_path as _is_test_path_owner,
+    _module_name as _module_name_owner,
+    _string_list as _string_list_owner,
+)
 from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
     _analyze_function,
     _call_context,
@@ -428,8 +435,6 @@ from gabion.analysis.indexed_scan.scanners.materialization.dataclass_registry im
     DataclassRegistryForTreeDeps as _DataclassRegistryForTreeDeps, dataclass_registry_for_tree as _dataclass_registry_for_tree_impl)
 from gabion.analysis.indexed_scan.obligations.decision_surface_runtime import (
     DecisionSurfaceAnalyzeDeps as _DecisionSurfaceAnalyzeDeps, analyze_decision_surface_indexed as _analyze_decision_surface_indexed_impl)
-from gabion.analysis.indexed_scan.state.module_exports import (
-    ModuleExportsCollectDeps as _ModuleExportsCollectDeps, collect_module_exports as _collect_module_exports_impl)
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
     TypeError,
@@ -1548,10 +1553,7 @@ _materialize_structured_suite_sites_for_tree = _materialize_structured_suite_sit
 _materialize_structured_suite_sites = _materialize_structured_suite_sites_owner
 _populate_bundle_forest = _populate_bundle_forest_owner
 
-def _is_test_path(path: Path) -> bool:
-    if "tests" in path.parts:
-        return True
-    return path.name.startswith("test_")
+_is_test_path = _is_test_path_owner
 
 _unused_params = _unused_params_owner
 
@@ -1611,65 +1613,13 @@ class ClassInfo:
     bases: list[str]
     methods: set[str]
 
-def _module_name(path: Path, project_root = None) -> str:
-    rel = path.with_suffix("")
-    if project_root is not None:
-        try:
-            rel = rel.relative_to(project_root)
-        except ValueError:
-            pass
-    parts = list(rel.parts)
-    if parts and parts[0] == "src":
-        parts = parts[1:]
-    return ".".join(parts)
+_module_name = _module_name_owner
 
-def _string_list(node: ast.AST):
-    check_deadline()
-    node_type = type(node)
-    if node_type is ast.List or node_type is ast.Tuple:
-        container = cast(ast.List | ast.Tuple, node)
-        values: list[str] = []
-        for elt in container.elts:
-            check_deadline()
-            if type(elt) is ast.Constant and type(cast(ast.Constant, elt).value) is str:
-                values.append(cast(str, cast(ast.Constant, elt).value))
-            else:
-                return None
-        return values
-    return None
+_string_list = _string_list_owner
 
-def _base_identifier(node: ast.AST):
-    check_deadline()
-    node_type = type(node)
-    if node_type is ast.Name:
-        return cast(ast.Name, node).id
-    if node_type is ast.Attribute:
-        try:
-            return ast.unparse(node)
-        except _AST_UNPARSE_ERROR_TYPES:
-            return None
-    if node_type is ast.Subscript:
-        return _base_identifier(cast(ast.Subscript, node).value)
-    if node_type is ast.Call:
-        return _base_identifier(cast(ast.Call, node).func)
-    return None
+_base_identifier = _base_identifier_owner
 
-def _collect_module_exports(
-    tree: ast.AST,
-    *,
-    module_name: str,
-    import_map: dict[str, str],
-) -> tuple[set[str], dict[str, str]]:
-    return _collect_module_exports_impl(
-        tree,
-        module_name=module_name,
-        import_map=import_map,
-        deps=_ModuleExportsCollectDeps(
-            check_deadline_fn=check_deadline,
-            string_list_fn=_string_list,
-            target_names_fn=_target_names,
-        ),
-    )
+_collect_module_exports = _collect_module_exports_owner
 
 _accumulate_symbol_table_for_tree = _accumulate_symbol_table_for_tree_owner
 
