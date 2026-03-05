@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 42
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -703,6 +703,18 @@ doc_scope:
       - `dataflow_analysis_index_owner.py`: `0`
       - `dataflow_projection_materialization.py`: `0`
   - ASPF no-change acknowledgement refreshed (`in-102`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime owner routing contraction:
+    - Removed importlib/runtime-module binding from `dataflow_deadline_runtime_owner.py`.
+    - Switched deadline-runtime compatibility surface to explicit boundary imports from `dataflow_facade`.
+  - Compatibility-owner status:
+    - `dataflow_deadline_runtime_owner.py` no longer has direct runtime-module indirection.
+    - Remaining runtime-module importlib indirection in WS-5 compatibility surface is isolated to `dataflow_facade.py`.
+  - ASPF no-change acknowledgement refreshed (`in-103`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
