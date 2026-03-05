@@ -168,8 +168,8 @@ from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _parse_exception_path_id,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
-    _is_deadline_annot as _is_deadline_annot_owner,
-    _is_deadline_param as _is_deadline_param_owner,
+    _is_deadline_annot,
+    _is_deadline_param,
 )
 from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
     _collect_local_class_bases as _collect_local_class_bases_owner,
@@ -286,7 +286,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _node_in_block,
     _param_annotations_by_path,
     _parse_module_source as _parse_module_source_owner,
-    _simple_store_name as _simple_store_name_owner,
+    _simple_store_name,
     _span_line_col as _span_line_col_owner,
     _split_top_level,
     _StageCacheSpec as _StageCacheSpec_owner,
@@ -348,7 +348,7 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     analyze_ingested_file as _analyze_ingested_file_owner,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
-    _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
+    _ANALYSIS_INDEX_STAGE_CACHE_OP,
     _AnalysisIndexCarrier as _AnalysisIndex_owner,
     _PhaseWorkProgress as _PhaseWorkProgress_owner,
     OptionalAnalysisIndex,
@@ -390,7 +390,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _symbol_table_module_artifact_spec_runtime as _symbol_table_module_artifact_spec_owner,
     _normalize_cache_config,
     _parse_stage_cache_key,
-    _path_dependency_payload as _path_dependency_payload_owner,
+    _path_dependency_payload,
     _projection_stage_cache_identity,
     _reduce_resolved_call_edges,
     _resume_variant_for_identity,
@@ -437,7 +437,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_summary_owner import (
     _summarize_deadline_obligations as _summarize_deadline_obligations_owner,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _parse_module_tree_or_none as _parse_module_tree_owner,
+    _parse_module_tree_or_none as _parse_module_tree,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting_owner import (
     ReportProjectionSpec,
@@ -548,19 +548,7 @@ _collect_local_class_bases = _collect_local_class_bases_owner
 _local_class_name = _local_class_name_owner
 _resolve_local_method_in_hierarchy = _resolve_local_method_in_hierarchy_owner
 
-_ANALYSIS_INDEX_STAGE_CACHE_OP = _ANALYSIS_INDEX_STAGE_CACHE_OP_owner
-
-_path_dependency_payload = _path_dependency_payload_owner
-
-_parse_module_tree = _parse_module_tree_owner
-
-_is_deadline_annot = _is_deadline_annot_owner
-
-_is_deadline_param = _is_deadline_param_owner
-
 _is_deadline_origin_call = _is_deadline_origin_call_impl
-
-_simple_store_name = _simple_store_name_owner
 
 _DeadlineLoopFacts = _DeadlineLoopFacts_owner
 _DeadlineLocalInfo = _DeadlineLocalInfo_owner

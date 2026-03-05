@@ -1,5 +1,5 @@
 ---
-doc_revision: 163
+doc_revision: 164
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 731
+- Monolith LOC (current): 719
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2795,6 +2795,24 @@ doc_scope:
     - Monolith facade lambda-helper behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=731`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-222`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith parse/path/deadline helper alias contraction:
+    - Replaced selected monolith owner-alias assignments in `dataflow_indexed_file_scan.py` with direct canonical import aliases for:
+      - `_ANALYSIS_INDEX_STAGE_CACHE_OP`
+      - `_path_dependency_payload`
+      - `_parse_module_tree`
+      - `_is_deadline_annot`
+      - `_is_deadline_param`
+      - `_simple_store_name`
+    - Removed corresponding owner-suffix reassignment shim lines from the monolith facade surface.
+  - Compatibility status:
+    - Monolith facade parse/path/deadline-helper behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=719`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-223`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
