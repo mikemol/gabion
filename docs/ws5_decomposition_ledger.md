@@ -1,5 +1,5 @@
 ---
-doc_revision: 96
+doc_revision: 97
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 967
-- Monolith top-level import statements (current): 63
+- Monolith LOC (current): 920
+- Monolith top-level import statements (current): 62
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
@@ -1717,6 +1717,29 @@ doc_scope:
     - Monolith LOC dropped to `967`; top-level imports dropped to `63`.
     - Direct monolith imports remain `src=0`, `tests=0`.
   - ASPF no-change acknowledgement refreshed (`in-156`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Analysis-index carrier dedupe ownerization:
+    - Monolith duplicate carrier ownership replaced with canonical owner aliases for:
+      - `AnalysisIndex`
+      - `_ResolvedCallEdge`
+      - `_ResolvedEdgeReducerSpec`
+      - `_ResolvedEdgeParamEvent`
+      - `_StageCacheSpec`
+      - `_FunctionIndexAccumulator`
+      - `ConstantFlowDetail`
+    - Canonical ownership now routes through:
+      - `dataflow_analysis_index_owner`
+      - `dataflow_post_phase_analyses`
+  - Compatibility status:
+    - Analysis-index/runtime carrier semantics preserved under targeted WS-5 regression suites.
+    - Monolith LOC dropped to `920`; top-level imports dropped to `62`.
+    - Monolith now has only two local classes (`ParamUse`, `CallArgs`).
+    - Direct monolith imports remain `src=0`, `tests=0`.
+  - ASPF no-change acknowledgement refreshed (`in-157`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`132 passed`)

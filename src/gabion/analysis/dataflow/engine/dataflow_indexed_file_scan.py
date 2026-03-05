@@ -17,15 +17,13 @@ import ast
 import sys
 
 
-from collections import Counter, defaultdict
-
 from contextlib import ExitStack
 
 from dataclasses import dataclass, field
 
 from pathlib import Path
 
-from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
+from typing import Callable, Iterable, Iterator, Literal, Mapping, Sequence
 
 from gabion.ingest.python_ingest import ingest_python_file, iter_python_paths
 
@@ -234,6 +232,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _with_analysis_index_resume_variants,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
+    ConstantFlowDetail as _ConstantFlowDetail_owner,
     _ConstantFlowFoldAccumulator,
     _analyze_decision_surface_indexed as _analyze_decision_surface_indexed_owner,
     _analyze_decision_surfaces_indexed as _analyze_decision_surfaces_indexed_owner,
@@ -296,9 +295,11 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _simple_store_name as _simple_store_name_owner,
     _span_line_col as _span_line_col_owner,
     _split_top_level,
+    _StageCacheSpec as _StageCacheSpec_owner,
     _suite_site_label as _suite_site_label_owner,
     _type_from_const_repr,
     _VALUE_DECISION_SURFACE_SPEC as _VALUE_DECISION_SURFACE_SPEC_owner,
+    _ResolvedEdgeReducerSpec as _ResolvedEdgeReducerSpec_owner,
     analyze_decision_surfaces_repo as _analyze_decision_surfaces_repo_owner,
     analyze_constant_flow_repo,
     analyze_deadness_flow_repo,
@@ -360,12 +361,16 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _ANALYSIS_INDEX_STAGE_CACHE_OP as _ANALYSIS_INDEX_STAGE_CACHE_OP_owner,
+    _AnalysisIndexCarrier as _AnalysisIndex_owner,
     OptionalAnalysisIndex,
     _CacheSemanticContext,
     _EMPTY_CACHE_SEMANTIC_CONTEXT,
+    _FunctionIndexAccumulator as _FunctionIndexAccumulator_owner,
     _IndexedPassContext,
     _IndexedPassSpec,
     _ModuleArtifactSpec,
+    _ResolvedCallEdge as _ResolvedCallEdge_owner,
+    _ResolvedEdgeParamEvent as _ResolvedEdgeParamEvent_owner,
     _StageCacheIdentitySpec,
     _analysis_index_module_trees,
     _analysis_index_resolved_call_edges,
@@ -788,53 +793,15 @@ _decision_param_lint_line = _decision_param_lint_line_owner
 
 _decision_tier_for = _decision_tier_for_owner
 
-@dataclass
-class AnalysisIndex:
-    by_name: dict[str, list[FunctionInfo]]
-    by_qual: dict[str, FunctionInfo]
-    symbol_table: SymbolTable
-    class_index: dict[str, ClassInfo]
-    parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
-    module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
-    stage_cache_by_key: dict[Hashable, dict[Path, object]] = field(default_factory=dict)
-    index_cache_identity: str = ""
-    projection_cache_identity: str = ""
-    transitive_callers: "dict[str, set[str]] | None" = None
-    resolved_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
-    resolved_transparent_call_edges: 'tuple["_ResolvedCallEdge", ...] | None' = None
-    resolved_transparent_edges_by_caller: 'dict[str, tuple["_ResolvedCallEdge", ...]] | None' = None
+AnalysisIndex = _AnalysisIndex_owner
 
-@dataclass(frozen=True)
-class _ResolvedCallEdge:
-    caller: FunctionInfo
-    call: CallArgs
-    callee: FunctionInfo
+_ResolvedCallEdge = _ResolvedCallEdge_owner
 
-_StageCacheValue = TypeVar("_StageCacheValue")
+_ResolvedEdgeReducerSpec = _ResolvedEdgeReducerSpec_owner
 
-_ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
+_ResolvedEdgeParamEvent = _ResolvedEdgeParamEvent_owner
 
-_ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
-
-@dataclass(frozen=True)
-class _ResolvedEdgeReducerSpec(Generic[_ResolvedEdgeAcc, _ResolvedEdgeOut]):
-    reducer_id: str
-    init: Callable[[], _ResolvedEdgeAcc]
-    fold: Callable[[_ResolvedEdgeAcc, _ResolvedCallEdge], None]
-    finish: Callable[[_ResolvedEdgeAcc], _ResolvedEdgeOut]
-
-@dataclass(frozen=True)
-class _ResolvedEdgeParamEvent:
-    kind: str
-    param: str
-    value: OptionalString
-    countable: bool
-
-@dataclass(frozen=True)
-class _StageCacheSpec(Generic[_StageCacheValue]):
-    stage: _ParseModuleStage
-    cache_key: Hashable
-    build: Callable[[ast.Module, Path], _StageCacheValue]
+_StageCacheSpec = _StageCacheSpec_owner
 
 _parse_module_source = _parse_module_source_owner
 
@@ -884,12 +851,7 @@ _build_symbol_table = _build_symbol_table_owner
 
 _accumulate_class_index_for_tree = _accumulate_class_index_for_tree_owner
 
-@dataclass
-class _FunctionIndexAccumulator:
-    by_name: dict[str, list[FunctionInfo]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
-    by_qual: dict[str, FunctionInfo] = field(default_factory=dict)
+_FunctionIndexAccumulator = _FunctionIndexAccumulator_owner
 
 _accumulate_function_index_for_tree = _accumulate_function_index_for_tree_owner
 
@@ -916,16 +878,7 @@ _resolve_callee_outcome = _resolve_callee_outcome_owner
 
 analyze_type_flow_repo = _analyze_type_flow_repo_owner
 
-
-@dataclass(frozen=True)
-class ConstantFlowDetail:
-    path: Path
-    qual: str
-    name: str
-    param: str
-    value: str
-    count: int
-    sites: tuple[str, ...] = ()
+ConstantFlowDetail = _ConstantFlowDetail_owner
 
 _constant_smells_from_details = _constant_smells_from_details_owner
 
