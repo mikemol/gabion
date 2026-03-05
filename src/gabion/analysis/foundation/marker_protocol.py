@@ -18,6 +18,11 @@ class MarkerKind(StrEnum):
     DEPRECATED = "deprecated"
 
 
+class MarkerKindProfile(StrEnum):
+    NATIVE = "native"
+    COLLAPSE_TO_NEVER = "collapse_to_never"
+
+
 class MarkerLifecycleState(StrEnum):
     ACTIVE = "active"
     EXPIRED = "expired"
@@ -77,6 +82,42 @@ DEFAULT_MARKER_ALIASES: dict[MarkerKind, tuple[str, ...]] = {
         "gabion.invariants.deprecated",
     ),
 }
+
+
+@dataclass(frozen=True)
+class MarkerKindMappingConfig:
+    profile: MarkerKindProfile
+    kind_map: Mapping[MarkerKind, MarkerKind]
+
+
+DEFAULT_MARKER_KIND_PROFILE_MAPS: Mapping[MarkerKindProfile, Mapping[MarkerKind, MarkerKind]] = MappingProxyType(
+    {
+        MarkerKindProfile.NATIVE: MappingProxyType({}),
+        MarkerKindProfile.COLLAPSE_TO_NEVER: MappingProxyType(
+            {
+                MarkerKind.TODO: MarkerKind.NEVER,
+                MarkerKind.DEPRECATED: MarkerKind.NEVER,
+            }
+        ),
+    }
+)
+
+DEFAULT_MARKER_KIND_MAPPING_CONFIG = MarkerKindMappingConfig(
+    profile=MarkerKindProfile.NATIVE,
+    kind_map=DEFAULT_MARKER_KIND_PROFILE_MAPS[MarkerKindProfile.NATIVE],
+)
+
+
+def marker_kind_mapping_config(profile: MarkerKindProfile) -> MarkerKindMappingConfig:
+    return MarkerKindMappingConfig(profile=profile, kind_map=DEFAULT_MARKER_KIND_PROFILE_MAPS[profile])
+
+
+def resolve_marker_kind_for_profile(
+    marker_kind: MarkerKind,
+    *,
+    mapping_config: MarkerKindMappingConfig = DEFAULT_MARKER_KIND_MAPPING_CONFIG,
+) -> MarkerKind:
+    return mapping_config.kind_map.get(marker_kind, marker_kind)
 
 
 def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LINKS) -> tuple[SemanticReference, ...]:
