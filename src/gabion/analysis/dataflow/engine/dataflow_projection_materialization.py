@@ -4,7 +4,6 @@ from __future__ import annotations
 """Projection/spec materialization owners extracted from the legacy monolith."""
 
 from dataclasses import dataclass
-import importlib
 from collections.abc import Callable, Iterable, Mapping
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
@@ -12,6 +11,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index_owner import (
     _IndexedPassSpec,
     _run_indexed_pass,
 )
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
 from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
@@ -50,12 +50,6 @@ from gabion.analysis.projection.projection_registry import (
 )
 from gabion.invariants import never
 from gabion.order_contract import sort_once
-
-_RUNTIME_MODULE = "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan"
-
-
-def _runtime_module():
-    return importlib.import_module(_RUNTIME_MODULE)
 
 
 @dataclass(frozen=True)
@@ -296,7 +290,25 @@ def _materialize_ambiguity_virtual_set_spec(
 
 
 def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
-    return _runtime_module()._suite_site_label(forest=forest, suite_id=suite_id)
+    suite_node = forest.nodes.get(suite_id)
+    if suite_node is None:
+        never("suite site missing during label projection", suite_id=str(suite_id))  # pragma: no cover - invariant sink
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    if not path or not qual or not suite_kind or span is None:
+        never(  # pragma: no cover - invariant sink
+            "suite site label projection missing identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+            span=suite_node.meta.get("span"),
+        )
+    span_text = _format_span_fields(*span)
+    if span_text:
+        return f"{path}:{qual}[{suite_kind}]@{span_text}"
+    return f"{path}:{qual}[{suite_kind}]"
 
 
 def _format_span_fields(
@@ -340,8 +352,7 @@ def _collect_call_ambiguities_indexed(
     resolve_callee_fn=None,
 ) -> list[CallAmbiguity]:
     ambiguities: list[CallAmbiguity] = []
-    runtime = _runtime_module()
-    resolve_callee = runtime._resolve_callee if resolve_callee_fn is None else resolve_callee_fn
+    resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
 
     def _sink(
         caller,
@@ -499,7 +510,11 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
 
 
 def _populate_bundle_forest(*args, **kwargs):
-    return _runtime_module()._populate_bundle_forest(*args, **kwargs)
+    from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan import (
+        _populate_bundle_forest as _populate_bundle_forest_runtime,
+    )
+
+    return _populate_bundle_forest_runtime(*args, **kwargs)
 
 
 __all__ = [

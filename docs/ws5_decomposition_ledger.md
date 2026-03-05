@@ -1,5 +1,5 @@
 ---
-doc_revision: 35
+doc_revision: 36
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -618,6 +618,20 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Projection-materialization runtime-fallback contraction:
+    - Removed importlib runtime-module indirection from `dataflow_projection_materialization.py`.
+    - Replaced runtime fallback wiring with canonical owner dependencies for:
+      - `_suite_site_label` (owner-local structural implementation)
+      - `_collect_call_ambiguities_indexed` default callee resolution via `_resolve_callee` from `dataflow_evidence_helpers`
+    - Narrowed monolith boundary coupling to a single explicit local import in `_populate_bundle_forest`.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_projection_materialization.py` reduced from `3` to `0`.
+  - ASPF no-change acknowledgement refreshed (`in-97`).
+  - Validation:
+    - policy checks passed
+    - targeted WS5-C + runtime/dataflow suites passed (`48 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
