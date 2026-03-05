@@ -1,5 +1,5 @@
 ---
-doc_revision: 145
+doc_revision: 146
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2496,10 +2496,24 @@ doc_scope:
   - Ledger state correction:
     - Corrected monolith metrics recorded in the prior entry to measured values for that slice:
       - `LOC=854`
-      - `imports=57`
-      - `classes=0`
-      - `functions=0`
-    - No semantic/runtime code changes in this correction unit.
+    - `imports=57`
+    - `classes=0`
+    - `functions=0`
+  - No semantic/runtime code changes in this correction unit.
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime alias contraction:
+    - Removed internal parse-helper aliasing in `dataflow_deadline_runtime_owner.py`:
+      - direct canonical import/use of `dataflow_parse_helpers._parse_module_tree_or_none`
+      - deleted redundant `_parse_module_tree_or_none = _parse_module_tree_or_none_owner` indirection
+    - Dependency bundle now binds parse helper directly without owner-local alias layer.
+  - Compatibility status:
+    - Deadline runtime call-node parsing behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-205`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
 
 ## Next Cuts (Queued)
 1. Compatibility-owner retirement: continue reducing `dataflow_analysis_index_owner` and `dataflow_deadline_runtime_owner` toward pure re-export veneers or eliminate where canonical owners now fully cover behavior.
