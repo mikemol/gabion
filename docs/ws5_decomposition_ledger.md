@@ -1,5 +1,5 @@
 ---
-doc_revision: 101
+doc_revision: 102
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -1804,6 +1804,20 @@ doc_scope:
     - Targeted facade-heavy regression suites remain green (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-161`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Facade static-export backfill:
+    - Added `_STATIC_FACADE_EXPORTS` export list in `dataflow_facade.py` and module-load static binding loop:
+      - `globals().setdefault(name, getattr(_runtime, name))`
+    - Backfilled remaining runtime-backed symbols referenced by tests as static facade bindings while retaining `__getattr__` fallback.
+  - Compatibility status:
+    - Runtime-backed `da.<symbol>` references used in tests now have static bindings (`remaining_missing_runtime_attrs=0`).
+    - Facade-heavy targeted suites remain green (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-162`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
