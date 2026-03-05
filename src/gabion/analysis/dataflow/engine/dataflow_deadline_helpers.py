@@ -22,7 +22,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _DeadlineFunctionFacts,
     _DeadlineLoopFacts,
 )
-from gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner import (
+from gabion.analysis.dataflow.engine.dataflow_deadline_runtime import (
     _DeadlineFunctionCollector,
     _collect_call_edges,
     _collect_call_nodes_by_path,
