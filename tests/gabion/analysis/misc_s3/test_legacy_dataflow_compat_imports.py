@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from datetime import date
 
 
 def _load(module_path: str):
@@ -20,6 +21,26 @@ def _assert_lifecycle_metadata(module: object) -> None:
         "evidence_links",
     ):
         assert key in lifecycle
+    for key in (
+        "actor",
+        "rationale",
+        "scope",
+        "start",
+        "expiry",
+        "rollback_condition",
+    ):
+        value = lifecycle[key]
+        assert isinstance(value, str)
+        assert value.strip()
+    scope = lifecycle["scope"]
+    assert scope.startswith("dataflow_")
+    assert scope.endswith("alias_surface")
+    date.fromisoformat(lifecycle["start"])
+    evidence_links = lifecycle["evidence_links"]
+    assert isinstance(evidence_links, list)
+    assert evidence_links
+    assert all(isinstance(link, str) and link.strip() for link in evidence_links)
+    assert "docs/ws5_decomposition_ledger.md" in evidence_links
 
 
 def test_legacy_dataflow_compat_modules_import() -> None:
