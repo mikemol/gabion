@@ -1,5 +1,5 @@
 ---
-doc_revision: 131
+doc_revision: 132
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2296,6 +2296,19 @@ doc_scope:
     - Parse/failure behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-191`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Parse-runtime owner convergence:
+    - Replaced duplicate parse/failure body in `dataflow_parse_runtime_owner.py` with canonical alias:
+      - `_parse_module_tree_runtime = _parse_module_tree_or_none` (from `dataflow_parse_helpers.py`)
+    - Removed redundant parse/failure imports from parse-runtime owner.
+  - Compatibility status:
+    - Parse-runtime behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=856`, `imports=58`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-192`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
