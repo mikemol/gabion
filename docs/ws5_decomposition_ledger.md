@@ -1,5 +1,5 @@
 ---
-doc_revision: 58
+doc_revision: 59
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 2847
+- Monolith LOC (current): 2825
 - Monolith top-level import statements (current): 70
 - Direct monolith imports in `src/`: 4
 - Direct monolith imports in `tests/`: 0
@@ -997,6 +997,23 @@ doc_scope:
   - Compatibility status:
     - Marker parsing surface is now centralized and reusable for pending bundle-forest ownerization cuts.
   - ASPF no-change acknowledgement refreshed (`in-119`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Function-index runtime-support extraction:
+    - Added canonical owner module:
+      - `src/gabion/analysis/dataflow/engine/dataflow_function_index_runtime_support.py`
+    - Moved function-index helper cluster:
+      - `_unused_params`
+      - `_direct_lambda_callee_by_call_span`
+      - `_materialize_direct_lambda_callees`
+    - Monolith now routes these helper calls through canonical owner wrappers.
+  - Compatibility status:
+    - Function-index helper cluster is centralized for pending analysis-index owner cutovers.
+    - Monolith top-level import count remains at target boundary (`70`) via local-import wrappers.
+  - ASPF no-change acknowledgement refreshed (`in-120`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
