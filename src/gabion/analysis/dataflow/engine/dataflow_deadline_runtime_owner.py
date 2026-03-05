@@ -87,24 +87,24 @@ from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     FunctionSuiteKey as _FunctionSuiteKey,
     FunctionSuiteLookupOutcome as _FunctionSuiteLookupOutcome,
     FunctionSuiteLookupStatus as _FunctionSuiteLookupStatus,
-    bind_call_args as _bind_call_args_impl,
-    call_candidate_target_site as _call_candidate_target_site_impl,
-    caller_param_bindings_for_call as _caller_param_bindings_for_call_impl,
-    classify_deadline_expr as _classify_deadline_expr_impl,
-    collect_call_edges_from_forest as _collect_call_edges_from_forest_impl,
-    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest_impl,
-    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest_impl,
-    deadline_arg_info_map as _deadline_arg_info_map_impl,
-    deadline_loop_forwarded_params as _deadline_loop_forwarded_params_impl,
-    fallback_deadline_arg_info as _fallback_deadline_arg_info_runtime_impl,
-    function_suite_id as _function_suite_id_impl,
-    function_suite_key as _function_suite_key_impl,
+    bind_call_args as _bind_call_args,
+    call_candidate_target_site as _call_candidate_target_site,
+    caller_param_bindings_for_call as _caller_param_bindings_for_call,
+    classify_deadline_expr as _classify_deadline_expr,
+    collect_call_edges_from_forest as _collect_call_edges_from_forest,
+    collect_call_resolution_obligation_details_from_forest as _collect_call_resolution_obligation_details_from_forest,
+    collect_call_resolution_obligations_from_forest as _collect_call_resolution_obligations_from_forest,
+    deadline_arg_info_map as _deadline_arg_info_map,
+    deadline_loop_forwarded_params as _deadline_loop_forwarded_params,
+    fallback_deadline_arg_info as _fallback_deadline_arg_info,
+    function_suite_id as _function_suite_id,
+    function_suite_key as _function_suite_key,
     is_deadline_origin_call as _is_deadline_origin_call,
     materialize_call_candidates as _materialize_call_candidates_impl,
-    node_to_function_suite_id as _node_to_function_suite_id_impl,
-    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome_impl,
-    obligation_candidate_suite_ids as _obligation_candidate_suite_ids_impl,
-    suite_caller_function_id as _suite_caller_function_id_impl,
+    node_to_function_suite_id as _node_to_function_suite_id,
+    node_to_function_suite_lookup_outcome as _node_to_function_suite_lookup_outcome,
+    obligation_candidate_suite_ids as _obligation_candidate_suite_ids,
+    suite_caller_function_id as _suite_caller_function_id,
 )
 from gabion.order_contract import sort_once
 
@@ -317,42 +317,6 @@ _collect_deadline_function_facts = partial(
     _collect_deadline_function_facts_impl,
     deps=_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS,
 )
-
-_bind_call_args = _bind_call_args_impl
-
-_caller_param_bindings_for_call = _caller_param_bindings_for_call_impl
-
-_classify_deadline_expr = _classify_deadline_expr_impl
-
-_fallback_deadline_arg_info = _fallback_deadline_arg_info_runtime_impl
-
-_deadline_arg_info_map = _deadline_arg_info_map_impl
-
-_deadline_loop_forwarded_params = _deadline_loop_forwarded_params_impl
-
-_function_suite_key = _function_suite_key_impl
-
-_function_suite_id = _function_suite_id_impl
-
-_node_to_function_suite_lookup_outcome = _node_to_function_suite_lookup_outcome_impl
-
-_suite_caller_function_id = _suite_caller_function_id_impl
-
-_node_to_function_suite_id = _node_to_function_suite_id_impl
-
-_obligation_candidate_suite_ids = _obligation_candidate_suite_ids_impl
-
-_collect_call_edges_from_forest = _collect_call_edges_from_forest_impl
-
-_collect_call_resolution_obligations_from_forest = (
-    _collect_call_resolution_obligations_from_forest_impl
-)
-
-_collect_call_resolution_obligation_details_from_forest = (
-    _collect_call_resolution_obligation_details_from_forest_impl
-)
-
-_call_candidate_target_site = _call_candidate_target_site_impl
 
 _materialize_call_candidates_with_static_deps = partial(
     _materialize_call_candidates_impl,

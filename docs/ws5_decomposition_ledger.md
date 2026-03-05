@@ -1,5 +1,5 @@
 ---
-doc_revision: 148
+doc_revision: 149
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -2538,6 +2538,27 @@ doc_scope:
     - Deadline runtime type-carrier behavior remains stable under targeted WS-5 regression suites (`138 passed`).
     - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-207`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-runtime function-alias contraction:
+    - Replaced owner-local passthrough assignment shims in `dataflow_deadline_runtime_owner.py` with direct canonical import aliases for deadline runtime function surfaces, including:
+      - `_bind_call_args`, `_caller_param_bindings_for_call`, `_classify_deadline_expr`
+      - `_collect_call_edges_from_forest`
+      - `_collect_call_resolution_obligations_from_forest`
+      - `_collect_call_resolution_obligation_details_from_forest`
+      - `_deadline_arg_info_map`, `_deadline_loop_forwarded_params`, `_fallback_deadline_arg_info`
+      - `_function_suite_key`, `_function_suite_id`
+      - `_node_to_function_suite_lookup_outcome`, `_node_to_function_suite_id`
+      - `_obligation_candidate_suite_ids`, `_suite_caller_function_id`
+      - `_call_candidate_target_site`
+    - Removed redundant owner-local assignment layer for these surfaces.
+  - Compatibility status:
+    - Deadline runtime function-carrier behavior remains stable under targeted WS-5 regression suites (`138 passed`).
+    - Monolith metrics unchanged (`LOC=854`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-208`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + projection parity + type-flow callsite suites passed (`138 passed`)
