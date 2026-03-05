@@ -1,5 +1,5 @@
 ---
-doc_revision: 266
+doc_revision: 267
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,7 +15,7 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 123
+- Facade LOC (current): 158
 - Facade top-level import statements (current): 41
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
@@ -31,6 +31,27 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-328`, this CU):
+  - Reduced facade wildcard-import usage on smaller stable owner surfaces by converting wildcard imports to explicit symbol imports in:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - `dataflow_function_index_decision_support`
+      - `dataflow_function_index_helpers`
+      - `dataflow_function_semantics`
+      - `dataflow_contracts`
+  - Preserved canonical alias identity on overlap surfaces via explicit rebinding:
+    - `_build_function_index` and `_build_symbol_table` re-bound to canonical `dataflow_analysis_index` exports
+  - Hardened facade wildcard governance:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+    - new budget: `_MAX_FACADE_WILDCARD_IMPORTS = 10`
+    - facade LOC budget adjusted to current explicit-import baseline (`150 -> 160`)
+  - Resulting facade metrics:
+    - wildcard imports `14 -> 10`
+    - LOC `123 -> 158`
+    - top-level imports unchanged (`41`)
+  - Validation:
+    - policy checks passed
+    - targeted legacy-compat pytest group passed (`19 passed`)
+    - evidence refresh executed; `out/test_evidence.json` updated for expected test-line mapping drift
 - WS-5 continuation (`in-327`, this CU):
   - Extended compatibility metrics guards to enforce imported-symbol budgets (expanded surface size), preventing wildcard import-statement gaming beyond facade-only coverage:
     - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`

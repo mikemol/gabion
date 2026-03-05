@@ -21,13 +21,32 @@ from gabion.analysis.dataflow.engine.dataflow_projection_materialization import 
 from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
     _iter_documented_bundles,
 )
-from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
+    _collect_param_roots,
+    _contains_boolish,
+    _decorator_name,
+    _decision_surface_form_entries,
+    _decision_surface_params,
+    _decision_surface_reason_map,
+    _decorators_transparent,
+    _mark_param_roots,
+    _value_encoded_decision_params,
+    is_decision_surface,
+)
 from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
     _collect_recursive_functions,
     _collect_recursive_nodes,
     _reachable_from_roots,
 )
-from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
+    _build_function_index,
+    _enclosing_class,
+    _enclosing_function_scopes,
+    _enclosing_scopes,
+    _is_test_path,
+    _param_names,
+    _param_spans,
+)
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
     _collect_functions,
     _iter_paths,
@@ -53,9 +72,25 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support imp
     _materialize_direct_lambda_callees,
     _unused_params,
 )
-from gabion.analysis.dataflow.engine.dataflow_function_semantics import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
+    _analyze_function,
+    _call_context,
+    _collect_return_aliases,
+    _const_repr,
+    _normalize_key_expr,
+)
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import *  # noqa: F401,F403
-from gabion.analysis.dataflow.engine.dataflow_contracts import *  # noqa: F401,F403
+from gabion.analysis.dataflow.engine.dataflow_contracts import (
+    AnalysisResult,
+    AuditConfig,
+    CallArgs,
+    ClassInfo,
+    FunctionInfo,
+    InvariantProposition,
+    ParamUse,
+    ReportCarrier,
+    SymbolTable,
+)
 from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
     parse_adapter_capabilities,
 )
@@ -79,8 +114,8 @@ from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVis
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import *  # noqa: F401,F403
 # Preserve canonical owner identity for overlapping wildcard symbols.
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _build_symbol_table,
     _build_function_index,
+    _build_symbol_table,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _resolve_callee,
