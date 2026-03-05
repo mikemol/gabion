@@ -155,7 +155,7 @@ from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details,
-    _deadness_witnesses_from_constant_details as _deadness_witnesses_from_constant_details_owner,
+    _deadness_witnesses_from_constant_details,
     _deadline_lint_lines,
     _exception_protocol_lint_lines,
     _internal_broad_type_lint_lines,
@@ -548,11 +548,6 @@ FunctionInfo = _ContractFunctionInfo
 
 # Canonical owner contract class (WS-5 hard-cut compatibility).
 ClassInfo = _ContractClassInfo
-
-_deadness_witnesses_from_constant_details = (
-    _deadness_witnesses_from_constant_details_owner
-)
-
 
 _parse_report_section_marker = _parse_report_section_marker_impl
 

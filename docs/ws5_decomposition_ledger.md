@@ -1,5 +1,5 @@
 ---
-doc_revision: 171
+doc_revision: 172
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,7 +12,7 @@ doc_scope:
 ## Current State
 - Date: 2026-03-05
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 575
+- Monolith LOC (current): 570
 - Monolith top-level import statements (current): 57
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -2954,6 +2954,19 @@ doc_scope:
     - Monolith facade behavior remains stable under targeted WS-5 regression suites (`91 passed`).
     - Monolith metrics updated (`LOC=575`, `imports=57`, `classes=0`, `functions=0`).
   - ASPF no-change acknowledgement refreshed (`in-230`).
+  - Validation:
+    - policy checks passed
+    - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Monolith deadness-witness alias contraction:
+    - Replaced remaining owner-suffix lint-helper alias import in `dataflow_indexed_file_scan.py` with direct canonical import for:
+      - `_deadness_witnesses_from_constant_details`
+    - Removed the corresponding redundant monolith alias binding.
+  - Compatibility status:
+    - Monolith facade behavior remains stable under targeted WS-5 regression suites (`91 passed`).
+    - Monolith metrics updated (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-231`).
   - Validation:
     - policy checks passed
     - targeted resolver+pipeline/obligation/deadline/structure + decision/dataclass + type-flow callsite suites passed (`91 passed`)
