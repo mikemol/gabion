@@ -1,5 +1,5 @@
 ---
-doc_revision: 47
+doc_revision: 48
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -12,8 +12,8 @@ doc_scope:
 ## Current State
 - Date: 2026-03-04
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
-- Monolith LOC (current): 3021
-- Monolith top-level import statements (current): 67
+- Monolith LOC (current): 3000
+- Monolith top-level import statements (current): 68
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
 
@@ -804,6 +804,22 @@ doc_scope:
       - `_collect_deadline_local_info`
       - `_resolve_callee_outcome`
   - ASPF no-change acknowledgement refreshed (`in-108`).
+  - Validation:
+    - policy checks passed
+    - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Deadline-owner call-edge ownerization:
+    - `dataflow_deadline_runtime_owner._collect_call_edges` now delegates to canonical indexed-scan owner:
+      - `indexed_scan.calls.call_edges.collect_call_edges`
+    - Explicit owner deps are now bound in deadline runtime owner:
+      - `check_deadline`
+      - `_is_test_path`
+      - `_resolve_callee_outcome`
+    - Removed facade import dependency on `_collect_call_edges`.
+  - Compatibility status:
+    - Deadline-owner call-edge collection no longer routes through facade helper indirection.
+  - ASPF no-change acknowledgement refreshed (`in-109`).
   - Validation:
     - policy checks passed
     - targeted call-graph/deadline/runtime/decision suites passed (`90 passed`)
