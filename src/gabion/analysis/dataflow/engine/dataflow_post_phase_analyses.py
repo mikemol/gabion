@@ -60,11 +60,15 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _normalize_invariant_proposition,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.indexed_scan.calls.callsite_evidence import (
     CallsiteEvidenceDeps as _CallsiteEvidenceDeps,
     callsite_evidence_for_bundle as _callsite_evidence_for_bundle_impl,
+)
+from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
+    decorator_name as _decorator_name,
 )
 from gabion.analysis.indexed_scan.ast.expression_eval import (
     branch_reachability_under_env as _branch_reachability_under_env_impl,
@@ -331,12 +335,11 @@ def _is_reachability_true(reachability) -> bool:
 def _dead_env_map(
     deadness_witnesses,
 ) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
-    runtime = _runtime_module()
     return _dead_env_map_impl(
         deadness_witnesses,
         check_deadline_fn=check_deadline,
-        sequence_or_none_fn=runtime.sequence_or_none,
-        mapping_or_none_fn=runtime.mapping_or_none,
+        sequence_or_none_fn=sequence_or_none,
+        mapping_or_none_fn=mapping_or_none,
         literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
     )
 
@@ -346,8 +349,7 @@ def _exception_param_names(expr, params: set[str]) -> list[str]:
 
 
 def _exception_type_name(expr):
-    runtime = _runtime_module()
-    return _exc_exception_type_name(expr, decorator_name=runtime._decorator_name)
+    return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 
 def _annotation_exception_candidates(annotation) -> tuple[str, ...]:
@@ -401,10 +403,9 @@ def _refine_exception_name_from_annotations(
 
 
 def _handler_type_names(handler_type) -> tuple[str, ...]:
-    runtime = _runtime_module()
     return _exc_handler_type_names(
         handler_type,
-        decorator_name=runtime._decorator_name,
+        decorator_name=_decorator_name,
         check_deadline=check_deadline,
     )
 
@@ -413,11 +414,10 @@ def _exception_handler_compatibility(
     exception_name,
     handler_type,
 ) -> str:
-    runtime = _runtime_module()
     return _exc_exception_handler_compatibility(
         exception_name,
         handler_type,
-        decorator_name=runtime._decorator_name,
+        decorator_name=_decorator_name,
         check_deadline=check_deadline,
     )
 
@@ -1464,8 +1464,7 @@ def _iter_dataclass_call_bundles(
     dataclass_registry=None,
     parse_failure_witnesses: list[JSONObject],
 ) -> set[tuple[str, ...]]:
-    runtime = _runtime_module()
-    runtime.check_deadline()
+    check_deadline()
     outcome = _iter_dataclass_call_bundle_effects_impl(
         path,
         project_root=project_root,

@@ -1,5 +1,5 @@
 ---
-doc_revision: 26
+doc_revision: 27
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -433,6 +433,24 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted runtime/dataflow suites passed (`45 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase compatibility-fallback contraction (exception/dead-env/dataclass-call helper wiring):
+    - Removed runtime-module dependency for dead-env decoding:
+      - `_dead_env_map` now uses canonical resume-codec helpers directly (`sequence_or_none`, `mapping_or_none`).
+    - Removed runtime-module dependency for exception decorator-name derivation:
+      - `_exception_type_name`
+      - `_handler_type_names`
+      - `_exception_handler_compatibility`
+      now use indexed-scan `decorator_name` helper directly.
+    - Removed runtime-module dependency in dataclass-call bundle iteration:
+      - `_iter_dataclass_call_bundles` now uses direct `check_deadline`.
+  - Runtime-fallback status:
+    - Remaining runtime-module fallback call sites in `dataflow_post_phase_analyses.py` reduced from `16` to `11`.
+  - ASPF no-change acknowledgement refreshed (`in-88`).
+  - Validation:
+    - policy checks passed
+    - targeted WS5-D + runtime/dataflow suites passed (`78 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)
