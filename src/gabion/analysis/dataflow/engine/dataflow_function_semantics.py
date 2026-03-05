@@ -261,5 +261,4 @@ __all__ = [
     "_collect_return_aliases",
     "_const_repr",
     "_normalize_key_expr",
-    "_return_aliases",
 ]

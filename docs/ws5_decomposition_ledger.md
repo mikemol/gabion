@@ -1,5 +1,5 @@
 ---
-doc_revision: 190
+doc_revision: 191
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -3250,6 +3250,27 @@ doc_scope:
   - Validation:
     - policy checks passed
     - targeted pytest bundle passed (`63 passed`)
+    - evidence refresh/check passed
+- WS-5 continuation (this CU, follow-on):
+  - Post-phase/projection/semantics compatibility-surface contraction:
+    - Removed unreferenced monolith passthrough imports for symbols with no in-repo consumers outside monolith from:
+      - `dataflow_post_phase_analyses.py`
+      - `dataflow_projection_materialization.py`
+      - `dataflow_function_semantics.py`
+      - `dataflow_ingested_analysis_support.py`
+    - Pruned corresponding owner `__all__` export entries for those unreferenced symbols.
+    - Symbols contracted in this slice:
+      - post-phase: `_exception_handler_compatibility`, `_exception_path_id`, `_find_handling_try`, `_is_reachability_false`, `_is_reachability_true`, `_never_reason`, `_node_in_try_body`, `_analyze_unused_arg_flow_indexed`, `run_scan_domain_orchestrator`
+      - projection: `_AmbiguitySuiteRow`, `_ProjectionSpan`, `_decode_ambiguity_suite_row`, `_decode_projection_span`, `_suite_order_depth`
+      - semantics: `_return_aliases`
+      - ingested support: `_adapt_ingest_carrier_to_analysis_maps`
+  - Correctness impact:
+    - Canonical owner internals and typed dependency paths remain unchanged; this slice contracts unused compatibility export surfaces only.
+    - Monolith structural metrics unchanged (`LOC=570`, `imports=57`, `classes=0`, `functions=0`).
+  - ASPF no-change acknowledgement refreshed (`in-250`).
+  - Validation:
+    - policy checks passed
+    - targeted pytest bundle passed (`90 passed`)
     - evidence refresh/check passed
 
 ## Next Cuts (Queued)

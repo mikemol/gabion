@@ -133,7 +133,6 @@ def analyze_ingested_file(
 
 
 __all__ = [
-    "_adapt_ingest_carrier_to_analysis_maps",
     "_group_by_signature",
     "_propagate_groups",
     "_union_groups",

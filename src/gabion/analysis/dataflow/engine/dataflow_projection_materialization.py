@@ -667,15 +667,11 @@ def _populate_bundle_forest(
 
 __all__ = [
     "CallAmbiguity",
-    "_AmbiguitySuiteRow",
-    "_ProjectionSpan",
     "_ambiguity_suite_relation",
     "_ambiguity_suite_row_to_suite",
     "_ambiguity_virtual_count_gt_1",
     "_collect_call_ambiguities",
     "_collect_call_ambiguities_indexed",
-    "_decode_ambiguity_suite_row",
-    "_decode_projection_span",
     "_dedupe_call_ambiguities",
     "_emit_call_ambiguities",
     "_lint_lines_from_call_ambiguities",
@@ -685,7 +681,6 @@ __all__ = [
     "_materialize_suite_order_spec",
     "_populate_bundle_forest",
     "_spec_row_span",
-    "_suite_order_depth",
     "_suite_order_relation",
     "_suite_order_row_to_site",
     "_suite_site_label",
