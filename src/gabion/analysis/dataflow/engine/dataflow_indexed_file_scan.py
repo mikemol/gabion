@@ -57,10 +57,6 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_contracts import (
     _CalleeResolutionOutcome,
     _DeadlineFunctionFacts,
     _DeadlineLocalInfo,
-    _DeadlineLoopFacts,
-)
-from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
-    make_deadline_function_collector,
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
     _merge_counts_by_knobs,
@@ -269,6 +265,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _stage_cache_key_aliases,
 )
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
+    _DeadlineFunctionCollector,
     _DeadlineArgInfo,
     _bind_call_args,
     _classify_deadline_expr,
@@ -368,12 +365,6 @@ NodeIdOrNone = NodeId | None
 ParseCacheValue = ast.Module | BaseException
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
-
-_DeadlineFunctionCollector = make_deadline_function_collector(
-    node_span_fn=_node_span,
-    check_deadline_fn=check_deadline,
-    deadline_loop_facts_ctor=_DeadlineLoopFacts,
-)
 
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 1
 
