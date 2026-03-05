@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
+from gabion.analysis.dataflow.engine import dataflow_lint_helpers as da
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_bundle_evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._parse_lint_location
 def test_lint_location_parser_and_bundle_lines() -> None:

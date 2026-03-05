@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gabion.analysis.dataflow.engine import dataflow_facade as da
+from gabion.analysis.dataflow.engine import dataflow_fingerprint_helpers as da
 from gabion.analysis.core import type_fingerprints as tf
 
 def _load():
