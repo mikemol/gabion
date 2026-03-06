@@ -376,6 +376,18 @@ def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None
         "--strictness",
         "low",
         "--allow-external",
+        "--baseline-mode",
+        "enforce",
+        "--baseline",
+        "baseline.json",
+        "--gate",
+        "all",
+        "--lint",
+        "all",
+        "--lint-jsonl-out",
+        "lint.jsonl",
+        "--lint-sarif-out",
+        "lint.sarif",
         "--decision-snapshot",
         "decision.json",
         "--analysis-budget-checks",
@@ -443,7 +455,7 @@ def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None
     delta_policy = delta_kwargs["policy"]
     assert run_policy.fail_on_violations is True
     assert run_policy.fail_on_type_ambiguities is True
-    assert run_policy.lint is False
+    assert run_policy.lint is True
     assert delta_policy.fail_on_violations is False
     assert delta_policy.fail_on_type_ambiguities is False
     assert delta_policy.lint is False
