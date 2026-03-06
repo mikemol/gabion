@@ -1,5 +1,5 @@
 ---
-doc_revision: 290
+doc_revision: 291
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,21 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-349`, this CU):
+  - Completed parse-failure witness carrier normalization for remaining indexed-scan flow/materialization seams:
+    - `src/gabion/analysis/indexed_scan/scanners/flow/type_flow.py`
+      - `infer_type_flow(..., parse_failure_witnesses)` now requires `list[JSONObject]`
+    - `src/gabion/analysis/indexed_scan/scanners/flow/constant_flow_details.py`
+      - `collect_constant_flow_details(..., parse_failure_witnesses)` now requires `list[JSONObject]`
+    - `src/gabion/analysis/indexed_scan/state/module_artifacts.py`
+      - `build_module_artifacts(..., parse_failure_witnesses)` now requires `list[JSONObject]`
+  - Result:
+    - indexed-scan parse-failure witness carrier contracts are now consistently typed to canonical `JSONObject` lists.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted type-flow/constant-flow/pipeline/obligations suites passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-348`, this CU):
   - Canonicalized parse-failure witness carrier typing for indexed-scan stage-cache-adjacent seams:
     - `src/gabion/analysis/indexed_scan/calls/call_nodes_by_path.py`

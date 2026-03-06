@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from gabion.analysis.foundation.json_types import JSONObject
+
 
 @dataclass(frozen=True)
 class TypeFlowInferDeps:
@@ -31,7 +33,7 @@ def infer_type_flow(
     external_filter: bool,
     transparent_decorators=None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[object],
+    parse_failure_witnesses: list[JSONObject],
     analysis_index=None,
     deps: TypeFlowInferDeps,
 ):
