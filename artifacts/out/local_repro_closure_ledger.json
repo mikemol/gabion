@@ -754,6 +754,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2D",
+      "summary": "Boundary-marker contract realignment batch: removed boundary_normalization markers from indexed_scan AST/call helper modules with monotonic cross-family behavior.",
+      "timestamp_utc": "2026-03-06T22:54:51Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 211,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 201,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 512,
+      "total_after": 501,
+      "notes": [
+        "Removed boundary markers from: ast_context.py, context_walkers.py, expression_eval.py, call_ambiguities.py, call_ambiguity_summary.py, call_edges.py, call_nodes_by_path.py, callee_outcome_runtime.py, callee_resolution_helpers.py, callsite_evidence.py.",
+        "Batch remained monotonic with no increases in branchless/defensive_fallback/runtime_narrowing_boundary/typing_surface/aspf_normalization_idempotence.",
+        "Residual debt remains concentrated in boundary_core_contract and fiber_normalization_contract families."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
