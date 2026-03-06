@@ -709,6 +709,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2C",
+      "summary": "Boundary-marker contract realignment batch: removed boundary_normalization markers from an 8-file safe subset after reverting two regressing candidates.",
+      "timestamp_utc": "2026-03-06T22:52:31Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 219,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 211,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 520,
+      "total_after": 512,
+      "notes": [
+        "Attempted an initial 10-file missing_paired_core_module batch; reverted boundary marker removals in src/gabion/analysis/core/wl_refinement.py and src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py due defensive-fallback/non-boundary-signature regressions.",
+        "Kept marker removals for: call_cluster_consolidation.py, call_clusters.py, forest_spec.py, identity_namespace.py, prime_identity_adapter.py, visitors.py, dataflow_adapter_contract.py, dataflow_bundle_iteration.py.",
+        "All non-target scanner families remained non-increasing; boundary_core_contract decreased by 8."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
