@@ -649,10 +649,10 @@ run_checks_job() {
   step_timing_mode="checks"
 
   step "checks: policy_check --workflows"
-  timed_observed checks_policy_workflows "$PYTHON_BIN" -m scripts.policy_check --workflows
+  timed_observed checks_policy_workflows "$PYTHON_BIN" -m scripts.policy.policy_check --workflows
 
   step "checks: policy_check --ambiguity-contract"
-  timed_observed checks_policy_ambiguity_contract "$PYTHON_BIN" -m scripts.policy_check --ambiguity-contract
+  timed_observed checks_policy_ambiguity_contract "$PYTHON_BIN" -m scripts.policy.policy_check --ambiguity-contract
 
   step "checks: policy_check --posture"
   if [ "$ci_event_name" != "push" ]; then
@@ -660,7 +660,7 @@ run_checks_job() {
   elif [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
     echo "POLICY_GITHUB_TOKEN not set; skipping posture check (matches CI skip path)."
   else
-    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" "$PYTHON_BIN" -m scripts.policy_check --posture
+    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" "$PYTHON_BIN" -m scripts.policy.policy_check --posture
   fi
 
   step "checks: docflow"
