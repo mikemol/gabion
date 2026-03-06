@@ -20,7 +20,7 @@ def test_is_sppf_relevant_push_detects_relevant_paths() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_validate_issue_lifecycle_reports_missing_labels_and_state::sppf_sync.py::scripts.sppf_sync._validate_issue_lifecycle
 def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
-    violations = sppf_sync._validate_issue_lifecycle(
+    violations, notices = sppf_sync._validate_issue_lifecycle(
         ["123"],
         required_labels=["done-on-stage", "status/pending-release"],
         expected_state="open",
@@ -31,9 +31,29 @@ def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
         ),
     )
     assert len(violations) == 2
+    assert notices == []
     assert "expected state 'open'" in violations[0]
     assert "missing required label(s): status/pending-release" in violations[1]
-    assert "python -m scripts.sppf_sync --range <rev-range> --label status/pending-release" in violations[1]
+    assert "python -m scripts.sppf.sppf_sync --range <rev-range> --label status/pending-release" in violations[1]
+
+
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_validate_issue_lifecycle_emits_notice_and_skips_non_issue_states::sppf_sync.py::scripts.sppf_sync._validate_issue_lifecycle
+def test_validate_issue_lifecycle_emits_notice_and_skips_non_issue_states() -> None:
+    violations, notices = sppf_sync._validate_issue_lifecycle(
+        ["405"],
+        required_labels=["done-on-stage", "status/pending-release"],
+        expected_state="open",
+        fetch_issue_fn=lambda issue_id: sppf_sync.IssueLifecycle(
+            issue_id=issue_id,
+            state="merged",
+            labels=("codex",),
+            url="https://github.com/mikemol/gabion/pull/405",
+        ),
+    )
+    assert violations == []
+    assert len(notices) == 1
+    assert "non-issue lifecycle state 'merged'" in notices[0]
+    assert "/pull/405" in notices[0]
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits

@@ -51,6 +51,7 @@ class IssueLifecycle:
     issue_id: str
     state: str
     labels: tuple[str, ...]
+    url: str = ""
 
 
 def _run_git(args: list[str]) -> str:
@@ -195,7 +196,7 @@ def _fetch_issue(
     check_deadline()
     try:
         raw = check_output_fn(
-            ["gh", "issue", "view", issue_id, "--json", "state,labels"],
+            ["gh", "issue", "view", issue_id, "--json", "state,labels,url"],
             text=True,
         )
     except subprocess.CalledProcessError as exc:
@@ -211,7 +212,8 @@ def _fetch_issue(
             if isinstance(label, dict) and isinstance(label.get("name"), str):
                 labels.append(label["name"])
     state = str(payload.get("state", "")).lower() if isinstance(payload, dict) else ""
-    return IssueLifecycle(issue_id=issue_id, state=state, labels=tuple(labels))
+    url = str(payload.get("url", "")) if isinstance(payload, dict) else ""
+    return IssueLifecycle(issue_id=issue_id, state=state, labels=tuple(labels), url=url)
 
 
 def _validate_issue_lifecycle(
@@ -220,14 +222,32 @@ def _validate_issue_lifecycle(
     required_labels: list[str],
     expected_state: str,
     fetch_issue_fn: Callable[[str], IssueLifecycle] = _fetch_issue,
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     violations: list[str] = []
+    notices: list[str] = []
     for issue_id in issue_ids:
         check_deadline()
         try:
             issue = fetch_issue_fn(issue_id)
         except RuntimeError as err:
             violations.append(str(err))
+            continue
+
+        if issue.state not in {"open", "closed"}:
+            detail = (
+                f"GH-{issue_id}: reference resolves to non-issue lifecycle state '{issue.state}'."
+            )
+            if issue.url:
+                detail = f"{detail} Source: {issue.url}."
+            notices.append(
+                " ".join(
+                    [
+                        detail,
+                        "Lifecycle gate is skipped for this reference; use canonical issue IDs",
+                        "in commit messages when issue lifecycle validation is required.",
+                    ]
+                )
+            )
             continue
 
         if expected_state != "any" and issue.state != expected_state:
@@ -249,11 +269,11 @@ def _validate_issue_lifecycle(
                     [
                         f"GH-{issue_id}: missing required label(s): {', '.join(missing)}.",
                         "Remediation: run locally:",
-                        f"python -m scripts.sppf_sync --range <rev-range> {add_labels}",
+                        f"python -m scripts.sppf.sppf_sync --range <rev-range> {add_labels}",
                     ]
                 )
             )
-    return violations
+    return violations, notices
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -300,7 +320,7 @@ def _run_validate_mode(
     is_sppf_relevant_push_fn: Callable[[str], bool] = _is_sppf_relevant_push,
     collect_commits_fn: Callable[[str], list[CommitInfo]] = _collect_commits,
     issue_ids_from_commits_fn: Callable[[list[CommitInfo]], set[str]] = _issue_ids_from_commits,
-    validate_issue_lifecycle_fn: Callable[..., list[str]] = _validate_issue_lifecycle,
+    validate_issue_lifecycle_fn: Callable[..., tuple[list[str], list[str]] | list[str]] = _validate_issue_lifecycle,
 ) -> int:
     check_deadline()
     rev_range = args.rev_range or default_range_fn()
@@ -324,11 +344,18 @@ def _run_validate_mode(
         print("No issue references found in commit messages.")
         return 0
 
-    violations = validate_issue_lifecycle_fn(
+    result = validate_issue_lifecycle_fn(
         issue_ids,
         required_labels=list(args.require_label),
         expected_state=str(args.require_state),
     )
+    if isinstance(result, tuple):
+        violations, notices = result
+    else:
+        violations, notices = result, []
+    for notice in notices:
+        check_deadline()
+        print(f"SPPF lifecycle notice: {notice}")
     if violations:
         print("SPPF issue lifecycle validation failed:")
         for item in violations:

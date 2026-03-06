@@ -1,41 +1,76 @@
 {
-  "schema_version": 1,
-  "workstream": "full_local_repro_closure",
-  "generated_by": "codex",
   "entries": [
     {
       "cu_id": "CU-R0",
-      "timestamp_utc": "2026-03-06T00:00:00Z",
-      "summary": "Repro harness parity finalize: corrected stale module entrypoints for sppf status audit/sync and extract_test_evidence.",
-      "policy_scanner_counts_before": {
-        "branchless": 895,
-        "runtime_narrowing_boundary": 95,
-        "typing_surface": 94,
-        "no_monkeypatch": 28,
-        "defensive_fallback": 24,
-        "no_legacy_monolith_import": 0,
-        "orchestrator_primitive_barrel": 0
-      },
-      "policy_scanner_counts_after": {
-        "branchless": 895,
-        "runtime_narrowing_boundary": 95,
-        "typing_surface": 94,
-        "no_monkeypatch": 28,
-        "defensive_fallback": 24,
-        "no_legacy_monolith_import": 0,
-        "orchestrator_primitive_barrel": 0
-      },
-      "total_before": 1136,
-      "total_after": 1136,
-      "validation": {
-        "policy_workflows": "pass",
-        "policy_ambiguity_contract": "pass",
-        "ci_governance_scripts": "pass"
-      },
       "notes": [
         "No semantic-core remediation in this correction unit; scanner debt unchanged by design.",
         "SPPF lifecycle gate remains blocked pending CU-R1 remote issue-state remediation."
-      ]
+      ],
+      "policy_scanner_counts_after": {
+        "branchless": 895,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "no_monkeypatch": 28,
+        "orchestrator_primitive_barrel": 0,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94
+      },
+      "policy_scanner_counts_before": {
+        "branchless": 895,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "no_monkeypatch": 28,
+        "orchestrator_primitive_barrel": 0,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94
+      },
+      "summary": "Repro harness parity finalize: corrected stale module entrypoints for sppf status audit/sync and extract_test_evidence.",
+      "timestamp_utc": "2026-03-06T00:00:00Z",
+      "total_after": 1136,
+      "total_before": 1136,
+      "validation": {
+        "ci_governance_scripts": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_workflows": "pass"
+      }
+    },
+    {
+      "cu_id": "CU-R1",
+      "notes": [
+        "GH-405 resolves to merged pull request and cannot be reopened as issue lifecycle input.",
+        "Gate now emits explicit notice and skips non-issue lifecycle references without bypassing validation for canonical issues."
+      ],
+      "policy_scanner_counts_after": {
+        "branchless": 895,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "no_monkeypatch": 28,
+        "orchestrator_primitive_barrel": 0,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94
+      },
+      "policy_scanner_counts_before": {
+        "branchless": 895,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "no_monkeypatch": 28,
+        "orchestrator_primitive_barrel": 0,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94
+      },
+      "summary": "SPPF lifecycle blocker remediation: merged PR references are treated as non-issue lifecycle inputs with explicit notices.",
+      "timestamp_utc": "2026-03-06T00:00:00Z",
+      "total_after": 1136,
+      "total_before": 1136,
+      "validation": {
+        "ci_local_repro_sppf_gate": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_workflows": "pass",
+        "sppf_sync_tests": "pass"
+      }
     }
-  ]
+  ],
+  "generated_by": "codex",
+  "schema_version": 1,
+  "workstream": "full_local_repro_closure"
 }
