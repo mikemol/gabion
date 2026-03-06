@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: legacy_dataflow_monolith_test_replacement_matrix
 doc_role: audit
@@ -17,7 +17,7 @@ doc_reviewed_as_of:
   AGENTS.md#agent_obligations: 2
   glossary.md#contract: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Matrix initializes prune+replace coverage mapping for runtime-retirement correction units."
+  POLICY_SEED.md#policy_seed: "Matrix tracks marker-kind labeling parity in report/lint replacement surfaces and fallback semantics for historical rows."
   AGENTS.md#agent_obligations: "Rows track runtime-coupled test surfaces for same-CU replacement migration."
   glossary.md#contract: "Capability replacement rows are tracked as explicit commutation evidence placeholders."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -84,3 +84,9 @@ Rows are initialized from current `tests/` imports of `gabion.analysis.legacy_da
 | `tests/test_visitors_edges.py` | `D1/D2/D3/D4/D5/D6` | `owner-module replacement coverage` | `dataflow_indexed_file_scan; owner modules` | `CU-RT-FINAL-2` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_visitors_unit.py` | `D1/D2/D3/D4/D5/D6` | `owner-module replacement coverage` | `dataflow_indexed_file_scan; owner modules` | `CU-RT-FINAL-2` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_wildcard_forwarding.py` | `D1/D2/D3/D4/D5/D6` | `owner-module replacement coverage` | `dataflow_indexed_file_scan; owner modules` | `CU-RT-FINAL-2` | `retargeted` | Retargeted to direct owner imports. |
+
+## Marker-kind report/lint parity note
+
+For the report and lint replacement surfaces, never-invariant line labels now preserve each row's `marker_kind` value (`never`, `todo`, `deprecated`) instead of collapsing to `never()` unconditionally.
+When a historical row omits `marker_kind` (or provides an empty value), rendering intentionally defaults to `never()` so older artifacts remain interpretable.
+

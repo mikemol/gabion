@@ -79,11 +79,21 @@ def test_summarize_never_invariants_uses_marker_kind_per_row() -> None:
             {
                 "status": "A",
                 "site": {"path": "b.py", "function": "fb", "suite_kind": "function"},
+                "marker_kind": "never",
             },
             {
                 "status": "A",
                 "site": {"path": "c.py", "function": "fc", "suite_kind": "function"},
                 "marker_kind": "deprecated",
+            },
+            {
+                "status": "A",
+                "site": {"path": "d.py", "function": "fd", "suite_kind": "function"},
+            },
+            {
+                "status": "A",
+                "site": {"path": "e.py", "function": "fe", "suite_kind": "function"},
+                "marker_kind": "",
             },
         ]
     )
@@ -91,6 +101,8 @@ def test_summarize_never_invariants_uses_marker_kind_per_row() -> None:
         "a.py:fa[function] todo() (status=A)",
         "b.py:fb[function] never() (status=A)",
         "c.py:fc[function] deprecated() (status=A)",
+        "d.py:fd[function] never() (status=A)",
+        "e.py:fe[function] never() (status=A)",
     ]
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
