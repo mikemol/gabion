@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 44
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -10,8 +10,8 @@ doc_scope:
 doc_authority: normative
 doc_dependency_projection: glossary_root
 doc_requires: []
-doc_reviewed_as_of:
-doc_review_notes:
+doc_reviewed_as_of: {}
+doc_review_notes: {}
 doc_sections:
   contract: 1
   rule_of_polysemy: 1

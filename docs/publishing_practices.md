@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -10,8 +10,8 @@ doc_scope:
   - ci
 doc_authority: informative
 doc_requires: []
-doc_reviewed_as_of:
-doc_review_notes:
+doc_reviewed_as_of: {}
+doc_review_notes: {}
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
   publishing_practices: 1
