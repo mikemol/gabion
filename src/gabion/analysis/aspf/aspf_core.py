@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -112,13 +111,16 @@ class _DecodeOneCellOutcome:
     cell: AspfOneCell
 
 
+type _OneCellPayload = Mapping[str, str | list[object] | None]
+
+
 def parse_2cell_witness(payload: Mapping[str, object]) -> object:
     left_payload = payload.get("left")
     right_payload = payload.get("right")
     witness_id_raw = payload.get("witness_id")
     reason_raw = payload.get("reason")
 
-    def _decode_1cell(raw: Mapping[str, object]) -> _DecodeOneCellOutcome:
+    def _decode_1cell(raw: _OneCellPayload) -> _DecodeOneCellOutcome:
         source = raw.get("source")
         target = raw.get("target")
         representative = raw.get("representative")

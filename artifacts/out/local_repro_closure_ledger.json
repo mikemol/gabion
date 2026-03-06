@@ -437,6 +437,51 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "policy_scanner_targeted_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P1E",
+      "summary": "Policy burn-down: removed ASPF core boundary marker after narrowing private payload helper annotation to non-generic shape.",
+      "timestamp_utc": "2026-03-06T22:07:23Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 237,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 233,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 680,
+      "total_after": 676,
+      "notes": [
+        "Changed _decode_1cell first-parameter annotation in aspf_core from Mapping[str, object] to a narrower typed payload alias.",
+        "With non-boundary payload-signature policy satisfied, removed boundary marker from aspf_core to align boundary/core role semantics.",
+        "No semantic behavior change; contract-shape and marker alignment only."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
