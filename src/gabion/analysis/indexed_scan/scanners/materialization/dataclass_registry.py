@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
@@ -36,7 +37,7 @@ def collect_dataclass_registry(
     paths: list[Path],
     *,
     project_root,
-    parse_failure_witnesses: list[object],
+    parse_failure_witnesses: list[JSONObject],
     analysis_index = None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object],
     deps: CollectDataclassRegistryDeps,
