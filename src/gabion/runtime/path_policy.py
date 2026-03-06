@@ -34,10 +34,12 @@ def is_stdout_target(
     stdout_alias: str = STDOUT_ALIAS,
     stdout_path: str = STDOUT_PATH,
 ) -> bool:
-    if not isinstance(target, (str, Path)):
-        return False
-    return normalize_output_target(
-        target,
-        stdout_alias=stdout_alias,
-        stdout_path=stdout_path,
-    ) == stdout_path
+    match target:
+        case str() | Path():
+            return normalize_output_target(
+                target,
+                stdout_alias=stdout_alias,
+                stdout_path=stdout_path,
+            ) == stdout_path
+        case _:
+            return False

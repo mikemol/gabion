@@ -664,6 +664,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-P1F",
+      "summary": "Defensive-fallback cleanup: replaced sentinel guard path in stdout-target normalization helper with explicit pattern path and removed the final defensive_fallback finding.",
+      "timestamp_utc": "2026-03-06T22:48:39Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 219,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 219,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 521,
+      "total_after": 520,
+      "notes": [
+        "Changed src/gabion/runtime/path_policy.py:is_stdout_target to a single explicit pattern path and removed sentinel-style defensive fallback behavior.",
+        "Non-target scanner families remained non-increasing.",
+        "This CU is intentionally narrow and monotonic toward full local-repro closure."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
