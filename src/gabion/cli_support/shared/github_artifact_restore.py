@@ -14,7 +14,7 @@ import zipfile
 import typer
 
 
-def _restore_aspf_state_from_github_artifacts(
+def restore_aspf_state_from_github_artifacts(
     *,
     token: str,
     repo: str,
@@ -90,7 +90,7 @@ def _restore_aspf_state_from_github_artifacts(
     for artifact in artifact_candidates:
         download_url = str(artifact.get("archive_download_url", "") or "")
         try:
-            archive_bytes = _download_artifact_archive_bytes(
+            archive_bytes = download_artifact_archive_bytes(
                 download_url=download_url,
                 headers=headers,
                 urlopen_fn=urlopen_fn,
@@ -110,7 +110,7 @@ def _restore_aspf_state_from_github_artifacts(
                 if checkpoint_member is None:
                     continue
                 checkpoint_bytes = zf.read(checkpoint_member)
-                if _state_requires_chunk_artifacts(
+                if state_requires_chunk_artifacts(
                     checkpoint_bytes=checkpoint_bytes
                 ) and not chunk_members:
                     continue
@@ -149,7 +149,7 @@ def _restore_aspf_state_from_github_artifacts(
     return 0
 
 
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self,
         req: urllib.request.Request,
@@ -163,7 +163,7 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def _download_artifact_archive_bytes(
+def download_artifact_archive_bytes(
     *,
     download_url: str,
     headers: Mapping[str, str],
@@ -176,7 +176,7 @@ def _download_artifact_archive_bytes(
         with urlopen_fn(req_zip, timeout=60) as response:
             return response.read()
     if no_redirect_open_fn is None:
-        no_redirect_open_fn = urllib.request.build_opener(_NoRedirectHandler()).open
+        no_redirect_open_fn = urllib.request.build_opener(NoRedirectHandler()).open
     if follow_redirect_open_fn is None:
         follow_redirect_open_fn = urllib.request.urlopen
     try:
@@ -195,7 +195,7 @@ def _download_artifact_archive_bytes(
             return response.read()
 
 
-def _state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
+def state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
     try:
         payload = json.loads(checkpoint_bytes.decode("utf-8"))
     except Exception:
@@ -210,3 +210,16 @@ def _state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
         return False
     state_ref = analysis_index_resume.get("state_ref")
     return isinstance(state_ref, str) and bool(state_ref.strip())
+
+
+_restore_aspf_state_from_github_artifacts = restore_aspf_state_from_github_artifacts
+_NoRedirectHandler = NoRedirectHandler
+_download_artifact_archive_bytes = download_artifact_archive_bytes
+_state_requires_chunk_artifacts = state_requires_chunk_artifacts
+
+__all__ = [
+    "NoRedirectHandler",
+    "download_artifact_archive_bytes",
+    "restore_aspf_state_from_github_artifacts",
+    "state_requires_chunk_artifacts",
+]

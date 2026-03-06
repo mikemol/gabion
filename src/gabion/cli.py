@@ -30,8 +30,12 @@ from gabion.cli_support.check.execution_plan_payload import (
 from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
 from gabion.cli_support.shared.dispatch_runtime import (
     dispatch_command as _dispatch_command_impl)
-from gabion.cli_support.shared import (
-    github_artifact_restore as _github_artifact_restore)
+from gabion.cli_support.shared.github_artifact_restore import (
+    NoRedirectHandler,
+    download_artifact_archive_bytes,
+    restore_aspf_state_from_github_artifacts,
+    state_requires_chunk_artifacts,
+)
 from gabion.cli_support.shared.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
 from gabion.cli_support.shared.raw_argparse import (
     parse_dataflow_args_or_exit as _parse_dataflow_args_or_exit_impl)
@@ -634,8 +638,8 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         emit_result_json_to_stdout_fn=_emit_result_json_to_stdout,
         stdout_path=_STDOUT_PATH,
         check_deadline_fn=check_deadline,
-        normalize_dataflow_response_fn=command_orchestrator_primitives._normalize_dataflow_response,
-        serialize_dataflow_response_fn=command_orchestrator_primitives._serialize_dataflow_response,
+        normalize_dataflow_response_fn=command_orchestrator_primitives.normalize_dataflow_response,
+        serialize_dataflow_response_fn=command_orchestrator_primitives.serialize_dataflow_response,
     )
 
 
@@ -1107,12 +1111,10 @@ def _run_governance_runner(
         return 1
 
 
-_restore_aspf_state_from_github_artifacts = (
-    _github_artifact_restore._restore_aspf_state_from_github_artifacts
-)
-_NoRedirectHandler = _github_artifact_restore._NoRedirectHandler
-_download_artifact_archive_bytes = _github_artifact_restore._download_artifact_archive_bytes
-_state_requires_chunk_artifacts = _github_artifact_restore._state_requires_chunk_artifacts
+_restore_aspf_state_from_github_artifacts = restore_aspf_state_from_github_artifacts
+_NoRedirectHandler = NoRedirectHandler
+_download_artifact_archive_bytes = download_artifact_archive_bytes
+_state_requires_chunk_artifacts = state_requires_chunk_artifacts
 
 
 def _run_docflow_audit(
