@@ -84,3 +84,43 @@ def test_run_check_passes_when_allowlisted_or_baselined(tmp_path: Path) -> None:
     assert rc == 0
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["totals"]["non_exempt"] == 0
+
+
+
+def test_collect_private_import_violations_detects_server_core_private_attribute_usage(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src" / "pkg" / "consumer.py",
+        "\n".join(
+            [
+                "from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives",
+                "x = orchestrator_primitives._private_symbol",
+            ]
+        )
+        + "\n",
+    )
+
+    violations = guard._collect_private_import_violations(root=tmp_path)
+    keys = {(v.importer, v.module_path, v.symbol) for v in violations}
+
+    assert (
+        "src/pkg/consumer.py",
+        "gabion.server_core.command_orchestrator_primitives",
+        "_private_symbol",
+    ) in keys
+
+
+def test_collect_private_import_violations_allows_owner_private_server_core_usage(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src" / "gabion" / "server_core" / "command_orchestrator_primitives.py",
+        "from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives\n"
+        "x = orchestrator_primitives._private_symbol\n",
+    )
+
+    violations = guard._collect_private_import_violations(root=tmp_path)
+    keys = {(v.importer, v.module_path, v.symbol) for v in violations}
+
+    assert (
+        "src/gabion/server_core/command_orchestrator_primitives.py",
+        "gabion.server_core.command_orchestrator_primitives",
+        "_private_symbol",
+    ) not in keys

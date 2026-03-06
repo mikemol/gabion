@@ -95,106 +95,56 @@ _IMPACT_TEST_PATH_TOKENS = ("/tests/", "\\tests\\")
 
 _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
-_DEFAULT_PHASE_TIMELINE_MD = runtime_contract.DEFAULT_PHASE_TIMELINE_MD
-_DEFAULT_PHASE_TIMELINE_JSONL = runtime_contract.DEFAULT_PHASE_TIMELINE_JSONL
+_DEFAULT_PHASE_TIMELINE_MD = runtime_contract.PROGRESS_DEFAULT_PHASE_TIMELINE_MD
+_DEFAULT_PHASE_TIMELINE_JSONL = runtime_contract.PROGRESS_DEFAULT_PHASE_TIMELINE_JSONL
 _REPORT_SECTION_JOURNAL_FORMAT_VERSION = 1
-_DEFAULT_REPORT_SECTION_JOURNAL = runtime_contract.DEFAULT_REPORT_SECTION_JOURNAL
-_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = runtime_contract.COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
-_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = runtime_contract.COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
-_COLLECTION_REPORT_FLUSH_INTERVAL_NS = runtime_contract.COLLECTION_REPORT_FLUSH_INTERVAL_NS
-_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = runtime_contract.COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE
-_DEFAULT_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-_MIN_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.MIN_PROGRESS_HEARTBEAT_SECONDS
-_PROGRESS_DEADLINE_FLUSH_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_SECONDS
-_PROGRESS_DEADLINE_WATCHDOG_SECONDS = runtime_contract.PROGRESS_DEADLINE_WATCHDOG_SECONDS
-_PROGRESS_HEARTBEAT_POLL_SECONDS = runtime_contract.PROGRESS_HEARTBEAT_POLL_SECONDS
-_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS
-_LSP_PROGRESS_NOTIFICATION_METHOD = runtime_contract.LSP_PROGRESS_NOTIFICATION_METHOD
-_LSP_PROGRESS_TOKEN_V2 = runtime_contract.LSP_PROGRESS_TOKEN_V2
+_DEFAULT_REPORT_SECTION_JOURNAL = runtime_contract.REPORT_DEFAULT_SECTION_JOURNAL
+_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = runtime_contract.PROGRESS_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = runtime_contract.PROGRESS_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
+_COLLECTION_REPORT_FLUSH_INTERVAL_NS = runtime_contract.PROGRESS_COLLECTION_REPORT_FLUSH_INTERVAL_NS
+_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = runtime_contract.PROGRESS_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE
+_DEFAULT_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.PROGRESS_DEFAULT_HEARTBEAT_SECONDS
+_MIN_PROGRESS_HEARTBEAT_SECONDS = runtime_contract.PROGRESS_MIN_HEARTBEAT_SECONDS
+_PROGRESS_DEADLINE_FLUSH_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_SECONDS_DEFAULT
+_PROGRESS_DEADLINE_WATCHDOG_SECONDS = runtime_contract.PROGRESS_DEADLINE_WATCHDOG_SECONDS_DEFAULT
+_PROGRESS_HEARTBEAT_POLL_SECONDS = runtime_contract.PROGRESS_HEARTBEAT_POLL_SECONDS_DEFAULT
+_PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = runtime_contract.PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS_DEFAULT
+_LSP_PROGRESS_NOTIFICATION_METHOD = runtime_contract.PROGRESS_LSP_NOTIFICATION_METHOD
+_LSP_PROGRESS_TOKEN_V2 = runtime_contract.PROGRESS_LSP_TOKEN_V2
 _LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
-_STDOUT_ALIAS = runtime_contract.STDOUT_ALIAS
-_STDOUT_PATH = runtime_contract.STDOUT_PATH
-_PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PHASE_PRIMARY_UNITS
+_STDOUT_ALIAS = runtime_contract.INGRESS_STDOUT_ALIAS
+_STDOUT_PATH = runtime_contract.INGRESS_STDOUT_PATH
+_PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PROGRESS_PHASE_PRIMARY_UNITS
 
 
-def _is_stdout_target(target: object) -> bool:
-    return runtime_contract.is_stdout_target(target)
+_is_stdout_target = runtime_contract.INGRESS_IS_STDOUT_TARGET
 
 
-def _analysis_resume_cache_verdict(
-    *,
-    status: str | None,
-    reused_files: int,
-    compatibility_status: str | None,
-) -> Literal["hit", "miss", "invalidated", "seeded"]:
-    return orchestrator_primitives._analysis_resume_cache_verdict(
-        status=status,
-        reused_files=reused_files,
-        compatibility_status=compatibility_status,
-    )
+_analysis_resume_cache_verdict = orchestrator_primitives.ingress_analysis_resume_cache_verdict
 
 
-def _deadline_tick_budget_allows_check(clock: object) -> bool:
-    return runtime_contract.deadline_tick_budget_allows_check(clock)
+_deadline_tick_budget_allows_check = runtime_contract.TIMEOUT_DEADLINE_TICK_BUDGET_ALLOWS_CHECK
 
 
 # Boundary aliases preserve server.py test/import surface while converging
 # execution primitives in server_core.
 ExecuteCommandDeps = orchestrator_primitives.ExecuteCommandDeps
-_analysis_input_manifest = orchestrator_primitives._analysis_input_manifest
+_analysis_input_manifest = orchestrator_primitives.ingress_analysis_input_manifest
 _analysis_input_manifest_digest = (
-    orchestrator_primitives._analysis_input_manifest_digest
+    orchestrator_primitives.ingress_analysis_input_manifest_digest
 )
-_collection_semantic_progress = orchestrator_primitives._collection_semantic_progress
-_materialize_execution_plan = orchestrator_primitives._materialize_execution_plan
-_default_execute_command_deps = orchestrator_primitives._default_execute_command_deps
+_collection_semantic_progress = orchestrator_primitives.progress_collection_semantic_progress
+_materialize_execution_plan = orchestrator_primitives.plan_materialize_execution_plan
+_default_execute_command_deps = orchestrator_primitives.deps_default_execute_command
 
 
-def _collection_checkpoint_flush_due(
-    *,
-    intro_changed: bool,
-    remaining_files: int,
-    semantic_substantive_progress: bool = False,
-    now_ns: int,
-    last_flush_ns: int,
-) -> bool:
-    return runtime_contract.collection_checkpoint_flush_due(
-        intro_changed=intro_changed,
-        remaining_files=remaining_files,
-        semantic_substantive_progress=semantic_substantive_progress,
-        now_ns=now_ns,
-        last_flush_ns=last_flush_ns,
-    )
+_collection_checkpoint_flush_due = runtime_contract.REPORT_COLLECTION_CHECKPOINT_FLUSH_DUE
 
 
-def _collection_report_flush_due(
-    *,
-    completed_files: int,
-    remaining_files: int,
-    now_ns: int,
-    last_flush_ns: int,
-    last_flush_completed: int,
-) -> bool:
-    return runtime_contract.collection_report_flush_due(
-        completed_files=completed_files,
-        remaining_files=remaining_files,
-        now_ns=now_ns,
-        last_flush_ns=last_flush_ns,
-        last_flush_completed=last_flush_completed,
-    )
+_collection_report_flush_due = runtime_contract.REPORT_COLLECTION_REPORT_FLUSH_DUE
 
 
-def _projection_phase_flush_due(
-    *,
-    phase: Literal["collection", "forest", "edge", "post"],
-    now_ns: int,
-    last_flush_ns: int,
-) -> bool:
-    return runtime_contract.projection_phase_flush_due(
-        phase=phase,
-        now_ns=now_ns,
-        last_flush_ns=last_flush_ns,
-    )
+_projection_phase_flush_due = runtime_contract.REPORT_PROJECTION_PHASE_FLUSH_DUE
 
 
 def _read_text_profiled(
@@ -552,7 +502,7 @@ def _analysis_resume_progress(
     collection_resume: Mapping[str, JSONValue] | None,
     total_files: int,
 ) -> dict[str, int]:
-    return orchestrator_primitives._analysis_resume_progress(
+    return orchestrator_primitives.progress_analysis_resume_progress(
         collection_resume=collection_resume,
         total_files=total_files,
     )
@@ -563,7 +513,7 @@ def _normalize_progress_work(
     work_done: object | None,
     work_total: object | None,
 ) -> tuple[int | None, int | None]:
-    return orchestrator_primitives._normalize_progress_work(
+    return orchestrator_primitives.progress_normalize_work(
         work_done=work_done,
         work_total=work_total,
     )
@@ -584,7 +534,7 @@ def _build_phase_progress_v2(
     work_total: object | None,
     phase_progress_v2: Mapping[str, JSONValue] | None = None,
 ) -> tuple[JSONObject, int, int]:
-    return orchestrator_primitives._build_phase_progress_v2(
+    return orchestrator_primitives.progress_build_phase_progress_v2(
         phase=phase,
         collection_progress=collection_progress,
         semantic_progress=semantic_progress,
@@ -966,7 +916,7 @@ def _collection_semantic_witness(
 
 
 def _resolve_report_output_path(*, root: Path, report_path: str | None) -> Path | None:
-    return orchestrator_primitives._resolve_report_output_path(
+    return orchestrator_primitives.report_resolve_output_path(
         root=root,
         report_path=report_path,
     )
@@ -976,7 +926,7 @@ def _resolve_report_section_journal_path(
     root: Path,
     report_path: str | None,
 ) -> Path | None:
-    return orchestrator_primitives._resolve_report_section_journal_path(
+    return orchestrator_primitives.report_resolve_section_journal_path(
         root=root,
         report_path=report_path,
     )
@@ -986,20 +936,20 @@ def _report_witness_digest(
     input_witness: Mapping[str, JSONValue] | None,
     manifest_digest: str | None,
 ) -> str | None:
-    return orchestrator_primitives._report_witness_digest(
+    return orchestrator_primitives.report_witness_digest(
         input_witness=input_witness,
         manifest_digest=manifest_digest,
     )
 
 def _coerce_section_lines(value: object) -> list[str]:
-    return orchestrator_primitives._coerce_section_lines(value)
+    return orchestrator_primitives.report_coerce_section_lines(value)
 
 def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
 ) -> tuple[dict[str, list[str]], str | None]:
-    return orchestrator_primitives._load_report_section_journal(
+    return orchestrator_primitives.report_load_section_journal(
         path=path,
         witness_digest=witness_digest,
     )
@@ -1012,7 +962,7 @@ def _write_report_section_journal(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
-    orchestrator_primitives._write_report_section_journal(
+    orchestrator_primitives.report_write_section_journal(
         path=path,
         witness_digest=witness_digest,
         projection_rows=projection_rows,
@@ -1287,7 +1237,7 @@ def _phase_timeline_jsonl_path(*, root: Path) -> Path:
 
 
 def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
-    return runtime_contract.progress_heartbeat_seconds(payload)
+    return runtime_contract.PROGRESS_HEARTBEAT_SECONDS(payload)
 
 
 def _markdown_table_cell(value: object) -> str:
@@ -1530,7 +1480,7 @@ def _incremental_progress_obligations(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str],
 ) -> list[JSONObject]:
-    return orchestrator_primitives._incremental_progress_obligations(
+    return orchestrator_primitives.progress_incremental_progress_obligations(
         analysis_state=analysis_state,
         progress_payload=progress_payload,
         resume_payload_available=resume_payload_available,
@@ -1706,17 +1656,17 @@ def _normalize_dataflow_boundary_controls(
 
 
 def _normalize_dataflow_response_envelope(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
-    return orchestrator_primitives._normalize_dataflow_response(response)
+    return orchestrator_primitives.ingress_normalize_dataflow_response_envelope(response)
 
 
 def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
-    return orchestrator_primitives._serialize_dataflow_response(
+    return orchestrator_primitives.report_serialize_dataflow_response(
         _normalize_dataflow_response_envelope(response)
     )
 
 
 def _truthy_flag(value: object) -> bool:
-    return orchestrator_primitives._truthy_flag(value)
+    return orchestrator_primitives.ingress_truthy_flag(value)
 
 
 def _server_deadline_overhead_ns(
@@ -1724,18 +1674,18 @@ def _server_deadline_overhead_ns(
     *,
     divisor: int | None = None,
 ) -> int:
-    return orchestrator_primitives._server_deadline_overhead_ns(
+    return orchestrator_primitives.timeout_server_deadline_overhead_ns(
         total_ns,
         divisor=divisor,
     )
 
 
 def _analysis_timeout_total_ns(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ns(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.timeout_analysis_total_ns(dict(_payload_mapping(payload)))
 
 
 def _analysis_timeout_total_ticks(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ticks(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.timeout_analysis_total_ticks(dict(_payload_mapping(payload)))
 
 
 def _analysis_timeout_grace_ns(
@@ -1743,7 +1693,7 @@ def _analysis_timeout_grace_ns(
     *,
     total_ns: int,
 ) -> int:
-    return orchestrator_primitives._analysis_timeout_grace_ns(
+    return orchestrator_primitives.timeout_analysis_grace_ns(
         dict(_payload_mapping(payload)),
         total_ns=total_ns,
     )
@@ -1752,7 +1702,7 @@ def _analysis_timeout_grace_ns(
 def _analysis_timeout_budget_ns(
     payload: Mapping[str, object] | MappingPayloadCarrier,
 ) -> tuple[int, int, int]:
-    return orchestrator_primitives._analysis_timeout_budget_ns(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.timeout_analysis_budget_ns(dict(_payload_mapping(payload)))
 
 
 def _deadline_profile_sample_interval(
@@ -1760,7 +1710,7 @@ def _deadline_profile_sample_interval(
     *,
     default_interval: int = 16,
 ) -> int:
-    return orchestrator_primitives._deadline_profile_sample_interval(
+    return orchestrator_primitives.timeout_deadline_profile_sample_interval(
         dict(_payload_mapping(payload)),
         default_interval=default_interval,
     )
@@ -2026,7 +1976,7 @@ def _invariant_failure_dataflow_response(
         }
     )
     return _ordered_command_response(
-        orchestrator_primitives._serialize_dataflow_response(envelope),
+        orchestrator_primitives.report_serialize_dataflow_response(envelope),
         command=command,
     )
 
@@ -2042,7 +1992,7 @@ def _execute_dataflow_command_boundary(
         command_payload = _parse_dataflow_command_payload(payload)
         normalized_result = _execute_command_total(ls, command_payload, deps=deps)
         return _ordered_command_response(
-            orchestrator_primitives._serialize_dataflow_response(normalized_result),
+            orchestrator_primitives.report_serialize_dataflow_response(normalized_result),
             command=DATAFLOW_COMMAND,
         )
     except NeverThrown as error:
