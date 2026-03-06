@@ -1812,7 +1812,7 @@ def _collect_dataclass_registry(
     project_root,
     parse_failure_witnesses: list[JSONObject],
     analysis_index=None,
-    stage_cache_fn=None,
+    stage_cache_fn: Callable[..., object] = _analysis_index_stage_cache,
 ) -> dict[str, list[str]]:
     return cast(
         dict[str, list[str]],
