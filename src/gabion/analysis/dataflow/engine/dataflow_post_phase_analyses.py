@@ -70,7 +70,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _invariant_digest,
     _normalize_invariant_proposition,
 )
-from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import (
     int_tuple4_or_none,
     mapping_or_none,
@@ -933,7 +933,7 @@ def _infer_type_flow(
     external_filter: bool,
     transparent_decorators=None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
 ):
     return _infer_type_flow_impl(
@@ -980,7 +980,7 @@ def _collect_constant_flow_details(
     strictness: str,
     external_filter: bool,
     transparent_decorators=None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     iter_resolved_edge_param_events_fn: Callable[
         ...,
@@ -1243,7 +1243,7 @@ def _param_annotations_by_path(
     paths: list[Path],
     *,
     ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> dict[Path, dict[str, object]]:
     check_deadline()
     annotations: dict[Path, dict[str, object]] = {}
@@ -1764,7 +1764,7 @@ def _compute_knob_param_names(
 def _collect_config_bundles(
     paths: list[Path],
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
 ) -> dict[Path, dict[str, set[str]]]:
     return cast(
@@ -1791,7 +1791,7 @@ def _iter_config_fields(
     path: Path,
     *,
     tree=None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> dict[str, set[str]]:
     return cast(
         dict[str, set[str]],
@@ -1813,7 +1813,7 @@ def _collect_dataclass_registry(
     paths: list[Path],
     *,
     project_root,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object] = _analysis_index_stage_cache,
 ) -> dict[str, list[str]]:
@@ -1844,7 +1844,7 @@ def _iter_dataclass_call_bundles(
     project_root=None,
     symbol_table=None,
     dataclass_registry=None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> set[tuple[str, ...]]:
     check_deadline()
     outcome = _iter_dataclass_call_bundle_effects_impl(

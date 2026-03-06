@@ -1,5 +1,5 @@
 ---
-doc_revision: 296
+doc_revision: 297
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -26,6 +26,23 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-355`, this CU):
+  - Completed canonical parse-failure witness alias narrowing for remaining dataflow engine seam signatures:
+    - `src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_obligations.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_pipeline.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+    - `src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py`
+  - Result:
+    - parse-failure witness contracts across post-phase/pipeline/projection/deadline/index helper seams now converge on canonical `ParseFailureWitnesses` instead of repeated `list[JSONObject]` annotations.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted dataflow/deadline/type-flow/dataclass suites passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-354`, this CU):
   - Completed no-legacy-compat hard cut:
     - deleted remaining compatibility modules:

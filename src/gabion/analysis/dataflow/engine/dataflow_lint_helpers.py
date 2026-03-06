@@ -27,7 +27,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
-from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
 from gabion.analysis.projection.projection_spec import ProjectionSpec
@@ -523,7 +523,7 @@ class _BroadTypeLintContext:
     strictness: str
     external_filter: bool
     transparent_decorators: object
-    parse_failure_witnesses: list[JSONObject]
+    parse_failure_witnesses: ParseFailureWitnesses
     analysis_index: object
 
 

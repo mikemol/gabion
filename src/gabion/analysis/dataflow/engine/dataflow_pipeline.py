@@ -14,7 +14,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AnalysisResult, AuditConfig, InvariantProposition, ReportCarrier)
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
 from gabion.analysis.core.forest_spec import build_forest_spec, forest_spec_metadata
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.projection.projection_registry import WL_REFINEMENT_SPEC
 from gabion.analysis.foundation.timeout_context import (
     TimeoutExceeded, check_deadline, reset_forest, set_forest)
@@ -202,7 +202,7 @@ def _run_forest_phase(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[set[str]]]],
     invariant_propositions: list[InvariantProposition],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index_for_progress: object,
     config: AuditConfig,
     include_bundle_forest: bool,
@@ -417,7 +417,7 @@ def _run_edge_phase(
     bundle_sites_by_path: dict[Path, dict[str, list[set[str]]]],
     ambiguity_witnesses: list[JSONObject],
     invariant_propositions: list[InvariantProposition],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     config: AuditConfig,
     type_audit: bool,
     type_audit_report: bool,
@@ -551,7 +551,7 @@ def _run_post_phase(
     deadness_witnesses: list[JSONObject],
     ambiguity_witnesses: list[JSONObject],
     invariant_propositions: list[InvariantProposition],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     config: AuditConfig,
     include_deadline_obligations: bool,
     include_decision_surfaces: bool,
@@ -1079,7 +1079,7 @@ def analyze_paths(
         forest_spec: object = None
         planned_forest_spec_id: object = None
         ambiguity_witnesses: list[JSONObject] = []
-        parse_failure_witnesses: list[JSONObject] = []
+        parse_failure_witnesses: ParseFailureWitnesses = []
         analysis_index: object = None
         analysis_profile_stage_ns: dict[str, int] = {
             "analysis.collection": 0,

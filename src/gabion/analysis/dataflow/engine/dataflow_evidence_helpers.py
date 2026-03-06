@@ -25,7 +25,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _build_function_index as _build_function_index_impl)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleFailure, _ParseModuleStage, _ParseModuleSuccess, _parse_module_tree)
-from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator
 
@@ -212,7 +212,7 @@ def _build_symbol_table(
     project_root,
     *,
     external_filter: bool,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> SymbolTable:
     check_deadline()
     table = SymbolTable(external_filter=external_filter)
@@ -250,7 +250,7 @@ def _collect_class_index(
     paths: list[Path],
     project_root,
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> dict[str, ClassInfo]:
     check_deadline()
     class_index: dict[str, ClassInfo] = {}
@@ -306,7 +306,7 @@ def _build_function_index(
     strictness: str,
     transparent_decorators=None,
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     return _build_function_index_impl(
         paths,

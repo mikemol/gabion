@@ -15,7 +15,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, Call
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _CalleeResolutionOutcome, _DEADLINE_EXEMPT_PREFIXES, _DEADLINE_HELPER_QUALS, _DeadlineArgInfo, _DeadlineFunctionFacts, _build_analysis_index, _caller_param_bindings_for_call, _collect_call_edges_from_forest, _collect_call_nodes_by_path, _collect_call_resolution_obligation_details_from_forest, _collect_call_resolution_obligations_from_forest, _collect_deadline_function_facts, _collect_recursive_nodes, _deadline_arg_info_map, _deadline_loop_forwarded_params, _function_suite_id, _function_suite_key, _is_deadline_param, _materialize_call_candidates, _normalize_snapshot_path, _reachable_from_roots, _resolve_callee_outcome)
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _is_test_path
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import require_not_none
 from gabion.order_contract import sort_once
@@ -978,7 +978,7 @@ def collect_deadline_obligations(
     extra_facts_by_qual = None,
     extra_call_infos = None,
     extra_deadline_params = None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index = None,
     materialize_call_candidates_fn: Callable[..., None] = _materialize_call_candidates,
     collect_call_nodes_by_path_fn: Callable[

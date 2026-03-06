@@ -17,7 +17,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleSuccess,
     _parse_module_tree,
 )
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 
@@ -336,7 +336,7 @@ def _build_function_index(
     strictness: str,
     transparent_decorators = None,
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     del strictness
     by_name: defaultdict[str, list[FunctionInfo]] = defaultdict(list)

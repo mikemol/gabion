@@ -12,7 +12,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import SymbolTable
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _module_name
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleFailure, _ParseModuleStage, _ParseModuleSuccess, _forbid_adhoc_bundle_discovery, _parse_module_tree)
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -390,7 +390,7 @@ def iter_dataclass_call_bundle_effects(
     project_root: object = None,
     symbol_table: object = None,
     dataclass_registry: object = None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> BundleIterationOutcome:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")

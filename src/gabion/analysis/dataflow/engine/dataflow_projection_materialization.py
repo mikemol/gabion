@@ -44,7 +44,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleStage,
     _parse_module_tree,
 )
-from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import int_tuple4_or_none
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.semantics import evidence_keys
@@ -599,7 +599,7 @@ def _materialize_structured_suite_sites(
     forest: Forest,
     file_paths: list[Path],
     project_root,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
 ) -> None:
     _materialize_structured_suite_sites_impl(
@@ -629,7 +629,7 @@ def _populate_bundle_forest(
     ignore_params=None,
     strictness: str = "high",
     transparent_decorators=None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     on_progress=None,
 ) -> None:
