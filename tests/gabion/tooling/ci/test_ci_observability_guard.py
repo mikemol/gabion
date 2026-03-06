@@ -1,13 +1,28 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol
+
 from tests.path_helpers import SCRIPTS_ROOT
 
 
 _GUARD_SCRIPT = SCRIPTS_ROOT / "ci" / "ci_observability_guard.py"
+
+
+def _load_guard_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("ci_observability_guard", _GUARD_SCRIPT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run_guard(
@@ -51,67 +66,78 @@ def _violations(tmp_path: Path) -> list[dict[str, object]]:
     return [entry for entry in violations if isinstance(entry, dict)]
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_fails_on_meaningful_gap_and_writes_artifact::ci_observability_guard.py::main
-def test_guard_fails_on_meaningful_gap_and_writes_artifact(tmp_path: Path) -> None:
-    command = [
-        sys.executable,
-        "-c",
-        (
-            "import time; "
-            "print('progress start', flush=True); "
-            "time.sleep(0.30); "
-            "print('progress done', flush=True)"
-        ),
-    ]
-    result = _run_guard(
-        tmp_path=tmp_path,
-        label="gap_case",
-        max_gap_seconds=0.10,
-        max_wall_seconds=5.0,
-        command=command,
-    )
+class _Clock(Protocol):
+    def monotonic(self) -> float: ...
 
-    assert result.returncode != 0
-    violations = _violations(tmp_path)
-    assert violations
-    latest = violations[-1]
-    assert latest.get("label") == "gap_case"
-    assert latest.get("reason") == "max_gap_meaningful_line_exceeded"
-    assert isinstance(latest.get("measured_gap_seconds"), float | int)
+    def sleep(self, seconds: float) -> None: ...
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_excludes_heartbeat_lines_from_meaningful_gap_metric::ci_observability_guard.py::main
-def test_guard_excludes_heartbeat_lines_from_meaningful_gap_metric(tmp_path: Path) -> None:
-    command = [
-        sys.executable,
-        "-c",
-        (
-            "import time; "
-            "print('progress start', flush=True); "
-            "time.sleep(0.06); "
-            "print('heartbeat tick 1', flush=True); "
-            "time.sleep(0.06); "
-            "print('heartbeat tick 2', flush=True); "
-            "time.sleep(0.06); "
-            "print('progress done', flush=True)"
-        ),
-    ]
-    result = _run_guard(
-        tmp_path=tmp_path,
-        label="heartbeat_case",
-        max_gap_seconds=0.05,
-        max_wall_seconds=5.0,
-        command=command,
-    )
-
-    assert result.returncode != 0
-    latest = _violations(tmp_path)[-1]
-    assert latest.get("label") == "heartbeat_case"
-    assert latest.get("reason") == "max_gap_meaningful_line_exceeded"
+@dataclass
+class _SyntheticEvent:
+    delay_before_chunk: float
+    data: bytes
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_enforces_wall_timeout::ci_observability_guard.py::main
-def test_guard_enforces_wall_timeout(tmp_path: Path) -> None:
+class _SyntheticClock:
+    def __init__(self) -> None:
+        self._now = 0.0
+
+    def monotonic(self) -> float:
+        return self._now
+
+    def sleep(self, seconds: float) -> None:
+        self._now += seconds
+
+    def advance(self, seconds: float) -> None:
+        self._now += seconds
+
+
+class _SyntheticChildProcess:
+    def __init__(self, *, clock: _SyntheticClock, events: list[_SyntheticEvent], exit_code: int = 0) -> None:
+        self._clock = clock
+        self._events = events
+        self._exit_code = exit_code
+        self._terminated = False
+
+    def poll(self) -> int | None:
+        if self._terminated:
+            return 1
+        if self._events:
+            return None
+        return self._exit_code
+
+    def read_chunk_if_ready(self, timeout_seconds: float) -> bytes:
+        effective_timeout = timeout_seconds if timeout_seconds > 0 else 1e-6
+        if self._terminated:
+            self._clock.advance(effective_timeout)
+            return b""
+        if not self._events:
+            self._clock.advance(effective_timeout)
+            return b""
+
+        next_event = self._events[0]
+        if next_event.delay_before_chunk <= effective_timeout:
+            self._clock.advance(next_event.delay_before_chunk)
+            self._events.pop(0)
+            return next_event.data
+
+        self._clock.advance(effective_timeout)
+        next_event.delay_before_chunk -= effective_timeout
+        return b""
+
+    def terminate_group(self, clock: _Clock) -> None:
+        self._terminated = True
+
+    @property
+    def returncode(self) -> int:
+        return 1 if self._terminated else self._exit_code
+
+
+# This file intentionally keeps a narrow integration slice at the real subprocess/PTTY boundary.
+# Remaining timing-heavy policy tests use synthetic clock/process injection through enforce_observability.
+
+
+def test_guard_integration_fails_on_wall_timeout(tmp_path: Path) -> None:
     command = [
         sys.executable,
         "-c",
@@ -119,7 +145,7 @@ def test_guard_enforces_wall_timeout(tmp_path: Path) -> None:
     ]
     result = _run_guard(
         tmp_path=tmp_path,
-        label="wall_case",
+        label="integration_wall_case",
         max_gap_seconds=10.0,
         max_wall_seconds=0.15,
         command=command,
@@ -127,12 +153,11 @@ def test_guard_enforces_wall_timeout(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     latest = _violations(tmp_path)[-1]
-    assert latest.get("label") == "wall_case"
+    assert latest.get("label") == "integration_wall_case"
     assert latest.get("reason") == "max_wall_timeout"
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_passes_when_meaningful_output_remains_below_gap::ci_observability_guard.py::main
-def test_guard_passes_when_meaningful_output_remains_below_gap(tmp_path: Path) -> None:
+def test_guard_integration_passes_with_real_output(tmp_path: Path) -> None:
     command = [
         sys.executable,
         "-c",
@@ -147,7 +172,7 @@ def test_guard_passes_when_meaningful_output_remains_below_gap(tmp_path: Path) -
     ]
     result = _run_guard(
         tmp_path=tmp_path,
-        label="pass_case",
+        label="integration_pass_case",
         max_gap_seconds=0.20,
         max_wall_seconds=5.0,
         command=command,
@@ -158,55 +183,116 @@ def test_guard_passes_when_meaningful_output_remains_below_gap(tmp_path: Path) -
     assert not artifact_path.exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_counts_in_place_progress_chunks_without_newlines::ci_observability_guard.py::main
-def test_guard_counts_in_place_progress_chunks_without_newlines(tmp_path: Path) -> None:
-    command = [
-        sys.executable,
-        "-c",
-        (
-            "import sys,time; "
-            "sys.stdout.write('progress '); sys.stdout.flush(); "
-            "time.sleep(0.03); "
-            "sys.stdout.write('.'); sys.stdout.flush(); "
-            "time.sleep(0.03); "
-            "sys.stdout.write('.'); sys.stdout.flush(); "
-            "time.sleep(0.03); "
-            "sys.stdout.write('.\\n'); sys.stdout.flush()"
-        ),
-    ]
-    result = _run_guard(
-        tmp_path=tmp_path,
-        label="chunk_progress_case",
-        max_gap_seconds=0.15,
-        max_wall_seconds=5.0,
-        command=command,
+def test_guard_synthetic_fails_before_first_meaningful_line(tmp_path: Path) -> None:
+    guard = _load_guard_module()
+    clock = _SyntheticClock()
+    child = _SyntheticChildProcess(
+        clock=clock,
+        events=[
+            _SyntheticEvent(delay_before_chunk=0.0, data=b"heartbeat tick\n"),
+            _SyntheticEvent(delay_before_chunk=0.4, data=b"heartbeat tick 2\n"),
+        ],
     )
 
-    assert result.returncode == 0
+    exit_code = guard.enforce_observability(
+        label="first_meaningful_gap_case",
+        command=["synthetic", "command"],
+        max_gap_seconds=0.1,
+        gap_tolerance_seconds=0.0,
+        max_wall_seconds=5.0,
+        artifact_path=tmp_path / "artifacts" / "audit_reports" / "observability_violations.json",
+        cwd=tmp_path,
+        clock=clock,
+        child=child,
+    )
+
+    assert exit_code != 0
+    latest = _violations(tmp_path)[-1]
+    assert latest.get("reason") == "max_gap_before_first_meaningful_line"
+
+
+def test_guard_synthetic_heartbeat_excluded_from_meaningful_gap(tmp_path: Path) -> None:
+    guard = _load_guard_module()
+    clock = _SyntheticClock()
+    child = _SyntheticChildProcess(
+        clock=clock,
+        events=[
+            _SyntheticEvent(delay_before_chunk=0.0, data=b"progress start\n"),
+            _SyntheticEvent(delay_before_chunk=0.08, data=b"heartbeat tick 1\n"),
+            _SyntheticEvent(delay_before_chunk=0.08, data=b"heartbeat tick 2\n"),
+            _SyntheticEvent(delay_before_chunk=0.08, data=b"heartbeat tick 3\n"),
+        ],
+    )
+
+    exit_code = guard.enforce_observability(
+        label="heartbeat_case",
+        command=["synthetic", "command"],
+        max_gap_seconds=0.1,
+        gap_tolerance_seconds=0.0,
+        max_wall_seconds=5.0,
+        artifact_path=tmp_path / "artifacts" / "audit_reports" / "observability_violations.json",
+        cwd=tmp_path,
+        clock=clock,
+        child=child,
+    )
+
+    assert exit_code != 0
+    latest = _violations(tmp_path)[-1]
+    assert latest.get("reason") == "max_gap_meaningful_line_exceeded"
+
+
+def test_guard_synthetic_terminal_progress_bypasses_gap_enforcement(tmp_path: Path) -> None:
+    guard = _load_guard_module()
+    clock = _SyntheticClock()
+    child = _SyntheticChildProcess(
+        clock=clock,
+        events=[
+            _SyntheticEvent(delay_before_chunk=0.0, data=b"| ts | progress | post | complete |\n"),
+            _SyntheticEvent(delay_before_chunk=0.8, data=b"done\n"),
+        ],
+    )
+
+    exit_code = guard.enforce_observability(
+        label="terminal_cleanup_case",
+        command=["synthetic", "command"],
+        max_gap_seconds=0.1,
+        gap_tolerance_seconds=0.0,
+        max_wall_seconds=5.0,
+        artifact_path=tmp_path / "artifacts" / "audit_reports" / "observability_violations.json",
+        cwd=tmp_path,
+        clock=clock,
+        child=child,
+    )
+
+    assert exit_code == 0
     artifact_path = tmp_path / "artifacts" / "audit_reports" / "observability_violations.json"
     assert not artifact_path.exists()
 
 
-# gabion:evidence E:call_footprint::tests/test_ci_observability_guard.py::test_guard_allows_cleanup_after_terminal_progress_row::ci_observability_guard.py::main
-def test_guard_allows_cleanup_after_terminal_progress_row(tmp_path: Path) -> None:
-    command = [
-        sys.executable,
-        "-c",
-        (
-            "import time; "
-            "print('| ts | progress | post | complete |', flush=True); "
-            "time.sleep(0.25); "
-            "print('done', flush=True)"
-        ),
-    ]
-    result = _run_guard(
-        tmp_path=tmp_path,
-        label="terminal_cleanup_case",
-        max_gap_seconds=0.10,
-        max_wall_seconds=5.0,
-        command=command,
+def test_guard_synthetic_chunk_timing_for_partial_and_multiline_chunks(tmp_path: Path) -> None:
+    guard = _load_guard_module()
+    clock = _SyntheticClock()
+    child = _SyntheticChildProcess(
+        clock=clock,
+        events=[
+            _SyntheticEvent(delay_before_chunk=0.0, data=b"progress "),
+            _SyntheticEvent(delay_before_chunk=0.03, data=b"part"),
+            _SyntheticEvent(delay_before_chunk=0.03, data=b"ial\nprogress 2\nprogress 3\n"),
+        ],
     )
 
-    assert result.returncode == 0
+    exit_code = guard.enforce_observability(
+        label="chunk_and_multiline_case",
+        command=["synthetic", "command"],
+        max_gap_seconds=0.2,
+        gap_tolerance_seconds=0.0,
+        max_wall_seconds=5.0,
+        artifact_path=tmp_path / "artifacts" / "audit_reports" / "observability_violations.json",
+        cwd=tmp_path,
+        clock=clock,
+        child=child,
+    )
+
+    assert exit_code == 0
     artifact_path = tmp_path / "artifacts" / "audit_reports" / "observability_violations.json"
     assert not artifact_path.exists()
