@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
@@ -29,7 +29,7 @@ def collect_deadline_function_facts(
     *,
     project_root=None,
     ignore_params: set[str],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     trees=None,
     analysis_index=None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object],

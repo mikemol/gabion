@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ def infer_type_flow(
     external_filter: bool,
     transparent_decorators=None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     deps: TypeFlowInferDeps,
 ):

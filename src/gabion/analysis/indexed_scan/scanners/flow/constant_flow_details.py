@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ def collect_constant_flow_details(
     strictness: str,
     external_filter: bool,
     transparent_decorators=None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     iter_resolved_edge_param_events_fn: Callable[..., Iterable[object]],
     reduce_resolved_call_edges_fn: Callable[..., object],

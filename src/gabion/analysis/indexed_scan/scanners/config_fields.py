@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
@@ -37,7 +37,7 @@ def iter_config_fields(
     path: Path,
     *,
     tree = None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     deps: IterConfigFieldsDeps,
 ) -> dict[str, set[str]]:
     """Best-effort extraction of config bundles from dataclasses."""
@@ -86,7 +86,7 @@ def iter_config_fields(
 def collect_config_bundles(
     paths: list[Path],
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index = None,
     deps: CollectConfigBundlesDeps,
 ) -> dict[Path, dict[str, set[str]]]:

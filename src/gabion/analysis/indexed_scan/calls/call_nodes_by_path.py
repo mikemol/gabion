@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
@@ -53,7 +53,7 @@ def collect_call_nodes_by_path(
     paths: list[Path],
     *,
     trees = None,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index = None,
     deps: CollectCallNodesByPathDeps,
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:

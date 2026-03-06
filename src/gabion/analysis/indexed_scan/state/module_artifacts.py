@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ def build_module_artifacts(
     paths: list[Path],
     *,
     specs: tuple[object, ...],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     parse_module: Callable[[Path], ast.Module],
     deps: BuildModuleArtifactsDeps,
 ) -> tuple[object, ...]:

@@ -1,5 +1,5 @@
 ---
-doc_revision: 291
+doc_revision: 292
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,26 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-350`, this CU):
+  - Introduced canonical parse-failure witness carrier alias in foundation boundary types:
+    - `src/gabion/analysis/foundation/json_types.py`
+      - added `ParseFailureWitnesses = list[JSONObject]`
+  - Replaced repeated `list[JSONObject]` witness signatures with `ParseFailureWitnesses` across indexed-scan parse/materialization seams:
+    - `src/gabion/analysis/indexed_scan/index/analysis_index_stage_cache.py`
+    - `src/gabion/analysis/indexed_scan/calls/call_nodes_by_path.py`
+    - `src/gabion/analysis/indexed_scan/scanners/config_fields.py`
+    - `src/gabion/analysis/indexed_scan/scanners/materialization/dataclass_registry.py`
+    - `src/gabion/analysis/indexed_scan/scanners/flow/type_flow.py`
+    - `src/gabion/analysis/indexed_scan/scanners/flow/constant_flow_details.py`
+    - `src/gabion/analysis/indexed_scan/state/module_artifacts.py`
+    - `src/gabion/analysis/indexed_scan/deadline/deadline_function_facts.py`
+  - Result:
+    - parse-failure witness contract semantics remain unchanged while annotation drift risk is reduced through one canonical alias.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted config/dataclass/deadline/type-flow/constant-flow/pipeline suites passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-349`, this CU):
   - Completed parse-failure witness carrier normalization for remaining indexed-scan flow/materialization seams:
     - `src/gabion/analysis/indexed_scan/scanners/flow/type_flow.py`

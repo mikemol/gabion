@@ -8,5 +8,12 @@ helpers) can depend on them without importing `gabion.analysis`.
 
 from gabion.json_types import JSONArray, JSONObject, JSONScalar, JSONValue
 
-__all__ = ["JSONScalar", "JSONValue", "JSONObject", "JSONArray"]
+ParseFailureWitnesses = list[JSONObject]
 
+__all__ = [
+    "JSONScalar",
+    "JSONValue",
+    "JSONObject",
+    "JSONArray",
+    "ParseFailureWitnesses",
+]

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol, TypeVar
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
 _StageCacheValueT = TypeVar("_StageCacheValueT", covariant=True)
 
@@ -18,7 +18,7 @@ class AnalysisIndexStageCacheFn(Protocol[_StageCacheValueT]):
         paths: list[Path],
         *,
         spec,
-        parse_failure_witnesses: list[JSONObject],
+        parse_failure_witnesses: ParseFailureWitnesses,
         module_trees_fn: Callable[..., object] = ...,
     ) -> dict[Path, _StageCacheValueT]:
         ...
@@ -39,7 +39,7 @@ def analysis_index_stage_cache(
     paths: list[Path],
     *,
     spec,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
     module_trees_fn=None,
     deps: AnalysisIndexStageCacheDeps,
 ) -> dict[Path, object]:
