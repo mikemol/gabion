@@ -14,7 +14,7 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
     "evidence_links": ["docs/ws5_decomposition_ledger.md"],
 }
 
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import OptionalDecorators, OptionalParseFailures, OptionalProjectRoot, _build_analysis_index, analyze_file
+from gabion.analysis.dataflow.engine.dataflow_analysis_index import OptionalDecorators, OptionalParseFailures, OptionalProjectRoot, analyze_file
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import CallAmbiguity
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     is_decision_surface,
@@ -23,9 +23,6 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     analyze_ingested_file,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import analyze_constant_flow_repo, analyze_deadness_flow_repo, analyze_decision_surfaces_repo, analyze_type_flow_repo_with_evidence, analyze_type_flow_repo_with_map, analyze_unused_arg_flow_repo, analyze_value_encoded_decisions_repo, generate_property_hook_manifest
-from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
-    _report_section_spec,
-)
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AnalysisResult,
     AuditConfig,
@@ -43,10 +40,6 @@ from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import verify_rewrite_plan, verify_rewrite_plans
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
-# Preserve canonical owner identity for overlapping wildcard symbols.
-from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
-    _resolve_callee,
-)
 from gabion.analysis.foundation.timeout_context import (
     Deadline,
     GasMeter,

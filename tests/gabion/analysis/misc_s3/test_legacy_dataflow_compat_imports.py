@@ -57,7 +57,7 @@ def test_legacy_dataflow_compat_modules_import() -> None:
     assert hasattr(deadline_owner, "_resolve_callee")
     assert hasattr(reporting_owner, "_report_section_spec")
     assert hasattr(summary_owner, "_summarize_deadline_obligations")
-    assert hasattr(facade, "_report_section_spec")
+    assert hasattr(facade, "render_report")
 
     _assert_lifecycle_metadata(
         indexed, expected_scope="dataflow_indexed_file_scan.alias_surface"

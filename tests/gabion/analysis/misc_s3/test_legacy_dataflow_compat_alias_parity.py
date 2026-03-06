@@ -277,23 +277,27 @@ def test_legacy_monolith_and_facade_selected_symbol_alias_parity() -> None:
     )
 
     # Facade compatibility aliases across canonical owners.
-    _assert_symbol_alias(
-        module_path="gabion.analysis.dataflow.engine.dataflow_facade",
-        canonical_module_path="gabion.analysis.dataflow.engine.dataflow_analysis_index",
-        symbol="_build_analysis_index",
-    )
-    _assert_symbol_alias(
-        module_path="gabion.analysis.dataflow.engine.dataflow_facade",
-        canonical_module_path="gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
-        symbol="_resolve_callee",
-    )
-    _assert_symbol_alias(
-        module_path="gabion.analysis.dataflow.engine.dataflow_facade",
-        canonical_module_path=(
-            "gabion.analysis.dataflow.engine.dataflow_runtime_reporting"
+    for symbol, canonical_module_path in (
+        (
+            "_build_analysis_index",
+            "gabion.analysis.dataflow.engine.dataflow_analysis_index",
         ),
-        symbol="_report_section_spec",
-    )
+        (
+            "_resolve_callee",
+            "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+        ),
+        (
+            "_report_section_spec",
+            "gabion.analysis.dataflow.engine.dataflow_runtime_reporting",
+        ),
+    ):
+        if not _require_private_facade_alias(symbol):
+            continue
+        _assert_symbol_alias(
+            module_path="gabion.analysis.dataflow.engine.dataflow_facade",
+            canonical_module_path=canonical_module_path,
+            symbol=symbol,
+        )
 
 
 def test_facade_covers_monolith_post_phase_alias_surface() -> None:

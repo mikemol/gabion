@@ -1,5 +1,5 @@
 ---
-doc_revision: 284
+doc_revision: 285
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,8 +15,8 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 71
-- Facade top-level import statements (current): 17
+- Facade LOC (current): 64
+- Facade top-level import statements (current): 15
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -31,6 +31,32 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-343`, this CU):
+  - Removed remaining private compatibility anchors from facade:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - removed `_build_analysis_index`, `_resolve_callee`, and `_report_section_spec` imports
+      - facade now exports public compatibility symbols only
+  - Updated compatibility checks to follow private-consumer threshold policy:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+      - selected private facade alias parity checks now execute only when `>1` non-owner, non-test consumers exist
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+      - facade smoke assertion now checks public `render_report` instead of private `_report_section_spec`
+  - Ratcheted facade metrics guard budgets:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - `_MAX_FACADE_LOC: 71 -> 64`
+      - `_MAX_FACADE_TOP_LEVEL_IMPORTS: 17 -> 15`
+      - `_MAX_FACADE_IMPORTED_SYMBOLS: 56 -> 53`
+      - wildcard cap remains `0`
+  - Resulting facade metrics:
+    - wildcard imports remain `0`
+    - imported symbols `56 -> 53`
+    - LOC `71 -> 64`
+    - top-level import statements `17 -> 15`
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy facade/compat parity tests passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
 - WS-5 continuation (`in-342`, this CU):
   - Contracted mixed import lines to public/anchor-only facade symbols:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
