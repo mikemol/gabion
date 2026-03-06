@@ -934,6 +934,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2H",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from foundation/derivation/indexed-scan helper modules with one defensive-fallback revert.",
+      "timestamp_utc": "2026-03-06T23:58:14Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 174,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 165,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 474,
+      "total_after": 465,
+      "notes": [
+        "Removed boundary markers from: identity_namespace_governance.py, identity_registry_mirror.py, identity_space.py, derivation_cache.py, deadline_fallback.py, deadline_function_facts.py, deadline_local_info.py, deadline_obligation_summary.py, analysis_index_stage_cache.py.",
+        "Reverted identity_shadow_session.py boundary marker removal after a defensive-fallback broad-exception/pass regression surfaced during batch validation.",
+        "Retained monotonic subset with non-target scanner families unchanged."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
