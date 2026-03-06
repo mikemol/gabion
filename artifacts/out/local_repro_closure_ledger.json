@@ -176,6 +176,43 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "policy_scanner_and_sppf_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P3B",
+      "summary": "Absolute-debt burn-down: removed test monkeypatch usage via explicit DI seams in CLI, orchestrator, governance audit, and invariant helpers.",
+      "timestamp_utc": "2026-03-06T19:14:29Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 28,
+        "branchless": 189,
+        "defensive_fallback": 8,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 189,
+        "defensive_fallback": 8,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25
+      },
+      "total_before": 280,
+      "total_after": 252,
+      "notes": [
+        "Converted monkeypatch-based tests to injectable-callable seams and removed monkeypatch fixture usage in affected suites.",
+        "Kept semantic behavior stable by defaulting all new seams to prior concrete implementations.",
+        "Baseline-relative comparisons are treated as informational only; absolute unresolved count is the controlling metric."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_targeted_tests": "pass",
+        "impacted_unit_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",

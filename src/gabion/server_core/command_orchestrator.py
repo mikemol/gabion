@@ -121,6 +121,7 @@ from gabion.server_core.progress_contracts import ProgressStageContract
 from gabion.server_core.report_projection_runtime import ReportProjectionRuntime
 from gabion.server_core.timeout_runtime import TimeoutStageRuntime
 from gabion.server_core.timeout_stage import run_timeout_stage, timeout_classification_decision
+from gabion.server_core.stage_contracts import AnalysisRunner, StageAnalysisResult
 from gabion.ingest.adapter_contract import NormalizedIngestBundle
 from gabion.ingest.registry import resolve_adapter
 from gabion.analysis.foundation.identity_shadow_runtime import IdentityShadowRuntime
@@ -4450,8 +4451,12 @@ def _stage_ingress(
     )
 
 
-def _stage_finalize_success(*, stage: _ExecuteCommandFinalizeSuccessStage) -> _SuccessResponseOutcome:
-    return _build_success_response(
+def _stage_finalize_success(
+    *,
+    stage: _ExecuteCommandFinalizeSuccessStage,
+    build_success_response_fn: Callable[..., _SuccessResponseOutcome] = _build_success_response,
+) -> _SuccessResponseOutcome:
+    return build_success_response_fn(
         context=_SuccessResponseContext(
             execute_deps=stage.execute_deps,
             aspf_trace_state=stage.aspf_trace_state,
@@ -4491,11 +4496,16 @@ def _stage_finalize_success(*, stage: _ExecuteCommandFinalizeSuccessStage) -> _S
     )
 
 
-def _stage_finalize_timeout(*, exc: TimeoutExceeded, context: _TimeoutCleanupContext) -> dict:
+def _stage_finalize_timeout(
+    *,
+    exc: TimeoutExceeded,
+    context: _TimeoutCleanupContext,
+    cleanup_handler_fn: Callable[..., dict] = _handle_timeout_cleanup,
+) -> dict:
     timeout_stage = run_timeout_stage(
         exc=exc,
         context=context,
-        cleanup_handler=_handle_timeout_cleanup,
+        cleanup_handler=cleanup_handler_fn,
     )
     return timeout_stage.response
 
@@ -4510,10 +4520,11 @@ def _stage_runtime_bootstrap(
     progress_heartbeat_seconds: float,
     profiling_stage_ns: dict[str, int],
     profiling_counters: dict[str, int],
+    build_identity_shadow_session_fn: Callable[..., IdentityShadowSession] = build_identity_shadow_session,
 ) -> _ExecuteCommandRuntimeBootstrapStage:
     if config.fingerprint_registry is None:
         config.fingerprint_registry = PrimeRegistry()
-    identity_shadow_session = build_identity_shadow_session(
+    identity_shadow_session = build_identity_shadow_session_fn(
         root=Path(str(root)),
         registry=config.fingerprint_registry,
     )
@@ -4542,12 +4553,14 @@ def _stage_execute_analysis(
     context: _AnalysisExecutionContext,
     state: _AnalysisExecutionMutableState,
     collection_resume_payload: JSONObject | None,
+    run_analysis_stage_fn: Callable[..., StageAnalysisResult] = run_analysis_stage,
+    run_analysis_with_progress_fn: AnalysisRunner = _run_analysis_with_progress,
 ) -> _ExecuteCommandAnalysisStage:
-    stage = run_analysis_stage(
+    stage = run_analysis_stage_fn(
         context=context,
         state=state,
         collection_resume_payload=collection_resume_payload,
-        run_analysis_with_progress=_run_analysis_with_progress,
+        run_analysis_with_progress=run_analysis_with_progress_fn,
     )
     return _ExecuteCommandAnalysisStage(
         analysis_outcome=stage.analysis_outcome,
@@ -4563,6 +4576,8 @@ def execute_command_total(
     payload: dict[str, object],
     *,
     deps: ExecuteCommandDeps | None = None,
+    build_identity_shadow_session_fn: Callable[..., IdentityShadowSession] = build_identity_shadow_session,
+    run_analysis_stage_fn: Callable[..., StageAnalysisResult] = run_analysis_stage,
 ) -> DataflowResponseEnvelopeDTO:
     ingress_stage = _stage_ingress(ls=ls, payload=payload, deps=deps)
     execute_deps = ingress_stage.stage_deps.execute_deps
@@ -4951,6 +4966,7 @@ def execute_command_total(
             progress_heartbeat_seconds=progress_heartbeat_seconds,
             profiling_stage_ns=profiling_stage_ns,
             profiling_counters=profiling_counters,
+            build_identity_shadow_session_fn=build_identity_shadow_session_fn,
         )
         identity_shadow_session = runtime_bootstrap.identity_shadow_session
         identity_shadow_runtime = identity_shadow_session.runtime
@@ -5019,6 +5035,7 @@ def execute_command_total(
                 ),
                 state=analysis_execution_state,
                 collection_resume_payload=collection_resume_payload,
+                run_analysis_stage_fn=run_analysis_stage_fn,
             )
         except TimeoutExceeded:
             last_collection_resume_payload = (

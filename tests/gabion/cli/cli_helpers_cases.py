@@ -4014,7 +4014,6 @@ def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
 
 def test_run_dataflow_raw_argv_progress_ingress_parses_once_then_feeds_emitters(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module_path = tmp_path / "sample.py"
     module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
@@ -4049,17 +4048,6 @@ def test_run_dataflow_raw_argv_progress_ingress_parses_once_then_feeds_emitters(
         notification_callback({"method": "$/progress", "params": {"token": "t", "value": {}}})
         return {"exit_code": 0}
 
-    monkeypatch.setattr(cli, "_phase_progress_from_progress_notification", _parse_once)
-    monkeypatch.setattr(
-        cli.progress_timeline,
-        "phase_timeline_from_phase_progress",
-        _timeline_from_phase_progress,
-    )
-    monkeypatch.setattr(cli, "_emit_phase_timeline_progress", _emit_timeline)
-    monkeypatch.setattr(cli, "_emit_dataflow_result_outputs", lambda _result, _opts: None)
-    monkeypatch.setattr(cli, "_emit_analysis_resume_summary", lambda _result: None)
-    monkeypatch.setattr(cli, "_emit_nonzero_exit_causes", lambda _result: None)
-
     with pytest.raises(typer.Exit) as exc:
         cli._run_dataflow_raw_argv(
             [
@@ -4068,6 +4056,12 @@ def test_run_dataflow_raw_argv_progress_ingress_parses_once_then_feeds_emitters(
                 str(tmp_path),
             ],
             runner=_fake_runner,
+            phase_progress_from_progress_notification_fn=_parse_once,
+            phase_timeline_from_phase_progress_fn=_timeline_from_phase_progress,
+            emit_phase_timeline_progress_fn=_emit_timeline,
+            emit_dataflow_result_outputs_fn=lambda _result, _opts: None,
+            emit_analysis_resume_summary_fn=lambda _result: None,
+            emit_nonzero_exit_causes_fn=lambda _result: None,
         )
 
     assert exc.value.exit_code == 0

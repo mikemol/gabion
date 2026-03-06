@@ -8,14 +8,12 @@ from gabion.analysis.foundation.timeout_context import TimeoutExceeded
 from gabion.server_core import command_orchestrator as orchestrator
 
 
-def test_stage_finalize_success_projects_resume_compatibility(monkeypatch) -> None:
+def test_stage_finalize_success_projects_resume_compatibility() -> None:
     captured: dict[str, object] = {}
 
     def _fake_build_success_response(*, context: object) -> orchestrator._SuccessResponseOutcome:
         captured["context"] = context
         return orchestrator._SuccessResponseOutcome(response={"ok": True}, phase_checkpoint_state={})
-
-    monkeypatch.setattr(orchestrator, "_build_success_response", _fake_build_success_response)
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
         execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
@@ -56,14 +54,17 @@ def test_stage_finalize_success_projects_resume_compatibility(monkeypatch) -> No
         identity_shadow_runtime=None,
     )
 
-    outcome = orchestrator._stage_finalize_success(stage=stage)
+    outcome = orchestrator._stage_finalize_success(
+        stage=stage,
+        build_success_response_fn=_fake_build_success_response,
+    )
 
     assert outcome.response == {"ok": True}
     context = cast(orchestrator._SuccessResponseContext, captured["context"])
     assert context.analysis_resume_state_compatibility_status == "compatible"
 
 
-def test_stage_finalize_timeout_delegates_cleanup(monkeypatch) -> None:
+def test_stage_finalize_timeout_delegates_cleanup() -> None:
     sentinel = {"timeout": True}
 
     def _fake_timeout_cleanup(*, exc: TimeoutExceeded, context: object) -> dict:
@@ -72,22 +73,17 @@ def test_stage_finalize_timeout_delegates_cleanup(monkeypatch) -> None:
         return sentinel
 
     timeout_context = cast(orchestrator._TimeoutCleanupContext, SimpleNamespace())
-    monkeypatch.setattr(orchestrator, "_handle_timeout_cleanup", _fake_timeout_cleanup)
-
     outcome = orchestrator._stage_finalize_timeout(
         exc=TimeoutExceeded("timed out"),
         context=timeout_context,
+        cleanup_handler_fn=_fake_timeout_cleanup,
     )
 
     assert outcome is sentinel
 
-
-
-def test_stage_execute_analysis_propagates_timeout(monkeypatch) -> None:
+def test_stage_execute_analysis_propagates_timeout() -> None:
     def _raise_timeout(*, context: object, state: object, collection_resume_payload: object) -> object:
         raise TimeoutExceeded("timed out")
-
-    monkeypatch.setattr(orchestrator, "_run_analysis_with_progress", _raise_timeout)
 
     try:
         orchestrator._stage_execute_analysis(
@@ -98,6 +94,7 @@ def test_stage_execute_analysis_propagates_timeout(monkeypatch) -> None:
                 latest_collection_progress={},
             ),
             collection_resume_payload=None,
+            run_analysis_with_progress_fn=_raise_timeout,
         )
     except TimeoutExceeded:
         return

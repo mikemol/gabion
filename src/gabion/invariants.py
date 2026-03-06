@@ -300,9 +300,14 @@ def invariant_factory(
     return payload
 
 
-def _emit_legacy_never_string_reason_deprecation(reason: str) -> None:
+def _emit_legacy_never_string_reason_deprecation(
+    reason: str,
+    *,
+    deprecated_fn: Callable[..., MarkerPayload] | None = None,
+) -> None:
+    resolved_deprecated_fn = deprecated if deprecated_fn is None else deprecated_fn
     try:
-        deprecated(
+        resolved_deprecated_fn(
             "never() string-only API is deprecated; use structured reasoning",
             reasoning={
                 "summary": "never() string-only API is deprecated; use structured reasoning",
@@ -326,25 +331,43 @@ def _emit_legacy_never_string_reason_deprecation(reason: str) -> None:
         return
 
 
-def never(reason: str = "", **env: object) -> MarkerPayload:
+def never(
+    reason: str = "",
+    *,
+    invariant_factory_fn: Callable[..., MarkerPayload] = invariant_factory,
+    emit_legacy_never_string_reason_deprecation_fn: Callable[[str], None] = (
+        _emit_legacy_never_string_reason_deprecation
+    ),
+    **env: object,
+) -> MarkerPayload:
     """Mark a code path as intentionally unreachable.
 
     The analysis treats this as a sink that should be proven unreachable. The
     optional env payload is metadata only; it is not evaluated at runtime.
     """
     if reason.strip() and "reasoning" not in env:
-        _emit_legacy_never_string_reason_deprecation(reason)
-    return invariant_factory("never", reason=reason, **env)
+        emit_legacy_never_string_reason_deprecation_fn(reason)
+    return invariant_factory_fn("never", reason=reason, **env)
 
 
-def todo(reason: str = "", **env: object) -> MarkerPayload:
+def todo(
+    reason: str = "",
+    *,
+    invariant_factory_fn: Callable[..., MarkerPayload] = invariant_factory,
+    **env: object,
+) -> MarkerPayload:
     """Mark a code path as intentionally pending implementation."""
-    return invariant_factory("todo", reason=reason, **env)
+    return invariant_factory_fn("todo", reason=reason, **env)
 
 
-def deprecated(reason: str = "", **env: object) -> MarkerPayload:
+def deprecated(
+    reason: str = "",
+    *,
+    invariant_factory_fn: Callable[..., MarkerPayload] = invariant_factory,
+    **env: object,
+) -> MarkerPayload:
     """Mark a code path as a deprecated/blocked semantic surface."""
-    return invariant_factory("deprecated", reason=reason, **env)
+    return invariant_factory_fn("deprecated", reason=reason, **env)
 
 
 def invariant_decorations(target: object) -> tuple[MarkerPayload, ...]:

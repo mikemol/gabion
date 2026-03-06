@@ -43,7 +43,6 @@ def _empty_analysis_result() -> AnalysisResult:
 
 def test_execute_command_total_starts_and_stops_identity_shadow_session(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _bind()
     module_path = tmp_path / "sample.py"
@@ -78,8 +77,6 @@ def test_execute_command_total_starts_and_stops_identity_shadow_session(
         )
         return IdentityShadowSession(runtime=runtime, registry_mirror=_Mirror())
 
-    monkeypatch.setattr(orchestrator, "build_identity_shadow_session", _build_session)
-
     class _Workspace:
         def __init__(self, root_path: str) -> None:
             self.root_path = root_path
@@ -103,7 +100,12 @@ def test_execute_command_total_starts_and_stops_identity_shadow_session(
     deps = server._default_execute_command_deps().with_overrides(
         analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
     )
-    response = orchestrator.execute_command_total(ls, payload, deps=deps)
+    response = orchestrator.execute_command_total(
+        ls,
+        payload,
+        deps=deps,
+        build_identity_shadow_session_fn=_build_session,
+    )
 
     assert response.canonical.analysis_state == "succeeded"
     assert mirror_events[0] == "build"
@@ -828,7 +830,6 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
 
 def test_execute_command_total_uses_analysis_stage_module(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _bind()
     module_path = tmp_path / "sample.py"
@@ -844,13 +845,9 @@ def test_execute_command_total_uses_analysis_stage_module(
 
     called = {"analysis_stage": False}
 
-    original = orchestrator.run_analysis_stage
-
     def _wrapped_run_analysis_stage(**kwargs: object):
         called["analysis_stage"] = True
-        return original(**kwargs)
-
-    monkeypatch.setattr(orchestrator, "run_analysis_stage", _wrapped_run_analysis_stage)
+        return orchestrator.run_analysis_stage(**kwargs)
 
     deps = server._default_execute_command_deps().with_overrides(
         analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
@@ -865,6 +862,7 @@ def test_execute_command_total_uses_analysis_stage_module(
             "analysis_timeout_tick_ns": 1_000_000,
         },
         deps=deps,
+        run_analysis_stage_fn=_wrapped_run_analysis_stage,
     )
 
     assert called["analysis_stage"] is True

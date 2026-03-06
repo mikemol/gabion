@@ -99,7 +99,6 @@ def test_invariant_decorator_stacks_and_emits_no_runtime_warning() -> None:
 
 
 def test_never_string_only_call_emits_deprecation_marker_before_never(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deprecated_calls: list[tuple[str, dict[str, object]]] = []
     factory_calls: list[tuple[str, dict[str, object]]] = []
@@ -113,11 +112,17 @@ def test_never_string_only_call_emits_deprecation_marker_before_never(
         factory_calls.append((marker_kind, dict(env)))
         raise RuntimeError("never factory reached")
 
-    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
-    monkeypatch.setattr(invariants, "invariant_factory", _fake_factory)
-
     with pytest.raises(RuntimeError, match="never factory reached"):
-        invariants.never("legacy reason")
+        invariants.never(
+            "legacy reason",
+            emit_legacy_never_string_reason_deprecation_fn=(
+                lambda reason: invariants._emit_legacy_never_string_reason_deprecation(
+                    reason,
+                    deprecated_fn=_fake_deprecated,
+                )
+            ),
+            invariant_factory_fn=_fake_factory,
+        )
 
     assert len(deprecated_calls) == 1
     deprecation_reason, deprecation_env = deprecated_calls[0]
@@ -128,29 +133,24 @@ def test_never_string_only_call_emits_deprecation_marker_before_never(
 
 
 def test_never_with_structured_reasoning_skips_string_only_deprecation(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deprecated_calls = 0
 
-    def _fake_deprecated(reason: str = "", **env: object) -> MarkerPayload:
-        _ = (reason, env)
+    def _unexpected_legacy_deprecation(_reason: str) -> None:
         nonlocal deprecated_calls
         deprecated_calls += 1
-        return cast(MarkerPayload, {"marker_kind": "deprecated"})
-
-    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
 
     with pytest.raises(NeverThrown):
         invariants.never(
             "legacy-style message still present",
             reasoning={"summary": "structured path"},
+            emit_legacy_never_string_reason_deprecation_fn=_unexpected_legacy_deprecation,
         )
 
     assert deprecated_calls == 0
 
 
 def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deprecated_calls: list[tuple[str, dict[str, object]]] = []
 
@@ -158,10 +158,17 @@ def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
         deprecated_calls.append((reason, dict(env)))
         raise NeverThrown("deprecated marker path")
 
-    monkeypatch.setattr(invariants, "deprecated", _fake_deprecated)
-
     with pytest.raises(NeverThrown):
-        invariants.never("legacy-style message still present", owner="core")
+        invariants.never(
+            "legacy-style message still present",
+            owner="core",
+            emit_legacy_never_string_reason_deprecation_fn=(
+                lambda reason: invariants._emit_legacy_never_string_reason_deprecation(
+                    reason,
+                    deprecated_fn=_fake_deprecated,
+                )
+            ),
+        )
 
     assert len(deprecated_calls) == 1
 
@@ -171,7 +178,6 @@ def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
 def test_helper_functions_delegate_to_invariant_factory(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[str, object, dict[str, object]]] = []
 
@@ -182,12 +188,32 @@ def test_helper_functions_delegate_to_invariant_factory(
             {"marker_kind": marker_kind, "reason": str(env.get("reason", ""))},
         )
 
-    monkeypatch.setattr(invariants, "invariant_factory", _fake_factory)
-
     helper_calls = (
-        (invariants.never, "never", {"reasoning": {"summary": "reason"}, "owner": "core"}),
-        (invariants.todo, "todo", {"owner": "core"}),
-        (invariants.deprecated, "deprecated", {"owner": "core"}),
+        (
+            invariants.never,
+            "never",
+            {
+                "reasoning": {"summary": "reason"},
+                "owner": "core",
+                "invariant_factory_fn": _fake_factory,
+            },
+        ),
+        (
+            invariants.todo,
+            "todo",
+            {
+                "owner": "core",
+                "invariant_factory_fn": _fake_factory,
+            },
+        ),
+        (
+            invariants.deprecated,
+            "deprecated",
+            {
+                "owner": "core",
+                "invariant_factory_fn": _fake_factory,
+            },
+        ),
     )
     for helper, marker_kind, kwargs in helper_calls:
         payload = helper("reason", **kwargs)

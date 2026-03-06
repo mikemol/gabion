@@ -814,6 +814,16 @@ def _run_dataflow_raw_argv(
     argv: list[str],
     *,
     runner: Runner | None = None,
+    phase_progress_from_progress_notification_fn: (
+        Callable[[JSONObject], Mapping[str, object] | None]
+    ) = _phase_progress_from_progress_notification,
+    phase_timeline_from_phase_progress_fn: (
+        Callable[[Mapping[str, object]], Mapping[str, object]]
+    ) = progress_timeline.phase_timeline_from_phase_progress,
+    emit_phase_timeline_progress_fn: Callable[..., None] = _emit_phase_timeline_progress,
+    emit_dataflow_result_outputs_fn: Callable[..., None] = _emit_dataflow_result_outputs,
+    emit_analysis_resume_summary_fn: Callable[[JSONObject], None] = _emit_analysis_resume_summary,
+    emit_nonzero_exit_causes_fn: Callable[[JSONObject], None] = _emit_nonzero_exit_causes,
 ) -> None:
     opts = parse_dataflow_args_or_exit(argv)
     payload = build_dataflow_payload(opts)
@@ -826,7 +836,7 @@ def _run_dataflow_raw_argv(
         nonlocal timeline_header_emitted
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
-        phase_progress = _phase_progress_from_progress_notification(notification)
+        phase_progress = phase_progress_from_progress_notification_fn(notification)
         if not isinstance(phase_progress, Mapping):
             return
         event_seq = phase_progress.get("event_seq")
@@ -838,9 +848,7 @@ def _run_dataflow_raw_argv(
         if signature == last_phase_progress_signature:
             return
         last_phase_progress_signature = signature
-        timeline_update = progress_timeline.phase_timeline_from_phase_progress(
-            phase_progress
-        )
+        timeline_update = phase_timeline_from_phase_progress_fn(phase_progress)
         row = str(timeline_update.get("row") or "")
         header_value = timeline_update.get("header")
         header = (
@@ -848,7 +856,7 @@ def _run_dataflow_raw_argv(
             if not timeline_header_emitted and isinstance(header_value, str) and header_value
             else None
         )
-        _emit_phase_timeline_progress(header=header, row=row)
+        emit_phase_timeline_progress_fn(header=header, row=row)
         if header is not None:
             timeline_header_emitted = True
 
@@ -862,9 +870,9 @@ def _run_dataflow_raw_argv(
         ),
         root=Path(opts.root),
     )
-    _emit_dataflow_result_outputs(result, opts)
-    _emit_analysis_resume_summary(result)
-    _emit_nonzero_exit_causes(result)
+    emit_dataflow_result_outputs_fn(result, opts)
+    emit_analysis_resume_summary_fn(result)
+    emit_nonzero_exit_causes_fn(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -1210,7 +1218,7 @@ def docflow(
     ),
     extra_path: list[str] = typer.Option([], "--extra-path"),
 ) -> None:
-    """Run the docflow audit (governance docs only)."""
+    """Run the docflow audit (governance docs plus in/ governance steps)."""
     exit_code = _run_docflow_audit(
         root=root,
         fail_on_violations=fail_on_violations,
