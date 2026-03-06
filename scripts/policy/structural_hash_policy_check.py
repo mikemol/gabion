@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
+
 
 _DERIVATION_IDENTITY_FILES = (
     Path("src/gabion/analysis/derivation_contract.py"),
@@ -151,8 +153,31 @@ def collect_violations(*, root: Path) -> list[Violation]:
     return violations
 
 
-def run(*, root: Path) -> int:
+def _serialize_violation(violation: Violation) -> dict[str, object]:
+    return {
+        "path": violation.path,
+        "line": violation.line,
+        "call": violation.call,
+        "reason": violation.reason,
+        "render": f"{violation.path}:{violation.line}: {violation.call}: {violation.reason}",
+    }
+
+
+def run(*, root: Path, output: Path | None = None) -> int:
     violations = collect_violations(root=root)
+    status = "pass" if not violations else "fail"
+    if output is not None:
+        write_policy_result(
+            path=output,
+            result=make_policy_result(
+                rule_id="structural_hash",
+                status=status,
+                violations=[_serialize_violation(item) for item in violations],
+                baseline_mode="none",
+                source_tool="scripts/policy/structural_hash_policy_check.py",
+                input_scope={"root": str(root)},
+            ),
+        )
     if not violations:
         print("structural-hash policy check passed")
         return 0
@@ -167,8 +192,9 @@ def run(*, root: Path) -> int:
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args(list(argv) if argv is not None else None)
-    return run(root=Path(args.root).resolve())
+    return run(root=Path(args.root).resolve(), output=args.output.resolve() if args.output else None)
 
 
 if __name__ == "__main__":

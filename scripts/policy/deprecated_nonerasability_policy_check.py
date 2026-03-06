@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
+
 from gabion.analysis.core.deprecated_substrate import (
     DeprecatedFiber, enforce_non_erasability_policy)
 
@@ -25,18 +27,39 @@ def _load_rows(path: Path) -> list[DeprecatedFiber]:
     return fibers
 
 
+def _serialize_errors(errors: list[str]) -> list[dict[str, object]]:
+    return [{"message": error, "render": error} for error in errors]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Enforce non-erasable deprecated fibers")
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--current", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
     baseline = _load_rows(args.baseline)
     current = _load_rows(args.current)
     result = enforce_non_erasability_policy(previous_fibers=baseline, current_fibers=current)
+    errors = list(result.errors)
+    if args.output is not None:
+        write_policy_result(
+            path=args.output.resolve(),
+            result=make_policy_result(
+                rule_id="deprecated_nonerasability",
+                status="pass" if result.ok else "fail",
+                violations=_serialize_errors(errors),
+                baseline_mode="baseline_compare",
+                source_tool="scripts/policy/deprecated_nonerasability_policy_check.py",
+                input_scope={
+                    "baseline": str(args.baseline),
+                    "current": str(args.current),
+                },
+            ),
+        )
     if result.ok:
         return 0
-    for error in result.errors:
+    for error in errors:
         print(error)
     return 1
 

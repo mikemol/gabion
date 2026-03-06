@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 11
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: enforceable_rules_cheat_sheet
 doc_role: reference
@@ -130,6 +130,12 @@ No rule in this cheat sheet is valid unless it is traceable to canonical
 clauses in the source documents above.
 
 Gate-level control-loop mapping lives in `docs/governance_loop_matrix.md#governance_loop_matrix`.
+
+### Consolidated policy artifact (audit source of truth)
+
+- `artifacts/out/policy_suite_results.json` is the machine-readable source of truth for policy-family audits.
+- The artifact now carries per-rule policy-result envelopes (`rule_id`, `status`, `violations`, `baseline_mode`, `source_tool`, `timestamp_utc`, `input_scope`) for gate-only families (workflow policy check, structural-hash policy, deprecated non-erasability) alongside scanner-suite families.
+- Fallback behavior: if a gate-only wrapper cannot materialize its dedicated artifact, the suite records a fallback envelope (status derived from return code) so audit bundles remain complete even when a per-rule producer misbehaves.
 
 ## Rule Matrix (Traceable)
 

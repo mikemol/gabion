@@ -42,3 +42,14 @@ def test_no_monkeypatch_policy_allows_di_style_tests(tmp_path: Path) -> None:
     )
 
     assert policy.run(root=tmp_path) == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_no_monkeypatch_policy_check.py::test_no_monkeypatch_policy_check_writes_policy_result_output::no_monkeypatch_policy_check.py::scripts.no_monkeypatch_policy_check.run
+def test_no_monkeypatch_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
+    _write(tmp_path / "tests" / "test_good.py", "def test_ok():\n    assert True\n")
+    out = tmp_path / "out/no_monkeypatch.json"
+    result = policy.run(root=tmp_path, output=out)
+    assert result == 0
+    payload = __import__("json").loads(out.read_text(encoding="utf-8"))
+    assert payload["rule_id"] == "no_monkeypatch"
+    assert payload["status"] == "pass"

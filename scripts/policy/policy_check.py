@@ -11,6 +11,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
+
 from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.foundation.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
@@ -338,7 +340,11 @@ class JobContext:
     path: Path
 
 
+_LAST_FAIL_ERRORS: list[str] = []
+
 def _fail(errors):
+    global _LAST_FAIL_ERRORS
+    _LAST_FAIL_ERRORS = [str(err) for err in errors]
     for err in errors:
         check_deadline()
         print(f"policy-check: {err}", file=sys.stderr)
@@ -1774,7 +1780,11 @@ def check_adapter_surface_policy() -> None:
     if errors:
         _fail(errors)
 
-def main():
+def _serialize_policy_check_errors(errors: list[str]) -> list[dict[str, object]]:
+    return [{"message": item, "render": item} for item in errors]
+
+
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
@@ -1785,32 +1795,71 @@ def main():
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     parser.add_argument("--non-boundary-payload-signatures", action="store_true", help="forbid dict[str, object]-first helper signatures outside boundary modules")
-    args = parser.parse_args()
+    parser.add_argument("--output", type=Path, help="write machine-readable policy result artifact")
+    args = parser.parse_args(argv)
 
     if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.non_boundary_payload_signatures:
         args.workflows = True
 
-    with _policy_deadline_scope():
-        if args.workflows:
-            check_workflows()
-        if args.posture:
-            check_posture()
-        if args.ambiguity_contract:
-            check_ambiguity_contract()
-        if args.normative_map:
-            check_normative_enforcement_map()
-        if args.tier2_residue_contract:
-            check_tier2_residue_contract()
-        if args.adapter_surfaces:
-            check_adapter_surface_policy()
-        if args.semantic_core_payload_branching:
-            check_semantic_core_payload_branching()
-        if args.workflows:
-            check_src_script_file_loading_policy()
-        if args.aspf_taint_crosswalk or args.workflows:
-            check_aspf_taint_crosswalk_ack()
-        if args.non_boundary_payload_signatures or args.workflows:
-            check_non_boundary_payload_signatures()
+    selected_checks = {
+        "workflows": bool(args.workflows),
+        "posture": bool(args.posture),
+        "ambiguity_contract": bool(args.ambiguity_contract),
+        "normative_map": bool(args.normative_map),
+        "tier2_residue_contract": bool(args.tier2_residue_contract),
+        "adapter_surfaces": bool(args.adapter_surfaces),
+        "semantic_core_payload_branching": bool(args.semantic_core_payload_branching),
+        "aspf_taint_crosswalk": bool(args.aspf_taint_crosswalk),
+        "non_boundary_payload_signatures": bool(args.non_boundary_payload_signatures),
+    }
+    try:
+        with _policy_deadline_scope():
+            if args.workflows:
+                check_workflows()
+            if args.posture:
+                check_posture()
+            if args.ambiguity_contract:
+                check_ambiguity_contract()
+            if args.normative_map:
+                check_normative_enforcement_map()
+            if args.tier2_residue_contract:
+                check_tier2_residue_contract()
+            if args.adapter_surfaces:
+                check_adapter_surface_policy()
+            if args.semantic_core_payload_branching:
+                check_semantic_core_payload_branching()
+            if args.workflows:
+                check_src_script_file_loading_policy()
+            if args.aspf_taint_crosswalk or args.workflows:
+                check_aspf_taint_crosswalk_ack()
+            if args.non_boundary_payload_signatures or args.workflows:
+                check_non_boundary_payload_signatures()
+    except SystemExit as exc:
+        if args.output is not None:
+            write_policy_result(
+                path=args.output.resolve(),
+                result=make_policy_result(
+                    rule_id="policy_check",
+                    status="fail",
+                    violations=_serialize_policy_check_errors(_LAST_FAIL_ERRORS),
+                    baseline_mode="none",
+                    source_tool="scripts/policy/policy_check.py",
+                    input_scope={"checks": selected_checks},
+                ),
+            )
+        raise
+    if args.output is not None:
+        write_policy_result(
+            path=args.output.resolve(),
+            result=make_policy_result(
+                rule_id="policy_check",
+                status="pass",
+                violations=[],
+                baseline_mode="none",
+                source_tool="scripts/policy/policy_check.py",
+                input_scope={"checks": selected_checks},
+            ),
+        )
     return 0
 
 
