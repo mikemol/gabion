@@ -482,6 +482,52 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S0",
+      "summary": "Scanner self-debt burn-down: removed sentinel-control and isinstance-based narrowing in boundary/fiber policy-rule analyzers and scanner runtime glue without changing emitted contract classes.",
+      "timestamp_utc": "2026-03-06T22:33:53Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 233,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 233,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 676,
+      "total_after": 635,
+      "notes": [
+        "Rewrote AST dispatch in boundary_core_contract_rule and fiber_normalization_contract_rule to avoid isinstance/cast-based narrowing checks in scanner internals.",
+        "Removed sentinel continue/return control in flagged scanner paths by using explicit decision-path structure.",
+        "Kept non-target families non-increasing while reducing defensive_fallback and runtime_narrowing_boundary scanner self-debt."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_targeted_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",

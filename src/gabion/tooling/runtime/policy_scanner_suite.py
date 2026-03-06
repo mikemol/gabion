@@ -50,13 +50,18 @@ _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
 
 def _normalize_policy_results(raw: object) -> dict[str, dict[str, Any]]:
-    if not isinstance(raw, dict):
-        return {}
     normalized: dict[str, dict[str, Any]] = {}
-    for key in _EXTERNAL_POLICY_RESULT_RULE_IDS:
-        item = raw.get(key)
-        if isinstance(item, dict):
-            normalized[key] = dict(item)
+    match raw:
+        case dict() as payload:
+            for key in _EXTERNAL_POLICY_RESULT_RULE_IDS:
+                item = payload.get(key)
+                match item:
+                    case dict() as item_payload:
+                        normalized[key] = dict(item_payload)
+                    case _:
+                        pass
+        case _:
+            pass
     return normalized
 
 
@@ -84,10 +89,23 @@ def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
             tree = None
         if tree is not None:
             for node in tree.body:
-                if isinstance(node, ast.Assign):
-                    if any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
-                        if isinstance(node.value, (ast.List, ast.Tuple)):
-                            export_count = len(node.value.elts)
+                match node:
+                    case ast.Assign(targets=targets, value=ast.List(elts=elts)):
+                        has_all_target = any(
+                            _assign_target_name(target) == "__all__"
+                            for target in targets
+                        )
+                        if has_all_target:
+                            export_count = len(elts)
+                    case ast.Assign(targets=targets, value=ast.Tuple(elts=elts)):
+                        has_all_target = any(
+                            _assign_target_name(target) == "__all__"
+                            for target in targets
+                        )
+                        if has_all_target:
+                            export_count = len(elts)
+                    case _:
+                        pass
         if export_count > _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS:
             violations.append({
                 "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
@@ -148,17 +166,15 @@ def _boundary_scoped_files(
     scoped: list[Path] = []
     for path in inventory:
         rel = path.relative_to(root).as_posix()
-        if changed_paths is not None and rel not in changed_paths:
-            continue
-        if not rel.startswith("src/gabion/"):
-            continue
-        try:
-            source = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if _BOUNDARY_MARKER not in source:
-            continue
-        scoped.append(path)
+        path_in_scope = changed_paths is None or rel in changed_paths
+        path_under_src = rel.startswith("src/gabion/")
+        if path_in_scope and path_under_src:
+            try:
+                source = path.read_text(encoding="utf-8")
+            except OSError:
+                source = None
+            if source is not None and _BOUNDARY_MARKER in source:
+                scoped.append(path)
     return tuple(sorted(set(scoped), key=lambda item: str(item)))
 
 
@@ -215,7 +231,9 @@ def load_or_scan_policy_suite(
         )
     ).hexdigest()
     rule_set_hash = _rule_set_hash()
-    normalized_policy_results = {key: dict(value) for key, value in (policy_results or {}).items() if isinstance(value, Mapping)}
+    normalized_policy_results = _normalized_policy_result_mapping(
+        policy_results or {},
+    )
     policy_results_hash = hashlib.sha256(json.dumps(normalized_policy_results, sort_keys=True).encode("utf-8")).hexdigest()
     cached_payload = _load_cached_payload(artifact_path)
     if cached_payload is not None:
@@ -505,7 +523,7 @@ def scan_policy_suite(
         inventory_hash=inventory_hash,
         rule_set_hash=rule_set_hash,
         violations_by_rule=violations_by_rule,
-        policy_results={key: dict(value) for key, value in (policy_results or {}).items() if isinstance(value, Mapping)},
+        policy_results=_normalized_policy_result_mapping(policy_results or {}),
         cached=False,
     )
 
@@ -521,30 +539,36 @@ def _load_cached_payload(path: Path) -> dict[str, object] | None:
             raw_payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             raw_payload = None
-        if isinstance(raw_payload, dict):
-            format_version = int(raw_payload.get("format_version", 0) or 0)
-            if format_version == _FORMAT_VERSION:
-                payload = raw_payload
+        match raw_payload:
+            case dict() as payload_dict:
+                format_version = int(payload_dict.get("format_version", 0) or 0)
+                if format_version == _FORMAT_VERSION:
+                    payload = payload_dict
+            case _:
+                pass
     return payload
 
 
 def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     violations_raw = payload.get("violations")
-    if not isinstance(violations_raw, dict):
-        return {
-            "no_monkeypatch": [],
-            "branchless": [],
-            "defensive_fallback": [],
-            "no_legacy_monolith_import": [],
-            "orchestrator_primitive_barrel": [],
-            "typing_surface": [],
-            "runtime_narrowing_boundary": [],
-            "aspf_normalization_idempotence": [],
-            "boundary_core_contract": [],
-            "fiber_normalization_contract": [],
-            "test_subprocess_hygiene": [],
-            "test_sleep_hygiene": [],
-        }
+    match violations_raw:
+        case dict():
+            pass
+        case _:
+            return {
+                "no_monkeypatch": [],
+                "branchless": [],
+                "defensive_fallback": [],
+                "no_legacy_monolith_import": [],
+                "orchestrator_primitive_barrel": [],
+                "typing_surface": [],
+                "runtime_narrowing_boundary": [],
+                "aspf_normalization_idempotence": [],
+                "boundary_core_contract": [],
+                "fiber_normalization_contract": [],
+                "test_subprocess_hygiene": [],
+                "test_sleep_hygiene": [],
+            }
     normalized: dict[str, list[dict[str, Any]]] = {}
     for rule in (
         "no_monkeypatch",
@@ -561,10 +585,18 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
         "test_sleep_hygiene",
     ):
         raw_items = violations_raw.get(rule)
-        if not isinstance(raw_items, list):
-            normalized[rule] = []
-            continue
-        normalized[rule] = [dict(item) for item in raw_items if isinstance(item, dict)]
+        match raw_items:
+            case list():
+                items: list[dict[str, Any]] = []
+                for item in raw_items:
+                    match item:
+                        case dict() as violation_item:
+                            items.append(dict(violation_item))
+                        case _:
+                            pass
+                normalized[rule] = items
+            case _:
+                normalized[rule] = []
     return normalized
 
 
@@ -699,9 +731,49 @@ def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]
         loaded = loader(baseline_path)
     except (OSError, TypeError, ValueError, json.JSONDecodeError):
         return set()
-    if not isinstance(loaded, set):
-        return set()
-    return {str(item) for item in loaded if isinstance(item, str)}
+    match loaded:
+        case set() as keys:
+            normalized: set[str] = set()
+            for item in keys:
+                match item:
+                    case str() as text:
+                        normalized.add(text)
+                    case _:
+                        pass
+            return normalized
+        case _:
+            return set()
+
+
+def _assign_target_name(node: ast.AST) -> str | None:
+    match node:
+        case ast.Name(id=name):
+            return name
+        case _:
+            return None
+
+
+def _normalized_policy_result_mapping(
+    payload: Mapping[str, Mapping[str, Any]] | object,
+) -> dict[str, dict[str, Any]]:
+    normalized: dict[str, dict[str, Any]] = {}
+    try:
+        items = payload.items()  # type: ignore[attr-defined]
+    except AttributeError:
+        return normalized
+    for key, value in items:
+        mapping = _mapping_copy_or_none(value)
+        if mapping is not None:
+            normalized[str(key)] = mapping
+    return normalized
+
+
+def _mapping_copy_or_none(value: object) -> dict[str, Any] | None:
+    try:
+        mapping = dict(value.items())  # type: ignore[attr-defined]
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return mapping
 
 
 def _filter_baseline_violations(

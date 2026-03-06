@@ -74,31 +74,31 @@ def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> li
         )
 
         for path in candidates:
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel_path = path.relative_to(root).as_posix()
-            source = _read_source(path)
-            if source is None:
-                continue
-            lines = source.splitlines()
-            if not _module_has_boundary_marker(lines):
-                continue
-            tree = _parse_tree(source)
-            if tree is None:
-                continue
-
-            annotation_events = _annotation_events(lines)
-            for node in tree.body:
-                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                violations.extend(
-                    _function_violations(
-                        rel_path=rel_path,
-                        node=node,
-                        annotations=annotation_events,
-                        run_context=run_context,
-                    )
-                )
+            path_is_scannable = path.is_file() and not any(
+                part == "__pycache__" for part in path.parts
+            )
+            if path_is_scannable:
+                rel_path = path.relative_to(root).as_posix()
+                source = _read_source(path)
+                if source is not None:
+                    lines = source.splitlines()
+                    if _module_has_boundary_marker(lines):
+                        tree = _parse_tree(source)
+                        if tree is not None:
+                            annotation_events = _annotation_events(lines)
+                            for node in tree.body:
+                                match node:
+                                    case ast.FunctionDef() | ast.AsyncFunctionDef():
+                                        violations.extend(
+                                            _function_violations(
+                                                rel_path=rel_path,
+                                                node=node,
+                                                annotations=annotation_events,
+                                                run_context=run_context,
+                                            )
+                                        )
+                                    case _:
+                                        pass
         return violations
 
 
@@ -156,22 +156,24 @@ def _function_violations(
     first_core_line = _first_core_call_line(node)
 
     for ann in annotations:
-        if first_core_line is not None and ann.line >= first_core_line:
-            continue
-        if ann.line < int(node.lineno or 1) or ann.line > int(getattr(node, "end_lineno", node.lineno) or node.lineno):
-            continue
-        events.append(ann)
+        ann_pre_core = first_core_line is None or ann.line < first_core_line
+        ann_in_scope = int(node.lineno or 1) <= ann.line <= int(
+            getattr(node, "end_lineno", node.lineno) or node.lineno
+        )
+        if ann_pre_core and ann_in_scope:
+            events.append(ann)
 
     for child in ast.walk(node):
-        if not isinstance(child, ast.Call):
-            continue
-        line = int(getattr(child, "lineno", 1) or 1)
-        if first_core_line is not None and line >= first_core_line:
-            continue
-        event = _syntax_event_from_call(child)
-        if event is None:
-            continue
-        events.append(event)
+        match child:
+            case ast.Call():
+                line = int(getattr(child, "lineno", 1) or 1)
+                pre_core = first_core_line is None or line < first_core_line
+                if pre_core:
+                    event = _syntax_event_from_call(child)
+                    if event is not None:
+                        events.append(event)
+            case _:
+                pass
 
     if not events:
         return []
@@ -212,24 +214,25 @@ def _function_violations(
                     ),
                 )
             )
-            continue
-        seen.add(key)
+        else:
+            seen.add(key)
     return violations
 
 
 def _first_core_call_line(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
     best: int | None = None
     for child in ast.walk(node):
-        if not isinstance(child, ast.Call):
-            continue
-        func = child.func
-        dotted = _dotted_name(func)
-        if dotted is None:
-            continue
-        if dotted.endswith("_core") or "_core." in dotted:
-            line = int(getattr(child, "lineno", 1) or 1)
-            if best is None or line < best:
-                best = line
+        match child:
+            case ast.Call():
+                dotted = _dotted_name(child.func)
+                if dotted is not None and (
+                    dotted.endswith("_core") or "_core." in dotted
+                ):
+                    line = int(getattr(child, "lineno", 1) or 1)
+                    if best is None or line < best:
+                        best = line
+            case _:
+                pass
     return best
 
 
@@ -237,74 +240,71 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
     line = int(getattr(node, "lineno", 1) or 1)
     col = int(getattr(node, "col_offset", 0) or 0) + 1
     dotted = _dotted_name(node.func)
-    if dotted is None:
-        return None
-
-    if dotted == "isinstance" and len(node.args) >= 1:
-        slot = _expr_slot(node.args[0])
-        if slot:
-            return _NormalizationEvent(
-                line=line,
-                column=col,
-                normalization_class="narrow",
-                input_slot=slot,
-                kind="syntax:isinstance",
-            )
-
-    if dotted.endswith("cast") and len(node.args) >= 2:
-        slot = _expr_slot(node.args[1])
-        if slot:
-            return _NormalizationEvent(
-                line=line,
-                column=col,
-                normalization_class="narrow",
-                input_slot=slot,
-                kind="syntax:cast",
-            )
-
-    if dotted == "json.loads" and len(node.args) >= 1:
-        slot = _expr_slot(node.args[0])
-        if slot:
-            return _NormalizationEvent(
+    event: _NormalizationEvent | None = None
+    if dotted is not None:
+        if dotted == "isinstance" and len(node.args) >= 1:
+            slot = _expr_slot(node.args[0])
+            if slot:
+                event = _NormalizationEvent(
+                    line=line,
+                    column=col,
+                    normalization_class="narrow",
+                    input_slot=slot,
+                    kind="syntax:isinstance",
+                )
+        elif dotted.endswith("cast") and len(node.args) >= 2:
+            slot = _expr_slot(node.args[1])
+            if slot:
+                event = _NormalizationEvent(
+                    line=line,
+                    column=col,
+                    normalization_class="narrow",
+                    input_slot=slot,
+                    kind="syntax:cast",
+                )
+        elif dotted == "json.loads" and len(node.args) >= 1:
+            slot = _expr_slot(node.args[0])
+            if slot:
+                event = _NormalizationEvent(
+                    line=line,
+                    column=col,
+                    normalization_class="parse",
+                    input_slot=slot,
+                    kind="syntax:json_loads",
+                )
+        elif dotted.endswith("model_validate") and len(node.args) >= 1:
+            slot = _expr_slot(node.args[0])
+            if slot:
+                event = _NormalizationEvent(
+                    line=line,
+                    column=col,
+                    normalization_class="validate",
+                    input_slot=slot,
+                    kind="syntax:model_validate",
+                )
+        elif dotted.endswith("parse_args"):
+            event = _NormalizationEvent(
                 line=line,
                 column=col,
                 normalization_class="parse",
-                input_slot=slot,
-                kind="syntax:json_loads",
+                input_slot="argv",
+                kind="syntax:parse_args",
             )
-
-    if dotted.endswith("model_validate") and len(node.args) >= 1:
-        slot = _expr_slot(node.args[0])
-        if slot:
-            return _NormalizationEvent(
-                line=line,
-                column=col,
-                normalization_class="validate",
-                input_slot=slot,
-                kind="syntax:model_validate",
-            )
-
-    if dotted.endswith("parse_args"):
-        return _NormalizationEvent(
-            line=line,
-            column=col,
-            normalization_class="parse",
-            input_slot="argv",
-            kind="syntax:parse_args",
-        )
-
-    return None
+    return event
 
 
 def _expr_slot(expr: ast.AST) -> str | None:
-    if isinstance(expr, ast.Name):
-        return expr.id
-    if isinstance(expr, ast.Attribute):
-        base = _expr_slot(expr.value)
-        if base:
-            return f"{base}.{expr.attr}"
-    if isinstance(expr, ast.Subscript):
-        return _expr_slot(expr.value)
+    match expr:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            base = _expr_slot(value)
+            if base:
+                return f"{base}.{attr}"
+        case ast.Subscript(value=value):
+            return _expr_slot(value)
+        case _:
+            pass
     return None
 
 
@@ -327,13 +327,15 @@ def _derive_flow_identity(
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
-            return None
-        return f"{parent}.{node.attr}"
+    match node:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            parent = _dotted_name(value)
+            if parent is not None:
+                return f"{parent}.{attr}"
+        case _:
+            pass
     return None
 
 
