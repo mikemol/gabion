@@ -391,6 +391,52 @@
         "test_policy_scanner_suite": "pass",
         "test_ci_governance_scripts": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P1D",
+      "summary": "Policy burn-down: pruned misclassified boundary_normalization markers from ASPF semantic/helper modules to align boundary-core contract scope.",
+      "timestamp_utc": "2026-03-06T22:04:26Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 257,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 237,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 700,
+      "total_after": 680,
+      "notes": [
+        "Removed boundary marker annotations from ASPF modules that do not implement boundary marshal->core behavior.",
+        "Retained boundary marker on aspf_core.py because payload-signature policy still requires boundary classification there.",
+        "No runtime behavior changes; marker-only contract alignment."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_targeted_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",
