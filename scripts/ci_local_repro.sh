@@ -15,10 +15,10 @@ Options:
                           (.github/workflows/pr-dataflow-grammar.yml equivalent).
   --extended-checks       Run additional local hardening checks not present in ci.yml
                           (order_lifetime_check, structural_hash_policy_check, complexity_audit).
-  --skip-sppf-sync        Skip python -m scripts.sppf_sync validation.
-  --run-sppf-sync         Force python -m scripts.sppf_sync validation (requires gh auth
+  --skip-sppf-sync        Skip python -m scripts.sppf.sppf_sync validation.
+  --run-sppf-sync         Force python -m scripts.sppf.sppf_sync validation (requires gh auth
                           login or GH_TOKEN/GITHUB_TOKEN).
-  --sppf-range R          Override revision range passed to python -m scripts.sppf_sync.
+  --sppf-range R          Override revision range passed to python -m scripts.sppf.sppf_sync.
   --skip-gabion-check-step
                           Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
   --pr-base-sha SHA       Override PR base SHA for --pr-dataflow-only mode.
@@ -667,7 +667,7 @@ run_checks_job() {
   timed_observed checks_docflow "$PYTHON_BIN" -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 
   step "checks: sppf_status_audit"
-  observed checks_sppf_status_audit "$PYTHON_BIN" -m scripts.sppf_status_audit --root .
+  observed checks_sppf_status_audit "$PYTHON_BIN" -m scripts.sppf.sppf_status_audit --root .
 
   case "$run_sppf_sync_mode" in
     skip)
@@ -680,7 +680,7 @@ run_checks_job() {
       elif gh_auth_available; then
         local rev_range
         rev_range="$(resolve_sppf_range)"
-        observed checks_sppf_sync_validate "$PYTHON_BIN" -m scripts.sppf_sync \
+        observed checks_sppf_sync_validate "$PYTHON_BIN" -m scripts.sppf.sppf_sync \
           --validate \
           --only-when-relevant \
           --range "$rev_range" \
@@ -690,7 +690,7 @@ run_checks_job() {
       elif gh_token="$(resolve_env_gh_token)"; then
         local rev_range
         rev_range="$(resolve_sppf_range)"
-        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" -m scripts.sppf_sync \
+        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" -m scripts.sppf.sppf_sync \
           --validate \
           --only-when-relevant \
           --range "$rev_range" \
@@ -707,7 +707,7 @@ run_checks_job() {
   esac
 
   step "checks: extract_test_evidence"
-  observed checks_extract_test_evidence "$PYTHON_BIN" -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+  observed checks_extract_test_evidence "$PYTHON_BIN" -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
 
   step "checks: evidence drift diff (strict)"
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json

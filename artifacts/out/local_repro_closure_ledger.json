@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "workstream": "full_local_repro_closure",
+  "generated_by": "codex",
+  "entries": [
+    {
+      "cu_id": "CU-R0",
+      "timestamp_utc": "2026-03-06T00:00:00Z",
+      "summary": "Repro harness parity finalize: corrected stale module entrypoints for sppf status audit/sync and extract_test_evidence.",
+      "policy_scanner_counts_before": {
+        "branchless": 895,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94,
+        "no_monkeypatch": 28,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0
+      },
+      "policy_scanner_counts_after": {
+        "branchless": 895,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94,
+        "no_monkeypatch": 28,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0
+      },
+      "total_before": 1136,
+      "total_after": 1136,
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "ci_governance_scripts": "pass"
+      },
+      "notes": [
+        "No semantic-core remediation in this correction unit; scanner debt unchanged by design.",
+        "SPPF lifecycle gate remains blocked pending CU-R1 remote issue-state remediation."
+      ]
+    }
+  ]
+}

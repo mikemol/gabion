@@ -177,7 +177,7 @@ jobs:
           fi
           .venv/bin/python scripts/policy/docflow_packet_enforce.py "${args[@]}"
       - name: SPPF status drift audit
-        run: .venv/bin/python -m scripts.sppf_status_audit --root .
+        run: .venv/bin/python -m scripts.sppf.sppf_status_audit --root .
       - name: SPPF issue lifecycle validation (non-mutating)
         if: github.event_name == 'push'
         env:
@@ -203,7 +203,7 @@ jobs:
               rev_range="HEAD~20..HEAD"
             fi
           fi
-          .venv/bin/python -m scripts.sppf_sync \
+          .venv/bin/python -m scripts.sppf.sppf_sync \
             --validate \
             --only-when-relevant \
             --range "$rev_range" \
@@ -212,7 +212,7 @@ jobs:
             --require-label status/pending-release
       - name: Test evidence index
         run: |
-          .venv/bin/python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+          .venv/bin/python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
       - name: Policy scanner suite
         run: .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json

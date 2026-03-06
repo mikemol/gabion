@@ -188,7 +188,7 @@ if $run_docflow; then
     --max-age-days 14 \
     --check \
     --run-proving-tests
-  mise exec -- python -m scripts.sppf_status_audit --root .
+  mise exec -- python -m scripts.sppf.sppf_status_audit --root .
 fi
 if $run_tests; then
   test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"
