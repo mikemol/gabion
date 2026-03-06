@@ -1767,7 +1767,7 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)
     return entry.model_dump() if entry is not None else None
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
+def normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
     lint_decision = LintEntriesDecision.from_response(response)
     lint_lines = list(lint_decision.lint_lines)
     lint_entries = lint_decision.normalize_entries(
@@ -1870,7 +1870,7 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResp
     return DataflowResponseEnvelopeDTO(canonical=canonical, payload=normalized)
 
 
-def _serialize_dataflow_response(
+def serialize_dataflow_response(
     response: DataflowResponseEnvelopeDTO,
 ) -> dict[str, object]:
     normalized = dict(response.payload)
@@ -2195,6 +2195,11 @@ def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
         policy_metadata=ExecutionPlanPolicyMetadata(deadline={}, baseline_mode="none", docflow_mode="disabled"),
     )
 
+
+
+_normalize_dataflow_response = normalize_dataflow_response
+_serialize_dataflow_response = serialize_dataflow_response
+
 def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
         analysis=AnalysisDeps(
@@ -2266,7 +2271,10 @@ __all__ = [
     '_is_stdout_target',
     '_latest_report_phase',
     '_materialize_execution_plan',
+    'normalize_dataflow_response',
     '_normalize_dataflow_response',
+    'serialize_dataflow_response',
+    '_serialize_dataflow_response',
     '_output_dirs',
     '_phase_timeline_header_block',
     '_phase_timeline_jsonl_path',
