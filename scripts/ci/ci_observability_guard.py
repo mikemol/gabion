@@ -11,9 +11,10 @@ import signal
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 DEFAULT_MAX_GAP_SECONDS = float(os.getenv("GABION_OBSERVABILITY_MAX_GAP_SECONDS", "5"))
 DEFAULT_MAX_WALL_SECONDS = float(os.getenv("GABION_OBSERVABILITY_MAX_WALL_SECONDS", "1200"))
@@ -21,6 +22,79 @@ DEFAULT_GAP_TOLERANCE_SECONDS = float(
     os.getenv("GABION_OBSERVABILITY_GAP_TOLERANCE_SECONDS", "0.1")
 )
 DEFAULT_ARTIFACT_PATH = Path("artifacts/audit_reports/observability_violations.json")
+
+
+class Clock(Protocol):
+    def monotonic(self) -> float: ...
+
+    def sleep(self, seconds: float) -> None: ...
+
+
+class ChildProcess(Protocol):
+    def poll(self) -> int | None: ...
+
+    def read_chunk_if_ready(self, timeout_seconds: float) -> bytes: ...
+
+    def terminate_group(self, clock: Clock) -> None: ...
+
+    @property
+    def returncode(self) -> int | None: ...
+
+
+class SystemClock:
+    def monotonic(self) -> float:
+        return time.monotonic()
+
+    def sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
+
+
+class PtyChildProcess:
+    def __init__(self, *, command: list[str], cwd: Path) -> None:
+        master, slave = pty.openpty()
+        self._master = master
+        self._proc = subprocess.Popen(
+            command,
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            cwd=str(cwd),
+            close_fds=True,
+            start_new_session=True,
+        )
+        os.close(slave)
+
+    def poll(self) -> int | None:
+        return self._proc.poll()
+
+    def read_chunk_if_ready(self, timeout_seconds: float) -> bytes:
+        rlist, _, _ = select.select([self._master], [], [], timeout_seconds)
+        if not rlist:
+            return b""
+        try:
+            return os.read(self._master, 8192)
+        except OSError:
+            return b""
+
+    def terminate_group(self, clock: Clock) -> None:
+        if self._proc.poll() is not None:
+            return
+        try:
+            os.killpg(self._proc.pid, signal.SIGTERM)
+        except OSError:
+            return
+        deadline = clock.monotonic() + 2.0
+        while self._proc.poll() is None and clock.monotonic() < deadline:
+            clock.sleep(0.05)
+        if self._proc.poll() is None:
+            try:
+                os.killpg(self._proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    @property
+    def returncode(self) -> int | None:
+        return self._proc.returncode
 
 
 def _parse_args() -> argparse.Namespace:
@@ -196,23 +270,6 @@ def _append_violation_artifact(path: Path, violation: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _terminate_process_group(proc: subprocess.Popen[bytes]) -> None:
-    if proc.poll() is not None:
-        return
-    try:
-        os.killpg(proc.pid, signal.SIGTERM)
-    except OSError:
-        return
-    deadline = time.monotonic() + 2.0
-    while proc.poll() is None and time.monotonic() < deadline:
-        time.sleep(0.05)
-    if proc.poll() is None:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except OSError:
-            pass
-
-
 def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -245,6 +302,235 @@ def _violation_payload(
     }
 
 
+@dataclass
+class _ObservabilityState:
+    started: float
+    buffer: str = ""
+    last_any_ts: float | None = None
+    last_any_line: str | None = None
+    last_meaningful_ts: float | None = None
+    last_meaningful_line: str | None = None
+    max_gap_meaningful: float = 0.0
+    violation: dict[str, Any] | None = None
+    terminal_progress_seen: bool = False
+
+
+def _record_meaningful_event(
+    *,
+    state: _ObservabilityState,
+    event_ts: float,
+    event_text: str,
+    label: str,
+    command: list[str],
+    max_gap_seconds: float,
+    gap_tolerance_seconds: float,
+    artifact_path: Path,
+    cwd: Path,
+    child: ChildProcess,
+    clock: Clock,
+) -> None:
+    if state.last_meaningful_ts is not None:
+        state.max_gap_meaningful = max(state.max_gap_meaningful, event_ts - state.last_meaningful_ts)
+    state.last_meaningful_ts = event_ts
+    state.last_meaningful_line = event_text
+    if _is_terminal_progress_line(event_text):
+        state.terminal_progress_seen = True
+    if (
+        not state.terminal_progress_seen
+        and max_gap_seconds > 0
+        and state.max_gap_meaningful > (max_gap_seconds + gap_tolerance_seconds)
+        and state.violation is None
+    ):
+        state.violation = _violation_payload(
+            label=label,
+            command=command,
+            reason="max_gap_meaningful_line_exceeded",
+            wall_seconds=event_ts - state.started,
+            max_gap_seconds=max_gap_seconds,
+            measured_gap_seconds=state.max_gap_meaningful,
+            previous_line=state.last_any_line,
+            next_line=event_text,
+            cwd=cwd,
+        )
+        _append_violation_artifact(artifact_path, state.violation)
+        child.terminate_group(clock)
+
+
+def _record_wall_timeout(
+    *,
+    state: _ObservabilityState,
+    now_ts: float,
+    label: str,
+    command: list[str],
+    max_gap_seconds: float,
+    max_wall_seconds: float,
+    artifact_path: Path,
+    cwd: Path,
+    child: ChildProcess,
+    clock: Clock,
+) -> None:
+    if max_wall_seconds <= 0 or state.violation is not None:
+        return
+    wall_seconds = now_ts - state.started
+    if wall_seconds <= max_wall_seconds:
+        return
+    state.violation = _violation_payload(
+        label=label,
+        command=command,
+        reason="max_wall_timeout",
+        wall_seconds=wall_seconds,
+        max_gap_seconds=max_gap_seconds,
+        measured_gap_seconds=wall_seconds,
+        previous_line=state.last_meaningful_line,
+        next_line=None,
+        cwd=cwd,
+    )
+    _append_violation_artifact(artifact_path, state.violation)
+    child.terminate_group(clock)
+
+
+def enforce_observability(
+    *,
+    label: str,
+    command: list[str],
+    max_gap_seconds: float,
+    gap_tolerance_seconds: float,
+    max_wall_seconds: float,
+    artifact_path: Path,
+    cwd: Path,
+    clock: Clock,
+    child: ChildProcess,
+) -> int:
+    state = _ObservabilityState(started=clock.monotonic())
+
+    while True:
+        now = clock.monotonic()
+        _record_wall_timeout(
+            state=state,
+            now_ts=now,
+            label=label,
+            command=command,
+            max_gap_seconds=max_gap_seconds,
+            max_wall_seconds=max_wall_seconds,
+            artifact_path=artifact_path,
+            cwd=cwd,
+            child=child,
+            clock=clock,
+        )
+        select_timeout = 0.5
+        if max_gap_seconds > 0 and state.violation is None and not state.terminal_progress_seen:
+            reference_ts = state.last_meaningful_ts
+            if reference_ts is None:
+                reference_ts = state.last_any_ts
+            if reference_ts is not None:
+                remaining = (max_gap_seconds + gap_tolerance_seconds) - (now - reference_ts)
+                select_timeout = max(0.0, min(select_timeout, remaining))
+
+        chunk = child.read_chunk_if_ready(select_timeout)
+        if chunk:
+            text = chunk.decode("utf-8", errors="replace")
+            sys.stdout.write(text)
+            sys.stdout.flush()
+            chunk_ts = clock.monotonic()
+            state.last_any_ts = chunk_ts
+            meaningful_fragment = _first_meaningful_fragment(text)
+            if meaningful_fragment is not None:
+                _record_meaningful_event(
+                    state=state,
+                    event_ts=chunk_ts,
+                    event_text=meaningful_fragment,
+                    label=label,
+                    command=command,
+                    max_gap_seconds=max_gap_seconds,
+                    gap_tolerance_seconds=gap_tolerance_seconds,
+                    artifact_path=artifact_path,
+                    cwd=cwd,
+                    child=child,
+                    clock=clock,
+                )
+            state.buffer += _normalize_chunk_for_lines(text)
+            while "\n" in state.buffer:
+                line, state.buffer = state.buffer.split("\n", 1)
+                line_ts = clock.monotonic()
+                state.last_any_ts = line_ts
+                state.last_any_line = line
+                if _is_meaningful_text(line):
+                    _record_meaningful_event(
+                        state=state,
+                        event_ts=line_ts,
+                        event_text=line,
+                        label=label,
+                        command=command,
+                        max_gap_seconds=max_gap_seconds,
+                        gap_tolerance_seconds=gap_tolerance_seconds,
+                        artifact_path=artifact_path,
+                        cwd=cwd,
+                        child=child,
+                        clock=clock,
+                    )
+
+        if max_gap_seconds > 0 and state.violation is None and not state.terminal_progress_seen:
+            now_after = clock.monotonic()
+            if state.last_meaningful_ts is None:
+                if (
+                    state.last_any_ts is not None
+                    and (now_after - state.last_any_ts) > (max_gap_seconds + gap_tolerance_seconds)
+                ):
+                    state.violation = _violation_payload(
+                        label=label,
+                        command=command,
+                        reason="max_gap_before_first_meaningful_line",
+                        wall_seconds=now_after - state.started,
+                        max_gap_seconds=max_gap_seconds,
+                        measured_gap_seconds=(now_after - state.last_any_ts),
+                        previous_line=None,
+                        next_line=None,
+                        cwd=cwd,
+                    )
+                    _append_violation_artifact(artifact_path, state.violation)
+                    child.terminate_group(clock)
+            else:
+                observed_gap = now_after - state.last_meaningful_ts
+                if observed_gap > (max_gap_seconds + gap_tolerance_seconds):
+                    state.violation = _violation_payload(
+                        label=label,
+                        command=command,
+                        reason="max_gap_meaningful_line_exceeded",
+                        wall_seconds=now_after - state.started,
+                        max_gap_seconds=max_gap_seconds,
+                        measured_gap_seconds=observed_gap,
+                        previous_line=state.last_meaningful_line,
+                        next_line=None,
+                        cwd=cwd,
+                    )
+                    _append_violation_artifact(artifact_path, state.violation)
+                    child.terminate_group(clock)
+
+        _record_wall_timeout(
+            state=state,
+            now_ts=clock.monotonic(),
+            label=label,
+            command=command,
+            max_gap_seconds=max_gap_seconds,
+            max_wall_seconds=max_wall_seconds,
+            artifact_path=artifact_path,
+            cwd=cwd,
+            child=child,
+            clock=clock,
+        )
+        if child.poll() is not None:
+            break
+
+    if state.buffer:
+        sys.stdout.write(state.buffer)
+        sys.stdout.flush()
+
+    exit_code = int(child.returncode or 0)
+    if state.violation is not None:
+        return 2 if exit_code == 0 else exit_code
+    return exit_code
+
+
 def main() -> int:
     args = _parse_args()
     max_gap_seconds = max(0.0, float(args.max_gap_seconds))
@@ -253,170 +539,19 @@ def main() -> int:
     cwd = args.cwd.resolve() if isinstance(args.cwd, Path) else Path.cwd()
     command = [str(token) for token in args.command]
 
-    master, slave = pty.openpty()
-    started = time.monotonic()
-    proc = subprocess.Popen(
-        command,
-        stdin=slave,
-        stdout=slave,
-        stderr=slave,
-        cwd=str(cwd),
-        close_fds=True,
-        start_new_session=True,
+    clock = SystemClock()
+    child = PtyChildProcess(command=command, cwd=cwd)
+    return enforce_observability(
+        label=str(args.label),
+        command=command,
+        max_gap_seconds=max_gap_seconds,
+        gap_tolerance_seconds=gap_tolerance_seconds,
+        max_wall_seconds=max_wall_seconds,
+        artifact_path=args.artifact_path,
+        cwd=cwd,
+        clock=clock,
+        child=child,
     )
-    os.close(slave)
-
-    buffer = ""
-    last_any_ts: float | None = None
-    last_any_line: str | None = None
-    last_meaningful_ts: float | None = None
-    last_meaningful_line: str | None = None
-    max_gap_meaningful = 0.0
-    violation: dict[str, Any] | None = None
-    terminal_progress_seen = False
-
-    def _record_meaningful_event(event_ts: float, event_text: str) -> None:
-        nonlocal last_meaningful_ts
-        nonlocal last_meaningful_line
-        nonlocal max_gap_meaningful
-        nonlocal violation
-        nonlocal terminal_progress_seen
-        if last_meaningful_ts is not None:
-            max_gap_meaningful = max(max_gap_meaningful, event_ts - last_meaningful_ts)
-        last_meaningful_ts = event_ts
-        last_meaningful_line = event_text
-        if _is_terminal_progress_line(event_text):
-            terminal_progress_seen = True
-        if (
-            not terminal_progress_seen
-            and
-            max_gap_seconds > 0
-            and max_gap_meaningful > (max_gap_seconds + gap_tolerance_seconds)
-            and violation is None
-        ):
-            violation = _violation_payload(
-                label=str(args.label),
-                command=command,
-                reason="max_gap_meaningful_line_exceeded",
-                wall_seconds=event_ts - started,
-                max_gap_seconds=max_gap_seconds,
-                measured_gap_seconds=max_gap_meaningful,
-                previous_line=last_any_line,
-                next_line=event_text,
-                cwd=cwd,
-            )
-            _append_violation_artifact(args.artifact_path, violation)
-            _terminate_process_group(proc)
-
-    def _record_wall_timeout(now_ts: float) -> None:
-        nonlocal violation
-        if max_wall_seconds <= 0 or violation is not None:
-            return
-        wall_seconds = now_ts - started
-        if wall_seconds <= max_wall_seconds:
-            return
-        violation = _violation_payload(
-            label=str(args.label),
-            command=command,
-            reason="max_wall_timeout",
-            wall_seconds=wall_seconds,
-            max_gap_seconds=max_gap_seconds,
-            measured_gap_seconds=wall_seconds,
-            previous_line=last_meaningful_line,
-            next_line=None,
-            cwd=cwd,
-        )
-        _append_violation_artifact(args.artifact_path, violation)
-        _terminate_process_group(proc)
-
-    while True:
-        now = time.monotonic()
-        _record_wall_timeout(now)
-        select_timeout = 0.5
-        if max_gap_seconds > 0 and violation is None and not terminal_progress_seen:
-            reference_ts = last_meaningful_ts
-            if reference_ts is None:
-                reference_ts = last_any_ts
-            if reference_ts is not None:
-                remaining = (
-                    (max_gap_seconds + gap_tolerance_seconds) - (now - reference_ts)
-                )
-                select_timeout = max(0.0, min(select_timeout, remaining))
-
-        rlist, _, _ = select.select([master], [], [], select_timeout)
-        if rlist:
-            try:
-                chunk = os.read(master, 8192)
-            except OSError:
-                chunk = b""
-            if chunk:
-                text = chunk.decode("utf-8", errors="replace")
-                sys.stdout.write(text)
-                sys.stdout.flush()
-                chunk_ts = time.monotonic()
-                last_any_ts = chunk_ts
-                meaningful_fragment = _first_meaningful_fragment(text)
-                if meaningful_fragment is not None:
-                    _record_meaningful_event(chunk_ts, meaningful_fragment)
-                buffer += _normalize_chunk_for_lines(text)
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line_ts = time.monotonic()
-                    last_any_ts = line_ts
-                    last_any_line = line
-                    if _is_meaningful_text(line):
-                        _record_meaningful_event(line_ts, line)
-
-        if max_gap_seconds > 0 and violation is None and not terminal_progress_seen:
-            now_after = time.monotonic()
-            if last_meaningful_ts is None:
-                if (
-                    last_any_ts is not None
-                    and (now_after - last_any_ts)
-                    > (max_gap_seconds + gap_tolerance_seconds)
-                ):
-                    violation = _violation_payload(
-                        label=str(args.label),
-                        command=command,
-                        reason="max_gap_before_first_meaningful_line",
-                        wall_seconds=now_after - started,
-                        max_gap_seconds=max_gap_seconds,
-                        measured_gap_seconds=(now_after - last_any_ts),
-                        previous_line=None,
-                        next_line=None,
-                        cwd=cwd,
-                    )
-                    _append_violation_artifact(args.artifact_path, violation)
-                    _terminate_process_group(proc)
-            else:
-                observed_gap = now_after - last_meaningful_ts
-                if observed_gap > (max_gap_seconds + gap_tolerance_seconds):
-                    violation = _violation_payload(
-                        label=str(args.label),
-                        command=command,
-                        reason="max_gap_meaningful_line_exceeded",
-                        wall_seconds=now_after - started,
-                        max_gap_seconds=max_gap_seconds,
-                        measured_gap_seconds=observed_gap,
-                        previous_line=last_meaningful_line,
-                        next_line=None,
-                        cwd=cwd,
-                    )
-                    _append_violation_artifact(args.artifact_path, violation)
-                    _terminate_process_group(proc)
-
-        _record_wall_timeout(time.monotonic())
-        if proc.poll() is not None:
-            break
-
-    if buffer:
-        sys.stdout.write(buffer)
-        sys.stdout.flush()
-
-    exit_code = int(proc.returncode or 0)
-    if violation is not None:
-        return 2 if exit_code == 0 else exit_code
-    return exit_code
 
 
 if __name__ == "__main__":
