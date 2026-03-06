@@ -1,5 +1,5 @@
 ---
-doc_revision: 287
+doc_revision: 288
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,17 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-346`, this CU):
+  - Removed `None` fallback inside indexed-scan dataclass-registry collector seam:
+    - `src/gabion/analysis/indexed_scan/scanners/materialization/dataclass_registry.py`
+      - `collect_dataclass_registry(..., stage_cache_fn=...)` now requires an explicit callable argument
+      - dropped internal `if stage_cache_fn is None` fallback branch
+    - post-phase owner already supplies default callable at boundary (`_analysis_index_stage_cache`), preserving behavior
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted dataflow/dataclass/deadline tests passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-345`, this CU):
   - Default-arg DI normalization for dataclass-registry stage-cache seam:
     - `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`

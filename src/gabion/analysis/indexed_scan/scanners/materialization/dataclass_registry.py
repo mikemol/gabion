@@ -35,12 +35,10 @@ def collect_dataclass_registry(
     project_root,
     parse_failure_witnesses: list[object],
     analysis_index = None,
-    stage_cache_fn = None,
+    stage_cache_fn: Callable[..., object],
     deps: CollectDataclassRegistryDeps,
 ) -> dict[str, list[str]]:
     deps.check_deadline_fn()
-    if stage_cache_fn is None:
-        stage_cache_fn = deps.analysis_index_stage_cache_default_fn
     registry: dict[str, list[str]] = {}
     if analysis_index is not None:
         registry_by_path = stage_cache_fn(
