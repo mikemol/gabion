@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -37,9 +38,14 @@ class Violation:
     qualname: str
     kind: str
     message: str
+    structured_hash: str
 
     @property
     def key(self) -> str:
+        return f"{self.path}:{self.qualname}:{self.kind}:{self.structured_hash}"
+
+    @property
+    def legacy_key(self) -> str:
         return f"{self.path}:{self.qualname}:{self.line}:{self.kind}"
 
     def render(self) -> str:
@@ -129,6 +135,13 @@ class _BranchlessVisitor(ast.NodeVisitor):
         scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>", self.module_decision_protocol)
         if scope.is_decision_protocol:
             return
+        structural_identity = _structured_hash(
+            self.rel_path,
+            scope.qualname,
+            kind,
+            str(int(getattr(node, "col_offset", 0)) + 1),
+            "branch construct outside decision protocol",
+        )
         self.violations.append(
             Violation(
                 path=self.rel_path,
@@ -137,6 +150,7 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 qualname=scope.qualname,
                 kind=kind,
                 message="branch construct outside decision protocol",
+                structured_hash=structural_identity,
             )
         )
 
@@ -175,6 +189,14 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _structured_hash(*parts: str) -> str:
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
 def collect_violations(*, root: Path) -> list[Violation]:
     violations: list[Violation] = []
     for path in sorted(root.glob(TARGET_GLOB)):
@@ -192,6 +214,12 @@ def collect_violations(*, root: Path) -> list[Violation]:
                     qualname="<module>",
                     kind="read_error",
                     message="unable to read file while checking branchless policy",
+                    structured_hash=_structured_hash(
+                        rel_path,
+                        "<module>",
+                        "read_error",
+                        "read_error",
+                    ),
                 )
             )
             continue
@@ -206,6 +234,12 @@ def collect_violations(*, root: Path) -> list[Violation]:
                     qualname="<module>",
                     kind="syntax_error",
                     message="syntax error while checking branchless policy",
+                    structured_hash=_structured_hash(
+                        rel_path,
+                        "<module>",
+                        "syntax_error",
+                        str(getattr(exc, "msg", "") or ""),
+                    ),
                 )
             )
             continue
@@ -231,10 +265,26 @@ def _load_baseline(path: Path) -> set[str]:
         path_value = str(item.get("path", "") or "")
         qualname = str(item.get("qualname", "") or "")
         kind = str(item.get("kind", "") or "")
+        structured_hash = item.get("structured_hash")
+        column = item.get("column")
+        message = str(item.get("message", "") or "")
         line = item.get("line")
-        if not path_value or not qualname or not kind or not isinstance(line, int):
+        if not path_value or not qualname or not kind:
             continue
-        keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        if isinstance(structured_hash, str) and structured_hash:
+            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        if isinstance(column, int) and message:
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                str(column),
+                message,
+            )
+            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+        if isinstance(line, int):
+            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
     return keys
 
 
@@ -264,7 +314,11 @@ def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = Fals
 
     if baseline is not None:
         allowed = _load_baseline(baseline)
-        violations = [violation for violation in violations if violation.key not in allowed]
+        violations = [
+            violation
+            for violation in violations
+            if violation.key not in allowed and violation.legacy_key not in allowed
+        ]
 
     if not violations:
         print("branchless policy check passed")

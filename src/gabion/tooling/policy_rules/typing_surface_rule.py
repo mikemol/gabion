@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,9 +21,14 @@ class Violation:
     message: str
     scope: str
     annotation: str
+    structured_hash: str
 
     @property
     def key(self) -> str:
+        return f"{self.path}:{self.qualname}:{self.kind}:{self.structured_hash}"
+
+    @property
+    def legacy_key(self) -> str:
         return f"{self.path}:{self.qualname}:{self.line}:{self.kind}"
 
     def render(self) -> str:
@@ -79,6 +85,14 @@ class _TypingSurfaceVisitor(ast.NodeVisitor):
         column = int(getattr(node, "col_offset", 0) or 0) + 1
         qualname = ".".join(self._qualname_stack) if self._qualname_stack else "<module>"
         annotation_text = ast.get_source_segment(self._source, annotation) or "<unknown>"
+        structural_identity = _structured_hash(
+            self._rel_path,
+            qualname,
+            kind,
+            self._scope,
+            annotation_text,
+            str(column),
+        )
         self.violations.append(
             Violation(
                 path=self._rel_path,
@@ -92,6 +106,7 @@ class _TypingSurfaceVisitor(ast.NodeVisitor):
                     f"{annotation_text!r} annotation is forbidden in {self._scope}; "
                     "use DTO/Protocol/dataclass carrier or TypedDict/Pydantic model"
                 ),
+                structured_hash=structural_identity,
             )
         )
 
@@ -157,6 +172,14 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _structured_hash(*parts: str) -> str:
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
@@ -173,10 +196,28 @@ def _load_baseline(path: Path) -> set[str]:
         path_value = str(item.get("path", "") or "")
         qualname = str(item.get("qualname", "") or "")
         kind = str(item.get("kind", "") or "")
+        structured_hash = item.get("structured_hash")
+        scope = str(item.get("scope", "") or "")
+        annotation = str(item.get("annotation", "") or "")
+        column = item.get("column")
         line = item.get("line")
-        if not path_value or not qualname or not kind or not isinstance(line, int):
+        if not path_value or not qualname or not kind:
             continue
-        keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        if isinstance(structured_hash, str) and structured_hash:
+            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        if scope and annotation and isinstance(column, int):
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                scope,
+                annotation,
+                str(column),
+            )
+            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+        if isinstance(line, int):
+            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
     return keys
 
 
@@ -192,7 +233,7 @@ def load_waivers(path: Path) -> WaiverLoadResult:
 
     keys: set[str] = set()
     invalid: list[InvalidWaiver] = []
-    required = ("path", "qualname", "line", "kind", "rationale", "scope", "expiry", "owner")
+    required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     for index, raw in enumerate(raw_waivers, start=1):
         if not isinstance(raw, dict):
             invalid.append(InvalidWaiver(index=index, reason="waiver_not_object"))
@@ -201,9 +242,28 @@ def load_waivers(path: Path) -> WaiverLoadResult:
         if missing:
             invalid.append(InvalidWaiver(index=index, reason=f"missing_fields:{','.join(missing)}"))
             continue
+        structured_hash = raw.get("structured_hash")
         line = raw.get("line")
+        if isinstance(structured_hash, str) and structured_hash:
+            key = f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{structured_hash}"
+            keys.add(key)
+            continue
+        scope = str(raw.get("scope", "") or "")
+        annotation = str(raw.get("annotation", "") or "")
+        column = raw.get("column")
+        if scope and annotation and isinstance(column, int):
+            migrated_hash = _structured_hash(
+                str(raw["path"]),
+                str(raw["qualname"]),
+                str(raw["kind"]),
+                scope,
+                annotation,
+                str(column),
+            )
+            keys.add(f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{migrated_hash}")
+            continue
         if not isinstance(line, int):
-            invalid.append(InvalidWaiver(index=index, reason="line_not_int"))
+            invalid.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
             continue
         key = f"{raw['path']}:{raw['qualname']}:{line}:{raw['kind']}"
         keys.add(key)

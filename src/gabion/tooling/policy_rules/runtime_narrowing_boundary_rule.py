@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,9 +29,14 @@ class Violation:
     kind: str
     message: str
     call: str
+    structured_hash: str
 
     @property
     def key(self) -> str:
+        return f"{self.path}:{self.qualname}:{self.kind}:{self.structured_hash}"
+
+    @property
+    def legacy_key(self) -> str:
         return f"{self.path}:{self.qualname}:{self.line}:{self.kind}"
 
     def render(self) -> str:
@@ -68,6 +74,13 @@ class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
             line = int(getattr(node, "lineno", 1) or 1)
             column = int(getattr(node, "col_offset", 0) or 0) + 1
             call_text = ast.get_source_segment(self._source, node) or call_name
+            structural_identity = _structured_hash(
+                self._rel_path,
+                self._qualname,
+                kind,
+                call_text,
+                str(column),
+            )
             self.violations.append(
                 Violation(
                     path=self._rel_path,
@@ -76,6 +89,7 @@ class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
                     qualname=self._qualname,
                     kind=kind,
                     call=call_text,
+                    structured_hash=structural_identity,
                     message=(
                         f"{call_name} runtime narrowing is boundary-only; "
                         "normalize at approved ingress modules/functions"
@@ -127,6 +141,14 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _structured_hash(*parts: str) -> str:
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
@@ -143,10 +165,26 @@ def _load_baseline(path: Path) -> set[str]:
         path_value = str(item.get("path", "") or "")
         qualname = str(item.get("qualname", "") or "")
         kind = str(item.get("kind", "") or "")
+        structured_hash = item.get("structured_hash")
+        call = str(item.get("call", "") or "")
+        column = item.get("column")
         line = item.get("line")
-        if not path_value or not qualname or not kind or not isinstance(line, int):
+        if not path_value or not qualname or not kind:
             continue
-        keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        if isinstance(structured_hash, str) and structured_hash:
+            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        if call and isinstance(column, int):
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                call,
+                str(column),
+            )
+            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+        if isinstance(line, int):
+            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
     return keys
 
 
@@ -161,7 +199,7 @@ def load_waivers(path: Path) -> WaiverLoadResult:
     if not isinstance(waivers_raw, list):
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
 
-    required = ("path", "qualname", "line", "kind", "rationale", "scope", "expiry", "owner")
+    required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     allowed_keys: set[str] = set()
     invalid_waivers: list[InvalidWaiver] = []
     for index, waiver in enumerate(waivers_raw, start=1):
@@ -176,9 +214,28 @@ def load_waivers(path: Path) -> WaiverLoadResult:
         path_value = str(waiver.get("path", "") or "")
         qualname = str(waiver.get("qualname", "") or "")
         kind = str(waiver.get("kind", "") or "")
+        structured_hash = waiver.get("structured_hash")
         line = waiver.get("line")
-        if not path_value or not qualname or kind not in {"isinstance_call", "cast_call"} or not isinstance(line, int):
-            invalid_waivers.append(InvalidWaiver(index=index, reason="path, qualname, kind, and integer line are required"))
+        if not path_value or not qualname or kind not in {"isinstance_call", "cast_call"}:
+            invalid_waivers.append(InvalidWaiver(index=index, reason="path, qualname, and valid kind are required"))
+            continue
+        if isinstance(structured_hash, str) and structured_hash:
+            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        call = str(waiver.get("call", "") or "")
+        column = waiver.get("column")
+        if call and isinstance(column, int):
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                call,
+                str(column),
+            )
+            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+            continue
+        if not isinstance(line, int):
+            invalid_waivers.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
             continue
         allowed_keys.add(f"{path_value}:{qualname}:{line}:{kind}")
 

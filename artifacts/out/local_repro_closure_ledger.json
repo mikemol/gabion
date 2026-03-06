@@ -68,6 +68,42 @@
         "policy_workflows": "pass",
         "sppf_sync_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P1",
+      "summary": "Policy scanner wave 1: structural-hash policy identity migration plus hotspot module protocol markers and SPPF boundary runtime-narrowing cleanup.",
+      "timestamp_utc": "2026-03-06T19:00:27Z",
+      "policy_scanner_counts_before": {
+        "branchless": 895,
+        "defensive_fallback": 24,
+        "no_legacy_monolith_import": 0,
+        "no_monkeypatch": 28,
+        "orchestrator_primitive_barrel": 0,
+        "runtime_narrowing_boundary": 95,
+        "typing_surface": 94
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 28,
+        "branchless": 524,
+        "defensive_fallback": 20,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 26
+      },
+      "total_before": 1136,
+      "total_after": 628,
+      "notes": [
+        "Moved baseline identity from line-number keys to structural-hash keys with legacy-key compatibility fallback.",
+        "Preserved existing baseline files without scope/allowlist tuning; loaders accept structured_hash and legacy line forms.",
+        "Maintained no-skip local-gate posture while reducing branchless and runtime_narrowing_boundary debt."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_targeted_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",

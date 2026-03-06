@@ -204,15 +204,36 @@ def _fetch_issue(
             f"GH-{issue_id}: issue lookup failed. Ensure the issue exists and GH auth is configured (gh auth status)."
         ) from exc
     payload = json.loads(raw)
-    labels_data = payload.get("labels") if isinstance(payload, dict) else []
     labels: list[str] = []
-    if isinstance(labels_data, list):
-        for label in labels_data:
-            check_deadline()
-            if isinstance(label, dict) and isinstance(label.get("name"), str):
-                labels.append(label["name"])
-    state = str(payload.get("state", "")).lower() if isinstance(payload, dict) else ""
-    url = str(payload.get("url", "")) if isinstance(payload, dict) else ""
+    state = ""
+    url = ""
+    match payload:
+        case {"state": state_value, "labels": list() as labels_data, "url": url_value}:
+            state = str(state_value).lower()
+            url = str(url_value)
+            for label in labels_data:
+                check_deadline()
+                match label:
+                    case {"name": str(name)}:
+                        labels.append(name)
+                    case _:
+                        continue
+        case {"state": state_value, "labels": list() as labels_data}:
+            state = str(state_value).lower()
+            for label in labels_data:
+                check_deadline()
+                match label:
+                    case {"name": str(name)}:
+                        labels.append(name)
+                    case _:
+                        continue
+        case {"state": state_value, "url": url_value}:
+            state = str(state_value).lower()
+            url = str(url_value)
+        case {"state": state_value}:
+            state = str(state_value).lower()
+        case _:
+            pass
     return IssueLifecycle(issue_id=issue_id, state=state, labels=tuple(labels), url=url)
 
 
@@ -349,10 +370,13 @@ def _run_validate_mode(
         required_labels=list(args.require_label),
         expected_state=str(args.require_state),
     )
-    if isinstance(result, tuple):
-        violations, notices = result
-    else:
-        violations, notices = result, []
+    match result:
+        case (list() as violations, list() as notices):
+            pass
+        case list() as violations:
+            notices = []
+        case _:
+            raise RuntimeError("validate_issue_lifecycle_fn returned unsupported result shape")
     for notice in notices:
         check_deadline()
         print(f"SPPF lifecycle notice: {notice}")
@@ -397,7 +421,7 @@ def _run_sync_mode(
         return 0
 
     summary_comment = build_comment_fn(rev_range, commits)
-    labels = list(args.label) if isinstance(args.label, list) else []
+    labels = list(args.label)
     for issue_id in issue_ids:
         check_deadline()
         if args.close:

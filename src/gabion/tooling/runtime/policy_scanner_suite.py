@@ -417,12 +417,12 @@ def _rule_set_hash() -> str:
     material = "|".join(
         [
             "no_monkeypatch:v1",
-            "branchless:v1",
-            "defensive_fallback:v1",
+            "branchless:v2",
+            "defensive_fallback:v2",
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
-            "typing_surface:v1",
-            "runtime_narrowing_boundary:v1",
+            "typing_surface:v2",
+            "runtime_narrowing_boundary:v2",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -532,7 +532,8 @@ def _filter_baseline_violations(
     filtered: list[object] = []
     for violation in violations:
         key = str(getattr(violation, "key", "") or "")
-        if key and key in allowed_keys:
+        legacy_key = str(getattr(violation, "legacy_key", "") or "")
+        if (key and key in allowed_keys) or (legacy_key and legacy_key in allowed_keys):
             continue
         filtered.append(violation)
     return filtered
@@ -556,6 +557,8 @@ def _serialize_branchless(violation: object) -> dict[str, object]:
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
         "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }
@@ -569,6 +572,8 @@ def _serialize_defensive(violation: object) -> dict[str, object]:
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
         "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }
@@ -596,6 +601,8 @@ def _serialize_typing_surface(violation: object) -> dict[str, object]:
         "scope": getattr(violation, "scope"),
         "annotation": getattr(violation, "annotation"),
         "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }
@@ -610,6 +617,8 @@ def _serialize_runtime_narrowing_boundary(violation: object) -> dict[str, object
         "kind": getattr(violation, "kind"),
         "call": getattr(violation, "call"),
         "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }
