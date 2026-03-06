@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import time
 from pathlib import Path
 
 from gabion.tooling.delta import delta_emit_runtime
@@ -118,7 +117,6 @@ def test_run_delta_emit_flush_thread_emits_pending_rows(tmp_path: Path) -> None:
         notification_callback(
             _progress_notification(phase="collection", event_seq=2, work_done=2)
         )
-        time.sleep(0.30)
         return {"exit_code": 0}
 
     exit_code = delta_emit_runtime.run_delta_emit(

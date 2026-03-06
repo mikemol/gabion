@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, replace
 from typing import Callable
 
@@ -38,10 +39,17 @@ class ProgressDeps:
 
 
 @dataclass(frozen=True)
+class RuntimeDeps:
+    monotonic_ns_fn: Callable[[], int]
+    heartbeat_wait_fn: Callable[[threading.Event, float], bool]
+
+
+@dataclass(frozen=True)
 class ExecuteCommandDeps:
     analysis: AnalysisDeps
     output: OutputDeps
     progress: ProgressDeps
+    runtime: RuntimeDeps
 
 
     @property
@@ -111,6 +119,15 @@ class ExecuteCommandDeps:
     @property
     def finalize_trace_fn(self):
         return self.progress.finalize_trace_fn
+
+    @property
+    def monotonic_ns_fn(self):
+        return self.runtime.monotonic_ns_fn
+
+    @property
+    def heartbeat_wait_fn(self):
+        return self.runtime.heartbeat_wait_fn
+
     def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
         if not overrides:
             return self
@@ -124,7 +141,7 @@ class ExecuteCommandDeps:
         root_overrides: dict[str, object] = {}
 
         for key, value in overrides.items():
-            if key in {"analysis", "output", "progress"}:
+            if key in {"analysis", "output", "progress", "runtime"}:
                 root_overrides[key] = value
             elif key in analysis_fields:
                 analysis_overrides[key] = value
@@ -138,6 +155,7 @@ class ExecuteCommandDeps:
         analysis = root_overrides.get("analysis", self.analysis)
         output = root_overrides.get("output", self.output)
         progress = root_overrides.get("progress", self.progress)
+        runtime = root_overrides.get("runtime", self.runtime)
 
         if analysis_overrides:
             analysis = replace(self.analysis, **analysis_overrides)
@@ -145,12 +163,19 @@ class ExecuteCommandDeps:
             output = replace(self.output, **output_overrides)
         if progress_overrides:
             progress = replace(self.progress, **progress_overrides)
-        return replace(self, analysis=analysis, output=output, progress=progress)
+        return replace(
+            self,
+            analysis=analysis,
+            output=output,
+            progress=progress,
+            runtime=runtime,
+        )
 
 
 __all__ = [
     "AnalysisDeps",
     "OutputDeps",
     "ProgressDeps",
+    "RuntimeDeps",
     "ExecuteCommandDeps",
 ]

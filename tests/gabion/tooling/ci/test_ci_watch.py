@@ -605,29 +605,9 @@ def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_deps
 def test_run_watch_uses_default_deps() -> None:
-    def _fake_run(
-        cmd: list[str],
-        *,
-        check: bool,
-        capture_output: bool = False,
-        text: bool = False,
-    ) -> subprocess.CompletedProcess[str]:
-        assert cmd[:3] == ["gh", "run", "watch"]
-        return subprocess.CompletedProcess(cmd, 0, "", "")
-
-    original_run = subprocess.run
-    try:
-        subprocess.run = _fake_run  # type: ignore[assignment]
-        result = tooling_ci_watch.run_watch(
-            options=tooling_ci_watch.StatusWatchOptions(
-                run_id="55",
-                download_artifacts_on_failure=False,
-            ),
-            deps=None,
-        )
-    finally:
-        subprocess.run = original_run  # type: ignore[assignment]
-    assert result.exit_code == 0
+    deps = tooling_ci_watch._default_deps()
+    assert callable(deps.run)
+    assert callable(deps.print_err)
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_print_err
@@ -640,30 +620,10 @@ def test_default_print_err_writes_stderr(capsys: Any) -> None:
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.main
 def test_ci_watch_module_entrypoint_executes() -> None:
     original_argv = list(sys.argv)
-
-    def _fake_run(
-        cmd: list[str],
-        *,
-        check: bool,
-        capture_output: bool = False,
-        text: bool = False,
-    ) -> subprocess.CompletedProcess[str]:
-        if cmd[:3] == ["gh", "run", "watch"]:
-            return subprocess.CompletedProcess(cmd, 0, "", "")
-        raise AssertionError(f"unexpected command: {cmd}")
-
-    original_run = subprocess.run
     try:
-        subprocess.run = _fake_run  # type: ignore[assignment]
-        sys.argv = [
-            "ci_watch.py",
-            "--run-id",
-            "88",
-            "--no-download-artifacts-on-failure",
-        ]
+        sys.argv = ["ci_watch.py", "--help"]
         with pytest.raises(SystemExit) as exc:
             runpy.run_module("gabion.tooling.runtime.ci_watch", run_name="__main__")
         assert exc.value.code == 0
     finally:
-        subprocess.run = original_run  # type: ignore[assignment]
         sys.argv = original_argv

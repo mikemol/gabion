@@ -32,6 +32,25 @@ _DEFAULT_STEP_HEARTBEAT_SECONDS = 30.0
 _DEFAULT_PENDING_HEARTBEAT_SECONDS = 30.0
 
 
+def _future_result_with_timeout(
+    future: concurrent.futures.Future[int],
+    timeout_seconds: float,
+) -> int:
+    return int(future.result(timeout=timeout_seconds))
+
+
+def _wait_pending_futures(
+    pending: set[concurrent.futures.Future[int]],
+    timeout_seconds: float | None,
+) -> tuple[set[concurrent.futures.Future[int]], set[concurrent.futures.Future[int]]]:
+    done, still_pending = concurrent.futures.wait(
+        pending,
+        timeout=timeout_seconds,
+        return_when=concurrent.futures.FIRST_COMPLETED,
+    )
+    return set(done), set(still_pending)
+
+
 def _deadline_scope():
     return deadline_scope_from_lsp_env(
         default_budget=_DEFAULT_TRIPLET_TIMEOUT_BUDGET,
@@ -99,6 +118,11 @@ def _run_step_callable(
     step_heartbeat_seconds: float,
     print_fn: Callable[[str], None] = print,
     monotonic_fn: Callable[[], float] = time.monotonic,
+    future_result_fn: Callable[
+        [concurrent.futures.Future[int], float],
+        int,
+    ] = _future_result_with_timeout,
+    result_timeout_seconds: float = 0.5,
 ) -> int:
     started = monotonic_fn()
     last_heartbeat = started
@@ -107,7 +131,7 @@ def _run_step_callable(
         while True:
             check_deadline()
             try:
-                return int(future.result(timeout=0.5))
+                return int(future_result_fn(future, result_timeout_seconds))
             except concurrent.futures.TimeoutError:
                 pass
             except Exception as exc:
@@ -183,6 +207,10 @@ def main(
     run_triplet_fn: Callable[..., int] = _run_triplet,
     print_fn: Callable[[str], None] = print,
     pending_heartbeat_seconds: float | None = None,
+    wait_fn: Callable[
+        [set[concurrent.futures.Future[int]], float | None],
+        tuple[set[concurrent.futures.Future[int]], set[concurrent.futures.Future[int]]],
+    ] = _wait_pending_futures,
 ) -> int:
     with _default_runtime_override_scope():
         return _main_impl(
@@ -190,6 +218,7 @@ def main(
             run_triplet_fn=run_triplet_fn,
             print_fn=print_fn,
             pending_heartbeat_seconds=pending_heartbeat_seconds,
+            wait_fn=wait_fn,
         )
 
 
@@ -199,6 +228,10 @@ def _main_impl(
     run_triplet_fn: Callable[..., int] = _run_triplet,
     print_fn: Callable[[str], None] = print,
     pending_heartbeat_seconds: float | None = None,
+    wait_fn: Callable[
+        [set[concurrent.futures.Future[int]], float | None],
+        tuple[set[concurrent.futures.Future[int]], set[concurrent.futures.Future[int]]],
+    ] = _wait_pending_futures,
 ) -> int:
     triplet_map = {
         str(name): [step for step in steps]
@@ -228,10 +261,9 @@ def _main_impl(
             pending = set(futures)
             while pending:
                 check_deadline()
-                done, pending = concurrent.futures.wait(
+                done, pending = wait_fn(
                     pending,
-                    timeout=heartbeat_seconds if heartbeat_seconds > 0 else None,
-                    return_when=concurrent.futures.FIRST_COMPLETED,
+                    heartbeat_seconds if heartbeat_seconds > 0 else None,
                 )
                 if not done:
                     pending_names = ", ".join(

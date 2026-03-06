@@ -41,7 +41,13 @@ from gabion.config import (dataflow_defaults, dataflow_deadline_roots, decision_
 from gabion.analysis.core.type_fingerprints import (Fingerprint, PrimeRegistry, TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.refactor.rewrite_plan import (normalize_rewrite_plan_order, validate_rewrite_plan_payload)
 from gabion.schema import (DataflowCanonicalResponseDTO, DataflowResponseEnvelopeDTO, LintEntryDTO)
-from gabion.server_core.ingress_primitives import AnalysisDeps, ExecuteCommandDeps, OutputDeps, ProgressDeps
+from gabion.server_core.ingress_primitives import (
+    AnalysisDeps,
+    ExecuteCommandDeps,
+    OutputDeps,
+    ProgressDeps,
+    RuntimeDeps,
+)
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -2216,6 +2222,12 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
             record_cofibration_fn=aspf_execution_fibration.record_cofibration,
             merge_imported_trace_fn=aspf_execution_fibration.merge_imported_trace,
             finalize_trace_fn=aspf_execution_fibration.finalize_execution_trace,
+        ),
+        runtime=RuntimeDeps(
+            monotonic_ns_fn=time.monotonic_ns,
+            heartbeat_wait_fn=lambda stop_event, timeout_seconds: stop_event.wait(
+                timeout_seconds
+            ),
         ),
     )
 

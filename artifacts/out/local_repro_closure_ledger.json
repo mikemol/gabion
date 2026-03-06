@@ -295,6 +295,54 @@
         "hygiene_rule_tests": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-HY2",
+      "summary": "Testing-hygiene remediation: replaced remaining wall-clock-coupled heartbeat/delta test paths with injected monotonic/wait seams and deterministic future/wait dispatch hooks.",
+      "timestamp_utc": "2026-03-06T21:42:30Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 258,
+        "fiber_normalization_contract": 221,
+        "test_subprocess_hygiene": 4,
+        "test_sleep_hygiene": 7
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 258,
+        "fiber_normalization_contract": 221,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 714,
+      "total_after": 703,
+      "notes": [
+        "Server progress-heartbeat tests now use injected monotonic/heartbeat-wait seams through ExecuteCommandDeps runtime collaborators.",
+        "Delta triplet timing tests now use deterministic injected future-result and pending-wait seams instead of wall-clock delays.",
+        "Hygiene families were reduced to zero while preserving non-hygiene family totals."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "runtime_policy_hygiene_tests": "pass",
+        "remediation_target_suites": "pass",
+        "server_core_targeted_suites": "pass"
+      }
     }
   ],
   "generated_by": "codex",

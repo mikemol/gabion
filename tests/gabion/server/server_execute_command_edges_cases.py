@@ -4,8 +4,8 @@ import hashlib
 import json
 import os
 import runpy
-import time
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import cast
@@ -43,6 +43,45 @@ class _DummyNotifyingServer(_DummyServer):
 
     def send_notification(self, method: str, params: dict[str, object]) -> None:
         self.notifications.append((method, params))
+
+
+@dataclass
+class _VirtualHeartbeatRuntime:
+    tick_ns: int = 5_000_000_000
+    unblock_after_wait_calls: int = 4
+    ticks_start_enabled: bool = True
+    unblock_event: threading.Event = field(default_factory=threading.Event)
+    _now_ns: int = 1
+    _wait_calls: int = 0
+    _ticks_enabled: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._ticks_enabled = self.ticks_start_enabled
+
+    def monotonic_ns(self) -> int:
+        return self._now_ns
+
+    def enable_ticks(self) -> None:
+        self._ticks_enabled = True
+
+    def heartbeat_wait(self, stop_event: threading.Event, _timeout_seconds: float) -> bool:
+        if stop_event.is_set():
+            return True
+        if not self._ticks_enabled:
+            return False
+        self._wait_calls += 1
+        self._now_ns += self.tick_ns
+        if self._wait_calls >= self.unblock_after_wait_calls:
+            self.unblock_event.set()
+        return False
+
+
+def _await_virtual_runtime_unblock(event: threading.Event, *, max_spins: int = 200_000) -> None:
+    for _ in range(max_spins):
+        if event.is_set():
+            return
+        threading.Event().wait(0)
+    raise AssertionError("virtual heartbeat runtime did not advance as expected")
 
 
 @dataclass
@@ -219,6 +258,18 @@ def _execute_with_deps(
 ) -> dict:
     deps = server._default_execute_command_deps().with_overrides(**overrides)
     return server.execute_command_with_deps(ls, payload, deps=deps)
+
+
+def _runtime_deps(
+    *,
+    monotonic_ns_fn,
+    heartbeat_wait_fn,
+):
+    runtime_type = type(server._default_execute_command_deps().runtime)
+    return runtime_type(
+        monotonic_ns_fn=monotonic_ns_fn,
+        heartbeat_wait_fn=heartbeat_wait_fn,
+    )
 
 
 def _execute_total_with_deps(
@@ -495,6 +546,11 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyNotifyingServer(str(tmp_path))
+    heartbeat_runtime = _VirtualHeartbeatRuntime(
+        tick_ns=2_000_000_000,
+        unblock_after_wait_calls=4,
+        ticks_start_enabled=False,
+    )
 
     def _analyze_with_terminal_replay(
         *_args: object,
@@ -518,7 +574,8 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
         _emit_post_marker("fingerprint:done", 6, 6)
         _emit_post_marker("complete", 6, 6)
         _emit_post_marker("complete", 6, 6)
-        time.sleep(6.2)
+        heartbeat_runtime.enable_ticks()
+        _await_virtual_runtime_unblock(heartbeat_runtime.unblock_event)
         return _empty_analysis_result()
 
     result = _execute_with_deps(
@@ -528,10 +585,14 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "progress_heartbeat_seconds": 5,
+                "progress_heartbeat_seconds": 5.0,
             }
         ),
         analyze_paths_fn=_analyze_with_terminal_replay,
+        runtime=_runtime_deps(
+            monotonic_ns_fn=heartbeat_runtime.monotonic_ns,
+            heartbeat_wait_fn=heartbeat_runtime.heartbeat_wait,
+        ),
     )
 
     assert result["analysis_state"] == "succeeded"
@@ -610,12 +671,13 @@ def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyNotifyingServer(str(tmp_path))
+    heartbeat_runtime = _VirtualHeartbeatRuntime(unblock_after_wait_calls=2)
 
     def _slow_analyze_without_progress(
         *_args: object,
         **_kwargs: object,
     ) -> server.AnalysisResult:
-        time.sleep(2.2)
+        _await_virtual_runtime_unblock(heartbeat_runtime.unblock_event)
         return _empty_analysis_result()
 
     result = _execute_with_deps(
@@ -625,10 +687,14 @@ def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "progress_heartbeat_seconds": 5,
+                "progress_heartbeat_seconds": 5.0,
             }
         ),
         analyze_paths_fn=_slow_analyze_without_progress,
+        runtime=_runtime_deps(
+            monotonic_ns_fn=heartbeat_runtime.monotonic_ns,
+            heartbeat_wait_fn=heartbeat_runtime.heartbeat_wait,
+        ),
     )
 
     assert result["analysis_state"] == "succeeded"
@@ -702,9 +768,13 @@ def test_execute_command_emits_heartbeat_progress_with_staleness(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyNotifyingServer(str(tmp_path))
+    heartbeat_runtime = _VirtualHeartbeatRuntime(
+        tick_ns=2_000_000_000,
+        unblock_after_wait_calls=4,
+    )
 
     def _slow_analyze(*_args: object, **_kwargs: object) -> server.AnalysisResult:
-        time.sleep(6.2)
+        _await_virtual_runtime_unblock(heartbeat_runtime.unblock_event)
         return _empty_analysis_result()
 
     result = _execute_with_deps(
@@ -714,10 +784,14 @@ def test_execute_command_emits_heartbeat_progress_with_staleness(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": "-",
-                "progress_heartbeat_seconds": 5,
+                "progress_heartbeat_seconds": 5.0,
             }
         ),
         analyze_paths_fn=_slow_analyze,
+        runtime=_runtime_deps(
+            monotonic_ns_fn=heartbeat_runtime.monotonic_ns,
+            heartbeat_wait_fn=heartbeat_runtime.heartbeat_wait,
+        ),
     )
 
     assert result["analysis_state"] == "succeeded"

@@ -2221,6 +2221,10 @@ def _create_progress_emitter(
     progress_heartbeat_seconds: float,
     profiling_stage_ns: dict[str, int],
     profiling_counters: dict[str, int],
+    monotonic_ns_fn: Callable[[], int] = time.monotonic_ns,
+    heartbeat_wait_fn: Callable[[threading.Event, float], bool] = (
+        lambda stop_event, timeout_seconds: stop_event.wait(timeout_seconds)
+    ),
     identity_shadow_runtime: IdentityShadowRuntime | None = None,
 ) -> _ProgressEmitter:
     progress_event_seq = 0
@@ -2404,7 +2408,7 @@ def _create_progress_emitter(
             progress_value["analysis_state"] = analysis_state
         if isinstance(classification, str) and classification:
             progress_value["classification"] = classification
-        now_ns = time.monotonic_ns()
+        now_ns = monotonic_ns_fn()
         with progress_state_lock:
             normalized_transition_state = _normalize_progress_transition_state(
                 phase=phase,
@@ -2540,7 +2544,10 @@ def _create_progress_emitter(
         )
         last_watchdog_flush_ns = 0
         last_heartbeat_emit_ns = 0
-        while not heartbeat_stop_event.wait(_PROGRESS_HEARTBEAT_POLL_SECONDS):
+        while not heartbeat_wait_fn(
+            heartbeat_stop_event,
+            _PROGRESS_HEARTBEAT_POLL_SECONDS,
+        ):
             with progress_state_lock:
                 progress_template = (
                     dict(last_progress_template)
@@ -2555,7 +2562,7 @@ def _create_progress_emitter(
                 notification_ns = int(last_progress_notification_ns)
                 progress_change_ns = int(last_progress_change_ns)
                 terminal_change_ns = int(last_terminal_change_ns)
-            now_ns = time.monotonic_ns()
+            now_ns = monotonic_ns_fn()
             progress_ready = bool(progress_template) & (notification_ns > 0) & (
                 progress_change_ns > 0
             )
@@ -4520,6 +4527,10 @@ def _stage_runtime_bootstrap(
     progress_heartbeat_seconds: float,
     profiling_stage_ns: dict[str, int],
     profiling_counters: dict[str, int],
+    monotonic_ns_fn: Callable[[], int] = time.monotonic_ns,
+    heartbeat_wait_fn: Callable[[threading.Event, float], bool] = (
+        lambda stop_event, timeout_seconds: stop_event.wait(timeout_seconds)
+    ),
     build_identity_shadow_session_fn: Callable[..., IdentityShadowSession] = build_identity_shadow_session,
 ) -> _ExecuteCommandRuntimeBootstrapStage:
     if config.fingerprint_registry is None:
@@ -4538,6 +4549,8 @@ def _stage_runtime_bootstrap(
         progress_heartbeat_seconds=progress_heartbeat_seconds,
         profiling_stage_ns=profiling_stage_ns,
         profiling_counters=profiling_counters,
+        monotonic_ns_fn=monotonic_ns_fn,
+        heartbeat_wait_fn=heartbeat_wait_fn,
         identity_shadow_runtime=identity_shadow_session.runtime,
     )
     return _ExecuteCommandRuntimeBootstrapStage(
@@ -4966,6 +4979,8 @@ def execute_command_total(
             progress_heartbeat_seconds=progress_heartbeat_seconds,
             profiling_stage_ns=profiling_stage_ns,
             profiling_counters=profiling_counters,
+            monotonic_ns_fn=execute_deps.monotonic_ns_fn,
+            heartbeat_wait_fn=execute_deps.heartbeat_wait_fn,
             build_identity_shadow_session_fn=build_identity_shadow_session_fn,
         )
         identity_shadow_session = runtime_bootstrap.identity_shadow_session

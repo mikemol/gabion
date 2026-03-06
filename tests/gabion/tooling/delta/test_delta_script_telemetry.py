@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import time
 from pathlib import Path
@@ -268,10 +269,20 @@ def test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure() -> None
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets.main
 def test_delta_triplets_main_emits_pending_heartbeat() -> None:
     lines: list[str] = []
+    wait_calls = 0
 
-    def _slow_triplet(_name: str, _steps: list[delta_triplets.StepSpec]) -> int:
-        time.sleep(0.05)
+    def _triplet(_name: str, _steps: list[delta_triplets.StepSpec]) -> int:
         return 0
+
+    def _wait_fn(
+        pending: set[concurrent.futures.Future[int]],
+        _timeout_seconds: float | None,
+    ) -> tuple[set[concurrent.futures.Future[int]], set[concurrent.futures.Future[int]]]:
+        nonlocal wait_calls
+        wait_calls += 1
+        if wait_calls == 1:
+            return set(), set(pending)
+        return set(pending), set()
 
     exit_code = delta_triplets.main(
         triplets={
@@ -292,9 +303,10 @@ def test_delta_triplets_main_emits_pending_heartbeat() -> None:
                 ),
             ),
         },
-        run_triplet_fn=_slow_triplet,
+        run_triplet_fn=_triplet,
         print_fn=lines.append,
         pending_heartbeat_seconds=0.01,
+        wait_fn=_wait_fn,
     )
 
     assert exit_code == 0
@@ -554,18 +566,25 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
 def test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths() -> None:
     lines: list[str] = []
     monotonic_values = [0.0, 0.2, 0.2, 1.0]
+    poll_calls = 0
 
     def _monotonic() -> float:
         if monotonic_values:
             return monotonic_values.pop(0)
         return 1.0
 
-    step = delta_triplets.StepSpec(
-        id="slow",
-        label="slow",
-        kind="gate",
-        run=lambda: (time.sleep(1.1) or 0),
-    )
+    step = delta_triplets.StepSpec(id="slow", label="slow", kind="gate", run=lambda: 0)
+
+    def _future_result_fn(
+        _future: concurrent.futures.Future[int],
+        _timeout_seconds: float,
+    ) -> int:
+        nonlocal poll_calls
+        poll_calls += 1
+        if poll_calls == 1:
+            raise concurrent.futures.TimeoutError
+        return 0
+
     assert (
         delta_triplets._run_step_callable(
             name="trip",
@@ -575,6 +594,8 @@ def test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths() -> None:
             step_heartbeat_seconds=0.1,
             print_fn=lines.append,
             monotonic_fn=_monotonic,
+            future_result_fn=_future_result_fn,
+            result_timeout_seconds=0.0,
         )
         == 0
     )
@@ -669,9 +690,19 @@ def test_delta_triplets_non_emit_failure_continues_and_step_callable_without_hea
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_step_callable_timeout_without_heartbeat_branch::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable
 def test_delta_triplets_step_callable_timeout_without_heartbeat_branch() -> None:
     lines: list[str] = []
+    poll_calls = 0
 
-    def _slow_step() -> int:
-        time.sleep(0.6)
+    def _step() -> int:
+        return 0
+
+    def _future_result_fn(
+        _future: concurrent.futures.Future[int],
+        _timeout_seconds: float,
+    ) -> int:
+        nonlocal poll_calls
+        poll_calls += 1
+        if poll_calls == 1:
+            raise concurrent.futures.TimeoutError
         return 0
 
     assert (
@@ -681,13 +712,15 @@ def test_delta_triplets_step_callable_timeout_without_heartbeat_branch() -> None
                 id="slow",
                 label="slow",
                 kind="gate",
-                run=_slow_step,
+                run=_step,
             ),
             step_index=1,
             step_total=1,
             step_heartbeat_seconds=0.0,
             print_fn=lines.append,
             monotonic_fn=lambda: 0.0,
+            future_result_fn=_future_result_fn,
+            result_timeout_seconds=0.0,
         )
         == 0
     )
