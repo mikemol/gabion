@@ -16,9 +16,6 @@ _BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _FILE_SCAN_PROGRESS_EMIT_INTERVAL, _PROGRESS_EMIT_MIN_INTERVAL_SECONDS, _analysis_index_ctor, _analysis_index_module_trees, _analysis_index_resolved_call_edges, _analysis_index_resolved_call_edges_by_caller, _analysis_index_stage_cache, _analysis_index_transitive_callers, _accumulate_function_index_for_tree, _analyze_file_internal, _build_analysis_index, _build_call_graph, _build_single_module_artifact, _EMPTY_CACHE_SEMANTIC_CONTEXT, _function_index_acc_ctor, _IndexedPassContext, _IndexedPassSpec, _iter_monotonic_paths, _iter_resolved_edge_param_events, _parse_stage_cache_key, _phase_work_progress, _profiling_v1_payload, _progress_emit_min_interval_seconds, _reduce_resolved_call_edges, _run_indexed_pass, _sorted_text, _stage_cache_key_aliases, analyze_file, OptionalDecorators, OptionalParseFailures, OptionalProjectRoot
 from gabion.analysis.dataflow.engine.dataflow_projection_materialization import CallAmbiguity, _ambiguity_suite_relation, _ambiguity_suite_row_to_suite, _ambiguity_virtual_count_gt_1, _collect_call_ambiguities, _collect_call_ambiguities_indexed, _dedupe_call_ambiguities, _emit_call_ambiguities, _format_span_fields, _materialize_ambiguity_suite_agg_spec, _materialize_ambiguity_virtual_set_spec, _materialize_projection_spec_rows, _materialize_suite_order_spec, _populate_bundle_forest, _spec_row_span, _suite_order_relation, _suite_order_row_to_site, _suite_site_label, _summarize_call_ambiguities
-from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
-    _iter_documented_bundles,
-)
 from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support import (
     _collect_param_roots,
     _contains_boolish,
@@ -31,21 +28,6 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_decision_support im
     _value_encoded_decision_params,
     is_decision_surface,
 )
-from gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms import (
-    _collect_recursive_functions,
-    _collect_recursive_nodes,
-    _reachable_from_roots,
-)
-from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
-    _enclosing_class,
-    _enclosing_function_scopes,
-    _param_names,
-    _param_spans,
-)
-from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import (
-    _collect_functions,
-    _iter_paths,
-)
 from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     _group_by_signature,
     _propagate_groups,
@@ -53,28 +35,8 @@ from gabion.analysis.dataflow.engine.dataflow_ingested_analysis_support import (
     analyze_ingested_file,
 )
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import _StageCacheSpec, _annotation_exception_candidates, _branch_reachability_under_env, _build_property_hook_callable_index, _callsite_evidence_for_bundle, _collect_config_bundles, _collect_constant_flow_details, _collect_dataclass_registry, _collect_exception_obligations, _collect_handledness_witnesses, _collect_invariant_propositions, _collect_never_invariants, _combine_type_hints, _compute_knob_param_names, _dead_env_map, _decision_param_lint_line, _decision_tier_for, _deserialize_invariants_for_resume, _enclosing_function_node, _eval_bool_expr, _eval_value_expr, _exception_param_names, _exception_type_name, _expand_type_hint, _format_call_site, _format_type_flow_site, _handler_label, _handler_type_names, _infer_type_flow, _iter_config_fields, _iter_dataclass_call_bundles, _keyword_links_literal, _keyword_string_literal, _lint_line, _names_in_expr, _node_in_block, _param_annotations_by_path, _parse_module_source, _refine_exception_name_from_annotations, _span_line_col, _split_top_level, _type_from_const_repr, analyze_constant_flow_repo, analyze_deadness_flow_repo, analyze_decision_surfaces_repo, analyze_type_flow_repo_with_evidence, analyze_type_flow_repo_with_map, analyze_unused_arg_flow_repo, analyze_value_encoded_decisions_repo, generate_property_hook_manifest
-from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
-    _summarize_deadline_obligations,
-)
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
     _report_section_spec,
-)
-from gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support import (
-    _collect_lambda_bindings_by_caller,
-    _collect_lambda_function_infos,
-    _function_key,
-)
-from gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support import (
-    _direct_lambda_callee_by_call_span,
-    _materialize_direct_lambda_callees,
-    _unused_params,
-)
-from gabion.analysis.dataflow.engine.dataflow_function_semantics import (
-    _analyze_function,
-    _call_context,
-    _collect_return_aliases,
-    _const_repr,
-    _normalize_key_expr,
 )
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import _CACHE_IDENTITY_DIGEST_HEX, _CACHE_IDENTITY_PREFIX, _CacheIdentity, _analysis_collection_resume_path_key, _build_analysis_collection_resume_payload, _deserialize_function_info_for_resume, _deserialize_invariants_for_resume, _deserialize_symbol_table_for_resume, _load_analysis_collection_resume_payload, _load_analysis_index_resume_payload, _load_file_scan_resume_state, _invariant_confidence, _invariant_digest, _normalize_invariant_proposition, _serialize_analysis_index_resume_payload, _serialize_file_scan_resume_state
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
@@ -92,36 +54,11 @@ from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
     parse_adapter_capabilities,
 )
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import _build_synth_registry_payload, _collect_fingerprint_atom_keys, _compute_fingerprint_coherence, _compute_fingerprint_matches, _compute_fingerprint_provenance, _compute_fingerprint_rewrite_plans, _compute_fingerprint_synth, _compute_fingerprint_warnings, _find_provenance_entry_for_site, _fingerprint_soundness_issues, _glossary_match_strata, _summarize_fingerprint_provenance, verify_rewrite_plan, verify_rewrite_plans
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _alt_input, _base_identifier, _collect_class_index, _collect_module_exports, _enclosing_scopes, _is_test_path, _module_name, _paramset_key, _resolve_method_in_hierarchy_outcome, _target_names
-from gabion.analysis.dataflow.engine.dataflow_raw_runtime import (
-    _resolve_synth_registry_path,
-)
-
-from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
-    _callee_key,
-    _resolve_method_in_hierarchy,
-    _resolve_class_candidates,
-)
-from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
-    _collect_local_class_bases,
-    _resolve_local_method_in_hierarchy,
-)
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator, UseVisitor
-from gabion.analysis.dataflow.engine.dataflow_lint_helpers import _compute_lint_lines, _constant_smells_from_details, _deadness_witnesses_from_constant_details, _deadline_lint_lines, _exception_protocol_lint_lines, _internal_broad_type_lint_lines, _internal_broad_type_lint_lines_indexed, _is_broad_internal_type, _lint_lines_from_bundle_evidence, _lint_lines_from_constant_smells, _lint_lines_from_type_evidence, _lint_lines_from_unused_arg_smells, _normalize_type_name, _parse_exception_path_id, _parse_lint_location
 # Preserve canonical owner identity for overlapping wildcard symbols.
-from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
-    _build_function_index,
-    _build_symbol_table,
-)
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _resolve_callee,
-)
-from gabion.analysis.dataflow.engine.dataflow_projection_materialization import (
-    _lint_lines_from_call_ambiguities,
-)
-from gabion.analysis.dataflow.engine.dataflow_bundle_merge import (
-    _merge_counts_by_knobs,
 )
 from gabion.analysis.foundation.timeout_context import (
     Deadline,
@@ -143,13 +80,6 @@ from gabion.analysis.projection.projection_registry import (
     LINT_FINDINGS_SPEC,
     REPORT_SECTION_LINES_SPEC,
     WL_REFINEMENT_SPEC,
-)
-from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
-    _topologically_order_report_projection_specs,
-)
-from gabion.analysis.dataflow.io.dataflow_reporting import emit_report as _emit_report
-from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
-    render_mermaid_component as _render_mermaid_component,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.order_contract import sort_once

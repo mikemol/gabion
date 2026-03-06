@@ -1,5 +1,5 @@
 ---
-doc_revision: 282
+doc_revision: 283
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -15,8 +15,8 @@ doc_scope:
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
 - Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 155
-- Facade top-level import statements (current): 38
+- Facade LOC (current): 85
+- Facade top-level import statements (current): 19
 - Compatibility owner max metrics (current): `loc=57`, `imports=3`
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
@@ -31,6 +31,28 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-341`, this CU):
+  - Removed private-only alias import blocks from facade:
+    - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+      - dropped private-only owner/helper imports that have no `>1` non-owner, non-test consumers
+      - dropped redundant private canonical rebind imports (`analysis_index`, projection, bundle-merge)
+      - retained selected compatibility anchors (`_build_analysis_index`, `_resolve_callee`, `_report_section_spec`)
+  - Ratcheted facade metrics guard budgets:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+      - `_MAX_FACADE_LOC: 155 -> 85`
+      - `_MAX_FACADE_TOP_LEVEL_IMPORTS: 38 -> 19`
+      - `_MAX_FACADE_IMPORTED_SYMBOLS: 243 -> 183`
+      - wildcard cap remains `0`
+  - Resulting facade metrics:
+    - wildcard imports remain `0`
+    - imported symbols `243 -> 183`
+    - LOC `155 -> 85`
+    - top-level import statements `38 -> 19`
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy facade/compat parity tests passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-340`, this CU):
   - Removed broad private deadline alias clusters from facade:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
