@@ -889,6 +889,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2G",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from dataflow IO/runtime helpers, keeping a monotonic subset after one defensive-fallback revert.",
+      "timestamp_utc": "2026-03-06T23:54:32Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 182,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 174,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 482,
+      "total_after": 474,
+      "notes": [
+        "Removed boundary markers from: dataflow_parse_failures.py, dataflow_raw_runtime.py, dataflow_runtime_reporting.py, dataflow_graph_rendering.py, dataflow_output_emitters.py, dataflow_parse_helpers.py, dataflow_projection_preview_bridge.py, dataflow_refactor_planning.py, dataflow_snapshot_io.py.",
+        "Reverted dataflow_run_outputs.py marker removal after defensive-fallback regression during batch validation.",
+        "All non-target scanner families remained non-increasing in the retained subset."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
