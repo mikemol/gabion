@@ -343,6 +343,54 @@
         "remediation_target_suites": "pass",
         "server_core_targeted_suites": "pass"
       }
+    },
+    {
+      "cu_id": "CU-HY2A",
+      "summary": "Repro-harness hardening: policy scanner external-policy subprocesses now inherit repo-root PYTHONPATH, eliminating module-resolution drift during ci-local checks.",
+      "timestamp_utc": "2026-03-06T21:59:11Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 258,
+        "fiber_normalization_contract": 221,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 19,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 48,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 257,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 703,
+      "total_after": 700,
+      "notes": [
+        "Set subprocess environment PYTHONPATH in scripts/policy/policy_scanner_suite.py when executing external policy checks.",
+        "Removed ModuleNotFoundError for 'scripts' during scanner-suite execution under ci-local repro.",
+        "First checks-only blocker remains policy_scanner_suite debt (expected nonzero), now without harness-resolution failure."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite_script": "fail_expected_nonzero",
+        "ci_local_repro_checks_only": "fail_expected_nonzero",
+        "test_policy_scanner_suite": "pass",
+        "test_ci_governance_scripts": "pass"
+      }
     }
   ],
   "generated_by": "codex",

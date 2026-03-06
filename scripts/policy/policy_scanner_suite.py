@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,14 @@ def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str
         ),
     )
     results: dict[str, dict[str, object]] = {}
+    env = os.environ.copy()
+    existing_pythonpath = str(env.get("PYTHONPATH", "") or "").strip()
+    root_pythonpath = str(root)
+    env["PYTHONPATH"] = (
+        root_pythonpath
+        if not existing_pythonpath
+        else f"{root_pythonpath}:{existing_pythonpath}"
+    )
     for rule_id, command in checks:
         if rule_id == "deprecated_nonerasability":
             baseline = Path(command[2])
@@ -63,7 +72,12 @@ def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str
                     input_scope={"baseline": str(baseline), "current": str(current)},
                 )
                 continue
-        completed = subprocess.run([sys.executable, *command], cwd=root, check=False)
+        completed = subprocess.run(
+            [sys.executable, *command],
+            cwd=root,
+            env=env,
+            check=False,
+        )
         artifact = Path(command[-1])
         loaded = policy_result_schema.load_policy_result(artifact)
         if loaded is not None:
