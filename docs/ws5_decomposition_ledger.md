@@ -1,5 +1,5 @@
 ---
-doc_revision: 294
+doc_revision: 296
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -14,23 +14,62 @@ doc_scope:
 - Monolith file: `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py`
 - Monolith LOC (current): 375
 - Monolith top-level import statements (current): 52
-- Facade file: `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
-- Facade LOC (current): 64
-- Facade top-level import statements (current): 15
-- Compatibility owner max metrics (current): `loc=57`, `imports=3`
+- Legacy compatibility modules: retired (`dataflow_facade.py` and all `dataflow_*_owner.py` removed)
 - Direct monolith imports in `src/`: 0
 - Direct monolith imports in `tests/`: 0
-- Direct `dataflow_facade` imports in `src/` + `tests/`: 0
-- Direct `_owner` compatibility imports in `src/` + `tests/`: 0
-- Common monolith/facade bound-surface alias deltas: 0
+- Direct legacy compatibility imports in `src/` + `tests/`: 0
 - WS-5 hard-cut acceptance thresholds: met (`LOC<=3200`, `imports<=70`, `src/tests direct monolith imports=0`)
 - WS-5 broad completion regression status: passed as of `in-160`
 
 ## Debt Ledger
-- Medium: compatibility alias modules still exist (`dataflow_analysis_index_owner.py`, `dataflow_deadline_runtime_owner.py`, `dataflow_runtime_reporting_owner.py`, `dataflow_deadline_summary_owner.py`, `dataflow_facade.py`) and now carry explicit lifecycle metadata; retirement requires an explicit external-compat decision.
+- Medium: none (legacy compatibility shim modules retired in `in-354`).
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-354`, this CU):
+  - Completed no-legacy-compat hard cut:
+    - deleted remaining compatibility modules:
+      - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index_owner.py`
+      - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime_owner.py`
+      - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`
+    - removed legacy compatibility test suite:
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_boundary_shape.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_import_hygiene.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_import_hygiene.py`
+      - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_facade_metrics_guard.py`
+    - added hard-cut guard:
+      - `tests/gabion/analysis/misc_s3/test_no_legacy_dataflow_compat_imports.py`
+    - removed private-symbol allowlist exemptions for retired compatibility modules/tests:
+      - `docs/policy/private_symbol_import_allowlist.txt`
+    - normalized one remaining compatibility-origin source marker:
+      - `src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py`
+  - Result:
+    - compatibility shim surface retired; repo now enforces no imports of legacy compatibility module paths.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted hard-cut regression suites passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
+- WS-5 continuation (`in-353`, this CU):
+  - Retired compatibility alias modules with zero internal consumers:
+    - deleted `src/gabion/analysis/dataflow/engine/dataflow_runtime_reporting_owner.py`
+    - deleted `src/gabion/analysis/dataflow/engine/dataflow_deadline_summary_owner.py`
+  - Re-scoped remaining compatibility checks to active boundary shims only:
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_imports.py`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_alias_parity.py`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_compat_boundary_shape.py`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_import_hygiene.py`
+    - `tests/gabion/analysis/misc_s3/test_legacy_dataflow_owner_metrics_guard.py`
+  - Result:
+    - compatibility-owner debt reduced from four owner shims to two (`analysis_index_owner`, `deadline_runtime_owner`) with no internal importer regressions.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted legacy compatibility suites passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
 - WS-5 continuation (`in-352`, this CU):
   - Normalized scan-kernel request carrier typing to canonical parse-failure witness alias:
     - `src/gabion/analysis/dataflow/engine/scan_kernel.py`

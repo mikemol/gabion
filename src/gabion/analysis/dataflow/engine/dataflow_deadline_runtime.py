@@ -143,7 +143,7 @@ def _dedupe_resolution_candidates(
         sort_once(
             deduped.values(),
             key=lambda info: info.qual,
-            source="gabion.analysis.dataflow.engine.dataflow_deadline_runtime_owner._dedupe_resolution_candidates",
+            source="gabion.analysis.dataflow.engine.dataflow_deadline_runtime._dedupe_resolution_candidates",
         )
     )
 
