@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: legacy_dataflow_monolith_test_replacement_matrix
 doc_role: audit
@@ -56,7 +56,7 @@ Rows are initialized from current `tests/` imports of `gabion.analysis.legacy_da
 | `tests/test_dataflow_grouping.py` | `D2` | `grouping propagation assertions` | `dataflow_pipeline` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_dataflow_helpers.py` | `D1/D2` | `owner-module replacement coverage` | `dataflow_ingest_helpers; dataflow_analysis_index; dataflow_pipeline` | `CU-RT-01` | `replaced` | Pruned alias suite; replaced by owner-surface assertions in active suites. |
 | `tests/test_dataflow_misc_edges.py` | `D2/D3/D5/D6` | `owner-module replacement coverage` | `dataflow_pipeline; dataflow_reporting; dataflow_obligations` | `CU-RT-01` | `replaced` | Pruned alias suite; replaced by owner-surface assertions in active suites. |
-| `tests/test_dataflow_report_helpers.py` | `D6` | `report/snapshot helper assertions` | `dataflow_reporting; dataflow_snapshot_io; dataflow_report_rendering` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
+| `tests/test_dataflow_report_helpers.py` | `D6` | `report/snapshot helper assertions` | `dataflow_reporting; dataflow_snapshot_io; dataflow_report_rendering` | `CU-RT-01` | `retargeted` | Human report/lint labels now render each row's `marker_kind` (`never`/`todo`/`deprecated`) with legacy fallback to `never()` when `marker_kind` is missing or empty. |
 | `tests/test_dataflow_resolve_callee.py` | `D1` | `callee resolution assertions` | `dataflow_callee_resolution; dataflow_function_index_helpers` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_deadline_coverage.py` | `D5` | `deadline obligation assertions` | `dataflow_obligations; dataflow_deadline_helpers` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_decision_surfaces.py` | `D3` | `decision/value-decision assertions` | `dataflow_decision_surfaces; dataflow_pipeline` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
@@ -90,3 +90,6 @@ Rows are initialized from current `tests/` imports of `gabion.analysis.legacy_da
 For the report and lint replacement surfaces, never-invariant line labels now preserve each row's `marker_kind` value (`never`, `todo`, `deprecated`) instead of collapsing to `never()` unconditionally.
 When a historical row omits `marker_kind` (or provides an empty value), rendering intentionally defaults to `never()` so older artifacts remain interpretable.
 
+## Verified against code
+
+Verified against `src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py::summarize_never_invariants`, which formats labels from per-row `marker_kind` and falls back to `never` when absent/empty before rendering `<marker_kind>() invariant (...)`.
