@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Generic, TypeVar
 
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
+
 _KernelResult = TypeVar("_KernelResult")
 
 
@@ -15,7 +17,7 @@ class ScanKernelRequest:
     strictness: str
     external_filter: bool
     transparent_decorators: object
-    parse_failure_witnesses: object
+    parse_failure_witnesses: ParseFailureWitnesses
     analysis_index: object
 
 

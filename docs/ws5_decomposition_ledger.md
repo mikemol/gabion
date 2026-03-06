@@ -1,5 +1,5 @@
 ---
-doc_revision: 293
+doc_revision: 294
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,17 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-352`, this CU):
+  - Normalized scan-kernel request carrier typing to canonical parse-failure witness alias:
+    - `src/gabion/analysis/dataflow/engine/scan_kernel.py`
+      - `ScanKernelRequest.parse_failure_witnesses` now uses `ParseFailureWitnesses` instead of `object`
+  - Result:
+    - decision-surface scan-kernel ingress contracts now align with canonical parse-failure witness carrier typing.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted decision-surface/pipeline/constant-flow suites passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-351`, this CU):
   - Extended canonical parse-failure witness alias usage into analysis-index owner surfaces:
     - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
