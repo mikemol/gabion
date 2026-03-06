@@ -399,8 +399,8 @@ socket, or passed as an in-memory structure.
 
 > The LSP layer is a **semantic boundary**. CLI code constructs payloads and
 > delegates execution; server code consumes payloads and returns results.
-> Transport mechanics (serialization, framing, IO) are opaque and must not be
-> relied on by core logic or tests.
+> Transport mechanics (serialization, framing, IO) are opaque and must not be relied on
+> by core logic or tests.
 
 ### Erasure
 
@@ -421,7 +421,7 @@ message payloads are semantically relevant.
 
 **Definition:** The interpreter and environment (mise/venv/system) provide
 execution capability but do not define meaning. Given equivalent interpreter
-version and declared dependencies, semantic outcomes must be invariant.
+version and declared dependencies, semantic outcomes must remain invariant.
 
 ### Axis
 
@@ -486,8 +486,8 @@ resolve(D) = resolve(D)  (deterministic given the same declarations)
 ### Normative Rule
 
 > Semantic outcomes must depend only on declared dependencies. If resolver
-> nondeterminism can affect meaning, it is a policy failure and must be
-> addressed by tightening declarations or pinning inputs.
+> nondeterminism can affect meaning, it is a policy failure and must be addressed
+> by tightening declarations or pinning inputs.
 
 ### Erasure
 
@@ -1536,8 +1536,8 @@ Formatting is erased; handler boundary is **not**.
 
 ### Desired Commutation (Status ↔ Evidence)
 
-Status updates must commute with evidence references; UNKNOWN must never be
-coerced into a discharged state without a witness.
+Status updates must commute with evidence references; systems must never coerce
+UNKNOWN into a discharged state without a witness.
 
 ### Failure Modes
 
