@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 """Exception-obligation helpers extracted from ``legacy_dataflow_monolith``."""
 

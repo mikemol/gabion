@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 """Decision-surface helpers extracted from ``legacy_dataflow_monolith``.
 

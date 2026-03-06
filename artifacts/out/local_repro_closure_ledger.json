@@ -844,6 +844,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2F",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from dataflow engine helper modules; retained monotonic subset after reverting one defensive-fallback regressor.",
+      "timestamp_utc": "2026-03-06T23:51:37Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 191,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 182,
+        "fiber_normalization_contract": 165,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 491,
+      "total_after": 482,
+      "notes": [
+        "Removed boundary markers from: dataflow_bundle_merge.py, dataflow_call_graph_algorithms.py, dataflow_callee_resolution.py, dataflow_callee_resolution_support.py, dataflow_deadline_helpers.py, dataflow_deadline_summary.py, dataflow_decision_surfaces.py, dataflow_exception_obligations.py, dataflow_ingest_helpers.py.",
+        "Initially removed marker from dataflow_lint_helpers.py as part of the batch, then reverted that file after defensive-fallback regression surfaced.",
+        "Non-target scanner families remained non-increasing after retaining the monotonic subset."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
