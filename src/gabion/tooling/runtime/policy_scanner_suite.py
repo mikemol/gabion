@@ -6,13 +6,19 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 from typing import Any, Iterable, Mapping
 import ast
 from gabion.tooling.policy_rules import (
+    aspf_normalization_idempotence_rule,
+    boundary_core_contract_rule,
     branchless_rule,
     defensive_fallback_rule,
+    fiber_normalization_contract_rule,
     no_monkeypatch_rule,
     runtime_narrowing_boundary_rule,
+    test_sleep_hygiene_rule,
+    test_subprocess_hygiene_rule,
     typing_surface_rule,
 )
 from gabion.tooling.runtime import policy_result_schema
@@ -25,7 +31,10 @@ _TYPING_SURFACE_BASELINE = Path("baselines/typing_surface_policy_baseline.json")
 _TYPING_SURFACE_WAIVERS = Path("baselines/typing_surface_policy_waivers.json")
 _RUNTIME_NARROWING_BOUNDARY_BASELINE = Path("baselines/runtime_narrowing_boundary_policy_baseline.json")
 _RUNTIME_NARROWING_BOUNDARY_WAIVERS = Path("baselines/runtime_narrowing_boundary_policy_waivers.json")
+_ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE = Path("baselines/aspf_normalization_idempotence_policy_baseline.json")
 _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
+_TEST_SUBPROCESS_HYGIENE_ALLOWLIST = Path("docs/policy/test_subprocess_hygiene_allowlist.txt")
+_TEST_SLEEP_HYGIENE_ALLOWLIST = Path("docs/policy/test_sleep_hygiene_allowlist.txt")
 
 
 _ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orchestrator_primitives.py")
@@ -37,6 +46,7 @@ _EXTERNAL_POLICY_RESULT_RULE_IDS = (
     "structural_hash",
     "deprecated_nonerasability",
 )
+_BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
 
 def _normalize_policy_results(raw: object) -> dict[str, dict[str, Any]]:
@@ -90,6 +100,68 @@ def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
     return violations
 
 
+def _changed_paths_from_git(
+    *,
+    root: Path,
+    base_sha: str | None,
+    head_sha: str | None,
+) -> set[str] | None:
+    if base_sha and head_sha:
+        command = ["git", "diff", "--name-only", f"{base_sha}..{head_sha}"]
+    else:
+        command = ["git", "diff", "--name-only", "HEAD"]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    changed = {line.strip() for line in completed.stdout.splitlines() if line.strip()}
+    if base_sha and head_sha:
+        return changed
+
+    # Include untracked files for local touched+new checks.
+    try:
+        untracked = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return changed
+    changed.update(line.strip() for line in untracked.stdout.splitlines() if line.strip())
+    return changed
+
+
+def _boundary_scoped_files(
+    *,
+    root: Path,
+    inventory: tuple[Path, ...],
+    changed_paths: set[str] | None,
+) -> tuple[Path, ...]:
+    scoped: list[Path] = []
+    for path in inventory:
+        rel = path.relative_to(root).as_posix()
+        if changed_paths is not None and rel not in changed_paths:
+            continue
+        if not rel.startswith("src/gabion/"):
+            continue
+        try:
+            source = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if _BOUNDARY_MARKER not in source:
+            continue
+        scoped.append(path)
+    return tuple(sorted(set(scoped), key=lambda item: str(item)))
+
+
 @dataclass(frozen=True)
 class PolicySuiteResult:
     root: Path
@@ -126,10 +198,22 @@ def load_or_scan_policy_suite(
     root: Path,
     artifact_path: Path = _POLICY_ARTIFACT,
     policy_results: Mapping[str, Mapping[str, Any]] | None = None,
+    base_sha: str | None = None,
+    head_sha: str | None = None,
 ) -> PolicySuiteResult:
     resolved_root = root.resolve()
     files = _inventory_files(resolved_root)
     inventory_hash = _inventory_hash(files, resolved_root)
+    changed_paths = _changed_paths_from_git(
+        root=resolved_root,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    changed_scope_hash = hashlib.sha256(
+        json.dumps(sorted(changed_paths) if changed_paths is not None else ["<all>"]).encode(
+            "utf-8"
+        )
+    ).hexdigest()
     rule_set_hash = _rule_set_hash()
     normalized_policy_results = {key: dict(value) for key, value in (policy_results or {}).items() if isinstance(value, Mapping)}
     policy_results_hash = hashlib.sha256(json.dumps(normalized_policy_results, sort_keys=True).encode("utf-8")).hexdigest()
@@ -139,6 +223,7 @@ def load_or_scan_policy_suite(
             str(cached_payload.get("inventory_hash", "")) == inventory_hash
             and str(cached_payload.get("rule_set_hash", "")) == rule_set_hash
             and str(cached_payload.get("policy_results_hash", "")) == policy_results_hash
+            and str(cached_payload.get("changed_scope_hash", "")) == changed_scope_hash
         ):
             violations = _violations_from_payload(cached_payload)
             return PolicySuiteResult(
@@ -150,9 +235,17 @@ def load_or_scan_policy_suite(
                 cached=True,
             )
 
-    result = scan_policy_suite(root=resolved_root, files=files, policy_results=normalized_policy_results)
+    result = scan_policy_suite(
+        root=resolved_root,
+        files=files,
+        policy_results=normalized_policy_results,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        changed_paths=changed_paths,
+    )
     payload = result.to_payload()
     payload["policy_results_hash"] = policy_results_hash
+    payload["changed_scope_hash"] = changed_scope_hash
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     return result
@@ -164,9 +257,26 @@ def scan_policy_suite(
     root: Path,
     files: tuple[Path, ...] | None = None,
     policy_results: Mapping[str, Mapping[str, Any]] | None = None,
+    base_sha: str | None = None,
+    head_sha: str | None = None,
+    changed_paths: set[str] | None = None,
 ) -> PolicySuiteResult:
     resolved_root = root.resolve()
     inventory = files if files is not None else _inventory_files(resolved_root)
+    resolved_changed_paths = (
+        changed_paths
+        if changed_paths is not None
+        else _changed_paths_from_git(
+            root=resolved_root,
+            base_sha=base_sha,
+            head_sha=head_sha,
+        )
+    )
+    boundary_scope_files = _boundary_scoped_files(
+        root=resolved_root,
+        inventory=inventory,
+        changed_paths=resolved_changed_paths,
+    )
     inventory_hash = _inventory_hash(inventory, resolved_root)
     rule_set_hash = _rule_set_hash()
     branchless_allowed = _load_rule_baseline_keys(
@@ -185,6 +295,10 @@ def scan_policy_suite(
         module=runtime_narrowing_boundary_rule,
         baseline_path=resolved_root / _RUNTIME_NARROWING_BOUNDARY_BASELINE,
     )
+    aspf_normalization_idempotence_allowed = _load_rule_baseline_keys(
+        module=aspf_normalization_idempotence_rule,
+        baseline_path=resolved_root / _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE,
+    )
     typing_surface_waiver_result = typing_surface_rule.load_waivers(
         resolved_root / _TYPING_SURFACE_WAIVERS,
     )
@@ -200,6 +314,11 @@ def scan_policy_suite(
         "orchestrator_primitive_barrel": [],
         "typing_surface": [],
         "runtime_narrowing_boundary": [],
+        "aspf_normalization_idempotence": [],
+        "boundary_core_contract": [],
+        "fiber_normalization_contract": [],
+        "test_subprocess_hygiene": [],
+        "test_sleep_hygiene": [],
     }
 
     for invalid in typing_surface_waiver_result.invalid_waivers:
@@ -249,6 +368,54 @@ def scan_policy_suite(
 
     violations_by_rule["orchestrator_primitive_barrel"].extend(
         _scan_orchestrator_primitive_barrel(root=resolved_root)
+    )
+    aspf_normalization_idempotence_violations = _filter_baseline_violations(
+        aspf_normalization_idempotence_rule.collect_violations(root=resolved_root),
+        allowed_keys=aspf_normalization_idempotence_allowed,
+    )
+    aspf_ingress_violations = aspf_normalization_idempotence_rule.collect_ingress_violations(
+        root=resolved_root,
+        baseline_path=(resolved_root / _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE),
+    )
+    violations_by_rule["aspf_normalization_idempotence"].extend(
+        _serialize_aspf_normalization_idempotence(item)
+        for item in aspf_ingress_violations
+    )
+    violations_by_rule["aspf_normalization_idempotence"].extend(
+        _serialize_aspf_normalization_idempotence(item)
+        for item in aspf_normalization_idempotence_violations
+    )
+    boundary_core_contract_violations = boundary_core_contract_rule.collect_violations(
+        root=resolved_root,
+        files=boundary_scope_files,
+    )
+    violations_by_rule["boundary_core_contract"].extend(
+        _serialize_boundary_core_contract(item)
+        for item in boundary_core_contract_violations
+    )
+    fiber_contract_violations = fiber_normalization_contract_rule.collect_violations(
+        root=resolved_root,
+        files=boundary_scope_files,
+    )
+    violations_by_rule["fiber_normalization_contract"].extend(
+        _serialize_fiber_normalization_contract(item)
+        for item in fiber_contract_violations
+    )
+    test_subprocess_hygiene_violations = test_subprocess_hygiene_rule.collect_violations(
+        root=resolved_root,
+        allowlist_path=resolved_root / _TEST_SUBPROCESS_HYGIENE_ALLOWLIST,
+    )
+    violations_by_rule["test_subprocess_hygiene"].extend(
+        _serialize_test_subprocess_hygiene(item)
+        for item in test_subprocess_hygiene_violations
+    )
+    test_sleep_hygiene_violations = test_sleep_hygiene_rule.collect_violations(
+        root=resolved_root,
+        allowlist_path=resolved_root / _TEST_SLEEP_HYGIENE_ALLOWLIST,
+    )
+    violations_by_rule["test_sleep_hygiene"].extend(
+        _serialize_test_sleep_hygiene(item)
+        for item in test_sleep_hygiene_violations
     )
 
     for path in inventory:
@@ -372,6 +539,11 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
             "orchestrator_primitive_barrel": [],
             "typing_surface": [],
             "runtime_narrowing_boundary": [],
+            "aspf_normalization_idempotence": [],
+            "boundary_core_contract": [],
+            "fiber_normalization_contract": [],
+            "test_subprocess_hygiene": [],
+            "test_sleep_hygiene": [],
         }
     normalized: dict[str, list[dict[str, Any]]] = {}
     for rule in (
@@ -382,6 +554,11 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
         "orchestrator_primitive_barrel",
         "typing_surface",
         "runtime_narrowing_boundary",
+        "aspf_normalization_idempotence",
+        "boundary_core_contract",
+        "fiber_normalization_contract",
+        "test_subprocess_hygiene",
+        "test_sleep_hygiene",
     ):
         raw_items = violations_raw.get(rule)
         if not isinstance(raw_items, list):
@@ -423,6 +600,11 @@ def _rule_set_hash() -> str:
             "orchestrator_primitive_barrel:v1",
             "typing_surface:v2",
             "runtime_narrowing_boundary:v2",
+            "aspf_normalization_idempotence:v2",
+            "boundary_core_contract:v1",
+            "fiber_normalization_contract:v1",
+            "test_subprocess_hygiene:v2",
+            "test_sleep_hygiene:v1",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -619,6 +801,85 @@ def _serialize_runtime_narrowing_boundary(violation: object) -> dict[str, object
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_aspf_normalization_idempotence(
+    violation: object,
+) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "normalization_class": getattr(violation, "normalization_class"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "event_kind": getattr(violation, "event_kind"),
+        "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_boundary_core_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_fiber_normalization_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "normalization_class": getattr(violation, "normalization_class"),
+        "input_slot": getattr(violation, "input_slot"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "legacy_key": getattr(violation, "legacy_key", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_test_subprocess_hygiene(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "kind": getattr(violation, "kind"),
+        "call": getattr(violation, "call"),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "kind": getattr(violation, "kind"),
+        "call": getattr(violation, "call"),
+        "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }

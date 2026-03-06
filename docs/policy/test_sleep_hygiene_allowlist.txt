@@ -1,0 +1,2 @@
+# Allowlisted test files that intentionally exercise real wall-clock timing.
+# Keep this list narrow and integration-boundary only.

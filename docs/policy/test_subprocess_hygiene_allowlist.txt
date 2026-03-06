@@ -1,0 +1,4 @@
+# Allowlisted test files that intentionally execute real subprocess commands.
+# Keep this list narrow and integration-boundary only.
+
+tests/gabion/tooling/ci/test_ci_observability_guard.py

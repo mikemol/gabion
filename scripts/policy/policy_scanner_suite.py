@@ -81,12 +81,20 @@ def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str
     return results
 
 
-def run(*, root: Path, out: Path) -> int:
+def run(
+    *,
+    root: Path,
+    out: Path,
+    base_sha: str | None = None,
+    head_sha: str | None = None,
+) -> int:
     policy_results = _run_external_policy_results(root=root, out=out)
     result = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=out,
         policy_results=policy_results,
+        base_sha=base_sha,
+        head_sha=head_sha,
     )
     total = result.total_violations()
     print(f"policy-suite scan: cached={result.cached} total_violations={total} out={out}")
@@ -103,6 +111,11 @@ def run(*, root: Path, out: Path) -> int:
         "orchestrator_primitive_barrel",
         "typing_surface",
         "runtime_narrowing_boundary",
+        "aspf_normalization_idempotence",
+        "boundary_core_contract",
+        "fiber_normalization_contract",
+        "test_subprocess_hygiene",
+        "test_sleep_hygiene",
     ):
         items = policy_scanner_suite.violations_for_rule(result, rule=rule)
         if not items:
@@ -117,8 +130,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument("--out", default="artifacts/out/policy_suite_results.json")
+    parser.add_argument("--base-sha", default=None)
+    parser.add_argument("--head-sha", default=None)
     args = parser.parse_args(argv)
-    return run(root=Path(args.root).resolve(), out=Path(args.out).resolve())
+    return run(
+        root=Path(args.root).resolve(),
+        out=Path(args.out).resolve(),
+        base_sha=str(args.base_sha).strip() or None,
+        head_sha=str(args.head_sha).strip() or None,
+    )
 
 
 if __name__ == "__main__":

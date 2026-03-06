@@ -47,6 +47,11 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="typing_surface") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="runtime_narrowing_boundary") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="aspf_normalization_idempotence") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="boundary_core_contract") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_normalization_contract") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="test_subprocess_hygiene") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="test_sleep_hygiene") == []
 
     second = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
@@ -86,6 +91,11 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["orchestrator_primitive_barrel"] == []
     assert normalized.violations_by_rule["typing_surface"] == []
     assert normalized.violations_by_rule["runtime_narrowing_boundary"] == []
+    assert normalized.violations_by_rule["aspf_normalization_idempotence"] == []
+    assert normalized.violations_by_rule["boundary_core_contract"] == []
+    assert normalized.violations_by_rule["fiber_normalization_contract"] == []
+    assert normalized.violations_by_rule["test_subprocess_hygiene"] == []
+    assert normalized.violations_by_rule["test_sleep_hygiene"] == []
 
     _write(
         root / "src/gabion/new_file.py",
@@ -127,6 +137,11 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["orchestrator_primitive_barrel"] == []
     assert normalized["typing_surface"] == []
     assert normalized["runtime_narrowing_boundary"] == []
+    assert normalized["aspf_normalization_idempotence"] == []
+    assert normalized["boundary_core_contract"] == []
+    assert normalized["fiber_normalization_contract"] == []
+    assert normalized["test_subprocess_hygiene"] == []
+    assert normalized["test_sleep_hygiene"] == []
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -301,6 +316,11 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="typing_surface") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="aspf_normalization_idempotence") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="boundary_core_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_normalization_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="test_subprocess_hygiene") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="test_sleep_hygiene") == []
 
 
 def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path: Path) -> None:
@@ -442,6 +462,127 @@ def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_me
     result = policy_scanner_suite.scan_policy_suite(root=root)
     violations = policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
+
+
+def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_canonical_flow(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    trace_payload = {
+        "trace_id": "aspf-trace:test",
+        "one_cells": [
+            {
+                "source": "ingress:payload",
+                "target": "boundary:carrier",
+                "representative": "parse:start",
+                "basis_path": ["ingress", "parse"],
+                "kind": "boundary_parse",
+                "surface": "",
+                "metadata": {},
+            },
+            {
+                "source": "ingress:payload",
+                "target": "boundary:carrier",
+                "representative": "parse:repeat",
+                "basis_path": ["ingress", "parse"],
+                "kind": "boundary_parse",
+                "surface": "",
+                "metadata": {},
+            },
+            {
+                "source": "runtime:inputs",
+                "target": "analysis:engine",
+                "representative": "analyze_paths.start",
+                "basis_path": ["analysis", "call", "start"],
+                "kind": "analysis_call_start",
+                "surface": "",
+                "metadata": {},
+            },
+        ],
+    }
+    _write(
+        root / "artifacts/out/aspf_trace.json",
+        json.dumps(trace_payload, indent=2) + "\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result, rule="aspf_normalization_idempotence"
+    )
+    assert len(violations) == 1
+    assert violations[0]["kind"] == "duplicate_normalization_class_pre_core"
+    assert violations[0]["normalization_class"] == "parse"
+
+
+def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "baselines/aspf_normalization_idempotence_policy_baseline.json",
+        json.dumps(
+            {
+                "version": 1,
+                "violations": [
+                    {
+                        "path": "artifacts/out/aspf_trace.json",
+                        "qualname": "flow:path:1.2.3",
+                        "kind": "duplicate_normalization_class_pre_core",
+                    },
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="aspf_normalization_idempotence",
+    )
+    assert len(violations) == 1
+    assert violations[0]["kind"] == "invalid_baseline_payload"
+
+
+def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/example_boundary.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization_module",
+                "import gabion.example_core as example_core",
+                "",
+                "def run_boundary(value: str) -> str:",
+                "    return value",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        root / "src/gabion/example_core.py",
+        "def run_core(value: str) -> str:\n    return value\n",
+    )
+    _write(root / "src/gabion/unrelated.py", "def ok():\n    return 1\n")
+    unscoped_result = policy_scanner_suite.scan_policy_suite(root=root)
+    assert policy_scanner_suite.violations_for_rule(
+        unscoped_result,
+        rule="boundary_core_contract",
+    )
+    scoped_result = policy_scanner_suite.scan_policy_suite(
+        root=root,
+        changed_paths={"src/gabion/unrelated.py"},
+    )
+    assert (
+        policy_scanner_suite.violations_for_rule(
+            scoped_result,
+            rule="boundary_core_contract",
+        )
+        == []
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_carries_external_policy_results::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
