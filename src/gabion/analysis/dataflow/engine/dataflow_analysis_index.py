@@ -86,7 +86,7 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
 )
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
 from gabion.analysis.indexed_scan.index.analysis_index_builder import (
     AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps,
@@ -133,7 +133,7 @@ _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
 
 OptionalProjectRoot = Path
 OptionalDecorators = set[str]
-OptionalParseFailures = list[JSONObject]
+OptionalParseFailures = ParseFailureWitnesses
 OptionalAnalysisIndex = object
 
 
@@ -145,7 +145,7 @@ class _IndexedPassContext:
     strictness: str
     external_filter: bool
     transparent_decorators: OptionalDecorators
-    parse_failure_witnesses: list[JSONObject]
+    parse_failure_witnesses: ParseFailureWitnesses
     analysis_index: object
 
 
@@ -322,7 +322,7 @@ def _build_single_module_artifact(
     paths: list[Path],
     *,
     spec: _ModuleArtifactSpec[object, object],
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> object:
     check_deadline()
     raw_artifact, = _build_module_artifacts(
@@ -340,7 +340,7 @@ def _build_function_index(
     strictness: str,
     transparent_decorators=None,
     *,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     raw_index = _build_single_module_artifact(
         paths,
@@ -409,7 +409,7 @@ def _build_symbol_table(
     project_root,
     *,
     external_filter: bool,
-    parse_failure_witnesses: list[JSONObject],
+    parse_failure_witnesses: ParseFailureWitnesses,
 ) -> SymbolTable:
     raw_table = _build_single_module_artifact(
         paths,
@@ -647,7 +647,7 @@ def _build_call_graph(
     strictness: str,
     external_filter: bool,
     transparent_decorators=None,
-    parse_failure_witnesses: list[dict[str, object]],
+    parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
 ) -> tuple[dict[str, list[object]], dict[str, object], dict[str, set[str]]]:
     check_deadline()

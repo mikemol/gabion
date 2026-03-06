@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from tests.path_helpers import REPO_ROOT
 from gabion.analysis.aspf.aspf import Forest
+from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
 def _load():
     repo_root = REPO_ROOT
@@ -262,7 +263,7 @@ def test_collect_constant_flow_details_uses_injected_reduce_and_iter(
         "def caller():\n"
         "    return callee(1)\n"
     )
-    parse_failure_witnesses: list[object] = []
+    parse_failure_witnesses: ParseFailureWitnesses = []
     analysis_index = index_owner._build_analysis_index(
         [path],
         project_root=tmp_path,

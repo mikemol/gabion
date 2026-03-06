@@ -1,5 +1,5 @@
 ---
-doc_revision: 292
+doc_revision: 293
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,21 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-351`, this CU):
+  - Extended canonical parse-failure witness alias usage into analysis-index owner surfaces:
+    - `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+      - `OptionalParseFailures` now aliases `ParseFailureWitnesses`
+      - indexed-pass/artifact/symbol-table/call-graph parse-failure witness signatures now use `ParseFailureWitnesses`
+  - Tightened one remaining test-local witness annotation to canonical alias:
+    - `tests/gabion/analysis/misc_s1/test_constant_flow_audit.py`
+      - local `parse_failure_witnesses` annotation now uses `ParseFailureWitnesses`
+  - Result:
+    - canonical witness carrier alias now spans both indexed-scan seams and analysis-index owner entry surfaces, reducing boundary-type drift.
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted constant-flow/pipeline/deadline/type-flow suites passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
 - WS-5 continuation (`in-350`, this CU):
   - Introduced canonical parse-failure witness carrier alias in foundation boundary types:
     - `src/gabion/analysis/foundation/json_types.py`
