@@ -174,6 +174,26 @@ clauses:
       - scripts/ci_local_repro.sh
     ci_anchors: []
     expected_artifacts: []
+  NCI-DOCFLOW-CLOSED-LOOP:
+    status: enforced
+    enforcing_modules:
+      - docs/governance_rules.yaml
+      - scripts/policy/docflow_packetize.py
+      - scripts/policy/docflow_packet_enforce.py
+      - docs/baselines/docflow_packet_baseline.json
+      - scripts/checks.sh
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Docflow packetize
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Docflow packet enforce
+    expected_artifacts:
+      - artifacts/out/docflow_warning_doc_packets.json
+      - artifacts/out/docflow_warning_doc_packet_summary.json
+      - artifacts/out/docflow_packet_enforcement.json
+      - artifacts/out/docflow_packet_debt_ledger.json
   NCI-CONTROLLER-DRIFT-LIFECYCLE:
     status: enforced
     enforcing_modules:

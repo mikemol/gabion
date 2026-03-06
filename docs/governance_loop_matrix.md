@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_loop_matrix
 doc_role: policy
@@ -18,21 +18,21 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
 doc_reviewed_as_of:
-  docs/governance_control_loops.md#governance_control_loops: 1
+  docs/governance_control_loops.md#governance_control_loops: 2
   README.md#repo_contract: 2
   AGENTS.md#agent_obligations: 2
   CONTRIBUTING.md#contributing_contract: 2
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
 doc_review_notes:
-  docs/governance_control_loops.md#governance_control_loops: "Control-loop domain registry reviewed; matrix rows align to declared first-order loops and correction semantics."
+  docs/governance_control_loops.md#governance_control_loops: "Control-loop domain registry reviewed; matrix rows align to declared first-order loops including strict docflow packetization/enforcement."
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Glossary contract reviewed; gate identifiers and loop-domain labels are semantically stable."
 doc_sections:
-  governance_loop_matrix: 1
+  governance_loop_matrix: 2
 doc_section_requires:
   governance_loop_matrix:
     - docs/governance_control_loops.md#governance_control_loops
@@ -44,33 +44,33 @@ doc_section_requires:
 doc_section_reviews:
   governance_loop_matrix:
     docs/governance_control_loops.md#governance_control_loops:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 2
+      self_version_at_review: 2
       outcome: no_change
-      note: "Domain/correction model remains compatible with matrix columns."
+      note: "Domain/correction model remains compatible with matrix columns including packetized strict docflow loop controls."
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     POLICY_SEED.md#policy_seed:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Loop and gate terms remain semantically consistent with glossary contract."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -100,3 +100,4 @@ Cross-reference anchors used by this matrix: `docs/governance_control_loops.md#g
 | baseline ratchets | `annotation_orphaned` | `mise exec -- python -m gabion.tooling.annotation_drift_orphaned_gate` | `artifacts/out/test_annotation_drift_delta.json` | `ratchet` | `warning=0, block=1` | Gate toggle: `GABION_GATE_ORPHANED_DELTA` (`default_true`); strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`. |
 | baseline ratchets | `ambiguity` | `mise exec -- python -m gabion.tooling.ambiguity_delta_gate` | `artifacts/out/ambiguity_delta.json` | `hard-fail` | `warning=0, block=1` | Gate toggle: `GABION_GATE_AMBIGUITY_DELTA` (`default_true`); strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`. |
 | docs/docflow | `docflow` | `mise exec -- python -m gabion.tooling.docflow_delta_gate` | `artifacts/out/docflow_compliance_delta.json` | `advisory` | `warning=0, block=1` | Gate toggle: `GABION_GATE_DOCFLOW_DELTA` (`truthy_only`); strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`. |
+| docs/docflow | `docflow_packet_loop` | `mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests` | `artifacts/out/docflow_packet_enforcement.json`, `artifacts/out/docflow_packet_debt_ledger.json` | `hard-fail` | `warning=0, block=1` | Gate toggle: `GABION_GATE_DOCFLOW_PACKET` (`default_true`); baseline movement remains explicit via `--write-baseline` in a dedicated correction unit with documented rationale. |

@@ -1,6 +1,6 @@
 ---
 doc_revision: 18
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: docflow_strict_failure_analysis
 doc_role: analysis
 doc_scope:
@@ -9,19 +9,19 @@ doc_scope:
   - docs
 doc_authority: informative
 doc_requires:
-  - CONTRIBUTING.md#contributing_contract
-  - AGENTS.md#agent_obligations
-  - docs/normative_clause_index.md#normative_clause_index
+  - "CONTRIBUTING.md#contributing_contract"
+  - "AGENTS.md#agent_obligations"
+  - "docs/normative_clause_index.md#normative_clause_index"
   - src/gabion_governance/governance_audit_impl.py
 doc_reviewed_as_of:
-  CONTRIBUTING.md#contributing_contract: 2
-  AGENTS.md#agent_obligations: 30
-  docs/normative_clause_index.md#normative_clause_index: 2
+  "CONTRIBUTING.md#contributing_contract": 2
+  "AGENTS.md#agent_obligations": 30
+  "docs/normative_clause_index.md#normative_clause_index": 2
 doc_review_notes:
-  CONTRIBUTING.md#contributing_contract: Strict docflow review discipline and correction cadence reviewed.
-  AGENTS.md#agent_obligations: Governance-relevant in/ drift treated as blocking signal; warning remediation executed as correction units.
-  docs/normative_clause_index.md#normative_clause_index: Clause index reviewed for boundary-first ambiguity and lifecycle obligations.
-doc_change_protocol: POLICY_SEED.md#change_protocol
+  "CONTRIBUTING.md#contributing_contract": "Strict docflow review discipline and correction cadence reviewed."
+  "AGENTS.md#agent_obligations": "Governance-relevant in/ drift treated as blocking signal; warning remediation executed as correction units."
+  "docs/normative_clause_index.md#normative_clause_index": "Clause index reviewed for boundary-first ambiguity and lifecycle obligations."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
 

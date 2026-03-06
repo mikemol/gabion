@@ -1,5 +1,5 @@
 ---
-doc_revision: 116
+doc_revision: 118
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -21,7 +21,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 2
   AGENTS.md#agent_obligations: 2
   POLICY_SEED.md#policy_seed: 2
-  docs/normative_clause_index.md#normative_clause_index: 2
+  docs/normative_clause_index.md#normative_clause_index: 3
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
@@ -29,7 +29,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev3 (added NCI-DOCFLOW-CLOSED-LOOP first/second-order loop anchoring and packetized docflow clause continuity language)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
@@ -60,10 +60,10 @@ doc_section_reviews:
       outcome: no_change
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 2
+      dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
+      note: "Clause index rev3 reviewed; canonical clause references remain aligned."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
@@ -108,6 +108,7 @@ valid.
 - **Controller drift + override lifecycle:** [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - **Temporal dual-sensor correction loop:** [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop) (mandatory for agents; recommendation-level interoperability guidance for contributors).
+- **Packetized docflow closed loop:** [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop) (net-new warning/contradiction rows fail, debt drift is explicit and age-bounded).
 - **Runtime narrowing boundary contract:** [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
@@ -292,6 +293,9 @@ Correction-unit validation stack (recommended interoperability baseline):
 ```bash
 mise exec -- python -m scripts.policy_check --workflows
 mise exec -- python -m scripts.policy_check --ambiguity-contract
+mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+mise exec -- python scripts/policy/docflow_packetize.py --root . --compliance artifacts/out/docflow_compliance.json --section-reviews artifacts/out/docflow_section_reviews.json --out artifacts/out/docflow_warning_doc_packets.json --summary-out artifacts/out/docflow_warning_doc_packet_summary.json
+mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
 mise exec -- env PYTHONPATH=. python scripts/policy/private_symbol_import_guard.py --check --allowlist docs/policy/private_symbol_import_allowlist.txt --baseline docs/baselines/private_symbol_import_baseline.json --out out/private_symbol_import_report.json
 mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
 mise exec -- python -m pytest -q <targeted-tests>

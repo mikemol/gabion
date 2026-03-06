@@ -1,5 +1,5 @@
 ---
-doc_revision: 11
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -28,7 +28,7 @@ doc_review_notes:
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
 doc_sections:
-  normative_clause_index: 2
+  normative_clause_index: 3
 doc_section_requires:
   normative_clause_index:
     - POLICY_SEED.md#policy_seed
@@ -40,27 +40,27 @@ doc_section_reviews:
   normative_clause_index:
     POLICY_SEED.md#policy_seed:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     AGENTS.md#agent_obligations:
       dep_version: 2
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 3
       outcome: no_change
       note: "Dataflow tier clauses stay glossary-aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -183,6 +183,17 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Applicability: mandatory for agents; recommended interoperability posture for contributors.
 - Canonical sources: `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`, `docs/user_workflows.md#user_workflows`.
 
+<a id="clause-docflow-closed-loop"></a>
+### `NCI-DOCFLOW-CLOSED-LOOP` — Packetized docflow contradiction/warning control loop
+- Strict docflow findings must be packetized into per-doc bounded remediation units with exact row identities.
+- Packet loop must emit machine-readable packet reports and debt-ledger state (`ready`/`blocked`/`drifted`) every run.
+- Net-new docflow contradiction/warning rows are policy failures unless explicitly baselined via an intentional write-baseline flow.
+- Packet debt age beyond configured threshold is a drift failure, not advisory telemetry.
+- Policy-doc touches during active packet debt must remain within packet touch sets (plus explicit allowlist) or fail scope guards.
+- Metadata-only packets are auto-remediation-eligible; semantic-update packets require human-reviewed semantic patch + proving tests.
+- Loop topology: first-order docs/docflow sensor-actuator loop and second-order controller-drift loop must both carry this clause continuously.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `AGENTS.md#agent_obligations`, `scripts/policy/docflow_packetize.py`, `scripts/policy/docflow_packet_enforce.py`, `.github/workflows/ci.yml`, `docs/governance_control_loops.md#governance_control_loops`.
+
 
 ## Enforcement completeness ledger
 
@@ -201,3 +212,4 @@ or `AGENTS.md`, use a short summary with direct clause links, for example:
 - `NCI-DATAFLOW-BUNDLE-TIERS` (`docs/normative_clause_index.md#clause-dataflow-bundle-tiers`)
 - `NCI-SHIFT-AMBIGUITY-LEFT` (`docs/normative_clause_index.md#clause-shift-ambiguity-left`)
 - `NCI-DUAL-SENSOR-CORRECTION-LOOP` (`docs/normative_clause_index.md#clause-dual-sensor-correction-loop`)
+- `NCI-DOCFLOW-CLOSED-LOOP` (`docs/normative_clause_index.md#clause-docflow-closed-loop`)

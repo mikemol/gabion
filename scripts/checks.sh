@@ -128,6 +128,7 @@ if $list_only; then
   $run_dataflow && $run_status_watch && echo "- status watch (gabion ci-watch --branch $status_watch_branch --workflow $status_watch_workflow)" >&2
   $run_dataflow && $aspf_handoff && echo "- aspf handoff (state + cumulative imports)" >&2
   $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
+  $run_docflow && echo "- docflow packet loop (docflow_packetize + docflow_packet_enforce --check --run-proving-tests)" >&2
   $run_tests && echo "- tests (pytest)" >&2
   exit 0
 fi
@@ -172,6 +173,21 @@ if $run_docflow; then
     echo "WARNING: running docflow in advisory GH-reference mode (local debugging only)." >&2
   fi
   mise exec -- python -m gabion docflow "${docflow_args[@]}"
+  mise exec -- python scripts/policy/docflow_packetize.py \
+    --root . \
+    --compliance artifacts/out/docflow_compliance.json \
+    --section-reviews artifacts/out/docflow_section_reviews.json \
+    --out artifacts/out/docflow_warning_doc_packets.json \
+    --summary-out artifacts/out/docflow_warning_doc_packet_summary.json
+  mise exec -- python scripts/policy/docflow_packet_enforce.py \
+    --root . \
+    --packets artifacts/out/docflow_warning_doc_packets.json \
+    --baseline docs/baselines/docflow_packet_baseline.json \
+    --out artifacts/out/docflow_packet_enforcement.json \
+    --debt-out artifacts/out/docflow_packet_debt_ledger.json \
+    --max-age-days 14 \
+    --check \
+    --run-proving-tests
   mise exec -- python -m scripts.sppf_status_audit --root .
 fi
 if $run_tests; then

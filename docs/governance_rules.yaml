@@ -112,6 +112,29 @@ gates:
     blocking_prefix: Docflow contradictions increased
     ok_prefix: Docflow delta OK
 
+  docflow_packet_loop:
+    env_flag: GABION_GATE_DOCFLOW_PACKET
+    enabled_mode: default_true
+    delta_keys: [summary, new_rows]
+    before_keys: [summary, active_rows]
+    after_keys: [summary, active_rows]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: hard-fail
+      transitions: [advisory->ratchet, ratchet->hard-fail]
+      bounded_steps:
+        - packet_scope_must_match_touch_set
+        - baseline_write_requires_explicit_flag
+        - semantic_packets_require_human_review_and_proving_tests
+    disabled_message: Docflow packet loop disabled by override; set GABION_GATE_DOCFLOW_PACKET=1 to enforce.
+    missing_message: Docflow packet enforcement report missing; gate failed.
+    unreadable_message: Docflow packet enforcement report unreadable; gate failed.
+    warning_prefix: Docflow packet debt warning
+    blocking_prefix: Docflow packet debt blocking
+    ok_prefix: Docflow packet loop OK
+
 controller_drift:  # NCI-CONTROLLER-DRIFT-LIFECYCLE
   severity_classes: [low, medium, high, critical]
   enforce_at_or_above: high

@@ -1,5 +1,5 @@
 ---
-doc_revision: 82
+doc_revision: 83
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -19,13 +19,13 @@ doc_reviewed_as_of:
   glossary.md#contract: 1
   AGENTS.md#agent_obligations: 2
   CONTRIBUTING.md#contributing_contract: 2
-  docs/normative_clause_index.md#normative_clause_index: 2
+  docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev3 (added NCI-DOCFLOW-CLOSED-LOOP first/second-order loop anchoring and packetized docflow clause continuity language)."
 doc_sections:
   repo_contract: 2
 doc_section_requires:
@@ -58,10 +58,10 @@ doc_section_reviews:
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 2
+      dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
+      note: "Clause index rev3 reviewed; canonical clause references remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting

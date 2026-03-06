@@ -149,6 +149,33 @@ jobs:
           .venv/bin/python -m scripts.policy_check --posture
       - name: Docflow audit
         run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+      - name: Docflow packetize
+        run: |
+          .venv/bin/python scripts/policy/docflow_packetize.py \
+            --root . \
+            --compliance artifacts/out/docflow_compliance.json \
+            --section-reviews artifacts/out/docflow_section_reviews.json \
+            --out artifacts/out/docflow_warning_doc_packets.json \
+            --summary-out artifacts/out/docflow_warning_doc_packet_summary.json
+      - name: Docflow packet enforce
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          args=(
+            --root .
+            --packets artifacts/out/docflow_warning_doc_packets.json
+            --baseline docs/baselines/docflow_packet_baseline.json
+            --out artifacts/out/docflow_packet_enforcement.json
+            --debt-out artifacts/out/docflow_packet_debt_ledger.json
+            --max-age-days 14
+            --check
+            --run-proving-tests
+          )
+          if [ -n "${BEFORE_SHA:-}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
+            args+=(--base-sha "${BEFORE_SHA}" --head-sha "${AFTER_SHA}")
+          fi
+          .venv/bin/python scripts/policy/docflow_packet_enforce.py "${args[@]}"
       - name: SPPF status drift audit
         run: .venv/bin/python -m scripts.sppf_status_audit --root .
       - name: SPPF issue lifecycle validation (non-mutating)
@@ -282,4 +309,8 @@ jobs:
             artifacts/out/governance_telemetry_history.json
             artifacts/out/controller_drift_gate_history.json
             artifacts/out/policy_suite_results.json
+            artifacts/out/docflow_warning_doc_packets.json
+            artifacts/out/docflow_warning_doc_packet_summary.json
+            artifacts/out/docflow_packet_enforcement.json
+            artifacts/out/docflow_packet_debt_ledger.json
             artifacts/audit_reports/governance_telemetry.md

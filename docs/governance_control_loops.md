@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_control_loops
 doc_role: policy
@@ -24,11 +24,11 @@ doc_reviewed_as_of:
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, enforced execution-coverage policy wording, and packetized docflow loop anchors)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   glossary.md#contract: "Glossary contract reviewed; loop predicates remain semantically coherent with enforcement terms."
 doc_sections:
-  governance_control_loops: 1
+  governance_control_loops: 2
 doc_section_requires:
   governance_control_loops:
     - README.md#repo_contract
@@ -40,27 +40,27 @@ doc_section_reviews:
   governance_control_loops:
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     POLICY_SEED.md#policy_seed:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Policy seed rev2 reviewed; governance obligations remain aligned."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Glossary contract reviewed; loop predicates remain semantically aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -142,14 +142,14 @@ Each loop entry must define:
 
 ### 2) docs/docflow
 
-- **sensor:** docflow compliance emitters in `src/gabion/tooling/governance_audit.py` and `gabion docflow`.
-- **state artifact:** `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`, and `artifacts/audit_reports/docflow_compliance.md`.
-- **target predicate:** normative docs satisfy frontmatter/review invariants, contradiction delta remains zero, and every required loop domain is declared.
-- **error signal:** docflow warnings/violations or positive contradiction delta.
-- **actuator:** update governance docs, references, review pins, and loop declarations.
-- **max correction step:** one coherent doc revision cycle.
-- **verification command:** `mise exec -- python -m gabion docflow --fail-on-violations`.
-- **escalation threshold:** repeated blocking docflow finding after one coherent cycle.
+- **sensor:** strict docflow compliance emitters plus packet loop classifiers (`gabion docflow`, `scripts/policy/docflow_packetize.py`, `scripts/policy/docflow_packet_enforce.py`).
+- **state artifact:** `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_section_reviews.json`, `artifacts/out/docflow_warning_doc_packets.json`, `artifacts/out/docflow_warning_doc_packet_summary.json`, and `artifacts/out/docflow_packet_debt_ledger.json`.
+- **target predicate:** normative docs satisfy frontmatter/review invariants, packet state remains `ready`, net-new contradiction/warning rows are zero, debt age stays within threshold, and policy-doc touches remain inside packet touch sets.
+- **error signal:** strict docflow contradictions/warnings, packet status `blocked`/`drifted`, out-of-scope policy-doc touch, or proving-test failure for active packets.
+- **actuator:** metadata-only packets may auto-normalize frontmatter pin domains; semantic-update packets require human-reviewed semantic patch + packet-scoped proving tests.
+- **max correction step:** one packet (or one tightly coupled packet set for a single blocking docflow surface) per correction unit.
+- **verification command:** `mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required && mise exec -- python scripts/policy/docflow_packetize.py --root . --compliance artifacts/out/docflow_compliance.json --section-reviews artifacts/out/docflow_section_reviews.json --out artifacts/out/docflow_warning_doc_packets.json --summary-out artifacts/out/docflow_warning_doc_packet_summary.json && mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests`
+- **escalation threshold:** any packet remains `blocked`/`drifted` after one coherent correction step on the owning surface.
 
 ### 3) LSP architecture
 
@@ -214,7 +214,7 @@ Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md
 
 ## Second-order controller loop (cybernetic meta-loop)
 
-Clause links: [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
+Clause links: [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle), [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop).
 
 Second-order governance closes drift between normative anchors and enforcement scripts.
 This loop governs first-order loop integrity and prevents controller drift.

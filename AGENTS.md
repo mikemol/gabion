@@ -1,5 +1,5 @@
 ---
-doc_revision: 30
+doc_revision: 33
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -19,13 +19,13 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 2
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  docs/normative_clause_index.md#normative_clause_index: 2
+  docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
   glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev2 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev3 (added NCI-DOCFLOW-CLOSED-LOOP first/second-order loop anchoring and packetized docflow clause continuity language)."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:
@@ -58,10 +58,10 @@ doc_section_reviews:
       outcome: no_change
       note: "Glossary contract reviewed; agent obligations unchanged."
     docs/normative_clause_index.md#normative_clause_index:
-      dep_version: 2
+      dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev2 reviewed; canonical clause references remain aligned."
+      note: "Clause index rev3 reviewed; canonical clause references remain aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
@@ -102,11 +102,12 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
+- Enforce packetized docflow control-loop policy: [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop).
 - Treat coverage-gate drops as dedicated fix-forward correction-unit signals; do not use rollback-first reasoning when coverage regresses.
 - Treat any GitHub API error during monitoring/forensics as a process-remediation signal for API access; do not respond with backoff-only behavior.
 - When a workstream sets an API polling cadence cap, obey the cap and maximize data per query.
 - Keep semantic behavior in server command handlers exposed via `gabion` subcommands; treat `scripts/` as orchestration wrappers only.
-- Per-correction-unit validation stack must include `scripts/policy/policy_check.py --workflows`, `scripts/policy/policy_check.py --ambiguity-contract`, targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
+- Per-correction-unit validation stack must include `scripts/policy/policy_check.py --workflows`, `scripts/policy/policy_check.py --ambiguity-contract`, strict docflow (`python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required`), docflow packet loop (`scripts/policy/docflow_packetize.py` + `scripts/policy/docflow_packet_enforce.py --check`), targeted pytest, and evidence-carrier drift refresh/check (`out/test_evidence.json`) when tests or semantic surfaces changed.
 - Ambiguity-policy regressions encountered during simplification are forward-remediation signals; prefer boundary normalization/protocol reification over rollback-first.
 - Reject semantic-core compatibility-layer additions (wrappers, dual-shape bridges, legacy fallbacks) unless they are temporary boundary adapters with explicit Decision Protocol plus lifecycle metadata (`actor`, `rationale`, `scope`, `start`, `expiry`, `rollback_condition`, `evidence_links`).
 - When using `scripts/ci/ci_watch.py`, treat collected failure bundles under `artifacts/out/ci_watch/run_<run_id>/` as the triage source of truth for remote-first actionable failures.
@@ -129,7 +130,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 This index is visibility-only; it keeps repo-local operational toggles explicit
 for agent instruction drift audits.
 
-- CLI/git/workflow toggles: `--force-with-lease`, `--close`, `--synthesis-plan`, `--synthesis-report`, `--synthesis-protocols`, `--refactor-plan`, `--refactor-plan-json`, `--pr-base-sha`, `--pr-head-sha`, `--skip-sppf-sync`, `--run-sppf-sync`
+- CLI/git/workflow toggles: `--force-with-lease`, `--close`, `--output`, `--synthesis-plan`, `--synthesis-report`, `--synthesis-protocols`, `--refactor-plan`, `--refactor-plan-json`, `--pr-base-sha`, `--pr-head-sha`, `--skip-sppf-sync`, `--run-sppf-sync`
 - Environment and signal toggles: `GABION_SPPF_SYNC`, `GH_TOKEN`, `GITHUB_TOKEN`, `SIGUSR1`, `POLICY_GITHUB_TOKEN`
 
 ## Agent actioning loop (normative)

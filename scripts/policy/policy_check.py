@@ -65,6 +65,7 @@ _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-CONTROLLER-DRIFT-LIFECYCLE",
     "NCI-COMMAND-MATURITY-PARITY",
     "NCI-DUAL-SENSOR-CORRECTION-LOOP",
+    "NCI-DOCFLOW-CLOSED-LOOP",
 }
 
 ASPF_TAINT_MAP = REPO_ROOT / "docs" / "aspf_taint_isomorphism_map.yaml"
@@ -907,6 +908,8 @@ def _check_ci_script_entrypoints(doc, path, errors):
         "scripts/ci/ci_controller_drift_gate.py",
         "scripts/ci/ci_override_record_emit.py",
         "scripts/policy/policy_scanner_suite.py",
+        "scripts/policy/docflow_packetize.py",
+        "scripts/policy/docflow_packet_enforce.py",
         "scripts/misc/aspf_handoff.py run",
         "check delta-bundle",
         "check delta-gates",
@@ -1344,6 +1347,73 @@ def check_workflows():
     _check_dense_core_lock_in(errors)
     if errors:
         _fail(errors)
+
+
+def _tracked_markdown_paths() -> list[Path]:
+    check_deadline()
+    try:
+        completed = subprocess.run(
+            ["git", "ls-files", "*.md"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        _fail([f"unable to enumerate tracked markdown files: {exc}"])
+    paths: list[Path] = []
+    for line in completed.stdout.splitlines():
+        check_deadline()
+        rel = line.strip()
+        if not rel:
+            continue
+        path = REPO_ROOT / rel
+        if path.is_file():
+            paths.append(path)
+    return paths
+
+
+def _strict_yaml_frontmatter_errors(path: Path) -> list[str]:
+    check_deadline()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read markdown file ({exc})"]
+    if not text.startswith("---\n"):
+        return []
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return []
+    end = None
+    for index in range(1, len(lines)):
+        check_deadline()
+        if lines[index].strip() == "---":
+            end = index
+            break
+    if end is None:
+        return [f"{path}: frontmatter is missing closing '---' delimiter"]
+    if yaml is None:
+        return [f"{path}: PyYAML is required for frontmatter checks"]
+    raw = "\n".join(lines[1:end])
+    try:
+        payload = yaml.safe_load(raw)
+    except Exception as exc:
+        detail = str(exc).splitlines()[0] if str(exc).strip() else type(exc).__name__
+        return [f"{path}: frontmatter is not strict YAML ({detail})"]
+    if payload is None:
+        return []
+    if not isinstance(payload, dict):
+        return [f"{path}: frontmatter root must be a mapping (got {type(payload).__name__})"]
+    return []
+
+
+def check_markdown_frontmatter_yaml() -> None:
+    errors: list[str] = []
+    for path in _tracked_markdown_paths():
+        check_deadline()
+        errors.extend(_strict_yaml_frontmatter_errors(path))
+    if errors:
+        _fail(["markdown frontmatter YAML policy check failed", *errors])
 
 
 def _api_json(url, token):
@@ -1824,6 +1894,7 @@ def main(argv: list[str] | None = None):
         with _policy_deadline_scope():
             if args.workflows:
                 check_workflows()
+                check_markdown_frontmatter_yaml()
             if args.posture:
                 check_posture()
             if args.ambiguity_contract:

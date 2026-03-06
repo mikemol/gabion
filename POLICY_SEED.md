@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -34,7 +34,7 @@ doc_review_notes:
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
   policy_seed: 2
-  change_protocol: 2
+  change_protocol: 3
 doc_section_requires:
   policy_seed:
     - README.md#repo_contract
@@ -736,6 +736,7 @@ Status classes:
 | Self-hosted trigger/runner/actor constraints (§§3.1, 4.1-4.3, 4.6) | latent (self-hosted) | Any workflow containing `runs-on` with `self-hosted` labels | `scripts/policy/policy_check.py::_check_self_hosted_constraints(...)` (already active as detector, policy obligations become applicable when such jobs exist). |
 | Repository/org Actions posture checks (§5.2) | conditional by event/branch | CI push path with available governance token/context | `scripts/policy/policy_check.py --posture`; wired in `.github/workflows/ci.yml` on push and skipped when required credentials are unavailable. |
 | Ambiguity contract gate (§4.8) | active now | Semantic core Python modules (`src/gabion/analysis/**`, `src/gabion/synthesis/**`, `src/gabion/refactor/**`) | `scripts/policy/policy_check.py --ambiguity-contract` invoking `gabion ambiguity-contract-gate --root .`; executed in `.github/workflows/ci.yml` (`Policy check (ambiguity contract)`), failing on any ambiguity-contract violations. |
+| Packetized strict docflow loop (`NCI-DOCFLOW-CLOSED-LOOP`) | active now | Governance docs under `docs/**` and `in/**` | `gabion docflow --fail-on-violations --sppf-gh-ref-mode required` + `scripts/policy/docflow_packetize.py` + `scripts/policy/docflow_packet_enforce.py --check --run-proving-tests`; wired in `.github/workflows/ci.yml` (`Docflow audit`, `Docflow packetize`, `Docflow packet enforce`) with packet/debt artifacts emitted each run. |
 
 Agents MUST preserve this classification when adding new controls: update both
 the normative anchor and the enforcing checker/workflow hook in the same
@@ -810,6 +811,8 @@ This control loop MUST continuously detect and resolve drift.
 - `controller-anchor: CD-009 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/audit/check_pr_governance_template.py | severity: high`
 - `controller-anchor: CD-010 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance/governance_telemetry_emit.py | severity: high`
 - `controller-anchor: CD-011 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/policy_scanner_suite.py | severity: high`
+- `controller-anchor: CD-012 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/docflow_packetize.py | severity: high`
+- `controller-anchor: CD-013 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/policy/docflow_packet_enforce.py | severity: high`
 
 **Audited normative-doc set (single source of truth):**
 - `controller-normative-doc: POLICY_SEED.md`
@@ -824,6 +827,8 @@ This control loop MUST continuously detect and resolve drift.
 **Controller command references (machine-readable markers):**
 - `controller-command: mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json`
 - `controller-command: mise exec -- python scripts/audit/check_pr_governance_template.py`
+- `controller-command: mise exec -- python scripts/policy/docflow_packetize.py --root . --compliance artifacts/out/docflow_compliance.json --section-reviews artifacts/out/docflow_section_reviews.json --out artifacts/out/docflow_warning_doc_packets.json --summary-out artifacts/out/docflow_warning_doc_packet_summary.json`
+- `controller-command: mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests`
 
 **CI ratchet policy (normative):**
 - Phase A (advisory): report high-severity drift but do not fail the pipeline.
