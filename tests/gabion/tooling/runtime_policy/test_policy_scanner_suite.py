@@ -442,3 +442,15 @@ def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_me
     result = policy_scanner_suite.scan_policy_suite(root=root)
     violations = policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
+
+
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_carries_external_policy_results::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) -> None:
+    root = tmp_path
+    result = policy_scanner_suite.scan_policy_suite(
+        root=root,
+        policy_results={
+            "policy_check": {"rule_id": "policy_check", "status": "pass", "violations": []},
+        },
+    )
+    assert result.policy_results["policy_check"]["status"] == "pass"

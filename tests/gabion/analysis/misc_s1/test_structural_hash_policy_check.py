@@ -54,3 +54,17 @@ def test_structural_hash_policy_check_rejects_digest_identity_calls(tmp_path: Pa
     assert violations
     assert any("hashlib" in entry.call for entry in violations)
 
+
+
+# gabion:evidence E:call_footprint::tests/test_structural_hash_policy_check.py::test_structural_hash_policy_check_writes_policy_result_output::structural_hash_policy_check.py::scripts.structural_hash_policy_check.run
+def test_structural_hash_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
+    _write(tmp_path / "src/gabion/analysis/derivation_contract.py", "VALUE = 1\n")
+    _write(tmp_path / "src/gabion/analysis/derivation_graph.py", "def f():\n    return 1\n")
+    _write(tmp_path / "src/gabion/analysis/derivation_cache.py", "def f():\n    return 1\n")
+    out = tmp_path / "out/result.json"
+    code = structural_hash_policy_check.run(root=tmp_path, output=out)
+    assert code == 0
+    payload = __import__("json").loads(out.read_text(encoding="utf-8"))
+    assert payload["rule_id"] == "structural_hash"
+    assert payload["status"] == "pass"
+    assert payload["violations"] == []

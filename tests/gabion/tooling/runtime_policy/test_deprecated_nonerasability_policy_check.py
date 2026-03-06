@@ -84,3 +84,26 @@ def test_nonerasability_policy_check_allows_resolved_lifecycle(tmp_path: Path) -
         text=True,
     )
     assert result.returncode == 0
+
+
+# gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_writes_policy_result_output
+def test_nonerasability_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    output = tmp_path / "out/nonerasability.json"
+    _write_payload(baseline, {"deprecated_fibers": []})
+    _write_payload(current, {"deprecated_fibers": []})
+    result = subprocess.run([
+        sys.executable,
+        "scripts/policy/deprecated_nonerasability_policy_check.py",
+        "--baseline",
+        str(baseline),
+        "--current",
+        str(current),
+        "--output",
+        str(output),
+    ], cwd=REPO_ROOT, check=False, capture_output=True, text=True)
+    assert result.returncode == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["rule_id"] == "deprecated_nonerasability"
+    assert payload["status"] == "pass"

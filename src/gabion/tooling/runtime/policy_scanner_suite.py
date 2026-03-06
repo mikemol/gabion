@@ -15,6 +15,7 @@ from gabion.tooling.policy_rules import (
     runtime_narrowing_boundary_rule,
     typing_surface_rule,
 )
+from gabion.tooling.runtime import policy_result_schema
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
@@ -30,6 +31,23 @@ _LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolit
 _ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orchestrator_primitives.py")
 _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
+
+_EXTERNAL_POLICY_RESULT_RULE_IDS = (
+    "policy_check",
+    "structural_hash",
+    "deprecated_nonerasability",
+)
+
+
+def _normalize_policy_results(raw: object) -> dict[str, dict[str, Any]]:
+    if not isinstance(raw, dict):
+        return {}
+    normalized: dict[str, dict[str, Any]] = {}
+    for key in _EXTERNAL_POLICY_RESULT_RULE_IDS:
+        item = raw.get(key)
+        if isinstance(item, dict):
+            normalized[key] = dict(item)
+    return normalized
 
 
 def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
@@ -78,6 +96,7 @@ class PolicySuiteResult:
     inventory_hash: str
     rule_set_hash: str
     violations_by_rule: dict[str, list[dict[str, Any]]]
+    policy_results: dict[str, dict[str, Any]]
     cached: bool
 
     def total_violations(self) -> int:
@@ -97,6 +116,7 @@ class PolicySuiteResult:
             "cached": self.cached,
             "counts": counts,
             "violations": self.violations_by_rule,
+            "policy_results": self.policy_results,
         }
 
 
@@ -105,16 +125,20 @@ def load_or_scan_policy_suite(
     *,
     root: Path,
     artifact_path: Path = _POLICY_ARTIFACT,
+    policy_results: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> PolicySuiteResult:
     resolved_root = root.resolve()
     files = _inventory_files(resolved_root)
     inventory_hash = _inventory_hash(files, resolved_root)
     rule_set_hash = _rule_set_hash()
+    normalized_policy_results = {key: dict(value) for key, value in (policy_results or {}).items() if isinstance(value, Mapping)}
+    policy_results_hash = hashlib.sha256(json.dumps(normalized_policy_results, sort_keys=True).encode("utf-8")).hexdigest()
     cached_payload = _load_cached_payload(artifact_path)
     if cached_payload is not None:
         if (
             str(cached_payload.get("inventory_hash", "")) == inventory_hash
             and str(cached_payload.get("rule_set_hash", "")) == rule_set_hash
+            and str(cached_payload.get("policy_results_hash", "")) == policy_results_hash
         ):
             violations = _violations_from_payload(cached_payload)
             return PolicySuiteResult(
@@ -122,18 +146,25 @@ def load_or_scan_policy_suite(
                 inventory_hash=inventory_hash,
                 rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
+                policy_results=_normalize_policy_results(cached_payload.get("policy_results")),
                 cached=True,
             )
 
-    result = scan_policy_suite(root=resolved_root, files=files)
+    result = scan_policy_suite(root=resolved_root, files=files, policy_results=normalized_policy_results)
     payload = result.to_payload()
+    payload["policy_results_hash"] = policy_results_hash
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     return result
 
 
 # gabion:decision_protocol
-def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> PolicySuiteResult:
+def scan_policy_suite(
+    *,
+    root: Path,
+    files: tuple[Path, ...] | None = None,
+    policy_results: Mapping[str, Mapping[str, Any]] | None = None,
+) -> PolicySuiteResult:
     resolved_root = root.resolve()
     inventory = files if files is not None else _inventory_files(resolved_root)
     inventory_hash = _inventory_hash(inventory, resolved_root)
@@ -307,6 +338,7 @@ def scan_policy_suite(*, root: Path, files: tuple[Path, ...] | None = None) -> P
         inventory_hash=inventory_hash,
         rule_set_hash=rule_set_hash,
         violations_by_rule=violations_by_rule,
+        policy_results={key: dict(value) for key, value in (policy_results or {}).items() if isinstance(value, Mapping)},
         cached=False,
     )
 
