@@ -619,6 +619,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2B",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from a second prefiltered safe subset with no non-target regressions.",
+      "timestamp_utc": "2026-03-06T22:45:14Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 229,
+        "fiber_normalization_contract": 188,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 219,
+        "fiber_normalization_contract": 166,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 553,
+      "total_after": 521,
+      "notes": [
+        "Applied a 10-file marker-only subset selected by preflight filters (decision marker present, predicted defensive-fallback delta = 0, predicted non-boundary payload-signature delta = 0).",
+        "Removed boundary markers from indexed-scan/materialization and related analysis modules: statement_materialization, refactor/engine, deadline_runtime, dataflow_reporting_helpers, value_encoded_decision_params, lambda_bindings, dataflow_post_phase_analyses, module_artifacts, dataclass_registry, handledness.",
+        "All non-target families remained unchanged while boundary_core_contract and fiber_normalization_contract both declined."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
