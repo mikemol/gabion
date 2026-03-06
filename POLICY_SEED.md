@@ -1,5 +1,5 @@
 ---
-doc_revision: 53
+doc_revision: 54
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -727,7 +727,7 @@ Status classes:
 
 | Rule family (normative anchor) | Applicability class | Runtime scope | Enforcement/check cross-reference |
 | --- | --- | --- | --- |
-| Workflow structure + action pinning + allow-list (§§4.5, 5.1) | active now | All workflows under `.github/workflows/*.yml` | `scripts/policy/policy_check.py::check_workflows()` + `_check_actions(...)`; executed in `.github/workflows/ci.yml` (`Policy check (workflows)`). |
+| Workflow structure + action pinning + allow-list (§§4.5, 5.1) | active now | All workflows under `.github/workflows/*.yml` | `scripts/policy/policy_check.py::check_workflows()` + `_check_actions(...)`; gate behavior remains exit+console-output driven via `main(...)` argument parsing and `_fail(...)` (`SystemExit`). Structured output is also supported via `main(...)` `--output` argument (`parser.add_argument("--output", ...)`) with result-envelope serialization through `make_policy_result(...)` + `write_policy_result(...)`; executed in `.github/workflows/ci.yml` (`Policy check (workflows)`). |
 | Baseline permissions discipline (§4.4) | active now | All workflows/jobs | `scripts/policy/policy_check.py::_check_permissions(...)` and `_check_job_permissions(...)`; executed in `.github/workflows/ci.yml`. |
 | Manual-dispatch guardrails (§0.3, §4.1) | active now | Any `workflow_dispatch` workflow | `scripts/policy/policy_check.py::_check_workflow_dispatch_guards(...)`; currently applies to `.github/workflows/ci.yml` and `.github/workflows/release-tag.yml`. |
 | Trusted branch mirroring controls (§4.4) | conditional by event/branch | Push to `main` and promotion chain (`workflow_run`) | `.github/workflows/mirror-next.yml`, `.github/workflows/auto-test-tag.yml`, `.github/workflows/promote-release.yml`; validated by `scripts/policy/policy_check.py::_check_mirror_next_workflow(...)`, `_check_auto_test_tag_workflow(...)`, `_check_promote_release_workflow(...)`. |
