@@ -787,29 +787,92 @@ def _completed_path_set(
 
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
-)-> dict[str, _InProgressScanStateDTO]:
-    return _collection_resume_carrier(collection_resume).in_progress_scan_by_path
+)-> dict[str, Mapping[str, JSONValue]]:
+    if not isinstance(collection_resume, Mapping):
+        return {}
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    if not isinstance(raw_in_progress, Mapping):
+        return {}
+    states: dict[str, Mapping[str, JSONValue]] = {}
+    previous_path: str | None = None
+    for raw_path, raw_state in raw_in_progress.items():
+        check_deadline()
+        if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
+            continue
+        if previous_path is not None and previous_path > raw_path:
+            never(
+                "in_progress_scan_by_path path order regression",
+                previous_path=previous_path,
+                current_path=raw_path,
+            )
+        previous_path = raw_path
+        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
+    return states
 
 
-def _state_processed_functions(state: _InProgressScanStateDTO) -> set[str]:
-    return set(state.processed_functions)
+def _in_progress_scan_state_carrier(
+    state: Mapping[str, JSONValue] | _InProgressScanStateDTO,
+) -> _InProgressScanStateDTO:
+    if isinstance(state, _InProgressScanStateDTO):
+        return state
+    if not isinstance(state, Mapping):
+        return _InProgressScanStateDTO.model_validate({})
+    normalized_state: dict[str, object] = {}
+    raw_phase = state.get("phase")
+    if isinstance(raw_phase, str):
+        normalized_state["phase"] = raw_phase
+    raw_processed = state.get("processed_functions")
+    if isinstance(raw_processed, Sequence) and not isinstance(raw_processed, (str, bytes)):
+        normalized_state["processed_functions"] = [
+            entry for entry in raw_processed if isinstance(entry, str)
+        ]
+    raw_processed_count = state.get("processed_functions_count")
+    if isinstance(raw_processed_count, int) and not isinstance(raw_processed_count, bool):
+        normalized_state["processed_functions_count"] = max(0, raw_processed_count)
+    raw_processed_digest = state.get("processed_functions_digest")
+    if isinstance(raw_processed_digest, str):
+        normalized_state["processed_functions_digest"] = raw_processed_digest
+    raw_function_count = state.get("function_count")
+    if isinstance(raw_function_count, int) and not isinstance(raw_function_count, bool):
+        normalized_state["function_count"] = max(0, raw_function_count)
+    raw_fn_names = state.get("fn_names")
+    if isinstance(raw_fn_names, Mapping):
+        normalized_state["fn_names"] = {
+            str(name): raw_fn_names[name]
+            for name in raw_fn_names
+            if isinstance(name, str)
+        }
+    return _InProgressScanStateDTO.model_validate(normalized_state)
 
 
-def _state_processed_count(state: _InProgressScanStateDTO) -> int:
+def _state_processed_functions(
+    state: Mapping[str, JSONValue] | _InProgressScanStateDTO,
+) -> set[str]:
+    carrier = _in_progress_scan_state_carrier(state)
+    return set(carrier.processed_functions)
+
+
+def _state_processed_count(
+    state: Mapping[str, JSONValue] | _InProgressScanStateDTO,
+) -> int:
+    carrier = _in_progress_scan_state_carrier(state)
     processed_functions = _state_processed_functions(state)
     if processed_functions:
         return len(processed_functions)
-    return max(0, state.processed_functions_count)
+    return max(0, carrier.processed_functions_count)
 
 
-def _state_processed_digest(state: _InProgressScanStateDTO) -> str:
+def _state_processed_digest(
+    state: Mapping[str, JSONValue] | _InProgressScanStateDTO,
+) -> str:
+    carrier = _in_progress_scan_state_carrier(state)
     processed_functions = _state_processed_functions(state)
     if processed_functions:
         return hashlib.sha1(
             _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:1371')).encode("utf-8")
         ).hexdigest()
-    if state.processed_functions_digest:
-        return state.processed_functions_digest
+    if carrier.processed_functions_digest:
+        return carrier.processed_functions_digest
     return hashlib.sha1(
         _canonical_json_text({"count": _state_processed_count(state)}).encode("utf-8")
     ).hexdigest()
@@ -920,8 +983,8 @@ def _collection_semantic_witness(
     processed_total = 0
     for path_key, state in states.items():
         check_deadline()
-        phase = state.get("phase")
-        phase_text = phase if isinstance(phase, str) and phase else "unknown"
+        carrier = _in_progress_scan_state_carrier(state)
+        phase_text = carrier.phase or "unknown"
         processed_count = _state_processed_count(state)
         processed_total += processed_count
         state_rows.append(
@@ -1416,11 +1479,12 @@ def _collection_progress_intro_lines(
         detail_entries: list[str] = []
         for raw_path, state_mapping in in_progress_states.items():
             check_deadline()
-            phase_text = state_mapping.phase or "unknown"
-            processed_count = _state_processed_count(state_mapping)
-            function_count = state_mapping.function_count
+            state = _in_progress_scan_state_carrier(state_mapping)
+            phase_text = state.phase or "unknown"
+            processed_count = _state_processed_count(state)
+            function_count = state.function_count
             if function_count <= 0:
-                function_count = len(state_mapping.fn_names)
+                function_count = len(state.fn_names)
             detail_entries.append(
                 (
                     f"{raw_path} "
@@ -1437,8 +1501,23 @@ def _collection_progress_intro_lines(
     if analysis_index_resume is not None:
         hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
         lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        lines.append(f"- `hydrated_function_count`: `{analysis_index_resume.function_count}`")
-        lines.append(f"- `hydrated_class_count`: `{analysis_index_resume.class_count}`")
+        raw_index_resume = collection_resume.get("analysis_index_resume")
+        if (
+            isinstance(raw_index_resume, Mapping)
+            and isinstance(raw_index_resume.get("function_count"), int)
+            and not isinstance(raw_index_resume.get("function_count"), bool)
+        ):
+            lines.append(
+                f"- `hydrated_function_count`: `{analysis_index_resume.function_count}`"
+            )
+        if (
+            isinstance(raw_index_resume, Mapping)
+            and isinstance(raw_index_resume.get("class_count"), int)
+            and not isinstance(raw_index_resume.get("class_count"), bool)
+        ):
+            lines.append(
+                f"- `hydrated_class_count`: `{analysis_index_resume.class_count}`"
+            )
     return lines
 
 
@@ -2448,10 +2527,17 @@ class MappingPayloadCarrier(Protocol):
     payload: Mapping[str, object]
 
 
-def _payload_mapping(payload: Mapping[str, object] | MappingPayloadCarrier) -> Mapping[str, object]:
+def _payload_mapping(
+    payload: Mapping[str, object] | MappingPayloadCarrier | None,
+) -> Mapping[str, object]:
     if isinstance(payload, Mapping):
         return payload
-    return payload.payload
+    if payload is None:
+        return {}
+    raw_payload = getattr(payload, "payload", None)
+    if isinstance(raw_payload, Mapping):
+        return raw_payload
+    return {}
 
 
 class ParityProbeError(RuntimeError):
@@ -2851,7 +2937,7 @@ def _normalize_probe_payload(
     *,
     root: Path,
     command: str,
-) -> ParityProbePayload:
+) -> dict[str, object]:
     payload = boundary_order.normalize_boundary_mapping_once(
         probe_payload,
         source=f"server.lsp_parity_gate.{command}.probe_payload",
@@ -2872,7 +2958,7 @@ def _normalize_probe_payload(
             {"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000},
             source=f"server.lsp_parity_gate.{command}.probe_payload_timeout",
         )
-    return ParityProbePayload(payload=payload)
+    return dict(payload)
 
 
 def _execute_lsp_parity_gate_total(
@@ -2917,7 +3003,13 @@ def _execute_lsp_parity_gate_total(
         error: str | None = None
         probe_payload = policy.probe_payload
         if probe_payload is not None:
-            normalized_probe = _normalize_probe_payload(probe_payload, root=root, command=command)
+            normalized_probe = ParityProbePayload(
+                payload=_normalize_probe_payload(
+                    probe_payload,
+                    root=root,
+                    command=command,
+                )
+            )
             lsp_executor = resolved_lsp_executor_for_command(command)
             direct_executor = resolved_direct_executor_for_command(command)
             if lsp_executor is None:

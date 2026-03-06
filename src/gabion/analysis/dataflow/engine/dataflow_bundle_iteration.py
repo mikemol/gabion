@@ -460,7 +460,10 @@ def iter_dataclass_call_bundle_effects(
                         ):
                             witness_effects.extend(projection_witness_effects)
                         case _:
-                            never(projection)
+                            never(
+                                "unexpected constructor projection outcome",
+                                projection_type=type(projection).__name__,
+                            )
             case _:
                 pass
 

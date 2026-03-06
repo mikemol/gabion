@@ -299,7 +299,13 @@ def ingest_python_file(
             for call in calls:
                 check_deadline()
                 if "." in call.callee:
-                    resolved = _resolve_local_method(call.callee)
+                    callee_lookup = call.callee
+                    class_part, method_name = call.callee.rsplit(".", 1)
+                    if class_part in {"self", "cls"}:
+                        caller_class = fn_class_names.get(caller_key)
+                        if isinstance(caller_class, str) and caller_class:
+                            callee_lookup = f"{caller_class}.{method_name}"
+                    resolved = _resolve_local_method(callee_lookup)
                     if resolved and resolved != call.callee:
                         resolved_calls.append(replace(call, callee=resolved))
                         continue

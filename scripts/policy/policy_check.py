@@ -57,6 +57,7 @@ _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-ACTIONS-ALLOWLIST",
     "NCI-DATAFLOW-BUNDLE-TIERS",
     "NCI-SHIFT-AMBIGUITY-LEFT",
+    "NCI-RUNTIME-NARROWING-BOUNDARY",
     "NCI-BASELINE-RATCHET",
     "NCI-DEADLINE-TIMEOUT-PROPAGATION",
     "NCI-CONTROLLER-ADAPTATION-LAW",
@@ -1717,9 +1718,11 @@ def check_non_boundary_payload_signatures() -> None:
         _fail(["non-boundary payload signature policy check failed", *errors])
 
 def _dotted_name(node: ast.AST) -> str | None:
+    check_deadline()
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
+        check_deadline()
         parent = _dotted_name(node.value)
         if parent is None:
             return None
@@ -1729,6 +1732,7 @@ def _dotted_name(node: ast.AST) -> str | None:
 
 def _node_mentions_scripts(node: ast.AST) -> bool:
     for child in ast.walk(node):
+        check_deadline()
         if isinstance(child, ast.Constant) and isinstance(child.value, str):
             value = child.value
             if "scripts/" in value or value == "scripts":
@@ -1742,10 +1746,14 @@ def check_src_script_file_loading_policy() -> None:
         check_deadline()
         if not path.is_file() or any(part == "__pycache__" for part in path.parts):
             continue
+        check_deadline()
         source = path.read_text(encoding="utf-8")
+        check_deadline()
         module = ast.parse(source)
         rel_path = path.relative_to(REPO_ROOT).as_posix()
-        for node in ast.walk(module):
+        for node_index, node in enumerate(ast.walk(module)):
+            if (node_index & 255) == 0:
+                check_deadline()
             if not isinstance(node, ast.Call):
                 continue
             dotted = _dotted_name(node.func)

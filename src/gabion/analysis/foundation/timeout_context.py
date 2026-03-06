@@ -388,7 +388,7 @@ def get_deadline_clock() -> DeadlineClock:
 
 
 def set_forest(forest):
-    _ensure_forest_shape(forest)
+    # Keep setter permissive; carrier shape is enforced at consumption via get_forest().
     return _forest_var.set(forest)
 
 

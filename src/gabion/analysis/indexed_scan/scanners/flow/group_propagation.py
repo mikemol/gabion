@@ -28,8 +28,16 @@ def propagate_groups(
             continue
         if call.callee not in callee_groups:
             continue
-        callee_params = callee_param_orders[call.callee]
+        callee_params = list(callee_param_orders[call.callee])
         mapping = call.argument_mapping()
+        if (
+            "." in call.callee
+            and callee_params
+            and callee_params[0] in {"self", "cls"}
+            and len(mapping.positional) < len(callee_params)
+        ):
+            # Bound method calls (obj.method(...)) omit the receiver argument.
+            callee_params = callee_params[1:]
         # Build mapping from callee param to caller param.
         callee_to_caller: dict[str, str] = {}
         for idx, pname in enumerate(callee_params):

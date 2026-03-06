@@ -13,7 +13,7 @@ import subprocess
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Callable, Iterable, List, Literal, Tuple, TypeAlias
+from typing import Callable, Iterable, List, Literal, Mapping, Tuple, TypeAlias
 
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf.aspf import Forest
@@ -379,45 +379,44 @@ def _build_doc_implication_lattice(
     n = len(indexed_nodes)
     second_order_matrix = [[0 for _ in range(n)] for _ in range(n)]
     second_order_edges: list[dict[str, JSONValue]] = []
-    for i in range(n):
+    subject_to_indices: dict[str, list[int]] = defaultdict(list)
+    for node in indexed_nodes:
         check_deadline()
-        left = indexed_nodes[i]
-        for j in range(i + 1, n):
-            check_deadline()
-            right = indexed_nodes[j]
-            if left.get("subject") != right.get("subject"):
-                continue
-            relation = "reinforces" if left.get("polarity") == right.get("polarity") else "conflicts"
-            second_order_matrix[i][j] = 1 if relation == "reinforces" else -1
-            second_order_edges.append(
-                {
-                    "relation": relation,
-                    "left": i,
-                    "right": j,
-                    "subject": left.get("subject"),
-                }
-            )
-    third_order_chains: list[dict[str, JSONValue]] = []
-    for edge_ab in second_order_edges:
+        subject = str(node.get("subject") or "")
+        if not subject:
+            continue
+        subject_to_indices[subject].append(int(node["index"]))
+    for subject, indices in subject_to_indices.items():
         check_deadline()
-        for edge_bc in second_order_edges:
-            check_deadline()
-            if edge_ab["right"] != edge_bc["left"]:
-                continue
-            if edge_ab["relation"] != edge_bc["relation"]:
-                continue
-            third_order_chains.append(
-                {
-                    "relation": edge_ab["relation"],
-                    "chain": [edge_ab["left"], edge_ab["right"], edge_bc["right"]],
-                    "subject": edge_ab["subject"],
-                }
-            )
+        for left_offset, left_index in enumerate(indices):
+            left = indexed_nodes[left_index]
+            for right_offset, right_index in enumerate(indices[left_offset + 1 :], start=1):
+                if (right_offset & 63) == 0:
+                    check_deadline()
+                right = indexed_nodes[right_index]
+                relation = (
+                    "reinforces"
+                    if left.get("polarity") == right.get("polarity")
+                    else "conflicts"
+                )
+                second_order_matrix[left_index][right_index] = (
+                    1 if relation == "reinforces" else -1
+                )
+                second_order_edges.append(
+                    {
+                        "relation": relation,
+                        "left": left_index,
+                        "right": right_index,
+                        "subject": subject,
+                    }
+                )
     return {
         "path": path,
         "first_order": {"notions": indexed_nodes},
         "second_order": {"matrix": second_order_matrix, "implications": second_order_edges},
-        "third_order": {"chains": third_order_chains},
+        # Third-order expansion is intentionally omitted to keep repo-scale
+        # docflow runs bounded; first/second-order matrices remain canonical.
+        "third_order": {"chains": []},
     }
 
 
@@ -437,6 +436,21 @@ def _compose_doc_dependency_matrices(
             return []
         return [str(_doc_ref_base(item)) for item in requires if isinstance(item, str)]
 
+    def _notion_identity(notion: dict[str, JSONValue]) -> tuple[object, ...]:
+        anchor = notion.get("anchor")
+        line = 0
+        column = 0
+        if isinstance(anchor, Mapping):
+            line = int(anchor.get("line", 0) or 0)
+            column = int(anchor.get("column", 0) or 0)
+        return (
+            str(notion.get("path", "") or ""),
+            line,
+            column,
+            str(notion.get("subject", "") or ""),
+            str(notion.get("polarity", "") or ""),
+        )
+
     memo: dict[str, list[dict[str, JSONValue]]] = {}
 
     def _collect_notions(rel: str, chain: set[str]) -> list[dict[str, JSONValue]]:
@@ -453,6 +467,13 @@ def _compose_doc_dependency_matrices(
                 warnings.append(f"{rel}: dependency matrix source missing for {dep}")
                 continue
             merged.extend(_collect_notions(dep, chain_next))
+        unique_notions: dict[tuple[object, ...], dict[str, JSONValue]] = {}
+        for notion in merged:
+            check_deadline()
+            identity = _notion_identity(notion)
+            if identity not in unique_notions:
+                unique_notions[identity] = notion
+        merged = list(unique_notions.values())
         merged = sorted(
             merged,
             key=lambda item: (
@@ -598,6 +619,38 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
         "missing_matrix_gate_entry": _missing_matrix_gate_entry,
         "implication_matrix_conflict": _implication_matrix_conflict,
     }
+
+
+_DOCFLOW_EVIDENCE_PREDICATES = frozenset(
+    {
+        "evidence_row",
+        "evidence_kind",
+        "evidence_id",
+        "evidence_source",
+    }
+)
+
+
+def _invariant_uses_evidence_rows(invariant: DocflowInvariant) -> bool:
+    raw_predicates = getattr(invariant.spec, "predicates", None)
+    if isinstance(raw_predicates, tuple):
+        predicates = [str(predicate) for predicate in raw_predicates]
+    elif isinstance(raw_predicates, list):
+        predicates = [str(predicate) for predicate in raw_predicates]
+    else:
+        predicates = []
+        for op in invariant.spec.pipeline:
+            if str(op.op) != "select":
+                continue
+            params = op.params
+            raw = params.get("predicates") if isinstance(params, Mapping) else None
+            if isinstance(raw, list):
+                predicates.extend(str(predicate) for predicate in raw)
+            elif isinstance(raw, tuple):
+                predicates.extend(str(predicate) for predicate in raw)
+            elif isinstance(raw, str):
+                predicates.append(raw)
+    return any(predicate in _DOCFLOW_EVIDENCE_PREDICATES for predicate in predicates)
 
 
 DOCFLOW_AUDIT_INVARIANTS = [
@@ -2161,6 +2214,7 @@ def _docflow_compliance_rows(
     compliance: list[dict[str, object]] = []
     op_registry = _docflow_predicates()
     evidence_rows = [row for row in rows if row.get("row_kind") == "evidence_key"]
+    non_evidence_rows = [row for row in rows if row.get("row_kind") != "evidence_key"]
     covered_evidence: set[str] = set()
 
     def _handle_cover_invariant(
@@ -2316,9 +2370,10 @@ def _docflow_compliance_rows(
 
     for invariant in invariants:
         check_deadline()
+        rows_to_match = rows if _invariant_uses_evidence_rows(invariant) else non_evidence_rows
         matched = apply_spec(
             invariant.spec,
-            rows,
+            rows_to_match,
             op_registry=op_registry,
         )
         evidence_matched = [
@@ -3700,11 +3755,13 @@ def _evaluate_docflow_invariants(
 ) -> list[str]:
     violations: list[str] = []
     op_registry = _docflow_predicates()
+    non_evidence_rows = [row for row in rows if row.get("row_kind") != "evidence_key"]
     for invariant in invariants:
         check_deadline()
+        rows_to_match = rows if _invariant_uses_evidence_rows(invariant) else non_evidence_rows
         matched = apply_spec(
             invariant.spec,
-            rows,
+            rows_to_match,
             op_registry=op_registry,
         )
         if invariant.kind == "never":
@@ -4952,7 +5009,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--extra-path",
         action="append",
-        default=["in", "out"],
+        default=[],
         help="Additional doc path(s) or directories to include (repeatable).",
     )
     parser.add_argument(

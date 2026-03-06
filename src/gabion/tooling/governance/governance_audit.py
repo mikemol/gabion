@@ -30,6 +30,7 @@ BOUNDARY_ADAPTER_METADATA: Final[dict[str, object]] = {
 }
 
 CORE_GOVERNANCE_DOCS = _impl.CORE_GOVERNANCE_DOCS
+GOVERNANCE_DOCS = _impl.GOVERNANCE_DOCS
 DOCFLOW_AUDIT_INVARIANTS = _impl.DOCFLOW_AUDIT_INVARIANTS
 NORMATIVE_LOOP_DOMAINS = _impl.NORMATIVE_LOOP_DOMAINS
 STATUS_TRIPLET_OVERRIDE_MARKER = _impl.STATUS_TRIPLET_OVERRIDE_MARKER
@@ -42,6 +43,8 @@ DocflowInvariant = _impl.DocflowInvariant
 _audit_deadline_scope = _impl._audit_deadline_scope
 _parse_frontmatter = _impl._parse_frontmatter
 _agent_instruction_graph = _impl._agent_instruction_graph
+_docflow_audit_context = _impl._docflow_audit_context
+_load_docflow_docs = _impl._load_docflow_docs
 _docflow_invariant_rows = _impl._docflow_invariant_rows
 _evaluate_docflow_invariants = _impl._evaluate_docflow_invariants
 _docflow_compliance_rows = _impl._docflow_compliance_rows
@@ -58,9 +61,14 @@ _emit_docflow_implication_matrices = _impl._emit_docflow_implication_matrices
 
 spec_from_dict = _impl.spec_from_dict
 
+# Preserve canonical CLI command behavior at the governance adapter boundary.
+run_docflow_cli = _impl.run_docflow_cli
+run_sppf_graph_cli = _impl.run_sppf_graph_cli
+
 __all__ = [
     "BOUNDARY_ADAPTER_METADATA",
     "CORE_GOVERNANCE_DOCS",
+    "GOVERNANCE_DOCS",
     "DOCFLOW_AUDIT_INVARIANTS",
     "NORMATIVE_LOOP_DOMAINS",
     "STATUS_TRIPLET_OVERRIDE_MARKER",
@@ -71,9 +79,11 @@ __all__ = [
     "_agent_instruction_graph",
     "_audit_deadline_scope",
     "_audit_gas_limit",
+    "_docflow_audit_context",
     "_docflow_compliance_rows",
     "_docflow_invariant_rows",
     "_emit_docflow_compliance",
+    "_load_docflow_docs",
     "_evaluate_docflow_invariants",
     "_format_docflow_violation",
     "_make_invariant_spec",

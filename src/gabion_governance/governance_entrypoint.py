@@ -11,12 +11,28 @@ from gabion_governance import governance_audit_impl as impl
 def parse_single_command_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Gabion governance audit")
     subparsers = parser.add_subparsers(dest="cmd", required=True)
-    impl._add_docflow_args(subparsers)
-    impl._add_decision_tier_args(subparsers)
-    impl._add_consolidation_args(subparsers)
-    impl._add_lint_summary_args(subparsers)
-    impl._add_sppf_graph_args(subparsers)
-    impl._add_status_consistency_args(subparsers)
+    impl._add_docflow_args(subparsers.add_parser("docflow", help="Run docflow audit."))
+    impl._add_decision_tier_args(
+        subparsers.add_parser(
+            "decision-tiers", help="Extract decision-tier candidates from lint."
+        )
+    )
+    impl._add_consolidation_args(
+        subparsers.add_parser(
+            "consolidation", help="Generate consolidation audit report."
+        )
+    )
+    impl._add_lint_summary_args(
+        subparsers.add_parser("lint-summary", help="Summarize lint output.")
+    )
+    impl._add_sppf_graph_args(
+        subparsers.add_parser("sppf-graph", help="Emit SPPF dependency graph.")
+    )
+    impl._add_status_consistency_args(
+        subparsers.add_parser(
+            "status-consistency", help="Run SPPF checklist/influence consistency checks."
+        )
+    )
     return parser.parse_args(argv)
 
 

@@ -17,6 +17,7 @@ _build_issue_link_facet = sync_core._build_issue_link_facet
 _fetch_issue = sync_core._fetch_issue
 _validate_issue_lifecycle = sync_core._validate_issue_lifecycle
 _run_validate_mode = sync_core._run_validate_mode
+_deadline_scope = sync_core._deadline_scope
 main = sync_core.main
 
 

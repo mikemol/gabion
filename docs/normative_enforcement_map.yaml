@@ -65,6 +65,18 @@ clauses:
         step: Policy check (ambiguity contract)
     expected_artifacts:
       - artifacts/out/ambiguity_contract_policy_check.json
+  NCI-RUNTIME-NARROWING-BOUNDARY:
+    status: enforced
+    enforcing_modules:
+      - scripts/policy/policy_scanner_suite.py
+      - src/gabion/tooling/runtime/policy_scanner_suite.py
+      - src/gabion/tooling/policy_rules/runtime_narrowing_boundary_rule.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy scanner suite
+    expected_artifacts:
+      - artifacts/out/policy_scanner_suite.json
   NCI-BASELINE-RATCHET:
     status: partial
     enforcing_modules:

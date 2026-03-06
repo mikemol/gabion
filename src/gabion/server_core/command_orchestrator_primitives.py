@@ -1791,10 +1791,7 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResp
     disabled_surface_reasons = (
         {
             str(key): str(disabled_surface_reasons_raw[key])
-            for key in sort_once(
-                disabled_surface_reasons_raw,
-                source="server._normalize_dataflow_response.disabled_surface_keys",
-            )
+            for key in disabled_surface_reasons_raw
         }
         if isinstance(disabled_surface_reasons_raw, Mapping)
         else {}
