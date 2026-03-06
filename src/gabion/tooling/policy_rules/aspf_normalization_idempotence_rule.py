@@ -22,6 +22,7 @@ from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
 
 
 BASELINE_VERSION = 1
+_DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE = False
 
 
 _NORMALIZATION_CLASS_HINTS: dict[str, tuple[str, ...]] = {
@@ -162,9 +163,16 @@ class _BaselinePayloadDTO(BaseModel):
     violations: list[_BaselineViolationDTO] = Field(default_factory=list)
 
 
-def collect_violations(*, root: Path) -> list[Violation]:
+def collect_violations(
+    *,
+    root: Path,
+    include_snapshot_archive: bool = _DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE,
+) -> list[Violation]:
     violations: list[Violation] = []
-    for source in _discover_trace_sources(root=root):
+    for source in _discover_trace_sources(
+        root=root,
+        include_snapshot_archive=include_snapshot_archive,
+    ):
         violations.extend(_collect_source_violations(root=root, source=source))
     return violations
 
@@ -173,9 +181,13 @@ def collect_ingress_violations(
     *,
     root: Path,
     baseline_path: Path | None = None,
+    include_snapshot_archive: bool = _DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE,
 ) -> list[Violation]:
     violations: list[Violation] = []
-    for path in _candidate_trace_paths(root):
+    for path in _candidate_trace_paths(
+        root,
+        include_snapshot_archive=include_snapshot_archive,
+    ):
         payload, load_error, load_line = _load_json_object_with_diagnostic(path)
         if payload is None:
             violations.append(
@@ -225,20 +237,32 @@ def collect_ingress_violations(
     return violations
 
 
-def _candidate_trace_paths(root: Path) -> tuple[Path, ...]:
+def _candidate_trace_paths(
+    root: Path,
+    *,
+    include_snapshot_archive: bool = _DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE,
+) -> tuple[Path, ...]:
     candidates: list[Path] = []
     default_trace_path = root / "artifacts/out/aspf_trace.json"
     if default_trace_path.exists():
         candidates.append(default_trace_path)
-    for snapshot_path in sorted((root / "artifacts/out").glob("**/*.snapshot.json")):
-        candidates.append(snapshot_path)
+    if include_snapshot_archive:
+        for snapshot_path in sorted((root / "artifacts/out").glob("**/*.snapshot.json")):
+            candidates.append(snapshot_path)
     return tuple(candidates)
 
 
-def _discover_trace_sources(*, root: Path) -> tuple[_TraceSource, ...]:
+def _discover_trace_sources(
+    *,
+    root: Path,
+    include_snapshot_archive: bool = _DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE,
+) -> tuple[_TraceSource, ...]:
     seen_paths: set[Path] = set()
     sources: list[_TraceSource] = []
-    for path in _candidate_trace_paths(root):
+    for path in _candidate_trace_paths(
+        root,
+        include_snapshot_archive=include_snapshot_archive,
+    ):
         resolved = path.resolve()
         if resolved in seen_paths:
             continue

@@ -226,3 +226,97 @@ def test_collect_ingress_violations_reports_invalid_baseline_payload(
     assert len(violations) == 1
     assert violations[0].kind == "invalid_baseline_payload"
     assert violations[0].path == baseline_path.as_posix()
+
+
+def test_collect_violations_defaults_to_current_run_trace_only(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts/out/aspf_trace.json",
+        {
+            "one_cells": [
+                {
+                    "source": "ingress:payload",
+                    "target": "carrier:payload",
+                    "basis_path": ["ingress", "parse"],
+                    "kind": "boundary_parse",
+                    "surface": "",
+                    "metadata": {"normalization_class": "parse"},
+                },
+                {
+                    "source": "runtime:inputs",
+                    "target": "analysis:engine",
+                    "basis_path": ["analysis", "call", "start"],
+                    "kind": "analysis_call_start",
+                    "surface": "",
+                    "metadata": {},
+                },
+            ]
+        },
+    )
+    snapshot_path = (
+        tmp_path
+        / "artifacts/out/aspf_state/session-20260306T220000Z/0002_ci-local.snapshot.json"
+    )
+    _write_json(
+        snapshot_path,
+        {
+            "one_cells": [
+                {
+                    "source": "ingress:payload",
+                    "target": "carrier:payload",
+                    "basis_path": ["ingress", "parse"],
+                    "kind": "boundary_parse",
+                    "surface": "",
+                    "metadata": {"normalization_class": "parse"},
+                },
+                {
+                    "source": "ingress:payload",
+                    "target": "carrier:payload",
+                    "basis_path": ["ingress", "parse"],
+                    "kind": "boundary_parse",
+                    "surface": "",
+                    "metadata": {"normalization_class": "parse"},
+                },
+            ]
+        },
+    )
+
+    default_violations = rule.collect_violations(root=tmp_path)
+    assert default_violations == []
+
+    archive_violations = rule.collect_violations(
+        root=tmp_path,
+        include_snapshot_archive=True,
+    )
+    assert len(archive_violations) == 1
+    assert archive_violations[0].path == snapshot_path.relative_to(tmp_path).as_posix()
+
+
+def test_collect_ingress_violations_snapshot_archive_is_opt_in(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts/out/aspf_trace.json",
+        {
+            "trace": {
+                "one_cells": [],
+            }
+        },
+    )
+    snapshot_path = (
+        tmp_path
+        / "artifacts/out/aspf_state/session-20260306T220500Z/0003_ci-local.snapshot.json"
+    )
+    _write_json(snapshot_path, {})
+
+    default_violations = rule.collect_ingress_violations(root=tmp_path)
+    assert default_violations == []
+
+    archive_violations = rule.collect_ingress_violations(
+        root=tmp_path,
+        include_snapshot_archive=True,
+    )
+    assert len(archive_violations) == 1
+    assert archive_violations[0].kind == "invalid_trace_payload_shape"
+    assert archive_violations[0].path == snapshot_path.as_posix()

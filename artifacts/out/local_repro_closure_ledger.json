@@ -528,6 +528,52 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "policy_scanner_targeted_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S1",
+      "summary": "ASPF idempotence source-of-truth tightening: default trace discovery now scopes to current-run aspf_trace and excludes historical snapshot archive unless explicitly opted in.",
+      "timestamp_utc": "2026-03-06T22:37:17Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 57,
+        "boundary_core_contract": 233,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 1,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 233,
+        "fiber_normalization_contract": 219,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 635,
+      "total_after": 588,
+      "notes": [
+        "collect_violations and collect_ingress_violations now default to current-run trace ingestion (artifacts/out/aspf_trace.json) and require explicit include_snapshot_archive=True for archive-wide snapshot traversal.",
+        "Added opt-in archive tests proving default no-stale-snapshot behavior and explicit archive analysis behavior.",
+        "Scanner-family reductions are concentrated in aspf_normalization_idempotence without cross-family regression."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_targeted_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",
