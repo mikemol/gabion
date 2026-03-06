@@ -360,6 +360,95 @@ def test_check_run_status_watch_system_exit_int_propagates() -> None:
     assert result.exit_code == 9
 
 
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_and_delta_bundle_shared_option_parity_and_overrides
+def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None:
+    runner = CliRunner()
+    run_captured: list[dict[str, object]] = []
+    delta_captured: list[dict[str, object]] = []
+    common_args = [
+        "sample.py",
+        "--root",
+        "src",
+        "--config",
+        "cfg.toml",
+        "--report",
+        "report.json",
+        "--strictness",
+        "low",
+        "--allow-external",
+        "--decision-snapshot",
+        "decision.json",
+        "--analysis-budget-checks",
+        "3",
+        "--aspf-trace-json",
+        "trace.json",
+        "--aspf-import-trace",
+        "import-a.json",
+        "--aspf-import-trace",
+        "import-b.json",
+        "--aspf-equivalence-against",
+        "eq-a.json",
+        "--aspf-opportunities-json",
+        "opportunities.json",
+        "--aspf-state-json",
+        "state.json",
+        "--aspf-delta-jsonl",
+        "delta.jsonl",
+        "--aspf-import-state",
+        "state-a.json",
+        "--aspf-semantic-surface",
+        "surface-a",
+    ]
+
+    run_result = runner.invoke(
+        cli.app,
+        ["check", "run", *common_args],
+        obj=_check_obj(run_captured),
+    )
+    assert run_result.exit_code == 0
+
+    delta_result = runner.invoke(
+        cli.app,
+        ["check", "delta-bundle", *common_args],
+        obj=_check_obj(delta_captured),
+    )
+    assert delta_result.exit_code == 0
+
+    run_kwargs = run_captured[0]
+    delta_kwargs = delta_captured[0]
+    shared_keys = [
+        "paths",
+        "root",
+        "config",
+        "report",
+        "allow_external",
+        "decision_snapshot",
+        "analysis_tick_limit",
+        "aspf_trace_json",
+        "aspf_import_trace",
+        "aspf_equivalence_against",
+        "aspf_opportunities_json",
+        "aspf_state_json",
+        "aspf_delta_jsonl",
+        "aspf_import_state",
+        "aspf_semantic_surface",
+        "strictness",
+    ]
+    for key in shared_keys:
+        assert run_kwargs[key] == delta_kwargs[key]
+
+    assert delta_kwargs["baseline"] is None
+    assert delta_kwargs["baseline_write"] is False
+    run_policy = run_kwargs["policy"]
+    delta_policy = delta_kwargs["policy"]
+    assert run_policy.fail_on_violations is True
+    assert run_policy.fail_on_type_ambiguities is True
+    assert run_policy.lint is False
+    assert delta_policy.fail_on_violations is False
+    assert delta_policy.fail_on_type_ambiguities is False
+    assert delta_policy.lint is False
+
+
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_bundle_dispatches_single_pass_delta_options
 def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     runner = CliRunner()
