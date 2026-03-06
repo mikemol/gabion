@@ -1817,23 +1817,20 @@ def _collect_dataclass_registry(
     analysis_index=None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object] = _analysis_index_stage_cache,
 ) -> dict[str, list[str]]:
-    return cast(
-        dict[str, list[str]],
-        _collect_dataclass_registry_impl(
-            paths,
-            project_root=project_root,
-            parse_failure_witnesses=parse_failure_witnesses,
-            analysis_index=analysis_index,
-            stage_cache_fn=stage_cache_fn,
-            deps=_CollectDataclassRegistryDeps(
-                check_deadline_fn=check_deadline,
-                stage_cache_spec_ctor=_StageCacheSpec,
-                parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
-                parse_stage_cache_key_fn=_parse_stage_cache_key,
-                empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
-                dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
-                parse_module_tree_fn=_parse_module_tree_or_none,
-            ),
+    return _collect_dataclass_registry_impl(
+        paths,
+        project_root=project_root,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        stage_cache_fn=stage_cache_fn,
+        deps=_CollectDataclassRegistryDeps(
+            check_deadline_fn=check_deadline,
+            stage_cache_spec_ctor=_StageCacheSpec,
+            parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
+            parse_stage_cache_key_fn=_parse_stage_cache_key,
+            empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
+            dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
+            parse_module_tree_fn=_parse_module_tree_or_none,
         ),
     )
 

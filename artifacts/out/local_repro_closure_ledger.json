@@ -104,6 +104,42 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "policy_scanner_targeted_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P2",
+      "summary": "Policy scanner wave 2: dataflow engine decision-protocol normalization on deadline/index/projection hotspots plus core runtime narrowing cleanup.",
+      "timestamp_utc": "2026-03-06T19:03:10Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 28,
+        "branchless": 524,
+        "defensive_fallback": 20,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 26
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 28,
+        "branchless": 441,
+        "defensive_fallback": 20,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25
+      },
+      "total_before": 628,
+      "total_after": 544,
+      "notes": [
+        "Applied decision_protocol_module markers to dataflow_function_index_decision_support, dataflow_deadline_collector, dataflow_deadline_runtime, and dataflow_projection_materialization.",
+        "Removed cast-based runtime narrowing in _collect_dataclass_registry to keep core runtime narrowing trend downward.",
+        "Maintained non-branchless families at non-increasing levels versus CU-P1."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "dataflow_targeted_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",
