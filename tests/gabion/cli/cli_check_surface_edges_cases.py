@@ -8,6 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 from gabion import cli
+from gabion.cli_support.check import check_commands
 from gabion.exceptions import NeverThrown
 
 
@@ -116,6 +117,15 @@ def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
 
     cli.check_raw(_Ctx())  # type: ignore[arg-type]
     assert captured == [["sample.py", "--dot", "-"]]
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_option_surface_matrix_promotes_delta_bundle_options
+def test_check_option_surface_matrix_promotes_delta_bundle_options() -> None:
+    missing = check_commands._option_surface_holes(
+        base=check_commands.CHECK_RUN_OPTION_SURFACE,
+        candidate=check_commands.CHECK_DELTA_BUNDLE_OPTION_SURFACE,
+    )
+    assert missing == frozenset()
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_removed_and_invalid_baseline_mode_paths
@@ -358,6 +368,107 @@ def test_check_run_status_watch_system_exit_int_propagates() -> None:
         obj=_check_obj([], run_ci_watch=_run_ci_watch),
     )
     assert result.exit_code == 9
+
+
+# gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_and_delta_bundle_shared_option_parity_and_overrides
+def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None:
+    runner = CliRunner()
+    run_captured: list[dict[str, object]] = []
+    delta_captured: list[dict[str, object]] = []
+    common_args = [
+        "sample.py",
+        "--root",
+        "src",
+        "--config",
+        "cfg.toml",
+        "--report",
+        "report.json",
+        "--strictness",
+        "low",
+        "--allow-external",
+        "--baseline-mode",
+        "enforce",
+        "--baseline",
+        "baseline.json",
+        "--gate",
+        "all",
+        "--lint",
+        "all",
+        "--lint-jsonl-out",
+        "lint.jsonl",
+        "--lint-sarif-out",
+        "lint.sarif",
+        "--decision-snapshot",
+        "decision.json",
+        "--analysis-budget-checks",
+        "3",
+        "--aspf-trace-json",
+        "trace.json",
+        "--aspf-import-trace",
+        "import-a.json",
+        "--aspf-import-trace",
+        "import-b.json",
+        "--aspf-equivalence-against",
+        "eq-a.json",
+        "--aspf-opportunities-json",
+        "opportunities.json",
+        "--aspf-state-json",
+        "state.json",
+        "--aspf-delta-jsonl",
+        "delta.jsonl",
+        "--aspf-import-state",
+        "state-a.json",
+        "--aspf-semantic-surface",
+        "surface-a",
+    ]
+
+    run_result = runner.invoke(
+        cli.app,
+        ["check", "run", *common_args],
+        obj=_check_obj(run_captured),
+    )
+    assert run_result.exit_code == 0
+
+    delta_result = runner.invoke(
+        cli.app,
+        ["check", "delta-bundle", *common_args],
+        obj=_check_obj(delta_captured),
+    )
+    assert delta_result.exit_code == 0
+
+    run_kwargs = run_captured[0]
+    delta_kwargs = delta_captured[0]
+    shared_keys = [
+        "paths",
+        "root",
+        "config",
+        "report",
+        "allow_external",
+        "decision_snapshot",
+        "analysis_tick_limit",
+        "aspf_trace_json",
+        "aspf_import_trace",
+        "aspf_equivalence_against",
+        "aspf_opportunities_json",
+        "aspf_state_json",
+        "aspf_delta_jsonl",
+        "aspf_import_state",
+        "aspf_semantic_surface",
+        "strictness",
+    ]
+    for key in shared_keys:
+        assert run_kwargs[key] == delta_kwargs[key]
+
+    assert delta_kwargs["baseline"] is None
+    assert delta_kwargs["baseline_write"] is False
+    run_policy = run_kwargs["policy"]
+    delta_policy = delta_kwargs["policy"]
+    assert run_policy.fail_on_violations is True
+    assert run_policy.fail_on_type_ambiguities is True
+    assert run_policy.lint is True
+    assert delta_policy.fail_on_violations is False
+    assert delta_policy.fail_on_type_ambiguities is False
+    assert delta_policy.lint is False
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_bundle_dispatches_single_pass_delta_options
