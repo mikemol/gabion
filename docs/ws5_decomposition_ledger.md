@@ -1,5 +1,5 @@
 ---
-doc_revision: 285
+doc_revision: 286
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,19 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-344`, this CU):
+  - Default-arg DI normalization in deadline obligations collection seam:
+    - `src/gabion/analysis/dataflow/engine/dataflow_obligations.py`
+      - `collect_deadline_obligations(..., on_progress=...)` now uses explicit typed default callable (`_noop_collection_progress`) instead of `None` fallback branching
+      - progress emission gate now compares against the noop callable default
+  - Added parity test for default vs explicit noop callback:
+    - `tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py`
+      - `test_collect_deadline_obligations_default_progress_matches_explicit_noop`
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted deadline/dataflow tests passed
+    - evidence refresh completed (`out/test_evidence.json` updated for test-line drift)
 - WS-5 continuation (`in-343`, this CU):
   - Removed remaining private compatibility anchors from facade:
     - `src/gabion/analysis/dataflow/engine/dataflow_facade.py`

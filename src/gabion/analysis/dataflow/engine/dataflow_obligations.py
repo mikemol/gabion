@@ -23,6 +23,10 @@ from gabion.order_contract import sort_once
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
 
+def _noop_collection_progress(_event: str) -> None:
+    return None
+
+
 @dataclass(frozen=True)
 class _DeadlineObligationContext:
     by_name: Mapping[str, list[FunctionInfo]]
@@ -1005,7 +1009,7 @@ def collect_deadline_obligations(
         ...,
         _CalleeResolutionOutcome,
     ] = _resolve_callee_outcome,
-    on_progress = None,
+    on_progress: Callable[[str], None] = _noop_collection_progress,
 ) -> list[JSONObject]:
     check_deadline()
     parse_failure_witnesses_payload = parse_failure_witnesses
@@ -1028,19 +1032,20 @@ def collect_deadline_obligations(
     def _emit_progress(stage: str, *, force: bool = False) -> None:
         nonlocal progress_emit_counter
         nonlocal last_progress_emit_monotonic
-        if on_progress is not None:
-            now = time.monotonic()
-            should_emit = True
-            if (
-                not force
-                and last_progress_emit_monotonic is not None
-                and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
-            ):
-                should_emit = False
-            if should_emit:
-                progress_emit_counter += 1
-                last_progress_emit_monotonic = now
-                on_progress(f"{stage}:{progress_emit_counter}")
+        if on_progress is _noop_collection_progress:
+            return
+        now = time.monotonic()
+        should_emit = True
+        if (
+            not force
+            and last_progress_emit_monotonic is not None
+            and now - last_progress_emit_monotonic < _PROGRESS_EMIT_MIN_INTERVAL_SECONDS
+        ):
+            should_emit = False
+        if should_emit:
+            progress_emit_counter += 1
+            last_progress_emit_monotonic = now
+            on_progress(f"{stage}:{progress_emit_counter}")
 
     index = analysis_index
     if index is None:
