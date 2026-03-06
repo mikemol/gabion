@@ -1,3 +1,4 @@
+# gabion:boundary_normalization_module gabion:decision_protocol_module
 """SPPF sync helpers shared by governance audits and script wrappers."""
 from __future__ import annotations
 

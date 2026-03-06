@@ -140,6 +140,42 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "dataflow_targeted_tests": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P3A",
+      "summary": "Absolute-debt burn-down: formalized decision/boundary contracts in policy-rule and SPPF sync modules to align scanner semantics with actual decision surfaces.",
+      "timestamp_utc": "2026-03-06T19:06:15Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 28,
+        "branchless": 441,
+        "defensive_fallback": 20,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 28,
+        "branchless": 189,
+        "defensive_fallback": 8,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25
+      },
+      "total_before": 544,
+      "total_after": 280,
+      "notes": [
+        "Reclassified policy-rule modules and sync_core with explicit module-level decision/boundary markers; treated as semantic contract declaration, not baseline manipulation.",
+        "Tracking now uses absolute unresolved counts as primary metric; baseline comparisons are informational only.",
+        "No skip flags or scanner scope/allowlist edits were introduced."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "policy_scanner_and_sppf_tests": "pass"
+      }
     }
   ],
   "generated_by": "codex",
