@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheFn,
+)
+
 
 @dataclass(frozen=True)
 class CallNodesForTreeDeps:
@@ -18,7 +22,7 @@ class CallNodesForTreeDeps:
 @dataclass(frozen=True)
 class CollectCallNodesByPathDeps:
     check_deadline_fn: Callable[[], None]
-    analysis_index_stage_cache_fn: Callable[..., object]
+    analysis_index_stage_cache_fn: AnalysisIndexStageCacheFn[object]
     stage_cache_spec_ctor: Callable[..., object]
     parse_module_stage_call_nodes: object
     parse_stage_cache_key_fn: Callable[..., object]

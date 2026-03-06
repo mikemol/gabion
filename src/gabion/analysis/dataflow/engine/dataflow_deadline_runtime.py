@@ -290,7 +290,6 @@ def _deadline_function_facts_for_tree(
 
 _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
     check_deadline_fn=check_deadline,
-    analysis_index_stage_cache_fn=_analysis_index_stage_cache,
     stage_cache_spec_ctor=_StageCacheSpec,
     parse_stage_cache_key_fn=_parse_stage_cache_key,
     deadline_function_facts_stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
@@ -303,6 +302,7 @@ _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
 _collect_deadline_function_facts = partial(
     _collect_deadline_function_facts_indexed,
     deps=_COLLECT_DEADLINE_FUNCTION_FACTS_DEPS,
+    stage_cache_fn=_analysis_index_stage_cache,
 )
 
 _materialize_call_candidates_with_static_deps = partial(

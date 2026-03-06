@@ -1,5 +1,5 @@
 ---
-doc_revision: 288
+doc_revision: 289
 doc_id: ws5_decomposition_ledger
 doc_role: ledger
 doc_scope:
@@ -31,6 +31,26 @@ doc_scope:
 - Low: monolith remains a broad compatibility alias surface despite internal importer retirement; further contraction is possible if boundary import compatibility is explicitly relaxed.
 
 ## Progress Ledger
+- WS-5 continuation (`in-347`, this CU):
+  - Canonicalized stage-cache callable typing around the official owner signature:
+    - added shared protocol surface in:
+      - `src/gabion/analysis/indexed_scan/index/analysis_index_stage_cache.py`
+        - `AnalysisIndexStageCacheFn[T]` now anchors the stage-cache callable contract.
+    - replaced broad `Callable[..., object]` seam annotations with `AnalysisIndexStageCacheFn[object]` in:
+      - `src/gabion/analysis/indexed_scan/calls/call_nodes_by_path.py`
+      - `src/gabion/analysis/indexed_scan/scanners/config_fields.py`
+      - `src/gabion/analysis/indexed_scan/scanners/materialization/dataclass_registry.py`
+      - `src/gabion/analysis/indexed_scan/deadline/deadline_function_facts.py`
+      - `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+  - Removed now-dead fallback-carrier deps fields after default-arg DI convergence:
+    - dropped `analysis_index_stage_cache_default_fn` from dataclass-registry deps
+    - dropped `analysis_index_stage_cache_fn` from deadline-function-facts deps
+    - rewired owner constructors accordingly
+  - Validation:
+    - policy checks passed
+    - private-symbol import guard passed (`new=0`)
+    - targeted dataflow/deadline/dataclass suites passed
+    - evidence refresh/check passed (`out/test_evidence.json` no drift)
 - WS-5 continuation (`in-346`, this CU):
   - Removed `None` fallback inside indexed-scan dataclass-registry collector seam:
     - `src/gabion/analysis/indexed_scan/scanners/materialization/dataclass_registry.py`

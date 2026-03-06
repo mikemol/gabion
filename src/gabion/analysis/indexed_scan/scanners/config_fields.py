@@ -7,6 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheFn,
+)
+
 
 @dataclass(frozen=True)
 class IterConfigFieldsDeps:
@@ -20,7 +24,7 @@ class IterConfigFieldsDeps:
 class CollectConfigBundlesDeps:
     check_deadline_fn: Callable[[], None]
     forbid_adhoc_bundle_discovery_fn: Callable[[str], None]
-    analysis_index_stage_cache_fn: Callable[..., object]
+    analysis_index_stage_cache_fn: AnalysisIndexStageCacheFn[object]
     stage_cache_spec_ctor: Callable[..., object]
     parse_module_stage_config_fields: object
     parse_stage_cache_key_fn: Callable[..., object]

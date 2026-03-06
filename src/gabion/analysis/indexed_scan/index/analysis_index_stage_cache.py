@@ -4,9 +4,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Protocol, TypeVar
 
 from gabion.analysis.foundation.json_types import JSONObject
+
+_StageCacheValueT = TypeVar("_StageCacheValueT", covariant=True)
+
+
+class AnalysisIndexStageCacheFn(Protocol[_StageCacheValueT]):
+    def __call__(
+        self,
+        analysis_index,
+        paths: list[Path],
+        *,
+        spec,
+        parse_failure_witnesses: list[JSONObject],
+        module_trees_fn: Callable[..., object] = ...,
+    ) -> dict[Path, _StageCacheValueT]:
+        ...
 
 
 @dataclass(frozen=True)

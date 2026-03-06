@@ -8,11 +8,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheFn,
+)
+
 
 @dataclass(frozen=True)
 class CollectDataclassRegistryDeps:
     check_deadline_fn: Callable[[], None]
-    analysis_index_stage_cache_default_fn: Callable[..., object]
     stage_cache_spec_ctor: Callable[..., object]
     parse_module_stage_dataclass_registry: object
     parse_stage_cache_key_fn: Callable[..., object]
@@ -35,7 +38,7 @@ def collect_dataclass_registry(
     project_root,
     parse_failure_witnesses: list[object],
     analysis_index = None,
-    stage_cache_fn: Callable[..., object],
+    stage_cache_fn: AnalysisIndexStageCacheFn[object],
     deps: CollectDataclassRegistryDeps,
 ) -> dict[str, list[str]]:
     deps.check_deadline_fn()

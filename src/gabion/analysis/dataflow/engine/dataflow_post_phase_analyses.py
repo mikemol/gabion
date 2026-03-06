@@ -107,6 +107,9 @@ from gabion.analysis.indexed_scan.scanners.flow.constant_flow_details import (
     CollectConstantFlowDetailsDeps as _CollectConstantFlowDetailsDeps,
     collect_constant_flow_details as _collect_constant_flow_details_impl,
 )
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheFn,
+)
 from gabion.analysis.indexed_scan.obligations.exception_obligations import (
     collect_exception_obligations as _collect_exception_obligations_impl,
     dead_env_map as _dead_env_map_impl,
@@ -1812,7 +1815,7 @@ def _collect_dataclass_registry(
     project_root,
     parse_failure_witnesses: list[JSONObject],
     analysis_index=None,
-    stage_cache_fn: Callable[..., object] = _analysis_index_stage_cache,
+    stage_cache_fn: AnalysisIndexStageCacheFn[object] = _analysis_index_stage_cache,
 ) -> dict[str, list[str]]:
     return cast(
         dict[str, list[str]],
@@ -1824,7 +1827,6 @@ def _collect_dataclass_registry(
             stage_cache_fn=stage_cache_fn,
             deps=_CollectDataclassRegistryDeps(
                 check_deadline_fn=check_deadline,
-                analysis_index_stage_cache_default_fn=_analysis_index_stage_cache,
                 stage_cache_spec_ctor=_StageCacheSpec,
                 parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
                 parse_stage_cache_key_fn=_parse_stage_cache_key,

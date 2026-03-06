@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import Callable
 
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
+    AnalysisIndexStageCacheFn,
+)
 
 
 @dataclass(frozen=True)
 class CollectDeadlineFunctionFactsDeps:
     check_deadline_fn: Callable[[], None]
-    analysis_index_stage_cache_fn: Callable[..., dict[Path, object]]
     stage_cache_spec_ctor: Callable[..., object]
     parse_stage_cache_key_fn: Callable[..., str]
     deadline_function_facts_stage: object
@@ -30,13 +32,11 @@ def collect_deadline_function_facts(
     parse_failure_witnesses: list[JSONObject],
     trees=None,
     analysis_index=None,
-    stage_cache_fn=None,
+    stage_cache_fn: AnalysisIndexStageCacheFn[object],
     deps: CollectDeadlineFunctionFactsDeps,
 ) -> dict[str, object]:
     deps.check_deadline_fn()
     ignore_param_names = set(ignore_params or ())
-    if stage_cache_fn is None:
-        stage_cache_fn = deps.analysis_index_stage_cache_fn
 
     if analysis_index is not None and trees is None:
         facts_by_path = stage_cache_fn(
@@ -90,4 +90,3 @@ def collect_deadline_function_facts(
                 )
             )
     return facts
-
