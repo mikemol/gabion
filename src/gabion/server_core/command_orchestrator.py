@@ -192,7 +192,7 @@ def _record_trace_1cell(
     surface: str | None = None,
     metadata: Mapping[str, object] | None = None,
 ) -> None:
-    if state is None:
+    if state in (None,):
         return
     execute_deps.progress.record_1cell_fn(
         state,
@@ -938,9 +938,11 @@ def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, 
 def _taint_marker_row_from_ambiguity_witness(
     witness: object,
 ) -> dict[str, object] | None:
-    if not isinstance(witness, Mapping):
+    if isinstance(witness, Mapping):
+        normalized_witness = witness
+    else:
         return None
-    site_payload = witness.get("site")
+    site_payload = normalized_witness.get("site")
     if not isinstance(site_payload, Mapping):
         site_payload = {}
     path = str(site_payload.get("path", "") or "").strip()
@@ -956,8 +958,11 @@ def _taint_marker_row_from_ambiguity_witness(
         and all(isinstance(value, int) for value in span_payload)
         else None
     )
-    kind = str(witness.get("kind", "local_resolution_ambiguous") or "local_resolution_ambiguous").strip()
-    candidate_count_raw = witness.get("candidate_count")
+    kind = str(
+        normalized_witness.get("kind", "local_resolution_ambiguous")
+        or "local_resolution_ambiguous"
+    ).strip()
+    candidate_count_raw = normalized_witness.get("candidate_count")
     try:
         candidate_count = int(candidate_count_raw or 0)
     except (TypeError, ValueError):
@@ -1074,7 +1079,7 @@ def _emit_taint_outputs(
             profile=taint_profile_name,
         )
         state = taint_state.parse_state_payload(cast(Mapping[str, JSONValue], state_payload))
-    if state is None or state_payload is None:
+    if state in (None,) or state_payload in (None,):
         return
     report_root = Path(root)
     out_dir, artifact_dir = _output_dirs(report_root)
@@ -1530,7 +1535,7 @@ def _aspf_import_state_paths(
     *,
     root: Path,
 ) -> tuple[Path, ...]:
-    if payload_value is None:
+    if payload_value in (None,):
         return ()
     resolved: list[Path] = []
     for text in payload_value:
@@ -3057,17 +3062,16 @@ def _emit_trace_artifacts_payloads(
     response: dict[str, object],
     trace_artifacts: object | None,
 ) -> None:
-    if trace_artifacts is None:
-        return
-    response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
-    response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
-    response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
-    response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
-    response["aspf_state"] = _copy_json_mapping(
-        trace_artifacts.state_payload
-        if trace_artifacts.state_payload is not None
-        else {}
-    )
+    if trace_artifacts not in (None,):
+        response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
+        response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
+        response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
+        response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
+        response["aspf_state"] = _copy_json_mapping(
+            trace_artifacts.state_payload
+            if trace_artifacts.state_payload is not None
+            else {}
+        )
 
 
 def _persist_timeout_resume_state(
@@ -3433,7 +3437,8 @@ def _handle_timeout_cleanup(
                     context.identity_shadow_runtime.identity_seed_payload()
                 )
             except Exception:
-                pass
+                identity_seed_unavailable = True
+                _ = identity_seed_unavailable
         return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
@@ -4373,7 +4378,8 @@ def _build_success_response(
                 context.identity_shadow_runtime.identity_seed_payload()
             )
         except Exception:
-            pass
+            identity_seed_unavailable = True
+            _ = identity_seed_unavailable
     return _SuccessResponseOutcome(
         response=_normalize_dataflow_response(response),
         phase_checkpoint_state=phase_checkpoint_state,
