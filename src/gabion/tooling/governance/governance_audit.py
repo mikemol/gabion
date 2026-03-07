@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # gabion:decision_protocol_module
-# gabion:boundary_normalization_module
 
 from typing import Final
 
