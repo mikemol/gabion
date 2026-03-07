@@ -7,6 +7,7 @@ from gabion.server_core.stage_contracts import JSONObject, StageTimeoutResult, T
 _TimeoutCleanupContextT = TypeVar("_TimeoutCleanupContextT")
 
 
+# gabion:decision_protocol
 def timeout_classification_decision(*, progress_payload: JSONObject) -> str:
     timeout_classification = progress_payload.get("classification")
     if isinstance(timeout_classification, str) and timeout_classification:

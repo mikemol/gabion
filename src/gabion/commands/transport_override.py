@@ -40,6 +40,7 @@ def reset_transport_override(
 
 
 @contextmanager
+# gabion:decision_protocol
 def transport_override_scope(override: TransportOverrideConfig | None) -> Iterator[None]:
     token = set_transport_override(override)
     try:

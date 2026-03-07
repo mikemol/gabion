@@ -35,6 +35,7 @@ class CliRuntimeDepsBundle:
     run_ci_watch_fn: CliRunCiWatchFn
 
 
+# gabion:decision_protocol
 def context_callable_dep(
     *,
     ctx: typer.Context,

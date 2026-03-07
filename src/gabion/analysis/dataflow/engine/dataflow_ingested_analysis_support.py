@@ -3,7 +3,6 @@ from __future__ import annotations
 """Canonical ingest-analysis helpers extracted from the indexed monolith."""
 
 import time
-from collections import defaultdict
 from typing import cast
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
@@ -28,23 +27,27 @@ from gabion.order_contract import sort_once
 
 def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
     check_deadline()
-    sig_map: dict[tuple[tuple[str, str], ...], list[str]] = defaultdict(list)
-    for name, info in use_map.items():
-        check_deadline()
-        if info.non_forward:
-            continue
-        sig = tuple(
-            sort_once(
-                info.direct_forward,
-                source="gabion.analysis.dataflow_ingested_analysis_support._group_by_signature.site_1",
-            )
+    eligible = [
+        (
+            name,
+            tuple(
+                sort_once(
+                    info.direct_forward,
+                    source="gabion.analysis.dataflow_ingested_analysis_support._group_by_signature.site_1",
+                )
+            ),
         )
-        if not sig:
-            continue
-        sig_map[sig].append(name)
-    return [set(names) for names in sig_map.values() if len(names) > 1]
+        for name, info in use_map.items()
+        if (not info.non_forward) and bool(info.direct_forward)
+    ]
+    grouped = {
+        sig: {candidate_name for candidate_name, candidate_sig in eligible if candidate_sig == sig}
+        for _, sig in eligible
+    }
+    return [names for names in grouped.values() if len(names) > 1]
 
 
+# gabion:decision_protocol
 def _union_groups(groups: list[set[str]]) -> list[set[str]]:
     check_deadline()
     changed = True

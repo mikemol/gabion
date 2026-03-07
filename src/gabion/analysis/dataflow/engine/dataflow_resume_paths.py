@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 from typing import Callable, Iterable
 
 
 def normalize_snapshot_path(path: Path, root: object) -> str:
-    if root is not None:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            pass
-    return str(path)
+    normalized = str(path)
+    with suppress(ValueError, TypeError):
+        normalized = str(path.relative_to(root))
+    return normalized
 
 
+# gabion:decision_protocol
 def iter_monotonic_paths(
     paths: Iterable[Path],
     *,
@@ -38,4 +38,3 @@ def iter_monotonic_paths(
         has_previous = True
         ordered.append(path)
     return ordered
-

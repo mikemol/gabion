@@ -14,6 +14,7 @@ from gabion.order_contract import sort_once
 _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
 
 
+# gabion:decision_protocol
 def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     """Return bundles documented via '# dataflow-bundle: a, b' markers."""
     check_deadline()

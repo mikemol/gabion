@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping
 from gabion.analysis.foundation.json_types import JSONValue
 
 
+# gabion:decision_protocol
 def materialize_suite_order_spec(*, forest, suite_order_relation_runner, row_to_site_runner, projection_spec, projection_apply_runner, materialize_rows_runner) -> None:
     relation, suite_index = suite_order_relation_runner(forest)
     if not relation:
@@ -18,6 +19,7 @@ def materialize_suite_order_spec(*, forest, suite_order_relation_runner, row_to_
     )
 
 
+# gabion:decision_protocol
 def materialize_ambiguity_suite_agg_spec(*, forest, ambiguity_relation_runner, row_to_suite_runner, projection_spec, projection_apply_runner, materialize_rows_runner) -> None:
     relation = ambiguity_relation_runner(forest)
     if not relation:
@@ -31,6 +33,7 @@ def materialize_ambiguity_suite_agg_spec(*, forest, ambiguity_relation_runner, r
     )
 
 
+# gabion:decision_protocol
 def materialize_ambiguity_virtual_set_spec(*, forest, ambiguity_relation_runner, row_to_suite_runner, projection_spec, projection_apply_runner, materialize_rows_runner, count_gt_1_runner) -> None:
     relation = ambiguity_relation_runner(forest)
     if not relation:

@@ -144,6 +144,7 @@ def reset_runtime_marker_kind_mapping_config(
 
 
 @contextmanager
+# gabion:decision_protocol
 def runtime_marker_kind_mapping_scope(config: MarkerKindMappingConfig) -> Iterator[None]:
     token = set_runtime_marker_kind_mapping_config(config)
     try:
@@ -245,6 +246,7 @@ def never_marker_payload(
     )
 
 
+# gabion:decision_protocol
 def _normalize_dependency_values(raw_values: Sequence[object] | str | None) -> tuple[str, ...]:
     if isinstance(raw_values, Sequence) and not isinstance(raw_values, str):
         candidates = tuple(str(value) for value in raw_values)
@@ -265,6 +267,7 @@ def _normalize_reasoning_mapping(raw_mapping: Mapping[object, object]) -> Marker
     )
 
 
+# gabion:decision_protocol
 def normalize_marker_reasoning(raw_reasoning: ReasoningInput = "") -> MarkerReasoning:
     """Boundary normalizer for marker reasoning payloads.
 

@@ -2050,6 +2050,53 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-P1G",
+      "summary": "Branchless burn-down: removed coarse module markers and shifted normalization to ingress before core helpers.",
+      "timestamp_utc": "2026-03-07T11:12:00Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 69,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 69,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 254,
+      "total_after": 184,
+      "notes": [
+        "Removed module-wide decision protocol markers across 16 hotspot files; retained localized function markers only where boundary/ingress branching is explicit.",
+        "Shifted AST-type narrowing to decision-protocol ingress points (indexed_scan function accumulator and python ingest); core helpers now consume pre-narrowed carriers.",
+        "Refactored function-index and local-class helpers to preserve branchless=0 with no new runtime narrowing; scanner remains nonzero only on existing defensive_fallback/fiber and one pre-existing runtime narrowing site."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_branchless_and_policy_scanner": "pass",
+        "targeted_pytest_dataflow_resolve_and_class_resolution": "pass"
+      }
     }
   ],
   "generated_by": "codex",

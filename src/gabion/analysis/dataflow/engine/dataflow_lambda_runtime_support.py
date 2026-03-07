@@ -31,9 +31,8 @@ from gabion.order_contract import sort_once
 
 def _function_key(scope: Iterable[str], name: str) -> str:
     scope_text = [str(item).strip() for item in scope if str(item).strip()]
-    if not scope_text:
-        return str(name)
-    return ".".join([*scope_text, str(name)])
+    joined = ".".join([*scope_text, str(name)])
+    return (str(name), joined)[bool(scope_text)]
 
 
 def _synthetic_lambda_name(
@@ -43,7 +42,7 @@ def _synthetic_lambda_name(
     span: tuple[int, int, int, int],
 ) -> str:
     check_deadline()
-    lexical = ".".join(lexical_scope) if lexical_scope else "<module>"
+    lexical = ("<module>", ".".join(lexical_scope))[bool(lexical_scope)]
     stable_payload = f"{module}|{lexical}|{span[0]}:{span[1]}:{span[2]}:{span[3]}"
     digest = hashlib.sha1(stable_payload.encode("utf-8")).hexdigest()[:12]
     return f"<lambda:{digest}>"

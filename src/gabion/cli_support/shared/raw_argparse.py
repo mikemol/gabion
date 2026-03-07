@@ -8,6 +8,7 @@ import typer
 from gabion.cli_support.shared.parser_builder import dataflow_cli_parser
 
 
+# gabion:decision_protocol
 def parse_dataflow_args_or_exit(
     argv: list[str],
     *,

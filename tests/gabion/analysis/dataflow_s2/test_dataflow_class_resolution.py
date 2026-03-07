@@ -103,7 +103,8 @@ def test_local_class_bases_and_method_resolution() -> None:
     for node in ast.walk(tree):
         for child in ast.iter_child_nodes(node):
             parents[child] = node
-    class_bases = da._collect_local_class_bases(tree, parents)
+    class_nodes = [node for node in ast.walk(tree) if type(node) is ast.ClassDef]
+    class_bases = da._collect_local_class_bases(class_nodes, parents)
     assert class_bases["Base"] == []
     assert class_bases["Child"] == ["Base"]
     resolved = da._resolve_local_method_in_hierarchy(

@@ -3,7 +3,7 @@ from __future__ import annotations
 """Canonical local-class hierarchy helpers for ingest analysis."""
 
 import ast
-from typing import cast
+from collections.abc import Sequence
 
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     _base_identifier,
@@ -16,41 +16,28 @@ from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
 
 
 def _collect_local_class_bases(
-    tree: ast.AST,
+    class_nodes: Sequence[ast.ClassDef],
     parents: dict[ast.AST, ast.AST],
 ) -> dict[str, list[str]]:
     check_deadline()
-    class_bases: dict[str, list[str]] = {}
-    for node in ast.walk(tree):
-        check_deadline()
-        if type(node) is not ast.ClassDef:
-            continue
-        class_node = cast(ast.ClassDef, node)
-        scopes = _enclosing_class_scopes(class_node, parents)
-        qual_parts = list(scopes)
-        qual_parts.append(class_node.name)
-        qual = ".".join(qual_parts)
-        bases: list[str] = []
-        for base in class_node.bases:
-            check_deadline()
-            base_name = _base_identifier(base)
-            if base_name:
-                bases.append(base_name)
-        class_bases[qual] = bases
-    return class_bases
+    return {
+        ".".join([*_enclosing_class_scopes(class_node, parents), class_node.name]): [
+            base_name
+            for base in class_node.bases
+            if (base_name := _base_identifier(base))
+        ]
+        for class_node in class_nodes
+    }
 
 
 def _local_class_name(
     base: str,
     class_bases: dict[str, list[str]],
 ):
-    if base in class_bases:
-        return base
-    if "." in base:
-        tail = base.split(".")[-1]
-        if tail in class_bases:
-            return tail
-    return None
+    return next(
+        (candidate for candidate in (base, base.rsplit(".", 1)[-1]) if candidate in class_bases),
+        None,
+    )
 
 
 def _resolve_local_method_in_hierarchy(

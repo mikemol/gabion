@@ -128,6 +128,7 @@ class ExecuteCommandDeps:
     def heartbeat_wait_fn(self):
         return self.runtime.heartbeat_wait_fn
 
+# gabion:decision_protocol
     def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
         if not overrides:
             return self

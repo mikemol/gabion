@@ -7,6 +7,7 @@ from gabion.schema import LintEntryDTO
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 
+# gabion:decision_protocol
 def parse_lint_line(line: str) -> LintEntryDTO | None:
     match = _LINT_RE.match(line.strip())
     if not match:

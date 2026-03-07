@@ -604,10 +604,20 @@ def test_direct_lambda_mapping_skips_missing_and_unmapped_spans() -> None:
         ],
         type_ignores=[],
     )
-    assert da._direct_lambda_callee_by_call_span(locationless_tree, lambda_infos=[]) == {}
+    locationless_calls = [
+        node
+        for node in ast.walk(locationless_tree)
+        if type(node) is ast.Call and type(node.func) is ast.Lambda
+    ]
+    assert da._direct_lambda_callee_by_call_span(locationless_calls, lambda_infos=[]) == {}
 
     parsed_tree = ast.parse("def caller():\n    return (lambda x: x)(1)\n")
-    assert da._direct_lambda_callee_by_call_span(parsed_tree, lambda_infos=[]) == {}
+    parsed_calls = [
+        node
+        for node in ast.walk(parsed_tree)
+        if type(node) is ast.Call and type(node.func) is ast.Lambda
+    ]
+    assert da._direct_lambda_callee_by_call_span(parsed_calls, lambda_infos=[]) == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_single_missing_local_binding_falls_back_to_global::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load

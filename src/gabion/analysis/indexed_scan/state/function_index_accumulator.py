@@ -67,8 +67,13 @@ def accumulate_function_index_for_tree(
         parent_map=parent_map,
         lambda_infos=lambda_infos,
     )
+    lambda_call_nodes = [
+        node
+        for node in ast.walk(tree)
+        if type(node) is ast.Call and type(node.func) is ast.Lambda
+    ]
     direct_lambda_callee_by_call_span = deps.direct_lambda_callee_by_call_span_fn(
-        tree,
+        lambda_call_nodes,
         lambda_infos=lambda_infos,
     )
     return_aliases = deps.collect_return_aliases_fn(
@@ -153,4 +158,3 @@ def accumulate_function_index_for_tree(
         deps.check_deadline_fn()
         acc.by_name[info.name].append(info)
         acc.by_qual[info.qual] = info
-

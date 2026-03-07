@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.analysis.foundation.json_types import JSONObject
 
 
+# gabion:decision_protocol
 def apply_forest_signature_metadata(
     payload: JSONObject,
     snapshot: JSONObject,

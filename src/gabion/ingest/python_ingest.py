@@ -104,7 +104,7 @@ def ingest_python_file(
     decorators_transparent: Callable[..., bool],
     param_names: Callable[..., list[str]],
     param_spans: Callable[..., dict[str, tuple[int, int, int, int]]],
-    collect_local_class_bases: Callable[..., dict[str, set[str]]],
+    collect_local_class_bases: Callable[..., dict[str, list[str]]],
     resolve_local_method_in_hierarchy: Callable[..., str | None],
     is_test_path: Callable[[Path], bool],
     check_deadline: Callable[[], None],
@@ -278,7 +278,8 @@ def ingest_python_file(
         fn_calls[caller_key] = resolved_calls
     profile_stage_ns["file_scan.resolve_local_calls"] += time.monotonic_ns() - local_resolve_started_ns
 
-    class_bases = collect_local_class_bases(tree, parents)
+    class_nodes = [node for node in ast.walk(tree) if type(node) is ast.ClassDef]
+    class_bases = collect_local_class_bases(class_nodes, parents)
     profile_counters["file_scan.class_bases_count"] = len(class_bases)
     if class_bases:
         method_resolve_started_ns = time.monotonic_ns()

@@ -27,6 +27,7 @@ def run_ingress_stage(
     return StageIngressResult(payload=normalized_payload, options=options, mode=mode)
 
 
+# gabion:decision_protocol
 def default_mode_selector(
     *, payload: Mapping[str, object], options: ExecutionPayloadOptionsContract
 ) -> IngressStageMode:
