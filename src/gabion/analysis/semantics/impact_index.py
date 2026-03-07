@@ -10,6 +10,11 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover - handled as empty frontmatter payload.
+    yaml = None
+
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_spec_rows
 from gabion.analysis.projection.projection_registry import REGISTERED_SPECS
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -905,6 +910,7 @@ def _attribute_path(node: ast.Attribute) -> list[str]:
             return list()
 
 
+# gabion:ambiguity_boundary
 def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
     if not text.startswith("---\n"):
         return {}, text
@@ -919,34 +925,21 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
         return {}, text
     raw = lines[1:end]
     body = "\n".join(lines[end + 1 :])
-    payload: dict[str, object] = {}
-    current = None
-    items: list[str] = []
-    for line in raw:
-        check_deadline()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- ") and current is not None:
-            items.append(stripped[2:].strip().strip("\"'"))
-            continue
-        if current is not None:
-            payload[current] = items
-            current = None
-            items = []
-        if ":" not in stripped:
-            continue
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if key == "doc_targets" and not value:
-            current = key
-            items = []
-            continue
-        payload[key] = value.strip().strip("\"'")
-    if current is not None:
-        payload[current] = items
-    return payload, body
+    if yaml is not None:
+        try:
+            parsed = yaml.safe_load("\n".join(raw))
+        except Exception:
+            parsed = None
+        match parsed:
+            case dict() as parsed_mapping:
+                normalized: dict[str, object] = {}
+                for key, value in parsed_mapping.items():
+                    check_deadline()
+                    normalized[str(key)] = value
+                return normalized, body
+            case _:
+                pass
+    return {}, body
 
 
 def _coerce_target_list(value: object) -> list[str]:

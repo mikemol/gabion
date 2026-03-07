@@ -1667,6 +1667,55 @@
         "targeted_pytest_runtime_policy_cluster": "pass",
         "targeted_pytest_python_ingest": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S0F",
+      "summary": "Close remaining runtime_narrowing_boundary self-debt with structural ingress matching in impact/frontmatter and policy-result loaders.",
+      "timestamp_utc": "2026-03-07T01:40:22Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 3,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 68,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 68,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 321,
+      "total_after": 318,
+      "notes": [
+        "Replaced remaining runtime narrowing checks with structural match/case in impact_index frontmatter parsing and policy_result_schema load normalization.",
+        "Included related pre-existing edits in the same files as part of the active cleanup stream; targeted impact/runtime-policy suites remained green.",
+        "Refreshed out/test_evidence.json and recorded existing unmapped-test additions as evidence drift for this CU."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "targeted_pytest_impact_index": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "fail_expected_drift"
+      }
     }
   ],
   "generated_by": "codex",

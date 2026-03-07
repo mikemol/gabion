@@ -1,3 +1,5 @@
+# gabion:decision_protocol_module
+# gabion:boundary_normalization_module
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -48,14 +50,19 @@ def load_policy_result(path: Path) -> dict[str, Any] | None:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(raw, dict):
-        return None
-    for field in _POLICY_RESULT_REQUIRED_FIELDS:
-        if field not in raw:
+    match raw:
+        case dict() as payload:
+            pass
+        case _:
             return None
-    if not isinstance(raw.get("violations"), list):
-        return None
-    return dict(raw)
+    for field in _POLICY_RESULT_REQUIRED_FIELDS:
+        if field not in payload:
+            return None
+    match payload.get("violations"):
+        case list():
+            return dict(payload)
+        case _:
+            return None
 
 
 __all__ = [
