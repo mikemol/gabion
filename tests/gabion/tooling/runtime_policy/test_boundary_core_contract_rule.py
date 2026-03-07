@@ -87,3 +87,50 @@ def test_boundary_core_contract_flags_raw_ingress_types_in_core(tmp_path: Path) 
 
     violations = rule.collect_violations(root=tmp_path)
     assert any(item.kind == "raw_ingress_type_in_core" for item in violations)
+
+
+def test_boundary_core_contract_dedupes_core_violations_across_multiple_boundaries(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "src/gabion/first_boundary.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization_module",
+                "import gabion.shared_core as shared_core",
+                "",
+                "def run_boundary(value: str) -> str:",
+                "    return shared_core.run_core(value)",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "src/gabion/second_boundary.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization_module",
+                "import gabion.shared_core as shared_core",
+                "",
+                "def run_boundary(value: str) -> str:",
+                "    return shared_core.run_core(value)",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "src/gabion/shared_core.py",
+        "\n".join(
+            [
+                "def run_core(value: str) -> str:",
+                "    if value:",
+                "        return value",
+                "    return value",
+            ]
+        )
+        + "\n",
+    )
+
+    violations = rule.collect_violations(root=tmp_path)
+    branch_violations = [item for item in violations if item.kind == "branch_in_core_module"]
+    assert len(branch_violations) == 1

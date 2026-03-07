@@ -172,7 +172,7 @@ def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> li
                                                 )
                                             )
 
-    return violations
+    return _dedupe_exact_violations(violations)
 
 
 def _read_source(path: Path) -> str | None:
@@ -451,6 +451,25 @@ def _violation(
         message=message,
         structured_hash=structured_hash,
     )
+
+
+def _dedupe_exact_violations(violations: Sequence[Violation]) -> list[Violation]:
+    deduped: list[Violation] = []
+    seen: set[tuple[str, int, int, str, str, str]] = set()
+    for violation in violations:
+        signature = (
+            violation.path,
+            violation.line,
+            violation.column,
+            violation.qualname,
+            violation.kind,
+            violation.message,
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        deduped.append(violation)
+    return deduped
 
 
 def _structured_hash(*parts: str) -> str:
