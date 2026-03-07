@@ -1858,6 +1858,55 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "boundary_payload_signature_scout": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S2K",
+      "summary": "Remove boundary markers from progress contract/transition and annotate normalization helpers to avoid defensive fallback regressions.",
+      "timestamp_utc": "2026-03-07T02:20:58Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 65,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 315,
+      "total_after": 297,
+      "notes": [
+        "Removed boundary_normalization_module markers from commands/progress_contract.py and commands/progress_transition.py after workflow policy probe confirmed payload-signature compliance.",
+        "Added explicit function-level # gabion:boundary_normalization markers on sentinel-return normalization helpers in both modules to prevent defensive_fallback regressions after module-level marker removal.",
+        "Produced monotonic drop in boundary_core_contract and large fiber_normalization_contract reduction without non-target increases."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "targeted_pytest_progress_contract_transition": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "pass"
+      }
     }
   ],
   "generated_by": "codex",

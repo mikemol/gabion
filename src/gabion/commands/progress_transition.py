@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -208,6 +207,7 @@ def _normalize_node_from_mapping(
     )
 
 
+# gabion:boundary_normalization
 def _resolve_node_by_path(
     root: ProgressNode,
     active_path: tuple[str, ...],
@@ -367,6 +367,7 @@ def normalize_progress_transition_from_phase_progress(
     return None
 
 
+# gabion:boundary_normalization
 def transition_marker_from_phase_progress(phase_progress: Mapping[str, object]) -> str | None:
     transition = normalize_progress_transition_from_phase_progress(phase_progress)
     if transition is None:
@@ -383,6 +384,7 @@ def transition_primary_from_phase_progress(
     return transition.primary_unit, transition.primary_done, transition.primary_total
 
 
+# gabion:boundary_normalization
 def transition_event_kind_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> ProgressEventKind | None:
@@ -392,6 +394,7 @@ def transition_event_kind_from_phase_progress(
     return transition.event_kind
 
 
+# gabion:boundary_normalization
 def transition_reason_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> str | None:

@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -69,12 +68,14 @@ def _primary_from_transition(
     return transition.primary_unit, transition.primary_done, transition.primary_total
 
 
+# gabion:boundary_normalization
 def _path_from_transition(*, transition) -> str:
     if transition is None:
         return ""
     return " > ".join(transition.active_path)
 
 
+# gabion:boundary_normalization
 def _active_primary_from_transition(*, transition) -> str:
     if transition is None:
         return ""
@@ -85,18 +86,21 @@ def _active_primary_from_transition(*, transition) -> str:
     return value
 
 
+# gabion:boundary_normalization
 def _active_depth_from_transition(*, transition) -> str:
     if transition is None:
         return ""
     return str(max(len(transition.active_path) - 1, 0))
 
 
+# gabion:boundary_normalization
 def _root_identity_from_transition(*, transition) -> str:
     if transition is None:
         return ""
     return transition.root.identity
 
 
+# gabion:boundary_normalization
 def _active_identity_from_transition(*, transition) -> str:
     if transition is None:
         return ""
@@ -132,6 +136,7 @@ def _active_marker_step_from_transition(
     return marker_step
 
 
+# gabion:boundary_normalization
 def _active_children_from_transition(*, transition) -> str:
     if transition is None:
         return ""
@@ -157,6 +162,7 @@ def _progress_value_from_notification(
     return value
 
 
+# gabion:boundary_normalization
 def _canonical_progress_value_from_notification(
     notification: Mapping[str, object],
 ) -> Mapping[str, object] | None:
