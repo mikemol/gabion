@@ -4,7 +4,7 @@ from __future__ import annotations
 """Compatibility facade for legacy indexed dataflow runtime symbols."""
 
 # Temporary boundary adapter retained for external import compatibility.
-_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, object] = {
+_BOUNDARY_ADAPTER_LIFECYCLE: dict[str, JSONValue] = {
     "actor": "codex",
     "rationale": "WS-5 hard-cut completed; retain monolith alias surface while external importers migrate",
     "scope": "dataflow_indexed_file_scan.alias_surface",

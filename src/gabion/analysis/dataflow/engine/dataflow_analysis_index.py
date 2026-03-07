@@ -34,6 +34,7 @@ from gabion.analysis.dataflow.engine.dataflow_parse_failures import (
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig,
+    CallArgs,
     ClassInfo,
     FunctionInfo,
     SymbolTable,
@@ -85,7 +86,7 @@ from gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy import (
 )
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_cache import get_global_derivation_cache
-from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import TimeoutExceeded, check_deadline
 from gabion.analysis.indexed_scan.index.analysis_index_builder import (
     AnalysisIndexBuildDeps as _AnalysisIndexBuildDeps,
@@ -133,7 +134,7 @@ _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
 OptionalProjectRoot = Path
 OptionalDecorators = set[str]
 OptionalParseFailures = ParseFailureWitnesses
-OptionalAnalysisIndex = object
+OptionalAnalysisIndex = "_AnalysisIndexCarrier | None"
 
 
 @dataclass(frozen=True)
@@ -145,7 +146,7 @@ class _IndexedPassContext:
     external_filter: bool
     transparent_decorators: OptionalDecorators
     parse_failure_witnesses: ParseFailureWitnesses
-    analysis_index: object
+    analysis_index: OptionalAnalysisIndex
 
 
 @dataclass(frozen=True)
@@ -157,7 +158,7 @@ class _IndexedPassSpec(Generic[_IndexedPassResult]):
 @dataclass(frozen=True)
 class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
     artifact_id: str
-    stage: object
+    stage: _ParseModuleStage
     init: Callable[[], _ModuleArtifactAcc]
     fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
     finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
@@ -165,16 +166,16 @@ class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
 
 @dataclass(frozen=True)
 class _ResolvedCallEdge:
-    caller: object
-    call: object
-    callee: object
+    caller: FunctionInfo
+    call: CallArgs
+    callee: FunctionInfo
 
 
 @dataclass(frozen=True)
 class _ResolvedEdgeParamEvent:
     kind: str
     param: str
-    value: object
+    value: str
     countable: bool
 
 
@@ -189,30 +190,34 @@ class _StageCacheIdentitySpec:
     stage: str
     forest_spec_id: str
     fingerprint_seed_revision: str
-    normalized_config: object
+    normalized_config: JSONValue
 
 
 @dataclass
 class _AnalysisIndexCarrier:
-    by_name: dict[str, list[object]]
-    by_qual: dict[str, object]
-    symbol_table: object
-    class_index: dict[str, object]
+    by_name: dict[str, list[FunctionInfo]]
+    by_qual: dict[str, FunctionInfo]
+    symbol_table: SymbolTable
+    class_index: dict[str, ClassInfo]
     parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
     module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
     stage_cache_by_key: dict[object, dict[Path, object]] = field(default_factory=dict)
     index_cache_identity: str = ""
     projection_cache_identity: str = ""
-    transitive_callers: object = None
-    resolved_call_edges: object = None
-    resolved_transparent_call_edges: object = None
-    resolved_transparent_edges_by_caller: object = None
+    transitive_callers: dict[str, set[str]] = field(default_factory=dict)
+    transitive_callers_ready: bool = False
+    resolved_call_edges: tuple[_ResolvedCallEdge, ...] = ()
+    resolved_call_edges_ready: bool = False
+    resolved_transparent_call_edges: tuple[_ResolvedCallEdge, ...] = ()
+    resolved_transparent_call_edges_ready: bool = False
+    resolved_transparent_edges_by_caller: dict[str, tuple[_ResolvedCallEdge, ...]] = field(default_factory=dict)
+    resolved_transparent_edges_by_caller_ready: bool = False
 
 
 @dataclass
 class _FunctionIndexAccumulator:
-    by_name: dict[str, list[object]] = field(default_factory=lambda: defaultdict(list))
-    by_qual: dict[str, object] = field(default_factory=dict)
+    by_name: dict[str, list[FunctionInfo]] = field(default_factory=lambda: defaultdict(list))
+    by_qual: dict[str, FunctionInfo] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -320,9 +325,9 @@ def _function_index_module_artifact_spec(
 def _build_single_module_artifact(
     paths: list[Path],
     *,
-    spec: _ModuleArtifactSpec[object, object],
+    spec: _ModuleArtifactSpec[_ModuleArtifactAcc, _ModuleArtifactOut],
     parse_failure_witnesses: ParseFailureWitnesses,
-) -> object:
+) -> _ModuleArtifactOut:
     check_deadline()
     raw_artifact, = _build_module_artifacts(
         paths,
@@ -341,22 +346,15 @@ def _build_function_index(
     *,
     parse_failure_witnesses: ParseFailureWitnesses,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
-    raw_index = _build_single_module_artifact(
+    return _build_single_module_artifact(
         paths,
-        spec=cast(
-            _ModuleArtifactSpec[object, object],
-            _function_index_module_artifact_spec(
-                project_root=project_root,
-                ignore_params=ignore_params,
-                strictness=strictness,
-                transparent_decorators=transparent_decorators,
-            ),
+        spec=_function_index_module_artifact_spec(
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            transparent_decorators=transparent_decorators,
         ),
         parse_failure_witnesses=parse_failure_witnesses,
-    )
-    return cast(
-        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
-        raw_index,
     )
 
 
@@ -410,18 +408,14 @@ def _build_symbol_table(
     external_filter: bool,
     parse_failure_witnesses: ParseFailureWitnesses,
 ) -> SymbolTable:
-    raw_table = _build_single_module_artifact(
+    return _build_single_module_artifact(
         paths,
-        spec=cast(
-            _ModuleArtifactSpec[object, object],
-            _symbol_table_module_artifact_spec(
-                project_root=project_root,
-                external_filter=external_filter,
-            ),
+        spec=_symbol_table_module_artifact_spec(
+            project_root=project_root,
+            external_filter=external_filter,
         ),
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    return cast(SymbolTable, raw_table)
 
 
 _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
@@ -471,7 +465,7 @@ def _progress_emit_min_interval_seconds() -> float:
     return float(_PROGRESS_EMIT_MIN_INTERVAL_SECONDS)
 
 
-def _path_dependency_payload(path: Path) -> dict[str, object]:
+def _path_dependency_payload(path: Path) -> JSONObject:
     resolved = path.resolve()
     stat = resolved.stat()
     return {
@@ -499,7 +493,7 @@ _build_module_artifacts = partial(
 
 def _collect_transitive_callers(
     callers_by_qual: dict[str, set[str]],
-    by_qual: dict[str, object],
+    by_qual: dict[str, FunctionInfo],
 ) -> dict[str, set[str]]:
     check_deadline()
     transitive: dict[str, set[str]] = {}
@@ -524,7 +518,7 @@ def _analysis_index_transitive_callers(
     project_root,
 ) -> dict[str, set[str]]:
     check_deadline()
-    if analysis_index.transitive_callers is not None:
+    if analysis_index.transitive_callers_ready:
         return analysis_index.transitive_callers
     callers_by_qual: dict[str, set[str]] = defaultdict(set)
     for edge in _analysis_index_resolved_call_edges(
@@ -538,6 +532,7 @@ def _analysis_index_transitive_callers(
         callers_by_qual,
         analysis_index.by_qual,
     )
+    analysis_index.transitive_callers_ready = True
     return analysis_index.transitive_callers
 
 
@@ -546,15 +541,15 @@ def _analysis_index_resolved_call_edges(
     *,
     project_root,
     require_transparent: bool,
-) -> tuple[object, ...]:
+) -> tuple[_ResolvedCallEdge, ...]:
     check_deadline()
     if require_transparent:
-        cached_edges = analysis_index.resolved_transparent_call_edges
+        if analysis_index.resolved_transparent_call_edges_ready:
+            return analysis_index.resolved_transparent_call_edges
     else:
-        cached_edges = analysis_index.resolved_call_edges
-    if cached_edges is not None:
-        return cached_edges
-    edges: list[object] = []
+        if analysis_index.resolved_call_edges_ready:
+            return analysis_index.resolved_call_edges
+    edges: list[_ResolvedCallEdge] = []
     for infos in analysis_index.by_name.values():
         check_deadline()
         for info in infos:
@@ -576,8 +571,10 @@ def _analysis_index_resolved_call_edges(
     frozen_edges = tuple(edges)
     if require_transparent:
         analysis_index.resolved_transparent_call_edges = frozen_edges
+        analysis_index.resolved_transparent_call_edges_ready = True
     else:
         analysis_index.resolved_call_edges = frozen_edges
+        analysis_index.resolved_call_edges_ready = True
     return frozen_edges
 
 
@@ -586,11 +583,11 @@ def _analysis_index_resolved_call_edges_by_caller(
     *,
     project_root,
     require_transparent: bool,
-) -> dict[str, tuple[object, ...]]:
+) -> dict[str, tuple[_ResolvedCallEdge, ...]]:
     check_deadline()
-    if require_transparent and analysis_index.resolved_transparent_edges_by_caller is not None:
+    if require_transparent and analysis_index.resolved_transparent_edges_by_caller_ready:
         return analysis_index.resolved_transparent_edges_by_caller
-    grouped: dict[str, list[object]] = defaultdict(list)
+    grouped: dict[str, list[_ResolvedCallEdge]] = defaultdict(list)
     for edge in _analysis_index_resolved_call_edges(
         analysis_index,
         project_root=project_root,
@@ -601,6 +598,7 @@ def _analysis_index_resolved_call_edges_by_caller(
     frozen_grouped = {qual: tuple(edges) for qual, edges in grouped.items()}
     if require_transparent:
         analysis_index.resolved_transparent_edges_by_caller = frozen_grouped
+        analysis_index.resolved_transparent_edges_by_caller_ready = True
     return frozen_grouped
 
 
@@ -712,7 +710,7 @@ def _build_stage_cache_identity_spec(
 
 
 def _canonical_stage_cache_identity(spec) -> str:
-    payload: dict[str, object] = {
+    payload: JSONObject = {
         "stage": spec.stage,
         "forest_spec_id": spec.forest_spec_id,
         "fingerprint_seed_revision": spec.fingerprint_seed_revision,

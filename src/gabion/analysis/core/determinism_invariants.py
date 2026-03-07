@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
 
+from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 
@@ -15,7 +16,7 @@ def _identity_key(value: T) -> object:
     return value
 
 
-def _noop_violation(_payload: object) -> None:
+def _noop_violation(_payload: Mapping[str, JSONValue]) -> None:
     return None
 
 
@@ -25,7 +26,7 @@ def require_sorted(
     *,
     key: Callable[[T], object] = _identity_key,
     reverse: bool = False,
-    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, JSONValue]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
@@ -42,14 +43,14 @@ def require_sorted(
         if is_ordered:
             previous_key = current_key
             continue
-        payload: dict[str, object] = {
+        payload: dict[str, JSONValue] = {
             "constraint": "sorted",
             "name": name,
             "previous_key": repr(previous_key),
             "current_key": repr(current_key),
             "reverse": reverse,
         }
-        payload.update({str(k): v for k, v in env.items()})
+        payload.update({str(k): repr(v) for k, v in env.items()})
         on_violation(payload)
         never("determinism invariant: sorted order violated", **payload)
 
@@ -59,7 +60,7 @@ def require_no_dupes(
     xs: Iterable[T],
     *,
     key: Callable[[T], object] = _identity_key,
-    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, JSONValue]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
@@ -70,12 +71,12 @@ def require_no_dupes(
         if entry_key not in seen:
             seen.add(entry_key)
             continue
-        payload: dict[str, object] = {
+        payload: dict[str, JSONValue] = {
             "constraint": "no_dupes",
             "name": name,
             "duplicate_key": repr(entry_key),
         }
-        payload.update({str(k): v for k, v in env.items()})
+        payload.update({str(k): repr(v) for k, v in env.items()})
         on_violation(payload)
         never("determinism invariant: duplicate entry detected", **payload)
 
@@ -84,7 +85,7 @@ def require_canonical_multiset(
     name: str,
     pairs: Iterable[tuple[str, int]],
     *,
-    on_violation: Callable[[Mapping[str, object]], None] = _noop_violation,
+    on_violation: Callable[[Mapping[str, JSONValue]], None] = _noop_violation,
     **env: object,
 ) -> None:
     check_deadline()
@@ -94,13 +95,13 @@ def require_canonical_multiset(
     for key, count in pairs:
         check_deadline()
         if count <= 0:
-            payload: dict[str, object] = {
+            payload: dict[str, JSONValue] = {
                 "constraint": "canonical_multiset",
                 "name": name,
                 "invalid_count": int(count),
                 "key": key,
             }
-            payload.update({str(k): v for k, v in env.items()})
+            payload.update({str(k): repr(v) for k, v in env.items()})
             on_violation(payload)
             never("determinism invariant: multiset count must be positive", **payload)
         if key in seen_keys:
@@ -109,7 +110,7 @@ def require_canonical_multiset(
                 "name": name,
                 "duplicate_key": key,
             }
-            payload.update({str(k): v for k, v in env.items()})
+            payload.update({str(k): repr(v) for k, v in env.items()})
             on_violation(payload)
             never("determinism invariant: multiset key duplicated", **payload)
         seen_keys.add(key)
@@ -120,7 +121,7 @@ def require_canonical_multiset(
                 "previous_key": previous_key,
                 "current_key": key,
             }
-            payload.update({str(k): v for k, v in env.items()})
+            payload.update({str(k): repr(v) for k, v in env.items()})
             on_violation(payload)
             never("determinism invariant: multiset keys out of order", **payload)
         previous_key = key

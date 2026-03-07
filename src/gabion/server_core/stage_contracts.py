@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping, Protocol, TypeVar
 
 from gabion.json_types import JSONObject
 from gabion.server_core.command_contract import (
@@ -85,8 +85,16 @@ class AuxiliaryOutputRequest:
     emit: Callable[[], None]
 
 
-class TimeoutCleanupHandler(Protocol):
-    def __call__(self, *, exc: BaseException, context: object) -> dict[str, object]: ...
+_TimeoutCleanupContextT = TypeVar("_TimeoutCleanupContextT", contravariant=True)
+
+
+class TimeoutCleanupHandler(Protocol[_TimeoutCleanupContextT]):
+    def __call__(
+        self,
+        *,
+        exc: BaseException,
+        context: _TimeoutCleanupContextT,
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)

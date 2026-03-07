@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover - handled as empty frontmatter payload.
     yaml = None
 
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_spec_rows
+from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.projection.projection_registry import REGISTERED_SPECS
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
@@ -911,7 +912,7 @@ def _attribute_path(node: ast.Attribute) -> list[str]:
 
 
 # gabion:ambiguity_boundary
-def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+def _parse_frontmatter(text: str) -> tuple[dict[str, JSONValue], str]:
     if not text.startswith("---\n"):
         return {}, text
     lines = text.splitlines()
@@ -932,7 +933,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
             parsed = None
         match parsed:
             case dict() as parsed_mapping:
-                normalized: dict[str, object] = {}
+                normalized: dict[str, JSONValue] = {}
                 for key, value in parsed_mapping.items():
                     check_deadline()
                     normalized[str(key)] = value

@@ -1907,6 +1907,55 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "pass"
       }
+    },
+    {
+      "cu_id": "CU-P2TS1",
+      "summary": "Eliminate typing_surface debt via carrier typing refactor across analysis/runtime stage contracts.",
+      "timestamp_utc": "2026-03-07T02:43:26Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 297,
+      "total_after": 267,
+      "notes": [
+        "Replaced bare object/dict[str, object] annotations with explicit carriers in dataflow_analysis_index, runtime reporting, marker protocol, impact frontmatter parsing, deadline runtime, and timeout stage contracts.",
+        "Resolved ambiguity-contract conflicts by removing optional/union annotations in deterministic-core surfaces and introducing explicit cache-ready state flags.",
+        "Typing surface family reduced to zero with no growth in branchless/defensive/runtime narrowing families."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "targeted_pytest_marker_protocol": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "pass"
+      }
     }
   ],
   "generated_by": "codex",

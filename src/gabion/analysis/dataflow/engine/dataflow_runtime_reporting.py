@@ -16,6 +16,17 @@ from gabion.order_contract import sort_once
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 _ReportSectionValue = TypeVar("_ReportSectionValue")
+_PreviewBuild = Callable[
+    [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+    list[str],
+]
+
+
+def _preview_build_unset(
+    _report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    return []
 
 
 @dataclass(frozen=True)
@@ -29,7 +40,7 @@ class ReportProjectionSpec(Generic[_ReportSectionValue]):
     ]
     render: Callable[[_ReportSectionValue], list[str]]
     violation_extract: Callable[[_ReportSectionValue], list[str]]
-    preview_build: object = None
+    preview_build: _PreviewBuild = _preview_build_unset
 
 
 def _report_section_identity_render(lines: list[str]) -> list[str]:
@@ -59,7 +70,7 @@ def _report_section_spec(
     section_id: str,
     phase: ReportProjectionPhase,
     deps: tuple[str, ...] = (),
-    preview_build: object = None,
+    preview_build: _PreviewBuild = _preview_build_unset,
 ) -> ReportProjectionSpec[list[str]]:
     return ReportProjectionSpec[list[str]](
         section_id=section_id,

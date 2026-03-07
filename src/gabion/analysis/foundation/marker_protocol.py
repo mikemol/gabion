@@ -10,7 +10,7 @@ import json
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from types import MappingProxyType
-from typing import Iterator, Mapping, Sequence
+from typing import Iterator, Mapping, Protocol, Sequence
 
 
 class MarkerKind(StrEnum):
@@ -48,6 +48,15 @@ class MarkerReasoning:
     summary: str
     control: str
     blocking_dependencies: tuple[str, ...]
+
+
+class _ReasoningCarrier(Protocol):
+    summary: str
+    control: str
+    blocking_dependencies: Sequence[object] | str | None
+
+
+ReasoningInput = MarkerReasoning | _ReasoningCarrier | Mapping[str, object] | str | None
 
 
 @dataclass(frozen=True)
@@ -177,7 +186,7 @@ def normalize_marker_payload(
     expiry: str = "",
     lifecycle_state: MarkerLifecycleState = MarkerLifecycleState.ACTIVE,
     links: Sequence[Mapping[str, str]] = _EMPTY_LINKS,
-    reasoning: object = "",
+    reasoning: ReasoningInput = "",
 ) -> MarkerPayload:
     normalized_reasoning = normalize_marker_reasoning(reasoning or reason)
     normalized_reason = normalized_reasoning.summary or "never() invariant reached"
@@ -223,7 +232,7 @@ def never_marker_payload(
     owner: str = "",
     expiry: str = "",
     links: Sequence[Mapping[str, str]] = _EMPTY_LINKS,
-    reasoning: object = "",
+    reasoning: ReasoningInput = "",
 ) -> MarkerPayload:
     return normalize_marker_payload(
         reason=reason,
@@ -236,7 +245,7 @@ def never_marker_payload(
     )
 
 
-def _normalize_dependency_values(raw_values: object) -> tuple[str, ...]:
+def _normalize_dependency_values(raw_values: Sequence[object] | str | None) -> tuple[str, ...]:
     if isinstance(raw_values, Sequence) and not isinstance(raw_values, str):
         candidates = tuple(str(value) for value in raw_values)
     else:
@@ -256,7 +265,7 @@ def _normalize_reasoning_mapping(raw_mapping: Mapping[object, object]) -> Marker
     )
 
 
-def normalize_marker_reasoning(raw_reasoning: object = "") -> MarkerReasoning:
+def normalize_marker_reasoning(raw_reasoning: ReasoningInput = "") -> MarkerReasoning:
     """Boundary normalizer for marker reasoning payloads.
 
     Supports typed dataclass input, generic mappings, and scalar fallback values.

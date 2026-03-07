@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, TypeVar
 
 from gabion.server_core.stage_contracts import JSONObject, StageTimeoutResult, TimeoutCleanupHandler
+
+_TimeoutCleanupContextT = TypeVar("_TimeoutCleanupContextT")
 
 
 def timeout_classification_decision(*, progress_payload: JSONObject) -> str:
@@ -15,8 +17,8 @@ def timeout_classification_decision(*, progress_payload: JSONObject) -> str:
 def run_timeout_stage(
     *,
     exc: BaseException,
-    context: object,
-    cleanup_handler: TimeoutCleanupHandler,
+    context: _TimeoutCleanupContextT,
+    cleanup_handler: TimeoutCleanupHandler[_TimeoutCleanupContextT],
 ) -> StageTimeoutResult:
     return StageTimeoutResult(response=cleanup_handler(exc=exc, context=context))
 

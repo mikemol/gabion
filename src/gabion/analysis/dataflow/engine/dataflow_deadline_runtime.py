@@ -31,7 +31,11 @@ from gabion.analysis.dataflow.engine.dataflow_callee_resolution import (
     resolve_callee_with_effects as _resolve_callee_with_effects,
 )
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import _callee_key
-from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
+from gabion.analysis.dataflow.engine.dataflow_contracts import (
+    CallArgs,
+    ClassInfo,
+    FunctionInfo,
+)
 from gabion.analysis.dataflow.engine.dataflow_deadline_collector import (
     make_deadline_function_collector,
 )
@@ -318,7 +322,7 @@ def _materialize_call_candidates(
     by_qual: dict[str, FunctionInfo],
     symbol_table,
     project_root,
-    class_index: dict[str, object],
+    class_index: dict[str, ClassInfo],
     resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] = _resolve_callee_outcome,
 ) -> None:
     _materialize_call_candidates_with_static_deps(
