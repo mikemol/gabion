@@ -19,6 +19,11 @@ from gabion.analysis.foundation.event_algebra import (
     derive_identity_projection_from_tokens,
 )
 from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
 
 
 BASELINE_VERSION = 1
@@ -65,6 +70,9 @@ class Violation:
     flow_identity: str
     event_kind: str
     structured_hash: str
+    fiber_trace: tuple[FiberTraceEvent, ...] = ()
+    applicability_bounds: FiberApplicabilityBounds | None = None
+    counterfactual_boundary: FiberCounterfactualBoundary | None = None
 
     @property
     def key(self) -> str:
@@ -89,9 +97,13 @@ class _TraceSource:
 @dataclass(frozen=True)
 class _ObservedNormalization:
     event_index: int
+    line: int
+    column: int
     event_kind: str
     phase_hint: str
     normalization_class: str
+    input_slot: str
+    pre_core: bool
 
 
 class _TraceControlsDTO(BaseModel):
@@ -429,19 +441,11 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
     phase_by_one_cell_ref = _phase_hints_by_one_cell_ref(source.delta_records)
     core_entry_index = _first_core_entry_index(one_cells=one_cells)
     observed: dict[tuple[str, str], list[_ObservedNormalization]] = {}
+    flow_events_by_identity: dict[str, list[_ObservedNormalization]] = {}
 
     for index, one_cell in enumerate(one_cells, start=1):
         normalization_class = _normalization_class(one_cell)
         if normalization_class is None:
-            continue
-
-        one_cell_ref = f"one_cells.{index}"
-        phase_hint = phase_by_one_cell_ref.get(one_cell_ref, "")
-        if not _is_pre_core_event(
-            event_index=index,
-            core_entry_index=core_entry_index,
-            phase_hint=phase_hint,
-        ):
             continue
 
         flow_identity = _derive_canonical_flow_identity(
@@ -449,14 +453,28 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
             one_cell=one_cell,
         )
         event_kind = (one_cell.kind or "").strip()
-        observed.setdefault((flow_identity, normalization_class), []).append(
-            _ObservedNormalization(
-                event_index=index,
-                event_kind=event_kind,
-                phase_hint=phase_hint,
-                normalization_class=normalization_class,
-            )
+        one_cell_ref = f"one_cells.{index}"
+        phase_hint = phase_by_one_cell_ref.get(one_cell_ref, "")
+        pre_core = _is_pre_core_event(
+            event_index=index,
+            core_entry_index=core_entry_index,
+            phase_hint=phase_hint,
         )
+        observed_event = _ObservedNormalization(
+            event_index=index,
+            line=index,
+            column=1,
+            event_kind=event_kind,
+            phase_hint=phase_hint,
+            normalization_class=normalization_class,
+            input_slot="<flow>",
+            pre_core=pre_core,
+        )
+        flow_events_by_identity.setdefault(flow_identity, []).append(observed_event)
+        if pre_core:
+            observed.setdefault((flow_identity, normalization_class), []).append(
+                observed_event
+            )
 
     rel_path = source.path.resolve()
     try:
@@ -469,6 +487,20 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
         if len(events) <= 1:
             continue
         ordered_events = sorted(events, key=lambda item: item.event_index)
+        trace_rows = sorted(
+            flow_events_by_identity.get(flow_identity, ()),
+            key=lambda item: item.event_index,
+        )
+        trace_by_event_index = {
+            row.event_index: ordinal
+            for ordinal, row in enumerate(trace_rows, start=1)
+        }
+        first_local_ordinal = trace_by_event_index[ordered_events[0].event_index]
+        duplicate_local_ordinal = trace_by_event_index[ordered_events[1].event_index]
+        local_boundary_before_ordinal = (
+            sum(1 for row in trace_rows if row.pre_core) + 1
+        )
+        boundary_domain_max_before_ordinal = len(trace_rows) + 1
         event_kinds = ",".join(
             event.event_kind or "<unknown>" for event in ordered_events
         )
@@ -500,6 +532,43 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
                 flow_identity=flow_identity,
                 event_kind=ordered_events[1].event_kind or "<unknown>",
                 structured_hash=structured_hash,
+                fiber_trace=tuple(
+                    FiberTraceEvent(
+                        ordinal=ordinal,
+                        line=row.line,
+                        column=row.column,
+                        event_kind=row.event_kind or "<unknown>",
+                        normalization_class=row.normalization_class,
+                        input_slot=row.input_slot,
+                        phase_hint=row.phase_hint,
+                        pre_core=row.pre_core,
+                    )
+                    for ordinal, row in enumerate(trace_rows, start=1)
+                ),
+                applicability_bounds=FiberApplicabilityBounds(
+                    current_boundary_before_ordinal=local_boundary_before_ordinal,
+                    violation_applies_when_boundary_before_ordinal_gt=duplicate_local_ordinal,
+                    violation_clears_when_boundary_before_ordinal_lte=duplicate_local_ordinal,
+                    boundary_domain_max_before_ordinal=boundary_domain_max_before_ordinal,
+                    core_entry_before_ordinal=(
+                        local_boundary_before_ordinal
+                        if core_entry_index is not None
+                        else None
+                    ),
+                ),
+                counterfactual_boundary=FiberCounterfactualBoundary(
+                    suggested_boundary_before_ordinal=duplicate_local_ordinal,
+                    boundary_event_kind=ordered_events[1].event_kind or "<unknown>",
+                    boundary_line=ordered_events[1].line,
+                    boundary_column=ordered_events[1].column,
+                    eliminates_violation_without_other_changes=True,
+                    preserves_prior_normalization=(
+                        first_local_ordinal < duplicate_local_ordinal
+                    ),
+                    rationale=(
+                        "Move the core-entry boundary to immediately before the duplicate normalization event."
+                    ),
+                ),
             )
         )
 

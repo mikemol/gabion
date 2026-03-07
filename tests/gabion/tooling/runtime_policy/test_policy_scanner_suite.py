@@ -512,6 +512,9 @@ def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_can
     assert len(violations) == 1
     assert violations[0]["kind"] == "duplicate_normalization_class_pre_core"
     assert violations[0]["normalization_class"] == "parse"
+    assert violations[0]["fiber_trace"]
+    assert violations[0]["applicability_bounds"] is not None
+    assert violations[0]["counterfactual_boundary"] is not None
 
 
 def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
@@ -543,6 +546,39 @@ def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
     )
     assert len(violations) == 1
     assert violations[0]["kind"] == "invalid_baseline_payload"
+
+
+def test_policy_scanner_suite_serializes_fiber_normalization_diagnostics(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/example_boundary.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization_module",
+                "import gabion.example_core as example_core",
+                "",
+                "def run_boundary(value: object) -> str:",
+                "    if isinstance(value, str):",
+                "        pass",
+                "    if isinstance(value, str):",
+                "        pass",
+                "    return example_core.run_core(value)",
+            ]
+        )
+        + "\n",
+    )
+
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result, rule="fiber_normalization_contract"
+    )
+    assert len(violations) == 1
+    assert violations[0]["kind"] == "duplicate_normalization_before_core"
+    assert violations[0]["fiber_trace"]
+    assert violations[0]["applicability_bounds"] is not None
+    assert violations[0]["counterfactual_boundary"] is not None
 
 
 def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(

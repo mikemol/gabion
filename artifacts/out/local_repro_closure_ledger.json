@@ -2097,6 +2097,54 @@
         "targeted_pytest_branchless_and_policy_scanner": "pass",
         "targeted_pytest_dataflow_resolve_and_class_resolution": "pass"
       }
+    },
+    {
+      "cu_id": "CU-FD1",
+      "summary": "Fiber diagnostics enrichment: emit end-to-end fiber trace, applicability bounds, and per-case counterfactual boundary for fiber-based violations.",
+      "timestamp_utc": "2026-03-07T11:30:00Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 69,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 69,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 184,
+      "total_after": 184,
+      "notes": [
+        "Added shared fiber diagnostics carriers and scanner serialization for both fiber_normalization_contract and aspf_normalization_idempotence rule families.",
+        "Each emitted violation now includes full intra-fiber trace, boundary applicability window, and a local counterfactual boundary move that clears the violation without unrelated changes.",
+        "This CU is observability-only for policy findings; unresolved family counts are unchanged by design."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_fiber_and_aspf_and_scanner_suite": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "updated"
+      }
     }
   ],
   "generated_by": "codex",

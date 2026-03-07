@@ -21,6 +21,11 @@ from gabion.tooling.policy_rules import (
     test_subprocess_hygiene_rule,
     typing_surface_rule,
 )
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    to_payload_bounds as _fiber_bounds_payload,
+    to_payload_counterfactual as _fiber_counterfactual_payload,
+    to_payload_trace as _fiber_trace_payload,
+)
 from gabion.tooling.runtime import policy_result_schema
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
@@ -632,9 +637,9 @@ def _rule_set_hash() -> str:
             "orchestrator_primitive_barrel:v1",
             "typing_surface:v2",
             "runtime_narrowing_boundary:v2",
-            "aspf_normalization_idempotence:v2",
+            "aspf_normalization_idempotence:v3",
             "boundary_core_contract:v1",
-            "fiber_normalization_contract:v1",
+            "fiber_normalization_contract:v2",
             "test_subprocess_hygiene:v2",
             "test_sleep_hygiene:v1",
         ]
@@ -890,6 +895,17 @@ def _serialize_aspf_normalization_idempotence(
         "normalization_class": getattr(violation, "normalization_class"),
         "flow_identity": getattr(violation, "flow_identity"),
         "event_kind": getattr(violation, "event_kind"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _fiber_bounds_payload(
+            getattr(violation, "applicability_bounds", None)
+        )
+        if getattr(violation, "applicability_bounds", None) is not None
+        else None,
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
@@ -924,6 +940,17 @@ def _serialize_fiber_normalization_contract(violation: object) -> dict[str, obje
         "normalization_class": getattr(violation, "normalization_class"),
         "input_slot": getattr(violation, "input_slot"),
         "flow_identity": getattr(violation, "flow_identity"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _fiber_bounds_payload(
+            getattr(violation, "applicability_bounds", None)
+        )
+        if getattr(violation, "applicability_bounds", None) is not None
+        else None,
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),

@@ -17,6 +17,11 @@ from gabion.analysis.foundation.event_algebra import (
     derive_identity_projection_from_tokens,
 )
 from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 
 TARGET_GLOB = "src/gabion/**/*.py"
@@ -39,6 +44,9 @@ class Violation:
     input_slot: str
     flow_identity: str
     structured_hash: str
+    fiber_trace: tuple[FiberTraceEvent, ...] = ()
+    applicability_bounds: FiberApplicabilityBounds | None = None
+    counterfactual_boundary: FiberCounterfactualBoundary | None = None
 
     @property
     def key(self) -> str:
@@ -59,6 +67,8 @@ class _NormalizationEvent:
     normalization_class: str
     input_slot: str
     kind: str
+    phase_hint: str
+    pre_core: bool
 
 
 def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
@@ -140,6 +150,8 @@ def _annotation_events(lines: list[str]) -> tuple[_NormalizationEvent, ...]:
                 normalization_class=klass,
                 input_slot=input_slot,
                 kind=kind,
+                phase_hint="annotation",
+                pre_core=False,
             )
         )
     return tuple(events)
@@ -161,17 +173,26 @@ def _function_violations(
             getattr(node, "end_lineno", node.lineno) or node.lineno
         )
         if ann_pre_core and ann_in_scope:
-            events.append(ann)
+            events.append(
+                _NormalizationEvent(
+                    line=ann.line,
+                    column=ann.column,
+                    normalization_class=ann.normalization_class,
+                    input_slot=ann.input_slot,
+                    kind=ann.kind,
+                    phase_hint=ann.phase_hint,
+                    pre_core=True,
+                )
+            )
 
     for child in ast.walk(node):
         match child:
             case ast.Call():
                 line = int(getattr(child, "lineno", 1) or 1)
                 pre_core = first_core_line is None or line < first_core_line
-                if pre_core:
-                    event = _syntax_event_from_call(child)
-                    if event is not None:
-                        events.append(event)
+                event = _syntax_event_from_call(child, pre_core=pre_core)
+                if event is not None:
+                    events.append(event)
             case _:
                 pass
 
@@ -185,10 +206,29 @@ def _function_violations(
     )
 
     seen: set[tuple[str, str]] = set()
+    first_seen_global_ordinal: dict[tuple[str, str], int] = {}
     violations: list[Violation] = []
-    for event in sorted(events, key=lambda item: (item.line, item.column, item.kind)):
+    ordered_events = sorted(events, key=lambda item: (item.line, item.column, item.kind))
+    indexed_events = list(enumerate(ordered_events, start=1))
+    for global_ordinal, event in indexed_events:
+        if not event.pre_core:
+            continue
         key = (event.input_slot, event.normalization_class)
         if key in seen:
+            first_global_ordinal = first_seen_global_ordinal[key]
+            trace_rows = [
+                item for item in indexed_events if item[1].input_slot == event.input_slot
+            ]
+            trace_by_ordinal = {
+                row_ordinal: local_ordinal
+                for local_ordinal, (row_ordinal, _row_event) in enumerate(trace_rows, start=1)
+            }
+            local_duplicate_ordinal = trace_by_ordinal[global_ordinal]
+            local_first_ordinal = trace_by_ordinal[first_global_ordinal]
+            local_boundary_before_ordinal = (
+                sum(1 for _global, row in trace_rows if row.pre_core) + 1
+            )
+            boundary_domain_max_before_ordinal = len(trace_rows) + 1
             msg = (
                 f"normalization class '{event.normalization_class}' was applied more than once "
                 f"to input '{event.input_slot}' before core entry"
@@ -212,10 +252,50 @@ def _function_violations(
                         flow_identity,
                         str(event.column),
                     ),
+                    fiber_trace=tuple(
+                        FiberTraceEvent(
+                            ordinal=local_ordinal,
+                            line=row_event.line,
+                            column=row_event.column,
+                            event_kind=row_event.kind,
+                            normalization_class=row_event.normalization_class,
+                            input_slot=row_event.input_slot,
+                            phase_hint=row_event.phase_hint,
+                            pre_core=row_event.pre_core,
+                        )
+                        for local_ordinal, (_row_ordinal, row_event) in enumerate(
+                            trace_rows, start=1
+                        )
+                    ),
+                    applicability_bounds=FiberApplicabilityBounds(
+                        current_boundary_before_ordinal=local_boundary_before_ordinal,
+                        violation_applies_when_boundary_before_ordinal_gt=local_duplicate_ordinal,
+                        violation_clears_when_boundary_before_ordinal_lte=local_duplicate_ordinal,
+                        boundary_domain_max_before_ordinal=boundary_domain_max_before_ordinal,
+                        core_entry_before_ordinal=(
+                            local_boundary_before_ordinal
+                            if first_core_line is not None
+                            else None
+                        ),
+                    ),
+                    counterfactual_boundary=FiberCounterfactualBoundary(
+                        suggested_boundary_before_ordinal=local_duplicate_ordinal,
+                        boundary_event_kind=event.kind,
+                        boundary_line=event.line,
+                        boundary_column=event.column,
+                        eliminates_violation_without_other_changes=True,
+                        preserves_prior_normalization=(
+                            local_first_ordinal < local_duplicate_ordinal
+                        ),
+                        rationale=(
+                            "Move boundary to immediately before the duplicate normalization event."
+                        ),
+                    ),
                 )
             )
         else:
             seen.add(key)
+            first_seen_global_ordinal[key] = global_ordinal
     return violations
 
 
@@ -236,7 +316,11 @@ def _first_core_call_line(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int |
     return best
 
 
-def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
+def _syntax_event_from_call(
+    node: ast.Call,
+    *,
+    pre_core: bool,
+) -> _NormalizationEvent | None:
     line = int(getattr(node, "lineno", 1) or 1)
     col = int(getattr(node, "col_offset", 0) or 0) + 1
     dotted = _dotted_name(node.func)
@@ -251,6 +335,8 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
                     normalization_class="narrow",
                     input_slot=slot,
                     kind="syntax:isinstance",
+                    phase_hint="syntax",
+                    pre_core=pre_core,
                 )
         elif dotted.endswith("cast") and len(node.args) >= 2:
             slot = _expr_slot(node.args[1])
@@ -261,6 +347,8 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
                     normalization_class="narrow",
                     input_slot=slot,
                     kind="syntax:cast",
+                    phase_hint="syntax",
+                    pre_core=pre_core,
                 )
         elif dotted == "json.loads" and len(node.args) >= 1:
             slot = _expr_slot(node.args[0])
@@ -271,6 +359,8 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
                     normalization_class="parse",
                     input_slot=slot,
                     kind="syntax:json_loads",
+                    phase_hint="syntax",
+                    pre_core=pre_core,
                 )
         elif dotted.endswith("model_validate") and len(node.args) >= 1:
             slot = _expr_slot(node.args[0])
@@ -281,6 +371,8 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
                     normalization_class="validate",
                     input_slot=slot,
                     kind="syntax:model_validate",
+                    phase_hint="syntax",
+                    pre_core=pre_core,
                 )
         elif dotted.endswith("parse_args"):
             event = _NormalizationEvent(
@@ -289,6 +381,8 @@ def _syntax_event_from_call(node: ast.Call) -> _NormalizationEvent | None:
                 normalization_class="parse",
                 input_slot="argv",
                 kind="syntax:parse_args",
+                phase_hint="syntax",
+                pre_core=pre_core,
             )
     return event
 
