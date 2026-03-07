@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: shift_ambiguity_left_protocol
 doc_role: playbook
@@ -40,7 +40,10 @@ wrappers/legacy bridges in semantic core.
 4. **Remove downstream ambiguity guards**: delete repeated local checks in core suites.
 5. **Collapse to one deterministic path**: remove compatibility wrappers/dual-shape bridges in core; keep temporary adapters at boundary ingress only with lifecycle metadata.
 6. **Verify signatures**: run policy checks and confirm no new ambiguity-contract findings.
+7. **Reject out-and-back relocation**: moving logic out of a prohibited zone and then re-entering it on the same fiber is non-remediation; shift the boundary upstream instead.
 
 Reviewer instruction: reject patches that add ambiguity signatures in deterministic
 core zones without boundary-level reification evidence, and reject semantic-core
-"legacy bridge" patches that lack explicit boundary-lifecycle evidence.
+"legacy bridge" patches that lack explicit boundary-lifecycle evidence. Also reject
+out-and-back relocations that hide prohibited behavior without moving the boundary
+upstream on the same affected fiber.

@@ -2191,6 +2191,52 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_branchless_fiber": "pass"
       }
+    },
+    {
+      "cu_id": "CU-GV1",
+      "summary": "Add NCI-FIBER-TRACE-BOUNDARY governance clause and document fiber strictification anti-patterns (out-and-back concealment).",
+      "timestamp_utc": "2026-03-07T21:49:16Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 115,
+      "total_after": 115,
+      "notes": [
+        "Added first-class normative clause NCI-FIBER-TRACE-BOUNDARY and wired normative enforcement map + required-clause checks.",
+        "Documented current mixed-basis fiber diagnostics vs ASPF-node-native target and codified out-and-back relocation as non-remediation.",
+        "No semantic-core behavior changes in this CU; scanner family counts remain unchanged."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_normative_map": "pass",
+        "targeted_pytest_ci_governance_scripts": "pass"
+      }
     }
   ],
   "generated_by": "codex",

@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -126,6 +126,15 @@ link to clause IDs instead of duplicating long-form normative prose.
 - New runtime narrowing locations require policy + contributor guidance updates in the same change-set.
 - Canonical sources: `POLICY_SEED.md#policy_seed` (§4.8.1), `CONTRIBUTING.md#contributing_contract`.
 
+<a id="clause-fiber-trace-boundary"></a>
+### `NCI-FIBER-TRACE-BOUNDARY` — Fiber-trace boundary and counterfactual strictification
+- Fiber identity for normalization/strictification findings is evaluated over end-to-end analysis paths; ASPF node-addressed paths are the target representation.
+- Until all fiber analyzers are ASPF-node-native, diagnostics may use ordinal/location fallback traces, but must explicitly declare their trace basis.
+- Relocating logic outside a prohibited zone and then returning to the same prohibited zone on the same fiber is non-remediation (concealment).
+- Valid strictification shifts the decision/normalization boundary upstream of the prohibited zone on that same fiber; lateral relocation is disallowed.
+- Counterfactual diagnostics must include the full affected fiber segment, applicability bounds, and earliest boundary move that clears the violation without additional behavioral changes.
+- Canonical sources: `src/gabion/tooling/policy_rules/fiber_normalization_contract_rule.py`, `src/gabion/tooling/policy_rules/aspf_normalization_idempotence_rule.py`, `src/gabion/tooling/policy_rules/fiber_diagnostics.py`, `docs/aspf_execution_fibration.md#aspf_execution_fibration`.
+
 <a id="clause-baseline-ratchet"></a>
 ### `NCI-BASELINE-RATCHET` — Baseline ratchet integrity
 - Baselines are ratchet checkpoints, not bypass levers.
@@ -211,5 +220,6 @@ or `AGENTS.md`, use a short summary with direct clause links, for example:
 - `NCI-LSP-FIRST` (`docs/normative_clause_index.md#clause-lsp-first`)
 - `NCI-DATAFLOW-BUNDLE-TIERS` (`docs/normative_clause_index.md#clause-dataflow-bundle-tiers`)
 - `NCI-SHIFT-AMBIGUITY-LEFT` (`docs/normative_clause_index.md#clause-shift-ambiguity-left`)
+- `NCI-FIBER-TRACE-BOUNDARY` (`docs/normative_clause_index.md#clause-fiber-trace-boundary`)
 - `NCI-DUAL-SENSOR-CORRECTION-LOOP` (`docs/normative_clause_index.md#clause-dual-sensor-correction-loop`)
 - `NCI-DOCFLOW-CLOSED-LOOP` (`docs/normative_clause_index.md#clause-docflow-closed-loop`)

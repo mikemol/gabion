@@ -77,6 +77,20 @@ clauses:
         step: Policy scanner suite
     expected_artifacts:
       - artifacts/out/policy_scanner_suite.json
+  NCI-FIBER-TRACE-BOUNDARY:
+    status: partial
+    enforcing_modules:
+      - scripts/policy/policy_scanner_suite.py
+      - src/gabion/tooling/runtime/policy_scanner_suite.py
+      - src/gabion/tooling/policy_rules/fiber_diagnostics.py
+      - src/gabion/tooling/policy_rules/fiber_normalization_contract_rule.py
+      - src/gabion/tooling/policy_rules/aspf_normalization_idempotence_rule.py
+    ci_anchors:
+      - workflow: .github/workflows/ci.yml
+        job: checks
+        step: Policy scanner suite
+    expected_artifacts:
+      - artifacts/out/policy_suite_results.json
   NCI-BASELINE-RATCHET:
     status: partial
     enforcing_modules:
