@@ -174,20 +174,29 @@ def _load_baseline(path: Path) -> set[str]:
         line = item.get("line")
         if not path_value or not qualname or not kind:
             continue
-        if isinstance(structured_hash, str) and structured_hash:
-            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
-            continue
-        if call and isinstance(column, int):
-            migrated_hash = _structured_hash(
-                path_value,
-                qualname,
-                kind,
-                call,
-                str(column),
-            )
-            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-        if isinstance(line, int):
-            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        match structured_hash:
+            case str() as structured_hash_value if structured_hash_value:
+                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
+                continue
+            case _:
+                pass
+        match column:
+            case int() as column_value if call:
+                migrated_hash = _structured_hash(
+                    path_value,
+                    qualname,
+                    kind,
+                    call,
+                    str(column_value),
+                )
+                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+            case _:
+                pass
+        match line:
+            case int() as line_value:
+                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
+            case _:
+                pass
     return keys
 
 
@@ -222,25 +231,33 @@ def load_waivers(path: Path) -> WaiverLoadResult:
         if not path_value or not qualname or kind not in {"isinstance_call", "cast_call"}:
             invalid_waivers.append(InvalidWaiver(index=index, reason="path, qualname, and valid kind are required"))
             continue
-        if isinstance(structured_hash, str) and structured_hash:
-            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
-            continue
+        match structured_hash:
+            case str() as structured_hash_value if structured_hash_value:
+                allowed_keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
+                continue
+            case _:
+                pass
         call = str(waiver.get("call", "") or "")
         column = waiver.get("column")
-        if call and isinstance(column, int):
-            migrated_hash = _structured_hash(
-                path_value,
-                qualname,
-                kind,
-                call,
-                str(column),
-            )
-            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-            continue
-        if not isinstance(line, int):
-            invalid_waivers.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
-            continue
-        allowed_keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        match column:
+            case int() as column_value if call:
+                migrated_hash = _structured_hash(
+                    path_value,
+                    qualname,
+                    kind,
+                    call,
+                    str(column_value),
+                )
+                allowed_keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+                continue
+            case _:
+                pass
+        match line:
+            case int() as line_value:
+                allowed_keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
+            case _:
+                invalid_waivers.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
+                continue
 
     return WaiverLoadResult(allowed_keys=allowed_keys, invalid_waivers=invalid_waivers)
 

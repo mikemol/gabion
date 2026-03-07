@@ -214,21 +214,30 @@ def _load_baseline(path: Path) -> set[str]:
         line = item.get("line")
         if not path_value or not qualname or not kind:
             continue
-        if isinstance(structured_hash, str) and structured_hash:
-            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
-            continue
-        if scope and annotation and isinstance(column, int):
-            migrated_hash = _structured_hash(
-                path_value,
-                qualname,
-                kind,
-                scope,
-                annotation,
-                str(column),
-            )
-            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-        if isinstance(line, int):
-            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        match structured_hash:
+            case str() as structured_hash_value if structured_hash_value:
+                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
+                continue
+            case _:
+                pass
+        match column:
+            case int() as column_value if scope and annotation:
+                migrated_hash = _structured_hash(
+                    path_value,
+                    qualname,
+                    kind,
+                    scope,
+                    annotation,
+                    str(column_value),
+                )
+                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+            case _:
+                pass
+        match line:
+            case int() as line_value:
+                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
+            case _:
+                pass
     return keys
 
 
@@ -255,29 +264,37 @@ def load_waivers(path: Path) -> WaiverLoadResult:
             continue
         structured_hash = raw.get("structured_hash")
         line = raw.get("line")
-        if isinstance(structured_hash, str) and structured_hash:
-            key = f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{structured_hash}"
-            keys.add(key)
-            continue
+        match structured_hash:
+            case str() as structured_hash_value if structured_hash_value:
+                key = f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{structured_hash_value}"
+                keys.add(key)
+                continue
+            case _:
+                pass
         scope = str(raw.get("scope", "") or "")
         annotation = str(raw.get("annotation", "") or "")
         column = raw.get("column")
-        if scope and annotation and isinstance(column, int):
-            migrated_hash = _structured_hash(
-                str(raw["path"]),
-                str(raw["qualname"]),
-                str(raw["kind"]),
-                scope,
-                annotation,
-                str(column),
-            )
-            keys.add(f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{migrated_hash}")
-            continue
-        if not isinstance(line, int):
-            invalid.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
-            continue
-        key = f"{raw['path']}:{raw['qualname']}:{line}:{raw['kind']}"
-        keys.add(key)
+        match column:
+            case int() as column_value if scope and annotation:
+                migrated_hash = _structured_hash(
+                    str(raw["path"]),
+                    str(raw["qualname"]),
+                    str(raw["kind"]),
+                    scope,
+                    annotation,
+                    str(column_value),
+                )
+                keys.add(f"{raw['path']}:{raw['qualname']}:{raw['kind']}:{migrated_hash}")
+                continue
+            case _:
+                pass
+        match line:
+            case int() as line_value:
+                key = f"{raw['path']}:{raw['qualname']}:{line_value}:{raw['kind']}"
+                keys.add(key)
+            case _:
+                invalid.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
+                continue
     return WaiverLoadResult(allowed_keys=keys, invalid_waivers=invalid)
 
 

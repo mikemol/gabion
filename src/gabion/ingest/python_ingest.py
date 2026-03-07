@@ -303,8 +303,11 @@ def ingest_python_file(
                     class_part, method_name = call.callee.rsplit(".", 1)
                     if class_part in {"self", "cls"}:
                         caller_class = fn_class_names.get(caller_key)
-                        if isinstance(caller_class, str) and caller_class:
-                            callee_lookup = f"{caller_class}.{method_name}"
+                        match caller_class:
+                            case str() as caller_class_name if caller_class_name:
+                                callee_lookup = f"{caller_class_name}.{method_name}"
+                            case _:
+                                pass
                     resolved = _resolve_local_method(callee_lookup)
                     if resolved and resolved != call.callee:
                         resolved_calls.append(replace(call, callee=resolved))

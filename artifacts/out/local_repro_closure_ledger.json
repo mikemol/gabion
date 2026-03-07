@@ -1620,6 +1620,53 @@
         "targeted_pytest_boundary_core_contract_rule": "pass",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S0E",
+      "summary": "Remove runtime_narrowing_boundary scanner self-debt in policy-rule baseline/waiver normalization and one semantic ingress site.",
+      "timestamp_utc": "2026-03-07T01:14:20Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 68,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 3,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 68,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 339,
+      "total_after": 321,
+      "notes": [
+        "Replaced flagged isinstance-based baseline/waiver narrowing checks with structural match/case extraction in branchless, defensive_fallback, runtime_narrowing_boundary, and typing_surface rule modules.",
+        "Replaced one remaining semantic ingress narrowing site in python_ingest method-resolution with structural match/case extraction.",
+        "Reduced runtime_narrowing_boundary from 21 to 3 with no increases in branchless/typing/boundary_core/fiber families."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_runtime_policy_cluster": "pass",
+        "targeted_pytest_python_ingest": "pass"
+      }
     }
   ],
   "generated_by": "codex",

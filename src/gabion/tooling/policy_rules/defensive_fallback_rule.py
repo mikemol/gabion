@@ -319,20 +319,29 @@ def _load_baseline(path: Path) -> set[str]:
         line = item.get("line")
         if not path_value or not qualname or not kind:
             continue
-        if isinstance(structured_hash, str) and structured_hash:
-            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
-            continue
-        if isinstance(column, int) and message:
-            migrated_hash = _structured_hash(
-                path_value,
-                qualname,
-                kind,
-                str(column),
-                message,
-            )
-            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-        if isinstance(line, int):
-            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+        match structured_hash:
+            case str() as structured_hash_value if structured_hash_value:
+                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
+                continue
+            case _:
+                pass
+        match column:
+            case int() as column_value if message:
+                migrated_hash = _structured_hash(
+                    path_value,
+                    qualname,
+                    kind,
+                    str(column_value),
+                    message,
+                )
+                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+            case _:
+                pass
+        match line:
+            case int() as line_value:
+                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
+            case _:
+                pass
     return keys
 
 
