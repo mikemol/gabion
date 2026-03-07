@@ -1812,6 +1812,52 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S0G",
+      "summary": "Add aggressive boundary payload-signature scout to batch-detect non-boundary type-spec blockers before marker removals.",
+      "timestamp_utc": "2026-03-07T02:10:32Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 65,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 65,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 315,
+      "total_after": 315,
+      "notes": [
+        "Added scripts/policy/boundary_payload_signature_scout.py to scan boundary-marked modules for private helper first-parameter annotations that would violate non-boundary payload-signature policy after marker removal.",
+        "Scout emits structured suggestions where return annotation supports a safe target type (for example Mapping[str, JSONObject]).",
+        "Initial run reported 70 findings and wrote artifacts/out/boundary_payload_signature_scout.json for batch remediation planning."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "boundary_payload_signature_scout": "pass"
+      }
     }
   ],
   "generated_by": "codex",
