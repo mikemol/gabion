@@ -1114,6 +1114,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2L",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from cli_support check/refactor/shared helpers while retaining monotonic scanner families.",
+      "timestamp_utc": "2026-03-07T00:13:26Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 139,
+        "fiber_normalization_contract": 164,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 132,
+        "fiber_normalization_contract": 164,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 438,
+      "total_after": 431,
+      "notes": [
+        "Removed boundary markers from: check_commands.py, check_execution_plan.py, check_runtime.py, refactor_payload.py, refactor_runtime.py, output_emitters.py, payload_builder.py.",
+        "Reverted marker removals in dispatch_runtime.py (non-boundary payload signature policy), check_command_runtime.py (defensive fallback regression), and dataflow_runtime_common.py (defensive fallback regression).",
+        "Retained subset reduced boundary-core debt with all non-target families non-increasing."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
