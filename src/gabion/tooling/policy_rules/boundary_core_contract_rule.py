@@ -296,7 +296,13 @@ def _module_path_from_dotted(*, root: Path, dotted: str) -> Path | None:
     if not dotted.startswith("gabion."):
         return None
     rel = Path("src") / Path(*dotted.split("."))
-    return root / rel.with_suffix(".py")
+    module_path = root / rel.with_suffix(".py")
+    if module_path.exists():
+        return module_path
+    package_path = root / rel
+    if package_path.is_dir():
+        return package_path
+    return module_path
 
 
 def _has_explicit_single_hop_core_call(*, tree: ast.AST, core_imports: Sequence[_CoreImport]) -> bool:

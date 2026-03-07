@@ -1573,6 +1573,53 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_runtime_policy_cluster": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S0D",
+      "summary": "Accept namespace-package core imports in boundary/core contract resolver to remove false missing_core_module_file findings.",
+      "timestamp_utc": "2026-03-07T01:08:16Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 71,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 68,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 342,
+      "total_after": 339,
+      "notes": [
+        "Updated boundary_core_contract_rule module resolver to accept on-disk package directories (namespace/package modules), not only dotted .py leaf modules.",
+        "Added regression test for boundary import via namespace package path (gabion.server_core) to prevent false missing_core_module_file violations.",
+        "Policy checks and targeted runtime-policy tests remained green."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_boundary_core_contract_rule": "pass",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",

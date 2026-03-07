@@ -134,3 +134,33 @@ def test_boundary_core_contract_dedupes_core_violations_across_multiple_boundari
     violations = rule.collect_violations(root=tmp_path)
     branch_violations = [item for item in violations if item.kind == "branch_in_core_module"]
     assert len(branch_violations) == 1
+
+
+def test_boundary_core_contract_accepts_core_namespace_package_import(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "src/gabion/example_boundary.py",
+        "\n".join(
+            [
+                "# gabion:boundary_normalization_module",
+                "from gabion.server_core import command_orchestrator_primitives",
+                "",
+                "def run_boundary(value: str) -> str:",
+                "    return command_orchestrator_primitives.run_core(value)",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "src/gabion/server_core/command_orchestrator_primitives.py",
+        "\n".join(
+            [
+                "def run_core(value: str) -> str:",
+                "    return value",
+            ]
+        )
+        + "\n",
+    )
+
+    violations = rule.collect_violations(root=tmp_path)
+    missing_core = [item for item in violations if item.kind == "missing_core_module_file"]
+    assert missing_core == []
