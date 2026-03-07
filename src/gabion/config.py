@@ -108,6 +108,14 @@ def _as_bool(value: TomlValue) -> bool:
     return False
 
 
+def _toml_table_or_empty(value: object) -> TomlTable:
+    match value:
+        case dict() as table:
+            return {str(key): table[key] for key in table}
+        case _:
+            return {}
+
+
 def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
     check_deadline()
     if section is None:
@@ -151,13 +159,8 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
 
 
 def exception_marker_families(section: TomlTable | None) -> dict[str, list[str]]:
-    if section is None:
-        return {}
-    if not isinstance(section, dict):
-        return {}
-    markers = section.get("markers")
-    if not isinstance(markers, dict):
-        return {}
+    section_table = _toml_table_or_empty(section)
+    markers = _toml_table_or_empty(section_table.get("markers"))
     families: dict[str, list[str]] = {}
     for family, payload in markers.items():
         check_deadline()
@@ -188,19 +191,20 @@ def taint_profile(section: TomlTable | None) -> str:
 
 
 def taint_boundary_registry(section: TomlTable | None) -> list[dict[str, TomlValue]]:
-    if section is None:
-        return []
-    if not isinstance(section, dict):
-        return []
-    boundaries = section.get("boundaries")
-    if not isinstance(boundaries, list):
-        return []
+    section_table = _toml_table_or_empty(section)
+    boundaries = section_table.get("boundaries")
     normalized: list[dict[str, TomlValue]] = []
-    for row in boundaries:
-        check_deadline()
-        if not isinstance(row, dict):
-            continue
-        normalized.append({str(key): row[key] for key in row})
+    match boundaries:
+        case list() as boundary_rows:
+            for row in boundary_rows:
+                check_deadline()
+                match row:
+                    case dict() as row_table:
+                        normalized.append({str(key): row_table[key] for key in row_table})
+                    case _:
+                        continue
+        case _:
+            return []
     return normalized
 
 
@@ -213,14 +217,8 @@ def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:
 
 
 def dataflow_adapter_payload(section: TomlTable | None) -> TomlTable:
-    if section is None:
-        return {}
-    if not isinstance(section, dict):
-        return {}
-    adapter = section.get("adapter")
-    if not isinstance(adapter, dict):
-        return {}
-    return adapter
+    section_table = _toml_table_or_empty(section)
+    return _toml_table_or_empty(section_table.get("adapter"))
 
 
 def dataflow_required_surfaces(section: TomlTable | None) -> list[str]:

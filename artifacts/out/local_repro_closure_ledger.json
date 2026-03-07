@@ -2283,6 +2283,53 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_aspf_execution_fibration": "pass"
       }
+    },
+    {
+      "cu_id": "CU-DF1",
+      "summary": "Burn down top defensive_fallback hotspot in config boundary normalization helpers.",
+      "timestamp_utc": "2026-03-07T21:54:59Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 104,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 114,
+      "total_after": 104,
+      "notes": [
+        "Refactored config normalization helpers to table-first structural normalization using match-based table/list extraction.",
+        "Removed sentinel guard fallbacks in exception_marker_families, taint_boundary_registry, and dataflow_adapter_payload without adding compatibility shims.",
+        "Defensive fallback count reduced by 10 with no cross-family regressions."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_config": "pass",
+        "targeted_pytest_runtime_policy_defensive": "pass"
+      }
     }
   ],
   "generated_by": "codex",
