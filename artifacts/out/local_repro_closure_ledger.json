@@ -1956,6 +1956,55 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S1H",
+      "summary": "Tighten ASPF idempotence ingress to current-run/local delta sources and eliminate stale external delta noise.",
+      "timestamp_utc": "2026-03-07T02:48:40Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 267,
+      "total_after": 257,
+      "notes": [
+        "Stopped automatic ingestion of sibling/default aspf_delta JSONL streams for idempotence rule source discovery; only strict in-document ledger and repo-local controls-declared delta paths are considered.",
+        "Controls-declared absolute external delta paths (for example /tmp/*) are now ignored for ingress diagnostics by default, preventing stale host-local artifacts from generating CI debt.",
+        "Added regression tests covering external-controls path ignore behavior and default delta event-log noise ignore behavior."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_aspf_idempotence_rule": "pass",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "updated"
+      }
     }
   ],
   "generated_by": "codex",

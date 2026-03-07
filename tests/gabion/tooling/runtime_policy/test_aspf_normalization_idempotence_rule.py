@@ -201,6 +201,41 @@ def test_collect_ingress_violations_reports_invalid_delta_line_shape(
     assert violations[0].path == (tmp_path / "artifacts/out/custom.delta.jsonl").as_posix()
 
 
+def test_collect_ingress_violations_ignores_missing_external_controls_delta_path(
+    tmp_path: Path,
+) -> None:
+    trace_payload = {
+        "trace": {
+            "one_cells": [],
+            "controls": {"aspf_delta_jsonl": "/tmp/nonexistent-gabion.delta.jsonl"},
+        }
+    }
+    _write_json(tmp_path / "artifacts/out/aspf_trace.json", trace_payload)
+
+    violations = rule.collect_ingress_violations(root=tmp_path)
+    assert violations == []
+
+
+def test_collect_ingress_violations_ignores_default_delta_jsonl_event_noise(
+    tmp_path: Path,
+) -> None:
+    _write_json(tmp_path / "artifacts/out/aspf_trace.json", {"one_cells": []})
+    _write_jsonl(
+        tmp_path / "artifacts/out/aspf_delta.jsonl",
+        [
+            {
+                "seq": 1,
+                "event_kind": "semantic_surface_projection",
+                "one_cell_ref": None,
+                "phase": "post",
+            },
+        ],
+    )
+
+    violations = rule.collect_ingress_violations(root=tmp_path)
+    assert violations == []
+
+
 def test_collect_ingress_violations_reports_invalid_baseline_payload(
     tmp_path: Path,
 ) -> None:

@@ -337,7 +337,10 @@ def _load_delta_records(
             controls=controls,
             root=root,
         )
-        if delta_jsonl_path is not None:
+        if delta_jsonl_path is not None and _is_repo_local_path(
+            path=delta_jsonl_path,
+            root=root,
+        ):
             if diagnostics is not None and not delta_jsonl_path.exists():
                 diagnostics.append(
                     _ingress_violation(
@@ -354,24 +357,17 @@ def _load_delta_records(
                 )
             )
 
-    sibling_delta = path.with_suffix(".delta.jsonl")
-    records.extend(
-        _records_from_jsonl_path(
-            sibling_delta,
-            diagnostics=diagnostics,
-        )
-    )
-
-    default_delta = root / "artifacts/out/aspf_delta.jsonl"
-    if path.name == "aspf_trace.json":
-        records.extend(
-            _records_from_jsonl_path(
-                default_delta,
-                diagnostics=diagnostics,
-            )
-        )
-
     return records
+
+
+def _is_repo_local_path(*, path: Path, root: Path) -> bool:
+    resolved_path = path.resolve()
+    resolved_root = root.resolve()
+    try:
+        resolved_path.relative_to(resolved_root)
+    except ValueError:
+        return False
+    return True
 
 
 def _records_from_jsonl_path(
