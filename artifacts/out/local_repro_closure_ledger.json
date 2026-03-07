@@ -1527,6 +1527,52 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S0C",
+      "summary": "Refactor policy-rule helper narrowing helpers to structural pattern matching; remove repeated narrowing self-debt.",
+      "timestamp_utc": "2026-03-07T01:03:14Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 71,
+        "fiber_normalization_contract": 156,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 71,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 362,
+      "total_after": 342,
+      "notes": [
+        "Replaced repeated isinstance chains with structural match/case in policy-rule helper functions (_dotted_name, sentinel/guard helpers, Any/str helper predicates).",
+        "Behavior-preserving refactor across branchless, defensive_fallback, no_monkeypatch, runtime_narrowing_boundary, test_sleep_hygiene, test_subprocess_hygiene, and typing_surface rule modules.",
+        "Reduced fiber and runtime_narrowing self-debt without increasing branchless/typing/defensive families."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_runtime_policy_cluster": "pass"
+      }
     }
   ],
   "generated_by": "codex",

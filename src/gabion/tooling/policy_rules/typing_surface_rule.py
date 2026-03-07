@@ -133,9 +133,13 @@ def _annotation_kind(annotation: ast.AST) -> str | None:
 
 
 def _is_any(node: ast.AST) -> bool:
-    return (isinstance(node, ast.Name) and node.id == "Any") or (
-        isinstance(node, ast.Attribute) and node.attr == "Any"
-    )
+    match node:
+        case ast.Name(id="Any"):
+            return True
+        case ast.Attribute(attr="Any"):
+            return True
+        case _:
+            return False
 
 
 def _is_bare_object(node: ast.AST) -> bool:
@@ -157,20 +161,26 @@ def _is_dict_str_object(node: ast.AST) -> bool:
 
 
 def _is_str_node(node: ast.AST) -> bool:
-    return (isinstance(node, ast.Name) and node.id == "str") or (
-        isinstance(node, ast.Constant) and node.value == "str"
-    )
+    match node:
+        case ast.Name(id="str"):
+            return True
+        case ast.Constant(value="str"):
+            return True
+        case _:
+            return False
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
+    match node:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            parent = _dotted_name(value)
+            if parent is None:
+                return None
+            return f"{parent}.{attr}"
+        case _:
             return None
-        return f"{parent}.{node.attr}"
-    return None
 
 
 def _structured_hash(*parts: str) -> str:

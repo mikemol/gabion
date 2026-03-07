@@ -155,14 +155,16 @@ class _NoMonkeypatchVisitor(ast.NodeVisitor):
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
+    match node:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            parent = _dotted_name(value)
+            if parent is None:
+                return None
+            return f"{parent}.{attr}"
+        case _:
             return None
-        return f"{parent}.{node.attr}"
-    return None
 
 
 def collect_violations(*, root: Path) -> list[Violation]:

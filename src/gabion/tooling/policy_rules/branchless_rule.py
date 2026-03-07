@@ -180,14 +180,16 @@ def _has_preceding_marker(*, source_lines: list[str], line: int, marker: str) ->
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
+    match node:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            parent = _dotted_name(value)
+            if parent is None:
+                return None
+            return f"{parent}.{attr}"
+        case _:
             return None
-        return f"{parent}.{node.attr}"
-    return None
 
 
 def _structured_hash(*parts: str) -> str:

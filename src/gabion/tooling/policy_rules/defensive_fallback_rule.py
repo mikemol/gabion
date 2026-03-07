@@ -167,13 +167,15 @@ def _has_preceding_marker(*, source_lines: list[str], line: int, marker: str) ->
 
 def _is_guard_condition(node: ast.AST) -> bool:
     for child in ast.walk(node):
-        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
-            if child.func.id == "isinstance":
+        match child:
+            case ast.Call(func=ast.Name(id="isinstance")):
                 return True
-        if isinstance(child, ast.Compare):
-            values = [child.left, *child.comparators]
-            if any(_is_none_literal(value) for value in values):
-                return True
+            case ast.Compare(left=left, comparators=comparators):
+                values = [left, *comparators]
+                if any(_is_none_literal(value) for value in values):
+                    return True
+            case _:
+                pass
     return False
 
 
@@ -189,13 +191,15 @@ def _single_sentinel_stmt(body: list[ast.stmt]) -> tuple[str, str] | None:
     if len(body) != 1:
         return None
     stmt = body[0]
-    if isinstance(stmt, ast.Return) and _is_sentinel_return(stmt.value):
-        return ("sentinel_return", "returns sentinel fallback")
-    if isinstance(stmt, ast.Continue):
-        return ("sentinel_continue", "continues without explicit decision outcome")
-    if isinstance(stmt, ast.Pass):
-        return ("sentinel_pass", "swallows invalid path with pass")
-    return None
+    match stmt:
+        case ast.Return(value=value) if _is_sentinel_return(value):
+            return ("sentinel_return", "returns sentinel fallback")
+        case ast.Continue():
+            return ("sentinel_continue", "continues without explicit decision outcome")
+        case ast.Pass():
+            return ("sentinel_pass", "swallows invalid path with pass")
+        case _:
+            return None
 
 
 def _is_none_literal(node: ast.AST | None) -> bool:
@@ -203,30 +207,34 @@ def _is_none_literal(node: ast.AST | None) -> bool:
 
 
 def _is_sentinel_return(node: ast.AST | None) -> bool:
-    if node is None:
-        return True
-    if isinstance(node, ast.Constant):
-        return node.value in {None, "", False, 0}
-    if isinstance(node, ast.List) and len(node.elts) == 0:
-        return True
-    if isinstance(node, ast.Tuple) and len(node.elts) == 0:
-        return True
-    if isinstance(node, ast.Set) and len(node.elts) == 0:
-        return True
-    if isinstance(node, ast.Dict) and len(node.keys) == 0:
-        return True
-    return False
+    match node:
+        case None:
+            return True
+        case ast.Constant(value=value):
+            return value in {None, "", False, 0}
+        case ast.List(elts=elts):
+            return len(elts) == 0
+        case ast.Tuple(elts=elts):
+            return len(elts) == 0
+        case ast.Set(elts=elts):
+            return len(elts) == 0
+        case ast.Dict(keys=keys):
+            return len(keys) == 0
+        case _:
+            return False
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
+    match node:
+        case ast.Name(id=identifier):
+            return identifier
+        case ast.Attribute(value=value, attr=attr):
+            parent = _dotted_name(value)
+            if parent is None:
+                return None
+            return f"{parent}.{attr}"
+        case _:
             return None
-        return f"{parent}.{node.attr}"
-    return None
 
 
 def _structured_hash(*parts: str) -> str:
