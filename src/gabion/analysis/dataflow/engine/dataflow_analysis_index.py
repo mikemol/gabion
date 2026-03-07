@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -670,9 +669,8 @@ def _build_call_graph(
 
 
 def _sorted_text(values=None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    cleaned = {str(value).strip() for value in values if str(value).strip()}
+    values_iterable = values if values is not None else ()
+    cleaned = {str(value).strip() for value in values_iterable if str(value).strip()}
     return tuple(sort_once(cleaned, source="gabion.analysis.dataflow_indexed_file_scan._sorted_text.site_1"))
 
 

@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -297,16 +296,16 @@ def emit_optional_refactor_outputs(
 
 def emit_optional_dot_output(context: DataflowRunOutputContext) -> bool:
     args = context.args
-    if args.dot is None:
-        return False
-    dot = _emit_dot(context.analysis.forest)
-    _write_text_or_stdout(args.dot, dot)
-    return args.report is None and not _has_followup_actions(
-        args,
-        include_structure_tree=bool(args.emit_structure_tree),
-        include_structure_metrics=bool(args.emit_structure_metrics),
-        include_decision_snapshot=bool(context.decision_snapshot_path),
-    )
+    if args.dot is not None:
+        dot = _emit_dot(context.analysis.forest)
+        _write_text_or_stdout(args.dot, dot)
+        return args.report is None and not _has_followup_actions(
+            args,
+            include_structure_tree=bool(args.emit_structure_tree),
+            include_structure_metrics=bool(args.emit_structure_metrics),
+            include_decision_snapshot=bool(context.decision_snapshot_path),
+        )
+    return args.dot is not None
 
 
 def emit_optional_type_audit_output(context: DataflowRunOutputContext) -> bool:
