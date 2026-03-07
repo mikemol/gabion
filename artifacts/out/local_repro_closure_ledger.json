@@ -1024,6 +1024,51 @@
         "policy_ambiguity_contract": "pass",
         "policy_scanner_suite": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-S2J",
+      "summary": "Boundary-marker contract realignment batch: removed boundary markers from indexed-scan flow/materialization helpers with monotonic family reductions.",
+      "timestamp_utc": "2026-03-07T00:05:54Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 156,
+        "fiber_normalization_contract": 164,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 146,
+        "fiber_normalization_contract": 164,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 455,
+      "total_after": 445,
+      "notes": [
+        "Removed boundary markers from: constant_flow_details.py, group_propagation.py, type_flow.py, unused_arg_flow.py, knob_param_names.py, marker_metadata.py, bundle_forest_builder.py, property_hook_manifest.py, structured_suite_sites.py, suite_order_relation.py.",
+        "No defensive-fallback or typing/runtime regressions were introduced in this batch.",
+        "Boundary-core debt reduced by 10 with no non-target family increases."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
