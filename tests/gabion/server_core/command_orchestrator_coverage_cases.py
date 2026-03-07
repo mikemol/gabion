@@ -344,7 +344,8 @@ def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_ambiguity_witness
 def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
     _bind()
-    assert orchestrator._taint_marker_row_from_ambiguity_witness("bad") is None
+    with pytest.raises(NeverThrown):
+        orchestrator._taint_marker_row_from_ambiguity_witness("bad")
     with pytest.raises(NeverThrown):
         orchestrator._taint_marker_row_from_ambiguity_witness(
             {
@@ -353,12 +354,21 @@ def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
                 "site": "not-a-mapping",
             }
         )
+    row = orchestrator._taint_marker_row_from_ambiguity_witness(
+        {
+            "kind": "k",
+            "candidate_count": 2,
+            "site": {"path": "a.py", "function": "fn"},
+        }
+    )
+    assert row["reason"] == "ambiguity witness kind=k candidates=2"
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_type_ambiguity
 def test_taint_marker_row_from_type_ambiguity_edge_inputs() -> None:
     _bind()
-    assert orchestrator._taint_marker_row_from_type_ambiguity("") is None
+    with pytest.raises(NeverThrown):
+        orchestrator._taint_marker_row_from_type_ambiguity("")
     path, function = orchestrator._type_ambiguity_site("only-function downstream types conflict: x")
     assert path == ""
     assert function == "only-function"

@@ -75,13 +75,13 @@ class _NoopBlockVisitor(ast.NodeVisitor):
         self._scope_stack: list[_Scope] = [_Scope(qualname="<module>")]
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._visit_scoped_node(node, node.name)
+        self._visit_scoped_node(node=node, name=node.name, block_kind="function_body")
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._visit_scoped_node(node, node.name)
+        self._visit_scoped_node(node=node, name=node.name, block_kind="function_body")
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self._visit_scoped_node(node, node.name)
+        self._visit_scoped_node(node=node, name=node.name, block_kind="class_body")
 
     def visit_If(self, node: ast.If) -> None:
         self._record_block(
@@ -244,15 +244,14 @@ class _NoopBlockVisitor(ast.NodeVisitor):
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
         name: str,
+        block_kind: str,
     ) -> None:
         parent = self._scope_stack[-1].qualname
         qualname = name if parent == "<module>" else f"{parent}.{name}"
         self._scope_stack.append(_Scope(qualname=qualname))
         self._record_block(
             block=node.body,
-            block_kind="function_body"
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            else "class_body",
+            block_kind=block_kind,
             anchor_line=int(getattr(node, "lineno", 1) or 1),
             anchor_column=int(getattr(node, "col_offset", 0) or 0) + 1,
         )
@@ -267,86 +266,84 @@ class _NoopBlockVisitor(ast.NodeVisitor):
         anchor_line: int,
         anchor_column: int,
     ) -> None:
-        if len(block) != 1:
-            return
-        statement = block[0]
-        noop_kind = _noop_kind(statement)
-        if noop_kind is None:
-            return
-        qualname = self._scope_stack[-1].qualname
-        line = int(getattr(statement, "lineno", anchor_line) or anchor_line)
-        column = int(getattr(statement, "col_offset", 0) or 0) + 1
-        flow_identity = _derive_flow_identity(
-            run_context=self._run_context,
-            rel_path=self._rel_path,
-            qualname=qualname,
-            block_kind=block_kind,
-            line=line,
-        )
-        event_kind = f"syntax:noop_block:{block_kind}:{noop_kind}"
-        structured_hash = _structured_hash(
-            self._rel_path,
-            qualname,
-            block_kind,
-            noop_kind,
-            str(line),
-            str(column),
-        )
-        self.violations.append(
-            Violation(
-                path=self._rel_path,
-                line=line,
-                column=column,
-                qualname=qualname,
-                kind="singleton_noop_block",
-                message=f"{block_kind} contains only '{noop_kind}'",
-                noop_kind=noop_kind,
-                block_kind=block_kind,
-                flow_identity=flow_identity,
-                structured_hash=structured_hash,
-                fiber_trace=(
-                    FiberTraceEvent(
-                        ordinal=1,
-                        line=anchor_line,
-                        column=anchor_column,
-                        event_kind=f"syntax:block_enter:{block_kind}",
-                        normalization_class="noop",
-                        input_slot=block_kind,
-                        phase_hint="syntax",
-                        pre_core=True,
-                    ),
-                    FiberTraceEvent(
-                        ordinal=2,
+        if len(block) == 1:
+            statement = block[0]
+            noop_kind = _noop_kind(statement)
+            if noop_kind is not None:
+                qualname = self._scope_stack[-1].qualname
+                line = int(getattr(statement, "lineno", anchor_line) or anchor_line)
+                column = int(getattr(statement, "col_offset", 0) or 0) + 1
+                flow_identity = _derive_flow_identity(
+                    run_context=self._run_context,
+                    rel_path=self._rel_path,
+                    qualname=qualname,
+                    block_kind=block_kind,
+                    line=line,
+                )
+                event_kind = f"syntax:noop_block:{block_kind}:{noop_kind}"
+                structured_hash = _structured_hash(
+                    self._rel_path,
+                    qualname,
+                    block_kind,
+                    noop_kind,
+                    str(line),
+                    str(column),
+                )
+                self.violations.append(
+                    Violation(
+                        path=self._rel_path,
                         line=line,
                         column=column,
-                        event_kind=event_kind,
-                        normalization_class="noop",
-                        input_slot=block_kind,
-                        phase_hint="syntax",
-                        pre_core=True,
-                    ),
-                ),
-                applicability_bounds=FiberApplicabilityBounds(
-                    current_boundary_before_ordinal=2,
-                    violation_applies_when_boundary_before_ordinal_gt=1,
-                    violation_clears_when_boundary_before_ordinal_lte=1,
-                    boundary_domain_max_before_ordinal=2,
-                    core_entry_before_ordinal=None,
-                ),
-                counterfactual_boundary=FiberCounterfactualBoundary(
-                    suggested_boundary_before_ordinal=1,
-                    boundary_event_kind=f"syntax:block_enter:{block_kind}",
-                    boundary_line=anchor_line,
-                    boundary_column=anchor_column,
-                    eliminates_violation_without_other_changes=True,
-                    preserves_prior_normalization=True,
-                    rationale=(
-                        "Replace singleton noop block with an explicit decision outcome "
-                        "or a never(...) contract discharge."
-                    ),
-                ),
-            )
-        )
+                        qualname=qualname,
+                        kind="singleton_noop_block",
+                        message=f"{block_kind} contains only '{noop_kind}'",
+                        noop_kind=noop_kind,
+                        block_kind=block_kind,
+                        flow_identity=flow_identity,
+                        structured_hash=structured_hash,
+                        fiber_trace=(
+                            FiberTraceEvent(
+                                ordinal=1,
+                                line=anchor_line,
+                                column=anchor_column,
+                                event_kind=f"syntax:block_enter:{block_kind}",
+                                normalization_class="noop",
+                                input_slot=block_kind,
+                                phase_hint="syntax",
+                                pre_core=True,
+                            ),
+                            FiberTraceEvent(
+                                ordinal=2,
+                                line=line,
+                                column=column,
+                                event_kind=event_kind,
+                                normalization_class="noop",
+                                input_slot=block_kind,
+                                phase_hint="syntax",
+                                pre_core=True,
+                            ),
+                        ),
+                        applicability_bounds=FiberApplicabilityBounds(
+                            current_boundary_before_ordinal=2,
+                            violation_applies_when_boundary_before_ordinal_gt=1,
+                            violation_clears_when_boundary_before_ordinal_lte=1,
+                            boundary_domain_max_before_ordinal=2,
+                            core_entry_before_ordinal=None,
+                        ),
+                        counterfactual_boundary=FiberCounterfactualBoundary(
+                            suggested_boundary_before_ordinal=1,
+                            boundary_event_kind=f"syntax:block_enter:{block_kind}",
+                            boundary_line=anchor_line,
+                            boundary_column=anchor_column,
+                            eliminates_violation_without_other_changes=True,
+                            preserves_prior_normalization=True,
+                            rationale=(
+                                "Replace singleton noop block with an explicit decision outcome "
+                                "or a never(...) contract discharge."
+                            ),
+                        ),
+                    )
+                )
 
 
 def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:

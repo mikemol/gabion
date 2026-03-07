@@ -204,7 +204,9 @@ def _record_trace_1cell(
     )
 
 
-def _reject_removed_legacy_payload_keys(payload: JSONObject) -> None:
+def _removed_legacy_payload_key_details(
+    payload: JSONObject,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     removed_keys = {
         "resume_checkpoint": "--resume-checkpoint",
         "resume_on_timeout": "--resume-on-timeout",
@@ -218,8 +220,14 @@ def _reject_removed_legacy_payload_keys(payload: JSONObject) -> None:
             continue
         present_flags.append(cli_flag)
         present_payload_keys.append(payload_key)
-    if not present_flags:
-        return
+    return tuple(present_flags), tuple(present_payload_keys)
+
+
+def _reject_removed_legacy_payload_keys(
+    *,
+    present_flags: tuple[str, ...],
+    present_payload_keys: tuple[str, ...],
+) -> None:
     never(
         "removed legacy check timeout/resume flags",
         flags=present_flags,
@@ -906,17 +914,13 @@ def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, 
     marker_rows: list[dict[str, object]] = [
         {str(key): row[key] for key in row} for row in analysis.never_invariants
     ]
-    for entry in analysis.ambiguity_witnesses:
-        row = _taint_marker_row_from_ambiguity_witness(entry)
-        if row is not None:
-            marker_rows.append(row)
     marker_rows.extend(
-        row
-        for row in (
-            _taint_marker_row_from_type_ambiguity(entry)
-            for entry in analysis.type_ambiguities
-        )
-        if row is not None
+        _taint_marker_row_from_ambiguity_witness(entry)
+        for entry in analysis.ambiguity_witnesses
+    )
+    marker_rows.extend(
+        _taint_marker_row_from_type_ambiguity(entry)
+        for entry in analysis.type_ambiguities
     )
     return sort_once(
         marker_rows,
@@ -930,20 +934,25 @@ def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, 
 
 
 def _taint_marker_row_from_ambiguity_witness(
-    witness: object,
-) -> dict[str, object] | None:
+    witness: JSONObject,
+) -> dict[str, object]:
     match witness:
         case {"site": dict() as site_payload}:
-            normalized_witness = witness
-        case dict():
-            normalized_witness = witness
-            site_payload = {}
+            normalized_site_payload = site_payload
+        case {"site": site_payload}:
+            never(
+                "invalid ambiguity witness site payload",
+                site_payload_type=type(site_payload).__name__,
+            )
         case _:
-            return None
-    path = str(site_payload.get("path", "") or "").strip()
+            never("invalid ambiguity witness payload")
+    if "site" not in witness:
+        normalized_site_payload = {}
+    normalized_witness = witness
+    path = str(normalized_site_payload.get("path", "") or "").strip()
     function = str(
-        site_payload.get("function", "")
-        or site_payload.get("qual", "")
+        normalized_site_payload.get("function", "")
+        or normalized_site_payload.get("qual", "")
         or ""
     ).strip()
     kind = str(
@@ -988,10 +997,10 @@ def _taint_marker_row_from_ambiguity_witness(
     }
 
 
-def _taint_marker_row_from_type_ambiguity(entry: object) -> dict[str, object] | None:
-    text = str(entry or "").strip()
+def _taint_marker_row_from_type_ambiguity(entry: str) -> dict[str, object]:
+    text = entry.strip()
     if not text:
-        return None
+        never("type ambiguity entry must be non-empty")
     path, function = _type_ambiguity_site(text)
     digest = _taint_marker_digest(
         {
@@ -1818,20 +1827,18 @@ def _run_analysis_with_progress(
             last_collection_checkpoint_flush_ns = now_ns
         last_collection_semantic_witness_digest = semantic_witness_digest
         last_analysis_index_resume_signature = analysis_index_signature
-        if not intro_changed:
-            return
-        last_collection_intro_signature = collection_intro_signature
-        if not context.report_output_path or not context.projection_rows:
-            return
-        completed_files = collection_progress["completed_files"]
-        _ = _collection_report_flush_due(
-            completed_files=completed_files,
-            remaining_files=collection_progress["remaining_files"],
-            now_ns=now_ns,
-            last_flush_ns=last_collection_report_flush_ns,
-            last_flush_completed=last_collection_report_flush_completed,
-        )
-        if True:
+        if intro_changed:
+            last_collection_intro_signature = collection_intro_signature
+        report_projection_ready = bool(context.report_output_path and context.projection_rows)
+        if intro_changed and report_projection_ready:
+            completed_files = collection_progress["completed_files"]
+            _ = _collection_report_flush_due(
+                completed_files=completed_files,
+                remaining_files=collection_progress["remaining_files"],
+                now_ns=now_ns,
+                last_flush_ns=last_collection_report_flush_ns,
+                last_flush_completed=last_collection_report_flush_completed,
+            )
             last_collection_report_flush_ns = now_ns
             last_collection_report_flush_completed = completed_files
             sections, journal_reason = context.ensure_report_sections_cache_fn()
@@ -1854,8 +1861,7 @@ def _run_analysis_with_progress(
                 include_previews=True,
                 preview_only=True,
             )
-            if True:
-                sections.update(preview_sections)
+            sections.update(preview_sections)
             sections.setdefault(
                 "components",
                 _collection_components_preview_lines(
@@ -1947,11 +1953,7 @@ def _run_analysis_with_progress(
     ) -> None:
         progress_marker = str(getattr(report_carrier, "progress_marker", "") or "")
         progress_analysis_state = f"analysis_{phase}_in_progress"
-        phase_progress_v2 = (
-            report_carrier.phase_progress_v2
-            if isinstance(report_carrier.phase_progress_v2, Mapping)
-            else None
-        )
+        phase_progress_v2 = report_carrier.phase_progress_v2
         context.emit_lsp_progress_fn(
             phase=phase,
             collection_progress=state.latest_collection_progress,
@@ -1963,98 +1965,105 @@ def _run_analysis_with_progress(
             phase_progress_v2=phase_progress_v2,
             progress_marker=progress_marker,
         )
-        if not context.report_output_path or not context.projection_rows:
-            return
-        projection_started_ns = time.monotonic_ns()
-        phase_signature = _projection_phase_signature(
-            phase,
-            groups_by_path,
-            report_carrier,
-        ) + (int(work_done), int(work_total), progress_marker)
-        if phase_progress_signatures.get(phase) == phase_signature:
-            return
-        phase_progress_signatures[phase] = phase_signature
-        now_ns = time.monotonic_ns()
-        last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
-        if not _projection_phase_flush_due(
-            phase=phase,
-            now_ns=now_ns,
-            last_flush_ns=last_flush_ns,
-        ):
-            return
-        phase_progress_last_flush_ns[phase] = now_ns
-        available_sections = context.execute_deps.analysis.project_report_sections_fn(
-            groups_by_path,
-            report_carrier,
-            max_phase="post",
-            include_previews=True,
-            preview_only=True,
-        )
-        if context.aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
-                kind="report_projection",
-                source_label="analysis:groups_by_path",
-                target_label="report:sections",
-                representative=f"projection:{phase}",
-                basis_path=("report", "projection", str(phase)),
-                surface="groups_by_path",
-                metadata={
-                    "phase": phase,
-                    "section_count": len(available_sections),
-                },
+        report_projection_ready = bool(context.report_output_path and context.projection_rows)
+        if report_projection_ready:
+            projection_started_ns = time.monotonic_ns()
+            phase_signature = _projection_phase_signature(
+                phase,
+                groups_by_path,
+                report_carrier,
+            ) + (int(work_done), int(work_total), progress_marker)
+            phase_signature_changed = (
+                phase_progress_signatures.get(phase) != phase_signature
             )
-        sections, journal_reason = context.ensure_report_sections_cache_fn()
-        sections.update(available_sections)
-        partial_report, pending_reasons = _render_incremental_report(
-            analysis_state=progress_analysis_state,
-            progress_payload={
-                "phase": phase,
-                "work_done": int(work_done),
-                "work_total": int(work_total),
-                "event_kind": "progress",
-                "progress_marker": progress_marker,
-                "phase_progress_v2": (
-                    {str(key): phase_progress_v2[key] for key in phase_progress_v2}
-                    if isinstance(phase_progress_v2, Mapping)
-                    else None
-                ),
-            },
-            projection_rows=context.projection_rows,
-            sections=sections,
-        )
-        _apply_journal_pending_reason(
-            projection_rows=context.projection_rows,
-            sections=sections,
-            pending_reasons=pending_reasons,
-            journal_reason=journal_reason,
-        )
-        context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_profiled(
-            context.report_output_path,
-            partial_report,
-            io_name="report_markdown.write",
-        )
-        _write_report_section_journal(
-            path=context.report_section_journal_path,
-            witness_digest=context.report_section_witness_digest,
-            projection_rows=context.projection_rows,
-            sections=sections,
-            pending_reasons=pending_reasons,
-        )
-        context.clear_report_sections_cache_reason_fn()
-        context.phase_checkpoint_state[phase] = {
-            "status": "checkpointed",
-            "work_done": int(work_done),
-            "work_total": int(work_total),
-            "section_ids": sort_once(sections, source="src/gabion/server.py:4748"),
-            "resolved_sections": len(sections),
-        }
-        context.profiling_stage_ns["server.projection_emit"] += (
-            time.monotonic_ns() - projection_started_ns
-        )
-        context.profiling_counters["server.projection_emit_calls"] += 1
+            if phase_signature_changed:
+                phase_progress_signatures[phase] = phase_signature
+                now_ns = time.monotonic_ns()
+                last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
+                flush_due = _projection_phase_flush_due(
+                    phase=phase,
+                    now_ns=now_ns,
+                    last_flush_ns=last_flush_ns,
+                )
+                if flush_due:
+                    phase_progress_last_flush_ns[phase] = now_ns
+                    available_sections = context.execute_deps.analysis.project_report_sections_fn(
+                        groups_by_path,
+                        report_carrier,
+                        max_phase="post",
+                        include_previews=True,
+                        preview_only=True,
+                    )
+                    if context.aspf_trace_state is not None:
+                        _record_trace_1cell(
+                            execute_deps=context.execute_deps,
+                            state=context.aspf_trace_state,
+                            kind="report_projection",
+                            source_label="analysis:groups_by_path",
+                            target_label="report:sections",
+                            representative=f"projection:{phase}",
+                            basis_path=("report", "projection", str(phase)),
+                            surface="groups_by_path",
+                            metadata={
+                                "phase": phase,
+                                "section_count": len(available_sections),
+                            },
+                        )
+                    sections, journal_reason = context.ensure_report_sections_cache_fn()
+                    sections.update(available_sections)
+                    partial_report, pending_reasons = _render_incremental_report(
+                        analysis_state=progress_analysis_state,
+                        progress_payload={
+                            "phase": phase,
+                            "work_done": int(work_done),
+                            "work_total": int(work_total),
+                            "event_kind": "progress",
+                            "progress_marker": progress_marker,
+                            "phase_progress_v2": (
+                                {
+                                    str(key): phase_progress_v2[key]
+                                    for key in phase_progress_v2
+                                }
+                                if phase_progress_v2 is not None
+                                else None
+                            ),
+                        },
+                        projection_rows=context.projection_rows,
+                        sections=sections,
+                    )
+                    _apply_journal_pending_reason(
+                        projection_rows=context.projection_rows,
+                        sections=sections,
+                        pending_reasons=pending_reasons,
+                        journal_reason=journal_reason,
+                    )
+                    context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+                    _write_text_profiled(
+                        context.report_output_path,
+                        partial_report,
+                        io_name="report_markdown.write",
+                    )
+                    _write_report_section_journal(
+                        path=context.report_section_journal_path,
+                        witness_digest=context.report_section_witness_digest,
+                        projection_rows=context.projection_rows,
+                        sections=sections,
+                        pending_reasons=pending_reasons,
+                    )
+                    context.clear_report_sections_cache_reason_fn()
+                    context.phase_checkpoint_state[phase] = {
+                        "status": "checkpointed",
+                        "work_done": int(work_done),
+                        "work_total": int(work_total),
+                        "section_ids": sort_once(
+                            sections, source="src/gabion/server.py:4748"
+                        ),
+                        "resolved_sections": len(sections),
+                    }
+                    context.profiling_stage_ns["server.projection_emit"] += (
+                        time.monotonic_ns() - projection_started_ns
+                    )
+                    context.profiling_counters["server.projection_emit_calls"] += 1
 
     if context.needs_analysis and context.file_paths_for_run is not None:
         bootstrap_collection_resume = collection_resume_payload
@@ -2364,7 +2373,7 @@ def _create_progress_emitter(
         nonlocal phase_timeline_header_emitted
         nonlocal previous_transition_state
         semantic_payload: JSONObject = {}
-        if isinstance(semantic_progress, Mapping):
+        if semantic_progress is not None:
             for raw_key, raw_value in semantic_progress.items():
                 if not isinstance(raw_key, str):
                     continue
@@ -2434,114 +2443,113 @@ def _create_progress_emitter(
                 previous=previous_transition_state,
                 current=normalized_transition_state,
             )
-            if transition_decision.suppress_emit:
-                return
-            progress_value["event_kind"] = transition_decision.effective_event_kind
-            progress_value["progress_transition_v2"] = progress_transition_v2_payload(
-                transition=normalized_transition_state,
-                reason=transition_decision.reason,
-                effective_event_kind=transition_decision.effective_event_kind,
-            )
-            progress_event_seq += 1
-            progress_value["event_seq"] = progress_event_seq
-            phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
-                markdown_path=phase_timeline_markdown_path,
-                jsonl_path=phase_timeline_jsonl_path,
-                progress_value=progress_value,
-            )
-            if not phase_timeline_header_emitted:
-                progress_value["phase_timeline_header"] = (
-                    phase_timeline_header
-                    if isinstance(phase_timeline_header, str) and phase_timeline_header
-                    else _phase_timeline_header_block()
+            if not transition_decision.suppress_emit:
+                progress_value["event_kind"] = transition_decision.effective_event_kind
+                progress_value["progress_transition_v2"] = progress_transition_v2_payload(
+                    transition=normalized_transition_state,
+                    reason=transition_decision.reason,
+                    effective_event_kind=transition_decision.effective_event_kind,
                 )
-                phase_timeline_header_emitted = True
-            progress_value["phase_timeline_row"] = phase_timeline_row
-            sidecars, adaptation_kind, canonical_event, adaptation_error, allocation_delta = (
-                _identity_shadow_payloads(
-                    phase=phase,
+                progress_event_seq += 1
+                progress_value["event_seq"] = progress_event_seq
+                phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
+                    markdown_path=phase_timeline_markdown_path,
+                    jsonl_path=phase_timeline_jsonl_path,
                     progress_value=progress_value,
                 )
-            )
-            for sidecar_key in sidecars:
-                progress_value[sidecar_key] = sidecars[sidecar_key]
-            ordered_progress_value = boundary_order.canonicalize_boundary_mapping(
-                progress_value,
-                source=(
-                    "server._emit_lsp_progress."
-                    f"{phase}.{event_kind}.progress_value"
-                ),
-            )
-            canonical_progress_value = _canonical_progress_payload(
-                adaptation_kind=adaptation_kind,
-                canonical_event=canonical_event,
-                adaptation_error=adaptation_error,
-                identity_allocation_delta=allocation_delta,
-                rejected_progress_payload_v2=(
-                    ordered_progress_value if adaptation_kind == "rejected" else None
-                ),
-            )
-            ordered_canonical_progress_value = (
-                boundary_order.canonicalize_boundary_mapping(
-                    canonical_progress_value,
+                if not phase_timeline_header_emitted:
+                    progress_value["phase_timeline_header"] = (
+                        phase_timeline_header
+                        if phase_timeline_header
+                        else _phase_timeline_header_block()
+                    )
+                    phase_timeline_header_emitted = True
+                progress_value["phase_timeline_row"] = phase_timeline_row
+                sidecars, adaptation_kind, canonical_event, adaptation_error, allocation_delta = (
+                    _identity_shadow_payloads(
+                        phase=phase,
+                        progress_value=progress_value,
+                    )
+                )
+                for sidecar_key in sidecars:
+                    progress_value[sidecar_key] = sidecars[sidecar_key]
+                ordered_progress_value = boundary_order.canonicalize_boundary_mapping(
+                    progress_value,
                     source=(
                         "server._emit_lsp_progress."
-                        f"{phase}.{event_kind}.canonical_progress_value"
+                        f"{phase}.{event_kind}.progress_value"
                     ),
                 )
-            )
-            send_notification(
-                _LSP_PROGRESS_NOTIFICATION_METHOD,
-                {
-                    "token": _LSP_PROGRESS_TOKEN_V2,
-                    "value": ordered_canonical_progress_value,
-                },
-            )
+                canonical_progress_value = _canonical_progress_payload(
+                    adaptation_kind=adaptation_kind,
+                    canonical_event=canonical_event,
+                    adaptation_error=adaptation_error,
+                    identity_allocation_delta=allocation_delta,
+                    rejected_progress_payload_v2=(
+                        ordered_progress_value if adaptation_kind == "rejected" else None
+                    ),
+                )
+                ordered_canonical_progress_value = (
+                    boundary_order.canonicalize_boundary_mapping(
+                        canonical_progress_value,
+                        source=(
+                            "server._emit_lsp_progress."
+                            f"{phase}.{event_kind}.canonical_progress_value"
+                        ),
+                    )
+                )
+                send_notification(
+                    _LSP_PROGRESS_NOTIFICATION_METHOD,
+                    {
+                        "token": _LSP_PROGRESS_TOKEN_V2,
+                        "value": ordered_canonical_progress_value,
+                    },
+                )
 
-            heartbeat_template: dict[str, object] = {
-                "phase": phase,
-                "collection_progress": {
-                    str(key): collection_progress[key] for key in collection_progress
-                },
-                "semantic_progress": (
-                    {str(key): semantic_progress[key] for key in semantic_progress}
-                    if isinstance(semantic_progress, Mapping)
-                    else None
-                ),
-                "work_done": primary_done,
-                "work_total": primary_total,
-                "include_timing": include_timing,
-                "analysis_state": analysis_state,
-                "classification": classification,
-                "phase_progress_v2": {
-                    str(key): normalized_phase_progress_v2[key]
-                    for key in normalized_phase_progress_v2
-                },
-                "progress_marker": progress_marker,
-            }
-            if update_notification_clock:
-                last_progress_notification_ns = now_ns
-            if done:
-                last_progress_template = None
-                last_terminal_template = None
-                last_terminal_change_ns = 0
-            elif record_for_heartbeat and transition_decision.effective_event_kind not in {
-                "heartbeat",
-                "terminal",
-            }:
-                last_progress_template = heartbeat_template
-                last_terminal_template = None
-                last_progress_change_ns = now_ns
-                last_terminal_change_ns = 0
-            elif transition_decision.effective_event_kind == "terminal":
-                last_progress_template = None
-                last_progress_change_ns = now_ns
-                last_terminal_template = None
-                last_terminal_change_ns = 0
-                if normalized_transition_state.terminal_complete:
-                    last_terminal_template = heartbeat_template
-                    last_terminal_change_ns = now_ns
-            previous_transition_state = normalized_transition_state
+                heartbeat_template: dict[str, object] = {
+                    "phase": phase,
+                    "collection_progress": {
+                        str(key): collection_progress[key] for key in collection_progress
+                    },
+                    "semantic_progress": (
+                        {str(key): semantic_progress[key] for key in semantic_progress}
+                        if semantic_progress is not None
+                        else None
+                    ),
+                    "work_done": primary_done,
+                    "work_total": primary_total,
+                    "include_timing": include_timing,
+                    "analysis_state": analysis_state,
+                    "classification": classification,
+                    "phase_progress_v2": {
+                        str(key): normalized_phase_progress_v2[key]
+                        for key in normalized_phase_progress_v2
+                    },
+                    "progress_marker": progress_marker,
+                }
+                if update_notification_clock:
+                    last_progress_notification_ns = now_ns
+                if done:
+                    last_progress_template = None
+                    last_terminal_template = None
+                    last_terminal_change_ns = 0
+                elif record_for_heartbeat and transition_decision.effective_event_kind not in {
+                    "heartbeat",
+                    "terminal",
+                }:
+                    last_progress_template = heartbeat_template
+                    last_terminal_template = None
+                    last_progress_change_ns = now_ns
+                    last_terminal_change_ns = 0
+                elif transition_decision.effective_event_kind == "terminal":
+                    last_progress_template = None
+                    last_progress_change_ns = now_ns
+                    last_terminal_template = None
+                    last_terminal_change_ns = 0
+                    if normalized_transition_state.terminal_complete:
+                        last_terminal_template = heartbeat_template
+                        last_terminal_change_ns = now_ns
+                previous_transition_state = normalized_transition_state
 
     def _progress_heartbeat_loop() -> None:
         heartbeat_interval_ns = int(progress_heartbeat_seconds * 1_000_000_000)
@@ -4407,7 +4415,12 @@ def _stage_ingress(
     execute_deps: ExecuteCommandDeps = deps or _default_execute_command_deps()
     execution_plan = _materialize_execution_plan(payload)
     payload = dict(execution_plan.inputs)
-    _reject_removed_legacy_payload_keys(payload)
+    present_flags, present_payload_keys = _removed_legacy_payload_key_details(payload)
+    if present_flags:
+        _reject_removed_legacy_payload_keys(
+            present_flags=present_flags,
+            present_payload_keys=present_payload_keys,
+        )
     write_execution_plan_artifact(
         execution_plan,
         root=Path(str(payload.get("root") or ls.workspace.root_path or ".")),
@@ -4674,8 +4687,7 @@ def execute_command_total(
     identity_shadow_runtime: IdentityShadowRuntime | None = None
     identity_shadow_session: IdentityShadowSession | None = None
 
-    def _emit_lsp_progress(**_kwargs: object) -> None:
-        return
+    _emit_lsp_progress: Callable[..., None] = lambda **_kwargs: None
 
     def _ensure_report_sections_cache() -> tuple[dict[str, list[str]], str | None]:
         nonlocal report_sections_cache
