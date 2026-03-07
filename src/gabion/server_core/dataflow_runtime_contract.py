@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Server-core ownership module and single source of truth for progress/deadline/report runtime contract values."""

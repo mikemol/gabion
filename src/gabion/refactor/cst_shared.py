@@ -1,4 +1,4 @@
-# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from typing import Callable, Sequence, cast

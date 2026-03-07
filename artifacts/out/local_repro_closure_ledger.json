@@ -1388,6 +1388,52 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S2R",
+      "summary": "Aggressive boundary-marker strip on dirty marked modules with auto-restore for payload-signature and defensive-fallback regressors.",
+      "timestamp_utc": "2026-03-07T00:47:43Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 104,
+        "fiber_normalization_contract": 159,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 98,
+        "fiber_normalization_contract": 156,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 398,
+      "total_after": 389,
+      "notes": [
+        "Applied strip/re-add cycle to dirty boundary-marked modules while preserving existing dirty content via per-file backups.",
+        "Auto-restored files that introduced payload-signature workflow failures or defensive-fallback regressions.",
+        "Retained marker removals in 6 files: refactor/cst_shared.py, schema.py, check_runtime_facade.py, server_core/dataflow_runtime_contract.py, cli_support/shared/option_schema.py, cli_support/shared/sppf_sync.py."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",
