@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -1107,7 +1106,7 @@ def _decode_call_stack_sites(sites: Iterable[object]) -> list[_CallSite]:
 
 
 def _normalize_site_payload(
-    site: Mapping[str, object],
+    site: Mapping[str, JSONValue],
 ) -> _CallSite:
     return _decode_site_payload(site)
 

@@ -2005,6 +2005,51 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "updated"
       }
+    },
+    {
+      "cu_id": "CU-S2L",
+      "summary": "Boundary contract strictification: collapse boundary markers to true I/O surfaces and harden non-boundary helper ingress signatures.",
+      "timestamp_utc": "2026-03-07T03:03:48Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 63,
+        "fiber_normalization_contract": 124,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 69,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 257,
+      "total_after": 254,
+      "notes": [
+        "Removed boundary_normalization_module markers from non-I/O modules so only true ingress boundaries remain (server.py and command_orchestrator_primitives.py).",
+        "Resolved non-boundary payload-signature workflow failures by tightening private helper first-parameter contracts from Mapping/dict[str, object] to JSONValue/JSONObject-based carriers.",
+        "Boundary-core debt reached zero and fiber debt dropped materially; strictification surfaced previously masked defensive_fallback debt for targeted protocol refactoring in the next wave."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",

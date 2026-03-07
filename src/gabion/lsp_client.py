@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -18,7 +17,7 @@ from gabion.analysis.foundation.timeout_context import (
     Deadline, TimeoutTickCarrier, check_deadline, deadline_clock_scope, deadline_scope)
 from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
-from gabion.json_types import JSONObject
+from gabion.json_types import JSONObject, JSONValue
 
 
 class LspClientError(RuntimeError):
@@ -41,11 +40,11 @@ def _normalized_command_payload(
     return list(envelope.command_args), envelope.payload
 
 
-def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
+def _has_analysis_timeout(payload: Mapping[str, JSONValue]) -> bool:
     return payload_codec.has_analysis_timeout(payload)
 
 
-def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
+def _analysis_timeout_total_ns(payload: Mapping[str, JSONValue]) -> int:
     return payload_codec.analysis_timeout_total_ns(
         payload,
         source="_analysis_timeout_ns.payload_keys",

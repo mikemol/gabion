@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -7,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
-from gabion.json_types import JSONObject
+from gabion.json_types import JSONObject, JSONValue
 
 Runner = Callable[..., JSONObject]
 
@@ -40,7 +39,7 @@ def dispatch_command(
     never_fn: Callable[..., object],
 ) -> JSONObject:
     def _ordered_result(
-        value: Mapping[str, object],
+        value: Mapping[str, JSONValue],
     ) -> JSONObject:
         return normalize_boundary_mapping_once_fn(
             value,

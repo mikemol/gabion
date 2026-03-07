@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 from gabion.order_contract import sort_once
 
@@ -32,6 +31,20 @@ class DiffEvidenceIndexResult:
     stale: bool
     refreshed: bool
     key: dict[str, str]
+
+
+def _run_command(
+    command: list[str],
+    *,
+    cwd: Path,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
 
 def parse_changed_lines(diff_text: str) -> list[ChangedLine]:
@@ -60,7 +73,15 @@ def parse_changed_lines(diff_text: str) -> list[ChangedLine]:
     return changed
 
 
-def git_diff_changed_lines(root: Path, *, base: str | None, head: str | None) -> list[ChangedLine]:
+def git_diff_changed_lines(
+    root: Path,
+    *,
+    base: str | None,
+    head: str | None,
+    run_command_fn: Callable[[list[str], Path], subprocess.CompletedProcess[str]] = (
+        lambda command, root_path: _run_command(command, cwd=root_path)
+    ),
+) -> list[ChangedLine]:
     if base and head:
         diff_range = f"{base}...{head}"
         cmd = ["git", "diff", "--unified=0", diff_range]
@@ -68,13 +89,7 @@ def git_diff_changed_lines(root: Path, *, base: str | None, head: str | None) ->
         cmd = ["git", "diff", "--unified=0", base]
     else:
         cmd = ["git", "diff", "--unified=0"]
-    proc = subprocess.run(
-        cmd,
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    proc = run_command_fn(cmd, root)
     if proc.returncode != 0:
         message = proc.stderr.strip() or proc.stdout.strip() or "git diff failed"
         raise RuntimeError(message)
@@ -91,10 +106,19 @@ def load_json(path: Path) -> Mapping[str, object] | None:
     return payload if isinstance(payload, Mapping) else None
 
 
-def refresh_test_evidence_index(root: Path, *, index_path: Path, tests_root: str) -> bool:
-    proc = subprocess.run(
+def refresh_test_evidence_index(
+    root: Path,
+    *,
+    index_path: Path,
+    tests_root: str,
+    run_command_fn: Callable[[list[str], Path], subprocess.CompletedProcess[str]] = (
+        lambda command, root_path: _run_command(command, cwd=root_path)
+    ),
+    python_executable: str = sys.executable,
+) -> bool:
+    proc = run_command_fn(
         [
-            sys.executable,
+            python_executable,
             "-m",
             "scripts.extract_test_evidence",
             "--root",
@@ -104,10 +128,7 @@ def refresh_test_evidence_index(root: Path, *, index_path: Path, tests_root: str
             "--out",
             str(index_path),
         ],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
+        root,
     )
     return proc.returncode == 0
 
@@ -118,8 +139,9 @@ def diff_evidence_key(
     base: str | None,
     head: str | None,
     index_path: Path,
+    tree_hash_fn: Callable[[Path], str] = lambda root_path: _git_tree_hash(root_path),
 ) -> dict[str, str]:
-    tree_hash = _git_tree_hash(root)
+    tree_hash = tree_hash_fn(root)
     return {
         "base_sha": str(base or ""),
         "head_sha": str(head or ""),
@@ -187,21 +209,45 @@ def build_diff_evidence_index(
     tests_root: str,
     stale_seconds: int,
     no_refresh: bool,
+    git_diff_changed_lines_fn: Callable[[Path, str | None, str | None], list[ChangedLine]] = (
+        lambda root_path, base_sha, head_sha: git_diff_changed_lines(
+            root_path,
+            base=base_sha,
+            head=head_sha,
+        )
+    ),
+    diff_evidence_key_fn: Callable[[Path, str | None, str | None, Path], dict[str, str]] = (
+        lambda root_path, base_sha, head_sha, target: diff_evidence_key(
+            root=root_path,
+            base=base_sha,
+            head=head_sha,
+            index_path=target,
+        )
+    ),
+    load_json_fn: Callable[[Path], Mapping[str, object] | None] = load_json,
+    refresh_test_evidence_index_fn: Callable[[Path, Path, str], bool] = (
+        lambda root_path, target, tests_scope: refresh_test_evidence_index(
+            root_path,
+            index_path=target,
+            tests_root=tests_scope,
+        )
+    ),
+    now_fn: Callable[[], float] = time.time,
 ) -> DiffEvidenceIndexResult:
-    changed_lines = git_diff_changed_lines(root, base=base, head=head)
-    key = diff_evidence_key(root=root, base=base, head=head, index_path=index_path)
-    index_payload = load_json(index_path)
+    changed_lines = git_diff_changed_lines_fn(root, base, head)
+    key = diff_evidence_key_fn(root, base, head, index_path)
+    index_payload = load_json_fn(index_path)
     stale = False
     refreshed = False
     if index_payload is None:
         stale = True
     elif stale_seconds >= 0:
-        age_seconds = time.time() - index_path.stat().st_mtime
+        age_seconds = now_fn() - index_path.stat().st_mtime
         stale = age_seconds > stale_seconds
 
     if (index_payload is None or stale) and not no_refresh:
-        refreshed = refresh_test_evidence_index(root, index_path=index_path, tests_root=tests_root)
-        index_payload = load_json(index_path)
+        refreshed = refresh_test_evidence_index_fn(root, index_path, tests_root)
+        index_payload = load_json_fn(index_path)
     changed_paths = sort_once({item.path for item in changed_lines}, source="build_diff_evidence_index.changed_paths")
     return DiffEvidenceIndexResult(
         changed_lines=changed_lines,
@@ -213,14 +259,14 @@ def build_diff_evidence_index(
     )
 
 
-def _git_tree_hash(root: Path) -> str:
-    proc = subprocess.run(
-        ["git", "rev-parse", "HEAD^{tree}"],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+def _git_tree_hash(
+    root: Path,
+    *,
+    run_command_fn: Callable[[list[str], Path], subprocess.CompletedProcess[str]] = (
+        lambda command, root_path: _run_command(command, cwd=root_path)
+    ),
+) -> str:
+    proc = run_command_fn(["git", "rev-parse", "HEAD^{tree}"], root)
     if proc.returncode != 0:
         fallback = hashlib.sha256(str(root).encode("utf-8")).hexdigest()
         return fallback

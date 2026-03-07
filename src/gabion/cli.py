@@ -1,6 +1,5 @@
 from __future__ import annotations
 # gabion:decision_protocol_module
-# gabion:boundary_normalization_module
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,7 +99,7 @@ from gabion.tooling.governance import (
 from gabion.server_core import command_orchestrator_primitives
 from gabion.tooling.impact import (
     impact_select_tests as tooling_impact_select_tests)
-from gabion.json_types import JSONObject
+from gabion.json_types import JSONObject, JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import (
@@ -498,7 +497,7 @@ def _emit_lint_outputs(
 
 
 def _emit_timeout_profile_artifacts(
-    result: Mapping[str, object],
+    result: Mapping[str, JSONValue],
     *,
     root: Path,
 ) -> None:
@@ -735,27 +734,27 @@ def _phase_progress_dimensions_summary(
 
 
 def _phase_timeline_row_from_phase_progress(
-    phase_progress: Mapping[str, object],
+    phase_progress: Mapping[str, JSONValue],
 ) -> str:
     return progress_timeline.phase_timeline_row_from_phase_progress(phase_progress)
 
 
 def _phase_timeline_from_progress_notification(
-    notification: Mapping[str, object],
+    notification: Mapping[str, JSONValue],
 ) -> dict[str, str] | None:
     return progress_timeline.phase_timeline_from_progress_notification(notification)
 
 
 def _phase_progress_from_progress_notification(
-    notification: Mapping[str, object],
-) -> dict[str, object] | None:
+    notification: Mapping[str, JSONValue],
+) -> JSONObject | None:
     payload = progress_timeline.phase_progress_from_progress_notification(notification)
     if isinstance(payload, Mapping):
         return {str(key): payload[key] for key in payload}
     return None
 
 
-def _emit_phase_progress_line(phase_progress: Mapping[str, object]) -> None:
+def _emit_phase_progress_line(phase_progress: Mapping[str, JSONValue]) -> None:
     phase = str(phase_progress.get("phase", "") or "")
     if not phase:
         return

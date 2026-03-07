@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -8,6 +7,7 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Iterable, Iterator, TypeVar
+from gabion.json_types import JSONObject
 
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
@@ -515,7 +515,7 @@ def _first_order_violation(
     return None
 
 
-def _raise_order_violation(payload: dict[str, object], *, reason: str) -> None:
+def _raise_order_violation(payload: JSONObject, *, reason: str) -> None:
     message = (
         "caller-ordered invariant requires comparable keys"
         if reason == "incomparable"
@@ -524,7 +524,7 @@ def _raise_order_violation(payload: dict[str, object], *, reason: str) -> None:
     never(message, **payload)
 
 
-def _record_order_telemetry(payload: dict[str, object]) -> None:
+def _record_order_telemetry(payload: JSONObject) -> None:
     event = dict(payload)
     event["action"] = "fallback_sort"
     sink = _ORDER_TELEMETRY_CONTEXT.get()

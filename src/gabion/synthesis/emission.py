@@ -1,10 +1,10 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 import re
+from gabion.json_types import JSONValue
 
 from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -46,7 +46,7 @@ def _tier_parts(value: object) -> tuple[int, str]:
 
 
 def _string_tuple_from_payload(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
     *,
     key: str,
     source: str,
@@ -61,14 +61,14 @@ def _string_tuple_from_payload(
     return tuple(sort_once(normalized, source=source))
 
 
-def _field_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolFieldSpec:
+def _field_spec_from_payload(payload: Mapping[str, JSONValue]) -> _ProtocolFieldSpec:
     return _ProtocolFieldSpec(
         name=str(payload.get("name") or "field"),
         type_hint=str(payload.get("type_hint") or "Any"),
     )
 
 
-def _protocol_spec_from_payload(payload: Mapping[str, object]) -> _ProtocolSpec:
+def _protocol_spec_from_payload(payload: Mapping[str, JSONValue]) -> _ProtocolSpec:
     tier_sort_key, tier_label = _tier_parts(payload.get("tier"))
     raw_fields = sequence_or_none(payload.get("fields")) or ()
     field_specs = []
@@ -106,7 +106,7 @@ def _protocol_sort_key(spec: _ProtocolSpec) -> tuple[int, str, tuple[str, ...]]:
     return (spec.tier_sort_key, spec.suggested_name, spec.bundle)
 
 
-def _sorted_protocols(plan: Mapping[str, object]) -> list[_ProtocolSpec]:
+def _sorted_protocols(plan: Mapping[str, JSONValue]) -> list[_ProtocolSpec]:
     protocols = sequence_or_none(plan.get("protocols"))
     if protocols is None:
         return list()

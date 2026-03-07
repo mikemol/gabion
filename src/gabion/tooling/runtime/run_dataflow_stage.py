@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -17,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
 from typing import Any, Callable, Mapping, Sequence, cast
+from gabion.json_types import JSONObject
 
 from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
 from gabion.commands import transport_policy
@@ -286,7 +286,7 @@ def _write_obligation_trace(path: Path, results: Sequence[StageResult]) -> dict[
     return payload
 
 
-def _obligation_trace_summary_lines(trace_payload: dict[str, object]) -> list[str]:
+def _obligation_trace_summary_lines(trace_payload: JSONObject) -> list[str]:
     summary = trace_payload.get("summary")
     if not isinstance(summary, dict):
         return []

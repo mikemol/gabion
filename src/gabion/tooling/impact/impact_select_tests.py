@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -9,6 +8,7 @@ import os
 import time
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
+from gabion.json_types import JSONValue
 
 from gabion.order_contract import sort_once
 from gabion.tooling.impact import diff_evidence_index
@@ -20,8 +20,21 @@ def _parse_changed_lines(diff_text: str) -> list[ChangedLine]:
     return diff_evidence_index.parse_changed_lines(diff_text)
 
 
-def _git_diff_changed_lines(root: Path, *, base: str | None, head: str | None) -> list[ChangedLine]:
-    return diff_evidence_index.git_diff_changed_lines(root, base=base, head=head)
+def _git_diff_changed_lines(
+    root: Path,
+    *,
+    base: str | None,
+    head: str | None,
+    run_command_fn: Callable[[list[str], Path], object] | None = None,
+) -> list[ChangedLine]:
+    if run_command_fn is None:
+        return diff_evidence_index.git_diff_changed_lines(root, base=base, head=head)
+    return diff_evidence_index.git_diff_changed_lines(
+        root,
+        base=base,
+        head=head,
+        run_command_fn=run_command_fn,
+    )
 
 
 def _load_json(path: Path) -> Mapping[str, object] | None:
@@ -36,7 +49,7 @@ def _refresh_index(root: Path, index_path: Path, tests_root: str) -> bool:
     )
 
 
-def _site_matches_changed_lines(site: Mapping[str, object], lines_by_path: dict[str, set[int]]) -> bool:
+def _site_matches_changed_lines(site: Mapping[str, JSONValue], lines_by_path: dict[str, set[int]]) -> bool:
     site_path = str(site.get("path", "") or "").strip()
     if not site_path:
         return False
@@ -69,7 +82,7 @@ def _collect_changed_sets(changed_lines: Iterable[ChangedLine]) -> tuple[dict[st
 
 
 def _select_tests(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
     *,
     changed_lines: list[ChangedLine],
     must_run_tests: set[str],

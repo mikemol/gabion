@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
@@ -8,6 +7,7 @@ from enum import StrEnum
 import json
 import threading
 from typing import Mapping, cast
+from gabion.json_types import JSONObject, JSONValue
 
 from gabion.analysis.foundation.identity_space import (
     GlobalIdentitySpace,
@@ -280,7 +280,7 @@ def _identity_projection_to_json_object(projection: IdentityProjection) -> JSONO
 
 
 def _identity_projection_from_json_object(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
 ) -> IdentityProjection:
     check_deadline()
     basis_path_payload = _required_mapping(payload, "basis_path")
@@ -317,7 +317,7 @@ def _identity_projection_from_json_object(
     )
 
 
-def _required_mapping(payload: Mapping[str, object], key: str) -> JSONObject:
+def _required_mapping(payload: Mapping[str, JSONValue], key: str) -> JSONObject:
     check_deadline()
     mapping = mapping_or_none(payload.get(key))
     match mapping:
@@ -329,7 +329,7 @@ def _required_mapping(payload: Mapping[str, object], key: str) -> JSONObject:
             )
 
 
-def _required_non_empty_text(payload: Mapping[str, object], key: str) -> str:
+def _required_non_empty_text(payload: Mapping[str, JSONValue], key: str) -> str:
     check_deadline()
     value = payload.get(key)
     match value:
@@ -346,7 +346,7 @@ def _required_non_empty_text(payload: Mapping[str, object], key: str) -> str:
             )
 
 
-def _required_non_negative_int(payload: Mapping[str, object], key: str) -> int:
+def _required_non_negative_int(payload: Mapping[str, JSONValue], key: str) -> int:
     check_deadline()
     value = payload.get(key)
     match value:
@@ -358,7 +358,7 @@ def _required_non_negative_int(payload: Mapping[str, object], key: str) -> int:
             )
 
 
-def _required_positive_int(payload: Mapping[str, object], key: str) -> int:
+def _required_positive_int(payload: Mapping[str, JSONValue], key: str) -> int:
     check_deadline()
     value = payload.get(key)
     match value:
@@ -370,7 +370,7 @@ def _required_positive_int(payload: Mapping[str, object], key: str) -> int:
             )
 
 
-def _required_text_sequence(payload: Mapping[str, object], key: str) -> tuple[str, ...]:
+def _required_text_sequence(payload: Mapping[str, JSONValue], key: str) -> tuple[str, ...]:
     check_deadline()
     raw = sequence_or_none(payload.get(key))
     match raw:

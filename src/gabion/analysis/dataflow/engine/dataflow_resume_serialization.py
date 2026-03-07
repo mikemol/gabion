@@ -1,7 +1,7 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from gabion.json_types import JSONObject, JSONValue
 """Resume serialization owners extracted from the legacy dataflow monolith."""
 
 import hashlib
@@ -146,7 +146,7 @@ class _ResumeCacheIdentityPair:
         )
 
 
-def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
+def _invariant_digest(payload: Mapping[str, JSONValue], *, prefix: str) -> str:
     encoded = json.dumps(payload, sort_keys=False, separators=(",", ":")).encode("utf-8")
     digest = hashlib.blake2s(encoded, digest_size=12).hexdigest()
     return f"{prefix}:{digest}"

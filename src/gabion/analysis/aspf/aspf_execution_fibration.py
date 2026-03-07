@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
@@ -651,7 +650,7 @@ def normalize_imported_trace_payload(payload: Mapping[str, object]) -> JSONObjec
     return _normalize_legacy_trace_payload(normalized_trace)
 
 
-def _command_profile_from_payload(payload: Mapping[str, object]) -> str:
+def _command_profile_from_payload(payload: Mapping[str, JSONValue]) -> str:
     synth_requested = (payload.get("synthesis_plan") is not None) | bool(
         payload.get("synthesis_report")
     )
@@ -691,7 +690,7 @@ def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSO
     return normalized_witnesses
 
 
-def _normalize_legacy_trace_payload(payload: Mapping[str, object]) -> JSONObject:
+def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
     normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
     normalized_payload.setdefault("surface_representatives", {})
     normalized_payload.setdefault("one_cells", [])
@@ -706,8 +705,13 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, object]) -> JSONObject
     return normalized_payload
 
 
-def _normalize_stream_trace_payload(payload: Mapping[str, object]) -> JSONObject:
-    raw_events = cast(Sequence[Mapping[str, object]], payload.get("events", []))
+def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
+    raw_events_value = payload.get("events", [])
+    raw_events: Sequence[JSONValue]
+    if isinstance(raw_events_value, list):
+        raw_events = raw_events_value
+    else:
+        raw_events = ()
     ordered_events = sort_once(
         [
             {str(key): _as_json_value(event[key]) for key in event}
@@ -729,7 +733,7 @@ def _normalize_stream_trace_payload(payload: Mapping[str, object]) -> JSONObject
     )
 
 
-def _event_ordering_key(event: Mapping[str, object]) -> tuple[int, int, int]:
+def _event_ordering_key(event: Mapping[str, JSONValue]) -> tuple[int, int, int]:
     sequence = int(event.get("sequence", event.get("index", event.get("line", 0))))
     kind = str(event.get("kind", "")).strip().lower()
     kind_rank = {
@@ -1163,7 +1167,7 @@ def _merge_cofibration_payload(
     )
 
 
-def _parse_cofibration(raw: Mapping[str, object]) -> DomainToAspfCofibration:
+def _parse_cofibration(raw: Mapping[str, JSONValue]) -> DomainToAspfCofibration:
     entries_raw = raw["entries"]
     entries: list[DomainToAspfCofibrationEntry] = []
     for raw_entry in entries_raw:
@@ -1185,7 +1189,7 @@ def _parse_cofibration(raw: Mapping[str, object]) -> DomainToAspfCofibration:
 
 
 def _surface_candidates_from_trace_payload(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
 ) -> dict[str, list[str]]:
     candidates: dict[str, list[str]] = {}
     raw = payload.get("surface_representatives", {})

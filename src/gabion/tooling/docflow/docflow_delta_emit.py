@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 import os
@@ -62,12 +61,16 @@ def _run_docflow_audit(
     )
 
 
-def _changed_paths_from_git() -> tuple[str, ...]:
+def _git_check_output(command: list[str]) -> str:
+    return subprocess.check_output(command, text=True)
+
+
+def _changed_paths_from_git(
+    *,
+    check_output_fn: Callable[[list[str]], str] = _git_check_output,
+) -> tuple[str, ...]:
     try:
-        out = subprocess.check_output(
-            ["git", "diff", "--name-only", "HEAD~1..HEAD"],
-            text=True,
-        )
+        out = check_output_fn(["git", "diff", "--name-only", "HEAD~1..HEAD"])
     except Exception:
         return ()
     paths = [line.strip() for line in out.splitlines() if line.strip()]

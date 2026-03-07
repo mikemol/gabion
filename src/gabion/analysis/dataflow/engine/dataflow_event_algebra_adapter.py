@@ -1,10 +1,10 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
 
 from hashlib import sha1
 from typing import Callable, Mapping
+from gabion.json_types import JSONValue
 
 from gabion.analysis.foundation.event_algebra import (
     CanonicalAdaptationDecision,
@@ -136,7 +136,7 @@ def adapt_dataflow_collection_progress_event_or_raise(
     )
 
 
-def _required_phase(payload: Mapping[str, object]) -> str:
+def _required_phase(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     phase = str(payload.get("phase", "") or "").strip()
     if not phase:
@@ -146,7 +146,7 @@ def _required_phase(payload: Mapping[str, object]) -> str:
     return phase
 
 
-def _phase_kind(payload: Mapping[str, object]) -> str:
+def _phase_kind(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     transition_v2 = mapping_or_none(payload.get("progress_transition_v2"))
     for candidate in (
@@ -237,7 +237,7 @@ def _phase_identity_tokens(
     return tuple(components)
 
 
-def _collection_kind(payload: Mapping[str, object]) -> str:
+def _collection_kind(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     if mapping_or_none(payload.get("analysis_index_resume")) is not None:
         return "analysis_index_progress"
@@ -331,7 +331,7 @@ def _positive_int_or_none(value: object) -> int | None:
     return None
 
 
-def _payload_digest(payload: Mapping[str, object]) -> str:
+def _payload_digest(payload: Mapping[str, JSONValue]) -> str:
     return payload_sha1_digest(payload)
 
 

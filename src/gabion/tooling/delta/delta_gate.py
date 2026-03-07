@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -6,6 +5,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
+from gabion.json_types import JSONValue
 
 from gabion.runtime import env_policy, json_io
 from gabion.tooling.governance.governance_rules import GatePolicy, load_governance_rules
@@ -95,7 +95,7 @@ def _enabled_truthy_only(env_flag: str, value: str | None = None) -> bool:
     return value.strip().lower() in _TRUTHY_VALUES
 
 
-def _nested_int(payload: Mapping[str, object], keys: tuple[str, ...]) -> int:
+def _nested_int(payload: Mapping[str, JSONValue], keys: tuple[str, ...]) -> int:
     node: object = payload
     for key in keys:
         if not isinstance(node, Mapping):

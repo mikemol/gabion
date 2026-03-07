@@ -1751,8 +1751,9 @@ def _helper_payload_signature_violations(path: Path) -> list[str]:
         rel = path.relative_to(REPO_ROOT).as_posix()
     except ValueError:
         rel = str(path)
-    for node in ast.walk(module):
-        check_deadline()
+    for node_index, node in enumerate(ast.walk(module)):
+        if (node_index & 255) == 0:
+            check_deadline()
         if not isinstance(node, ast.FunctionDef):
             continue
         if not node.name.startswith("_"):

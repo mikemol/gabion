@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -8,6 +7,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal, Mapping, Sequence
+from gabion.json_types import JSONObject
 
 from gabion import server
 from gabion.commands import progress_contract as progress_timeline
@@ -227,7 +227,7 @@ def run_delta_emit(
     flush_stop_event = threading.Event()
     flush_interval_seconds = max(0.05, min(1.0, float(min_interval_seconds) / 4.0))
 
-    def _on_notification(notification: dict[str, object]) -> None:
+    def _on_notification(notification: JSONObject) -> None:
         with timeline_state_lock:
             maybe_emit_timeline_row(
                 notification,

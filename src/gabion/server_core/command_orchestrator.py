@@ -1,5 +1,4 @@
 from __future__ import annotations
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 
 import dataclasses
@@ -207,7 +206,7 @@ def _record_trace_1cell(
     )
 
 
-def _reject_removed_legacy_payload_keys(payload: dict[str, object]) -> None:
+def _reject_removed_legacy_payload_keys(payload: JSONObject) -> None:
     removed_keys = {
         "resume_checkpoint": "--resume-checkpoint",
         "resume_on_timeout": "--resume-on-timeout",
@@ -401,8 +400,8 @@ def _normalize_command_payload_ingress(
 
 
 def _normalize_dataflow_format_controls(
-    payload: dict[str, object],
-) -> tuple[dict[str, object], _DataflowCapabilityAnnotations]:
+    payload: JSONObject,
+) -> tuple[JSONObject, _DataflowCapabilityAnnotations]:
     supported_surfaces = {
         "decision_surfaces": "Decision-surface extraction and reporting.",
         "value_decision_surfaces": "Value-encoded decision-surface extraction.",
@@ -1032,7 +1031,7 @@ def _type_ambiguity_site(entry: str) -> tuple[str, str]:
     return path.strip(), function.strip()
 
 
-def _taint_marker_digest(payload: Mapping[str, object]) -> str:
+def _taint_marker_digest(payload: Mapping[str, JSONValue]) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return sha1(encoded.encode("utf-8")).hexdigest()[:16]
 
@@ -3049,7 +3048,7 @@ def _initialize_timeout_payload(
     return timeout_payload, progress_payload
 
 
-def _copy_json_mapping(payload: Mapping[str, object]) -> JSONObject:
+def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
     return {str(key): payload[key] for key in payload}
 
 

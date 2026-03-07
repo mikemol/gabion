@@ -1,10 +1,10 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Mapping
+from gabion.json_types import JSONValue
 
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.foundation.baseline_io import (
@@ -125,7 +125,7 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
     return _parse_risk_registry_payload(payload)
 
 # gabion:ambiguity_boundary
-def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
+def _parse_risk_registry_payload(payload: Mapping[str, JSONValue]) -> dict[str, RiskInfo]:
     check_deadline()
     parse_version(
         payload,

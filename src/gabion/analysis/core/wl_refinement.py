@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
@@ -12,7 +11,7 @@ from gabion.analysis.projection.projection_normalize import spec_hash as project
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import sequence_or_none
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.json_types import JSONValue
+from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 
 
@@ -56,7 +55,7 @@ def emit_wl_refinement_facets(
         spec_version=spec.spec_version,
     )
 
-    def _on_determinism_violation(payload: dict[str, object]) -> None:
+    def _on_determinism_violation(payload: JSONObject) -> None:
         check_deadline()
         sink_suite = forest.add_suite_site(
             "projection_spec",

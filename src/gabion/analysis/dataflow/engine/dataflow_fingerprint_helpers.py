@@ -1,7 +1,7 @@
-# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from gabion.json_types import JSONObject, JSONValue
 """Fingerprint helper ownership module during runtime retirement."""
 
 from dataclasses import dataclass
@@ -647,7 +647,7 @@ def _evaluate_witness_obligation_non_regression_predicate(
     }
 
 
-def _summary_unknown_and_discharged(summary: Mapping[str, object]) -> tuple[int, int]:
+def _summary_unknown_and_discharged(summary: Mapping[str, JSONValue]) -> tuple[int, int]:
     try:
         unknown = int(summary.get("UNKNOWN", 0) or 0)
         discharged = int(summary.get("DEAD", 0) or 0) + int(summary.get("HANDLED", 0) or 0)
