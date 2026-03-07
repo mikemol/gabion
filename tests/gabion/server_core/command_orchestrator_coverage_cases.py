@@ -345,16 +345,14 @@ def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None
 def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
     _bind()
     assert orchestrator._taint_marker_row_from_ambiguity_witness("bad") is None
-    row = orchestrator._taint_marker_row_from_ambiguity_witness(
-        {
-            "kind": "k",
-            "candidate_count": "bad-count",
-            "site": "not-a-mapping",
-        }
-    )
-    assert isinstance(row, dict)
-    assert row["reason"] == "ambiguity witness kind=k candidates=0"
-    assert "span" not in row["site"]
+    with pytest.raises(NeverThrown):
+        orchestrator._taint_marker_row_from_ambiguity_witness(
+            {
+                "kind": "k",
+                "candidate_count": "bad-count",
+                "site": "not-a-mapping",
+            }
+        )
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_type_ambiguity

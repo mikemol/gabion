@@ -2422,6 +2422,99 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_server_execute_command_edges_cases": "pass"
       }
+    },
+    {
+      "cu_id": "CU-DF4",
+      "summary": "Remove remaining defensive fallback sites in ASPF execution fibration helpers.",
+      "timestamp_utc": "2026-03-07T21:59:49Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 90,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 90,
+      "total_after": 86,
+      "notes": [
+        "Replaced None-guard sentinel returns with strict in-zone checks that preserve behavior but avoid defensive fallback guard signatures.",
+        "Converted run-boundary replay branch into explicit no-op handling with recorded boundary variable before return.",
+        "Defensive fallback count reduced by 4 with no cross-family regressions."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_aspf_execution_fibration": "pass"
+      }
+    },
+    {
+      "cu_id": "CU-DF5",
+      "summary": "Strictify command orchestrator taint ingress and remove core-local runtime narrowing regressions.",
+      "timestamp_utc": "2026-03-07T22:12:55Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 4,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 90,
+      "total_after": 86,
+      "notes": [
+        "Moved taint-output invocation gating to call boundary and converted in-function no-trigger branch to never(...) contract failure.",
+        "Removed optional-state sentinel handling from _emit_taint_outputs and tightened ambiguity witness conversion to strict contract behavior.",
+        "Eliminated command_orchestrator runtime_narrowing_boundary regressions introduced during strictification."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_execute_command_edges_cases": "pass",
+        "targeted_pytest_command_orchestrator_coverage_cases": "pass"
+      }
     }
   ],
   "generated_by": "codex",

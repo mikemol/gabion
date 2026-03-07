@@ -183,7 +183,7 @@ def _bind_server_symbols() -> None:
 def _record_trace_1cell(
     *,
     execute_deps: ExecuteCommandDeps,
-    state: object | None,
+    state: object,
     kind: str,
     source_label: str,
     target_label: str,
@@ -192,8 +192,6 @@ def _record_trace_1cell(
     surface: str | None = None,
     metadata: Mapping[str, object] | None = None,
 ) -> None:
-    if state in (None,):
-        return
     execute_deps.progress.record_1cell_fn(
         state,
         kind=kind,
@@ -908,14 +906,10 @@ def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, 
     marker_rows: list[dict[str, object]] = [
         {str(key): row[key] for key in row} for row in analysis.never_invariants
     ]
-    marker_rows.extend(
-        row
-        for row in (
-            _taint_marker_row_from_ambiguity_witness(entry)
-            for entry in analysis.ambiguity_witnesses
-        )
-        if row is not None
-    )
+    for entry in analysis.ambiguity_witnesses:
+        row = _taint_marker_row_from_ambiguity_witness(entry)
+        if row is not None:
+            marker_rows.append(row)
     marker_rows.extend(
         row
         for row in (
@@ -938,26 +932,20 @@ def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, 
 def _taint_marker_row_from_ambiguity_witness(
     witness: object,
 ) -> dict[str, object] | None:
-    if isinstance(witness, Mapping):
-        normalized_witness = witness
-    else:
-        return None
-    site_payload = normalized_witness.get("site")
-    if not isinstance(site_payload, Mapping):
-        site_payload = {}
+    match witness:
+        case {"site": dict() as site_payload}:
+            normalized_witness = witness
+        case dict():
+            normalized_witness = witness
+            site_payload = {}
+        case _:
+            return None
     path = str(site_payload.get("path", "") or "").strip()
     function = str(
         site_payload.get("function", "")
         or site_payload.get("qual", "")
         or ""
     ).strip()
-    span_payload = site_payload.get("span")
-    span = (
-        [int(value) for value in span_payload]
-        if isinstance(span_payload, list)
-        and all(isinstance(value, int) for value in span_payload)
-        else None
-    )
     kind = str(
         normalized_witness.get("kind", "local_resolution_ambiguous")
         or "local_resolution_ambiguous"
@@ -966,13 +954,18 @@ def _taint_marker_row_from_ambiguity_witness(
     try:
         candidate_count = int(candidate_count_raw or 0)
     except (TypeError, ValueError):
-        candidate_count = 0
+        never(
+            "invalid ambiguity witness candidate_count",
+            candidate_count_raw=str(candidate_count_raw),
+            kind=kind,
+            witness_shape=str(type(witness)),
+        )
     digest = _taint_marker_digest(
         {
             "kind": kind,
             "path": path,
             "function": function,
-            "span": span or [],
+            "span": [],
             "candidate_count": candidate_count,
         }
     )
@@ -981,8 +974,6 @@ def _taint_marker_row_from_ambiguity_witness(
         "function": function,
         "suite_id": f"suite:ambiguity:{digest}",
     }
-    if span is not None:
-        site["span"] = span
     return {
         "marker_kind": "never",
         "marker_id": f"ambiguity:{digest}",
@@ -1055,8 +1046,6 @@ def _emit_taint_outputs(
     taint_boundary_registry_payload: object,
     taint_baseline_path: Path | None = None,
 ) -> None:
-    state_payload: dict[str, object] | None = None
-    state: taint_state.TaintState | None = None
     if taint_state_path:
         state_path = Path(str(taint_state_path))
         if not state_path.exists():
@@ -1079,8 +1068,15 @@ def _emit_taint_outputs(
             profile=taint_profile_name,
         )
         state = taint_state.parse_state_payload(cast(Mapping[str, JSONValue], state_payload))
-    if state in (None,) or state_payload in (None,):
-        return
+    else:
+        never(
+            "taint outputs invoked without trigger",
+            taint_state_path=str(taint_state_path),
+            emit_taint_delta=emit_taint_delta,
+            write_taint_baseline=write_taint_baseline,
+            emit_taint_state=emit_taint_state,
+            emit_taint_lifecycle=emit_taint_lifecycle,
+        )
     report_root = Path(root)
     out_dir, artifact_dir = _output_dirs(report_root)
     if emit_taint_state:
@@ -1300,19 +1296,27 @@ def _apply_auxiliary_artifact_outputs(
         write_ambiguity_baseline=write_ambiguity_baseline,
         ambiguity_baseline_path=ambiguity_baseline_path,
     )
-    _emit_taint_outputs(
-        response=response,
-        analysis=analysis,
-        root=root,
-        taint_state_path=taint_state_path,
-        emit_taint_delta=emit_taint_delta,
-        emit_taint_state=emit_taint_state,
-        write_taint_baseline=write_taint_baseline,
-        emit_taint_lifecycle=emit_taint_lifecycle,
-        taint_profile_name=taint_profile_name,
-        taint_boundary_registry_payload=taint_boundary_registry_payload,
-        taint_baseline_path=taint_baseline_path,
+    taint_outputs_requested = bool(
+        taint_state_path
+        or emit_taint_delta
+        or emit_taint_state
+        or write_taint_baseline
+        or emit_taint_lifecycle
     )
+    if taint_outputs_requested:
+        _emit_taint_outputs(
+            response=response,
+            analysis=analysis,
+            root=root,
+            taint_state_path=taint_state_path,
+            emit_taint_delta=emit_taint_delta,
+            emit_taint_state=emit_taint_state,
+            write_taint_baseline=write_taint_baseline,
+            emit_taint_lifecycle=emit_taint_lifecycle,
+            taint_profile_name=taint_profile_name,
+            taint_boundary_registry_payload=taint_boundary_registry_payload,
+            taint_baseline_path=taint_baseline_path,
+        )
 
 
 @dataclass(frozen=True)
@@ -1531,12 +1535,10 @@ class _AnalysisResumePreparationState:
 
 
 def _aspf_import_state_paths(
-    payload_value: list[str] | None,
+    payload_value: list[str],
     *,
     root: Path,
 ) -> tuple[Path, ...]:
-    if payload_value in (None,):
-        return ()
     resolved: list[Path] = []
     for text in payload_value:
         candidate = Path(text)
@@ -1582,7 +1584,7 @@ def _prepare_analysis_resume_state(
             execute_deps.analysis.analysis_input_manifest_digest_fn(input_manifest)
         )
         import_state_paths = _aspf_import_state_paths(
-            aspf_import_state,
+            aspf_import_state or [],
             root=resolved_root,
         )
         if import_state_paths:
@@ -1661,23 +1663,24 @@ def _prepare_analysis_resume_state(
                 "aspf_state_loaded": "aspf_state",
             }.get(state.analysis_resume_state_status, "cold_start")
             state.analysis_resume_state_compatibility_status = compatibility_status
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
-                kind="resume_load",
-                source_label="runtime:aspf_state",
-                target_label="analysis:resume_seed",
-                representative=str(state.analysis_resume_state_status),
-                basis_path=("resume", "load", "aspf_state"),
-                surface="delta_state",
-                metadata={
-                    "import_state_paths": [str(path) for path in import_state_paths],
-                    "status": state.analysis_resume_state_status,
-                    "compatibility_status": compatibility_status,
-                    "import_manifest_digest": imported_manifest_digest,
-                    "current_manifest_digest": state.analysis_resume_input_manifest_digest,
-                },
-            )
+            if aspf_trace_state is not None:
+                _record_trace_1cell(
+                    execute_deps=execute_deps,
+                    state=aspf_trace_state,
+                    kind="resume_load",
+                    source_label="runtime:aspf_state",
+                    target_label="analysis:resume_seed",
+                    representative=str(state.analysis_resume_state_status),
+                    basis_path=("resume", "load", "aspf_state"),
+                    surface="delta_state",
+                    metadata={
+                        "import_state_paths": [str(path) for path in import_state_paths],
+                        "status": state.analysis_resume_state_status,
+                        "compatibility_status": compatibility_status,
+                        "import_manifest_digest": imported_manifest_digest,
+                        "current_manifest_digest": state.analysis_resume_input_manifest_digest,
+                    },
+                )
         if state.analysis_resume_state_status is None:
             state.analysis_resume_state_status = "cold_start"
         if state.analysis_resume_state_compatibility_status is None:
@@ -1987,20 +1990,21 @@ def _run_analysis_with_progress(
             include_previews=True,
             preview_only=True,
         )
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="report_projection",
-            source_label="analysis:groups_by_path",
-            target_label="report:sections",
-            representative=f"projection:{phase}",
-            basis_path=("report", "projection", str(phase)),
-            surface="groups_by_path",
-            metadata={
-                "phase": phase,
-                "section_count": len(available_sections),
-            },
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="report_projection",
+                source_label="analysis:groups_by_path",
+                target_label="report:sections",
+                representative=f"projection:{phase}",
+                basis_path=("report", "projection", str(phase)),
+                surface="groups_by_path",
+                metadata={
+                    "phase": phase,
+                    "section_count": len(available_sections),
+                },
+            )
         sections, journal_reason = context.ensure_report_sections_cache_fn()
         sections.update(available_sections)
         partial_report, pending_reasons = _render_incremental_report(
@@ -2090,15 +2094,16 @@ def _run_analysis_with_progress(
 
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="analysis_call_start",
-            source_label="runtime:inputs",
-            target_label="analysis:engine",
-            representative="analyze_paths.start",
-            basis_path=("analysis", "call", "start"),
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="analysis_call_start",
+                source_label="runtime:inputs",
+                target_label="analysis:engine",
+                representative="analyze_paths.start",
+                basis_path=("analysis", "call", "start"),
+            )
         with policy_runtime.runtime_policy_scope(runtime_policy):
             analysis = context.execute_deps.analysis.analyze_paths_fn(
                 context.paths,
@@ -2135,28 +2140,30 @@ def _run_analysis_with_progress(
                     else None
                 ),
             )
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="analysis_call_end",
-            source_label="analysis:engine",
-            target_label="analysis:result",
-            representative="analyze_paths.end",
-            basis_path=("analysis", "call", "end"),
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="analysis_call_end",
+                source_label="analysis:engine",
+                target_label="analysis:result",
+                representative="analyze_paths.end",
+                basis_path=("analysis", "call", "end"),
+            )
         context.profiling_stage_ns["server.analysis_call"] += (
             time.monotonic_ns() - analysis_started_ns
         )
     else:
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="analysis_call_skipped",
-            source_label="runtime:inputs",
-            target_label="analysis:result",
-            representative="analyze_paths.skipped",
-            basis_path=("analysis", "call", "skipped"),
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="analysis_call_skipped",
+                source_label="runtime:inputs",
+                target_label="analysis:result",
+                representative="analyze_paths.skipped",
+                basis_path=("analysis", "call", "skipped"),
+            )
         analysis = AnalysisResult(
             groups_by_path={},
             param_spans_by_path={},
@@ -3060,18 +3067,17 @@ def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
 def _emit_trace_artifacts_payloads(
     *,
     response: dict[str, object],
-    trace_artifacts: object | None,
+    trace_artifacts: object,
 ) -> None:
-    if trace_artifacts not in (None,):
-        response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
-        response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
-        response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
-        response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
-        response["aspf_state"] = _copy_json_mapping(
-            trace_artifacts.state_payload
-            if trace_artifacts.state_payload is not None
-            else {}
-        )
+    response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
+    response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
+    response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
+    response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
+    response["aspf_state"] = _copy_json_mapping(
+        trace_artifacts.state_payload
+        if trace_artifacts.state_payload is not None
+        else {}
+    )
 
 
 def _persist_timeout_resume_state(
@@ -3359,16 +3365,17 @@ def _handle_timeout_cleanup(
             progress_marker="cleanup:finalize_response",
             event_kind="progress",
         )
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="timeout_cleanup",
-            source_label="analysis:engine",
-            target_label="runtime:timeout_context",
-            representative="analysis.timeout.cleanup",
-            basis_path=("timeout", "cleanup"),
-            surface="violation_summary",
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="timeout_cleanup",
+                source_label="analysis:engine",
+                target_label="runtime:timeout_context",
+                representative="analysis.timeout.cleanup",
+                basis_path=("timeout", "cleanup"),
+                surface="violation_summary",
+            )
         timeout_response: dict[str, object] = {
             "exit_code": 2,
             "timeout": True,
@@ -3417,10 +3424,11 @@ def _handle_timeout_cleanup(
             exit_code=2,
             analysis_state=analysis_state,
         )
-        _emit_trace_artifacts_payloads(
-            response=timeout_response,
-            trace_artifacts=trace_artifacts,
-        )
+        if trace_artifacts is not None:
+            _emit_trace_artifacts_payloads(
+                response=timeout_response,
+                trace_artifacts=trace_artifacts,
+            )
         emit_lsp_progress(
             phase="post",
             collection_progress=context.latest_collection_progress,
@@ -4105,7 +4113,7 @@ def _build_success_response(
     synthesis_plan = primary_outputs.synthesis_plan
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
-    if synthesis_plan is not None:
+    if synthesis_plan is not None and context.aspf_trace_state is not None:
         _record_trace_1cell(
             execute_deps=context.execute_deps,
             state=context.aspf_trace_state,
@@ -4116,7 +4124,7 @@ def _build_success_response(
             basis_path=("artifact", "emit", "synthesis_plan"),
             surface="synthesis_plan",
         )
-    if plan_payload is not None:
+    if plan_payload is not None and context.aspf_trace_state is not None:
         _record_trace_1cell(
             execute_deps=context.execute_deps,
             state=context.aspf_trace_state,
@@ -4184,18 +4192,19 @@ def _build_success_response(
     ):
         if artifact_key not in response:
             continue
-        _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
-            kind="artifact_emit",
-            source_label="analysis:result",
-            target_label=f"artifact:{artifact_key}",
-            representative=representative,
-            basis_path=("artifact", "emit", artifact_key),
-            surface="delta_payload"
-            if "delta" in artifact_key
-            else "delta_state",
-        )
+        if context.aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=context.execute_deps,
+                state=context.aspf_trace_state,
+                kind="artifact_emit",
+                source_label="analysis:result",
+                target_label=f"artifact:{artifact_key}",
+                representative=representative,
+                basis_path=("artifact", "emit", artifact_key),
+                surface="delta_payload"
+                if "delta" in artifact_key
+                else "delta_state",
+            )
     if context.aspf_trace_state is not None:
         materialized_one_cells: list[JSONObject] = []
         for cell, metadata in zip_longest(
@@ -4357,10 +4366,11 @@ def _build_success_response(
             else None
         ),
     )
-    _emit_trace_artifacts_payloads(
-        response=response,
-        trace_artifacts=trace_artifacts,
-    )
+    if trace_artifacts is not None:
+        _emit_trace_artifacts_payloads(
+            response=response,
+            trace_artifacts=trace_artifacts,
+        )
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
@@ -4784,15 +4794,16 @@ def execute_command_total(
             root=Path(root),
             payload=payload,
         )
-        _record_trace_1cell(
-            execute_deps=execute_deps,
-            state=aspf_trace_state,
-            kind="command_start",
-            source_label="runtime:command",
-            target_label="analysis:entry",
-            representative="gabion.dataflow.start",
-            basis_path=("command", "start"),
-        )
+        if aspf_trace_state is not None:
+            _record_trace_1cell(
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
+                kind="command_start",
+                source_label="runtime:command",
+                target_label="analysis:entry",
+                representative="gabion.dataflow.start",
+                basis_path=("command", "start"),
+            )
         enable_phase_projection_checkpoints = _checkpoint_projection_decision(report_output_path=report_output_path)
         emit_phase_timeline = False
         phase_timeline_path = Path(root) / "_unused_phase_timeline.md"
