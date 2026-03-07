@@ -1342,6 +1342,52 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S2Q",
+      "summary": "Aggressive boundary-marker sweep: strip-many, validate, and auto-revert regressors to retain monotonic survivors.",
+      "timestamp_utc": "2026-03-07T00:34:08Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 119,
+        "fiber_normalization_contract": 164,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 104,
+        "fiber_normalization_contract": 159,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 418,
+      "total_after": 398,
+      "notes": [
+        "Applied aggressive strip pass across clean missing_paired_core_module files, then re-added markers for files introducing defensive-fallback regressions or non-boundary payload-signature failures.",
+        "Retained marker removals in 16 files (including synth_runtime/runtime_flags and core dataflow helpers) with required policy gates passing.",
+        "Non-target families remained non-increasing; boundary_core_contract dropped 119->104 and fiber_normalization_contract dropped 164->159."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",

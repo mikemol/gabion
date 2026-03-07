@@ -1,5 +1,4 @@
 # gabion:ambiguity_boundary_module
-# gabion:boundary_normalization_module
 """Marker protocol contracts for invariant and analysis surfaces."""
 
 from __future__ import annotations

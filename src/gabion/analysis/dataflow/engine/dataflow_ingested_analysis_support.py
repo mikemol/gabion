@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 from __future__ import annotations
 
 """Canonical ingest-analysis helpers extracted from the indexed monolith."""

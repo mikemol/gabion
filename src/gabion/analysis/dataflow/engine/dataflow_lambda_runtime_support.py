@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 from __future__ import annotations
 
 """Canonical lambda-runtime helpers for function-index accumulation."""
