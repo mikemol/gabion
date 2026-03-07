@@ -313,6 +313,45 @@ def _load_aspf_resume_state(
         ]
     return payload
 
+def _json_mapping_or_none(value: object) -> dict[str, JSONValue] | None:
+    if type(value) is dict:
+        return value
+    return None
+
+def _json_mapping_or_empty(value: object) -> dict[str, JSONValue]:
+    mapping = _json_mapping_or_none(value)
+    if mapping is not None:
+        return mapping
+    return {}
+
+def _int_or_none(value: object) -> int | None:
+    if type(value) is int:
+        return value
+    return None
+
+def _non_negative_int_or_none(value: object) -> int | None:
+    int_value = _int_or_none(value)
+    if int_value is None:
+        return None
+    return max(int_value, 0)
+
+def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
+    if type(value) in {list, tuple, set}:
+        return value
+    return None
+
+_REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
+    "collection": report_projection_phase_rank("collection"),
+    "forest": report_projection_phase_rank("forest"),
+    "edge": report_projection_phase_rank("edge"),
+    "post": report_projection_phase_rank("post"),
+}
+
+def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
+    if type(phase_name) is not str:
+        return None
+    return _REPORT_PHASE_RANK_BY_NAME.get(phase_name)
+
 def _analysis_resume_progress(
     *,
     collection_resume: Mapping[str, JSONValue] | None,
@@ -326,18 +365,18 @@ def _analysis_resume_progress(
             "remaining_files": normalized_total_files,
             "total_files": normalized_total_files,
         }
-    completed_paths = collection_resume.get("completed_paths")
+    completed_paths = _non_string_sequence_or_none(
+        collection_resume.get("completed_paths")
+    )
     completed = 0
-    if isinstance(completed_paths, list):
-        completed = sum(1 for path in completed_paths if isinstance(path, str))
-    in_progress_scan = collection_resume.get("in_progress_scan_by_path")
+    if completed_paths is not None:
+        completed = sum(1 for path in completed_paths if type(path) is str)
+    in_progress_scan = _json_mapping_or_none(collection_resume.get("in_progress_scan_by_path"))
     in_progress = 0
-    if isinstance(in_progress_scan, Mapping):
-        in_progress = sum(
-            1
-            for path, state in in_progress_scan.items()
-            if isinstance(path, str) and isinstance(state, Mapping)
-        )
+    if in_progress_scan is not None:
+        for path, state in in_progress_scan.items():
+            if type(path) is str and type(state) is dict:
+                in_progress += 1
     if total_files >= 0:
         # A timeout can occur before path discovery populates total_files.
         # Preserve observed checkpoint progress instead of clamping it away.
@@ -359,12 +398,8 @@ def _normalize_progress_work(
     work_done: object | None,
     work_total: object | None,
 ) -> tuple[int | None, int | None]:
-    normalized_done: int | None = None
-    normalized_total: int | None = None
-    if isinstance(work_done, int) and not isinstance(work_done, bool):
-        normalized_done = max(work_done, 0)
-    if isinstance(work_total, int) and not isinstance(work_total, bool):
-        normalized_total = max(work_total, 0)
+    normalized_done = _non_negative_int_or_none(work_done)
+    normalized_total = _non_negative_int_or_none(work_total)
     if (
         normalized_done is not None
         and normalized_total is not None
@@ -396,14 +431,11 @@ def _build_phase_progress_v2(
         if phase == "collection":
             raw_completed = collection_progress.get("completed_files")
             raw_total = collection_progress.get("total_files")
-            if (
-                isinstance(raw_completed, int)
-                and not isinstance(raw_completed, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                normalized_work_done = max(int(raw_completed), 0)
-                normalized_work_total = max(int(raw_total), 0)
+            normalized_completed = _non_negative_int_or_none(raw_completed)
+            normalized_total = _non_negative_int_or_none(raw_total)
+            if normalized_completed is not None and normalized_total is not None:
+                normalized_work_done = normalized_completed
+                normalized_work_total = normalized_total
     if normalized_work_done is None:
         normalized_work_done = 0
     if normalized_work_total is None:
@@ -435,14 +467,16 @@ def _build_phase_progress_v2(
         primary_unit = primary_unit_for_phase
     raw_primary_done = normalized.get("primary_done")
     raw_primary_total = normalized.get("primary_total")
+    normalized_primary_done = _non_negative_int_or_none(raw_primary_done)
+    normalized_primary_total = _non_negative_int_or_none(raw_primary_total)
     primary_done = (
-        max(int(raw_primary_done), 0)
-        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
+        normalized_primary_done
+        if normalized_primary_done is not None
         else normalized_work_done
     )
     primary_total = (
-        max(int(raw_primary_total), 0)
-        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
+        normalized_primary_total
+        if normalized_primary_total is not None
         else normalized_work_total
     )
     if primary_total:
@@ -458,14 +492,9 @@ def _build_phase_progress_v2(
                 continue
             raw_done = dim_payload.get("done")
             raw_total = dim_payload.get("total")
-            if (
-                isinstance(raw_done, int)
-                and not isinstance(raw_done, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                dim_done = max(int(raw_done), 0)
-                dim_total = max(int(raw_total), 0)
+            dim_done = _non_negative_int_or_none(raw_done)
+            dim_total = _non_negative_int_or_none(raw_total)
+            if dim_done is not None and dim_total is not None:
                 if dim_total:
                     dim_done = min(dim_done, dim_total)
                 dimensions[dim_name] = {"done": dim_done, "total": dim_total}
@@ -476,29 +505,10 @@ def _build_phase_progress_v2(
         raw_cumulative_completed = semantic_progress.get("cumulative_completed_files_delta")
         raw_cumulative_hydrated = semantic_progress.get("cumulative_hydrated_paths_delta")
         raw_cumulative_regressed = semantic_progress.get("cumulative_regressed_functions")
-        semantic_new = (
-            max(int(raw_cumulative_new), 0)
-            if isinstance(raw_cumulative_new, int) and not isinstance(raw_cumulative_new, bool)
-            else 0
-        )
-        semantic_completed = (
-            max(int(raw_cumulative_completed), 0)
-            if isinstance(raw_cumulative_completed, int)
-            and not isinstance(raw_cumulative_completed, bool)
-            else 0
-        )
-        semantic_hydrated = (
-            max(int(raw_cumulative_hydrated), 0)
-            if isinstance(raw_cumulative_hydrated, int)
-            and not isinstance(raw_cumulative_hydrated, bool)
-            else 0
-        )
-        semantic_regressed = (
-            max(int(raw_cumulative_regressed), 0)
-            if isinstance(raw_cumulative_regressed, int)
-            and not isinstance(raw_cumulative_regressed, bool)
-            else 0
-        )
+        semantic_new = _non_negative_int_or_none(raw_cumulative_new) or 0
+        semantic_completed = _non_negative_int_or_none(raw_cumulative_completed) or 0
+        semantic_hydrated = _non_negative_int_or_none(raw_cumulative_hydrated) or 0
+        semantic_regressed = _non_negative_int_or_none(raw_cumulative_regressed) or 0
         if semantic_hydrated > 0 or semantic_regressed > 0:
             dimensions["hydrated_paths_delta"] = {
                 "done": semantic_hydrated,
@@ -527,11 +537,10 @@ def _completed_path_set(
     if not isinstance(collection_resume, Mapping):
         return set()
     raw_completed_paths = collection_resume.get("completed_paths")
-    if not isinstance(raw_completed_paths, Sequence) or isinstance(
-        raw_completed_paths, (str, bytes)
-    ):
+    completed_paths = _non_string_sequence_or_none(raw_completed_paths)
+    if completed_paths is None:
         return set()
-    return {path for path in raw_completed_paths if isinstance(path, str)}
+    return {path for path in completed_paths if type(path) is str}
 
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
@@ -554,16 +563,18 @@ def _in_progress_scan_states(
                 current_path=raw_path,
             )
         previous_path = raw_path
-        if not isinstance(raw_state, Mapping):
+        state_mapping = _json_mapping_or_none(raw_state)
+        if state_mapping is None:
             continue
-        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
+        states[raw_path] = state_mapping
     return states
 
 def _state_processed_functions(state: Mapping[str, JSONValue]) -> set[str]:
     raw_processed = state.get("processed_functions")
-    if not isinstance(raw_processed, Sequence) or isinstance(raw_processed, (str, bytes)):
+    processed_entries = _non_string_sequence_or_none(raw_processed)
+    if processed_entries is None:
         return set()
-    return {entry for entry in raw_processed if isinstance(entry, str)}
+    return {entry for entry in processed_entries if type(entry) is str}
 
 def _state_processed_count(state: Mapping[str, JSONValue]) -> int:
     processed_functions = _state_processed_functions(state)
@@ -596,9 +607,10 @@ def _analysis_index_resume_hydrated_paths(
     if not isinstance(raw_resume, Mapping):
         return set()
     raw_hydrated = raw_resume.get("hydrated_paths")
-    if not isinstance(raw_hydrated, Sequence) or isinstance(raw_hydrated, (str, bytes)):
+    hydrated_paths = _non_string_sequence_or_none(raw_hydrated)
+    if hydrated_paths is None:
         return set()
-    return {entry for entry in raw_hydrated if isinstance(entry, str)}
+    return {entry for entry in hydrated_paths if type(entry) is str}
 
 def _analysis_index_resume_hydrated_count(
     collection_resume: Mapping[str, JSONValue] | None,
@@ -1192,14 +1204,9 @@ def _render_incremental_report(
             primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
             raw_primary_done = phase_progress_v2.get("primary_done")
             raw_primary_total = phase_progress_v2.get("primary_total")
-            if (
-                isinstance(raw_primary_done, int)
-                and not isinstance(raw_primary_done, bool)
-                and isinstance(raw_primary_total, int)
-                and not isinstance(raw_primary_total, bool)
-            ):
-                primary_done = max(int(raw_primary_done), 0)
-                primary_total = max(int(raw_primary_total), 0)
+            primary_done = _non_negative_int_or_none(raw_primary_done)
+            primary_total = _non_negative_int_or_none(raw_primary_total)
+            if primary_done is not None and primary_total is not None:
                 if primary_total:
                     primary_done = min(primary_done, primary_total)
                 lines.append(
@@ -1290,14 +1297,9 @@ def _phase_progress_dimensions_summary(
             continue
         raw_done = raw_payload.get("done")
         raw_total = raw_payload.get("total")
-        if (
-            isinstance(raw_done, int)
-            and not isinstance(raw_done, bool)
-            and isinstance(raw_total, int)
-            and not isinstance(raw_total, bool)
-        ):
-            done = max(int(raw_done), 0)
-            total = max(int(raw_total), 0)
+        done = _non_negative_int_or_none(raw_done)
+        total = _non_negative_int_or_none(raw_total)
+        if done is not None and total is not None:
             if total:
                 done = min(done, total)
             fragments.append(f"{dim_name}={done}/{total}")
@@ -1352,11 +1354,7 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    resume_state = (
-        cast(Mapping[str, JSONValue], resume_state_intro)
-        if isinstance(resume_state_intro, Mapping)
-        else {}
-    )
+    resume_state = _json_mapping_or_empty(resume_state_intro)
     state_path = str(resume_state.get("state_path", "") or "")
     status = str(resume_state.get("status", "") or "")
     reused_files = int(resume_state.get("reused_files", 0) or 0)
@@ -1443,11 +1441,15 @@ def _collection_progress_intro_lines(
         if not isinstance(hydrated_paths_count, int):
             hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
         lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        function_count = raw_analysis_index_resume.get("function_count")
-        if isinstance(function_count, int):
+        function_count = _non_negative_int_or_none(
+            raw_analysis_index_resume.get("function_count")
+        )
+        if function_count is not None:
             lines.append(f"- `hydrated_function_count`: `{function_count}`")
-        class_count = raw_analysis_index_resume.get("class_count")
-        if isinstance(class_count, int):
+        class_count = _non_negative_int_or_none(
+            raw_analysis_index_resume.get("class_count")
+        )
+        if class_count is not None:
             lines.append(f"- `hydrated_class_count`: `{class_count}`")
     return lines
 
@@ -1476,15 +1478,14 @@ def _collection_components_preview_lines(
             check_deadline()
             if not isinstance(raw_qual, str):
                 continue
-            if not isinstance(raw_bundles, Sequence) or isinstance(
-                raw_bundles, (str, bytes)
-            ):
+            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            if bundle_list is None:
                 continue
             function_count += 1
             bundle_alternatives += sum(
                 1
-                for bundle in raw_bundles
-                if isinstance(bundle, Sequence) and not isinstance(bundle, (str, bytes))
+                for bundle in bundle_list
+                if _non_string_sequence_or_none(bundle) is not None
             )
     return [
         "Component preview (provisional).",
@@ -1510,18 +1511,16 @@ def _groups_by_path_from_collection_resume(
             check_deadline()
             if not isinstance(raw_qual, str):
                 continue
-            if not isinstance(raw_bundles, Sequence) or isinstance(
-                raw_bundles, (str, bytes)
-            ):
+            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            if bundle_list is None:
                 continue
             bundles: list[set[str]] = []
-            for raw_bundle in raw_bundles:
+            for raw_bundle in bundle_list:
                 check_deadline()
-                if not isinstance(raw_bundle, Sequence) or isinstance(
-                    raw_bundle, (str, bytes)
-                ):
+                bundle_items = _non_string_sequence_or_none(raw_bundle)
+                if bundle_items is None:
                     continue
-                bundles.append({entry for entry in raw_bundle if isinstance(entry, str)})
+                bundles.append({entry for entry in bundle_items if type(entry) is str})
             path_groups[raw_qual] = bundles
         groups_by_path[Path(raw_path)] = path_groups
     return groups_by_path
@@ -1539,29 +1538,25 @@ def _incremental_progress_obligations(
 ) -> list[JSONObject]:
     check_deadline()
     obligations: list[JSONObject] = []
-    classification = (
-        str(progress_payload.get("classification", "") or "")
-        if isinstance(progress_payload, Mapping)
-        else ""
-    )
-    resume_supported = (
-        bool(progress_payload.get("resume_supported"))
-        if isinstance(progress_payload, Mapping)
-        else False
-    )
-    semantic_progress = (
-        progress_payload.get("semantic_progress")
-        if isinstance(progress_payload, Mapping)
-        else None
-    )
+    normalized_progress_payload = _json_mapping_or_none(progress_payload)
+    if normalized_progress_payload is None:
+        classification = ""
+        resume_supported = False
+        semantic_progress = None
+    else:
+        classification = str(normalized_progress_payload.get("classification", "") or "")
+        resume_supported = bool(normalized_progress_payload.get("resume_supported"))
+        semantic_progress = _json_mapping_or_none(
+            normalized_progress_payload.get("semantic_progress")
+        )
     semantic_monotonic_progress: bool | None = None
     semantic_substantive_progress: bool | None = None
-    if isinstance(semantic_progress, Mapping):
+    if semantic_progress is not None:
         raw_monotonic = semantic_progress.get("monotonic_progress")
         raw_substantive = semantic_progress.get("substantive_progress")
-        if isinstance(raw_monotonic, bool):
+        if type(raw_monotonic) is bool:
             semantic_monotonic_progress = raw_monotonic
-        if isinstance(raw_substantive, bool):
+        if type(raw_substantive) is bool:
             semantic_substantive_progress = raw_substantive
     is_timeout_state = analysis_state.startswith("timed_out_")
     if is_timeout_state:
@@ -1753,13 +1748,8 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     best_rank = -1
     for phase_name in phases:
         check_deadline()
-        if not isinstance(phase_name, str):
-            continue
-        try:
-            rank = report_projection_phase_rank(
-                cast(Literal["collection", "forest", "edge", "post"], phase_name)
-            )
-        except KeyError:
+        rank = _report_projection_phase_rank_or_none(phase_name)
+        if rank is None:
             continue
         if rank > best_rank:
             best_rank = rank
@@ -1773,7 +1763,9 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)
     return entry.model_dump() if entry is not None else None
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
+def _normalize_dataflow_response(
+    response: Mapping[str, JSONValue],
+) -> DataflowResponseEnvelopeDTO:
     lint_decision = LintEntriesDecision.from_response(response)
     lint_lines = list(lint_decision.lint_lines)
     lint_entries = lint_decision.normalize_entries(
@@ -1905,11 +1897,14 @@ def _serialize_dataflow_response(
     )
 
 def _truthy_flag(value: object) -> bool:
-    if isinstance(value, bool):
+    if type(value) is bool:
         return value
     if value is None:
         return False
-    if isinstance(value, (int, float)):
+    int_value = _int_or_none(value)
+    if int_value is not None:
+        return int_value != 0
+    if type(value) is float:
         return value != 0
     text = str(value).strip().lower()
     return text in {"1", "true", "yes", "on"}
@@ -1937,21 +1932,21 @@ def _server_deadline_overhead_ns(
         overhead = max(0, total_ns - 1)
     return overhead
 
-def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
+def _analysis_timeout_total_ns(payload: dict[str, JSONValue]) -> int:
     return payload_codec.analysis_timeout_total_ns(
         payload,
         source="server._analysis_timeout_total_ns.payload_keys",
         reject_sub_millisecond_seconds=True,
     )
 
-def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
+def _analysis_timeout_total_ticks(payload: dict[str, JSONValue]) -> int:
     return payload_codec.analysis_timeout_total_ticks(
         payload,
         source="server._analysis_timeout_total_ticks.payload_keys",
     )
 
 def _analysis_timeout_grace_ns(
-    payload: dict[str, object],
+    payload: dict[str, JSONValue],
     *,
     total_ns: int,
 ) -> int:
@@ -2007,7 +2002,7 @@ def _analysis_timeout_grace_ns(
     return max(1, min(total_ns - 1, grace_cap_ns, provided_grace_ns))
 
 def _analysis_timeout_budget_ns(
-    payload: dict[str, object],
+    payload: dict[str, JSONValue],
 ) -> tuple[int, int, int]:
     total_ns = _analysis_timeout_total_ns(payload)
     cleanup_grace_ns = _analysis_timeout_grace_ns(payload, total_ns=total_ns)
@@ -2016,7 +2011,7 @@ def _analysis_timeout_budget_ns(
     return total_ns, analysis_ns, cleanup_ns
 
 def _deadline_profile_sample_interval(
-    payload: dict[str, object],
+    payload: dict[str, JSONValue],
     *,
     default_interval: int = _DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL,
 ) -> int:
@@ -2048,20 +2043,21 @@ def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str
     check_deadline()
     if value is None:
         return []
-    if isinstance(value, str):
+    if type(value) is str:
         return [part.strip() for part in value.split(",") if part.strip()]
-    if isinstance(value, (list, tuple, set)):
-        items: list[str] = []
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
-            elif strict:
-                never("name set contains non-string entry", value_type=type(item).__name__)
-        return items
-    if strict:
-        never("invalid name set payload", value_type=type(value).__name__)
-    return []
+    entries = _non_string_sequence_or_none(value)
+    if entries is None:
+        if strict:
+            never("invalid name set payload", value_type=type(value).__name__)
+        return []
+    items: list[str] = []
+    for item in entries:
+        check_deadline()
+        if type(item) is str:
+            items.extend([part.strip() for part in item.split(",") if part.strip()])
+        elif strict:
+            never("name set contains non-string entry", value_type=type(item).__name__)
+    return items
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
     items = _normalize_csv_or_iterable_names(value, strict=False)
@@ -2128,7 +2124,7 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
         "progress": {"classification": "timed_out_no_progress"},
     }
 
-def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
+def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPlan:
     request_value = payload.get("execution_plan_request")
     if isinstance(request_value, Mapping):
         req_ops = request_value.get("requested_operations")
@@ -2162,10 +2158,9 @@ def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
             deadline_value = policy_value.get("deadline")
             if isinstance(deadline_value, Mapping):
                 for key, value in deadline_value.items():
-                    if isinstance(value, bool):
-                        continue
-                    if isinstance(value, int):
-                        policy_deadline[str(key)] = int(value)
+                    int_value = _int_or_none(value)
+                    if int_value is not None:
+                        policy_deadline[str(key)] = int_value
             baseline_mode = policy_value.get("baseline_mode")
             if isinstance(baseline_mode, str):
                 policy_baseline_mode = baseline_mode

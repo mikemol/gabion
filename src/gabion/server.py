@@ -288,10 +288,10 @@ def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | N
     ):
         check_deadline()
         value = config.get(key)
-        if isinstance(value, list):
+        if type(value) is list:
             config_payload[key] = [str(item) for item in value]
             continue
-        if isinstance(value, bool | int | str):
+        if type(value) in {bool, int, str}:
             config_payload[key] = value
             continue
         return None
@@ -335,13 +335,14 @@ def _analysis_input_witness(
     if parse_source_fn is None:
         parse_source_fn = ast.parse
     def _normalize_scalar(value: object) -> JSONValue:
-        if value is None or isinstance(value, (bool, int, str)):
+        value_type = type(value)
+        if value is None or value_type in {bool, int, str}:
             return value
-        if isinstance(value, float):
+        if value_type is float:
             return {"_py": "float", "value": repr(value)}
-        if isinstance(value, bytes):
+        if value_type is bytes:
             return {"_py": "bytes", "hex": value.hex()}
-        if isinstance(value, complex):
+        if value_type is complex:
             return {
                 "_py": "complex",
                 "real": repr(value.real),
@@ -383,14 +384,15 @@ def _analysis_input_witness(
             if attrs:
                 payload["attrs"] = attrs
             return payload
-        if isinstance(value, list):
+        value_type = type(value)
+        if value_type is list:
             return [_normalize_ast_value(item) for item in value]
-        if isinstance(value, tuple):
+        if value_type is tuple:
             return {
                 "_py": "tuple",
                 "items": [_normalize_ast_value(item) for item in value],
             }
-        if isinstance(value, dict):
+        if value_type is dict:
             normalized: JSONObject = {}
             for key in sort_once(
                 value.keys(),
@@ -401,7 +403,7 @@ def _analysis_input_witness(
                 check_deadline()
                 normalized[str(key)] = _normalize_ast_value(value[key])
             return normalized
-        if isinstance(value, set):
+        if value_type is set:
             items = [_normalize_ast_value(item) for item in value]
             items = sort_once(
                 items,
@@ -410,7 +412,7 @@ def _analysis_input_witness(
                 key=_canonical_json_text,
             )
             return {"_py": "set", "items": items}
-        if isinstance(value, frozenset):
+        if value_type is frozenset:
             items = [_normalize_ast_value(item) for item in value]
             items = sort_once(
                 items,
@@ -641,15 +643,53 @@ class _PhaseProgressPayloadDTO(BaseModel):
     dimensions: dict[str, _PhaseProgressDimensionDTO] = Field(default_factory=dict)
 
 
+def _non_negative_int_or_none(value: object) -> int | None:
+    if type(value) is int:
+        return max(value, 0)
+    return None
+
+def _json_mapping_or_none(value: object) -> dict[str, JSONValue] | None:
+    if type(value) is dict:
+        return value
+    return None
+
+def _json_mapping_or_empty(value: object) -> dict[str, JSONValue]:
+    mapping = _json_mapping_or_none(value)
+    if mapping is not None:
+        return mapping
+    return {}
+
+def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
+    if type(value) in {list, tuple, set}:
+        return value
+    return None
+
+_REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
+    "collection": report_projection_phase_rank("collection"),
+    "forest": report_projection_phase_rank("forest"),
+    "edge": report_projection_phase_rank("edge"),
+    "post": report_projection_phase_rank("post"),
+}
+
+def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
+    if type(phase_name) is not str:
+        return None
+    return _REPORT_PHASE_RANK_BY_NAME.get(phase_name)
+
+
+def _string_entries(value: object) -> list[str]:
+    entries = _non_string_sequence_or_none(value)
+    if entries is not None:
+        return [item for item in entries if type(item) is str]
+    return []
+
+
 def _collection_resume_carrier(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> _CollectionResumeDTO:
     if not isinstance(collection_resume, Mapping):
         return _CollectionResumeDTO.model_validate({})
-    raw_completed_paths = collection_resume.get("completed_paths")
-    completed_paths: list[str] = []
-    if isinstance(raw_completed_paths, Sequence) and not isinstance(raw_completed_paths, (str, bytes)):
-        completed_paths = [entry for entry in raw_completed_paths if isinstance(entry, str)]
+    completed_paths = _string_entries(collection_resume.get("completed_paths"))
     raw_in_progress = collection_resume.get("in_progress_scan_by_path")
     in_progress_scan_by_path: dict[str, object] = {}
     previous_path: str | None = None
@@ -669,20 +709,20 @@ def _collection_resume_carrier(
             raw_phase = raw_state.get("phase")
             if isinstance(raw_phase, str):
                 normalized_state["phase"] = raw_phase
-            raw_processed = raw_state.get("processed_functions")
-            if isinstance(raw_processed, Sequence) and not isinstance(raw_processed, (str, bytes)):
-                normalized_state["processed_functions"] = [
-                    entry for entry in raw_processed if isinstance(entry, str)
-                ]
-            raw_processed_count = raw_state.get("processed_functions_count")
-            if isinstance(raw_processed_count, int) and not isinstance(raw_processed_count, bool):
-                normalized_state["processed_functions_count"] = max(0, raw_processed_count)
+            processed_entries = _string_entries(raw_state.get("processed_functions"))
+            if processed_entries:
+                normalized_state["processed_functions"] = processed_entries
+            raw_processed_count = _non_negative_int_or_none(
+                raw_state.get("processed_functions_count")
+            )
+            if raw_processed_count is not None:
+                normalized_state["processed_functions_count"] = raw_processed_count
             raw_processed_digest = raw_state.get("processed_functions_digest")
             if isinstance(raw_processed_digest, str):
                 normalized_state["processed_functions_digest"] = raw_processed_digest
-            raw_function_count = raw_state.get("function_count")
-            if isinstance(raw_function_count, int) and not isinstance(raw_function_count, bool):
-                normalized_state["function_count"] = max(0, raw_function_count)
+            raw_function_count = _non_negative_int_or_none(raw_state.get("function_count"))
+            if raw_function_count is not None:
+                normalized_state["function_count"] = raw_function_count
             raw_fn_names = raw_state.get("fn_names")
             if isinstance(raw_fn_names, Mapping):
                 normalized_state["fn_names"] = {
@@ -694,30 +734,20 @@ def _collection_resume_carrier(
     raw_index_resume = collection_resume.get("analysis_index_resume")
     analysis_index_resume: dict[str, object] | None = None
     if isinstance(raw_index_resume, Mapping):
-        hydrated_paths = raw_index_resume.get("hydrated_paths")
+        hydrated_paths = _string_entries(raw_index_resume.get("hydrated_paths"))
+        hydrated_paths_count = _non_negative_int_or_none(
+            raw_index_resume.get("hydrated_paths_count")
+        )
+        function_count = _non_negative_int_or_none(raw_index_resume.get("function_count"))
+        class_count = _non_negative_int_or_none(raw_index_resume.get("class_count"))
         analysis_index_resume = {
-            "hydrated_paths": [
-                entry
-                for entry in hydrated_paths
-                if isinstance(entry, str)
-            ]
-            if isinstance(hydrated_paths, Sequence) and not isinstance(hydrated_paths, (str, bytes))
-            else [],
-            "hydrated_paths_count": max(0, raw_index_resume.get("hydrated_paths_count", 0))
-            if isinstance(raw_index_resume.get("hydrated_paths_count"), int)
-            and not isinstance(raw_index_resume.get("hydrated_paths_count"), bool)
-            else 0,
+            "hydrated_paths": hydrated_paths,
+            "hydrated_paths_count": hydrated_paths_count if hydrated_paths_count is not None else 0,
             "hydrated_paths_digest": raw_index_resume.get("hydrated_paths_digest", "")
             if isinstance(raw_index_resume.get("hydrated_paths_digest"), str)
             else "",
-            "function_count": max(0, raw_index_resume.get("function_count", 0))
-            if isinstance(raw_index_resume.get("function_count"), int)
-            and not isinstance(raw_index_resume.get("function_count"), bool)
-            else 0,
-            "class_count": max(0, raw_index_resume.get("class_count", 0))
-            if isinstance(raw_index_resume.get("class_count"), int)
-            and not isinstance(raw_index_resume.get("class_count"), bool)
-            else 0,
+            "function_count": function_count if function_count is not None else 0,
+            "class_count": class_count if class_count is not None else 0,
             "phase": raw_index_resume.get("phase", "")
             if isinstance(raw_index_resume.get("phase"), str)
             else "",
@@ -751,28 +781,19 @@ def _phase_progress_payload_carrier(
         for dim_name, raw_payload in raw_dimensions.items():
             if not isinstance(dim_name, str) or not isinstance(raw_payload, Mapping):
                 continue
-            raw_done = raw_payload.get("done")
-            raw_total = raw_payload.get("total")
-            if (
-                isinstance(raw_done, int)
-                and not isinstance(raw_done, bool)
-                and isinstance(raw_total, int)
-                and not isinstance(raw_total, bool)
-            ):
-                dimensions[dim_name] = {"done": max(raw_done, 0), "total": max(raw_total, 0)}
+            raw_done = _non_negative_int_or_none(raw_payload.get("done"))
+            raw_total = _non_negative_int_or_none(raw_payload.get("total"))
+            if raw_done is not None and raw_total is not None:
+                dimensions[dim_name] = {"done": raw_done, "total": raw_total}
+    primary_done = _non_negative_int_or_none(phase_progress_v2.get("primary_done"))
+    primary_total = _non_negative_int_or_none(phase_progress_v2.get("primary_total"))
     return _PhaseProgressPayloadDTO.model_validate(
         {
             "primary_unit": phase_progress_v2.get("primary_unit", "")
             if isinstance(phase_progress_v2.get("primary_unit"), str)
             else "",
-            "primary_done": max(0, phase_progress_v2.get("primary_done", 0))
-            if isinstance(phase_progress_v2.get("primary_done"), int)
-            and not isinstance(phase_progress_v2.get("primary_done"), bool)
-            else None,
-            "primary_total": max(0, phase_progress_v2.get("primary_total", 0))
-            if isinstance(phase_progress_v2.get("primary_total"), int)
-            and not isinstance(phase_progress_v2.get("primary_total"), bool)
-            else None,
+            "primary_done": primary_done,
+            "primary_total": primary_total,
             "dimensions": dimensions,
         }
     )
@@ -797,7 +818,10 @@ def _in_progress_scan_states(
     previous_path: str | None = None
     for raw_path, raw_state in raw_in_progress.items():
         check_deadline()
-        if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
+        if not isinstance(raw_path, str):
+            continue
+        state_mapping = _json_mapping_or_none(raw_state)
+        if state_mapping is None:
             continue
         if previous_path is not None and previous_path > raw_path:
             never(
@@ -806,7 +830,7 @@ def _in_progress_scan_states(
                 current_path=raw_path,
             )
         previous_path = raw_path
-        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
+        states[raw_path] = state_mapping
     return states
 
 
@@ -815,27 +839,28 @@ def _in_progress_scan_state_carrier(
 ) -> _InProgressScanStateDTO:
     if isinstance(state, _InProgressScanStateDTO):
         return state
-    if not isinstance(state, Mapping):
+    state_mapping = _json_mapping_or_none(state)
+    if state_mapping is None:
         return _InProgressScanStateDTO.model_validate({})
     normalized_state: dict[str, object] = {}
-    raw_phase = state.get("phase")
+    raw_phase = state_mapping.get("phase")
     if isinstance(raw_phase, str):
         normalized_state["phase"] = raw_phase
-    raw_processed = state.get("processed_functions")
-    if isinstance(raw_processed, Sequence) and not isinstance(raw_processed, (str, bytes)):
-        normalized_state["processed_functions"] = [
-            entry for entry in raw_processed if isinstance(entry, str)
-        ]
-    raw_processed_count = state.get("processed_functions_count")
-    if isinstance(raw_processed_count, int) and not isinstance(raw_processed_count, bool):
-        normalized_state["processed_functions_count"] = max(0, raw_processed_count)
-    raw_processed_digest = state.get("processed_functions_digest")
+    processed_entries = _string_entries(state_mapping.get("processed_functions"))
+    if processed_entries:
+        normalized_state["processed_functions"] = processed_entries
+    raw_processed_count = _non_negative_int_or_none(
+        state_mapping.get("processed_functions_count")
+    )
+    if raw_processed_count is not None:
+        normalized_state["processed_functions_count"] = raw_processed_count
+    raw_processed_digest = state_mapping.get("processed_functions_digest")
     if isinstance(raw_processed_digest, str):
         normalized_state["processed_functions_digest"] = raw_processed_digest
-    raw_function_count = state.get("function_count")
-    if isinstance(raw_function_count, int) and not isinstance(raw_function_count, bool):
-        normalized_state["function_count"] = max(0, raw_function_count)
-    raw_fn_names = state.get("fn_names")
+    raw_function_count = _non_negative_int_or_none(state_mapping.get("function_count"))
+    if raw_function_count is not None:
+        normalized_state["function_count"] = raw_function_count
+    raw_fn_names = state_mapping.get("fn_names")
     if isinstance(raw_fn_names, Mapping):
         normalized_state["fn_names"] = {
             str(name): raw_fn_names[name]
@@ -1430,11 +1455,7 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    resume_state = (
-        cast(Mapping[str, JSONValue], resume_state_intro)
-        if isinstance(resume_state_intro, Mapping)
-        else {}
-    )
+    resume_state = _json_mapping_or_empty(resume_state_intro)
     state_path = str(resume_state.get("state_path", "") or "")
     status = str(resume_state.get("status", "") or "")
     reused_files = int(resume_state.get("reused_files", 0) or 0)
@@ -1501,20 +1522,24 @@ def _collection_progress_intro_lines(
     if analysis_index_resume is not None:
         hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
         lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        raw_index_resume = collection_resume.get("analysis_index_resume")
-        if (
-            isinstance(raw_index_resume, Mapping)
-            and isinstance(raw_index_resume.get("function_count"), int)
-            and not isinstance(raw_index_resume.get("function_count"), bool)
-        ):
+        raw_index_resume = _json_mapping_or_none(
+            collection_resume.get("analysis_index_resume")
+        )
+        function_count = (
+            _non_negative_int_or_none(raw_index_resume.get("function_count"))
+            if raw_index_resume is not None
+            else None
+        )
+        if function_count is not None:
             lines.append(
                 f"- `hydrated_function_count`: `{analysis_index_resume.function_count}`"
             )
-        if (
-            isinstance(raw_index_resume, Mapping)
-            and isinstance(raw_index_resume.get("class_count"), int)
-            and not isinstance(raw_index_resume.get("class_count"), bool)
-        ):
+        class_count = (
+            _non_negative_int_or_none(raw_index_resume.get("class_count"))
+            if raw_index_resume is not None
+            else None
+        )
+        if class_count is not None:
             lines.append(
                 f"- `hydrated_class_count`: `{analysis_index_resume.class_count}`"
             )
@@ -1546,15 +1571,14 @@ def _collection_components_preview_lines(
             check_deadline()
             if not isinstance(raw_qual, str):
                 continue
-            if not isinstance(raw_bundles, Sequence) or isinstance(
-                raw_bundles, (str, bytes)
-            ):
+            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            if bundle_list is None:
                 continue
             function_count += 1
             bundle_alternatives += sum(
                 1
-                for bundle in raw_bundles
-                if isinstance(bundle, Sequence) and not isinstance(bundle, (str, bytes))
+                for bundle in bundle_list
+                if _non_string_sequence_or_none(bundle) is not None
             )
     return [
         "Component preview (provisional).",
@@ -1581,18 +1605,16 @@ def _groups_by_path_from_collection_resume(
             check_deadline()
             if not isinstance(raw_qual, str):
                 continue
-            if not isinstance(raw_bundles, Sequence) or isinstance(
-                raw_bundles, (str, bytes)
-            ):
+            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            if bundle_list is None:
                 continue
             bundles: list[set[str]] = []
-            for raw_bundle in raw_bundles:
+            for raw_bundle in bundle_list:
                 check_deadline()
-                if not isinstance(raw_bundle, Sequence) or isinstance(
-                    raw_bundle, (str, bytes)
-                ):
+                bundle_items = _non_string_sequence_or_none(raw_bundle)
+                if bundle_items is None:
                     continue
-                bundles.append({entry for entry in raw_bundle if isinstance(entry, str)})
+                bundles.append({entry for entry in bundle_items if type(entry) is str})
             path_groups[raw_qual] = bundles
         groups_by_path[Path(raw_path)] = path_groups
     return groups_by_path
@@ -1665,13 +1687,8 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     best_rank = -1
     for phase_name in phases:
         check_deadline()
-        if not isinstance(phase_name, str):
-            continue
-        try:
-            rank = report_projection_phase_rank(
-                cast(Literal["collection", "forest", "edge", "post"], phase_name)
-            )
-        except KeyError:
+        rank = _report_projection_phase_rank_or_none(phase_name)
+        if rank is None:
             continue
         if rank > best_rank:
             best_rank = rank
@@ -1910,20 +1927,21 @@ def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str
     check_deadline()
     if value is None:
         return []
-    if isinstance(value, str):
+    if type(value) is str:
         return [part.strip() for part in value.split(",") if part.strip()]
-    if isinstance(value, (list, tuple, set)):
-        items: list[str] = []
-        for item in value:
-            check_deadline()
-            if isinstance(item, str):
-                items.extend([part.strip() for part in item.split(",") if part.strip()])
-            elif strict:
-                never("name set contains non-string entry", value_type=type(item).__name__)
-        return items
-    if strict:
-        never("invalid name set payload", value_type=type(value).__name__)
-    return []
+    entries = _non_string_sequence_or_none(value)
+    if entries is None:
+        if strict:
+            never("invalid name set payload", value_type=type(value).__name__)
+        return []
+    items: list[str] = []
+    for item in entries:
+        check_deadline()
+        if type(item) is str:
+            items.extend([part.strip() for part in item.split(",") if part.strip()])
+        elif strict:
+            never("name set contains non-string entry", value_type=type(item).__name__)
+    return items
 
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
@@ -2576,8 +2594,9 @@ def _normalize_impact_payload(
 
     changes: list[ImpactSpan] = []
     raw_changes = payload.get("changes")
-    if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
-        for entry in deadline_loop_iter(raw_changes):
+    change_entries = _non_string_sequence_or_none(raw_changes)
+    if change_entries is not None:
+        for entry in deadline_loop_iter(change_entries):
             parsed = _normalize_impact_change_entry(entry)
             if parsed is not None:
                 changes.append(
@@ -2750,10 +2769,11 @@ def _impact_functions_from_tree(path: str, tree: ast.AST) -> list[ImpactFunction
     def _walk(node: ast.AST, qual_parts: list[str]) -> None:
         for child in ast.iter_child_nodes(node):
             check_deadline()
-            if isinstance(child, ast.ClassDef):
+            child_type = type(child)
+            if child_type is ast.ClassDef:
                 _walk(child, [*qual_parts, child.name])
                 continue
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if child_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
                 start_line = getattr(child, "lineno", None)
                 end_line = getattr(child, "end_lineno", None)
                 if isinstance(start_line, int) and isinstance(end_line, int):
@@ -2765,7 +2785,8 @@ def _impact_functions_from_tree(path: str, tree: ast.AST) -> list[ImpactFunction
                             name=child.name,
                             start_line=start_line,
                             end_line=end_line,
-                            is_test=_impact_path_is_test(path) or child.name.startswith("test_"),
+                            is_test=_impact_path_is_test(path)
+                            or child.name.startswith("test_"),
                         )
                     )
                 _walk(child, [*qual_parts, child.name])
@@ -2806,7 +2827,12 @@ def _impact_collect_edges(
                 check_deadline()
                 if not isinstance(node, ast.Call):
                     continue
-                if not isinstance(node.func, (ast.Name, ast.Attribute)):
+                func_node = node.func
+                if type(func_node) is ast.Name:
+                    callee_name = func_node.id
+                elif type(func_node) is ast.Attribute:
+                    callee_name = func_node.attr
+                else:
                     continue
                 line = getattr(node, "lineno", None)
                 end_line = getattr(node, "end_lineno", line)
@@ -2814,7 +2840,6 @@ def _impact_collect_edges(
                     continue
                 if line < caller.start_line or end_line > caller.end_line:
                     continue
-                callee_name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr
                 candidates = by_name.get(callee_name, [])
                 if not candidates:
                     continue

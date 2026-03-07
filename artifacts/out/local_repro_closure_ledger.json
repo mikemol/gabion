@@ -2145,6 +2145,52 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "updated"
       }
+    },
+    {
+      "cu_id": "CU-FS1",
+      "summary": "Fiber strictification in boundary zones: removed repeated intra-zone narrowing by single-pass typed extraction (no cross-file bounce).",
+      "timestamp_utc": "2026-03-07T14:36:06Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 57,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 172,
+      "total_after": 115,
+      "notes": [
+        "Strictified server and command_orchestrator_primitives with exact-shape ingress helpers (dict/list/tuple/set + int/non-negative int) to eliminate repeated per-slot narrowing.",
+        "Kept logic in-zone and shifted normalization earlier in each affected flow; no external-file indirection was introduced.",
+        "Eliminated fiber_normalization_contract debt to zero while preserving runtime_narrowing_boundary at its prior single non-target violation site."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_branchless_fiber": "pass"
+      }
     }
   ],
   "generated_by": "codex",
