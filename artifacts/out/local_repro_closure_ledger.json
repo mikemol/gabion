@@ -1481,6 +1481,52 @@
         "targeted_pytest_boundary_core_contract_rule": "pass",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S2S",
+      "summary": "Missing-paired-core strip/re-add pass retained one additional boundary-marker removal in impact_index.",
+      "timestamp_utc": "2026-03-07T00:57:12Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 72,
+        "fiber_normalization_contract": 156,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 25,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 71,
+        "fiber_normalization_contract": 156,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 363,
+      "total_after": 362,
+      "notes": [
+        "Ran full missing_paired_core_module strip/re-add loop with workflow/non-target regression restoration across 55 candidates.",
+        "Converged to one retained marker removal in src/gabion/analysis/semantics/impact_index.py after restoring all other regressors.",
+        "Non-target families remained unchanged while boundary_core_contract decreased by one."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",
