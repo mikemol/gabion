@@ -2237,6 +2237,52 @@
         "policy_normative_map": "pass",
         "targeted_pytest_ci_governance_scripts": "pass"
       }
+    },
+    {
+      "cu_id": "CU-RN1",
+      "summary": "Remove remaining runtime narrowing from ASPF execution fibration stream normalization path.",
+      "timestamp_utc": "2026-03-07T21:51:57Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 1,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 114,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 115,
+      "total_after": 114,
+      "notes": [
+        "Removed explicit isinstance narrowing for stream events in _normalize_stream_trace_payload and required stricter upstream event shape.",
+        "Preserved existing event filtering behavior without introducing new boundary shims or compatibility indirection.",
+        "Runtime narrowing family reduced to zero with no cross-family regressions."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_aspf_execution_fibration": "pass"
+      }
     }
   ],
   "generated_by": "codex",

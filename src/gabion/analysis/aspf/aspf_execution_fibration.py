@@ -706,12 +706,7 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
 
 
 def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    raw_events_value = payload.get("events", [])
-    raw_events: Sequence[JSONValue]
-    if isinstance(raw_events_value, list):
-        raw_events = raw_events_value
-    else:
-        raw_events = ()
+    raw_events = payload.get("events", ())
     ordered_events = sort_once(
         [
             {str(key): _as_json_value(event[key]) for key in event}
