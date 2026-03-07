@@ -58,14 +58,19 @@ def _restore_aspf_state_from_github_artifacts(
     artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
 
     def _artifact_is_candidate(item: object) -> bool:
-        if not isinstance(item, dict):
+        match item:
+            case dict() as artifact_item:
+                pass
+            case _:
+                return False
+        download_url = str(artifact_item.get("archive_download_url", "") or "")
+        if artifact_item.get("expired", True) or not download_url:
             return False
-        download_url = str(item.get("archive_download_url", "") or "")
-        if item.get("expired", True) or not download_url:
-            return False
-        workflow_run = item.get("workflow_run")
-        if not isinstance(workflow_run, dict):
-            return False
+        match artifact_item.get("workflow_run"):
+            case dict() as workflow_run:
+                pass
+            case _:
+                return False
         if current_run_id and str(workflow_run.get("id", "")) == current_run_id:
             return False
         if ref_name and str(workflow_run.get("head_branch", "")) != ref_name:
@@ -106,9 +111,12 @@ def _restore_aspf_state_from_github_artifacts(
                         checkpoint_member = name
                     elif base.startswith(chunk_prefix):
                         chunk_members.append(name)
-                if checkpoint_member is None:
-                    continue
-                checkpoint_bytes = zf.read(checkpoint_member)
+                match checkpoint_member:
+                    case str() as checkpoint_member_value:
+                        pass
+                    case _:
+                        continue
+                checkpoint_bytes = zf.read(checkpoint_member_value)
                 if _state_requires_chunk_artifacts(
                     checkpoint_bytes=checkpoint_bytes
                 ) and not chunk_members:
@@ -198,14 +206,26 @@ def _state_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
     try:
         payload = json.loads(checkpoint_bytes.decode("utf-8"))
     except Exception:
+        parse_failed = True
+        _ = parse_failed
         return False
-    if not isinstance(payload, Mapping):
-        return False
-    collection_resume = payload.get("collection_resume")
-    if not isinstance(collection_resume, Mapping):
-        return False
-    analysis_index_resume = collection_resume.get("analysis_index_resume")
-    if not isinstance(analysis_index_resume, Mapping):
-        return False
-    state_ref = analysis_index_resume.get("state_ref")
-    return isinstance(state_ref, str) and bool(state_ref.strip())
+    match payload:
+        case dict() as payload_map:
+            pass
+        case _:
+            return False
+    match payload_map.get("collection_resume"):
+        case dict() as collection_resume:
+            pass
+        case _:
+            return False
+    match collection_resume.get("analysis_index_resume"):
+        case dict() as analysis_index_resume:
+            pass
+        case _:
+            return False
+    match analysis_index_resume.get("state_ref"):
+        case str() as state_ref:
+            return bool(state_ref.strip())
+        case _:
+            return False

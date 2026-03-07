@@ -2330,6 +2330,52 @@
         "targeted_pytest_config": "pass",
         "targeted_pytest_runtime_policy_defensive": "pass"
       }
+    },
+    {
+      "cu_id": "CU-DF2",
+      "summary": "Refactor github artifact restore guards into explicit shape matches to remove sentinel fallback branches.",
+      "timestamp_utc": "2026-03-07T21:56:27Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 104,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 97,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 104,
+      "total_after": 97,
+      "notes": [
+        "Converted artifact/workflow candidate guards and checkpoint selection to explicit match-based normalization.",
+        "Reworked _state_requires_chunk_artifacts to shape-match decoded payloads and explicit state_ref extraction without sentinel guard fallbacks.",
+        "Defensive fallback count reduced by 7 with no cross-family regressions."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_cli_helpers_cases": "pass"
+      }
     }
   ],
   "generated_by": "codex",
