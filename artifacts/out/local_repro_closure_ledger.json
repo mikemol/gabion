@@ -1764,6 +1764,54 @@
         "extract_test_evidence": "pass",
         "test_evidence_diff": "pass"
       }
+    },
+    {
+      "cu_id": "CU-S2I",
+      "summary": "Remove boundary marker from dataflow_pipeline by tightening helper payload signature for non-boundary compliance.",
+      "timestamp_utc": "2026-03-07T02:07:34Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 66,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 70,
+        "defensive_fallback": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 30,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 10,
+        "boundary_core_contract": 65,
+        "fiber_normalization_contract": 140,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 316,
+      "total_after": 315,
+      "notes": [
+        "Removed boundary_normalization_module marker from dataflow_pipeline after converting _normalized_dimension_payload first parameter from Mapping[str, object] to Mapping[str, JSONObject].",
+        "This resolves non-boundary payload-signature workflow policy failure that previously blocked marker removal in that module.",
+        "Boundary-core family decreased by one with all non-target families unchanged."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_diff": "pass"
+      }
     }
   ],
   "generated_by": "codex",

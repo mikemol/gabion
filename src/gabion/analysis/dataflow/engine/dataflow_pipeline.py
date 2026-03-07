@@ -1,6 +1,5 @@
 from __future__ import annotations
 # gabion:decision_protocol_module
-# gabion:boundary_normalization_module
 
 import time
 from collections import Counter
@@ -117,7 +116,7 @@ class _PostPhaseResult:
 
 
 def _normalized_dimension_payload(
-    raw_dimensions: Mapping[str, object],
+    raw_dimensions: Mapping[str, JSONObject],
 ) -> dict[str, JSONObject]:
     normalized: dict[str, JSONObject] = {}
     for raw_name, raw_payload in raw_dimensions.items():
