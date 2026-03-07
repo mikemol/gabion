@@ -1,4 +1,3 @@
-# gabion:boundary_normalization_module
 from __future__ import annotations
 
 """Ambiguity and bundle-forest helper boundary during runtime retirement."""
