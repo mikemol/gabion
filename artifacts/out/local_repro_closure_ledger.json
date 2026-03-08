@@ -5109,6 +5109,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AA",
+      "summary": "Marker protocol reasoning/dependency normalization strictification via structural pattern matching.",
+      "timestamp_utc": "2026-03-08T12:46:09Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 138,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 134,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7728,
+      "total_after": 7724,
+      "notes": [
+        "Removed manual isinstance guards from marker reasoning normalization by switching to structural pattern matching for MarkerReasoning/dataclass/mapping/scalar carriers.",
+        "Normalized dependency carrier handling without explicit Sequence/string runtime guard ladders.",
+        "Target file reached zero fiber violations: marker_protocol 4->0; global fiber_type_dispatch_contract 138->134 (delta -4)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_marker_protocol": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

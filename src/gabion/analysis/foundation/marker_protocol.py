@@ -248,10 +248,13 @@ def never_marker_payload(
 
 # gabion:decision_protocol
 def _normalize_dependency_values(raw_values: Sequence[object] | str | None) -> tuple[str, ...]:
-    if isinstance(raw_values, Sequence) and not isinstance(raw_values, str):
-        candidates = tuple(str(value) for value in raw_values)
-    else:
-        candidates = ("" if raw_values is None else str(raw_values),)
+    match raw_values:
+        case list() | tuple() | set() | frozenset() as sequence_values:
+            candidates = tuple(str(value) for value in sequence_values)
+        case None:
+            candidates = ("",)
+        case _:
+            candidates = (str(raw_values),)
     deduped = {value.strip() for value in candidates if value.strip()}
     return tuple(sorted(deduped))
 
@@ -274,18 +277,23 @@ def normalize_marker_reasoning(raw_reasoning: ReasoningInput = "") -> MarkerReas
     Supports typed dataclass input, generic mappings, and scalar fallback values.
     """
 
-    if isinstance(raw_reasoning, MarkerReasoning):
-        return MarkerReasoning(
-            summary=raw_reasoning.summary.strip(),
-            control=raw_reasoning.control.strip(),
-            blocking_dependencies=_normalize_dependency_values(raw_reasoning.blocking_dependencies),
-        )
-
-    if is_dataclass(raw_reasoning):
-        return _normalize_reasoning_mapping(asdict(raw_reasoning))
-
-    if isinstance(raw_reasoning, Mapping):
-        return _normalize_reasoning_mapping(raw_reasoning)
-
-    summary = str(raw_reasoning).strip()
-    return MarkerReasoning(summary=summary, control="", blocking_dependencies=())
+    match raw_reasoning:
+        case MarkerReasoning() as reasoning:
+            return MarkerReasoning(
+                summary=reasoning.summary.strip(),
+                control=reasoning.control.strip(),
+                blocking_dependencies=_normalize_dependency_values(
+                    reasoning.blocking_dependencies
+                ),
+            )
+        case _ if is_dataclass(raw_reasoning):
+            return _normalize_reasoning_mapping(asdict(raw_reasoning))
+        case dict() as raw_reasoning_mapping:
+            return _normalize_reasoning_mapping(raw_reasoning_mapping)
+        case _:
+            summary = str(raw_reasoning).strip()
+            return MarkerReasoning(
+                summary=summary,
+                control="",
+                blocking_dependencies=(),
+            )
