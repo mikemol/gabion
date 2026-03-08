@@ -3679,6 +3679,57 @@
         "targeted_pytest_ambiguity_contract_policy_check": "pass",
         "targeted_pytest_normative_symdiff_edges": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D1C",
+      "summary": "Governance strict-dispatch conversion: refactor governance_rules runtime type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:24:06Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7004,
+        "defensive_fallback": 131,
+        "fiber_scalar_sentinel_contract": 275,
+        "fiber_type_dispatch_contract": 499,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7006,
+        "defensive_fallback": 131,
+        "fiber_scalar_sentinel_contract": 274,
+        "fiber_type_dispatch_contract": 480,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7933,
+      "total_after": 7915,
+      "notes": [
+        "Converted governance_rules shape/value routing to singledispatch helpers (_str_or_none, _dict_or_none, _list_or_none, _as_bool, _optional_tuple_path, _string_key_mapping, _string_tuple_or_empty) with never(...) base handlers.",
+        "Rewired gate and rules loading paths to dispatch-based mapping/string/list normalization while preserving validation errors and command/gate filtering semantics.",
+        "Acceptance met: src/gabion/tooling/governance/governance_rules.py fiber_type_dispatch_contract 19->0 and global fiber_type_dispatch_contract 499->480 (delta -19); non-target family movement recorded per target-only mode."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_governance_rules": "pass",
+        "targeted_pytest_normative_symdiff_edges": "pass"
+      }
     }
   ],
   "generated_by": "codex",

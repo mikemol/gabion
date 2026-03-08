@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, singledispatch
 from importlib import import_module
 from pathlib import Path
 from typing import Mapping
+
+from gabion.invariants import never
 
 
 def _load_yaml_module(*, importer=import_module):
@@ -89,10 +91,88 @@ def _yaml_loader():
     return Loader
 
 
+@singledispatch
+def _str_or_none(raw: object) -> str | None:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_str_or_none.register(str)
+def _(raw: str) -> str | None:
+    return raw
+
+
+def _none_str(raw: object) -> str | None:
+    _ = raw
+    return None
+
+
+for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
+    _str_or_none.register(_str_none_type)(_none_str)
+
+
+@singledispatch
+def _dict_or_none(raw: object) -> dict[object, object] | None:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_dict_or_none.register(dict)
+def _(raw: dict[object, object]) -> dict[object, object] | None:
+    return raw
+
+
+def _none_dict(raw: object) -> dict[object, object] | None:
+    _ = raw
+    return None
+
+
+for _dict_none_type in (list, tuple, set, str, int, float, bool, type(None)):
+    _dict_or_none.register(_dict_none_type)(_none_dict)
+
+
+@singledispatch
+def _list_or_none(raw: object) -> list[object] | None:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_list_or_none.register(list)
+def _(raw: list[object]) -> list[object] | None:
+    return raw
+
+
+def _none_list(raw: object) -> list[object] | None:
+    _ = raw
+    return None
+
+
+for _list_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
+    _list_or_none.register(_list_none_type)(_none_list)
+
+
+def _required_mapping(raw: object, *, error_message: str) -> dict[object, object]:
+    mapping = _dict_or_none(raw)
+    if mapping is None:
+        raise ValueError(error_message)
+    return mapping
+
+
+def _required_str(raw: object, *, error_message: str) -> str:
+    value = _str_or_none(raw)
+    if value is None:
+        raise ValueError(error_message)
+    return value
+
+
 def _tuple_path(raw: object, *, field_name: str) -> tuple[str, ...]:
-    if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+    values = _list_or_none(raw)
+    if values is None:
         raise ValueError(f"governance_rules invalid {field_name}: expected list[str]")
-    return tuple(raw)
+    typed: list[str] = []
+    for item in values:
+        text = _str_or_none(item)
+        if text is None:
+            raise ValueError(f"governance_rules invalid {field_name}: expected list[str]")
+        typed.append(text)
+    return tuple(typed)
 
 
 def _as_int(raw: object, *, field_name: str) -> int:
@@ -102,45 +182,117 @@ def _as_int(raw: object, *, field_name: str) -> int:
         raise ValueError(f"governance_rules invalid {field_name}: expected int") from exc
 
 
+@singledispatch
 def _as_bool(raw: object, *, field_name: str) -> bool:
-    if isinstance(raw, bool):
-        return raw
-    if isinstance(raw, str):
-        lowered = raw.strip().lower()
-        if lowered in {"1", "true", "yes", "on"}:
-            return True
-        if lowered in {"0", "false", "no", "off"}:
-            return False
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_as_bool.register(bool)
+def _(raw: bool, *, field_name: str) -> bool:
+    _ = field_name
+    return raw
+
+
+@_as_bool.register(str)
+def _(raw: str, *, field_name: str) -> bool:
+    lowered = raw.strip().lower()
+    if lowered in {"1", "true", "yes", "on"}:
+        return True
+    if lowered in {"0", "false", "no", "off"}:
+        return False
     raise ValueError(f"governance_rules invalid {field_name}: expected bool")
 
 
+def _invalid_bool(raw: object, *, field_name: str) -> bool:
+    _ = raw
+    raise ValueError(f"governance_rules invalid {field_name}: expected bool")
+
+
+for _bool_invalid_type in (dict, list, tuple, set, int, float, type(None)):
+    _as_bool.register(_bool_invalid_type)(_invalid_bool)
+
+
+@singledispatch
+def _optional_tuple_path(raw: object, *, field_name: str) -> tuple[str, ...] | None:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_optional_tuple_path.register(list)
+def _(raw: list[object], *, field_name: str) -> tuple[str, ...] | None:
+    return _tuple_path(raw, field_name=field_name)
+
+
+def _none_tuple_path(raw: object, *, field_name: str) -> tuple[str, ...] | None:
+    _ = (raw, field_name)
+    return None
+
+
+for _tuple_path_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
+    _optional_tuple_path.register(_tuple_path_none_type)(_none_tuple_path)
+
+
+@singledispatch
+def _string_key_mapping(raw: object) -> dict[str, object]:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_string_key_mapping.register(dict)
+def _(raw: dict[object, object]) -> dict[str, object]:
+    mapped: dict[str, object] = {}
+    for key, value in raw.items():
+        key_text = _str_or_none(key)
+        if key_text is not None:
+            mapped[key_text] = value
+    return mapped
+
+
+@singledispatch
+def _string_tuple_or_empty(raw: object) -> tuple[str, ...]:
+    never("unregistered runtime type", value_type=type(raw).__name__)
+
+
+@_string_tuple_or_empty.register(list)
+def _(raw: list[object]) -> tuple[str, ...]:
+    return tuple(str(item) for item in raw)
+
+
+def _empty_string_tuple(raw: object) -> tuple[str, ...]:
+    _ = raw
+    return ()
+
+
+for _string_tuple_empty_type in (dict, tuple, set, str, int, float, bool, type(None)):
+    _string_tuple_or_empty.register(_string_tuple_empty_type)(_empty_string_tuple)
+
+
 def _gate_from_mapping(gate_id: str, payload: Mapping[str, object]) -> GatePolicy:
-    severity_raw = payload.get("severity")
-    if not isinstance(severity_raw, Mapping):
-        raise ValueError(f"governance_rules invalid gates.{gate_id}.severity")
-    correction_raw = payload.get("correction")
-    if not isinstance(correction_raw, Mapping):
-        raise ValueError(f"governance_rules invalid gates.{gate_id}.correction")
+    severity_raw = _required_mapping(
+        payload.get("severity"),
+        error_message=f"governance_rules invalid gates.{gate_id}.severity",
+    )
+    correction_raw = _required_mapping(
+        payload.get("correction"),
+        error_message=f"governance_rules invalid gates.{gate_id}.correction",
+    )
 
     baseline_missing_value = payload.get("baseline_missing_key")
-    baseline_missing_key = None
-    if isinstance(baseline_missing_value, list):
-        baseline_missing_key = _tuple_path(
-            baseline_missing_value,
-            field_name=f"gates.{gate_id}.baseline_missing_key",
-        )
+    baseline_missing_key = _optional_tuple_path(
+        baseline_missing_value,
+        field_name=f"gates.{gate_id}.baseline_missing_key",
+    )
 
-    mode = correction_raw.get("mode")
-    if not isinstance(mode, str):
-        raise ValueError(f"governance_rules invalid gates.{gate_id}.correction.mode")
-
-    transitions = correction_raw.get("transitions")
-    if not isinstance(transitions, list) or any(not isinstance(item, str) for item in transitions):
-        raise ValueError(f"governance_rules invalid gates.{gate_id}.correction.transitions")
-
-    bounded_steps = correction_raw.get("bounded_steps")
-    if not isinstance(bounded_steps, list) or any(not isinstance(item, str) for item in bounded_steps):
-        raise ValueError(f"governance_rules invalid gates.{gate_id}.correction.bounded_steps")
+    mode = _required_str(
+        correction_raw.get("mode"),
+        error_message=f"governance_rules invalid gates.{gate_id}.correction.mode",
+    )
+    transitions = _tuple_path(
+        correction_raw.get("transitions"),
+        field_name=f"gates.{gate_id}.correction.transitions",
+    )
+    bounded_steps = _tuple_path(
+        correction_raw.get("bounded_steps"),
+        field_name=f"gates.{gate_id}.correction.bounded_steps",
+    )
 
     return GatePolicy(
         gate_id=gate_id,
@@ -162,8 +314,8 @@ def _gate_from_mapping(gate_id: str, payload: Mapping[str, object]) -> GatePolic
         ),
         correction=CorrectionPolicy(
             mode=mode,
-            transitions=tuple(transitions),
-            bounded_steps=tuple(bounded_steps),
+            transitions=transitions,
+            bounded_steps=bounded_steps,
         ),
         disabled_message=str(payload.get("disabled_message", "Gate disabled by policy override.")),
         missing_message=str(payload.get("missing_message", "Delta payload missing; gate failed.")),
@@ -181,44 +333,43 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
     loader = _yaml_loader()
     with rule_path.open("r", encoding="utf-8") as handle:
         raw = yaml.load(handle, Loader=loader) or {}
-    if not isinstance(raw, Mapping):
+    raw_mapping = _dict_or_none(raw)
+    if raw_mapping is None:
         raise ValueError("governance_rules root must be a mapping")
 
-    gates_raw = raw.get("gates")
-    if not isinstance(gates_raw, Mapping):
+    gates_raw = _dict_or_none(raw_mapping.get("gates"))
+    if gates_raw is None:
         raise ValueError("governance_rules must define gates")
 
     gates: dict[str, GatePolicy] = {}
     for gate_id, gate_payload in gates_raw.items():
-        if isinstance(gate_id, str) and isinstance(gate_payload, Mapping):
-            gates[gate_id] = _gate_from_mapping(gate_id, gate_payload)
+        gate_name = _str_or_none(gate_id)
+        gate_mapping = _dict_or_none(gate_payload)
+        if gate_name is not None and gate_mapping is not None:
+            gates[gate_name] = _gate_from_mapping(gate_name, gate_mapping)
 
-    command_policies_raw = raw.get("command_policies")
+    command_policies_raw = _dict_or_none(raw_mapping.get("command_policies"))
     command_policies: dict[str, CommandPolicy] = {}
-    if isinstance(command_policies_raw, Mapping):
+    if command_policies_raw is not None:
         for command_id, command_payload in command_policies_raw.items():
-            valid_command_policy = isinstance(command_id, str) and isinstance(
-                command_payload,
-                Mapping,
-            )
-            if valid_command_policy:
-                maturity = str(command_payload.get("maturity", "experimental"))
-                require_lsp_carrier = _as_bool(command_payload.get("require_lsp_carrier", False), field_name=f"command_policies.{command_id}.require_lsp_carrier")
-                parity_required = _as_bool(command_payload.get("parity_required", False), field_name=f"command_policies.{command_id}.parity_required")
-                probe_payload_raw = command_payload.get("probe_payload")
-                probe_payload = (
-                    dict(probe_payload_raw)
-                    if isinstance(probe_payload_raw, Mapping)
-                    else None
+            command_name = _str_or_none(command_id)
+            command_mapping = _dict_or_none(command_payload)
+            if command_name is not None and command_mapping is not None:
+                maturity = str(command_mapping.get("maturity", "experimental"))
+                require_lsp_carrier = _as_bool(
+                    command_mapping.get("require_lsp_carrier", False),
+                    field_name=f"command_policies.{command_name}.require_lsp_carrier",
                 )
-                parity_ignore_keys_raw = command_payload.get("parity_ignore_keys")
-                parity_ignore_keys = (
-                    tuple(str(item) for item in parity_ignore_keys_raw)
-                    if isinstance(parity_ignore_keys_raw, list)
-                    else ()
+                parity_required = _as_bool(
+                    command_mapping.get("parity_required", False),
+                    field_name=f"command_policies.{command_name}.parity_required",
                 )
-                command_policies[command_id] = CommandPolicy(
-                    command_id=command_id,
+                probe_payload = _dict_or_none(command_mapping.get("probe_payload"))
+                parity_ignore_keys = _string_tuple_or_empty(
+                    command_mapping.get("parity_ignore_keys")
+                )
+                command_policies[command_name] = CommandPolicy(
+                    command_id=command_name,
                     maturity=maturity,
                     require_lsp_carrier=require_lsp_carrier,
                     parity_required=parity_required,
@@ -226,19 +377,17 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
                     parity_ignore_keys=parity_ignore_keys,
                 )
 
-    controller_drift_raw = raw.get("controller_drift")
-    if not isinstance(controller_drift_raw, Mapping):
+    controller_drift_raw = _dict_or_none(raw_mapping.get("controller_drift"))
+    if controller_drift_raw is None:
         raise ValueError("governance_rules must define controller_drift")
     severity_classes = _tuple_path(
         controller_drift_raw.get("severity_classes"),
         field_name="controller_drift.severity_classes",
     )
-    remediation_raw = controller_drift_raw.get("remediation_by_severity")
-    if not isinstance(remediation_raw, Mapping):
+    remediation_raw = _dict_or_none(controller_drift_raw.get("remediation_by_severity"))
+    if remediation_raw is None:
         raise ValueError("governance_rules invalid controller_drift.remediation_by_severity")
-    remediation_by_severity = {
-        str(key): str(value) for key, value in remediation_raw.items() if isinstance(key, str)
-    }
+    remediation_by_severity = _string_key_mapping(remediation_raw)
     controller_drift = ControllerDriftPolicy(
         severity_classes=severity_classes,
         enforce_at_or_above=str(controller_drift_raw.get("enforce_at_or_above", "high")),
@@ -250,7 +399,7 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
     )
 
     return GovernanceRules(
-        override_token_env=str(raw.get("override_token_env", "GABION_POLICY_OVERRIDE_TOKEN")),
+        override_token_env=str(raw_mapping.get("override_token_env", "GABION_POLICY_OVERRIDE_TOKEN")),
         gates=gates,
         command_policies=command_policies,
         controller_drift=controller_drift,
