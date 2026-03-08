@@ -1,5 +1,3 @@
-# gabion:decision_protocol_module
-
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path

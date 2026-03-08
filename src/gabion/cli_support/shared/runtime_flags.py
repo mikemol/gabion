@@ -1,5 +1,3 @@
-# gabion:decision_protocol_module
-
 from pathlib import Path
 from typing import Callable
 
