@@ -4848,6 +4848,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2V",
+      "summary": "Policy-surface dispatch strictification for runtime narrowing boundary rule baseline/waiver payload loaders.",
+      "timestamp_utc": "2026-03-08T12:29:10Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7110,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 305,
+        "fiber_type_dispatch_contract": 181,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7110,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 175,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7766,
+      "total_after": 7761,
+      "notes": [
+        "Replaced manual isinstance payload/list/object guards in runtime_narrowing_boundary_rule baseline and waiver parsing with json_mapping_or_none/json_list_or_none dispatch ingress helpers.",
+        "Removed all fiber_type_dispatch_contract findings in src/gabion/tooling/policy_rules/runtime_narrowing_boundary_rule.py (6 -> 0).",
+        "Global fiber_type_dispatch_contract reduced from 181 to 175 (delta -6)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

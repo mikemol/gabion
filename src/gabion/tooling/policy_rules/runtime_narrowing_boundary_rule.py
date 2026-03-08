@@ -7,6 +7,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+
 BASELINE_VERSION = 1
 WAIVER_VERSION = 1
 
@@ -154,23 +156,24 @@ def _structured_hash(*parts: str) -> str:
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
+    payload = json_mapping_or_none(json.loads(path.read_text(encoding="utf-8")))
+    if payload is None:
         return set()
-    raw_items = payload.get("violations")
-    if not isinstance(raw_items, list):
+    raw_items = json_list_or_none(payload.get("violations"))
+    if raw_items is None:
         return set()
     keys: set[str] = set()
     for item in raw_items:
-        if not isinstance(item, dict):
+        item_mapping = json_mapping_or_none(item)
+        if item_mapping is None:
             continue
-        path_value = str(item.get("path", "") or "")
-        qualname = str(item.get("qualname", "") or "")
-        kind = str(item.get("kind", "") or "")
-        structured_hash = item.get("structured_hash")
-        call = str(item.get("call", "") or "")
-        column = item.get("column")
-        line = item.get("line")
+        path_value = str(item_mapping.get("path", "") or "")
+        qualname = str(item_mapping.get("qualname", "") or "")
+        kind = str(item_mapping.get("kind", "") or "")
+        structured_hash = item_mapping.get("structured_hash")
+        call = str(item_mapping.get("call", "") or "")
+        column = item_mapping.get("column")
+        line = item_mapping.get("line")
         if not path_value or not qualname or not kind:
             continue
         match structured_hash:
@@ -202,31 +205,32 @@ def _load_baseline(path: Path) -> set[str]:
 def load_waivers(path: Path) -> WaiverLoadResult:
     if not path.exists():
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
+    payload = json_mapping_or_none(json.loads(path.read_text(encoding="utf-8")))
+    if payload is None:
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver payload must be an object")])
 
-    waivers_raw = payload.get("waivers")
-    if not isinstance(waivers_raw, list):
+    waivers_raw = json_list_or_none(payload.get("waivers"))
+    if waivers_raw is None:
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
 
     required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     allowed_keys: set[str] = set()
     invalid_waivers: list[InvalidWaiver] = []
     for index, waiver in enumerate(waivers_raw, start=1):
-        if not isinstance(waiver, dict):
+        waiver_mapping = json_mapping_or_none(waiver)
+        if waiver_mapping is None:
             invalid_waivers.append(InvalidWaiver(index=index, reason="waiver must be an object"))
             continue
-        missing = [field for field in required if field not in waiver]
+        missing = [field for field in required if field not in waiver_mapping]
         if missing:
             invalid_waivers.append(InvalidWaiver(index=index, reason=f"missing fields: {', '.join(missing)}"))
             continue
 
-        path_value = str(waiver.get("path", "") or "")
-        qualname = str(waiver.get("qualname", "") or "")
-        kind = str(waiver.get("kind", "") or "")
-        structured_hash = waiver.get("structured_hash")
-        line = waiver.get("line")
+        path_value = str(waiver_mapping.get("path", "") or "")
+        qualname = str(waiver_mapping.get("qualname", "") or "")
+        kind = str(waiver_mapping.get("kind", "") or "")
+        structured_hash = waiver_mapping.get("structured_hash")
+        line = waiver_mapping.get("line")
         if not path_value or not qualname or kind not in {"isinstance_call", "cast_call"}:
             invalid_waivers.append(InvalidWaiver(index=index, reason="path, qualname, and valid kind are required"))
             continue
@@ -236,8 +240,8 @@ def load_waivers(path: Path) -> WaiverLoadResult:
                 continue
             case _:
                 pass
-        call = str(waiver.get("call", "") or "")
-        column = waiver.get("column")
+        call = str(waiver_mapping.get("call", "") or "")
+        column = waiver_mapping.get("column")
         match column:
             case int() as column_value if call:
                 migrated_hash = _structured_hash(
