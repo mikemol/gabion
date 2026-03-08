@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 from collections import defaultdict
+from functools import singledispatch
 from pathlib import Path
 from typing import cast
 
@@ -18,6 +19,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 def _module_name(path: Path, project_root=None) -> str:
@@ -39,16 +41,337 @@ def _is_test_path(path: Path) -> bool:
     return path.name.startswith("test_")
 
 
+_NONE_TYPE = type(None)
+
+
+def _leaf_ast_subclasses(base_type: type[ast.AST]) -> tuple[type[ast.AST], ...]:
+    node_types: list[type[ast.AST]] = []
+    for candidate in vars(ast).values():
+        try:
+            if issubclass(candidate, base_type) and candidate is not base_type:
+                node_types.append(candidate)
+        except TypeError:
+            continue
+    node_types_tuple = tuple(node_types)
+    return tuple(
+        node_type for node_type in node_types_tuple
+        if not any(
+            candidate is not node_type and issubclass(candidate, node_type)
+            for candidate in node_types_tuple
+        )
+    )
+
+
+_AST_LEAF_NODE_TYPES = _leaf_ast_subclasses(ast.AST)
+_AST_LEAF_EXPR_TYPES = _leaf_ast_subclasses(ast.expr)
+_AST_LEAF_EXPR_CONTEXT_TYPES = _leaf_ast_subclasses(ast.expr_context)
+
+
+@singledispatch
+def _int_or_none(value: int | None) -> int | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_int_or_none.register
+def _(value: int) -> int | None:
+    return value
+
+
+@_int_or_none.register(_NONE_TYPE)
+def _(value: None) -> int | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _lexical_scope_name_or_none(node: ast.AST) -> str | None:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_lexical_scope_name_or_none.register(ast.ClassDef)
+def _(node: ast.ClassDef) -> str | None:
+    return node.name
+
+
+@_lexical_scope_name_or_none.register(ast.FunctionDef)
+def _(node: ast.FunctionDef) -> str | None:
+    return node.name
+
+
+@_lexical_scope_name_or_none.register(ast.AsyncFunctionDef)
+def _(node: ast.AsyncFunctionDef) -> str | None:
+    return node.name
+
+
+def _scope_name_none(_node: ast.AST) -> str | None:
+    return None
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type in {ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef}:
+        continue
+    _lexical_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+
+
+@singledispatch
+def _function_scope_name_or_none(node: ast.AST) -> str | None:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_function_scope_name_or_none.register(ast.FunctionDef)
+def _(node: ast.FunctionDef) -> str | None:
+    return node.name
+
+
+@_function_scope_name_or_none.register(ast.AsyncFunctionDef)
+def _(node: ast.AsyncFunctionDef) -> str | None:
+    return node.name
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
+        continue
+    _function_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+
+
+@singledispatch
+def _class_scope_name_or_none(node: ast.AST) -> str | None:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_class_scope_name_or_none.register(ast.ClassDef)
+def _(node: ast.ClassDef) -> str | None:
+    return node.name
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.ClassDef:
+        continue
+    _class_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+
+
+def _unparse_or_default(node: ast.AST, default: str) -> str:
+    try:
+        return ast.unparse(node)
+    except (AttributeError, TypeError, ValueError, RecursionError):
+        return default
+
+
+@singledispatch
+def _callee_name_from_expr(node: ast.expr) -> str:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_callee_name_from_expr.register(ast.Name)
+def _(node: ast.Name) -> str:
+    return node.id
+
+
+@_callee_name_from_expr.register(ast.Attribute)
+def _(node: ast.Attribute) -> str:
+    return _unparse_or_default(node, "<call>")
+
+
+def _callee_name_expr_fallback(node: ast.expr) -> str:
+    return _unparse_or_default(node, "<call>")
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type in {ast.Name, ast.Attribute}:
+        continue
+    _callee_name_from_expr.register(_runtime_type)(_callee_name_expr_fallback)
+
+
+@singledispatch
+def _name_id_or_none(node: ast.expr) -> str | None:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_name_id_or_none.register(ast.Name)
+def _(node: ast.Name) -> str | None:
+    return node.id
+
+
+def _name_id_none(_node: ast.expr) -> str | None:
+    return None
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type is ast.Name:
+        continue
+    _name_id_or_none.register(_runtime_type)(_name_id_none)
+
+
+@singledispatch
+def _is_load_context(node: ast.expr_context) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_load_context.register(ast.Load)
+def _(node: ast.Load) -> bool:
+    _ = node
+    return True
+
+
+def _false_context(_node: ast.expr_context) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_EXPR_CONTEXT_TYPES:
+    if _runtime_type is ast.Load:
+        continue
+    _is_load_context.register(_runtime_type)(_false_context)
+
+
+@singledispatch
+def _route_call_arg(
+    arg: ast.expr,
+    *,
+    slot: str,
+    index: int,
+    pos_map: dict[str, str],
+    const_pos: dict[str, str],
+    non_const_pos: set[str],
+    star_pos: list[tuple[int, str]],
+) -> None:
+    never("unregistered runtime type", value_type=type(arg).__name__)
+
+
+@_route_call_arg.register(ast.Name)
+def _(
+    arg: ast.Name,
+    *,
+    slot: str,
+    index: int,
+    pos_map: dict[str, str],
+    const_pos: dict[str, str],
+    non_const_pos: set[str],
+    star_pos: list[tuple[int, str]],
+) -> None:
+    _ = index, const_pos, non_const_pos, star_pos
+    pos_map[slot] = arg.id
+
+
+@_route_call_arg.register(ast.Starred)
+def _(
+    arg: ast.Starred,
+    *,
+    slot: str,
+    index: int,
+    pos_map: dict[str, str],
+    const_pos: dict[str, str],
+    non_const_pos: set[str],
+    star_pos: list[tuple[int, str]],
+) -> None:
+    _ = slot, pos_map, const_pos
+    starred_name = _name_id_or_none(arg.value)
+    if starred_name is not None:
+        star_pos.append((index, starred_name))
+        return
+    non_const_pos.add(slot)
+
+
+@_route_call_arg.register(ast.Constant)
+def _(
+    arg: ast.Constant,
+    *,
+    slot: str,
+    index: int,
+    pos_map: dict[str, str],
+    const_pos: dict[str, str],
+    non_const_pos: set[str],
+    star_pos: list[tuple[int, str]],
+) -> None:
+    _ = index, pos_map, non_const_pos, star_pos
+    const_pos[slot] = repr(arg.value)
+
+
+def _route_call_arg_non_const(
+    arg: ast.expr,
+    *,
+    slot: str,
+    index: int,
+    pos_map: dict[str, str],
+    const_pos: dict[str, str],
+    non_const_pos: set[str],
+    star_pos: list[tuple[int, str]],
+) -> None:
+    _ = arg, index, pos_map, const_pos, star_pos
+    non_const_pos.add(slot)
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type in {ast.Name, ast.Starred, ast.Constant}:
+        continue
+    _route_call_arg.register(_runtime_type)(_route_call_arg_non_const)
+
+
+@singledispatch
+def _route_keyword_value(
+    value: ast.expr,
+    *,
+    name: str,
+    kw_map: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_kw: set[str],
+) -> None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_route_keyword_value.register(ast.Name)
+def _(
+    value: ast.Name,
+    *,
+    name: str,
+    kw_map: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_kw: set[str],
+) -> None:
+    _ = const_kw, non_const_kw
+    kw_map[name] = value.id
+
+
+@_route_keyword_value.register(ast.Constant)
+def _(
+    value: ast.Constant,
+    *,
+    name: str,
+    kw_map: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_kw: set[str],
+) -> None:
+    _ = kw_map, non_const_kw
+    const_kw[name] = repr(value.value)
+
+
+def _route_keyword_value_non_const(
+    value: ast.expr,
+    *,
+    name: str,
+    kw_map: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_kw: set[str],
+) -> None:
+    _ = value, kw_map, const_kw
+    non_const_kw.add(name)
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type in {ast.Name, ast.Constant}:
+        continue
+    _route_keyword_value.register(_runtime_type)(_route_keyword_value_non_const)
+
+
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
-    lineno = getattr(node, "lineno", None)
-    col = getattr(node, "col_offset", None)
-    end_lineno = getattr(node, "end_lineno", None)
-    end_col = getattr(node, "end_col_offset", None)
-    if not isinstance(lineno, int) or not isinstance(col, int):
+    lineno = _int_or_none(getattr(node, "lineno", None))
+    col = _int_or_none(getattr(node, "col_offset", None))
+    end_lineno = _int_or_none(getattr(node, "end_lineno", None))
+    end_col = _int_or_none(getattr(node, "end_col_offset", None))
+    if lineno is None or col is None:
         return None
-    if not isinstance(end_lineno, int):
+    if end_lineno is None:
         end_lineno = lineno
-    if not isinstance(end_col, int):
+    if end_col is None:
         end_col = col
     return (lineno - 1, col, end_lineno - 1, end_col)
 
@@ -67,10 +390,9 @@ def _enclosing_scopes(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> list[st
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if type(current) is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
-        elif type(current) in {ast.FunctionDef, ast.AsyncFunctionDef}:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
+        scope_name = _lexical_scope_name_or_none(current)
+        if scope_name is not None:
+            scopes.append(scope_name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -82,8 +404,9 @@ def _enclosing_function_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if type(current) in {ast.FunctionDef, ast.AsyncFunctionDef}:
-            scopes.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, current).name)
+        scope_name = _function_scope_name_or_none(current)
+        if scope_name is not None:
+            scopes.append(scope_name)
         current = parents.get(current)
     return list(reversed(scopes))
 
@@ -92,8 +415,9 @@ def _enclosing_class(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str | No
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if type(current) is ast.ClassDef:
-            return cast(ast.ClassDef, current).name
+        scope_name = _class_scope_name_or_none(current)
+        if scope_name is not None:
+            return scope_name
         current = parents.get(current)
     return None
 
@@ -198,17 +522,7 @@ def _param_spans(
 
 
 def _callee_name(call: ast.Call) -> str:
-    if type(call.func) is ast.Name:
-        return cast(ast.Name, call.func).id
-    if type(call.func) is ast.Attribute:
-        try:
-            return ast.unparse(call.func)
-        except (AttributeError, TypeError, ValueError, RecursionError):
-            return "<call>"
-    try:
-        return ast.unparse(call.func)
-    except (AttributeError, TypeError, ValueError, RecursionError):
-        return "<call>"
+    return _callee_name_from_expr(call.func)
 
 
 def _collect_used_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
@@ -216,7 +530,7 @@ def _collect_used_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 
     class _Visitor(ast.NodeVisitor):
         def visit_Name(self, node: ast.Name) -> None:
-            if type(node.ctx) is ast.Load:
+            if _is_load_context(node.ctx):
                 used.add(node.id)
 
         def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -261,33 +575,31 @@ def _collect_calls(
             for idx, arg in enumerate(node.args):
                 check_deadline()
                 slot = str(idx)
-                if type(arg) is ast.Name:
-                    pos_map[slot] = cast(ast.Name, arg).id
-                elif type(arg) is ast.Starred:
-                    value = cast(ast.Starred, arg).value
-                    if type(value) is ast.Name:
-                        star_pos.append((idx, cast(ast.Name, value).id))
-                    else:
-                        non_const_pos.add(slot)
-                elif type(arg) is ast.Constant:
-                    const_pos[slot] = repr(cast(ast.Constant, arg).value)
-                else:
-                    non_const_pos.add(slot)
+                _route_call_arg(
+                    arg,
+                    slot=slot,
+                    index=idx,
+                    pos_map=pos_map,
+                    const_pos=const_pos,
+                    non_const_pos=non_const_pos,
+                    star_pos=star_pos,
+                )
 
             for keyword in node.keywords:
                 check_deadline()
                 if keyword.arg is None:
-                    value = keyword.value
-                    if type(value) is ast.Name:
-                        star_kw.append(cast(ast.Name, value).id)
+                    starred_kw_name = _name_id_or_none(keyword.value)
+                    if starred_kw_name is not None:
+                        star_kw.append(starred_kw_name)
                     continue
                 name = str(keyword.arg)
-                if type(keyword.value) is ast.Name:
-                    kw_map[name] = cast(ast.Name, keyword.value).id
-                elif type(keyword.value) is ast.Constant:
-                    const_kw[name] = repr(cast(ast.Constant, keyword.value).value)
-                else:
-                    non_const_kw.add(name)
+                _route_keyword_value(
+                    keyword.value,
+                    name=name,
+                    kw_map=kw_map,
+                    const_kw=const_kw,
+                    non_const_kw=non_const_kw,
+                )
 
             calls.append(
                 CallArgs(

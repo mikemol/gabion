@@ -3835,6 +3835,61 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "changed"
       }
+    },
+    {
+      "cu_id": "CU-D2C",
+      "summary": "Long-tail strict-dispatch conversion: refactor dataflow_function_index_helpers type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:51:02Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7006,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 442,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7016,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 426,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7889,
+      "total_after": 7883,
+      "notes": [
+        "Converted AST helper runtime type-routing hotspots in dataflow_function_index_helpers to dispatch-backed handlers (_int_or_none, scope-name dispatchers, call/callee routing dispatchers, load-context dispatcher) with never(...) default handlers.",
+        "Rewired node span normalization, scope extraction, callee rendering, call argument decomposition, keyword argument decomposition, and load-context checks to remove in-body manual type dispatch at the flagged lines.",
+        "Acceptance met: src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py fiber_type_dispatch_contract 16->0 and global fiber_type_dispatch_contract 442->426 (delta -16); non-target family movement recorded per target-only mode."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_test_python_ingest": "pass",
+        "targeted_pytest_visitors_unit_cases": "pass",
+        "targeted_pytest_visitors_edges_cases": "pass",
+        "targeted_pytest_test_dataflow_resolve_callee": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "clean"
+      }
     }
   ],
   "generated_by": "codex",
