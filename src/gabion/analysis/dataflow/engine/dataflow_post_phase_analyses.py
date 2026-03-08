@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Post-phase analysis owner module for WS-5 decomposition."""

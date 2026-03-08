@@ -1,5 +1,4 @@
 from __future__ import annotations
-# gabion:decision_protocol_module
 
 """Owned raw runtime entry surface extracted from legacy_dataflow_monolith."""
 

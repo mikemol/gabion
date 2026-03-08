@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Projection/spec materialization owners extracted from the legacy monolith."""
