@@ -331,9 +331,7 @@ def _int_or_none(value: object) -> int | None:
 
 def _non_negative_int_or_none(value: object) -> int | None:
     int_value = _int_or_none(value)
-    if int_value is None:
-        return None
-    return max(int_value, 0)
+    return max(int_value, 0) if int_value is not None else None
 
 def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
     if type(value) in {list, tuple, set}:
@@ -348,9 +346,7 @@ _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
 }
 
 def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
-    if type(phase_name) is not str:
-        return None
-    return _REPORT_PHASE_RANK_BY_NAME.get(phase_name)
+    return _REPORT_PHASE_RANK_BY_NAME.get(phase_name) if type(phase_name) is str else None
 
 def _analysis_resume_progress(
     *,
@@ -880,14 +876,12 @@ def _collection_semantic_progress(
     }
 
 def _resolve_report_output_path(*, root: Path, report_path: str | None) -> Path | None:
-    if report_path in (None, ""):
-        return None
-    if _is_stdout_target(report_path):
-        return None
-    candidate = Path(str(report_path))
-    if candidate.is_absolute():
-        return candidate
-    return root / candidate
+    if report_path not in (None, "") and not _is_stdout_target(report_path):
+        candidate = Path(str(report_path))
+        if candidate.is_absolute():
+            return candidate
+        return root / candidate
+    return None
 
 def _resolve_report_section_journal_path(
     *,
@@ -895,12 +889,12 @@ def _resolve_report_section_journal_path(
     report_path: str | None,
 ) -> Path | None:
     resolved_report = _resolve_report_output_path(root=root, report_path=report_path)
-    if resolved_report is None:
-        return None
-    default_journal = root / _DEFAULT_REPORT_SECTION_JOURNAL
-    if resolved_report.name == "dataflow_report.md":
-        return default_journal
-    return resolved_report.with_name(f"{resolved_report.stem}_sections.json")
+    if resolved_report is not None:
+        default_journal = root / _DEFAULT_REPORT_SECTION_JOURNAL
+        if resolved_report.name == "dataflow_report.md":
+            return default_journal
+        return resolved_report.with_name(f"{resolved_report.stem}_sections.json")
+    return None
 
 def _report_witness_digest(
     *,
@@ -969,50 +963,50 @@ def _write_report_section_journal(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
-    if path is None:
-        return
-    rows_payload: list[JSONObject] = []
-    sections_payload: JSONObject = {}
-    pending_reasons = pending_reasons or {}
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
-        status = "resolved" if section_id in sections else "pending"
-        section_entry: JSONObject = {
-            "phase": phase,
-            "deps": deps,
-            "status": status,
-            "lines": sections.get(section_id, []),
-        }
-        section_entry["reason"] = pending_reasons.get(section_id)
-        sections_payload[section_id] = section_entry
-        rows_payload.append(
-            {
-                "section_id": section_id,
+    if path is not None:
+        rows_payload: list[JSONObject] = []
+        sections_payload: JSONObject = {}
+        pending_reasons = pending_reasons or {}
+        for row in projection_rows:
+            check_deadline()
+            section_id = str(row.get("section_id", "") or "")
+            if not section_id:
+                continue
+            phase = str(row.get("phase", "") or "")
+            deps_raw = row.get("deps")
+            deps: list[str] = []
+            normalized_deps = _non_string_sequence_or_none(deps_raw)
+            if normalized_deps is not None:
+                deps = [str(dep) for dep in normalized_deps if type(dep) is str]
+            status = "resolved" if section_id in sections else "pending"
+            section_entry: JSONObject = {
                 "phase": phase,
                 "deps": deps,
                 "status": status,
+                "lines": sections.get(section_id, []),
             }
+            section_entry["reason"] = pending_reasons.get(section_id)
+            sections_payload[section_id] = section_entry
+            rows_payload.append(
+                {
+                    "section_id": section_id,
+                    "phase": phase,
+                    "deps": deps,
+                    "status": status,
+                }
+            )
+        payload: JSONObject = {
+            "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
+            "witness_digest": witness_digest,
+            "sections": sections_payload,
+            "projection_rows": rows_payload,
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_text_profiled(
+            path,
+            json.dumps(payload, indent=2, sort_keys=False) + "\n",
+            io_name="report_section_journal.write",
         )
-    payload: JSONObject = {
-        "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
-        "witness_digest": witness_digest,
-        "sections": sections_payload,
-        "projection_rows": rows_payload,
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        path,
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        io_name="report_section_journal.write",
-    )
 
 def _write_bootstrap_incremental_artifacts(
     *,
@@ -1029,140 +1023,141 @@ def _write_bootstrap_incremental_artifacts(
     get_deadline()
     if _deadline_tick_budget_allows_check(get_deadline_clock()):
         check_deadline(allow_frame_fallback=False)
-    if report_output_path is None or not projection_rows:
-        return
-    existing_reason: str | None = None
-    if report_section_journal_path is not None and report_section_journal_path.exists():
-        try:
-            existing_payload = json.loads(
-                _read_text_profiled(
-                    report_section_journal_path,
-                    io_name="report_section_journal.read",
+    bootstrap_artifacts_ready = report_output_path is not None and bool(projection_rows)
+    if bootstrap_artifacts_ready:
+        existing_reason: str | None = None
+        if report_section_journal_path is not None and report_section_journal_path.exists():
+            try:
+                existing_payload = json.loads(
+                    _read_text_profiled(
+                        report_section_journal_path,
+                        io_name="report_section_journal.read",
+                    )
                 )
-            )
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            existing_reason = "policy"
-        else:
-            if not isinstance(existing_payload, dict):
-                existing_reason = "policy"
-            elif (
-                existing_payload.get("format_version")
-                != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
-            ):
+            except (OSError, UnicodeError, json.JSONDecodeError):
                 existing_reason = "policy"
             else:
-                expected_digest = existing_payload.get("witness_digest")
-                if isinstance(expected_digest, str) and expected_digest:
-                    if not isinstance(witness_digest, str) or expected_digest != witness_digest:
-                        existing_reason = "stale_input"
-    intro_lines = [
-        "Collection bootstrap checkpoint (provisional).",
-        f"- `root`: `{root}`",
-        f"- `paths_requested`: `{paths_requested}`",
-    ]
-    sections: dict[str, list[str]] = {"intro": intro_lines}
-    report_lines = [
-        "<!-- dataflow-grammar -->",
-        "Dataflow grammar audit (observed forwarding bundles).",
-        "",
-        "## Incremental Status",
-        "",
-        "- `analysis_state`: `analysis_bootstrap_in_progress`",
-        "",
-        "## Section `intro`",
-        *intro_lines,
-        "",
-    ]
-    rows_payload: list[JSONObject] = []
-    sections_payload: JSONObject = {
-        "intro": {
-            "phase": "collection",
-            "deps": [],
-            "status": "resolved",
-            "lines": intro_lines,
-        }
-    }
-    rows_payload.append(
-        {
-            "section_id": "intro",
-            "phase": "collection",
-            "deps": [],
-            "status": "resolved",
-        }
-    )
-    for row in projection_rows:
-        if _deadline_tick_budget_allows_check(get_deadline_clock()):
-            check_deadline(allow_frame_fallback=False)
-        else:
-            get_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id or section_id == "intro":
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            for dep in deps_raw:
-                if _deadline_tick_budget_allows_check(get_deadline_clock()):
-                    check_deadline(allow_frame_fallback=False)
+                if type(existing_payload) is not dict:
+                    existing_reason = "policy"
+                elif (
+                    existing_payload.get("format_version")
+                    != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
+                ):
+                    existing_reason = "policy"
                 else:
-                    get_deadline()
-                if isinstance(dep, str):
-                    deps.append(str(dep))
-        dep_text = ", ".join(deps) if deps else "none"
-        reason = existing_reason or (
-            "missing_dep" if any(dep not in sections for dep in deps) else "policy"
-        )
-        report_lines.append(f"## Section `{section_id}`")
-        report_lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
-        report_lines.append("")
-        sections_payload[section_id] = {
-            "phase": phase,
-            "deps": deps,
-            "status": "pending",
-            "lines": [],
-            "reason": reason,
+                    expected_digest = existing_payload.get("witness_digest")
+                    if type(expected_digest) is str and expected_digest:
+                        if type(witness_digest) is not str or expected_digest != witness_digest:
+                            existing_reason = "stale_input"
+        intro_lines = [
+            "Collection bootstrap checkpoint (provisional).",
+            f"- `root`: `{root}`",
+            f"- `paths_requested`: `{paths_requested}`",
+        ]
+        sections: dict[str, list[str]] = {"intro": intro_lines}
+        report_lines = [
+            "<!-- dataflow-grammar -->",
+            "Dataflow grammar audit (observed forwarding bundles).",
+            "",
+            "## Incremental Status",
+            "",
+            "- `analysis_state`: `analysis_bootstrap_in_progress`",
+            "",
+            "## Section `intro`",
+            *intro_lines,
+            "",
+        ]
+        rows_payload: list[JSONObject] = []
+        sections_payload: JSONObject = {
+            "intro": {
+                "phase": "collection",
+                "deps": [],
+                "status": "resolved",
+                "lines": intro_lines,
+            }
         }
         rows_payload.append(
             {
-                "section_id": section_id,
+                "section_id": "intro",
+                "phase": "collection",
+                "deps": [],
+                "status": "resolved",
+            }
+        )
+        for row in projection_rows:
+            if _deadline_tick_budget_allows_check(get_deadline_clock()):
+                check_deadline(allow_frame_fallback=False)
+            else:
+                get_deadline()
+            section_id = str(row.get("section_id", "") or "")
+            if not section_id or section_id == "intro":
+                continue
+            phase = str(row.get("phase", "") or "")
+            deps_raw = row.get("deps")
+            deps: list[str] = []
+            normalized_deps = _non_string_sequence_or_none(deps_raw)
+            if normalized_deps is not None:
+                for dep in normalized_deps:
+                    if _deadline_tick_budget_allows_check(get_deadline_clock()):
+                        check_deadline(allow_frame_fallback=False)
+                    else:
+                        get_deadline()
+                    if type(dep) is str:
+                        deps.append(str(dep))
+            dep_text = ", ".join(deps) if deps else "none"
+            reason = existing_reason or (
+                "missing_dep" if any(dep not in sections for dep in deps) else "policy"
+            )
+            report_lines.append(f"## Section `{section_id}`")
+            report_lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
+            report_lines.append("")
+            sections_payload[section_id] = {
                 "phase": phase,
                 "deps": deps,
                 "status": "pending",
+                "lines": [],
+                "reason": reason,
             }
-        )
-    report_output_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        report_output_path,
-        "\n".join(report_lines).rstrip() + "\n",
-        io_name="report_markdown.write",
-    )
-    if report_section_journal_path is not None:
-        report_section_journal_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_profiled(
-            report_section_journal_path,
-            json.dumps(
+            rows_payload.append(
                 {
-                    "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
-                    "witness_digest": witness_digest,
-                    "sections": sections_payload,
-                    "projection_rows": rows_payload,
-                },
-                indent=2,
-                sort_keys=False,
+                    "section_id": section_id,
+                    "phase": phase,
+                    "deps": deps,
+                    "status": "pending",
+                }
             )
-            + "\n",
-            io_name="report_section_journal.write",
+        report_output_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_text_profiled(
+            report_output_path,
+            "\n".join(report_lines).rstrip() + "\n",
+            io_name="report_markdown.write",
         )
-    phase_checkpoint_state["collection"] = {
-        "status": "bootstrap",
-        "work_done": 0,
-        "work_total": 0,
-        "completed_files": 0,
-        "in_progress_files": 0,
-        "remaining_files": 0,
-        "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
-    }
+        if report_section_journal_path is not None:
+            report_section_journal_path.parent.mkdir(parents=True, exist_ok=True)
+            _write_text_profiled(
+                report_section_journal_path,
+                json.dumps(
+                    {
+                        "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
+                        "witness_digest": witness_digest,
+                        "sections": sections_payload,
+                        "projection_rows": rows_payload,
+                    },
+                    indent=2,
+                    sort_keys=False,
+                )
+                + "\n",
+                io_name="report_section_journal.write",
+            )
+        phase_checkpoint_state["collection"] = {
+            "status": "bootstrap",
+            "work_done": 0,
+            "work_total": 0,
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": 0,
+            "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
+        }
 
 def _render_incremental_report(
     *,
@@ -1731,22 +1726,21 @@ def _apply_journal_pending_reason(
     pending_reasons: dict[str, str],
     journal_reason: str | None,
 ) -> None:
-    if journal_reason not in {"stale_input", "policy"}:
-        return
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id or section_id in sections:
-            continue
-        pending_reasons[section_id] = journal_reason
+    if journal_reason in {"stale_input", "policy"}:
+        for row in projection_rows:
+            check_deadline()
+            section_id = str(row.get("section_id", "") or "")
+            if not section_id or section_id in sections:
+                continue
+            pending_reasons[section_id] = journal_reason
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     check_deadline()
-    if not isinstance(phases, Mapping):
-        return None
     best_phase: str | None = None
     best_rank = -1
-    for phase_name in phases:
+    phase_mapping = _json_mapping_or_none(phases)
+    phase_names: Mapping[str, JSONValue] = phase_mapping if phase_mapping is not None else {}
+    for phase_name in phase_names:
         check_deadline()
         rank = _report_projection_phase_rank_or_none(phase_name)
         if rank is None:
@@ -2061,15 +2055,11 @@ def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
     items = _normalize_csv_or_iterable_names(value, strict=False)
-    if not items:
-        return None
-    return set(items)
+    return set(items) if items else None
 
 def _normalize_name_set(value: object) -> set[str] | None:
-    if value is None:
-        return None
-    items = _normalize_csv_or_iterable_names(value, strict=True)
-    return set(items)
+    items = _normalize_csv_or_iterable_names(value, strict=True) if value is not None else None
+    return set(items) if items is not None else None
 
 @dataclass(frozen=True)
 class DataflowNameFilterBundle:

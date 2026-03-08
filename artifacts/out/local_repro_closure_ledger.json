@@ -2564,6 +2564,54 @@
         "targeted_pytest_fiber_noop_block_audit_rule": "pass",
         "fiber_noop_block_audit": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-NOOP2",
+      "summary": "Eliminate singleton noop blocks in command_orchestrator_primitives while preserving scanner stability.",
+      "timestamp_utc": "2026-03-08T00:02:32Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 86,
+      "total_after": 86,
+      "notes": [
+        "Removed singleton no-op control blocks in command_orchestrator_primitives by replacing early-return guards with positive gating and expression forms.",
+        "Resolved ratchet-scoped runtime narrowing hits in the touched file by switching to existing typed helper normalizers instead of local isinstance checks.",
+        "Fiber no-op audit dropped by 11 findings overall (505 -> 494) with command_orchestrator_primitives reduced to zero."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_command_orchestrator_coverage_cases": "pass",
+        "targeted_pytest_fiber_noop_block_audit_rule": "pass",
+        "fiber_noop_block_audit": "fail_expected_nonzero"
+      }
     }
   ],
   "generated_by": "codex",
