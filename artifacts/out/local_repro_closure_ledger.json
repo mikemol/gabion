@@ -3428,6 +3428,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_server_execute_command_cases_edges_parity_progress_contract_edges": "pass"
       }
+    },
+    {
+      "cu_id": "CU-B3",
+      "summary": "Progress contract strict-dispatch conversion: replace in-body type-routing in progress notification/timeline helpers with singledispatch ingress normalizers.",
+      "timestamp_utc": "2026-03-08T02:35:31Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7005,
+        "defensive_fallback": 115,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 674,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7002,
+        "defensive_fallback": 119,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 644,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 8063,
+      "total_after": 8034,
+      "notes": [
+        "Converted src/gabion/commands/progress_contract.py notification/timeline normalization ladders to concrete-class singledispatch helpers with never() base handlers.",
+        "Eliminated manual type-routing hotspots in _progress_value_from_notification, _canonical_progress_value_from_notification, phase_progress_dimensions_summary, phase_timeline_row_from_phase_progress, phase_progress_from_progress_notification, _phase_progress_from_progress_value, phase_timeline_from_phase_progress, and phase_timeline_from_progress_notification.",
+        "Acceptance met: src/gabion/commands/progress_contract.py fiber_type_dispatch_contract 30->0 and global fiber_type_dispatch_contract 674->644 (delta -30)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_execute_command_cases_edges_parity_progress_contract_edges": "pass"
+      }
     }
   ],
   "generated_by": "codex",

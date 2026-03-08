@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from functools import singledispatch
 from typing import Mapping
 
 from gabion.commands.progress_transition import (
     normalize_progress_transition_from_phase_progress, transition_reason_from_phase_progress)
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import CanonicalProgressEventPayloadDTO
 
@@ -35,6 +37,189 @@ _PHASE_TIMELINE_COLUMNS: tuple[str, ...] = (
     "marker_step",
     "active_children",
 )
+
+
+_NONE_TYPE = type(None)
+
+
+@singledispatch
+def _mapping_or_none(value: object) -> dict[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_or_none.register(dict)
+def _(value: dict[str, object]) -> dict[str, object] | None:
+    return value
+
+
+def _mapping_none(value: object) -> dict[str, object] | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _mapping_or_none.register(_runtime_type)(_mapping_none)
+
+
+@singledispatch
+def _str_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_or_none.register(str)
+def _(value: str) -> str | None:
+    return value
+
+
+def _str_none(value: object) -> str | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
+    _str_or_none.register(_runtime_type)(_str_none)
+
+
+@singledispatch
+def _int_non_bool_or_none(value: object) -> int | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_int_non_bool_or_none.register(int)
+def _(value: int) -> int | None:
+    return value
+
+
+@_int_non_bool_or_none.register(bool)
+def _(value: bool) -> int | None:
+    _ = value
+    return None
+
+
+def _int_none(value: object) -> int | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
+    _int_non_bool_or_none.register(_runtime_type)(_int_none)
+
+
+@singledispatch
+def _int_like_or_none(value: object) -> int | bool | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_int_like_or_none.register(int)
+def _(value: int) -> int | bool | None:
+    return value
+
+
+@_int_like_or_none.register(bool)
+def _(value: bool) -> int | bool | None:
+    return value
+
+
+def _int_like_none(value: object) -> int | bool | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
+    _int_like_or_none.register(_runtime_type)(_int_like_none)
+
+
+@singledispatch
+def _float_non_bool_or_none(value: object) -> float | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_float_non_bool_or_none.register(float)
+def _(value: float) -> float | None:
+    return float(value)
+
+
+@_float_non_bool_or_none.register(int)
+def _(value: int) -> float | None:
+    return float(value)
+
+
+@_float_non_bool_or_none.register(bool)
+def _(value: bool) -> float | None:
+    _ = value
+    return None
+
+
+def _float_none(value: object) -> float | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
+    _float_non_bool_or_none.register(_runtime_type)(_float_none)
+
+
+@singledispatch
+def _float_row_or_none(value: object) -> float | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_float_row_or_none.register(float)
+def _(value: float) -> float | None:
+    return float(value)
+
+
+@_float_row_or_none.register(int)
+def _(value: int) -> float | None:
+    return float(value)
+
+
+@_float_row_or_none.register(bool)
+def _(value: bool) -> float | None:
+    return float(value)
+
+
+for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
+    _float_row_or_none.register(_runtime_type)(_float_none)
+
+
+@singledispatch
+def _str_key_dict_or_none(value: object) -> dict[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_key_dict_or_none.register(dict)
+def _(value: dict[object, object]) -> dict[str, object] | None:
+    return {str(key): value[key] for key in value}
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _str_key_dict_or_none.register(_runtime_type)(_mapping_none)
+
+
+def _text(value: object) -> str:
+    return str(value or "")
+
+
+def _non_negative_or_none(value: int | None) -> int | None:
+    return max(value, 0) if value is not None else None
+
+
+def _coerced_non_negative_int_like_or_none(value: object) -> int | None:
+    raw = _int_like_or_none(value)
+    if raw is None:
+        return None
+    return max(int(raw), 0)
+
+
+def _clamped_done_total(
+    *,
+    done: int | None,
+    total: int | None,
+) -> tuple[int | None, int | None]:
+    if done is None or total is None or total <= 0:
+        return done, total
+    return min(done, total), total
 
 
 def _normalize_transition(
@@ -148,15 +333,15 @@ def _progress_value_from_notification(
     method: str = LSP_PROGRESS_NOTIFICATION_METHOD,
     token: str = LSP_PROGRESS_TOKEN,
 ) -> Mapping[str, object] | None:
-    if str(notification.get("method", "") or "") != method:
+    if _text(notification.get("method", "")) != method:
         return None
-    params = notification.get("params")
-    if not isinstance(params, Mapping):
+    params = _mapping_or_none(notification.get("params"))
+    if params is None:
         return None
-    if str(params.get("token", "") or "") != token:
+    if _text(params.get("token", "")) != token:
         return None
-    value = params.get("value")
-    if not isinstance(value, Mapping):
+    value = _mapping_or_none(params.get("value"))
+    if value is None:
         return None
     return value
 
@@ -169,9 +354,9 @@ def _canonical_progress_value_from_notification(
         notification,
         token=LSP_PROGRESS_TOKEN_V2,
     )
-    if not isinstance(value, Mapping):
+    if value is None:
         return None
-    if str(value.get("schema", "") or "") != CANONICAL_PROGRESS_EVENT_SCHEMA_V2:
+    if _text(value.get("schema", "")) != CANONICAL_PROGRESS_EVENT_SCHEMA_V2:
         return None
     try:
         return CanonicalProgressEventPayloadDTO.model_validate(value).model_dump(
@@ -195,88 +380,82 @@ def phase_timeline_header_block() -> str:
 def phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, object] | None,
 ) -> str:
-    if not isinstance(phase_progress_v2, Mapping):
+    normalized_phase_progress_v2 = _mapping_or_none(phase_progress_v2)
+    if normalized_phase_progress_v2 is None:
         return ""
-    raw_dimensions = phase_progress_v2.get("dimensions")
-    if not isinstance(raw_dimensions, Mapping):
+    raw_dimensions = _mapping_or_none(normalized_phase_progress_v2.get("dimensions"))
+    if raw_dimensions is None:
         return ""
     fragments: list[str] = []
+    dimension_names = [
+        dim_name
+        for raw_name in raw_dimensions
+        for dim_name in [_str_or_none(raw_name)]
+        if dim_name is not None
+    ]
     for dim_name in sort_once(
-        (name for name in raw_dimensions if isinstance(name, str)),
+        dimension_names,
         source="phase_progress_dimensions_summary.dim_names",
     ):
-        raw_payload = raw_dimensions.get(dim_name)
-        if not isinstance(raw_payload, Mapping):
+        raw_payload = _mapping_or_none(raw_dimensions.get(dim_name))
+        if raw_payload is None:
             continue
-        raw_done = raw_payload.get("done")
-        raw_total = raw_payload.get("total")
-        if (
-            isinstance(raw_done, int)
-            and not isinstance(raw_done, bool)
-            and isinstance(raw_total, int)
-            and not isinstance(raw_total, bool)
-        ):
-            done = max(int(raw_done), 0)
-            total = max(int(raw_total), 0)
-            if total:
-                done = min(done, total)
-            fragments.append(f"{dim_name}={done}/{total}")
+        done = _non_negative_or_none(_int_non_bool_or_none(raw_payload.get("done")))
+        total = _non_negative_or_none(_int_non_bool_or_none(raw_payload.get("total")))
+        if done is None or total is None:
+            continue
+        if total:
+            done = min(done, total)
+        fragments.append(f"{dim_name}={done}/{total}")
     return "; ".join(fragments)
 
 
 def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object]) -> str:
-    ts_utc = str(phase_progress.get("ts_utc", "") or "")
+    ts_utc = _text(phase_progress.get("ts_utc", ""))
     event_seq = phase_progress.get("event_seq")
-    event_kind = str(phase_progress.get("event_kind", "") or "")
+    event_kind = _text(phase_progress.get("event_kind", ""))
     transition = _normalize_transition(phase_progress)
     if transition is not None:
         event_kind = transition.event_kind
-    phase = str(phase_progress.get("phase", "") or "")
-    analysis_state = str(phase_progress.get("analysis_state", "") or "")
-    classification = str(phase_progress.get("classification", "") or "")
+    phase = _text(phase_progress.get("phase", ""))
+    analysis_state = _text(phase_progress.get("analysis_state", ""))
+    classification = _text(phase_progress.get("classification", ""))
     progress_marker = _progress_marker_from_transition(
         phase_progress,
         transition=transition,
     )
-    phase_progress_v2 = (
-        phase_progress.get("phase_progress_v2")
-        if isinstance(phase_progress.get("phase_progress_v2"), Mapping)
-        else None
-    )
+    phase_progress_v2 = _mapping_or_none(phase_progress.get("phase_progress_v2"))
     primary_unit, primary_done, primary_total = _primary_from_transition(
         phase_progress,
         transition=transition,
     )
-    if isinstance(phase_progress_v2, Mapping):
+    if phase_progress_v2 is not None:
         if not primary_unit:
-            primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
-        raw_primary_done = phase_progress_v2.get("primary_done")
-        raw_primary_total = phase_progress_v2.get("primary_total")
-        if (
-            primary_done is None
-            and isinstance(raw_primary_done, int)
-            and not isinstance(raw_primary_done, bool)
-        ):
-            primary_done = max(int(raw_primary_done), 0)
-        if (
-            primary_total is None
-            and isinstance(raw_primary_total, int)
-            and not isinstance(raw_primary_total, bool)
-        ):
-            primary_total = max(int(raw_primary_total), 0)
-        if (
-            primary_done is not None
-            and primary_total is not None
-            and primary_total > 0
-            and primary_done > primary_total
-        ):
-            primary_done = primary_total
+            primary_unit = _text(phase_progress_v2.get("primary_unit", ""))
+        raw_primary_done = _non_negative_or_none(
+            _int_non_bool_or_none(phase_progress_v2.get("primary_done"))
+        )
+        raw_primary_total = _non_negative_or_none(
+            _int_non_bool_or_none(phase_progress_v2.get("primary_total"))
+        )
+        if primary_done is None and raw_primary_done is not None:
+            primary_done = raw_primary_done
+        if primary_total is None and raw_primary_total is not None:
+            primary_total = raw_primary_total
+        primary_done, primary_total = _clamped_done_total(
+            done=primary_done,
+            total=primary_total,
+        )
     if primary_done is None or primary_total is None:
-        raw_work_done = phase_progress.get("work_done")
-        raw_work_total = phase_progress.get("work_total")
-        if isinstance(raw_work_done, int) and isinstance(raw_work_total, int):
-            primary_done = max(int(raw_work_done), 0)
-            primary_total = max(int(raw_work_total), 0)
+        raw_work_done = _coerced_non_negative_int_like_or_none(
+            phase_progress.get("work_done")
+        )
+        raw_work_total = _coerced_non_negative_int_like_or_none(
+            phase_progress.get("work_total")
+        )
+        if raw_work_done is not None and raw_work_total is not None:
+            primary_done = raw_work_done
+            primary_total = raw_work_total
             if primary_total:
                 primary_done = min(primary_done, primary_total)
     primary = ""
@@ -290,21 +469,18 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
     remaining_files = phase_progress.get("remaining_files")
     total_files = phase_progress.get("total_files")
     files = ""
+    normalized_completed_files = _int_like_or_none(completed_files)
+    normalized_remaining_files = _int_like_or_none(remaining_files)
+    normalized_total_files = _int_like_or_none(total_files)
     if (
-        isinstance(completed_files, int)
-        and isinstance(remaining_files, int)
-        and isinstance(total_files, int)
+        normalized_completed_files is not None
+        and normalized_remaining_files is not None
+        and normalized_total_files is not None
     ):
         files = f"{completed_files}/{total_files} rem={remaining_files}"
-    raw_stale_for_s = phase_progress.get("stale_for_s")
-    stale_for_s = (
-        f"{float(raw_stale_for_s):.1f}"
-        if isinstance(raw_stale_for_s, (int, float))
-        else ""
-    )
-    dimensions = phase_progress_dimensions_summary(
-        phase_progress_v2 if isinstance(phase_progress_v2, Mapping) else None
-    )
+    raw_stale_for_s = _float_row_or_none(phase_progress.get("stale_for_s"))
+    stale_for_s = f"{raw_stale_for_s:.1f}" if raw_stale_for_s is not None else ""
+    dimensions = phase_progress_dimensions_summary(phase_progress_v2)
     progress_path = _path_from_transition(transition=transition)
     active_primary = _active_primary_from_transition(transition=transition)
     active_depth = _active_depth_from_transition(transition=transition)
@@ -322,7 +498,7 @@ def phase_timeline_row_from_phase_progress(phase_progress: Mapping[str, object])
     active_children = _active_children_from_transition(transition=transition)
     row = [
         ts_utc,
-        event_seq if isinstance(event_seq, int) else "",
+        _int_like_or_none(event_seq) if _int_like_or_none(event_seq) is not None else "",
         event_kind,
         phase,
         analysis_state,
@@ -349,94 +525,53 @@ def phase_progress_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, object] | None:
     canonical_value = _canonical_progress_value_from_notification(notification)
-    if isinstance(canonical_value, Mapping):
-        adaptation_kind = str(canonical_value.get("adaptation_kind", "") or "").strip()
-        if adaptation_kind == "valid":
-            event_value = canonical_value.get("event")
-            if isinstance(event_value, Mapping):
-                payload = event_value.get("payload")
-                if isinstance(payload, Mapping):
-                    normalized_payload = _phase_progress_from_progress_value(payload)
-                    if isinstance(normalized_payload, dict):
-                        return normalized_payload
-        elif adaptation_kind == "rejected":
-            rejected_payload = canonical_value.get("rejected_progress_payload_v2")
-            if isinstance(rejected_payload, Mapping):
-                normalized_payload = _phase_progress_from_progress_value(rejected_payload)
-                if isinstance(normalized_payload, dict):
-                    return normalized_payload
+    if canonical_value is None:
+        return None
+    adaptation_kind = _text(canonical_value.get("adaptation_kind", "")).strip()
+    if adaptation_kind == "valid":
+        event_value = _mapping_or_none(canonical_value.get("event"))
+        if event_value is None:
+            return None
+        payload = _mapping_or_none(event_value.get("payload"))
+        if payload is None:
+            return None
+        return _phase_progress_from_progress_value(payload)
+    if adaptation_kind == "rejected":
+        rejected_payload = _mapping_or_none(
+            canonical_value.get("rejected_progress_payload_v2")
+        )
+        if rejected_payload is None:
+            return None
+        return _phase_progress_from_progress_value(rejected_payload)
     return None
 
 
 def _phase_progress_from_progress_value(
     value: Mapping[str, object],
 ) -> dict[str, object] | None:
-    phase = str(value.get("phase", "") or "")
+    phase = _text(value.get("phase", ""))
     if not phase:
         return None
-    raw_work_done = value.get("work_done")
-    work_done = (
-        int(raw_work_done)
-        if isinstance(raw_work_done, int) and not isinstance(raw_work_done, bool)
-        else None
-    )
-    raw_work_total = value.get("work_total")
-    work_total = (
-        int(raw_work_total)
-        if isinstance(raw_work_total, int) and not isinstance(raw_work_total, bool)
-        else None
-    )
-    raw_completed_files = value.get("completed_files")
-    completed_files = (
-        int(raw_completed_files)
-        if isinstance(raw_completed_files, int) and not isinstance(raw_completed_files, bool)
-        else None
-    )
-    raw_remaining_files = value.get("remaining_files")
-    remaining_files = (
-        int(raw_remaining_files)
-        if isinstance(raw_remaining_files, int) and not isinstance(raw_remaining_files, bool)
-        else None
-    )
-    raw_total_files = value.get("total_files")
-    total_files = (
-        int(raw_total_files)
-        if isinstance(raw_total_files, int) and not isinstance(raw_total_files, bool)
-        else None
-    )
-    analysis_state = str(value.get("analysis_state", "") or "")
-    classification = str(value.get("classification", "") or "")
-    event_kind = str(value.get("event_kind", "") or "")
-    progress_marker = str(value.get("progress_marker", "") or "")
-    raw_event_seq = value.get("event_seq")
-    event_seq = (
-        int(raw_event_seq)
-        if isinstance(raw_event_seq, int) and not isinstance(raw_event_seq, bool)
-        else None
-    )
-    raw_stale_for_s = value.get("stale_for_s")
-    stale_for_s = (
-        float(raw_stale_for_s)
-        if isinstance(raw_stale_for_s, (int, float)) and not isinstance(raw_stale_for_s, bool)
-        else None
-    )
-    phase_progress_v2 = value.get("phase_progress_v2")
-    normalized_phase_progress_v2 = (
-        {str(key): phase_progress_v2[key] for key in phase_progress_v2}
-        if isinstance(phase_progress_v2, Mapping)
-        else None
-    )
-    progress_transition_v2 = value.get("progress_transition_v2")
-    normalized_progress_transition_v2 = (
-        {str(key): progress_transition_v2[key] for key in progress_transition_v2}
-        if isinstance(progress_transition_v2, Mapping)
-        else None
+    work_done = _int_non_bool_or_none(value.get("work_done"))
+    work_total = _int_non_bool_or_none(value.get("work_total"))
+    completed_files = _int_non_bool_or_none(value.get("completed_files"))
+    remaining_files = _int_non_bool_or_none(value.get("remaining_files"))
+    total_files = _int_non_bool_or_none(value.get("total_files"))
+    analysis_state = _text(value.get("analysis_state", ""))
+    classification = _text(value.get("classification", ""))
+    event_kind = _text(value.get("event_kind", ""))
+    progress_marker = _text(value.get("progress_marker", ""))
+    event_seq = _int_non_bool_or_none(value.get("event_seq"))
+    stale_for_s = _float_non_bool_or_none(value.get("stale_for_s"))
+    normalized_phase_progress_v2 = _str_key_dict_or_none(value.get("phase_progress_v2"))
+    normalized_progress_transition_v2 = _str_key_dict_or_none(
+        value.get("progress_transition_v2")
     )
     transition_progress_marker = progress_marker
     transition_done: int | None = None
     transition_total: int | None = None
     transition_event_kind = event_kind
-    if isinstance(normalized_progress_transition_v2, Mapping):
+    if normalized_progress_transition_v2 is not None:
         transition_phase_progress: dict[str, object] = {
             "phase": phase,
             "analysis_state": analysis_state,
@@ -446,8 +581,7 @@ def _phase_progress_from_progress_value(
             "work_done": work_done,
             "work_total": work_total,
         }
-        if isinstance(normalized_progress_transition_v2, Mapping):
-            transition_phase_progress["progress_transition_v2"] = normalized_progress_transition_v2
+        transition_phase_progress["progress_transition_v2"] = normalized_progress_transition_v2
         normalized_transition = normalize_progress_transition_from_phase_progress(
             transition_phase_progress
         )
@@ -474,19 +608,15 @@ def _phase_progress_from_progress_value(
         "classification": classification,
         "event_kind": transition_event_kind,
         "event_seq": event_seq,
-        "ts_utc": str(value.get("ts_utc", "") or ""),
+        "ts_utc": _text(value.get("ts_utc", "")),
         "stale_for_s": stale_for_s,
         "phase_progress_v2": normalized_phase_progress_v2,
         "progress_marker": transition_progress_marker,
-        "phase_timeline_header": (
-            phase_timeline_header if isinstance(phase_timeline_header, str) else ""
-        ),
-        "phase_timeline_row": (
-            phase_timeline_row if isinstance(phase_timeline_row, str) else ""
-        ),
+        "phase_timeline_header": _str_or_none(phase_timeline_header) or "",
+        "phase_timeline_row": _str_or_none(phase_timeline_row) or "",
         "done": done,
     }
-    if isinstance(normalized_progress_transition_v2, Mapping):
+    if normalized_progress_transition_v2 is not None:
         normalized["progress_transition_v2"] = normalized_progress_transition_v2
     return normalized
 
@@ -537,18 +667,10 @@ def phase_progress_signature(phase_progress: Mapping[str, object]) -> tuple[obje
 def phase_timeline_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> dict[str, str]:
-    header_value = phase_progress.get("phase_timeline_header")
-    row_value = phase_progress.get("phase_timeline_row")
-    header = (
-        str(header_value)
-        if isinstance(header_value, str) and header_value
-        else phase_timeline_header_block()
-    )
-    row = (
-        str(row_value)
-        if isinstance(row_value, str) and row_value
-        else phase_timeline_row_from_phase_progress(phase_progress)
-    )
+    header_value = _str_or_none(phase_progress.get("phase_timeline_header"))
+    row_value = _str_or_none(phase_progress.get("phase_timeline_row"))
+    header = header_value if header_value else phase_timeline_header_block()
+    row = row_value if row_value else phase_timeline_row_from_phase_progress(phase_progress)
     return {"header": header, "row": row}
 
 
@@ -556,7 +678,7 @@ def phase_timeline_from_progress_notification(
     notification: Mapping[str, object],
 ) -> dict[str, str] | None:
     phase_progress = phase_progress_from_progress_notification(notification)
-    if not isinstance(phase_progress, Mapping):
+    if phase_progress is None:
         return None
     return phase_timeline_from_phase_progress(phase_progress)
 
@@ -574,17 +696,18 @@ def phase_progress_emit_due(
     now_monotonic: float,
     min_interval_seconds: float = DEFAULT_TIMELINE_MIN_INTERVAL_SECONDS,
 ) -> bool:
-    phase = str(phase_progress.get("phase", "") or "")
-    event_kind = str(phase_progress.get("event_kind", "") or "")
+    phase = _text(phase_progress.get("phase", ""))
+    event_kind = _text(phase_progress.get("event_kind", ""))
+    normalized_last_emitted_phase = _str_or_none(last_emitted_phase)
     done = phase_progress.get("done") is True
     force_emit = (
         not timeline_header_emitted
         or done
         or event_kind in {"terminal", "checkpoint"}
         or (
-            isinstance(last_emitted_phase, str)
+            normalized_last_emitted_phase is not None
             and bool(phase)
-            and phase != last_emitted_phase
+            and phase != normalized_last_emitted_phase
         )
     )
     if force_emit:
