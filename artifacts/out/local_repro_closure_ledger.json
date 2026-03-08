@@ -2711,6 +2711,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_aspf_visitors_execution_fibration_runtime_policy": "pass"
       }
+    },
+    {
+      "cu_id": "CU-B1",
+      "summary": "Strict-dispatch conversion for command_orchestrator_primitives with extracted progress dispatch helper module and barrel-threshold recovery.",
+      "timestamp_utc": "2026-03-08T01:04:55Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 272,
+        "fiber_type_dispatch_contract": 863,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 1222,
+      "total_after": 1114,
+      "notes": [
+        "Converted command_orchestrator_primitives runtime normalizers to singledispatch with never(...) base handlers and concrete registration classes.",
+        "Extracted progress/collection helper surfaces into command_orchestrator_progress to keep command_orchestrator_primitives under the 2400-line barrel limit without reversing strict-dispatch conversion.",
+        "Marked extracted module as decision protocol and removed sentinel-style continue/return patterns introduced by extraction to keep non-target families non-increasing."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_execute_command_cases_edges_parity": "pass"
+      }
     }
   ],
   "generated_by": "codex",
