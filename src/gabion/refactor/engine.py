@@ -362,11 +362,11 @@ def _is_docstring(stmt: cst.CSTNode) -> bool:
 
 
 @singledispatch
-def _simple_statement_line_or_none(stmt: object):
+def _simple_statement_line_candidate(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_simple_statement_line_or_none.register(cst.SimpleStatementLine)
+@_simple_statement_line_candidate.register(cst.SimpleStatementLine)
 def _(stmt: cst.SimpleStatementLine):
     return stmt
 
@@ -388,25 +388,25 @@ for _stmt_type in (
     cst.ClassDef,
     cst.EmptyLine,
 ):
-    _simple_statement_line_or_none.register(_stmt_type)(_simple_statement_line_none)
+    _simple_statement_line_candidate.register(_stmt_type)(_simple_statement_line_none)
 
 
 @singledispatch
-def _import_or_none(stmt: object):
+def _import_candidate(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_import_or_none.register(cst.Import)
+@_import_candidate.register(cst.Import)
 def _(stmt: cst.Import):
     return stmt
 
 
 @singledispatch
-def _import_from_or_none(stmt: object):
+def _import_from_candidate(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_import_from_or_none.register(cst.ImportFrom)
+@_import_from_candidate.register(cst.ImportFrom)
 def _(stmt: cst.ImportFrom):
     return stmt
 
@@ -433,7 +433,7 @@ for _small_stmt_type in (
     cst.Return,
     cst.TypeAlias,
 ):
-    _import_or_none.register(_small_stmt_type)(_small_statement_none)
+    _import_candidate.register(_small_stmt_type)(_small_statement_none)
 
 
 for _import_from_nonmatch_type in (
@@ -453,74 +453,74 @@ for _import_from_nonmatch_type in (
     cst.Return,
     cst.TypeAlias,
 ):
-    _import_from_or_none.register(_import_from_nonmatch_type)(_small_statement_none)
+    _import_from_candidate.register(_import_from_nonmatch_type)(_small_statement_none)
 
 
 @singledispatch
-def _import_alias_or_none(alias: object):
+def _import_alias_candidate(alias: object):
     never("unregistered runtime type", value_type=type(alias).__name__)
 
 
-@_import_alias_or_none.register(cst.ImportAlias)
+@_import_alias_candidate.register(cst.ImportAlias)
 def _(alias: cst.ImportAlias):
     return alias
 
 
-@_import_alias_or_none.register(cst.ImportStar)
+@_import_alias_candidate.register(cst.ImportStar)
 def _(alias: cst.ImportStar):
     _ = alias
     return None
 
 
 @singledispatch
-def _import_alias_sequence_or_none(names: object):
+def _import_alias_sequence(names: object):
     never("unregistered runtime type", value_type=type(names).__name__)
 
 
-@_import_alias_sequence_or_none.register(list)
+@_import_alias_sequence.register(list)
 def _(names: list[object]):
     return names
 
 
-@_import_alias_sequence_or_none.register(tuple)
+@_import_alias_sequence.register(tuple)
 def _(names: tuple[object, ...]):
     return list(names)
 
 
-@_import_alias_sequence_or_none.register(cst.ImportStar)
+@_import_alias_sequence.register(cst.ImportStar)
 def _(names: cst.ImportStar):
     _ = names
     return None
 
 
 @singledispatch
-def _indented_block_or_none(body: object):
+def _indented_block_candidate(body: object):
     never("unregistered runtime type", value_type=type(body).__name__)
 
 
-@_indented_block_or_none.register(cst.IndentedBlock)
+@_indented_block_candidate.register(cst.IndentedBlock)
 def _(body: cst.IndentedBlock):
     return body
 
 
-@_indented_block_or_none.register(cst.SimpleStatementSuite)
+@_indented_block_candidate.register(cst.SimpleStatementSuite)
 def _(body: cst.SimpleStatementSuite):
     _ = body
     return None
 
 
-@_indented_block_or_none.register(cst.SimpleStatementLine)
+@_indented_block_candidate.register(cst.SimpleStatementLine)
 def _(body: cst.SimpleStatementLine):
     _ = body
     return None
 
 
 @singledispatch
-def _top_level_function_name_or_none(node: object) -> str:
+def _top_level_function_name_candidate(node: object) -> str:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_top_level_function_name_or_none.register(cst.FunctionDef)
+@_top_level_function_name_candidate.register(cst.FunctionDef)
 def _(node: cst.FunctionDef) -> str:
     return node.name.value
 
@@ -542,7 +542,7 @@ for _node_type in (
     cst.ClassDef,
     cst.EmptyLine,
 ):
-    _top_level_function_name_or_none.register(_node_type)(_empty_function_name)
+    _top_level_function_name_candidate.register(_node_type)(_empty_function_name)
 
 
 def _is_import(stmt: cst.CSTNode) -> bool:
@@ -560,7 +560,7 @@ def _module_expr_to_str(expr):
     return cst_shared.module_expr_to_str(expr, check_deadline_fn=check_deadline)
 
 
-def _name_value_or_none(expr: object):
+def _name_value_candidate(expr: object):
     if cst_matchers.matches(expr, cst_matchers.Name()):
         return _module_expr_to_str(expr)
     return None
@@ -597,11 +597,11 @@ def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _statement_item_is_import(item: cst.BaseSmallStatement) -> bool:
-    return _import_or_none(item) is not None or _import_from_or_none(item) is not None
+    return _import_candidate(item) is not None or _import_from_candidate(item) is not None
 
 
 def _iter_statement_items(stmt: cst.CSTNode) -> Iterable[cst.BaseSmallStatement]:
-    line = _simple_statement_line_or_none(stmt)
+    line = _simple_statement_line_candidate(stmt)
     if line is None:
         return ()
     return _iter_checked_statement_items(line.body)
@@ -631,7 +631,7 @@ def _iter_import_module_names(body: list[cst.CSTNode]) -> Iterable[str]:
 def _import_module_names_for_item(
     item: cst.BaseSmallStatement,
 ) -> Iterable[str]:
-    import_item = _import_or_none(item)
+    import_item = _import_candidate(item)
     if import_item is None:
         return ()
     return _iter_import_module_names_from_aliases(import_item.names)
@@ -646,7 +646,7 @@ def _iter_import_module_names_from_aliases(
 
 def _import_module_name_from_alias(alias: cst.ImportAlias) -> tuple[str, ...]:
     check_deadline()
-    import_alias = _import_alias_or_none(alias)
+    import_alias = _import_alias_candidate(alias)
     if import_alias is None:
         return ()
     return (_module_expr_to_str(import_alias.name),)
@@ -662,10 +662,10 @@ def _iter_import_from_alias_pairs(
 def _import_from_alias_pairs_for_item(
     item: cst.BaseSmallStatement,
 ) -> Iterable[tuple[str, str]]:
-    import_from = _import_from_or_none(item)
+    import_from = _import_from_candidate(item)
     if import_from is None:
         return ()
-    aliases = _import_alias_sequence_or_none(import_from.names)
+    aliases = _import_alias_sequence(import_from.names)
     if aliases is None:
         return ()
     module_name = _module_expr_to_str(import_from.module)
@@ -685,7 +685,7 @@ def _module_alias_pair(
     alias: cst.ImportAlias,
 ) -> tuple[tuple[str, str], ...]:
     check_deadline()
-    import_alias = _import_alias_or_none(alias)
+    import_alias = _import_alias_candidate(alias)
     if import_alias is None:
         return ()
     return ((module_name, _module_expr_to_str(import_alias.name)),)
@@ -759,7 +759,7 @@ def _collect_import_context(
     return (
         final_state.module_aliases,
         final_state.imported_targets,
-        _first_alias_or_empty(final_state.protocol_aliases),
+        _first_alias_text(final_state.protocol_aliases),
     )
 
 
@@ -843,7 +843,7 @@ def _module_alias_pairs_for_import_item(
     item: cst.BaseSmallStatement,
     target_module_value: str,
 ) -> tuple[tuple[str, str], ...]:
-    import_item = _import_or_none(item)
+    import_item = _import_candidate(item)
     if import_item is None:
         return ()
     pair_groups = map(
@@ -862,7 +862,7 @@ def _module_alias_pair_for_import_alias(
     target_module_value: str,
 ) -> tuple[tuple[str, str], ...]:
     check_deadline()
-    import_alias = _import_alias_or_none(alias)
+    import_alias = _import_alias_candidate(alias)
     if import_alias is None:
         return ()
     module_name = _module_expr_to_str(import_alias.name)
@@ -877,11 +877,11 @@ def _imported_target_pairs_for_item(
     item: cst.BaseSmallStatement,
     target_module_value: str,
 ) -> tuple[tuple[str, str], ...]:
-    import_from = _import_from_or_none(item)
+    import_from = _import_from_candidate(item)
     if import_from is None:
         return ()
     module_name = _module_expr_to_str(import_from.module)
-    aliases = _import_alias_sequence_or_none(import_from.names)
+    aliases = _import_alias_sequence(import_from.names)
     if module_name != target_module_value or aliases is None:
         return ()
     pair_groups = map(_imported_target_pair_for_alias, aliases)
@@ -892,7 +892,7 @@ def _imported_target_pair_for_alias(
     alias: cst.ImportAlias,
 ) -> tuple[tuple[str, str], ...]:
     check_deadline()
-    import_alias = _import_alias_or_none(alias)
+    import_alias = _import_alias_candidate(alias)
     if import_alias is None or not cst_matchers.matches(import_alias.name, cst_matchers.Name()):
         return ()
     alias_name = _module_expr_to_str(import_alias.name)
@@ -915,16 +915,16 @@ def _protocol_aliases_for_imported_targets(
 ) -> tuple[str, ...]:
     matches = filter(lambda item: item[1] == protocol_name, imported_target_pairs)
     aliases = tuple(map(lambda item: item[0], matches))
-    return _first_alias_tuple_or_empty(aliases)
+    return _first_alias_tuple(aliases)
 
 
-def _first_alias_tuple_or_empty(aliases: tuple[str, ...]) -> tuple[str, ...]:
+def _first_alias_tuple(aliases: tuple[str, ...]) -> tuple[str, ...]:
     if not aliases:
         return ()
     return (aliases[0],)
 
 
-def _first_alias_or_empty(aliases: tuple[str, ...]) -> str:
+def _first_alias_text(aliases: tuple[str, ...]) -> str:
     if not aliases:
         return ""
     return aliases[0]
@@ -1281,7 +1281,7 @@ def _ensure_ambient_scaffolding(
     existing_top_level = set(
         filter(
             _nonempty_text,
-            map(_top_level_function_name_or_none, _iter_checked_nodes(body)),
+            map(_top_level_function_name_candidate, _iter_checked_nodes(body)),
         )
     )
     missing_context_names = tuple(
@@ -1503,7 +1503,7 @@ def _ambient_arg_action(
     args_len: int,
     current_name: str,
 ) -> _AmbientArgAction:
-    arg_name = _name_value_or_none(arg.value)
+    arg_name = _name_value_candidate(arg.value)
     is_name = arg_name == context_name
     if arg.keyword is not None and arg.keyword.value == context_name and is_name:
         return _AmbientArgAction(keep=False, removed=True, skipped_reasons=())
@@ -1656,7 +1656,7 @@ else:
 """
             ).body
         )
-        updated_block = _indented_block_or_none(updated_body)
+        updated_block = _indented_block_candidate(updated_body)
         if updated_block is not None:
             existing = list(updated_block.body)
             insert_at = 1 if existing and _is_docstring(existing[0]) else 0
@@ -1980,7 +1980,7 @@ class _RefactorTransformer(cst.CSTTransformer):
     ) -> cst.BaseSuite:
         if not fields:
             return body
-        body_block = _indented_block_or_none(body)
+        body_block = _indented_block_candidate(body)
         if body_block is None:
             return body
         assign_lines = list(
