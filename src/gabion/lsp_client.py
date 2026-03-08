@@ -128,9 +128,11 @@ def _read_rpc(stream, deadline_ns: int) -> JSONObject:
     elif len(body) > length:
         body = body[:length]
     message = json.loads(body.decode("utf-8"))
-    if not isinstance(message, dict):
-        raise LspClientError("Invalid LSP message payload")
-    return message
+    match message:
+        case {**message_payload}:
+            return message_payload
+        case _:
+            raise LspClientError("Invalid LSP message payload")
 
 
 def _write_rpc(stream, message: JSONObject) -> None:
@@ -290,12 +292,16 @@ def run_command(
                 if detail:
                     raise LspClientError(f"LSP server error output: {detail}")
             result = response.get("result", {})
-            if not isinstance(result, Mapping):
-                raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
-            return boundary_order.normalize_boundary_mapping_once(
-                result,
-                source=f"lsp_client.run_command.{request.command}.result",
-            )
+            match result:
+                case {**result_payload}:
+                    return boundary_order.normalize_boundary_mapping_once(
+                        result_payload,
+                        source=f"lsp_client.run_command.{request.command}.result",
+                    )
+                case _:
+                    raise LspClientError(
+                        f"Unexpected LSP result payload: {type(result).__name__}"
+                    )
 
 
 def run_command_direct(
@@ -317,19 +323,21 @@ def run_command_direct(
     def _send_notification(method: str, params: object) -> None:
         if notification_callback is None:
             return
-        if not isinstance(params, Mapping):
-            return
-        ordered_params = boundary_order.normalize_boundary_mapping_once(
-            params,
-            source=f"lsp_client.run_command_direct.{request.command}.notification",
-        )
-        notification_callback(
-            {
-                "jsonrpc": "2.0",
-                "method": str(method),
-                "params": ordered_params,
-            }
-        )
+        match params:
+            case {**params_payload}:
+                ordered_params = boundary_order.normalize_boundary_mapping_once(
+                    params_payload,
+                    source=f"lsp_client.run_command_direct.{request.command}.notification",
+                )
+                notification_callback(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": str(method),
+                        "params": ordered_params,
+                    }
+                )
+            case _:
+                return
 
     ls = SimpleNamespace(workspace=workspace, send_notification=_send_notification)
     execute_fn = direct_dispatch.direct_executor(request.command)
@@ -338,11 +346,13 @@ def run_command_direct(
     if execute_fn is None:
         raise LspClientError(f"Unsupported direct command: {request.command}")
     raw_result = execute_fn(ls, payload)
-    if not isinstance(raw_result, Mapping):
-        raise LspClientError(
-            f"Unexpected direct command payload: {type(raw_result).__name__}"
-        )
-    return boundary_order.normalize_boundary_mapping_once(
-        raw_result,
-        source=f"lsp_client.run_command_direct.{request.command}.result",
-    )
+    match raw_result:
+        case {**result_payload}:
+            return boundary_order.normalize_boundary_mapping_once(
+                result_payload,
+                source=f"lsp_client.run_command_direct.{request.command}.result",
+            )
+        case _:
+            raise LspClientError(
+                f"Unexpected direct command payload: {type(raw_result).__name__}"
+            )

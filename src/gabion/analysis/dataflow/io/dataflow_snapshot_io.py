@@ -5,7 +5,6 @@ import os
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
-from typing import cast
 
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.baseline_io import load_json
@@ -235,8 +234,11 @@ def render_decision_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     pattern_schema_instances=None,
 ) -> JSONObject:
-    if type(forest) is not Forest:
-        never("decision snapshot requires forest carrier")
+    match forest:
+        case Forest():
+            pass
+        case _:
+            never("decision snapshot requires forest carrier")
 
     instances = pattern_schema_instances
     if instances is None:
@@ -348,21 +350,25 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
     files = snapshot.get("files") or []
     for file_entry in files:
         check_deadline()
-        if type(file_entry) is not dict:
-            continue
-        file_entry_obj = cast(JSONObject, file_entry)
-        functions = file_entry_obj.get("functions") or []
-        for fn_entry in functions:
-            check_deadline()
-            if type(fn_entry) is not dict:
-                continue
-            fn_entry_obj = cast(JSONObject, fn_entry)
-            bundles = fn_entry_obj.get("bundles") or []
-            for bundle in bundles:
-                check_deadline()
-                if type(bundle) is not list:
-                    continue
-                counts[tuple(cast(list[object], bundle))] += 1
+        match file_entry:
+            case dict() as file_entry_obj:
+                functions = file_entry_obj.get("functions") or []
+                for fn_entry in functions:
+                    check_deadline()
+                    match fn_entry:
+                        case dict() as fn_entry_obj:
+                            bundles = fn_entry_obj.get("bundles") or []
+                            for bundle in bundles:
+                                check_deadline()
+                                match bundle:
+                                    case list() as bundle_items:
+                                        counts[tuple(bundle_items)] += 1
+                                    case _:
+                                        pass
+                        case _:
+                            pass
+            case _:
+                pass
     return counts
 
 
