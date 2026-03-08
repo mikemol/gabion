@@ -4795,6 +4795,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "updated_artifact"
       }
+    },
+    {
+      "cu_id": "CU-D2U",
+      "summary": "Dispatch strictification pass for deadline collector and resume-state ingress normalization across dataflow/indexed-scan surfaces.",
+      "timestamp_utc": "2026-03-08T12:26:56Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7118,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 196,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7110,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 305,
+        "fiber_type_dispatch_contract": 181,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7790,
+      "total_after": 7766,
+      "notes": [
+        "Converted deadline collector call-shape routing to singledispatch/singledispatchmethod ingress handlers, removing manual type(...) guards in loop/call analysis.",
+        "Strictified indexed-scan resume-state deserializers with dispatch-backed string normalization and removed manual key/type guards in groups, param spans, bundle sites, and invariant parsing.",
+        "Applied partial resume-serialization conversion using dispatch-backed string carriers for param-use surfaces; remaining call/class decode guards stay in place for ACP compatibility.",
+        "Global fiber_type_dispatch_contract reduced from 196 to 181 (delta -15); targeted files now at: dataflow_deadline_collector 0, resume_state 0, dataflow_resume_serialization 3."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_resume_and_deadline": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

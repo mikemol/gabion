@@ -272,9 +272,9 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
         check_deadline()
         entry = mapping_or_none(raw_entry)
         if entry is not None:
-            callee = entry.get("callee")
-            slot = entry.get("slot")
-            if type(callee) is str and type(slot) is str:
+            callee = str_or_none(entry.get("callee"))
+            slot = str_or_none(entry.get("slot"))
+            if callee is not None and slot is not None:
                 span_set: set[tuple[int, int, int, int]] = set()
                 for raw_span in sequence_or_none(entry.get("spans")) or ():
                     check_deadline()
@@ -320,8 +320,9 @@ def _deserialize_param_use_map(
     for param_name, raw_value in payload.items():
         check_deadline()
         raw_mapping = mapping_or_none(raw_value)
-        if type(param_name) is str and raw_mapping is not None:
-            use_map[param_name] = _deserialize_param_use(raw_mapping)
+        normalized_param_name = str_or_none(param_name)
+        if normalized_param_name is not None and raw_mapping is not None:
+            use_map[normalized_param_name] = _deserialize_param_use(raw_mapping)
     return use_map
 
 

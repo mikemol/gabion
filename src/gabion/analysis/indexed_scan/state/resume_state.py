@@ -8,6 +8,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposit
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import str_or_none
 
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup, load_allowed_paths_from_sequence, mapping_or_none, mapping_payload, mapping_sections, payload_with_format, sequence_or_none)
@@ -55,7 +56,8 @@ def deserialize_groups_for_resume(
     groups: dict[str, list[set[str]]] = {}
     for fn_name, raw_groups in payload.items():
         check_deadline_fn()
-        if type(fn_name) is str:
+        normalized_fn_name = str_or_none(fn_name)
+        if normalized_fn_name is not None:
             groups_payload = sequence_or_none_fn(raw_groups)
             if groups_payload is not None:
                 normalized: list[set[str]] = []
@@ -64,7 +66,7 @@ def deserialize_groups_for_resume(
                     bundle_payload = sequence_or_none_fn(raw_bundle)
                     if bundle_payload is not None:
                         normalized.append({str(param) for param in bundle_payload if str(param)})
-                groups[fn_name] = normalized
+                groups[normalized_fn_name] = normalized
     return groups
 
 
@@ -102,19 +104,27 @@ def deserialize_param_spans_for_resume(
     for fn_name, raw_map in payload.items():
         check_deadline_fn()
         param_map = mapping_or_none(raw_map)
-        if type(fn_name) is str and param_map is not None:
+        normalized_fn_name = str_or_none(fn_name)
+        if normalized_fn_name is not None and param_map is not None:
             fn_spans: dict[str, tuple[int, int, int, int]] = {}
             for param_name, raw_span in param_map.items():
                 check_deadline_fn()
                 span_parts = sequence_or_none_fn(raw_span)
-                if type(param_name) is str and span_parts is not None and len(span_parts) == 4:
+                normalized_param_name = str_or_none(param_name)
+                if normalized_param_name is not None and span_parts is not None and len(span_parts) == 4:
                     try:
-                        span = tuple(int(part) for part in span_parts)
+                        start_line, start_column, end_line, end_column = (
+                            int(part) for part in span_parts
+                        )
                     except (TypeError, ValueError):
-                        span = None
-                    if span is not None:
-                        fn_spans[param_name] = cast(tuple[int, int, int, int], span)
-            spans[fn_name] = fn_spans
+                        continue
+                    fn_spans[normalized_param_name] = (
+                        start_line,
+                        start_column,
+                        end_line,
+                        end_column,
+                    )
+            spans[normalized_fn_name] = fn_spans
     return spans
 
 
@@ -162,7 +172,8 @@ def deserialize_bundle_sites_for_resume(
     for fn_name, raw_sites in payload.items():
         check_deadline_fn()
         site_groups = sequence_or_none_fn(raw_sites)
-        if type(fn_name) is str and site_groups is not None:
+        normalized_fn_name = str_or_none(fn_name)
+        if normalized_fn_name is not None and site_groups is not None:
             fn_sites: list[list[JSONObject]] = []
             for raw_bundle in site_groups:
                 check_deadline_fn()
@@ -175,7 +186,7 @@ def deserialize_bundle_sites_for_resume(
                         if site_mapping is not None:
                             bundle.append({str(key): site_mapping[key] for key in site_mapping})
                     fn_sites.append(bundle)
-            bundle_sites[fn_name] = fn_sites
+            bundle_sites[normalized_fn_name] = fn_sites
     return bundle_sites
 
 
@@ -214,17 +225,18 @@ def deserialize_invariants_for_resume(
         check_deadline_fn()
         entry_mapping = mapping_or_none_fn(entry)
         if entry_mapping is not None:
-            form = entry_mapping.get("form")
+            form = str_or_none(entry_mapping.get("form"))
             terms = sequence_or_none_fn(entry_mapping.get("terms"))
-            if type(form) is str and terms is not None:
+            if form is not None and terms is not None:
                 normalized_terms: list[str] = []
                 for term in terms:
                     check_deadline_fn()
-                    if type(term) is str:
-                        normalized_terms.append(term)
-                scope = entry_mapping.get("scope")
-                source = entry_mapping.get("source")
-                invariant_id = entry_mapping.get("invariant_id")
+                    normalized_term = str_or_none(term)
+                    if normalized_term is not None:
+                        normalized_terms.append(normalized_term)
+                scope = str_or_none(entry_mapping.get("scope"))
+                source = str_or_none(entry_mapping.get("source"))
+                invariant_id = str_or_none(entry_mapping.get("invariant_id"))
                 confidence_raw = entry_mapping.get("confidence")
                 confidence = (
                     float(confidence_raw)
@@ -242,14 +254,14 @@ def deserialize_invariants_for_resume(
                     InvariantProposition(
                         form=form,
                         terms=tuple(normalized_terms),
-                        scope=scope if type(scope) is str else None,
-                        source=source if type(source) is str else None,
-                        invariant_id=invariant_id if type(invariant_id) is str else None,
+                        scope=scope,
+                        source=source,
+                        invariant_id=invariant_id,
                         confidence=confidence,
                         evidence_keys=evidence_keys,
                     ),
-                    default_scope=scope if type(scope) is str else "",
-                    default_source=source if type(source) is str else "resume",
+                    default_scope=scope or "",
+                    default_source=source or "resume",
                 )
                 invariants.append(normalized)
     return invariants

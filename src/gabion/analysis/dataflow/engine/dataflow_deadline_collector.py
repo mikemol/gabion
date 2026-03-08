@@ -2,7 +2,31 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Callable
-from typing import cast
+from functools import singledispatch, singledispatchmethod
+
+from gabion.invariants import never
+from gabion.runtime_shape_dispatch import str_or_none
+
+
+@singledispatch
+def _is_deadline_loop_iter_callee(func: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(func).__name__)
+
+
+@_is_deadline_loop_iter_callee.register(ast.AST)
+def _is_deadline_loop_iter_callee_default(func: ast.AST) -> bool:
+    del func
+    return False
+
+
+@_is_deadline_loop_iter_callee.register(ast.Name)
+def _is_deadline_loop_iter_callee_name(func: ast.Name) -> bool:
+    return func.id == "deadline_loop_iter"
+
+
+@_is_deadline_loop_iter_callee.register(ast.Attribute)
+def _is_deadline_loop_iter_callee_attribute(func: ast.Attribute) -> bool:
+    return func.attr == "deadline_loop_iter"
 
 
 def make_deadline_function_collector(
@@ -43,13 +67,11 @@ def make_deadline_function_collector(
                     self._loop_stack[-1].call_spans.add(span)
 
         def _iter_marks_ambient(self, expr: ast.AST) -> bool:
-            if type(expr) is ast.Call:
-                func = cast(ast.Call, expr).func
-                if type(func) is ast.Name:
-                    return cast(ast.Name, func).id == "deadline_loop_iter"
-                if type(func) is ast.Attribute:
-                    return cast(ast.Attribute, func).attr == "deadline_loop_iter"
-            return False
+            match expr:
+                case ast.Call(func=func):
+                    return _is_deadline_loop_iter_callee(func)
+                case _:
+                    return False
 
         def _visit_loop_body(
             self,
@@ -110,35 +132,51 @@ def make_deadline_function_collector(
 
         def visit_Call(self, node: ast.Call) -> None:
             self._record_call_span(node)
-            func = node.func
-            func_type = type(func)
-            if func_type is ast.Attribute:
-                attribute_func = cast(ast.Attribute, func)
-                if attribute_func.attr == "deadline_loop_iter":
-                    self._mark_ambient_check()
-                if (
-                    attribute_func.attr in deadline_check_methods
-                    and type(attribute_func.value) is ast.Name
-                    and cast(ast.Name, attribute_func.value).id in self._params
-                ):
-                    self._mark_param_check(cast(ast.Name, attribute_func.value).id)
-                if attribute_func.attr == "check_deadline" and node.args:
-                    first = node.args[0]
-                    if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
-                        self._mark_param_check(cast(ast.Name, first).id)
-                if attribute_func.attr in {"check_deadline", "require_deadline"} and not node.args:
-                    self._mark_ambient_check()
-            elif func_type is ast.Name:
-                name_func = cast(ast.Name, func)
-                if name_func.id == "deadline_loop_iter":
-                    self._mark_ambient_check()
-                if name_func.id == "check_deadline" and node.args:
-                    first = node.args[0]
-                    if type(first) is ast.Name and cast(ast.Name, first).id in self._params:
-                        self._mark_param_check(cast(ast.Name, first).id)
-                if name_func.id in {"check_deadline", "require_deadline"} and not node.args:
-                    self._mark_ambient_check()
+            self._mark_deadline_call(node.func, node.args)
             self.generic_visit(node)
+
+        @singledispatchmethod
+        def _mark_deadline_call(self, func: ast.AST, args: list[ast.AST]) -> None:
+            never("unregistered runtime type", value_type=type(func).__name__)
+
+        @_mark_deadline_call.register(ast.AST)
+        def _mark_deadline_call_default(self, func: ast.AST, args: list[ast.AST]) -> None:
+            del func, args
+            return
+
+        @_mark_deadline_call.register(ast.Attribute)
+        def _mark_deadline_call_attribute(
+            self,
+            func: ast.Attribute,
+            args: list[ast.AST],
+        ) -> None:
+            if func.attr == "deadline_loop_iter":
+                self._mark_ambient_check()
+
+            owner_name = str_or_none(func.value)
+            if owner_name is not None and func.attr in deadline_check_methods and owner_name in self._params:
+                self._mark_param_check(owner_name)
+
+            if func.attr == "check_deadline":
+                first_name = str_or_none(args[0]) if args else None
+                if first_name is not None and first_name in self._params:
+                    self._mark_param_check(first_name)
+
+            if func.attr in {"check_deadline", "require_deadline"} and not args:
+                self._mark_ambient_check()
+
+        @_mark_deadline_call.register(ast.Name)
+        def _mark_deadline_call_name(self, func: ast.Name, args: list[ast.AST]) -> None:
+            if func.id == "deadline_loop_iter":
+                self._mark_ambient_check()
+
+            if func.id == "check_deadline":
+                first_name = str_or_none(args[0]) if args else None
+                if first_name is not None and first_name in self._params:
+                    self._mark_param_check(first_name)
+
+            if func.id in {"check_deadline", "require_deadline"} and not args:
+                self._mark_ambient_check()
 
         def visit_Assign(self, node: ast.Assign) -> None:
             self.assignments.append((node.targets, node.value, node_span_fn(node)))
