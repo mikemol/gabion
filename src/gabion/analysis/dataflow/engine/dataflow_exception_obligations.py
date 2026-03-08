@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 """Exception-obligation helpers extracted from ``legacy_dataflow_monolith``."""
 
 from __future__ import annotations

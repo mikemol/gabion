@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Lint and deadness helper ownership module during runtime retirement."""

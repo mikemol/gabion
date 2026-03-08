@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Canonical call-graph algorithm owners for indexed dataflow analysis."""

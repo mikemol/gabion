@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Canonical decision/decorator helpers for function-index accumulation."""

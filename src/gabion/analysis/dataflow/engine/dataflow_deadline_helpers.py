@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Deadline helper owner surface for obligations extraction."""

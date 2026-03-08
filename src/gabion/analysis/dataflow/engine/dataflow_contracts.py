@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 """Dataflow analysis contracts owned outside the runtime monolith.

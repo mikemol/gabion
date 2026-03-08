@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 """Decision-surface helpers extracted from ``legacy_dataflow_monolith``.
 
 These helpers are intentionally dependency-light and receive runtime hooks
