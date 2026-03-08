@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import singledispatch
 from typing import Mapping, cast
 
 from gabion.invariants import never
@@ -134,106 +135,146 @@ def enforce_boundary_value_ordered(
     return _enforce_ordered_value(value, source=source)
 
 
+@singledispatch
 def _canonicalize_value(
     value: object,
     *,
     source: str,
 ) -> object:
-    if isinstance(value, Mapping):
-        if is_sorted_once_carrier(value):
-            return _enforce_ordered_value(value, source=source)
-        items = [(str(key), value[key]) for key in value]
-        ordered_items = sort_once(
-            items,
-            source=f"{source}.mapping_items",
-            key=_mapping_item_sort_key,
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_canonicalize_value.register(dict)
+def _(value: dict[object, object], *, source: str) -> object:
+    if is_sorted_once_carrier(value):
+        return _enforce_ordered_value(value, source=source)
+    items = [(str(key), value[key]) for key in value]
+    ordered_items = sort_once(
+        items,
+        source=f"{source}.mapping_items",
+        key=_mapping_item_sort_key,
+    )
+    normalized = CanonicalBoundaryDict(source=source)
+    for key, raw_value in ordered_items:
+        normalized[key] = _canonicalize_value(
+            raw_value,
+            source=f"{source}.{key}",
         )
-        normalized = CanonicalBoundaryDict(source=source)
-        for key, raw_value in ordered_items:
-            normalized[key] = _canonicalize_value(
-                raw_value,
-                source=f"{source}.{key}",
-            )
-        return normalized
-    if isinstance(value, list):
-        if is_sorted_once_carrier(value):
-            return _enforce_ordered_value(value, source=source)
-        normalized_values = [
-            _canonicalize_value(item, source=f"{source}.list_item")
-            for item in value
-        ]
-        return sort_once(
-            normalized_values,
-            source=f"{source}.list_items",
-            key=_stable_value_key,
-        )
-    if isinstance(value, tuple):
-        normalized_values = [
-            _canonicalize_value(item, source=f"{source}.tuple_item")
-            for item in value
-        ]
-        ordered_values = sort_once(
-            normalized_values,
-            source=f"{source}.tuple_items",
-            key=_stable_value_key,
-        )
-        return tuple(ordered_values)
-    if isinstance(value, set):
-        normalized_values = [
-            _canonicalize_value(item, source=f"{source}.set_item")
-            for item in value
-        ]
-        return sort_once(
-            normalized_values,
-            source=f"{source}.set_items",
-            key=_stable_value_key,
-        )
+    return normalized
+
+
+@_canonicalize_value.register(list)
+def _(value: list[object], *, source: str) -> object:
+    if is_sorted_once_carrier(value):
+        return _enforce_ordered_value(value, source=source)
+    normalized_values = [
+        _canonicalize_value(item, source=f"{source}.list_item")
+        for item in value
+    ]
+    return sort_once(
+        normalized_values,
+        source=f"{source}.list_items",
+        key=_stable_value_key,
+    )
+
+
+@_canonicalize_value.register(tuple)
+def _(value: tuple[object, ...], *, source: str) -> object:
+    normalized_values = [
+        _canonicalize_value(item, source=f"{source}.tuple_item")
+        for item in value
+    ]
+    ordered_values = sort_once(
+        normalized_values,
+        source=f"{source}.tuple_items",
+        key=_stable_value_key,
+    )
+    return tuple(ordered_values)
+
+
+@_canonicalize_value.register(set)
+def _(value: set[object], *, source: str) -> object:
+    normalized_values = [
+        _canonicalize_value(item, source=f"{source}.set_item")
+        for item in value
+    ]
+    return sort_once(
+        normalized_values,
+        source=f"{source}.set_items",
+        key=_stable_value_key,
+    )
+
+
+def _canonicalize_scalar(value: object, *, source: str) -> object:
+    _ = source
     return value
 
 
+for _runtime_type in (str, int, float, bool, bytes, bytearray, type(None)):
+    _canonicalize_value.register(_runtime_type)(_canonicalize_scalar)
+
+
+@singledispatch
 def _enforce_ordered_value(
     value: object,
     *,
     source: str,
 ) -> object:
-    if isinstance(value, Mapping):
-        items = [(str(key), value[key]) for key in value]
-        ordered_items = enforce_ordered(
-            items,
-            source=f"{source}.mapping_items",
-            key=_mapping_item_sort_key,
-        )
-        normalized = CanonicalBoundaryDict(source=source)
-        for key, raw_value in ordered_items:
-            normalized[key] = _enforce_ordered_value(raw_value, source=f"{source}.{key}")
-        return normalized
-    if isinstance(value, list):
-        normalized_values = [
-            _enforce_ordered_value(item, source=f"{source}.list_item")
-            for item in value
-        ]
-        return enforce_ordered(
-            normalized_values,
-            source=f"{source}.list_items",
-            key=_stable_value_key,
-        )
-    if isinstance(value, tuple):
-        normalized_values = [
-            _enforce_ordered_value(item, source=f"{source}.tuple_item")
-            for item in value
-        ]
-        ordered_values = enforce_ordered(
-            normalized_values,
-            source=f"{source}.tuple_items",
-            key=_stable_value_key,
-        )
-        return tuple(ordered_values)
-    if isinstance(value, set):
-        never(
-            "unordered set cannot cross egress boundary",
-            source=source,
-        )
-    return value
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_enforce_ordered_value.register(dict)
+def _(value: dict[object, object], *, source: str) -> object:
+    items = [(str(key), value[key]) for key in value]
+    ordered_items = enforce_ordered(
+        items,
+        source=f"{source}.mapping_items",
+        key=_mapping_item_sort_key,
+    )
+    normalized = CanonicalBoundaryDict(source=source)
+    for key, raw_value in ordered_items:
+        normalized[key] = _enforce_ordered_value(raw_value, source=f"{source}.{key}")
+    return normalized
+
+
+@_enforce_ordered_value.register(list)
+def _(value: list[object], *, source: str) -> object:
+    normalized_values = [
+        _enforce_ordered_value(item, source=f"{source}.list_item")
+        for item in value
+    ]
+    return enforce_ordered(
+        normalized_values,
+        source=f"{source}.list_items",
+        key=_stable_value_key,
+    )
+
+
+@_enforce_ordered_value.register(tuple)
+def _(value: tuple[object, ...], *, source: str) -> object:
+    normalized_values = [
+        _enforce_ordered_value(item, source=f"{source}.tuple_item")
+        for item in value
+    ]
+    ordered_values = enforce_ordered(
+        normalized_values,
+        source=f"{source}.tuple_items",
+        key=_stable_value_key,
+    )
+    return tuple(ordered_values)
+
+
+@_enforce_ordered_value.register(set)
+def _(value: set[object], *, source: str) -> object:
+    _ = value
+    never(
+        "unordered set cannot cross egress boundary",
+        source=source,
+    )
+
+
+for _runtime_type in (str, int, float, bool, bytes, bytearray, type(None)):
+    _enforce_ordered_value.register(_runtime_type)(_canonicalize_scalar)
 
 
 def _stable_value_key(value: object) -> tuple[str, str]:

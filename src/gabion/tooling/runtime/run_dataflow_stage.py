@@ -21,6 +21,12 @@ from gabion.analysis.foundation.timeout_context import check_deadline, deadline_
 from gabion.commands import transport_policy
 from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
+from gabion.runtime_shape_dispatch import (
+    int_or_none as _int_or_none,
+    json_list_or_none as _json_list_or_none,
+    json_mapping_or_none as _json_mapping_or_none,
+    str_or_none as _str_or_none,
+)
 from gabion.tooling.runtime import aspf_lifecycle
 from gabion.tooling.runtime import dataflow_invocation_runner
 from gabion.tooling.runtime import dataflow_stage_invocation
@@ -103,13 +109,13 @@ def _load_json_object(path: Path) -> dict[str, object]:
 
 def _analysis_state_from_aspf_state(path: Path) -> str:
     payload = _load_json_object(path)
-    state = payload.get("analysis_state")
-    if isinstance(state, str) and state:
+    state = _str_or_none(payload.get("analysis_state"))
+    if state:
         return state
-    resume_projection = payload.get("resume_projection")
-    if isinstance(resume_projection, dict):
-        projection_state = resume_projection.get("analysis_state")
-        if isinstance(projection_state, str) and projection_state:
+    resume_projection = _json_mapping_or_none(payload.get("resume_projection"))
+    if resume_projection is not None:
+        projection_state = _str_or_none(resume_projection.get("analysis_state"))
+        if projection_state:
             return projection_state
     return "none"
 
@@ -186,8 +192,8 @@ def _obligation_id(stage_id: str, contract: str, kind: str, section_id: str, pha
 def _obligation_rows_from_timeout_payload(
     *, stage_id: str, analysis_state: str, timeout_payload: dict[str, object]
 ) -> tuple[tuple[dict[str, object], ...], tuple[str, ...]]:
-    incremental = timeout_payload.get("incremental_obligations")
-    if not isinstance(incremental, list):
+    incremental = _json_list_or_none(timeout_payload.get("incremental_obligations"))
+    if incremental is None:
         markers = (
             ("missing_incremental_obligations",)
             if analysis_state.startswith("timed_out_")
@@ -196,16 +202,17 @@ def _obligation_rows_from_timeout_payload(
         return (), markers
     rows: list[dict[str, object]] = []
     for raw_entry in deadline_loop_iter(incremental):
-        if not isinstance(raw_entry, dict):
+        entry = _json_mapping_or_none(raw_entry)
+        if entry is None:
             continue
-        contract = str(raw_entry.get("contract", "") or "")
-        kind = str(raw_entry.get("kind", "") or "")
+        contract = str(entry.get("contract", "") or "")
+        kind = str(entry.get("kind", "") or "")
         if not contract or not kind:
             continue
-        section_id = str(raw_entry.get("section_id", "") or "")
-        phase = str(raw_entry.get("phase", "") or "")
-        detail = str(raw_entry.get("detail", "") or "")
-        raw_status = str(raw_entry.get("status", "") or "")
+        section_id = str(entry.get("section_id", "") or "")
+        phase = str(entry.get("phase", "") or "")
+        detail = str(entry.get("detail", "") or "")
+        raw_status = str(entry.get("status", "") or "")
         rows.append(
             {
                 "id": _obligation_id(stage_id, contract, kind, section_id, phase),
@@ -286,13 +293,13 @@ def _write_obligation_trace(path: Path, results: Sequence[StageResult]) -> dict[
 
 
 def _obligation_trace_summary_lines(trace_payload: JSONObject) -> list[str]:
-    summary = trace_payload.get("summary")
-    if not isinstance(summary, dict):
+    summary = _json_mapping_or_none(trace_payload.get("summary"))
+    if summary is None:
         return []
-    markers = trace_payload.get("incompleteness_markers")
+    markers = _json_list_or_none(trace_payload.get("incompleteness_markers"))
     marker_text = (
         ", ".join(str(marker) for marker in markers)
-        if isinstance(markers, list) and markers
+        if markers
         else "none"
     )
     return [
@@ -849,14 +856,15 @@ def run_staged(
     strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
     started_wall_seconds = monotonic_fn()
+    max_wall_seconds_value = _int_or_none(max_wall_seconds)
     for stage_id in deadline_loop_iter(stage_ids):
         if (
             results
-            and isinstance(max_wall_seconds, int)
-            and max_wall_seconds > 0
+            and max_wall_seconds_value is not None
+            and max_wall_seconds_value > 0
         ):
             elapsed = max(0.0, monotonic_fn() - started_wall_seconds)
-            remaining = float(max_wall_seconds) - elapsed
+            remaining = float(max_wall_seconds_value) - elapsed
             reserve_seconds = max(0, int(finalize_reserve_seconds))
             if remaining <= float(reserve_seconds):
                 stage_upper = stage_id.upper()

@@ -29,6 +29,18 @@ for _runtime_type in (str, int, float, bool, complex, bytes, frozenset, type(Non
     _is_tuple_key.register(_runtime_type)(_is_not_tuple_key)
 
 
+_NON_TUPLE_KEY_RUNTIME_TYPES: set[type] = {
+    str,
+    int,
+    float,
+    bool,
+    complex,
+    bytes,
+    frozenset,
+    type(None),
+}
+
+
 @singledispatch
 def _tuple_key(value) -> tuple[Hashable, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
@@ -175,6 +187,9 @@ _NODE_STAGE_ALIAS_TYPES: set[type] = set()
 def _register_node_stage_alias_dispatch(node_id_type: type) -> None:
     if node_id_type in _NODE_STAGE_ALIAS_TYPES:
         return
+    if node_id_type not in _NON_TUPLE_KEY_RUNTIME_TYPES:
+        _is_tuple_key.register(node_id_type)(_is_not_tuple_key)
+        _NON_TUPLE_KEY_RUNTIME_TYPES.add(node_id_type)
 
     @_stage_cache_key_aliases_dispatch.register(node_id_type)
     def _stage_cache_key_aliases_dispatch_node(

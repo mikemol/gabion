@@ -7,9 +7,15 @@ import os
 import time
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
+
 from gabion.json_types import JSONValue
 
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import (
+    int_or_none as _int_or_none,
+    json_list_or_none as _json_list_or_none,
+    json_mapping_or_none as _json_mapping_or_none,
+)
 from gabion.tooling.impact import diff_evidence_index
 
 ChangedLine = diff_evidence_index.ChangedLine
@@ -56,11 +62,11 @@ def _site_matches_changed_lines(site: Mapping[str, JSONValue], lines_by_path: di
     if not changed_lines:
         return False
     raw_span = site.get("span")
-    if isinstance(raw_span, list) and len(raw_span) == 4:
-        try:
-            start = int(raw_span[0])
-            end = int(raw_span[2])
-        except (TypeError, ValueError):
+    span = _json_list_or_none(raw_span)
+    if span is not None and len(span) == 4:
+        start = _int_or_none(span[0])
+        end = _int_or_none(span[2])
+        if start is None or end is None:
             return True
         upper = max(start, end)
         lower = min(start, end)
@@ -87,8 +93,8 @@ def _select_tests(
     must_run_tests: set[str],
 ) -> tuple[list[str], list[str], list[str], float]:
     lines_by_path, changed_paths, changed_tests = _collect_changed_sets(changed_lines)
-    tests = payload.get("tests")
-    if not isinstance(tests, list):
+    tests = _json_list_or_none(payload.get("tests"))
+    if tests is None:
         return (
             [],
             sort_once(
@@ -103,8 +109,9 @@ def _select_tests(
         )
 
     impacted: set[str] = set()
-    for entry in tests:
-        if not isinstance(entry, Mapping):
+    for raw_entry in tests:
+        entry = _json_mapping_or_none(raw_entry)
+        if entry is None:
             continue
         test_id = str(entry.get("test_id", "") or "").strip()
         if not test_id:
@@ -113,17 +120,18 @@ def _select_tests(
         if test_file in changed_tests:
             impacted.add(test_id)
             continue
-        evidence = entry.get("evidence")
-        if not isinstance(evidence, list):
+        evidence = _json_list_or_none(entry.get("evidence"))
+        if evidence is None:
             continue
-        for item in evidence:
-            if not isinstance(item, Mapping):
+        for raw_item in evidence:
+            item = _json_mapping_or_none(raw_item)
+            if item is None:
                 continue
-            key = item.get("key")
-            if not isinstance(key, Mapping):
+            key = _json_mapping_or_none(item.get("key"))
+            if key is None:
                 continue
-            site = key.get("site")
-            if isinstance(site, Mapping) and _site_matches_changed_lines(site, lines_by_path):
+            site = _json_mapping_or_none(key.get("site"))
+            if site is not None and _site_matches_changed_lines(site, lines_by_path):
                 impacted.add(test_id)
                 break
 
@@ -132,10 +140,31 @@ def _select_tests(
         for path in changed_paths
         if path.endswith(".py") and not path.startswith("tests/")
     }
+    mapped_site_paths: set[str] = set()
+    for raw_entry in tests:
+        entry = _json_mapping_or_none(raw_entry)
+        if entry is None:
+            continue
+        evidence = _json_list_or_none(entry.get("evidence"))
+        if evidence is None:
+            continue
+        for raw_item in evidence:
+            item = _json_mapping_or_none(raw_item)
+            if item is None:
+                continue
+            key = _json_mapping_or_none(item.get("key"))
+            if key is None:
+                continue
+            site = _json_mapping_or_none(key.get("site"))
+            if site is None:
+                continue
+            mapped_path = str(site.get("path", "") or "")
+            if mapped_path:
+                mapped_site_paths.add(mapped_path)
     mapped_paths = {
         path
         for path in changed_code_paths
-        if path in {str((item.get("key") or {}).get("site", {}).get("path", "")) for entry in tests if isinstance(entry, Mapping) for item in (entry.get("evidence") if isinstance(entry.get("evidence"), list) else []) if isinstance(item, Mapping) and isinstance(item.get("key"), Mapping)}
+        if path in mapped_site_paths
     }
     path_coverage = 1.0 if not changed_code_paths else len(mapped_paths) / len(changed_code_paths)
     test_signal = 1.0 if impacted else 0.0

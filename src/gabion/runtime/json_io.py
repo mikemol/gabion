@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Mapping
 
 from gabion.order_contract import enforce_ordered, sort_once
+from gabion.runtime_shape_dispatch import (
+    json_list_or_none as _json_list_or_none,
+    json_mapping_or_none as _json_mapping_or_none,
+)
 
 
 def canonicalize_json(value: object) -> object:
-    if isinstance(value, Mapping):
+    mapping_value = _json_mapping_or_none(value)
+    if mapping_value is not None:
         normalized_items = [
             (str(key), canonicalize_json(item_value))
-            for key, item_value in value.items()
+            for key, item_value in mapping_value.items()
         ]
         ordered_items = sort_once(
             normalized_items,
@@ -23,8 +27,9 @@ def canonicalize_json(value: object) -> object:
             key: item_value
             for key, item_value in ordered_items
         }
-    if isinstance(value, list):
-        return [canonicalize_json(item) for item in value]
+    list_value = _json_list_or_none(value)
+    if list_value is not None:
+        return [canonicalize_json(item) for item in list_value]
     return value
 
 
@@ -39,10 +44,12 @@ def load_json_object_path(
         payload = json.loads(path.read_text(encoding=encoding))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
-    if not isinstance(payload, Mapping):
+    payload_mapping = _json_mapping_or_none(payload)
+    if payload_mapping is None:
         return {}
-    canonical = canonicalize_json(payload)
-    return canonical if isinstance(canonical, dict) else {}
+    canonical = canonicalize_json(payload_mapping)
+    canonical_mapping = _json_mapping_or_none(canonical)
+    return canonical_mapping if canonical_mapping is not None else {}
 
 
 def load_json_object_text(text: str) -> dict[str, object]:
@@ -50,10 +57,12 @@ def load_json_object_text(text: str) -> dict[str, object]:
         payload = json.loads(text)
     except (TypeError, ValueError, json.JSONDecodeError):
         return {}
-    if not isinstance(payload, Mapping):
+    payload_mapping = _json_mapping_or_none(payload)
+    if payload_mapping is None:
         return {}
-    canonical = canonicalize_json(payload)
-    return canonical if isinstance(canonical, dict) else {}
+    canonical = canonicalize_json(payload_mapping)
+    canonical_mapping = _json_mapping_or_none(canonical)
+    return canonical_mapping if canonical_mapping is not None else {}
 
 
 def dump_json_pretty(payload: object) -> str:
@@ -62,8 +71,9 @@ def dump_json_pretty(payload: object) -> str:
 
 
 def enforce_json_ordered(value: object, *, source: str) -> object:
-    if isinstance(value, Mapping):
-        normalized_items = [(str(key), value[key]) for key in value]
+    mapping_value = _json_mapping_or_none(value)
+    if mapping_value is not None:
+        normalized_items = [(str(key), mapping_value[key]) for key in mapping_value]
         ordered_items = enforce_ordered(
             normalized_items,
             source=f"{source}.mapping_items",
@@ -74,6 +84,7 @@ def enforce_json_ordered(value: object, *, source: str) -> object:
             key: enforce_json_ordered(item_value, source=f"{source}.{key}")
             for key, item_value in ordered_items
         }
-    if isinstance(value, list):
-        return [enforce_json_ordered(item, source=f"{source}.list_item") for item in value]
+    list_value = _json_list_or_none(value)
+    if list_value is not None:
+        return [enforce_json_ordered(item, source=f"{source}.list_item") for item in list_value]
     return value

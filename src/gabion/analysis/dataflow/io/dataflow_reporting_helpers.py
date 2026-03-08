@@ -22,6 +22,11 @@ from gabion.analysis.projection.projection_normalize import spec_hash as project
 from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_SPEC
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import (
+    json_list_or_none as _json_list_or_none,
+    json_mapping_or_none as _json_mapping_or_none,
+    str_or_none as _str_or_none,
+)
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 
@@ -61,15 +66,13 @@ def _raw_sorted_callsite_counts(
                 locations: list[tuple[int, int]] = []
                 for node in ast.walk(outcome.tree):
                     check_deadline()
-                    if type(node) is ast.Call:
-                        call_node = cast(ast.Call, node)
-                        if (
-                            type(call_node.func) is ast.Name
-                            and cast(ast.Name, call_node.func).id == "sorted"
-                        ):
+                    match node:
+                        case ast.Call(func=ast.Name(id="sorted")) as call_node:
                             line = int(getattr(call_node, "lineno", 1))
                             col = int(getattr(call_node, "col_offset", 0)) + 1
                             locations.append((line, col))
+                        case _:
+                            pass
                 if locations:
                     counts[_raw_sorted_baseline_key(path)] = locations
     return counts
@@ -361,15 +364,11 @@ def _format_span_fields(
 
 
 def _span4(value: object) -> tuple[object, object, object, object]:
-    if type(value) is list:
-        entries = cast(list[object], value)
-        if len(entries) >= 4:
-            return (entries[0], entries[1], entries[2], entries[3])
-    if type(value) is tuple:
-        entries = cast(tuple[object, ...], value)
-        if len(entries) >= 4:
-            return (entries[0], entries[1], entries[2], entries[3])
-    return (-1, -1, -1, -1)
+    match value:
+        case [a, b, c, d, *_]:
+            return (a, b, c, d)
+        case _:
+            return (-1, -1, -1, -1)
 
 
 def summarize_never_invariants(entries: list[JSONObject]) -> list[str]:
@@ -416,8 +415,6 @@ def summarize_call_ambiguities(entries: list[JSONObject]) -> list[str]:
     normalized: list[JSONObject] = []
     for entry in entries:
         check_deadline()
-        if type(entry) is not dict:
-            continue
         kind = str(entry.get("kind", "") or "unknown")
         counts[kind] = counts.get(kind, 0) + 1
         normalized.append(entry)
@@ -552,10 +549,12 @@ def summarize_runtime_obligations(entries: list[JSONObject]) -> list[str]:
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
         section_part = ""
-        if type(section_id) is str and section_id:
+        section_text = _str_or_none(section_id)
+        if section_text:
             section_part = f" section={section_id}"
         phase_part = ""
-        if type(phase) is str and phase:
+        phase_text = _str_or_none(phase)
+        if phase_text:
             phase_part = f" phase={phase}"
         line = f"{status} {contract} {kind}{section_part}{phase_part}".strip()
         if detail:
@@ -597,9 +596,10 @@ def summarize_parse_failure_witnesses(entries: list[JSONObject]) -> list[str]:
 
 
 def _str_tuple_from_sequence(value: object) -> tuple[str, ...]:
-    if type(value) is not list:
+    entries = _json_list_or_none(value)
+    if entries is None:
         return tuple()
-    return tuple(str(item) for item in cast(list[object], value))
+    return tuple(str(item) for item in entries)
 
 
 def summarize_fingerprint_provenance(entries: list[JSONObject]) -> list[str]:

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from functools import singledispatch
 from pathlib import Path
 from typing import Any, Mapping
 
+from gabion.invariants import never
 from gabion.json_types import JSONObject
 
 
@@ -58,26 +60,49 @@ class ExecutionPlan:
 
 
 # gabion:decision_protocol
-def _to_plain_json_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {
-            str(key): _to_plain_json_value(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_to_plain_json_value(item) for item in value]
-    if isinstance(value, tuple):
-        return [_to_plain_json_value(item) for item in value]
-    if isinstance(value, set):
-        return [
-            _to_plain_json_value(item)
-            for item in sorted(value, key=repr)
-        ]
-    if isinstance(value, Path):
-        return str(value)
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
+@singledispatch
+def _to_plain_json_value(value: object) -> object:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_to_plain_json_value.register(dict)
+def _(value: dict[object, object]) -> object:
+    return {
+        str(key): _to_plain_json_value(item)
+        for key, item in value.items()
+    }
+
+
+@_to_plain_json_value.register(list)
+def _(value: list[object]) -> object:
+    return [_to_plain_json_value(item) for item in value]
+
+
+@_to_plain_json_value.register(tuple)
+def _(value: tuple[object, ...]) -> object:
+    return [_to_plain_json_value(item) for item in value]
+
+
+@_to_plain_json_value.register(set)
+def _(value: set[object]) -> object:
+    return [
+        _to_plain_json_value(item)
+        for item in sorted(value, key=repr)
+    ]
+
+
+@_to_plain_json_value.register(Path)
+def _(value: Path) -> object:
     return str(value)
+
+
+@_to_plain_json_value.register(type(None))
+@_to_plain_json_value.register(str)
+@_to_plain_json_value.register(int)
+@_to_plain_json_value.register(float)
+@_to_plain_json_value.register(bool)
+def _(value: object) -> object:
+    return value
 
 
 def write_execution_plan_artifact(

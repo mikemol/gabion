@@ -9,6 +9,10 @@ import sys
 from typing import Any, Callable
 
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.runtime_shape_dispatch import (
+    json_list_or_none as _json_list_or_none,
+    json_mapping_or_none as _json_mapping_or_none,
+)
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
 _DEFAULT_TIMEOUT_TICKS = 120_000
@@ -255,32 +259,34 @@ def _decode_json_dict(payload: str) -> dict[str, Any]:
         parsed = json.loads(payload)
     except json.JSONDecodeError:
         return {}
-    if not isinstance(parsed, dict):
+    parsed_mapping = _json_mapping_or_none(parsed)
+    if parsed_mapping is None:
         return {}
-    return parsed
+    return parsed_mapping
 
 
 # gabion:boundary_normalization
 def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
-    raw_jobs = run_payload.get("jobs")
-    if not isinstance(raw_jobs, list):
+    raw_jobs = _json_list_or_none(run_payload.get("jobs"))
+    if raw_jobs is None:
         return []
     failed: list[dict[str, Any]] = []
     for raw_job in raw_jobs:
         check_deadline()
-        if not isinstance(raw_job, dict):
+        job_payload = _json_mapping_or_none(raw_job)
+        if job_payload is None:
             continue
-        conclusion = raw_job.get("conclusion")
+        conclusion = job_payload.get("conclusion")
         if conclusion != "failure":
             continue
         failed.append(
             {
-                "databaseId": raw_job.get("databaseId"),
-                "name": raw_job.get("name"),
-                "status": raw_job.get("status"),
+                "databaseId": job_payload.get("databaseId"),
+                "name": job_payload.get("name"),
+                "status": job_payload.get("status"),
                 "conclusion": conclusion,
-                "url": raw_job.get("url"),
+                "url": job_payload.get("url"),
             }
         )
     return failed
@@ -289,33 +295,35 @@ def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
 # gabion:boundary_normalization
 def _failed_steps(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
-    raw_jobs = run_payload.get("jobs")
-    if not isinstance(raw_jobs, list):
+    raw_jobs = _json_list_or_none(run_payload.get("jobs"))
+    if raw_jobs is None:
         return []
     failed_steps: list[dict[str, Any]] = []
     for raw_job in raw_jobs:
         check_deadline()
-        if not isinstance(raw_job, dict):
+        job_payload = _json_mapping_or_none(raw_job)
+        if job_payload is None:
             continue
-        job_name = raw_job.get("name")
-        raw_steps = raw_job.get("steps")
-        if not isinstance(raw_steps, list):
+        job_name = job_payload.get("name")
+        raw_steps = _json_list_or_none(job_payload.get("steps"))
+        if raw_steps is None:
             continue
         for raw_step in raw_steps:
             check_deadline()
-            if not isinstance(raw_step, dict):
+            step_payload = _json_mapping_or_none(raw_step)
+            if step_payload is None:
                 continue
-            if raw_step.get("conclusion") != "failure":
+            if step_payload.get("conclusion") != "failure":
                 continue
             failed_steps.append(
                 {
                     "job_name": job_name,
-                    "job_databaseId": raw_job.get("databaseId"),
-                    "step_number": raw_step.get("number"),
-                    "step_name": raw_step.get("name"),
-                    "status": raw_step.get("status"),
-                    "conclusion": raw_step.get("conclusion"),
-                    "job_url": raw_job.get("url"),
+                    "job_databaseId": job_payload.get("databaseId"),
+                    "step_number": step_payload.get("number"),
+                    "step_name": step_payload.get("name"),
+                    "status": step_payload.get("status"),
+                    "conclusion": step_payload.get("conclusion"),
+                    "job_url": job_payload.get("url"),
                 }
             )
     return failed_steps

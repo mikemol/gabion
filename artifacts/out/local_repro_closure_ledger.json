@@ -4742,6 +4742,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2T",
+      "summary": "Batch strict-dispatch lift for shared payload decoding carriers and resume/runtime guard surfaces across runtime/tooling modules with boundary_order/json_io/plan hardening.",
+      "timestamp_utc": "2026-03-08T12:17:57Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 291,
+        "fiber_type_dispatch_contract": 253,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7118,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 196,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7819,
+      "total_after": 7790,
+      "notes": [
+        "Converted hotspot guard ladders to shared singledispatch ingress helpers in boundary_order, json_io, ci_watch, run_dataflow_stage, impact_select_tests, and typing_surface_rule.",
+        "Strictified dataflow reporting helper and key_aliases dispatch paths, including dynamic non-tuple registration for node-id runtime keys to avoid never() false positives.",
+        "Converted plan JSON normalization to strict singledispatch with never() base and updated root-plan tests to assert NeverThrown for unregistered runtime types.",
+        "Global fiber_type_dispatch_contract reduced from 253 to 196 (delta -57)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_batch": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "updated_artifact"
+      }
     }
   ],
   "generated_by": "codex",
