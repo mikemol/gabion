@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from functools import singledispatch
 from pathlib import Path
 from typing import Callable, cast
 
@@ -18,12 +19,100 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_dataclass_registry,
 )
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_signature_metadata
 from gabion.analysis.foundation.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
+
+_NONE_TYPE = type(None)
+
+
+@singledispatch
+def _is_json_object(value: JSONValue) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_json_object.register(dict)
+def _(value: JSONObject) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_json_object(value: JSONValue) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _is_json_object.register(_runtime_type)(_is_not_json_object)
+
+
+@singledispatch
+def _json_object_value(value: JSONValue) -> JSONObject:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_json_object_value.register(dict)
+def _(value: JSONObject) -> JSONObject:
+    return value
+
+
+@singledispatch
+def _is_json_list(value: JSONValue) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_json_list.register(list)
+def _(value: list[JSONValue]) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_json_list(value: JSONValue) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
+    _is_json_list.register(_runtime_type)(_is_not_json_list)
+
+
+@singledispatch
+def _json_list_value(value: JSONValue) -> list[JSONValue]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_json_list_value.register(list)
+def _(value: list[JSONValue]) -> list[JSONValue]:
+    return value
+
+
+@singledispatch
+def _is_string_value(value: JSONValue) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_string_value.register(str)
+def _(value: str) -> bool:
+    _ = value
+    return True
+
+
+for _runtime_type in (list, tuple, set, dict, int, float, bool, _NONE_TYPE):
+    _is_string_value.register(_runtime_type)(_is_not_json_list)
+
+
+@singledispatch
+def _string_value(value: JSONValue) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_value.register(str)
+def _(value: str) -> str:
+    return value
 
 
 def build_analysis_collection_resume_seed(
@@ -56,7 +145,7 @@ def compute_structure_reuse(
         min_count = 2
     files = snapshot.get("files") or []
     root_value = snapshot.get("root")
-    root_path = Path(root_value) if type(root_value) is str else None
+    root_path = Path(_string_value(root_value)) if _is_string_value(root_value) else None
     bundle_name_map: dict[tuple[str, ...], set[str]] = {}
     if root_path is not None and root_path.exists():
         bundle_name_map = _bundle_name_registry(root_path)
@@ -113,54 +202,57 @@ def compute_structure_reuse(
     file_hashes: list[str] = []
     for file_entry in files:
         check_deadline()
-        if type(file_entry) is not dict:
-            continue
-        file_entry_obj = cast(JSONObject, file_entry)
-        file_path = file_entry_obj.get("path")
-        if type(file_path) is not str:
-            continue
-        function_hashes: list[str] = []
-        functions = file_entry_obj.get("functions") or []
-        for fn_entry in functions:
-            check_deadline()
-            if type(fn_entry) is not dict:
-                continue
-            fn_entry_obj = cast(JSONObject, fn_entry)
-            fn_name = fn_entry_obj.get("name")
-            if type(fn_name) is not str:
-                continue
-            bundle_hashes: list[str] = []
-            bundles = fn_entry_obj.get("bundles") or []
-            for bundle in bundles:
-                check_deadline()
-                if type(bundle) is not list:
-                    continue
-                bundle_items = cast(list[object], bundle)
-                normalized = tuple(
-                    sort_once(
-                        (str(item) for item in bundle_items),
-                        source="dataflow_structure_reuse.compute_structure_reuse.bundle",
-                    )
+        if _is_json_object(file_entry):
+            file_entry_obj = _json_object_value(file_entry)
+            file_path = file_entry_obj.get("path")
+            if _is_string_value(file_path):
+                file_path_text = _string_value(file_path)
+                function_hashes: list[str] = []
+                functions = file_entry_obj.get("functions") or []
+                function_entries = (
+                    _json_list_value(functions) if _is_json_list(functions) else []
                 )
-                bundle_hash = hasher("bundle", normalized, [])
-                bundle_hashes.append(bundle_hash)
-                _record(
-                    node_hash=bundle_hash,
-                    kind="bundle",
-                    location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
-                    value=list(normalized),
-                )
-            fn_hash = hasher("function", None, bundle_hashes)
-            function_hashes.append(fn_hash)
-            _record(
-                node_hash=fn_hash,
-                kind="function",
-                location=f"{file_path}::{fn_name}",
-                child_count=len(bundle_hashes),
-            )
-        file_hash = hasher("file", None, function_hashes)
-        file_hashes.append(file_hash)
-        _record(node_hash=file_hash, kind="file", location=f"{file_path}")
+                for fn_entry in function_entries:
+                    check_deadline()
+                    if _is_json_object(fn_entry):
+                        fn_entry_obj = _json_object_value(fn_entry)
+                        fn_name = fn_entry_obj.get("name")
+                        if _is_string_value(fn_name):
+                            fn_name_text = _string_value(fn_name)
+                            bundle_hashes: list[str] = []
+                            bundles = fn_entry_obj.get("bundles") or []
+                            bundle_entries = (
+                                _json_list_value(bundles) if _is_json_list(bundles) else []
+                            )
+                            for bundle in bundle_entries:
+                                check_deadline()
+                                if _is_json_list(bundle):
+                                    bundle_items = _json_list_value(bundle)
+                                    normalized = tuple(
+                                        sort_once(
+                                            (str(item) for item in bundle_items),
+                                            source="dataflow_structure_reuse.compute_structure_reuse.bundle",
+                                        )
+                                    )
+                                    bundle_hash = hasher("bundle", normalized, [])
+                                    bundle_hashes.append(bundle_hash)
+                                    _record(
+                                        node_hash=bundle_hash,
+                                        kind="bundle",
+                                        location=f"{file_path_text}::{fn_name_text}::bundle:{','.join(normalized)}",
+                                        value=list(normalized),
+                                    )
+                            fn_hash = hasher("function", None, bundle_hashes)
+                            function_hashes.append(fn_hash)
+                            _record(
+                                node_hash=fn_hash,
+                                kind="function",
+                                location=f"{file_path_text}::{fn_name_text}",
+                                child_count=len(bundle_hashes),
+                            )
+                file_hash = hasher("file", None, function_hashes)
+                file_hashes.append(file_hash)
+                _record(node_hash=file_hash, kind="file", location=f"{file_path_text}")
 
     root_hash = hasher("root", None, file_hashes)
     _record(
@@ -280,92 +372,98 @@ def compute_structure_reuse(
     for entry in reused:
         check_deadline()
         kind = entry.get("kind")
-        if kind not in {"bundle", "function"}:
-            continue
-        count = int(entry.get("count", 0))
-        hash_value = entry.get("hash")
-        if type(hash_value) is not str or not hash_value:
-            continue
-        suggestion: JSONObject = {
-            "hash": hash_value,
-            "kind": kind,
-            "count": count,
-            "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
-            "locations": entry.get("locations", []),
-            "aspf_structure_class": entry.get("aspf_structure_class"),
-            "canonical_identity_contract": {
-                "identity_kind": "canonical_aspf_structure_class_equivalence",
-                "representative": hash_value,
-            },
-        }
-        if "value" in entry:
-            suggestion["value"] = entry.get("value")
-        if "child_count" in entry:
-            suggestion["child_count"] = entry.get("child_count")
-        if kind == "bundle" and "value" in entry:
-            value = entry.get("value")
-            key = tuple(
-                sort_once(
-                    (str(item) for item in cast(list[object], value)),
-                    source="dataflow_structure_reuse.compute_structure_reuse.bundle_name_key",
-                )
-            )
-            name_candidates = bundle_name_map.get(key)
-            if name_candidates:
-                sorted_names = sort_once(
-                    name_candidates,
-                    source="dataflow_structure_reuse.compute_structure_reuse.bundle_name_candidates",
-                )
-                if len(sorted_names) == 1:
-                    suggestion["suggested_name"] = sorted_names[0]
-                    suggestion["name_source"] = "declared_bundle"
-                else:
-                    suggestion["name_candidates"] = sorted_names
-            else:
-                warnings.append(f"Missing declared bundle name for {list(key)}")
-        suggestion["witness_obligations"] = [
-            {
-                "kind": "reuse_suggestion_site",
-                "required": True,
-                "witness_ref": str(location),
-            }
-            for location in sequence_or_none(suggestion.get("locations")) or ()
-            if type(location) is str
-        ]
-        suggestion["witness_obligations"].append(
-            {
-                "kind": "aspf_structure_class_equivalence",
-                "required": True,
-                "witness_ref": f"aspf:{hash_value}",
-                "aspf_structure_class": suggestion.get("aspf_structure_class"),
-                "canonical_identity_contract": suggestion.get(
-                    "canonical_identity_contract"
-                ),
-            }
-        )
-        suggestion["witness_obligations"].append(
-            {
-                "kind": "aspf_structure_class_coherence",
-                "required": True,
-                "witness_ref": f"aspf:coherence:{hash_value}",
-                "coherence_ref": f"aspf:{hash_value}",
-            }
-        )
-        suggestion["aspf_witness_requirements"] = {
-            "equivalence": {
-                "kind": "aspf_structure_class_equivalence",
-                "witness_ref": f"aspf:{hash_value}",
-            },
-            "coherence": {
-                "kind": "aspf_structure_class_coherence",
-                "witness_ref": f"aspf:coherence:{hash_value}",
-                "coherence_ref": f"aspf:{hash_value}",
-            },
-        }
-        suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
-            suggestion=suggestion
-        )
-        suggested.append(suggestion)
+        if kind in {"bundle", "function"}:
+            count = int(entry.get("count", 0))
+            hash_value = entry.get("hash")
+            if _is_string_value(hash_value):
+                hash_text = _string_value(hash_value)
+                if hash_text:
+                    suggestion: JSONObject = {
+                        "hash": hash_text,
+                        "kind": kind,
+                        "count": count,
+                        "suggested_name": f"_gabion_{kind}_lemma_{hash_text[:8]}",
+                        "locations": entry.get("locations", []),
+                        "aspf_structure_class": entry.get("aspf_structure_class"),
+                        "canonical_identity_contract": {
+                            "identity_kind": "canonical_aspf_structure_class_equivalence",
+                            "representative": hash_text,
+                        },
+                    }
+                    if "value" in entry:
+                        suggestion["value"] = entry.get("value")
+                    if "child_count" in entry:
+                        suggestion["child_count"] = entry.get("child_count")
+                    if kind == "bundle" and "value" in entry:
+                        value = entry.get("value")
+                        if _is_json_list(value):
+                            key = tuple(
+                                sort_once(
+                                    (
+                                        str(item)
+                                        for item in _json_list_value(value)
+                                    ),
+                                    source="dataflow_structure_reuse.compute_structure_reuse.bundle_name_key",
+                                )
+                            )
+                            name_candidates = bundle_name_map.get(key)
+                            if name_candidates:
+                                sorted_names = sort_once(
+                                    name_candidates,
+                                    source="dataflow_structure_reuse.compute_structure_reuse.bundle_name_candidates",
+                                )
+                                if len(sorted_names) == 1:
+                                    suggestion["suggested_name"] = sorted_names[0]
+                                    suggestion["name_source"] = "declared_bundle"
+                                else:
+                                    suggestion["name_candidates"] = sorted_names
+                            else:
+                                warnings.append(
+                                    f"Missing declared bundle name for {list(key)}"
+                                )
+                    suggestion["witness_obligations"] = [
+                        {
+                            "kind": "reuse_suggestion_site",
+                            "required": True,
+                            "witness_ref": str(location),
+                        }
+                        for location in sequence_or_none(suggestion.get("locations")) or ()
+                        if type(location) is str
+                    ]
+                    suggestion["witness_obligations"].append(
+                        {
+                            "kind": "aspf_structure_class_equivalence",
+                            "required": True,
+                            "witness_ref": f"aspf:{hash_text}",
+                            "aspf_structure_class": suggestion.get("aspf_structure_class"),
+                            "canonical_identity_contract": suggestion.get(
+                                "canonical_identity_contract"
+                            ),
+                        }
+                    )
+                    suggestion["witness_obligations"].append(
+                        {
+                            "kind": "aspf_structure_class_coherence",
+                            "required": True,
+                            "witness_ref": f"aspf:coherence:{hash_text}",
+                            "coherence_ref": f"aspf:{hash_text}",
+                        }
+                    )
+                    suggestion["aspf_witness_requirements"] = {
+                        "equivalence": {
+                            "kind": "aspf_structure_class_equivalence",
+                            "witness_ref": f"aspf:{hash_text}",
+                        },
+                        "coherence": {
+                            "kind": "aspf_structure_class_coherence",
+                            "witness_ref": f"aspf:coherence:{hash_text}",
+                            "coherence_ref": f"aspf:{hash_text}",
+                        },
+                    }
+                    suggestion["rewrite_plan_artifact"] = _build_suggested_plan_artifact(
+                        suggestion=suggestion
+                    )
+                    suggested.append(suggestion)
 
     replacement_map = _build_reuse_replacement_map(suggested)
     reuse_payload: JSONObject = {
@@ -406,22 +504,22 @@ def _build_reuse_replacement_map(
 ) -> dict[str, list[dict[str, object]]]:
     replacement_map: dict[str, list[dict[str, object]]] = {}
     for suggestion_raw in suggested:
-        if type(suggestion_raw) is not dict:
-            continue
-        suggestion = suggestion_raw
-        locations = suggestion.get("locations") or []
-        if type(locations) is not list:
-            continue
-        for location in locations:
-            if type(location) is not str:
-                continue
-            replacement_map.setdefault(location, []).append(
-                {
-                    "kind": suggestion.get("kind"),
-                    "hash": suggestion.get("hash"),
-                    "suggested_name": suggestion.get("suggested_name"),
-                }
+        if _is_json_object(suggestion_raw):
+            suggestion = _json_object_value(suggestion_raw)
+            locations = suggestion.get("locations") or []
+            location_items = (
+                _json_list_value(locations) if _is_json_list(locations) else []
             )
+            for location in location_items:
+                if _is_string_value(location):
+                    location_text = _string_value(location)
+                    replacement_map.setdefault(location_text, []).append(
+                        {
+                            "kind": suggestion.get("kind"),
+                            "hash": suggestion.get("hash"),
+                            "suggested_name": suggestion.get("suggested_name"),
+                        }
+                    )
     return replacement_map
 
 
