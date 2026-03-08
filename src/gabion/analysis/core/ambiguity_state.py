@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -80,7 +79,7 @@ def _normalize_witnesses(
     )
 
 
-def _witness_sort_key(entry: Mapping[str, object]) -> tuple[object, ...]:
+def _witness_sort_key(entry: Mapping[str, JSONValue]) -> tuple[object, ...]:
     kind = str(entry.get("kind", "") or "")
     site = mapping_or_empty(entry.get("site", {}))
     path = str(site.get("path", "") or "")

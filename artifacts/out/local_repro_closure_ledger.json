@@ -2761,6 +2761,62 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_server_execute_command_cases_edges_parity": "pass"
       }
+    },
+    {
+      "cu_id": "CU-PM0-B1",
+      "summary": "Global marker purge foundation batch 1: remove decision/boundary marker comments from first 25 alphabetical src files and publish deterministic marker inventory snapshot.",
+      "timestamp_utc": "2026-03-08T01:18:29Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 555,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "marker_inventory": {
+        "file": "out/scout/marker_inventory_head.json",
+        "marker_files_before_count": 274,
+        "marker_files_after_count": 249,
+        "batch_size": 25
+      },
+      "total_before": 1114,
+      "total_after": 1669,
+      "notes": [
+        "Purged marker text only (`gabion:decision_protocol_module`, `gabion:boundary_normalization_module`) from the first deterministic alphabetical batch of 25 src files.",
+        "Published deterministic before/after inventory plus batch membership in out/scout/marker_inventory_head.json.",
+        "Workflows check fallout from marker removal in ambiguity_state was repaired by strictifying non-boundary helper signature payload typing."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",
