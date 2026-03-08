@@ -90,6 +90,7 @@ def serialize_function_info_for_resume(
 class DeserializeFunctionInfoForResumeDeps:
     sequence_or_none_fn: Callable[..., object]
     str_list_from_sequence_fn: Callable[..., list[str]]
+    str_or_none_fn: Callable[..., object]
     mapping_or_empty_fn: Callable[..., Mapping[str, JSONValue]]
     check_deadline_fn: Callable[[], None]
     deserialize_call_args_list_fn: Callable[..., list[object]]
@@ -105,15 +106,15 @@ def deserialize_function_info_for_resume(
     allowed_paths: Mapping[str, Path],
     deps: DeserializeFunctionInfoForResumeDeps,
 ) -> object:
-    name = payload.get("name")
-    qual = payload.get("qual")
-    path_key = payload.get("path")
+    name = deps.str_or_none_fn(payload.get("name"))
+    qual = deps.str_or_none_fn(payload.get("qual"))
+    path_key = deps.str_or_none_fn(payload.get("path"))
     raw_params = payload.get("params")
     params_payload_raw = deps.sequence_or_none_fn(raw_params)
-    path = allowed_paths.get(path_key) if type(path_key) is str else None
+    path = allowed_paths.get(path_key) if path_key is not None else None
     if (
-        type(name) is str
-        and type(qual) is str
+        name is not None
+        and qual is not None
         and path is not None
         and params_payload_raw is not None
     ):
@@ -123,8 +124,10 @@ def deserialize_function_info_for_resume(
         annots: dict[str, JSONValue] = {}
         for param, annot in deps.mapping_or_empty_fn(raw_annots).items():
             deps.check_deadline_fn()
-            if type(param) is str and (annot is None or type(annot) is str):
-                annots[param] = annot
+            param_text = deps.str_or_none_fn(param)
+            annot_text = deps.str_or_none_fn(annot)
+            if param_text is not None and (annot is None or annot_text is not None):
+                annots[param_text] = annot if annot is None else annot_text
         raw_calls = payload.get("calls")
         raw_calls_payload = cast(
             Sequence[JSONValue],
@@ -134,8 +137,7 @@ def deserialize_function_info_for_resume(
         unused_params = deps.str_set_from_sequence_fn(payload.get("unused_params"))
         unknown_key_carriers = deps.str_set_from_sequence_fn(payload.get("unknown_key_carriers"))
         defaults = deps.str_set_from_sequence_fn(payload.get("defaults"))
-        raw_class_name = payload.get("class_name")
-        class_name = raw_class_name if type(raw_class_name) is str else None
+        class_name = deps.str_or_none_fn(payload.get("class_name"))
         scope = deps.str_tuple_from_sequence_fn(payload.get("scope"))
         lexical_scope = deps.str_tuple_from_sequence_fn(payload.get("lexical_scope"))
         decision_params = deps.str_set_from_sequence_fn(payload.get("decision_params"))
@@ -144,25 +146,25 @@ def deserialize_function_info_for_resume(
             payload.get("decision_surface_reasons")
         ).items():
             deps.check_deadline_fn()
-            if type(param) is str:
+            param_text = deps.str_or_none_fn(param)
+            if param_text is not None:
                 reasons = deps.str_set_from_sequence_fn(raw_reasons)
                 if reasons:
-                    decision_surface_reasons[param] = reasons
+                    decision_surface_reasons[param_text] = reasons
         value_decision_params = deps.str_set_from_sequence_fn(payload.get("value_decision_params"))
         value_decision_reasons = deps.str_set_from_sequence_fn(payload.get("value_decision_reasons"))
         positional_params = deps.str_tuple_from_sequence_fn(payload.get("positional_params"))
         kwonly_params = deps.str_tuple_from_sequence_fn(payload.get("kwonly_params"))
-        raw_vararg = payload.get("vararg")
-        vararg = raw_vararg if type(raw_vararg) is str else None
-        raw_kwarg = payload.get("kwarg")
-        kwarg = raw_kwarg if type(raw_kwarg) is str else None
+        vararg = deps.str_or_none_fn(payload.get("vararg"))
+        kwarg = deps.str_or_none_fn(payload.get("kwarg"))
         param_spans: dict[str, tuple[int, int, int, int]] = {}
         for param, raw_span in deps.mapping_or_empty_fn(payload.get("param_spans")).items():
             deps.check_deadline_fn()
-            if type(param) is str:
+            param_text = deps.str_or_none_fn(param)
+            if param_text is not None:
                 span = deps.int_tuple4_or_none_fn(raw_span)
                 if span is not None:
-                    param_spans[param] = cast(tuple[int, int, int, int], span)
+                    param_spans[param_text] = cast(tuple[int, int, int, int], span)
         function_span = deps.int_tuple4_or_none_fn(payload.get("function_span"))
         return deps.function_info_ctor(
             name=name,

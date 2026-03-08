@@ -81,6 +81,7 @@ from gabion.analysis.indexed_scan.state.symbol_table_resume import (
 )
 from gabion.invariants import NeverThrown, never
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import str_or_none
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
@@ -440,6 +441,7 @@ def _deserialize_function_info_for_resume(
         deps=DeserializeFunctionInfoForResumeDeps(
             sequence_or_none_fn=sequence_or_none,
             str_list_from_sequence_fn=str_list_from_sequence,
+            str_or_none_fn=str_or_none,
             mapping_or_empty_fn=mapping_or_empty,
             check_deadline_fn=check_deadline,
             deserialize_call_args_list_fn=_deserialize_call_args_list,

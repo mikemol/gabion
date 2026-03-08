@@ -4689,6 +4689,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2S",
+      "summary": "Shared strict-dispatch lift for payload-shape and resume-deserialization guards, applied to timeout deadline profile decode and function-info resume ingress.",
+      "timestamp_utc": "2026-03-08T12:02:10Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7105,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 267,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 291,
+        "fiber_type_dispatch_contract": 253,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7827,
+      "total_after": 7819,
+      "notes": [
+        "Lifted common payload-shape dispatch primitives into src/gabion/runtime_shape_dispatch.py with strict singledispatch bases and concrete runtime registrations.",
+        "Replaced timeout_context deadline-profile decoding type guards with shared dispatch ingress helpers (mapping/list/float/int routing), removing manual type-driven branches in the hotspot surface.",
+        "Replaced function_info_resume string key/value type checks with injected shared str_or_none dispatch; acceptance met for targeted hotspots: timeout_context 8->0 and function_info_resume 6->0, global fiber_type_dispatch_contract 267->253 (delta -14)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_timeout_context": "pass",
+        "targeted_pytest_dataflow_resume_payloads": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",
