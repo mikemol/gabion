@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import singledispatch
 from pathlib import Path
 from typing import Iterator, Mapping, Sequence, cast
 
@@ -24,6 +25,208 @@ _PARSE_MODULE_ERROR_TYPES = (
     MemoryError,
     RecursionError,
 )
+
+
+def _ast_leaf_node_types() -> tuple[type[ast.AST], ...]:
+    stack: list[type[ast.AST]] = [ast.AST]
+    leaves: set[type[ast.AST]] = set()
+    while stack:
+        node_type = stack.pop()
+        subclasses = tuple(
+            candidate
+            for candidate in node_type.__subclasses__()
+            if issubclass(candidate, ast.AST)
+        )
+        if subclasses:
+            stack.extend(subclasses)
+            continue
+        if node_type is not ast.AST:
+            leaves.add(node_type)
+    return tuple(
+        sort_once(
+            leaves,
+            source="pattern_schema_projection._ast_leaf_node_types",
+            key=lambda node_type: node_type.__name__,
+        )
+    )
+
+
+_AST_LEAF_NODE_TYPES = _ast_leaf_node_types()
+
+
+@singledispatch
+def _is_name_node(node: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_name_node.register(ast.Name)
+def _is_name_node_name(node: ast.Name) -> bool:
+    return True
+
+
+def _is_not_name_node(node: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Name:
+        continue
+    _is_name_node.register(_runtime_type)(_is_not_name_node)
+
+
+@singledispatch
+def _name_node_id(node: ast.AST) -> str:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_name_node_id.register(ast.Name)
+def _name_node_id_name(node: ast.Name) -> str:
+    return node.id
+
+
+@singledispatch
+def _is_attribute_node(node: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_attribute_node.register(ast.Attribute)
+def _is_attribute_node_attribute(node: ast.Attribute) -> bool:
+    return True
+
+
+def _is_not_attribute_node(node: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Attribute:
+        continue
+    _is_attribute_node.register(_runtime_type)(_is_not_attribute_node)
+
+
+@singledispatch
+def _attribute_node(node: ast.AST) -> ast.Attribute:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_attribute_node.register(ast.Attribute)
+def _attribute_node_attribute(node: ast.Attribute) -> ast.Attribute:
+    return node
+
+
+@singledispatch
+def _is_function_node(node: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_function_node.register(ast.FunctionDef)
+def _is_function_node_function(node: ast.FunctionDef) -> bool:
+    return True
+
+
+@_is_function_node.register(ast.AsyncFunctionDef)
+def _is_function_node_async_function(node: ast.AsyncFunctionDef) -> bool:
+    return True
+
+
+def _is_not_function_node(node: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
+        continue
+    _is_function_node.register(_runtime_type)(_is_not_function_node)
+
+
+@singledispatch
+def _function_node(node: ast.AST) -> FunctionNode:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_function_node.register(ast.FunctionDef)
+def _function_node_function(node: ast.FunctionDef) -> ast.FunctionDef:
+    return node
+
+
+@_function_node.register(ast.AsyncFunctionDef)
+def _function_node_async_function(node: ast.AsyncFunctionDef) -> ast.AsyncFunctionDef:
+    return node
+
+
+@singledispatch
+def _is_assign_node(node: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_assign_node.register(ast.Assign)
+def _is_assign_node_assign(node: ast.Assign) -> bool:
+    return True
+
+
+def _is_not_assign_node(node: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Assign:
+        continue
+    _is_assign_node.register(_runtime_type)(_is_not_assign_node)
+
+
+@singledispatch
+def _assign_node(node: ast.AST) -> ast.Assign:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_assign_node.register(ast.Assign)
+def _assign_node_assign(node: ast.Assign) -> ast.Assign:
+    return node
+
+
+@singledispatch
+def _is_call_node(node: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_call_node.register(ast.Call)
+def _is_call_node_call(node: ast.Call) -> bool:
+    return True
+
+
+def _is_not_call_node(node: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Call:
+        continue
+    _is_call_node.register(_runtime_type)(_is_not_call_node)
+
+
+@singledispatch
+def _call_node(node: ast.AST) -> ast.Call:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_call_node.register(ast.Call)
+def _call_node_call(node: ast.Call) -> ast.Call:
+    return node
+
+
+@singledispatch
+def _source_text_or_none(source: str | None) -> str | None:
+    never("unregistered runtime type", value_type=type(source).__name__)
+
+
+@_source_text_or_none.register(str)
+def _source_text_or_none_str(source: str) -> str:
+    return source
+
+
+@_source_text_or_none.register(type(None))
+def _source_text_or_none_none(source: None) -> None:
+    return None
 
 
 @dataclass(frozen=True)
@@ -344,19 +547,19 @@ def _function_param_names(node: FunctionNode) -> tuple[str, ...]:
 
 
 def _callable_name_variants(node: ast.AST) -> tuple[str, ...]:
-    if type(node) is ast.Name:
-        return (cast(ast.Name, node).id,)
-    if type(node) is not ast.Attribute:
+    if _is_name_node(node):
+        return (_name_node_id(node),)
+    if not _is_attribute_node(node):
         return ()
-    attribute = cast(ast.Attribute, node)
+    attribute = _attribute_node(node)
     parts: list[str] = [attribute.attr]
     cursor: ast.AST = attribute.value
-    while type(cursor) is ast.Attribute:
-        nested = cast(ast.Attribute, cursor)
+    while _is_attribute_node(cursor):
+        nested = _attribute_node(cursor)
         parts.append(nested.attr)
         cursor = nested.value
-    if type(cursor) is ast.Name:
-        parts.append(cast(ast.Name, cursor).id)
+    if _is_name_node(cursor):
+        parts.append(_name_node_id(cursor))
     dotted = ".".join(reversed(parts))
     return (attribute.attr, dotted)
 
@@ -365,32 +568,34 @@ def _iter_execution_function_facts(tree: ast.Module) -> Iterator[_ExecutionFunct
     for node_index, node in enumerate(tree.body, start=1):
         if node_index % 32 == 0:
             check_deadline()
-        if type(node) not in {ast.FunctionDef, ast.AsyncFunctionDef}:
+        if not _is_function_node(node):
             continue
-        function_node = cast(FunctionNode, node)
+        function_node = _function_node(node)
         param_names = frozenset(_function_param_names(function_node))
         alias_map: dict[str, tuple[str, ...]] = {}
         for statement_index, statement in enumerate(function_node.body, start=1):
             if statement_index % 32 == 0:
                 check_deadline()
-            if type(statement) is not ast.Assign or len(cast(ast.Assign, statement).targets) != 1:
+            if not _is_assign_node(statement):
                 continue
-            assign_node = cast(ast.Assign, statement)
+            assign_node = _assign_node(statement)
+            if len(assign_node.targets) != 1:
+                continue
             target = assign_node.targets[0]
-            if type(target) is not ast.Name:
+            if not _is_name_node(target):
                 continue
             variants = _callable_name_variants(assign_node.value)
             if not variants:
                 continue
-            alias_map[cast(ast.Name, target).id] = variants
+            alias_map[_name_node_id(target)] = variants
         called_names: set[str] = set()
         call_shapes: dict[str, set[_ExecutionCallShape]] = defaultdict(set)
         for index, child in enumerate(ast.walk(function_node), start=1):
             if index % 64 == 0:
                 check_deadline()
-            if type(child) is not ast.Call:
+            if not _is_call_node(child):
                 continue
-            call_node = cast(ast.Call, child)
+            call_node = _call_node(child)
             variants = _callable_name_variants(call_node.func)
             if not variants:
                 continue
@@ -502,7 +707,7 @@ def detect_execution_pattern_matches(
     source: object = None,
     source_path: Path | None = None,
 ) -> list[_ExecutionPatternMatch]:
-    source_text = source
+    source_text = _source_text_or_none(source)
     module_path = source_path or _default_execution_source_path()
     if source_text is None and source_path is None:
         source_text, module_path = _default_execution_source_blob()
@@ -511,8 +716,8 @@ def detect_execution_pattern_matches(
             source_text = module_path.read_text(encoding="utf-8")
         except OSError:
             return []
-    if type(source_text) is not str:
-        return []
+    if source_text is None:
+        never("unregistered runtime type", value_type=type(source).__name__)
     if not source_text.strip():
         return []
     try:
@@ -547,7 +752,7 @@ def execution_pattern_instances(
     source_path: Path | None = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    source_text = source
+    source_text = _source_text_or_none(source)
     module_path = source_path or _default_execution_source_path()
     if source_text is None and source_path is None:
         source_text, module_path = _default_execution_source_blob()
@@ -556,8 +761,8 @@ def execution_pattern_instances(
             source_text = module_path.read_text(encoding="utf-8")
         except OSError:
             return instances
-    if type(source_text) is not str:
-        return instances
+    if source_text is None:
+        never("unregistered runtime type", value_type=type(source).__name__)
     if not source_text.strip():
         return instances
     try:

@@ -4584,6 +4584,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2Q",
+      "summary": "Long-tail strict-dispatch conversion: pattern schema projection AST/source type-routing moved to singledispatch entrypoints with strict never(...) bases.",
+      "timestamp_utc": "2026-03-08T05:52:36Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7084,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 284,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 275,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7823,
+      "total_after": 7828,
+      "notes": [
+        "Replaced manual AST type-routing in _callable_name_variants and _iter_execution_function_facts with singledispatch predicates/accessors over concrete ast runtime classes.",
+        "Replaced source text type checks in detect_execution_pattern_matches/execution_pattern_instances with strict singledispatch ingress and never(...) invalid-type discharge.",
+        "Acceptance met: src/gabion/analysis/projection/pattern_schema_projection.py fiber_type_dispatch_contract 9->0 and global fiber_type_dispatch_contract 284->275 (delta -9)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_decision_snapshots_pattern_schema": "pass",
+        "targeted_pytest_dataflow_report_helpers_pattern_schema": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",
