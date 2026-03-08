@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Callable, Mapping, Sequence
-from typing import cast
+from dataclasses import dataclass
+from functools import singledispatch
 
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.marker_protocol import (
@@ -15,6 +16,129 @@ from gabion.analysis.foundation.marker_protocol import (
     normalize_marker_payload,
     resolve_marker_kind_for_profile,
 )
+from gabion.invariants import never
+
+
+@dataclass(frozen=True)
+class _StringLiteralCarrier:
+    is_string: bool
+    text: str
+
+
+def _not_string_literal(value: str) -> _StringLiteralCarrier:
+    _ = value
+    return _StringLiteralCarrier(is_string=False, text="")
+
+
+_EXPR_NODE_TYPES: tuple[type[ast.expr], ...] = (
+    ast.Attribute,
+    ast.Await,
+    ast.BinOp,
+    ast.BoolOp,
+    ast.Call,
+    ast.Compare,
+    ast.Constant,
+    ast.Dict,
+    ast.DictComp,
+    ast.FormattedValue,
+    ast.GeneratorExp,
+    ast.IfExp,
+    ast.Interpolation,
+    ast.JoinedStr,
+    ast.Lambda,
+    ast.List,
+    ast.ListComp,
+    ast.Name,
+    ast.NamedExpr,
+    ast.Set,
+    ast.SetComp,
+    ast.Slice,
+    ast.Starred,
+    ast.Subscript,
+    ast.TemplateStr,
+    ast.Tuple,
+    ast.UnaryOp,
+    ast.Yield,
+    ast.YieldFrom,
+)
+
+
+@singledispatch
+def _string_literal_from_constant_value(value: str) -> _StringLiteralCarrier:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_literal_from_constant_value.register
+def _(value: str) -> _StringLiteralCarrier:
+    return _StringLiteralCarrier(is_string=True, text=value)
+
+
+for _runtime_type in (int, float, complex, bool, bytes, tuple, frozenset, type(None)):
+    _string_literal_from_constant_value.register(_runtime_type)(_not_string_literal)
+
+
+@singledispatch
+def _string_literal_from_node(node: ast.AST) -> _StringLiteralCarrier:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_string_literal_from_node.register
+def _(node: ast.Constant) -> _StringLiteralCarrier:
+    return _string_literal_from_constant_value(node.value)
+
+
+def _string_literal_from_non_constant_node(node: ast.AST) -> _StringLiteralCarrier:
+    _ = node
+    return _StringLiteralCarrier(is_string=False, text="")
+
+
+for _node_type in _EXPR_NODE_TYPES:
+    if _node_type is not ast.Constant:
+        _string_literal_from_node.register(_node_type)(_string_literal_from_non_constant_node)
+
+
+@singledispatch
+def _list_elements_from_node(node: ast.AST) -> tuple[ast.AST, ...]:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_list_elements_from_node.register
+def _(node: ast.List) -> tuple[ast.AST, ...]:
+    return tuple(node.elts)
+
+
+def _list_elements_from_non_list_node(node: ast.AST) -> tuple[ast.AST, ...]:
+    _ = node
+    return ()
+
+
+for _node_type in _EXPR_NODE_TYPES:
+    if _node_type is not ast.List:
+        _list_elements_from_node.register(_node_type)(_list_elements_from_non_list_node)
+
+
+@singledispatch
+def _dict_items_from_node(node: ast.AST) -> tuple[tuple[ast.expr, ast.expr], ...]:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_dict_items_from_node.register
+def _(node: ast.Dict) -> tuple[tuple[ast.expr, ast.expr], ...]:
+    pairs: list[tuple[ast.expr, ast.expr]] = []
+    for raw_key, raw_value in zip(node.keys, node.values, strict=False):
+        if raw_key is not None:
+            pairs.append((raw_key, raw_value))
+    return tuple(pairs)
+
+
+def _dict_items_from_non_dict_node(node: ast.AST) -> tuple[tuple[ast.expr, ast.expr], ...]:
+    _ = node
+    return ()
+
+
+for _node_type in _EXPR_NODE_TYPES:
+    if _node_type is not ast.Dict:
+        _dict_items_from_node.register(_node_type)(_dict_items_from_non_dict_node)
 
 
 def keyword_string_literal(
@@ -28,10 +152,9 @@ def keyword_string_literal(
         check_deadline_fn()
         if kw.arg != key:
             continue
-        if type(kw.value) is ast.Constant:
-            value = cast(ast.Constant, kw.value).value
-            if type(value) is str:
-                return value
+        value_carrier = _string_literal_from_node(kw.value)
+        if value_carrier.is_string:
+            return value_carrier.text
     return ""
 
 
@@ -46,23 +169,20 @@ def keyword_links_literal(
         check_deadline_fn()
         if kw.arg != "links":
             continue
-        if type(kw.value) is not ast.List:
+        list_items = _list_elements_from_node(kw.value)
+        if not list_items:
             return []
         links: list[JSONObject] = []
-        for item in cast(ast.List, kw.value).elts:
+        for item in list_items:
             check_deadline_fn()
-            if type(item) is not ast.Dict:
-                continue
-            dict_node = cast(ast.Dict, item)
             payload: JSONObject = {}
-            for raw_key, raw_value in zip(dict_node.keys, dict_node.values, strict=False):
+            for raw_key, raw_value in _dict_items_from_node(item):
                 check_deadline_fn()
-                if type(raw_key) is not ast.Constant or type(raw_value) is not ast.Constant:
+                key_carrier = _string_literal_from_node(raw_key)
+                value_carrier = _string_literal_from_node(raw_value)
+                if not key_carrier.is_string or not value_carrier.is_string:
                     continue
-                key_value = cast(ast.Constant, raw_key).value
-                value_value = cast(ast.Constant, raw_value).value
-                if type(key_value) is str and type(value_value) is str:
-                    payload[key_value] = value_value
+                payload[key_carrier.text] = value_carrier.text
             kind = str(payload.get("kind", "")).strip()
             value = str(payload.get("value", "")).strip()
             if kind and value:
@@ -81,16 +201,17 @@ def never_reason(
     check_deadline_fn: Callable[[], None],
 ) -> object:
     check_deadline_fn()
-    if call.args and type(call.args[0]) is ast.Constant:
-        value = cast(ast.Constant, call.args[0]).value
-        if type(value) is str:
-            return value
+    if call.args:
+        arg_reason = _string_literal_from_node(call.args[0])
+        if arg_reason.is_string:
+            return arg_reason.text
     for kw in call.keywords:
         check_deadline_fn()
-        if kw.arg == "reason" and type(kw.value) is ast.Constant:
-            value = cast(ast.Constant, kw.value).value
-            if type(value) is str:
-                return value
+        if kw.arg != "reason":
+            continue
+        kw_reason = _string_literal_from_node(kw.value)
+        if kw_reason.is_string:
+            return kw_reason.text
     return None
 
 
