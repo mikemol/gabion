@@ -28,6 +28,7 @@ def _delta_options() -> check_contract.CheckDeltaOptions:
 
 
 # gabion:evidence E:function_site::tests/test_check_contract.py::test_check_aux_operation_validation_errors_cover_domain_action_and_baseline
+# gabion:behavior primary=verboten facets=error
 def test_check_aux_operation_validation_errors_cover_domain_action_and_baseline() -> None:
     with pytest.raises(typer.BadParameter):
         check_contract.CheckAuxOperation(domain="invalid", action="report").validate()
@@ -46,6 +47,7 @@ def test_check_aux_operation_validation_errors_cover_domain_action_and_baseline(
 
 
 # gabion:evidence E:function_site::tests/test_check_contract.py::test_check_aux_operation_to_payload_and_build_payload_aux_surface
+# gabion:behavior primary=desired
 def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
     aux = check_contract.CheckAuxOperation(
         domain="obsolescence",
@@ -87,6 +89,7 @@ def test_check_aux_operation_to_payload_and_build_payload_aux_surface() -> None:
 
 
 # gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
+# gabion:behavior primary=desired
 def test_check_aux_operation_accepts_taint_lifecycle_without_baseline() -> None:
     aux = check_contract.CheckAuxOperation(
         domain="taint",
@@ -95,10 +98,11 @@ def test_check_aux_operation_accepts_taint_lifecycle_without_baseline() -> None:
     payload = aux.to_payload()
     assert payload["domain"] == "taint"
     assert payload["action"] == "lifecycle"
-    assert payload["baseline_path"] is None
+    assert "baseline_path" not in payload
 
 
 # gabion:evidence E:function_site::check_contract.py::gabion.commands.check_contract.build_check_payload
+# gabion:behavior primary=desired
 def test_build_check_payload_includes_aspf_controls() -> None:
     payload = check_contract.build_check_payload(
         paths=[Path("sample.py")],
@@ -142,6 +146,7 @@ def test_build_check_payload_includes_aspf_controls() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_check_contract.py::test_lint_entries_decision_protocol_trichotomy
+# gabion:behavior primary=desired
 def test_lint_entries_decision_protocol_trichotomy() -> None:
     provided = check_contract.LintEntriesDecision.from_response(
         {"lint_entries": [{"path": "a.py", "line": 1, "col": 1, "code": "X", "message": "m"}], "lint_lines": ["ignored"]}
@@ -165,6 +170,7 @@ def test_lint_entries_decision_protocol_trichotomy() -> None:
     assert empty.normalize_entries(parse_lint_entry_fn=lambda _line: {"unused": True}) == []
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_check_aux_mode_validate_and_delta_option_properties_cover_edges() -> None:
     with pytest.raises(typer.BadParameter):
         check_contract.CheckAuxMode(kind="report").validate(
