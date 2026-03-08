@@ -121,6 +121,7 @@ def run(
         "no_monkeypatch",
         "branchless",
         "defensive_fallback",
+        "fiber_scalar_sentinel_contract",
         "no_legacy_monolith_import",
         "orchestrator_primitive_barrel",
         "typing_surface",

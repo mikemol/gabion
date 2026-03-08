@@ -42,6 +42,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert first.total_violations() > 0
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_scalar_sentinel_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
@@ -86,6 +87,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.cached is True
     assert normalized.violations_by_rule["branchless"] == []
     assert normalized.violations_by_rule["defensive_fallback"] == []
+    assert normalized.violations_by_rule["fiber_scalar_sentinel_contract"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
     assert normalized.violations_by_rule["no_legacy_monolith_import"] == []
     assert normalized.violations_by_rule["orchestrator_primitive_barrel"] == []
@@ -130,11 +132,13 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
                 "no_monkeypatch": {"bad": "shape"},
                 "branchless": [],
                 "defensive_fallback": [],
+                "fiber_scalar_sentinel_contract": [],
             }
         }
     )
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
+    assert normalized["fiber_scalar_sentinel_contract"] == []
     assert normalized["typing_surface"] == []
     assert normalized["runtime_narrowing_boundary"] == []
     assert normalized["aspf_normalization_idempotence"] == []
@@ -257,7 +261,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     )
     _write(
         root / "src/gabion/fallback_sample.py",
-        "def normalize(value):\n    if value is None:\n        return None\n    return value\n",
+        "def normalize(value):\n    if isinstance(value, str):\n        return None\n    return value\n",
     )
     _write(
         root / "baselines/branchless_policy_baseline.json",
@@ -307,10 +311,31 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
         )
         + "\n",
     )
+    _write(
+        root / "baselines/runtime_narrowing_boundary_policy_baseline.json",
+        json.dumps(
+            {
+                "version": 1,
+                "violations": [
+                    {
+                        "path": "src/gabion/fallback_sample.py",
+                        "line": 2,
+                        "column": 8,
+                        "qualname": "normalize",
+                        "kind": "isinstance_call",
+                        "call": "isinstance(value, str)",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+    )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
     assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []

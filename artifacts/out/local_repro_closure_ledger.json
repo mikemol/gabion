@@ -2612,6 +2612,55 @@
         "targeted_pytest_fiber_noop_block_audit_rule": "pass",
         "fiber_noop_block_audit": "fail_expected_nonzero"
       }
+    },
+    {
+      "cu_id": "CU-SCALAR1",
+      "summary": "Introduce fiber-based scalar/sentinel contract diagnostics for None-comparison sentinel control flow and None-emitting if-expressions.",
+      "timestamp_utc": "2026-03-08T00:16:00Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "fiber_scalar_sentinel_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "fiber_scalar_sentinel_contract": 270,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 86,
+      "total_after": 356,
+      "notes": [
+        "Added fiber_scalar_sentinel_contract_rule with end-to-end fiber trace payloads, applicability bounds, and counterfactual boundary diagnostics.",
+        "Rule scope is strict sentinel semantics: direct None guards that drive noop/sentinel control flow and if-expression arms that emit None.",
+        "Integrated rule into policy scanner serialization/hash/reporting and added targeted runtime-policy tests."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_fiber_scalar_sentinel_contract_rule": "pass",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",

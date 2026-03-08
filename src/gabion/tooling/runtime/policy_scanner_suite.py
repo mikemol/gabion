@@ -15,6 +15,7 @@ from gabion.tooling.policy_rules import (
     branchless_rule,
     defensive_fallback_rule,
     fiber_normalization_contract_rule,
+    fiber_scalar_sentinel_contract_rule,
     no_monkeypatch_rule,
     runtime_narrowing_boundary_rule,
     test_sleep_hygiene_rule,
@@ -333,6 +334,7 @@ def scan_policy_suite(
         "no_monkeypatch": [],
         "branchless": [],
         "defensive_fallback": [],
+        "fiber_scalar_sentinel_contract": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
         "typing_surface": [],
@@ -487,6 +489,17 @@ def scan_policy_suite(
                 violations_by_rule["defensive_fallback"].extend(
                     _serialize_defensive(item) for item in defensive_violations
                 )
+                scalar_sentinel_violations = (
+                    fiber_scalar_sentinel_contract_rule.collect_violations(
+                        rel_path=rel_path,
+                        source=source,
+                        tree=tree,
+                    )
+                )
+                violations_by_rule["fiber_scalar_sentinel_contract"].extend(
+                    _serialize_fiber_scalar_sentinel_contract(item)
+                    for item in scalar_sentinel_violations
+                )
 
                 typing_surface_violations = _filter_baseline_violations(
                     typing_surface_rule.collect_violations(
@@ -564,6 +577,7 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
                 "no_monkeypatch": [],
                 "branchless": [],
                 "defensive_fallback": [],
+                "fiber_scalar_sentinel_contract": [],
                 "no_legacy_monolith_import": [],
                 "orchestrator_primitive_barrel": [],
                 "typing_surface": [],
@@ -579,6 +593,7 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
         "no_monkeypatch",
         "branchless",
         "defensive_fallback",
+        "fiber_scalar_sentinel_contract",
         "no_legacy_monolith_import",
         "orchestrator_primitive_barrel",
         "typing_surface",
@@ -633,6 +648,7 @@ def _rule_set_hash() -> str:
             "no_monkeypatch:v1",
             "branchless:v2",
             "defensive_fallback:v2",
+            "fiber_scalar_sentinel_contract:v1",
             "no_legacy_monolith_import:v1",
             "orchestrator_primitive_barrel:v1",
             "typing_surface:v2",
@@ -833,6 +849,35 @@ def _serialize_defensive(violation: object) -> dict[str, object]:
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_fiber_scalar_sentinel_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "scalar_literal": getattr(violation, "scalar_literal"),
+        "comparison_operator": getattr(violation, "comparison_operator"),
+        "input_slot": getattr(violation, "input_slot"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _fiber_bounds_payload(
+            getattr(violation, "applicability_bounds", None)
+        )
+        if getattr(violation, "applicability_bounds", None) is not None
+        else None,
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "structured_hash": getattr(violation, "structured_hash", ""),
         "key": getattr(violation, "key"),
         "render": getattr(violation, "render")(),
     }
