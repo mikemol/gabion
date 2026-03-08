@@ -3780,6 +3780,61 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_test_obsolescence_delta": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2B",
+      "summary": "Long-tail strict-dispatch conversion: refactor command_orchestrator type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:39:57Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7000,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 278,
+        "fiber_type_dispatch_contract": 459,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7006,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 442,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7897,
+      "total_after": 7889,
+      "notes": [
+        "Converted command_orchestrator runtime type-routing hotspots to dispatch-backed normalizers (_object_mapping_or_none, _string_or_none, _bool_or_none, _non_negative_float_or_none, _auxiliary_mode_kind_state, _join_thread_or_none) with never(...) default handlers.",
+        "Rewired auxiliary mode parsing, taint/annotation payload normalization, progress payload shaping, timeout resume mapping reuse, and profiling payload projection to remove in-body manual type dispatch branches at the listed hotspot lines.",
+        "Acceptance met: src/gabion/server_core/command_orchestrator.py fiber_type_dispatch_contract 17->0 and global fiber_type_dispatch_contract 459->442 (delta -17); non-target family movement recorded per target-only mode."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_execute_command_cases": "pass",
+        "targeted_pytest_server_execute_command_edges_cases": "pass",
+        "targeted_pytest_server_orchestrator_primitive_parity_cases": "pass",
+        "targeted_pytest_test_command_orchestrator_stages": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "changed"
+      }
     }
   ],
   "generated_by": "codex",

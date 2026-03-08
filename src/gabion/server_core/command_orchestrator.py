@@ -4,6 +4,7 @@ import dataclasses
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import singledispatch
 from hashlib import sha1
 from itertools import zip_longest
 from pathlib import Path
@@ -173,10 +174,240 @@ _default_execute_command_deps = _ingress_stage_deps.default_execute_command_deps
 _materialize_execution_plan = _ingress_stage_deps.materialize_execution_plan_fn
 _normalize_dataflow_response = _ingress_stage_deps.normalize_dataflow_response_fn
 
+_NONE_TYPE = type(None)
+
 
 def _bind_server_symbols() -> None:
     """Legacy test hook retained for compatibility after static extraction."""
     return
+
+
+@singledispatch
+def _object_mapping_or_none(value: object) -> dict[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_object_mapping_or_none.register(dict)
+def _(value: dict[object, object]) -> dict[str, object] | None:
+    return {str(key): value[key] for key in value}
+
+
+def _object_mapping_none(value: object) -> dict[str, object] | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _object_mapping_or_none.register(_runtime_type)(_object_mapping_none)
+
+
+@singledispatch
+def _string_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_or_none.register
+def _(value: str) -> str | None:
+    return value
+
+
+def _string_none(value: object) -> str | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
+    _string_or_none.register(_runtime_type)(_string_none)
+
+
+def _non_empty_string_or_none(value: object) -> str | None:
+    text = _string_or_none(value)
+    if text:
+        return text
+    return None
+
+
+@singledispatch
+def _bool_or_none(value: object) -> bool | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_bool_or_none.register
+def _(value: bool) -> bool | None:
+    return value
+
+
+def _bool_none(value: object) -> bool | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (int, float, str, list, tuple, set, dict, _NONE_TYPE):
+    _bool_or_none.register(_runtime_type)(_bool_none)
+
+
+@singledispatch
+def _non_negative_float_or_none(value: object) -> float | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_non_negative_float_or_none.register
+def _(value: float) -> float | None:
+    return max(value, 0.0)
+
+
+@_non_negative_float_or_none.register
+def _(value: int) -> float | None:
+    return max(float(value), 0.0)
+
+
+def _float_none(value: object) -> float | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
+    _non_negative_float_or_none.register(_runtime_type)(_float_none)
+
+
+@singledispatch
+def _int_or_zero(value: object) -> int:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_int_or_zero.register
+def _(value: int) -> int:
+    return int(value)
+
+
+def _zero(value: object) -> int:
+    _ = value
+    return 0
+
+
+for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
+    _int_or_zero.register(_runtime_type)(_zero)
+
+
+def _aux_operation_mapping_or_none(value: object) -> dict[str, object] | None:
+    if value is None:
+        return None
+    normalized_mapping = _object_mapping_or_none(value)
+    if normalized_mapping is not None:
+        return normalized_mapping
+    never("invalid aux operation payload", payload_type=type(value).__name__)
+
+
+def _auxiliary_mode_kind_state_from_flags(
+    *,
+    payload: Mapping[str, object],
+    state_key: str,
+    emit_state_key: str,
+    emit_delta_key: str,
+    write_baseline_key: str,
+    emit_report_key: str | None,
+    domain: str,
+) -> tuple[str, object]:
+    emit_report = (
+        bool(payload.get(emit_report_key, False)) if emit_report_key is not None else False
+    )
+    emit_state = bool(payload.get(emit_state_key, False))
+    emit_delta = bool(payload.get(emit_delta_key, False))
+    write_baseline = bool(payload.get(write_baseline_key, False))
+    state_path = payload.get(state_key)
+    enabled = sum(1 for flag in (emit_report, emit_state, emit_delta, write_baseline) if flag)
+    if enabled > 1:
+        never(
+            "conflicting auxiliary mode flags",
+            domain=domain,
+            emit_report=emit_report,
+            emit_state=emit_state,
+            emit_delta=emit_delta,
+            write_baseline=write_baseline,
+        )
+    ordered_modes = (
+        (emit_report, "report"),
+        (emit_state, "state"),
+        (emit_delta, "delta"),
+        (write_baseline, "baseline-write"),
+    )
+    kind = next((candidate_kind for flag, candidate_kind in ordered_modes if flag), "off")
+    return kind, state_path
+
+
+@singledispatch
+def _auxiliary_mode_kind_state(
+    raw_mode: object,
+    *,
+    payload: Mapping[str, object],
+    state_key: str,
+    emit_state_key: str,
+    emit_delta_key: str,
+    write_baseline_key: str,
+    emit_report_key: str | None,
+    domain: str,
+) -> tuple[str, object]:
+    never("unregistered runtime type", value_type=type(raw_mode).__name__)
+
+
+@_auxiliary_mode_kind_state.register(dict)
+def _(
+    raw_mode: dict[str, JSONValue],
+    *,
+    payload: Mapping[str, object],
+    state_key: str,
+    emit_state_key: str,
+    emit_delta_key: str,
+    write_baseline_key: str,
+    emit_report_key: str | None,
+    domain: str,
+) -> tuple[str, object]:
+    _ = payload, state_key, emit_state_key, emit_delta_key, write_baseline_key, emit_report_key, domain
+    kind = str(raw_mode.get("kind", "off") or "off").strip().lower()
+    state_path = raw_mode.get("state_path")
+    return kind, state_path
+
+
+def _auxiliary_mode_kind_state_legacy(
+    raw_mode: object,
+    *,
+    payload: Mapping[str, object],
+    state_key: str,
+    emit_state_key: str,
+    emit_delta_key: str,
+    write_baseline_key: str,
+    emit_report_key: str | None,
+    domain: str,
+) -> tuple[str, object]:
+    _ = raw_mode
+    return _auxiliary_mode_kind_state_from_flags(
+        payload=payload,
+        state_key=state_key,
+        emit_state_key=emit_state_key,
+        emit_delta_key=emit_delta_key,
+        write_baseline_key=write_baseline_key,
+        emit_report_key=emit_report_key,
+        domain=domain,
+    )
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _auxiliary_mode_kind_state.register(_runtime_type)(_auxiliary_mode_kind_state_legacy)
+
+
+@singledispatch
+def _join_thread_or_none(value: object, *, timeout: float) -> None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_join_thread_or_none.register(threading.Thread)
+def _(value: threading.Thread, *, timeout: float) -> None:
+    value.join(timeout=timeout)
+
+
+@_join_thread_or_none.register(_NONE_TYPE)
+def _(value: None, *, timeout: float) -> None:
+    _ = value, timeout
 
 
 def _record_trace_1cell(
@@ -371,15 +602,14 @@ def _normalize_command_payload_ingress(
         or normalized_payload.get("analysis_timeout_seconds") not in (None, "")
     )
     aux_operation_raw = normalized_payload.get("aux_operation")
+    aux_operation_payload = _aux_operation_mapping_or_none(aux_operation_raw)
     aux_operation: _AuxOperationIngressCarrier | None = None
-    if aux_operation_raw is not None:
-        if not isinstance(aux_operation_raw, dict):
-            never("invalid aux operation payload", payload_type=type(aux_operation_raw).__name__)
-        aux_domain = str(aux_operation_raw.get("domain", "")).strip().lower()
-        aux_action = str(aux_operation_raw.get("action", "")).strip().lower()
-        aux_state_in = aux_operation_raw.get("state_in")
+    if aux_operation_payload is not None:
+        aux_domain = str(aux_operation_payload.get("domain", "")).strip().lower()
+        aux_action = str(aux_operation_payload.get("action", "")).strip().lower()
+        aux_state_in = aux_operation_payload.get("state_in")
         aux_baseline_path = resolve_baseline_path(
-            aux_operation_raw.get("baseline_path"),
+            aux_operation_payload.get("baseline_path"),
             root,
         )
         decision = aux_operation_contract.validate_aux_operation_or_never(
@@ -554,35 +784,16 @@ def _auxiliary_mode_from_payload(
     allow_report: bool,
     allow_lifecycle: bool = False,
 ) -> _AuxiliaryMode:
-    raw_mode = payload.get(mode_key)
-    if isinstance(raw_mode, Mapping):
-        kind = str(raw_mode.get("kind", "off") or "off").strip().lower()
-        state_path = raw_mode.get("state_path")
-    else:
-        emit_report = (
-            bool(payload.get(emit_report_key, False)) if emit_report_key is not None else False
-        )
-        emit_state = bool(payload.get(emit_state_key, False))
-        emit_delta = bool(payload.get(emit_delta_key, False))
-        write_baseline = bool(payload.get(write_baseline_key, False))
-        state_path = payload.get(state_key)
-        enabled = sum(1 for flag in (emit_report, emit_state, emit_delta, write_baseline) if flag)
-        if enabled > 1:
-            never(
-                "conflicting auxiliary mode flags",
-                domain=domain,
-                emit_report=emit_report,
-                emit_state=emit_state,
-                emit_delta=emit_delta,
-                write_baseline=write_baseline,
-            )
-        ordered_modes = (
-            (emit_report, "report"),
-            (emit_state, "state"),
-            (emit_delta, "delta"),
-            (write_baseline, "baseline-write"),
-        )
-        kind = next((candidate_kind for flag, candidate_kind in ordered_modes if flag), "off")
+    kind, state_path = _auxiliary_mode_kind_state(
+        payload.get(mode_key),
+        payload=payload,
+        state_key=state_key,
+        emit_state_key=emit_state_key,
+        emit_delta_key=emit_delta_key,
+        write_baseline_key=write_baseline_key,
+        emit_report_key=emit_report_key,
+        domain=domain,
+    )
     allowed = {"off", "state", "delta", "baseline-write"}
     if allow_report:
         allowed.add("report")
@@ -612,9 +823,9 @@ def _emit_annotation_drift_outputs(
         if not state_path.exists():
             never("annotation drift state not found", path=str(state_path))
         payload_value = json.loads(state_path.read_text(encoding="utf-8"))
-        if not isinstance(payload_value, dict):
+        drift_payload = _object_mapping_or_none(payload_value)
+        if drift_payload is None:
             never("annotation drift state must be a JSON object")
-        drift_payload = payload_value
     elif (
         emit_test_annotation_drift
         or emit_test_annotation_drift_delta
@@ -644,8 +855,9 @@ def _emit_annotation_drift_outputs(
             )
         if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
             summary = drift_payload.get("summary", {})
+            summary_payload = _object_mapping_or_none(summary)
             baseline_payload = test_annotation_drift_delta.build_baseline_payload(
-                summary if isinstance(summary, dict) else {}
+                summary_payload if summary_payload is not None else {}
             )
             baseline_path = (
                 annotation_drift_baseline_path
@@ -711,11 +923,11 @@ def _emit_test_obsolescence_outputs(
         obsolescence_summary = state.baseline.summary
         active_payload = state.baseline.active
         active_summary_value = active_payload.get("summary", {})
-        if isinstance(active_summary_value, dict):
+        active_summary_mapping = _object_mapping_or_none(active_summary_value)
+        if active_summary_mapping is not None:
             obsolescence_active_summary = {
-                str(key): int(value) if isinstance(value, int) else 0
-                for key, value in active_summary_value.items()
-                if isinstance(key, str)
+                key: _int_or_zero(value)
+                for key, value in active_summary_mapping.items()
             }
         obsolescence_baseline_payload = {
             str(k): state.baseline_payload[k] for k in state.baseline_payload
@@ -1059,9 +1271,10 @@ def _emit_taint_outputs(
         if not state_path.exists():
             never("taint state not found", path=str(state_path))
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
-        if not isinstance(loaded, Mapping):
+        loaded_mapping = _object_mapping_or_none(loaded)
+        if loaded_mapping is None:
             never("invalid taint state payload", path=str(state_path))
-        state_payload = {str(key): loaded[key] for key in loaded}
+        state_payload = {str(key): loaded_mapping[key] for key in loaded_mapping}
         state = taint_state.parse_state_payload(
             cast(Mapping[str, JSONValue], state_payload)
         )
@@ -1796,9 +2009,9 @@ def _run_analysis_with_progress(
             collection_progress["remaining_files"],
             _analysis_index_resume_hydrated_count(persisted_progress_payload),
         )
-        semantic_witness_digest = semantic_progress.get("current_witness_digest")
-        if not isinstance(semantic_witness_digest, str):
-            semantic_witness_digest = None
+        semantic_witness_digest = _string_or_none(
+            semantic_progress.get("current_witness_digest")
+        )
         analysis_index_signature = _analysis_index_resume_signature(
             persisted_progress_payload
         )
@@ -1810,11 +2023,9 @@ def _run_analysis_with_progress(
             analysis_index_signature != last_analysis_index_resume_signature
         )
         raw_substantive_progress = semantic_progress.get("substantive_progress")
-        semantic_substantive_progress = (
-            raw_substantive_progress
-            if isinstance(raw_substantive_progress, bool)
-            else False
-        )
+        semantic_substantive_progress = _bool_or_none(raw_substantive_progress)
+        if semantic_substantive_progress is None:
+            semantic_substantive_progress = False
         now_ns = time.monotonic_ns()
         if intro_changed and context.execute_deps.output.collection_checkpoint_flush_due_fn(
             intro_changed=True,
@@ -2078,8 +2289,8 @@ def _run_analysis_with_progress(
     from gabion.runtime import policy_runtime
 
     runtime_policy = policy_runtime.runtime_policy_from_env()
-    payload_order_policy = context.payload.get("order_policy")
-    if isinstance(payload_order_policy, str) and payload_order_policy.strip():
+    payload_order_policy = _string_or_none(context.payload.get("order_policy"))
+    if payload_order_policy is not None and payload_order_policy.strip():
         runtime_policy = dataclasses.replace(
             runtime_policy,
             order_policy=OrderPolicy(payload_order_policy.strip().lower()),
@@ -2090,8 +2301,11 @@ def _run_analysis_with_progress(
         ("order_deadline_probe", "order_deadline_probe_enabled"),
     ):
         value = context.payload.get(key)
-        if isinstance(value, bool):
-            runtime_policy = dataclasses.replace(runtime_policy, **{attr: value})
+        normalized_bool = _bool_or_none(value)
+        if normalized_bool is not None:
+            runtime_policy = dataclasses.replace(
+                runtime_policy, **{attr: normalized_bool}
+            )
     for key, attr in (
         ("derivation_cache_max_entries", "derivation_cache_max_entries"),
         ("projection_registry_gas_limit", "projection_registry_gas_limit"),
@@ -2374,12 +2588,13 @@ def _create_progress_emitter(
         semantic_payload: JSONObject = {}
         if semantic_progress is not None:
             for raw_key, raw_value in semantic_progress.items():
-                if not isinstance(raw_key, str):
+                normalized_key = _string_or_none(raw_key)
+                if normalized_key is None:
                     continue
-                if raw_key == "substantive_progress" or raw_key.startswith(
+                if normalized_key == "substantive_progress" or normalized_key.startswith(
                     "cumulative_"
                 ):
-                    semantic_payload[raw_key] = raw_value
+                    semantic_payload[normalized_key] = raw_value
         if "substantive_progress" not in semantic_payload:
             semantic_payload["substantive_progress"] = False
         progress_value: JSONObject = {
@@ -2409,10 +2624,12 @@ def _create_progress_emitter(
         progress_value["ts_utc"] = datetime.now(timezone.utc).isoformat(
             timespec="seconds"
         ).replace("+00:00", "Z")
-        if isinstance(progress_marker, str) and progress_marker:
-            progress_value["progress_marker"] = progress_marker
-        if isinstance(stale_for_s, (int, float)):
-            progress_value["stale_for_s"] = max(float(stale_for_s), 0.0)
+        normalized_progress_marker = _non_empty_string_or_none(progress_marker)
+        if normalized_progress_marker is not None:
+            progress_value["progress_marker"] = normalized_progress_marker
+        normalized_stale_for_s = _non_negative_float_or_none(stale_for_s)
+        if normalized_stale_for_s is not None:
+            progress_value["stale_for_s"] = normalized_stale_for_s
         if include_timing:
             progress_value["profiling_v1"] = {
                 "format_version": 1,
@@ -2423,10 +2640,12 @@ def _create_progress_emitter(
             }
         if done:
             progress_value["done"] = True
-        if isinstance(analysis_state, str) and analysis_state:
-            progress_value["analysis_state"] = analysis_state
-        if isinstance(classification, str) and classification:
-            progress_value["classification"] = classification
+        normalized_analysis_state = _non_empty_string_or_none(analysis_state)
+        if normalized_analysis_state is not None:
+            progress_value["analysis_state"] = normalized_analysis_state
+        normalized_classification = _non_empty_string_or_none(classification)
+        if normalized_classification is not None:
+            progress_value["classification"] = normalized_classification
         now_ns = monotonic_ns_fn()
         with progress_state_lock:
             normalized_transition_state = _normalize_progress_transition_state(
@@ -2684,8 +2903,7 @@ def _create_progress_emitter(
 
     def stop() -> None:
         heartbeat_stop_event.set()
-        if isinstance(heartbeat_thread, threading.Thread):
-            heartbeat_thread.join(timeout=1.5)
+        _join_thread_or_none(heartbeat_thread, timeout=1.5)
 
     return _ProgressEmitter(
         emit=emit_lsp_progress,
@@ -3095,10 +3313,13 @@ def _persist_timeout_resume_state(
     emit_lsp_progress_fn: object,
 ) -> JSONObject | None:
     _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
-    if isinstance(context.last_collection_resume_payload, Mapping):
+    last_collection_resume_payload = _object_mapping_or_none(
+        context.last_collection_resume_payload
+    )
+    if last_collection_resume_payload is not None:
         return {
-            str(key): context.last_collection_resume_payload[key]
-            for key in context.last_collection_resume_payload
+            str(key): last_collection_resume_payload[key]
+            for key in last_collection_resume_payload
         }
     return timeout_collection_resume_payload
 
@@ -3112,13 +3333,15 @@ def _load_timeout_resume_progress(
 ) -> JSONObject | None:
     _ = mark_cleanup_timeout_fn
     collection_resume: JSONObject | None = timeout_collection_resume_payload
-    if collection_resume is None and isinstance(
-        context.last_collection_resume_payload, Mapping
-    ):
-        collection_resume = {
-            str(key): context.last_collection_resume_payload[key]
-            for key in context.last_collection_resume_payload
-        }
+    if collection_resume is None:
+        last_collection_resume_payload = _object_mapping_or_none(
+            context.last_collection_resume_payload
+        )
+        if last_collection_resume_payload is not None:
+            collection_resume = {
+                str(key): last_collection_resume_payload[key]
+                for key in last_collection_resume_payload
+            }
     if collection_resume is None:
         return timeout_collection_resume_payload
     timeout_collection_resume_payload = collection_resume
@@ -4077,9 +4300,10 @@ def _build_success_response(
             "counters": context.profiling_counters,
         },
     }
-    if isinstance(analysis.profiling_v1, Mapping):
+    analysis_profiling_v1 = _object_mapping_or_none(analysis.profiling_v1)
+    if analysis_profiling_v1 is not None:
         profiling_v1["analysis"] = {
-            str(key): analysis.profiling_v1[key] for key in analysis.profiling_v1
+            str(key): analysis_profiling_v1[key] for key in analysis_profiling_v1
         }
     response["profiling_v1"] = profiling_v1
     if context.options.lint:
