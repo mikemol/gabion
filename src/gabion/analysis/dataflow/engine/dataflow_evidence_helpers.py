@@ -3,7 +3,9 @@ from __future__ import annotations
 """Evidence/index helper surfaces consumed by test-evidence projections."""
 
 import ast
+from functools import singledispatch
 from pathlib import Path
+from types import EllipsisType
 from typing import Mapping, cast
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
@@ -26,6 +28,287 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator
+from gabion.invariants import never
+
+_NONE_TYPE = type(None)
+_ELLIPSIS_TYPE = type(Ellipsis)
+_ConstantValue = (
+    str | bool | int | float | complex | bytes | bytearray | tuple | frozenset | None | EllipsisType
+)
+
+
+def _leaf_ast_subclasses(base_type: type[ast.AST]) -> tuple[type[ast.AST], ...]:
+    node_types: list[type[ast.AST]] = []
+    for candidate in vars(ast).values():
+        try:
+            if issubclass(candidate, base_type) and candidate is not base_type:
+                node_types.append(candidate)
+        except TypeError:
+            continue
+    node_types_tuple = tuple(node_types)
+    return tuple(
+        node_type
+        for node_type in node_types_tuple
+        if not any(
+            candidate is not node_type and issubclass(candidate, node_type)
+            for candidate in node_types_tuple
+        )
+    )
+
+
+_AST_LEAF_NODE_TYPES = _leaf_ast_subclasses(ast.AST)
+_AST_LEAF_OPERATOR_TYPES = _leaf_ast_subclasses(ast.operator)
+
+
+@singledispatch
+def _is_class_def(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_class_def.register(ast.ClassDef)
+def _(value: ast.ClassDef) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_class_def(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.ClassDef:
+        continue
+    _is_class_def.register(_runtime_type)(_is_not_class_def)
+
+
+@singledispatch
+def _class_def_name(value: ast.AST) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_class_def_name.register(ast.ClassDef)
+def _(value: ast.ClassDef) -> str:
+    return value.name
+
+
+@singledispatch
+def _class_def_bases(value: ast.AST) -> tuple[ast.expr, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_class_def_bases.register(ast.ClassDef)
+def _(value: ast.ClassDef) -> tuple[ast.expr, ...]:
+    return tuple(value.bases)
+
+
+@singledispatch
+def _class_def_body(value: ast.AST) -> tuple[ast.stmt, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_class_def_body.register(ast.ClassDef)
+def _(value: ast.ClassDef) -> tuple[ast.stmt, ...]:
+    return tuple(value.body)
+
+
+@singledispatch
+def _is_name_node(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_name_node.register(ast.Name)
+def _(value: ast.Name) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_name_node(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Name:
+        continue
+    _is_name_node.register(_runtime_type)(_is_not_name_node)
+
+
+@singledispatch
+def _name_node_id(value: ast.AST) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_name_node_id.register(ast.Name)
+def _(value: ast.Name) -> str:
+    return value.id
+
+
+@singledispatch
+def _is_add_operator(value: ast.operator) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_add_operator.register(ast.Add)
+def _(value: ast.Add) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_add_operator(value: ast.operator) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_OPERATOR_TYPES:
+    if _runtime_type is ast.Add:
+        continue
+    _is_add_operator.register(_runtime_type)(_is_not_add_operator)
+
+
+@singledispatch
+def _is_list_or_tuple_node(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_list_or_tuple_node.register(ast.List)
+def _(value: ast.List) -> bool:
+    _ = value
+    return True
+
+
+@_is_list_or_tuple_node.register(ast.Tuple)
+def _(value: ast.Tuple) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_list_or_tuple_node(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type in {ast.List, ast.Tuple}:
+        continue
+    _is_list_or_tuple_node.register(_runtime_type)(_is_not_list_or_tuple_node)
+
+
+@singledispatch
+def _sequence_elements(value: ast.AST) -> tuple[ast.AST, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_sequence_elements.register(ast.List)
+def _(value: ast.List) -> tuple[ast.AST, ...]:
+    return tuple(value.elts)
+
+
+@_sequence_elements.register(ast.Tuple)
+def _(value: ast.Tuple) -> tuple[ast.AST, ...]:
+    return tuple(value.elts)
+
+
+@singledispatch
+def _is_string_constant_node(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_string_constant_node.register(ast.Constant)
+def _(value: ast.Constant) -> bool:
+    return _is_string_value(value.value)
+
+
+def _is_not_string_constant_node(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Constant:
+        continue
+    _is_string_constant_node.register(_runtime_type)(_is_not_string_constant_node)
+
+
+@singledispatch
+def _string_constant_text(value: ast.AST) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_constant_text.register(ast.Constant)
+def _(value: ast.Constant) -> str:
+    return _string_value_text(value.value)
+
+
+@singledispatch
+def _is_string_value(value: _ConstantValue) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_string_value.register(str)
+def _(value: str) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_string_value(value: _ConstantValue) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in (
+    bool,
+    int,
+    float,
+    complex,
+    bytes,
+    bytearray,
+    tuple,
+    frozenset,
+    _NONE_TYPE,
+    _ELLIPSIS_TYPE,
+):
+    _is_string_value.register(_runtime_type)(_is_not_string_value)
+
+
+@singledispatch
+def _string_value_text(value: _ConstantValue) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_value_text.register(str)
+def _(value: str) -> str:
+    return value
+
+
+@singledispatch
+def _is_json_value_list(value: JSONValue) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_json_value_list.register(list)
+def _(value: list[JSONValue]) -> bool:
+    _ = value
+    return True
+
+
+@singledispatch
+def _json_value_list_items(value: JSONValue) -> tuple[JSONValue, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_json_value_list_items.register(list)
+def _(value: list[JSONValue]) -> tuple[JSONValue, ...]:
+    return tuple(value)
+
+
+def _is_not_json_value_list(value: JSONValue) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
+    _is_json_value_list.register(_runtime_type)(_is_not_json_value_list)
 
 def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
@@ -69,22 +352,20 @@ def _enclosing_class_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        if type(current) is ast.ClassDef:
-            scopes.append(cast(ast.ClassDef, current).name)
+        if _is_class_def(current):
+            scopes.append(_class_def_name(current))
         current = parents.get(current)
     return list(reversed(scopes))
 
 
 def _string_list(node: ast.AST):
     check_deadline()
-    node_type = type(node)
-    if node_type is ast.List or node_type is ast.Tuple:
-        container = cast(ast.List | ast.Tuple, node)
+    if _is_list_or_tuple_node(node):
         values: list[str] = []
-        for elt in container.elts:
+        for elt in _sequence_elements(node):
             check_deadline()
-            if type(elt) is ast.Constant and type(cast(ast.Constant, elt).value) is str:
-                values.append(cast(str, cast(ast.Constant, elt).value))
+            if _is_string_constant_node(elt):
+                values.append(_string_constant_text(elt))
             else:
                 return None
         return values
@@ -121,7 +402,7 @@ def _collect_module_exports(
             assign_stmt = cast(ast.Assign, stmt)
             targets = assign_stmt.targets
             if any(
-                type(target) is ast.Name and cast(ast.Name, target).id == "__all__"
+                _is_name_node(target) and _name_node_id(target) == "__all__"
                 for target in targets
             ):
                 values = _string_list(assign_stmt.value)
@@ -131,7 +412,7 @@ def _collect_module_exports(
         elif stmt_type is ast.AnnAssign:
             ann_assign = cast(ast.AnnAssign, stmt)
             target = ann_assign.target
-            if type(target) is ast.Name and cast(ast.Name, target).id == "__all__":
+            if _is_name_node(target) and _name_node_id(target) == "__all__":
                 values = _string_list(ann_assign.value) if ann_assign.value is not None else None
                 if values is not None:
                     explicit_all = list(values)
@@ -140,9 +421,9 @@ def _collect_module_exports(
             aug_assign = cast(ast.AugAssign, stmt)
             target = aug_assign.target
             if (
-                type(target) is ast.Name
-                and cast(ast.Name, target).id == "__all__"
-                and type(aug_assign.op) is ast.Add
+                _is_name_node(target)
+                and _name_node_id(target) == "__all__"
+                and _is_add_operator(aug_assign.op)
             ):
                 values = _string_list(aug_assign.value)
                 if values is not None:
@@ -266,21 +547,20 @@ def _collect_class_index(
                 module = _module_name(path, project_root)
                 for node in ast.walk(tree):
                     check_deadline()
-                    if type(node) is ast.ClassDef:
-                        class_node = cast(ast.ClassDef, node)
-                        scopes = _enclosing_class_scopes(class_node, parents.parents)
+                    if _is_class_def(node):
+                        scopes = _enclosing_class_scopes(node, parents.parents)
                         qual_parts = [module] if module else []
                         qual_parts.extend(scopes)
-                        qual_parts.append(class_node.name)
+                        qual_parts.append(_class_def_name(node))
                         qual = ".".join(qual_parts)
                         bases: list[str] = []
-                        for base in class_node.bases:
+                        for base in _class_def_bases(node):
                             check_deadline()
                             base_name = _base_identifier(base)
                             if base_name:
                                 bases.append(base_name)
                         methods: set[str] = set()
-                        for stmt in class_node.body:
+                        for stmt in _class_def_body(node):
                             check_deadline()
                             if type(stmt) in {ast.FunctionDef, ast.AsyncFunctionDef}:
                                 methods.add(
@@ -370,8 +650,8 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
     node = forest.nodes.get(paramset_id)
     if node is not None:
         params = node.meta.get("params")
-        if type(params) is list:
-            return tuple(str(p) for p in cast(list[JSONValue], params))
+        if _is_json_value_list(params):
+            return tuple(str(p) for p in _json_value_list_items(params))
     return tuple(str(p) for p in paramset_id.key)
 
 __all__ = [
