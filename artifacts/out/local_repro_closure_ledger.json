@@ -5005,6 +5005,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2Y",
+      "summary": "Dispatch-backed capability and progress-delta normalization conversion in dataflow pipeline edge helpers.",
+      "timestamp_utc": "2026-03-08T12:41:13Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7107,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 151,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 146,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7738,
+      "total_after": 7735,
+      "notes": [
+        "Replaced manual dict/int/string type guards in _capability_enabled, _unsupported_surface_diagnostic, _normalized_dimension_payload, and _apply_forest_progress_delta with dispatch-backed ingress helpers.",
+        "Resolved ACP fallout by removing sentinel continue control paths in normalized dimension handling.",
+        "Target file reached zero fiber violations: dataflow_pipeline 5->0; global fiber_type_dispatch_contract 151->146 (delta -5)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_dataflow_pipeline_edges": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",
