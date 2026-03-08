@@ -1,5 +1,3 @@
-# gabion:decision_protocol_module
-
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable

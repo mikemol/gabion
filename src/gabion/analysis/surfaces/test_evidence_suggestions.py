@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 from gabion.analysis.foundation.timeout_context import check_deadline
 

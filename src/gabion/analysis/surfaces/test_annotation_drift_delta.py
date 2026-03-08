@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -40,7 +39,7 @@ def resolve_baseline_path(root: Path) -> Path:
 
 
 def build_baseline_payload(
-    summary: Mapping[str, object],
+    summary: Mapping[str, JSONValue],
 ) -> dict[str, JSONValue]:
     payload: dict[str, JSONValue] = {
         "version": BASELINE_VERSION,
@@ -121,7 +120,7 @@ def _parse_delta_summary(
     )
 
 
-def _normalize_summary(summary: Mapping[str, object]) -> dict[str, int]:
+def _normalize_summary(summary: Mapping[str, JSONValue]) -> dict[str, int]:
     check_deadline()
     normalized: dict[str, int] = {}
     for key, raw in summary.items():

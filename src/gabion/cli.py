@@ -1,6 +1,4 @@
 from __future__ import annotations
-# gabion:decision_protocol_module
-
 from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
