@@ -4051,6 +4051,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "clean"
       }
+    },
+    {
+      "cu_id": "CU-D2G",
+      "summary": "Long-tail strict-dispatch conversion: commands progress-transition normalization moved from in-body type guards to singledispatch ingress helpers.",
+      "timestamp_utc": "2026-03-08T04:23:44Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7023,
+        "defensive_fallback": 126,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 387,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7025,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 285,
+        "fiber_type_dispatch_contract": 375,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7847,
+      "total_after": 7844,
+      "notes": [
+        "Replaced manual runtime type checks in progress-transition payload normalization with singledispatch ingress helpers for int, dict, list, and str carriers.",
+        "Kept dispatch defaults as never(\"unregistered runtime type\", value_type=type(value).__name__) and registered concrete runtime classes only.",
+        "Acceptance met: src/gabion/commands/progress_transition.py fiber_type_dispatch_contract 12->0 and global fiber_type_dispatch_contract 387->375 (delta -12)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_progress_transition_edges": "pass",
+        "targeted_pytest_progress_contract_edges": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "clean"
+      }
     }
   ],
   "generated_by": "codex",

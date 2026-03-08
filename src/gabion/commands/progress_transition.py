@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import singledispatch
 from typing import Final, Literal, Mapping, cast
+
+from gabion.invariants import never
 
 ProgressEventKind = Literal["progress", "heartbeat", "terminal", "checkpoint"]
 PROGRESS_EVENT_KINDS: Final[frozenset[str]] = frozenset(
@@ -70,10 +73,86 @@ class ProgressTransitionDecision:
     suppress_emit: bool = False
 
 
+def _none_optional_int(value: object) -> int | None:
+    _ = value
+    return None
+
+
+@singledispatch
 def _normalize_non_negative_int(value: object) -> int | None:
-    if not isinstance(value, int) or isinstance(value, bool):
-        return None
-    return max(int(value), 0)
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_normalize_non_negative_int.register
+def _(value: int) -> int | None:
+    return max(value, 0)
+
+
+@_normalize_non_negative_int.register
+def _(value: bool) -> int | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (str, float, complex, bytes, list, tuple, dict, set, frozenset, type(None)):
+    _normalize_non_negative_int.register(_runtime_type)(_none_optional_int)
+
+
+def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _mapping_payload_or_none(value: object) -> Mapping[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_payload_or_none.register
+def _(value: dict) -> Mapping[str, object] | None:
+    return value
+
+
+for _runtime_type in (str, int, float, bool, bytes, list, tuple, set, frozenset, type(None)):
+    _mapping_payload_or_none.register(_runtime_type)(_none_optional_mapping)
+
+
+def _none_optional_list(value: object) -> list[object] | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _list_payload_or_none(value: object) -> list[object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_list_payload_or_none.register
+def _(value: list) -> list[object] | None:
+    return value
+
+
+for _runtime_type in (str, int, float, bool, bytes, dict, tuple, set, frozenset, type(None)):
+    _list_payload_or_none.register(_runtime_type)(_none_optional_list)
+
+
+def _none_optional_str(value: object) -> str | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _string_payload_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_payload_or_none.register
+def _(value: str) -> str | None:
+    return value
+
+
+for _runtime_type in (int, float, bool, bytes, dict, list, tuple, set, frozenset, type(None)):
+    _string_payload_or_none.register(_runtime_type)(_none_optional_str)
 
 
 def _normalize_event_kind(value: object) -> ProgressEventKind | None:
@@ -128,11 +207,11 @@ def _node_identity_from_marker(marker: ProgressMarkerParts) -> str:
 def _fallback_primary_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> tuple[str, int | None, int | None]:
-    phase_progress_v2 = phase_progress.get("phase_progress_v2")
+    phase_progress_v2 = _mapping_payload_or_none(phase_progress.get("phase_progress_v2"))
     primary_unit = ""
     primary_done: int | None = None
     primary_total: int | None = None
-    if isinstance(phase_progress_v2, Mapping):
+    if phase_progress_v2 is not None:
         primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
         primary_done = _normalize_non_negative_int(phase_progress_v2.get("primary_done"))
         primary_total = _normalize_non_negative_int(phase_progress_v2.get("primary_total"))
@@ -163,9 +242,9 @@ def _normalize_node_from_mapping(
     if total is None:
         total = fallback_total
     done, total = _coerce_done_total(done, total)
-    marker_payload = payload.get("marker")
+    marker_payload = _mapping_payload_or_none(payload.get("marker"))
     marker = fallback_marker
-    if isinstance(marker_payload, Mapping):
+    if marker_payload is not None:
         marker = _normalize_marker_parts(
             marker_payload.get("marker_text", marker.marker_text),
             marker_family=marker_payload.get("marker_family", marker.marker_family),
@@ -180,13 +259,14 @@ def _normalize_node_from_mapping(
     identity = str(payload.get("identity", "") or fallback_identity).strip() or fallback_identity
     unit = str(payload.get("unit", "") or fallback_unit).strip()
     children: list[ProgressNode] = []
-    raw_children = payload.get("children")
-    if isinstance(raw_children, list):
+    raw_children = _list_payload_or_none(payload.get("children"))
+    if raw_children is not None:
         for idx, raw_child in enumerate(raw_children):
-            if not isinstance(raw_child, Mapping):
+            child_payload = _mapping_payload_or_none(raw_child)
+            if child_payload is None:
                 return None
             child = _normalize_node_from_mapping(
-                raw_child,
+                child_payload,
                 fallback_identity=f"{identity}:{idx}",
                 fallback_unit=unit,
                 fallback_done=done,
@@ -225,24 +305,37 @@ def _resolve_node_by_path(
     return cursor
 
 
+@singledispatch
 def _normalize_active_path(value: object) -> tuple[str, ...] | None:
-    if not isinstance(value, list):
-        return None
-    nodes = tuple(str(item).strip() for item in value if isinstance(item, str))
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_normalize_active_path.register
+def _(value: list) -> tuple[str, ...] | None:
+    nodes: list[str] = []
+    for item in value:
+        node = _string_payload_or_none(item)
+        if node is None:
+            return None
+        nodes.append(node.strip())
     if not nodes:
         return None
-    if len(nodes) != len(value):
-        return None
-    return nodes
+    return tuple(nodes)
+
+
+def _none_active_path(value: object) -> tuple[str, ...] | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (str, int, float, bool, bytes, dict, tuple, set, frozenset, type(None)):
+    _normalize_active_path.register(_runtime_type)(_none_active_path)
 
 
 def _transition_payload_mapping(
     phase_progress: Mapping[str, object],
 ) -> Mapping[str, object] | None:
-    raw_transition_v2 = phase_progress.get("progress_transition_v2")
-    if isinstance(raw_transition_v2, Mapping):
-        return raw_transition_v2
-    return None
+    return _mapping_payload_or_none(phase_progress.get("progress_transition_v2"))
 
 
 def _normalize_transition_from_v2(
@@ -269,8 +362,8 @@ def _normalize_transition_from_v2(
     if fallback_done is None or fallback_total is None:
         return None
     marker_fallback = _normalize_marker_parts(phase_progress.get("progress_marker", ""))
-    root_payload = transition.get("root")
-    if not isinstance(root_payload, Mapping):
+    root_payload = _mapping_payload_or_none(transition.get("root"))
+    if root_payload is None:
         return None
     root = _normalize_node_from_mapping(
         root_payload,
@@ -357,13 +450,13 @@ def normalize_progress_transition_boundary(
 def normalize_progress_transition_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> NormalizedProgressTransition | None:
-    transition_v2 = phase_progress.get("progress_transition_v2")
-    if isinstance(transition_v2, Mapping):
-        return _normalize_transition_from_v2(
-            phase_progress=phase_progress,
-            transition=transition_v2,
-        )
-    return None
+    transition_v2 = _transition_payload_mapping(phase_progress)
+    if transition_v2 is None:
+        return None
+    return _normalize_transition_from_v2(
+        phase_progress=phase_progress,
+        transition=transition_v2,
+    )
 
 
 # gabion:boundary_normalization
@@ -398,12 +491,9 @@ def transition_reason_from_phase_progress(
     phase_progress: Mapping[str, object],
 ) -> str | None:
     transition = _transition_payload_mapping(phase_progress)
-    if not isinstance(transition, Mapping):
+    if transition is None:
         return None
-    reason = transition.get("reason")
-    if not isinstance(reason, str):
-        return None
-    return reason
+    return _string_payload_or_none(transition.get("reason"))
 
 
 def _is_post_in_progress_analysis_state(analysis_state: str) -> bool:
