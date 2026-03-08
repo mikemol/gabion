@@ -12,6 +12,7 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
 
 SEMANTIC_COVERAGE_MAP_VERSION = 1
 
@@ -132,37 +133,25 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     doc.section("Summary")
     doc.codeblock(payload.get("summary", {}))
     doc.line()
-    mapped = payload.get("mapped_obligations", [])
-    unmapped = payload.get("unmapped_obligations", [])
-    dead = payload.get("dead_mapping_entries", [])
-    duplicates = payload.get("duplicate_mapping_entries", [])
-    match mapped:
-        case list() as mapped_entries if mapped_entries:
-            doc.line("Mapped obligations:")
-            doc.codeblock(mapped_entries)
-            doc.line()
-        case _:
-            pass
-    match unmapped:
-        case list() as unmapped_entries if unmapped_entries:
-            doc.line("Unmapped obligations:")
-            doc.codeblock(unmapped_entries)
-            doc.line()
-        case _:
-            pass
-    match dead:
-        case list() as dead_entries if dead_entries:
-            doc.line("Dead mapping entries:")
-            doc.codeblock(dead_entries)
-            doc.line()
-        case _:
-            pass
-    match duplicates:
-        case list() as duplicate_entries if duplicate_entries:
-            doc.line("Duplicate mapping entries:")
-            doc.codeblock(duplicate_entries)
-        case _:
-            pass
+    mapped = json_list_or_none(payload.get("mapped_obligations", [])) or []
+    unmapped = json_list_or_none(payload.get("unmapped_obligations", [])) or []
+    dead = json_list_or_none(payload.get("dead_mapping_entries", [])) or []
+    duplicates = json_list_or_none(payload.get("duplicate_mapping_entries", [])) or []
+    if mapped:
+        doc.line("Mapped obligations:")
+        doc.codeblock(mapped)
+        doc.line()
+    if unmapped:
+        doc.line("Unmapped obligations:")
+        doc.codeblock(unmapped)
+        doc.line()
+    if dead:
+        doc.line("Dead mapping entries:")
+        doc.codeblock(dead)
+        doc.line()
+    if duplicates:
+        doc.line("Duplicate mapping entries:")
+        doc.codeblock(duplicates)
     return doc.emit()
 
 
@@ -177,41 +166,32 @@ def write_semantic_coverage(
 
 def load_mapping_entries(path: Path) -> list[SemanticCoverageEntry]:
     check_deadline()
+    parsed: list[SemanticCoverageEntry] = []
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return []
-    match raw:
-        case Mapping() as raw_mapping:
-            entries = raw_mapping.get("entries", [])
-        case _:
-            return []
-    match entries:
-        case list() as entries_payload:
-            entries = entries_payload
-        case _:
-            return []
-    parsed: list[SemanticCoverageEntry] = []
-    for item in entries:
-        check_deadline()
-        match item:
-            case Mapping() as item_payload:
-                obligation = str(item_payload.get("obligation", "")).strip()
-                evidence = str(item_payload.get("evidence", "")).strip()
-                if not obligation or not evidence:
-                    continue
-                parsed.append(
-                    SemanticCoverageEntry(
-                        obligation=obligation,
-                        obligation_kind=str(
-                            item_payload.get("obligation_kind", "invariant")
-                        ).strip()
-                        or "invariant",
-                        evidence_display=evidence,
-                    )
-                )
-            case _:
-                pass
+        return parsed
+    raw_mapping = json_mapping_or_none(raw)
+    if raw_mapping is not None:
+        entries = json_list_or_none(raw_mapping.get("entries", []))
+        if entries is not None:
+            for item in entries:
+                check_deadline()
+                item_payload = json_mapping_or_none(item)
+                if item_payload is not None:
+                    obligation = str(item_payload.get("obligation", "")).strip()
+                    evidence = str(item_payload.get("evidence", "")).strip()
+                    if obligation and evidence:
+                        parsed.append(
+                            SemanticCoverageEntry(
+                                obligation=obligation,
+                                obligation_kind=str(
+                                    item_payload.get("obligation_kind", "invariant")
+                                ).strip()
+                                or "invariant",
+                                evidence_display=evidence,
+                            )
+                        )
     return parsed
 
 
@@ -240,43 +220,35 @@ def _artifact_evidence_index(path: Path) -> set[str]:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return set()
-    match raw:
-        case Mapping() as raw_mapping:
-            records = raw_mapping.get("evidence_index", [])
-        case _:
-            return set()
-    match records:
-        case list() as record_entries:
-            records = record_entries
-        case _:
-            return set()
+    raw_mapping = json_mapping_or_none(raw)
+    if raw_mapping is None:
+        return set()
+    records = json_list_or_none(raw_mapping.get("evidence_index", []))
+    if records is None:
+        return set()
     identities: set[str] = set()
     for record in records:
         check_deadline()
-        match record:
-            case Mapping() as record_payload:
-                key = record_payload.get("key")
-                match key:
-                    case Mapping() as key_payload:
-                        identities.add(
-                            evidence_keys.key_identity(
-                                evidence_keys.normalize_key(key_payload)
-                            )
+        record_payload = json_mapping_or_none(record)
+        if record_payload is not None:
+            key_payload = json_mapping_or_none(record_payload.get("key"))
+            if key_payload is not None:
+                identities.add(
+                    evidence_keys.key_identity(
+                        evidence_keys.normalize_key(key_payload)
+                    )
+                )
+            else:
+                display = str(record_payload.get("display", "")).strip()
+                if display:
+                    parsed = evidence_keys.parse_display(display)
+                    if parsed is None:
+                        parsed = evidence_keys.make_opaque_key(display)
+                    identities.add(
+                        evidence_keys.key_identity(
+                            evidence_keys.normalize_key(parsed)
                         )
-                    case _:
-                        display = str(record_payload.get("display", "")).strip()
-                        if not display:
-                            continue
-                        parsed = evidence_keys.parse_display(display)
-                        if parsed is None:
-                            parsed = evidence_keys.make_opaque_key(display)
-                        identities.add(
-                            evidence_keys.key_identity(
-                                evidence_keys.normalize_key(parsed)
-                            )
-                        )
-            case _:
-                pass
+                    )
     return identities
 
 

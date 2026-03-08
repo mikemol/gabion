@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import singledispatch
 import json
 from collections.abc import Iterable, Mapping
 
@@ -9,9 +10,65 @@ from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
 from gabion.analysis.foundation.resume_codec import mapping_or_none
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import OrderPolicy, sort_once
+from gabion.runtime_shape_dispatch import json_mapping_or_none, str_or_none
 
 _NO_LIMIT = None
+
+
+@singledispatch
+def _string_values_or_empty(value: JSONValue) -> tuple[str, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_values_or_empty.register(str)
+def _(value: str) -> tuple[str, ...]:
+    return (value,)
+
+
+@_string_values_or_empty.register(list)
+def _(value: list[JSONValue]) -> tuple[str, ...]:
+    values: list[str] = []
+    for entry in value:
+        check_deadline()
+        entry_text = str_or_none(entry)
+        if entry_text is not None:
+            values.append(entry_text)
+    return tuple(values)
+
+
+def _none_string_values(value: JSONValue) -> tuple[str, ...]:
+    _ = value
+    return ()
+
+
+for _runtime_type in (dict, int, float, bool, tuple, set, type(None)):
+    _string_values_or_empty.register(_runtime_type)(_none_string_values)
+
+
+@singledispatch
+def _sort_by_values_or_empty(value: JSONValue) -> tuple[JSONValue, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_sort_by_values_or_empty.register(str)
+def _(value: str) -> tuple[JSONValue, ...]:
+    return (value,)
+
+
+@_sort_by_values_or_empty.register(list)
+def _(value: list[JSONValue]) -> tuple[JSONValue, ...]:
+    return tuple(value)
+
+
+def _none_sort_by_values(value: JSONValue) -> tuple[JSONValue, ...]:
+    _ = value
+    return ()
+
+
+for _runtime_type in (dict, int, float, bool, tuple, set, type(None)):
+    _sort_by_values_or_empty.register(_runtime_type)(_none_sort_by_values)
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -153,20 +210,11 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
 def _normalize_fields(value: JSONValue) -> list[str]:
     check_deadline()
     fields: list[str] = []
-    match value:
-        case str() as value_text:
-            if value_text.strip():
-                fields.append(value_text.strip())
-        case list() as value_list:
-            for entry in value_list:
-                check_deadline()
-                match entry:
-                    case str() as entry_text if entry_text.strip():
-                        fields.append(entry_text.strip())
-                    case _:
-                        pass
-        case _:
-            pass
+    for field_text in _string_values_or_empty(value):
+        check_deadline()
+        stripped = field_text.strip()
+        if stripped:
+            fields.append(stripped)
     seen: set[str] = set()
     ordered: list[str] = []
     for field in fields:
@@ -189,39 +237,30 @@ def _normalize_group_fields(value: JSONValue) -> list[str]:
 
 def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
     check_deadline()
-    if value is None:
-        return list()
     items: list[dict[str, JSONValue]] = []
-    match value:
-        case str() as value_text:
-            if value_text.strip():
-                items.append({"field": value_text.strip(), "order": "asc"})
-        case list() as value_list:
-            for entry in value_list:
-                check_deadline()
-                match entry:
-                    case str() as entry_text:
-                        if entry_text.strip():
-                            items.append({"field": entry_text.strip(), "order": "asc"})
-                    case Mapping() as entry_map:
-                        field = entry_map.get("field") or entry_map.get("key") or entry_map.get("name")
-                        match field:
-                            case str() as field_text if field_text.strip():
-                                order = entry_map.get("order", "asc")
-                                match order:
-                                    case str() as order_text:
-                                        order_norm = order_text.strip().lower() or "asc"
-                                    case _:
-                                        order_norm = "asc"
-                                if order_norm not in {"asc", "desc"}:
-                                    order_norm = "asc"
-                                items.append({"field": field_text.strip(), "order": order_norm})
-                            case _:
-                                pass
-                    case _:
-                        pass
-        case _:
-            pass
+    for entry in _sort_by_values_or_empty(value):
+        check_deadline()
+        entry_text = str_or_none(entry)
+        if entry_text is not None:
+            stripped = entry_text.strip()
+            if stripped:
+                items.append({"field": stripped, "order": "asc"})
+        else:
+            entry_map = json_mapping_or_none(entry)
+            if entry_map is not None:
+                field = (
+                    entry_map.get("field")
+                    or entry_map.get("key")
+                    or entry_map.get("name")
+                )
+                field_text = str_or_none(field)
+                if field_text is not None and field_text.strip():
+                    order = entry_map.get("order", "asc")
+                    order_text = str_or_none(order)
+                    order_norm = (order_text or "asc").strip().lower() or "asc"
+                    if order_norm not in {"asc", "desc"}:
+                        order_norm = "asc"
+                    items.append({"field": field_text.strip(), "order": order_norm})
     return items
 
 

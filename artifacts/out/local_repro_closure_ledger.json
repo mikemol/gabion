@@ -5578,6 +5578,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "updated_expected"
       }
+    },
+    {
+      "cu_id": "CU-D2AJ",
+      "summary": "Projection/semantic dispatch-lift batch: replaced in-body runtime shape routing with singledispatch-backed helpers and runtime-shape dispatch utilities in projection execution/normalization and semantic coverage loaders.",
+      "timestamp_utc": "2026-03-08T14:40:49Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7123,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 308,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 15,
+        "runtime_narrowing_boundary": 29,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7118,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 308,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 15,
+        "runtime_narrowing_boundary": 29,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7609,
+      "total_after": 7604,
+      "notes": [
+        "Refactored projection_exec op/params decoding, traverse payload handling, and sort-parameter normalization to dispatch helpers while preserving output semantics.",
+        "Refactored projection_normalize field/sort normalization paths to dispatch helpers and removed ad-hoc type branching.",
+        "Refactored semantic_coverage_map mapping/artifact loader paths and markdown section shaping via runtime-shape dispatch helpers."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_projection_semantic": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

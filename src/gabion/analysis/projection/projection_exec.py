@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import singledispatch
 import json
 from collections.abc import Callable, Iterable, Mapping
 from typing import cast
@@ -10,7 +11,14 @@ from gabion.analysis.projection.projection_normalize import normalize_spec
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import OrderPolicy, sort_once
+from gabion.runtime_shape_dispatch import (
+    int_or_none,
+    json_list_or_none,
+    json_mapping_or_none,
+    str_or_none,
+)
 
 Relation = list[dict[str, JSONValue]]
 
@@ -56,6 +64,70 @@ class LimitParams:
     count: object = None
 
 
+@singledispatch
+def _string_sequence_payload(value: JSONValue) -> tuple[str, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_sequence_payload.register(str)
+def _(value: str) -> tuple[str, ...]:
+    return (value,)
+
+
+@_string_sequence_payload.register(list)
+def _(value: list[JSONValue]) -> tuple[str, ...]:
+    return tuple(str_list_from_sequence(value))
+
+
+@_string_sequence_payload.register(tuple)
+def _(value: tuple[object, ...]) -> tuple[str, ...]:
+    return tuple(str_list_from_sequence(value))
+
+
+@_string_sequence_payload.register(set)
+def _(value: set[object]) -> tuple[str, ...]:
+    return tuple(str_list_from_sequence(value))
+
+
+def _none_string_sequence(value: JSONValue) -> tuple[str, ...]:
+    _ = value
+    return ()
+
+
+for _runtime_type in (dict, int, float, bool, type(None)):
+    _string_sequence_payload.register(_runtime_type)(_none_string_sequence)
+
+
+@singledispatch
+def _sort_entries_payload(value: JSONValue) -> tuple[Mapping[str, JSONValue], ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_sort_entries_payload.register(dict)
+def _(value: dict[str, JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
+    return (value,)
+
+
+@_sort_entries_payload.register(list)
+def _(value: list[JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
+    entries: list[Mapping[str, JSONValue]] = []
+    for entry in value:
+        check_deadline()
+        entry_map = json_mapping_or_none(entry)
+        if entry_map is not None:
+            entries.append(entry_map)
+    return tuple(entries)
+
+
+def _none_sort_entries(value: JSONValue) -> tuple[Mapping[str, JSONValue], ...]:
+    _ = value
+    return ()
+
+
+for _runtime_type in (str, int, float, bool, tuple, set, type(None)):
+    _sort_entries_payload.register(_runtime_type)(_none_sort_entries)
+
+
 def apply_spec(
     spec: ProjectionSpec,
     rows: Iterable[Mapping[str, JSONValue]],
@@ -69,11 +141,9 @@ def apply_spec(
     normalized = normalize_fn(spec)
     params: dict[str, JSONValue] = {}
     spec_params = normalized.get("params")
-    match spec_params:
-        case Mapping() as spec_params_map:
-            params.update(spec_params_map)
-        case _:
-            pass
+    spec_params_map = json_mapping_or_none(spec_params)
+    if spec_params_map is not None:
+        params.update(spec_params_map)
     if params_override:
         params.update(params_override)
     op_registry = op_registry or {}
@@ -85,56 +155,48 @@ def apply_spec(
 
     for op in normalized.get("pipeline") or []:
         check_deadline()
-        match op:
-            case Mapping() as op_map:
-                op_name = op_map.get("op")
-                params_payload = op_map.get("params")
-                match params_payload:
-                    case Mapping() as params_payload_map:
-                        params_map = params_payload_map
-                    case _:
-                        params_map = {}
+        op_map = json_mapping_or_none(op)
+        if op_map is not None:
+            op_name = op_map.get("op")
+            params_payload = op_map.get("params")
+            params_map = json_mapping_or_none(params_payload) or {}
 
-                if op_name == "select":
-                    select_params = _select_params_from_map(params_map)
-                    current = _apply_select(
+            if op_name == "select":
+                select_params = _select_params_from_map(params_map)
+                current = _apply_select(
+                    current,
+                    select_params,
+                    op_registry=op_registry,
+                    runtime_params=params,
+                )
+            elif op_name == "project":
+                project_params = _project_params_from_map(params_map)
+                if project_params.fields:
+                    current = _apply_project(current, project_params)
+            elif op_name == "count_by":
+                count_params = _count_by_params_from_map(params_map)
+                if count_params.fields:
+                    current = _apply_count_by(current, count_params)
+            elif op_name == "traverse":
+                traverse_params = _traverse_params_from_map(params_map)
+                if traverse_params.field:
+                    current = _apply_traverse(current, traverse_params)
+            elif op_name == "sort":
+                sort_params = _sort_params_from_map(params_map)
+                for key in reversed(sort_params.keys):
+                    check_deadline()
+                    current = sort_once(
                         current,
-                        select_params,
-                        op_registry=op_registry,
-                        runtime_params=params,
+                        source=f"apply_spec.sort[{key.field}]",
+                        policy=OrderPolicy.SORT,
+                        key=lambda row, name=key.field: _sort_value(row.get(name)),
+                        reverse=key.order == "desc",
                     )
-                elif op_name == "project":
-                    project_params = _project_params_from_map(params_map)
-                    if project_params.fields:
-                        current = _apply_project(current, project_params)
-                elif op_name == "count_by":
-                    count_params = _count_by_params_from_map(params_map)
-                    if count_params.fields:
-                        current = _apply_count_by(current, count_params)
-                elif op_name == "traverse":
-                    traverse_params = _traverse_params_from_map(params_map)
-                    if traverse_params.field:
-                        current = _apply_traverse(current, traverse_params)
-                elif op_name == "sort":
-                    sort_params = _sort_params_from_map(params_map)
-                    for key in reversed(sort_params.keys):
-                        check_deadline()
-                        current = sort_once(
-                            current,
-                            source=f"apply_spec.sort[{key.field}]",
-                            policy=OrderPolicy.SORT,
-                            key=lambda row, name=key.field: _sort_value(row.get(name)),
-                            reverse=key.order == "desc",
-                        )
-                elif op_name == "limit":
-                    limit_params = _limit_params_from_map(params_map)
-                    match limit_params.count:
-                        case int() as limit_count if limit_count >= 0:
-                            current = current[:limit_count]
-                        case _:
-                            pass
-            case _:
-                pass
+            elif op_name == "limit":
+                limit_params = _limit_params_from_map(params_map)
+                limit_count = int_or_none(limit_params.count)
+                if limit_count is not None and limit_count >= 0:
+                    current = current[:limit_count]
 
     return current
 
@@ -159,20 +221,12 @@ def _hashable(value: JSONValue) -> object:
 
 def _select_params_from_map(params_map: Mapping[str, JSONValue]) -> SelectParams:
     predicates = params_map.get("predicates", [])
-    match predicates:
-        case str() as predicate_name:
-            predicate_values: list[object] = [predicate_name]
-        case list() as predicate_list:
-            predicate_values = [value for value in predicate_list]
-        case _:
-            predicate_values = []
+    predicate_values = _string_sequence_payload(predicates)
     names: list[str] = []
     for name in predicate_values:
-        match name:
-            case str() as predicate_name:
-                names.append(predicate_name)
-            case _:
-                pass
+        predicate_name = str_or_none(name)
+        if predicate_name is not None:
+            names.append(predicate_name)
     return SelectParams(predicates=tuple(names))
 
 
@@ -194,11 +248,7 @@ def _apply_select(
 
 def _project_params_from_map(params_map: Mapping[str, JSONValue]) -> ProjectParams:
     fields = params_map.get("fields", [])
-    match fields:
-        case str() as field_name:
-            field_values = [field_name]
-        case _:
-            field_values = str_list_from_sequence(fields)
+    field_values = _string_sequence_payload(fields)
     normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
     normalized_fields = tuple(normalized_fields_list)
     return ProjectParams(fields=normalized_fields)
@@ -214,11 +264,7 @@ def _apply_project(rows: Relation, params: ProjectParams) -> Relation:
 
 def _count_by_params_from_map(params_map: Mapping[str, JSONValue]) -> CountByParams:
     fields = params_map.get("fields", params_map.get("field"))
-    match fields:
-        case str() as field_name:
-            field_values = [field_name]
-        case _:
-            field_values = str_list_from_sequence(fields)
+    field_values = _string_sequence_payload(fields)
     normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
     normalized_fields = tuple(normalized_fields_list)
     return CountByParams(fields=normalized_fields)
@@ -250,11 +296,10 @@ def _apply_count_by(rows: Relation, params: CountByParams) -> Relation:
 
 def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraverseParams:
     field = params_map.get("field")
-    match field:
-        case str() as field_name if field_name.strip():
-            field = field_name.strip()
-        case _:
-            return TraverseParams(field="")
+    field_name = str_or_none(field)
+    if field_name is None or not field_name.strip():
+        return TraverseParams(field="")
+    field = field_name.strip()
     merge = params_map.get("merge", True)
     match merge:
         case bool() as merge_bool:
@@ -268,23 +313,17 @@ def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraversePa
         case _:
             keep = False
     prefix = params_map.get("prefix", "")
-    match prefix:
-        case str() as prefix_text:
-            prefix = prefix_text
-        case _:
-            prefix = ""
+    prefix = str_or_none(prefix) or ""
     as_field = params_map.get("as", field)
-    match as_field:
-        case str() as as_field_text if as_field_text.strip():
-            as_field = as_field_text
-        case _:
-            as_field = field
+    as_field_text = str_or_none(as_field)
+    as_field = as_field_text if as_field_text and as_field_text.strip() else field
     index_field = params_map.get("index")
-    match index_field:
-        case str() as index_field_text if index_field_text.strip():
-            index_field = index_field_text
-        case _:
-            index_field = ""
+    index_field_text = str_or_none(index_field)
+    index_field = (
+        index_field_text
+        if index_field_text and index_field_text.strip()
+        else ""
+    )
     return TraverseParams(
         field=field,
         merge=merge,
@@ -300,63 +339,44 @@ def _apply_traverse(rows: Relation, params: TraverseParams) -> Relation:
     for row in rows:
         check_deadline()
         seq = row.get(params.field)
-        match seq:
-            case list() as items:
-                base = dict(row)
-                if not params.keep:
-                    base.pop(params.field, None)
-                for idx, element in enumerate(items):
-                    check_deadline()
-                    out = dict(base)
-                    if params.index_field:
-                        out[params.index_field] = idx
-                    match element:
-                        case Mapping() as element_map if params.merge:
-                            for key, value in element_map.items():
-                                check_deadline()
-                                merged_key = f"{params.prefix}{key}" if params.prefix else key
-                                out[str(merged_key)] = value
-                        case _:
-                            out[params.as_field] = element
-                    traversed.append(out)
-            case _:
-                pass
+        items = json_list_or_none(seq)
+        if items is not None:
+            base = dict(row)
+            if not params.keep:
+                base.pop(params.field, None)
+            for idx, element in enumerate(items):
+                check_deadline()
+                out = dict(base)
+                if params.index_field:
+                    out[params.index_field] = idx
+                element_map = json_mapping_or_none(element)
+                if element_map is not None and params.merge:
+                    for key, value in element_map.items():
+                        check_deadline()
+                        merged_key = f"{params.prefix}{key}" if params.prefix else key
+                        out[str(merged_key)] = value
+                else:
+                    out[params.as_field] = element
+                traversed.append(out)
     return traversed
 
 
 def _sort_params_from_map(params_map: Mapping[str, JSONValue]) -> SortParams:
     by = params_map.get("by", [])
-    match by:
-        case Mapping() as by_map:
-            by_entries: list[object] = [by_map]
-        case list() as by_list:
-            by_entries = [entry for entry in by_list]
-        case _:
-            by_entries = []
+    by_entries = _sort_entries_payload(by)
     keys: list[SortKey] = []
     for entry in by_entries:
         check_deadline()
-        match entry:
-            case Mapping() as entry_map:
-                field = entry_map.get("field")
-                order = entry_map.get("order", "asc")
-                match field:
-                    case str() as field_text:
-                        match order:
-                            case str() as order_text:
-                                normalized_order = order_text
-                            case _:
-                                normalized_order = "asc"
-                        keys.append(
-                            SortKey(
-                                field=field_text,
-                                order=normalized_order.strip().lower() or "asc",
-                            )
-                        )
-                    case _:
-                        pass
-            case _:
-                pass
+        field_text = str_or_none(entry.get("field"))
+        if field_text is not None:
+            order_raw = str_or_none(entry.get("order", "asc"))
+            normalized_order = (order_raw or "asc").strip().lower() or "asc"
+            keys.append(
+                SortKey(
+                    field=field_text,
+                    order=normalized_order,
+                )
+            )
     return SortParams(keys=tuple(keys))
 
 
