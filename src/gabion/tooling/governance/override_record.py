@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Mapping
 
-# gabion:decision_protocol_module
 REQUIRED_OVERRIDE_FIELDS: tuple[str, ...] = (
     "actor",
     "rationale",

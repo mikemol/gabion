@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -7,6 +6,7 @@ import time
 from typing import Callable, Literal, Mapping
 
 from gabion.commands import progress_contract as progress_timeline
+from gabion.json_types import JSONValue
 from gabion.lsp_client import run_command, run_command_direct
 from gabion.tooling.delta import delta_emit_runtime
 
@@ -129,7 +129,7 @@ def _phase_progress_dimensions_summary(
 
 
 def _phase_timeline_row_from_phase_progress(
-    phase_progress: Mapping[str, object],
+    phase_progress: Mapping[str, JSONValue],
 ) -> str:
     return progress_timeline.phase_timeline_row_from_phase_progress(phase_progress)
 
@@ -142,13 +142,13 @@ def _timeout_tick_ns() -> int:
     return delta_emit_runtime.timeout_tick_ns()
 
 
-def _build_payload() -> dict[str, object]:
+def _build_payload() -> dict[str, JSONValue]:
     return _build_payload_for_emitter("delta_state_emit")
 
 
 def _build_payload_for_emitter(
     emitter_id: EmitterId,
-) -> dict[str, object]:
+) -> dict[str, JSONValue]:
     config = _EMITTER_CONFIGS[emitter_id]
     return delta_emit_runtime.build_payload(config.payload_spec)
 
@@ -160,8 +160,8 @@ def _supports_notification_callback(
 
 
 def _phase_progress_from_notification(
-    notification: Mapping[str, object],
-) -> dict[str, object] | None:
+    notification: Mapping[str, JSONValue],
+) -> dict[str, JSONValue] | None:
     phase_progress = progress_timeline.phase_progress_from_progress_notification(
         notification
     )
@@ -171,7 +171,7 @@ def _phase_progress_from_notification(
 
 
 def _emit_phase_progress_line(
-    phase_progress: Mapping[str, object],
+    phase_progress: Mapping[str, JSONValue],
     *,
     print_fn: Callable[[str], None] = print,
 ) -> None:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-# gabion:decision_protocol_module
 
 import argparse
 import ast

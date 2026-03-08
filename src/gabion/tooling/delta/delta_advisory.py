@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Literal, Mapping
 
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
 import json
 
@@ -48,7 +48,7 @@ class AdvisoryConfig:
     artifact_path: Path
     missing_message: str
     error_prefix: str
-    summary_builder: Callable[[Mapping[str, object]], AdvisoryNormalizedSummary]
+    summary_builder: Callable[[Mapping[str, JSONValue]], AdvisoryNormalizedSummary]
     env_flag: str | None = None
     skip_message: str | None = None
 
@@ -63,7 +63,7 @@ def _enabled(env_flag: str) -> bool:
     return env_policy.env_enabled_flag(env_flag)
 
 
-def _mapping(value: object) -> Mapping[str, object]:
+def _mapping(value: object) -> Mapping[str, JSONValue]:
     return value if isinstance(value, Mapping) else {}
 
 
@@ -73,9 +73,9 @@ def _count(value: object) -> int:
 
 def _metric_entry(
     key: str,
-    baseline: Mapping[str, object],
-    current: Mapping[str, object],
-    delta: Mapping[str, object],
+    baseline: Mapping[str, JSONValue],
+    current: Mapping[str, JSONValue],
+    delta: Mapping[str, JSONValue],
 ) -> AdvisoryMetric:
     return AdvisoryMetric(
         key=key,
@@ -92,7 +92,7 @@ def _render_summary(summary: AdvisoryNormalizedSummary, print_fn: Callable[[str]
         print_fn(f"- {entry.key}: {entry.baseline} -> {entry.current} ({entry.delta})")
 
 
-def _obsolescence_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
+def _obsolescence_summary(payload: Mapping[str, JSONValue]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     counts = _mapping(summary.get("counts"))
     baseline = _mapping(counts.get("baseline"))
@@ -123,7 +123,7 @@ def _obsolescence_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSu
     )
 
 
-def _annotation_drift_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
+def _annotation_drift_summary(payload: Mapping[str, JSONValue]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     baseline = _mapping(summary.get("baseline"))
     current = _mapping(summary.get("current"))
@@ -138,7 +138,7 @@ def _annotation_drift_summary(payload: Mapping[str, object]) -> AdvisoryNormaliz
     )
 
 
-def _ambiguity_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
+def _ambiguity_summary(payload: Mapping[str, JSONValue]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     total = _mapping(summary.get("total"))
     by_kind = _mapping(summary.get("by_kind"))
@@ -164,7 +164,7 @@ def _ambiguity_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSumma
     )
 
 
-def _docflow_summary(payload: Mapping[str, object]) -> AdvisoryNormalizedSummary:
+def _docflow_summary(payload: Mapping[str, JSONValue]) -> AdvisoryNormalizedSummary:
     summary = _mapping(payload.get("summary"))
     baseline = _mapping(summary.get("baseline"))
     current = _mapping(summary.get("current"))

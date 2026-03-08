@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# gabion:decision_protocol_module
 
 from typing import Final
 
