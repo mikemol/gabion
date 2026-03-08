@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +8,7 @@ from pathlib import Path
 import re
 from typing import Literal, Mapping
 
-from gabion.json_types import JSONObject
+from gabion.json_types import JSONObject, JSONValue
 
 _HANDOFF_FORMAT_VERSION = 1
 _DEFAULT_MANIFEST_PATH = Path("artifacts/out/aspf_handoff_manifest.json")
@@ -257,7 +256,7 @@ def load_manifest(path: Path, *, cache_projection: bool = True) -> JSONObject:
     return payload
 
 
-def _project_manifest_payload(payload: Mapping[str, object]) -> JSONObject:
+def _project_manifest_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
     state = HandoffProjectionState.empty()
     for event in _events_from_manifest_payload(payload):
         state = HandoffEventReducer.apply(state, event)
@@ -337,7 +336,7 @@ def _fold_journal(path: Path) -> JSONObject:
     return state.manifest
 
 
-def _events_from_manifest_payload(payload: Mapping[str, object]) -> list[HandoffEvent]:
+def _events_from_manifest_payload(payload: Mapping[str, JSONValue]) -> list[HandoffEvent]:
     manifest = {str(key): payload[key] for key in payload}
     root = Path(str(manifest.get("root", "."))).resolve()
     session_id = str(manifest.get("session_id", "")).strip()
@@ -372,7 +371,7 @@ def _events_from_manifest_payload(payload: Mapping[str, object]) -> list[Handoff
     return events
 
 
-def _event_from_payload(payload: Mapping[str, object]) -> HandoffEvent | None:
+def _event_from_payload(payload: Mapping[str, JSONValue]) -> HandoffEvent | None:
     event_name = str(payload.get("event", "")).strip()
     if event_name == "prepare_step":
         raw_entry = payload.get("entry")
@@ -424,7 +423,7 @@ def _optional_str(value: object) -> str | None:
 
 
 def _normalize_manifest_for_session(
-    manifest: Mapping[str, object],
+    manifest: Mapping[str, JSONValue],
     *,
     session_id: str,
     root: Path,
@@ -460,7 +459,7 @@ def _resolve_under_root(*, root: Path, value: Path) -> Path:
     return (root / value).resolve()
 
 
-def _manifest_entries(payload: Mapping[str, object]) -> list[JSONObject]:
+def _manifest_entries(payload: Mapping[str, JSONValue]) -> list[JSONObject]:
     entries_raw = payload.get("entries", [])
     assert isinstance(entries_raw, list)
     return [{str(key): raw_entry[key] for key in raw_entry} for raw_entry in entries_raw]

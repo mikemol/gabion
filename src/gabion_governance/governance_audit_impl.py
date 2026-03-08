@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-# gabion:decision_protocol_module
-# gabion:boundary_normalization_module
 
 import argparse
 import json
@@ -1336,7 +1334,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
     return graph
 
 
-def _write_sppf_graph_outputs(graph: dict[str, object], *, json_output: Path | None, dot_output: Path | None) -> None:
+def _write_sppf_graph_outputs(graph: dict[str, JSONValue], *, json_output: Path | None, dot_output: Path | None) -> None:
     if json_output is not None:
         json_output.parent.mkdir(parents=True, exist_ok=True)
         json_output.write_text(json.dumps(graph, indent=2, sort_keys=True), encoding="utf-8")
@@ -2070,7 +2068,7 @@ def _load_test_evidence(root: Path) -> dict[str, object] | None:
     return None
 
 
-def _evidence_rows_from_test_evidence(payload: dict[str, object]) -> list[dict[str, object]]:
+def _evidence_rows_from_test_evidence(payload: dict[str, JSONValue]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     evidence_index = payload.get("evidence_index")
     if not isinstance(evidence_index, list):
@@ -3186,7 +3184,7 @@ def _docflow_strongly_connected_components(
 
 
 def _docflow_cycles(
-    graph: dict[str, object],
+    graph: dict[str, JSONValue],
     *,
     lift_roles: set[str] | None = None,
     projection: str | None = None,
@@ -4339,7 +4337,7 @@ def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[Decisi
     return surfaces
 
 
-def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurface], list[DecisionSurface]]:
+def _surfaces_from_forest(forest: dict[str, JSONValue]) -> tuple[list[DecisionSurface], list[DecisionSurface]]:
     nodes = forest.get("nodes")
     alts = forest.get("alts")
     if not isinstance(nodes, list) or not isinstance(alts, list):

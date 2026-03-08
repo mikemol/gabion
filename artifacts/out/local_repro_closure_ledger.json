@@ -3322,6 +3322,62 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-PM0-B11",
+      "summary": "Global marker purge foundation batch 11: remove decision/boundary marker comments from remaining alphabetical src files and refresh deterministic marker inventory snapshot.",
+      "timestamp_utc": "2026-03-08T01:55:15Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 6297,
+        "defensive_fallback": 108,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 6994,
+        "defensive_fallback": 108,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "marker_inventory": {
+        "file": "out/scout/marker_inventory_head.json",
+        "batch_size": 24,
+        "marker_files_before_count": 24,
+        "marker_files_after_count": 0
+      },
+      "total_before": 7432,
+      "total_after": 8129,
+      "notes": [
+        "Purged marker text only (`gabion:decision_protocol_module`, `gabion:boundary_normalization_module`) from the remaining deterministic src batch.",
+        "Refreshed deterministic before/after inventory plus batch membership in out/scout/marker_inventory_head.json.",
+        "Resolved workflow-policy fallout in aspf_handoff/governance_audit_impl by strictifying non-boundary payload signatures to JSONValue-typed mappings; fiber_type_dispatch_contract remained flat at 758."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",
