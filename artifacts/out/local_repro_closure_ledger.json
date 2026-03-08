@@ -3945,6 +3945,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "clean"
       }
+    },
+    {
+      "cu_id": "CU-D2E",
+      "summary": "Long-tail strict-dispatch conversion: refactor config type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T04:09:26Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7015,
+        "defensive_fallback": 126,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 411,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7017,
+        "defensive_fallback": 126,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 399,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7863,
+      "total_after": 7853,
+      "notes": [
+        "Converted config parsing helpers to dispatch ingress patterns: _normalize_name_list/_normalize_name_item and _as_bool now use singledispatch registrants with never(...) default handlers and explicit concrete-type registrations.",
+        "Removed direct section isinstance guards from decision/exception/taint/dataflow helpers by normalizing through _toml_table_or_empty and dispatch-backed scalar/list coercion.",
+        "Acceptance met: src/gabion/config.py fiber_type_dispatch_contract 12->0 and global fiber_type_dispatch_contract 411->399 (delta -12)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_test_config": "pass",
+        "targeted_pytest_server_orchestrator_primitive_parity_cases": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "clean"
+      }
     }
   ],
   "generated_by": "codex",
