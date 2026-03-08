@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
@@ -24,6 +25,7 @@ from gabion.analysis.projection.projection_registry import (
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 BASELINE_VERSION = 2
@@ -48,6 +50,84 @@ class ObsolescenceBaseline:
     opaque_evidence_count: int
     generated_by_spec_id: str
     generated_by_spec: dict[str, JSONValue]
+
+
+@singledispatch
+# gabion:ambiguity_boundary
+def _mapping_or_none(value: object) -> dict[object, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_or_none.register(dict)
+# gabion:ambiguity_boundary
+def _(value: dict[object, object]) -> dict[object, object] | None:
+    return value
+
+
+# gabion:ambiguity_boundary
+def _none_mapping(value: object) -> dict[object, object] | None:
+    _ = value
+    return None
+
+
+for _mapping_none_type in (list, tuple, set, str, int, float, bool, type(None)):
+    _mapping_or_none.register(_mapping_none_type)(_none_mapping)
+
+
+@singledispatch
+# gabion:ambiguity_boundary
+def _list_or_none(value: object) -> list[object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_list_or_none.register(list)
+# gabion:ambiguity_boundary
+def _(value: list[object]) -> list[object] | None:
+    return value
+
+
+# gabion:ambiguity_boundary
+def _none_list(value: object) -> list[object] | None:
+    _ = value
+    return None
+
+
+for _list_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
+    _list_or_none.register(_list_none_type)(_none_list)
+
+
+@singledispatch
+# gabion:ambiguity_boundary
+def _str_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_or_none.register(str)
+# gabion:ambiguity_boundary
+def _(value: str) -> str | None:
+    return value
+
+
+# gabion:ambiguity_boundary
+def _none_str(value: object) -> str | None:
+    _ = value
+    return None
+
+
+for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
+    _str_or_none.register(_str_none_type)(_none_str)
+
+
+def _mapping_entries(value: object) -> list[dict[object, object]]:
+    entries: list[dict[object, object]] = []
+    items = _list_or_none(value)
+    if items is None:
+        return entries
+    for item in items:
+        mapping = _mapping_or_none(item)
+        if mapping is not None:
+            entries.append(mapping)
+    return entries
 
 
 def resolve_baseline_path(root: Path) -> Path:
@@ -93,16 +173,12 @@ def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBase
     )
     summary = _normalize_summary_counts(payload.get("summary", {}))
     tests: dict[str, str] = {}
-    tests_payload = payload.get("tests", [])
-    if isinstance(tests_payload, list):
-        for entry in tests_payload:
-            if not isinstance(entry, Mapping):
-                continue
-            test_id = str(entry.get("test_id", "") or "").strip()
-            class_name = str(entry.get("class", "") or "").strip()
-            if not test_id or not class_name:
-                continue
-            tests[test_id] = class_name
+    for entry in _mapping_entries(payload.get("tests", [])):
+        test_id = str(entry.get("test_id", "") or "").strip()
+        class_name = str(entry.get("class", "") or "").strip()
+        if not test_id or not class_name:
+            continue
+        tests[test_id] = class_name
     active = _normalize_active_metadata(payload.get("active", {}))
     evidence_index = _parse_evidence_index(payload.get("evidence_index", []))
     opaque_count = coerce_int(payload.get("opaque_evidence_count"), 0)
@@ -256,42 +332,30 @@ def build_delta_payload(
 def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     # dataflow-bundle: delta_payload
-    summary = delta_payload.get("summary", {})
-    counts = {}
-    if isinstance(summary, Mapping):
-        counts = summary.get("counts", {}) if isinstance(summary.get("counts"), Mapping) else {}
-    baseline_counts = (
-        counts.get("baseline", {}) if isinstance(counts.get("baseline"), Mapping) else {}
-    )
-    current_counts = (
-        counts.get("current", {}) if isinstance(counts.get("current"), Mapping) else {}
-    )
-    delta_counts = (
-        counts.get("delta", {}) if isinstance(counts.get("delta"), Mapping) else {}
-    )
-    opaque = {}
-    if isinstance(summary, Mapping):
-        opaque = summary.get("opaque_evidence", {}) if isinstance(summary.get("opaque_evidence"), Mapping) else {}
-    tests_section = delta_payload.get("tests", {})
-    evidence_section = delta_payload.get("evidence_keys", {})
+    summary = _mapping_or_none(delta_payload.get("summary", {})) or {}
+    counts = _mapping_or_none(summary.get("counts", {})) or {}
+    baseline_counts = _mapping_or_none(counts.get("baseline", {})) or {}
+    current_counts = _mapping_or_none(counts.get("current", {})) or {}
+    delta_counts = _mapping_or_none(counts.get("delta", {})) or {}
+    opaque = _mapping_or_none(summary.get("opaque_evidence", {})) or {}
+    tests_section = _mapping_or_none(delta_payload.get("tests", {})) or {}
+    evidence_section = _mapping_or_none(delta_payload.get("evidence_keys", {})) or {}
 
     doc = ReportDoc("out_test_obsolescence_delta")
     doc.lines(spec_metadata_lines_from_payload(delta_payload))
     doc.section("Summary")
 
-    baseline_meta = delta_payload.get("baseline", {})
-    if isinstance(baseline_meta, Mapping):
-        baseline_path = baseline_meta.get("path")
-        if isinstance(baseline_path, str) and baseline_path:
-            doc.line(f"- baseline: {baseline_path}")
-        baseline_spec = baseline_meta.get("generated_by_spec_id")
-        if isinstance(baseline_spec, str) and baseline_spec:
-            doc.line(f"- baseline_spec_id: {baseline_spec}")
-    current_meta = delta_payload.get("current", {})
-    if isinstance(current_meta, Mapping):
-        current_spec = current_meta.get("generated_by_spec_id")
-        if isinstance(current_spec, str) and current_spec:
-            doc.line(f"- current_spec_id: {current_spec}")
+    baseline_meta = _mapping_or_none(delta_payload.get("baseline", {})) or {}
+    baseline_path = _str_or_none(baseline_meta.get("path"))
+    if baseline_path:
+        doc.line(f"- baseline: {baseline_path}")
+    baseline_spec = _str_or_none(baseline_meta.get("generated_by_spec_id"))
+    if baseline_spec:
+        doc.line(f"- baseline_spec_id: {baseline_spec}")
+    current_meta = _mapping_or_none(delta_payload.get("current", {})) or {}
+    current_spec = _str_or_none(current_meta.get("generated_by_spec_id"))
+    if current_spec:
+        doc.line(f"- current_spec_id: {current_spec}")
 
     for key in _class_keys():
         pair = TransitionPair(
@@ -367,26 +431,29 @@ def build_baseline_payload_from_paths(
 def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[str, int]:
     check_deadline()
     result = {key: 0 for key in _class_keys()}
-    if not isinstance(summary, Mapping):
+    summary_mapping = _mapping_or_none(summary)
+    if summary_mapping is None:
         return result
     for key in result:
-        result[key] = coerce_int(summary.get(key), 0)
+        result[key] = coerce_int(summary_mapping.get(key), 0)
     return result
 
 
 # gabion:ambiguity_boundary
 def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[str, JSONValue]:
     check_deadline()
-    if not isinstance(active, Mapping):
+    active_mapping = _mapping_or_none(active)
+    if active_mapping is None:
         return {}
-    tests_payload = active.get("tests", [])
+    tests_payload = _list_or_none(active_mapping.get("tests", []))
     tests: list[str] = []
-    if isinstance(tests_payload, list):
+    if tests_payload is not None:
         seen: set[str] = set()
         for entry in tests_payload:
-            if not isinstance(entry, str):
+            test_id_raw = _str_or_none(entry)
+            if test_id_raw is None:
                 continue
-            test_id = entry.strip()
+            test_id = test_id_raw.strip()
             if not test_id or test_id in seen:
                 continue
             seen.add(test_id)
@@ -395,13 +462,14 @@ def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[st
         tests,
         source="_normalize_active_metadata.tests",
     )
-    summary_payload = active.get("summary", {})
+    summary_payload = _mapping_or_none(active_mapping.get("summary", {}))
     summary: dict[str, int] = {}
-    if isinstance(summary_payload, Mapping):
+    if summary_payload is not None:
         for key, value in summary_payload.items():
-            if not isinstance(key, str):
+            key_text = _str_or_none(key)
+            if key_text is None:
                 continue
-            summary[key] = coerce_int(value, 0)
+            summary[key_text] = coerce_int(value, 0)
     result: dict[str, JSONValue] = {}
     if tests:
         result["tests"] = tests
@@ -412,12 +480,13 @@ def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[st
 
 # gabion:ambiguity_boundary
 def _tests_from_candidates(
-    candidates: Iterable[Mapping[str, object]],
+    candidates: Iterable[object],
 ) -> list[dict[str, JSONValue]]:
     check_deadline()
     tests: dict[str, str] = {}
-    for entry in candidates:
-        if not isinstance(entry, Mapping):
+    for entry_raw in candidates:
+        entry = _mapping_or_none(entry_raw)
+        if entry is None:
             continue
         test_id = str(entry.get("test_id", "") or "").strip()
         class_name = str(entry.get("class", "") or "").strip()
@@ -479,19 +548,14 @@ def _build_evidence_index(
 def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
     check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
-    if not isinstance(value, list):
-        return entries
-    for entry in value:
-        if not isinstance(entry, Mapping):
-            continue
-        raw_key = entry.get("key")
-        if not isinstance(raw_key, Mapping):
+    for entry in _mapping_entries(value):
+        raw_key = _mapping_or_none(entry.get("key"))
+        if raw_key is None:
             continue
         key = evidence_keys.normalize_key(raw_key)
         identity = evidence_keys.key_identity(key)
-        display = entry.get("display")
-        display_value = (
-            str(display) if isinstance(display, str) else evidence_keys.render_display(key)
+        display_value = _str_or_none(entry.get("display")) or evidence_keys.render_display(
+            key
         )
         witness_count = coerce_int(entry.get("witness_count"), 0)
         existing = entries.get(identity)
@@ -571,12 +635,18 @@ def _current_meta_payload(
 
 # gabion:ambiguity_boundary
 def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list[dict[str, object]]:
-    if not isinstance(container, Mapping):
+    container_mapping = _mapping_or_none(container)
+    if container_mapping is None:
         return []
-    value = container.get(key, [])
-    if not isinstance(value, list):
+    values = _list_or_none(container_mapping.get(key, []))
+    if values is None:
         return []
-    return [entry for entry in value if isinstance(entry, Mapping)]
+    entries: list[dict[str, object]] = []
+    for value in values:
+        entry = _mapping_or_none(value)
+        if entry is not None:
+            entries.append(entry)
+    return entries
 
 
 def _render_test_section(

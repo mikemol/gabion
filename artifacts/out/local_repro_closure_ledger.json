@@ -3730,6 +3730,56 @@
         "targeted_pytest_governance_rules": "pass",
         "targeted_pytest_normative_symdiff_edges": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2A",
+      "summary": "Long-tail strict-dispatch conversion: refactor test_obsolescence_delta type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:29:19Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7006,
+        "defensive_fallback": 131,
+        "fiber_scalar_sentinel_contract": 274,
+        "fiber_type_dispatch_contract": 480,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7000,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 278,
+        "fiber_type_dispatch_contract": 459,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7915,
+      "total_after": 7897,
+      "notes": [
+        "Converted test_obsolescence_delta runtime-shape/type routing in parse/render/normalization helpers to dispatch-based ingress helpers (_mapping_or_none, _list_or_none, _str_or_none, _mapping_entries) with never(...) base handlers.",
+        "Removed in-body isinstance guards across parse_baseline_payload, render_markdown, _normalize_summary_counts, _normalize_active_metadata, _tests_from_candidates, _parse_evidence_index, and _section_list while preserving payload and reporting semantics.",
+        "Acceptance met: src/gabion/analysis/surfaces/test_obsolescence_delta.py fiber_type_dispatch_contract 21->0 and global fiber_type_dispatch_contract 480->459 (delta -21); non-target movement recorded (typing_surface 0->7) per target-only mode."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_test_obsolescence_delta": "pass"
+      }
     }
   ],
   "generated_by": "codex",
