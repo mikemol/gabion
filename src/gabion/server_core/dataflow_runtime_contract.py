@@ -2,11 +2,14 @@ from __future__ import annotations
 
 """Server-core ownership module and single source of truth for progress/deadline/report runtime contract values."""
 
+from functools import singledispatch
 from pathlib import Path
 from typing import Literal, Mapping
 
 from gabion.json_types import JSONValue
+from gabion.invariants import never
 from gabion.runtime import path_policy
+from gabion.runtime_shape_dispatch import int_or_none
 
 DEFAULT_PHASE_TIMELINE_MD = Path("artifacts/audit_reports/dataflow_phase_timeline.md")
 DEFAULT_PHASE_TIMELINE_JSONL = Path("artifacts/audit_reports/dataflow_phase_timeline.jsonl")
@@ -48,9 +51,9 @@ def is_stdout_target(target: object) -> bool:
 
 
 def deadline_tick_budget_allows_check(clock: object) -> bool:
-    limit = getattr(clock, "limit", None)
-    current = getattr(clock, "current", None)
-    if isinstance(limit, int) and isinstance(current, int):
+    limit = int_or_none(getattr(clock, "limit", None))
+    current = int_or_none(getattr(clock, "current", None))
+    if limit is not None and current is not None:
         return (limit - current) > 1
     return True
 
@@ -104,24 +107,57 @@ def projection_phase_flush_due(
 
 def progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
     raw = payload.get("progress_heartbeat_seconds")
-    if isinstance(raw, bool):
-        return DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    if isinstance(raw, (int, float)):
-        parsed = float(raw)
-    elif isinstance(raw, str):
-        text = raw.strip()
-        if not text:
-            return DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-        try:
-            parsed = float(text)
-        except ValueError:
-            return DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    elif raw is None:
-        return DEFAULT_PROGRESS_HEARTBEAT_SECONDS
-    else:
+    parsed = _progress_heartbeat_candidate_seconds(raw)
+    if parsed is None:
         return DEFAULT_PROGRESS_HEARTBEAT_SECONDS
     if parsed <= 0:
         return 0.0
     if parsed < MIN_PROGRESS_HEARTBEAT_SECONDS:
         return MIN_PROGRESS_HEARTBEAT_SECONDS
     return parsed
+
+
+def _none_heartbeat_candidate(value: object) -> float | None:
+    del value
+    return None
+
+
+@singledispatch
+def _progress_heartbeat_candidate_seconds(value: object) -> float | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_progress_heartbeat_candidate_seconds.register(int)
+def _progress_heartbeat_candidate_seconds_int(value: int) -> float | None:
+    return float(value)
+
+
+@_progress_heartbeat_candidate_seconds.register(float)
+def _progress_heartbeat_candidate_seconds_float(value: float) -> float | None:
+    return float(value)
+
+
+@_progress_heartbeat_candidate_seconds.register(str)
+def _progress_heartbeat_candidate_seconds_str(value: str) -> float | None:
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+for _runtime_type in (
+    bool,
+    dict,
+    list,
+    tuple,
+    set,
+    bytes,
+    bytearray,
+    type(None),
+):
+    _progress_heartbeat_candidate_seconds.register(_runtime_type)(
+        _none_heartbeat_candidate
+    )

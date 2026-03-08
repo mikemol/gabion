@@ -4900,6 +4900,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2W",
+      "summary": "Strict-dispatch conversion for stable encoding, runtime heartbeat contract parsing, and module export collection guards.",
+      "timestamp_utc": "2026-03-08T12:35:40Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7110,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 175,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7108,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 161,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7761,
+      "total_after": 7745,
+      "notes": [
+        "Converted runtime stable encoder normalization to singledispatch with never() base and preserved TypeError boundary behavior for unsupported runtime values.",
+        "Converted server_core dataflow runtime contract heartbeat and deadline guards to dispatch-driven ingress helpers (no manual isinstance ladders).",
+        "Rewrote indexed-scan module export collectors to structural pattern matching, removing explicit type(...) branch ladders in __all__/local-def extraction.",
+        "Target files reached zero fiber violations: stable_encode 5->0, dataflow_runtime_contract 5->0, module_exports 4->0; global fiber_type_dispatch_contract 175->161 (delta -14)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_runtime_and_exports": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
-from typing import Mapping
+from functools import singledispatch
 
+from gabion.exceptions import NeverThrown
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 
@@ -51,45 +53,71 @@ def stable_json_value(
     - Sets normalize to deterministically sorted lists.
     - Unsupported objects are rejected to prevent non-deterministic identity leaks.
     """
-    return _normalize(value, source=source)
+    try:
+        return _normalize(value, source=source)
+    except NeverThrown as error:
+        if str(error) != "unregistered runtime type":
+            raise
+        value_type = type(value).__name__
+        match error.marker_payload.env.get("value_type"):
+            case str() as nested_value_type if nested_value_type:
+                value_type = nested_value_type
+            case _:
+                pass
+        raise TypeError(
+            "stable_json_value does not support value type "
+            f"{value_type} at {source}"
+        ) from None
 
 
+@singledispatch
 def _normalize(value: object, *, source: str) -> object:
-    if isinstance(value, Mapping):
-        keys = sort_once(
-            (str(key) for key in value),
-            source=f"{source}.mapping_keys",
-            # Lexical mapping-key order defines canonical mapping identity.
-            key=lambda item: item,
-        )
-        return {
-            key: _normalize(value[key], source=f"{source}.{key}")
-            for key in keys
-        }
-    if isinstance(value, tuple):
-        return [
-            _normalize(item, source=f"{source}.tuple_item")
-            for item in value
-        ]
-    if isinstance(value, list):
-        return [
-            _normalize(item, source=f"{source}.list_item")
-            for item in value
-        ]
-    if isinstance(value, set):
-        normalized_items = [
-            _normalize(item, source=f"{source}.set_item")
-            for item in value
-        ]
-        return sort_once(
-            normalized_items,
-            source=f"{source}.set_items",
-            # Non-lexical comparator: type-tag + deterministic stable text.
-            key=lambda item: (type(item).__name__, stable_compact_text(item)),
-        )
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    raise TypeError(
-        "stable_json_value does not support value type "
-        f"{type(value).__name__} at {source}"
+    never(
+        "unregistered runtime type",
+        value_type=type(value).__name__,
     )
+
+
+@_normalize.register(dict)
+def _normalize_dict(value: dict[object, object], *, source: str) -> object:
+    keyed_items = sort_once(
+        ((str(key), key) for key in value),
+        source=f"{source}.mapping_keys",
+        # Lexical mapping-key order defines canonical mapping identity.
+        key=lambda item: item[0],
+    )
+    return {
+        key_text: _normalize(value[raw_key], source=f"{source}.{key_text}")
+        for key_text, raw_key in keyed_items
+    }
+
+
+@_normalize.register(tuple)
+def _normalize_tuple(value: tuple[object, ...], *, source: str) -> object:
+    return [_normalize(item, source=f"{source}.tuple_item") for item in value]
+
+
+@_normalize.register(list)
+def _normalize_list(value: list[object], *, source: str) -> object:
+    return [_normalize(item, source=f"{source}.list_item") for item in value]
+
+
+@_normalize.register(set)
+def _normalize_set(value: set[object], *, source: str) -> object:
+    normalized_items = [_normalize(item, source=f"{source}.set_item") for item in value]
+    return sort_once(
+        normalized_items,
+        source=f"{source}.set_items",
+        # Non-lexical comparator: type-tag + deterministic stable text.
+        key=lambda item: (type(item).__name__, stable_compact_text(item)),
+    )
+
+
+@_normalize.register(str)
+@_normalize.register(int)
+@_normalize.register(float)
+@_normalize.register(bool)
+@_normalize.register(type(None))
+def _normalize_scalar(value: object, *, source: str) -> object:
+    del source
+    return value
