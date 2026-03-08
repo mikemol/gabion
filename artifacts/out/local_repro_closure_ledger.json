@@ -3890,6 +3890,61 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "clean"
       }
+    },
+    {
+      "cu_id": "CU-D2D",
+      "summary": "Long-tail strict-dispatch conversion: refactor test_obsolescence type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T04:04:49Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7016,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 426,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7015,
+        "defensive_fallback": 126,
+        "fiber_scalar_sentinel_contract": 280,
+        "fiber_type_dispatch_contract": 411,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 7,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7883,
+      "total_after": 7863,
+      "notes": [
+        "Converted test_obsolescence payload and evidence-ref normalization routers to @singledispatch ingress carriers with never(...) defaults, replacing in-body isinstance/type routing.",
+        "Reworked evidence reference normalization into dispatch registrants for None/EvidenceRef/str/list/tuple/set and explicit no-op registrants for dict/int/float/bool to preserve semantics while removing manual type guards.",
+        "Resolved interim typing-surface regressions by replacing newly introduced object annotations in dispatch helpers with explicit runtime carrier aliases; acceptance met: src/gabion/analysis/surfaces/test_obsolescence.py fiber_type_dispatch_contract 15->0 and global fiber_type_dispatch_contract 426->411 (delta -15)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_test_test_obsolescence": "pass",
+        "targeted_pytest_test_test_obsolescence_state": "pass",
+        "targeted_pytest_test_test_obsolescence_delta": "pass",
+        "targeted_pytest_test_test_evidence_suggestions": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "clean"
+      }
     }
   ],
   "generated_by": "codex",

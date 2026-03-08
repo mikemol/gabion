@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Mapping
 from gabion.json_types import JSONValue
@@ -14,7 +15,86 @@ from gabion.analysis.projection.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
+
+_NONE_TYPE = type(None)
+_DispatchValue = JSONValue | tuple[JSONValue, ...] | set[JSONValue]
+
+
+@dataclass(frozen=True)
+class _MappingCarrier:
+    is_mapping: bool
+    mapping: Mapping[str, JSONValue]
+
+
+@singledispatch
+def _mapping_carrier(value: _DispatchValue) -> _MappingCarrier:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_carrier.register(dict)
+def _(value: dict[str, JSONValue]) -> _MappingCarrier:
+    return _MappingCarrier(is_mapping=True, mapping=value)
+
+
+def _non_mapping_carrier(value: _DispatchValue) -> _MappingCarrier:
+    _ = value
+    return _MappingCarrier(is_mapping=False, mapping={})
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _mapping_carrier.register(_runtime_type)(_non_mapping_carrier)
+
+
+@dataclass(frozen=True)
+class _ListCarrier:
+    is_list: bool
+    values: list[JSONValue]
+
+
+@singledispatch
+def _list_carrier(value: _DispatchValue) -> _ListCarrier:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_list_carrier.register(list)
+def _(value: list[JSONValue]) -> _ListCarrier:
+    return _ListCarrier(is_list=True, values=value)
+
+
+def _non_list_carrier(value: _DispatchValue) -> _ListCarrier:
+    _ = value
+    return _ListCarrier(is_list=False, values=[])
+
+
+for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
+    _list_carrier.register(_runtime_type)(_non_list_carrier)
+
+
+@dataclass(frozen=True)
+class _StringCarrier:
+    is_string: bool
+    text: str
+
+
+@singledispatch
+def _string_carrier(value: _DispatchValue) -> _StringCarrier:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_carrier.register
+def _(value: str) -> _StringCarrier:
+    return _StringCarrier(is_string=True, text=value)
+
+
+def _non_string_carrier(value: _DispatchValue) -> _StringCarrier:
+    _ = value
+    return _StringCarrier(is_string=False, text="")
+
+
+for _runtime_type in (dict, list, tuple, set, int, float, bool, _NONE_TYPE):
+    _string_carrier.register(_runtime_type)(_non_string_carrier)
 
 
 @dataclass(frozen=True)
@@ -26,11 +106,12 @@ class RiskInfo:
     @classmethod
     # gabion:ambiguity_boundary
     def from_payload(cls, payload: object) -> RiskInfo | None:
-        if not isinstance(payload, Mapping):
+        payload_carrier = _mapping_carrier(payload)
+        if not payload_carrier.is_mapping:
             return None
-        risk = str(payload.get("risk", "") or "").strip()
-        owner = str(payload.get("owner", "") or "").strip()
-        rationale = str(payload.get("rationale", "") or "").strip()
+        risk = str(payload_carrier.mapping.get("risk", "") or "").strip()
+        owner = str(payload_carrier.mapping.get("owner", "") or "").strip()
+        rationale = str(payload_carrier.mapping.get("rationale", "") or "").strip()
         if not risk:
             return None
         return cls(risk=risk, owner=owner, rationale=rationale)
@@ -42,6 +123,138 @@ class EvidenceRef:
     identity: str
     display: str
     opaque: bool
+
+
+_EvidenceRefInput = EvidenceRef | _DispatchValue
+
+
+@dataclass(frozen=True)
+class _EvidenceKeyCarrier:
+    resolved: bool
+    key: dict[str, object]
+
+
+@singledispatch
+def _evidence_key_carrier(value: _DispatchValue) -> _EvidenceKeyCarrier:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_evidence_key_carrier.register(dict)
+def _(value: dict[str, JSONValue]) -> _EvidenceKeyCarrier:
+    return _EvidenceKeyCarrier(
+        resolved=True,
+        key=evidence_keys.normalize_key(value),
+    )
+
+
+def _non_evidence_key_carrier(value: _DispatchValue) -> _EvidenceKeyCarrier:
+    _ = value
+    return _EvidenceKeyCarrier(resolved=False, key={})
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _evidence_key_carrier.register(_runtime_type)(_non_evidence_key_carrier)
+
+
+def _normalized_evidence_key_from_fields(
+    *,
+    raw_key: _DispatchValue,
+    display: _DispatchValue,
+) -> _EvidenceKeyCarrier:
+    key_carrier = _evidence_key_carrier(raw_key)
+    display_carrier = _string_carrier(display)
+    key = dict(key_carrier.key)
+    if not key_carrier.resolved and display_carrier.is_string:
+        display_text = display_carrier.text
+        parsed = evidence_keys.parse_display(display_text)
+        if parsed is not None:
+            key = parsed
+            key_carrier = _EvidenceKeyCarrier(resolved=True, key=key)
+    if not key_carrier.resolved:
+        if not display_carrier.is_string:
+            return _EvidenceKeyCarrier(resolved=False, key={})
+        key = evidence_keys.make_opaque_key(display_carrier.text)
+    return _EvidenceKeyCarrier(
+        resolved=True,
+        key=evidence_keys.normalize_key(key),
+    )
+
+
+@singledispatch
+def _accumulate_evidence_ref_item(
+    item: _EvidenceRefInput,
+    *,
+    refs: dict[str, EvidenceRef],
+) -> None:
+    never("unregistered runtime type", value_type=type(item).__name__)
+
+
+@_accumulate_evidence_ref_item.register
+def _(item: EvidenceRef, *, refs: dict[str, EvidenceRef]) -> None:
+    refs[item.identity] = item
+
+
+@_accumulate_evidence_ref_item.register(dict)
+def _(item: dict[str, JSONValue], *, refs: dict[str, EvidenceRef]) -> None:
+    raw_key = item.get("key")
+    display = item.get("display")
+    key_carrier = _normalized_evidence_key_from_fields(raw_key=raw_key, display=display)
+    if not key_carrier.resolved:
+        return
+    key = key_carrier.key
+    identity = evidence_keys.key_identity(key)
+    rendered = evidence_keys.render_display(key)
+    display_carrier = _string_carrier(display)
+    if evidence_keys.is_opaque(key) and display_carrier.is_string:
+        rendered = display_carrier.text
+    refs[identity] = EvidenceRef(
+        key=key,
+        identity=identity,
+        display=rendered,
+        opaque=evidence_keys.is_opaque(key),
+    )
+
+
+@_accumulate_evidence_ref_item.register
+def _(item: str, *, refs: dict[str, EvidenceRef]) -> None:
+    display = item.strip()
+    if not display:
+        return
+    key = evidence_keys.parse_display(display)
+    if key is None:
+        key = evidence_keys.make_opaque_key(display)
+    key = evidence_keys.normalize_key(key)
+    identity = evidence_keys.key_identity(key)
+    rendered = evidence_keys.render_display(key)
+    if evidence_keys.is_opaque(key):
+        rendered = display
+    refs[identity] = EvidenceRef(
+        key=key,
+        identity=identity,
+        display=rendered,
+        opaque=evidence_keys.is_opaque(key),
+    )
+
+
+def _skip_evidence_ref_item(item: _EvidenceRefInput, *, refs: dict[str, EvidenceRef]) -> None:
+    _ = item, refs
+
+
+for _runtime_type in (list, tuple, set, int, float, bool, _NONE_TYPE):
+    _accumulate_evidence_ref_item.register(_runtime_type)(_skip_evidence_ref_item)
+
+
+def _normalize_evidence_refs_iterable(items: list[_EvidenceRefInput]) -> list[EvidenceRef]:
+    refs: dict[str, EvidenceRef] = {}
+    for item in items:
+        _accumulate_evidence_ref_item(item, refs=refs)
+    return [
+        refs[key]
+        for key in sort_once(
+            refs,
+            source="_normalize_evidence_refs.refs",
+        )
+    ]
 
 
 @dataclass(frozen=True)
@@ -88,18 +301,19 @@ def load_test_evidence(
         field="schema_version",
         error_context="test evidence",
     )
-    tests = payload.get("tests", [])
-    if not isinstance(tests, list):
+    tests_carrier = _list_carrier(payload.get("tests", []))
+    if not tests_carrier.is_list:
         raise ValueError("test evidence payload is missing tests list")
     entries: list[tuple[str, list[EvidenceRef], str]] = []
-    for entry in tests:
-        if not isinstance(entry, Mapping):
+    for entry in tests_carrier.values:
+        entry_carrier = _mapping_carrier(entry)
+        if not entry_carrier.is_mapping:
             continue
-        test_id = str(entry.get("test_id", "") or "").strip()
+        test_id = str(entry_carrier.mapping.get("test_id", "") or "").strip()
         if not test_id:
             continue
-        evidence = _normalize_evidence_refs(entry.get("evidence", []))
-        raw_status = entry.get("status")
+        evidence = _normalize_evidence_refs(entry_carrier.mapping.get("evidence", []))
+        raw_status = entry_carrier.mapping.get("status")
         status = str(raw_status).strip() if raw_status is not None else ""
         if not status:
             status = "mapped" if evidence else "unmapped"
@@ -131,17 +345,18 @@ def _parse_risk_registry_payload(payload: Mapping[str, JSONValue]) -> dict[str, 
         expected=1,
         error_context="evidence risk registry",
     )
-    evidence = payload.get("evidence", {})
-    if not isinstance(evidence, Mapping):
+    evidence_carrier = _mapping_carrier(payload.get("evidence", {}))
+    if not evidence_carrier.is_mapping:
         return {}
     registry: dict[str, RiskInfo] = {}
-    for evidence_id, info_payload in evidence.items():
-        if not isinstance(evidence_id, str):
+    for evidence_id_raw, info_payload in evidence_carrier.mapping.items():
+        evidence_id_carrier = _string_carrier(evidence_id_raw)
+        if not evidence_id_carrier.is_string:
             continue
         info = RiskInfo.from_payload(info_payload)
         if info is None:
             continue
-        registry[evidence_id] = info
+        registry[evidence_id_carrier.text] = info
     return registry
 
 
@@ -585,70 +800,46 @@ def _summarize_candidates(
             summary[class_name] = count
     return summary
 
-# gabion:ambiguity_boundary
-def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
-    check_deadline()
-    if value is None:
-        return []
-    if isinstance(value, EvidenceRef):
-        return [value]
-    refs: dict[str, EvidenceRef] = {}
-    if isinstance(value, str):
-        value = [value]
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            if isinstance(item, EvidenceRef):
-                refs[item.identity] = item
-                continue
-            if isinstance(item, Mapping):
-                raw_key = item.get("key")
-                display = item.get("display")
-                key: dict[str, object] | None = None
-                if isinstance(raw_key, Mapping):
-                    key = evidence_keys.normalize_key(raw_key)
-                if key is None and isinstance(display, str):
-                    parsed = evidence_keys.parse_display(display)
-                    if parsed is not None:
-                        key = parsed
-                if key is None:
-                    if isinstance(display, str):
-                        key = evidence_keys.make_opaque_key(display)
-                    else:
-                        continue
-                key = evidence_keys.normalize_key(key)
-                identity = evidence_keys.key_identity(key)
-                rendered = evidence_keys.render_display(key)
-                if evidence_keys.is_opaque(key) and isinstance(display, str):
-                    rendered = display
-                refs[identity] = EvidenceRef(
-                    key=key,
-                    identity=identity,
-                    display=rendered,
-                    opaque=evidence_keys.is_opaque(key),
-                )
-            elif isinstance(item, str):
-                display = item.strip()
-                if not display:
-                    continue
-                key = evidence_keys.parse_display(display)
-                if key is None:
-                    key = evidence_keys.make_opaque_key(display)
-                key = evidence_keys.normalize_key(key)
-                identity = evidence_keys.key_identity(key)
-                rendered = evidence_keys.render_display(key)
-                if evidence_keys.is_opaque(key):
-                    rendered = display
-                refs[identity] = EvidenceRef(
-                    key=key,
-                    identity=identity,
-                    display=rendered,
-                    opaque=evidence_keys.is_opaque(key),
-                )
-    ordered = [
-        refs[key]
-        for key in sort_once(
-            refs,
-            source="_normalize_evidence_refs.refs",
-        )
-    ]
-    return ordered
+@singledispatch
+def _normalize_evidence_refs(value: _EvidenceRefInput) -> list[EvidenceRef]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_normalize_evidence_refs.register(_NONE_TYPE)
+def _(value: None) -> list[EvidenceRef]:
+    _ = value
+    return []
+
+
+@_normalize_evidence_refs.register
+def _(value: EvidenceRef) -> list[EvidenceRef]:
+    return [value]
+
+
+@_normalize_evidence_refs.register
+def _(value: str) -> list[EvidenceRef]:
+    return _normalize_evidence_refs_iterable([value])
+
+
+@_normalize_evidence_refs.register(list)
+def _(value: list[_EvidenceRefInput]) -> list[EvidenceRef]:
+    return _normalize_evidence_refs_iterable(value)
+
+
+@_normalize_evidence_refs.register(tuple)
+def _(value: tuple[_EvidenceRefInput, ...]) -> list[EvidenceRef]:
+    return _normalize_evidence_refs_iterable(list(value))
+
+
+@_normalize_evidence_refs.register(set)
+def _(value: set[_EvidenceRefInput]) -> list[EvidenceRef]:
+    return _normalize_evidence_refs_iterable(list(value))
+
+
+def _empty_evidence_refs(value: _EvidenceRefInput) -> list[EvidenceRef]:
+    _ = value
+    return []
+
+
+for _runtime_type in (dict, int, float, bool):
+    _normalize_evidence_refs.register(_runtime_type)(_empty_evidence_refs)
