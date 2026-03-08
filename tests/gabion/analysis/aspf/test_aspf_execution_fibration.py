@@ -806,7 +806,7 @@ def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
         dict(state.surface_representatives),
     )
     visitor.on_replay_event(
-        event=aspf_execution_fibration.AspfRunBoundaryEvent(
+        aspf_execution_fibration.AspfRunBoundaryEvent(
             boundary="equivalence_surface_row",
             payload={"surface": "groups_by_path"},
         )
@@ -828,7 +828,7 @@ def test_imported_trace_merge_visitor_rejects_unknown_event_type(tmp_path: Path)
     assert state is not None
     visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(state=state)
     with pytest.raises(NeverRaise):
-        visitor.on_replay_event(event=object())  # type: ignore[arg-type]
+        visitor.on_replay_event(object())  # type: ignore[arg-type]
 
 
 def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
@@ -925,7 +925,7 @@ def test_imported_trace_merge_visitor_explicit_run_boundary_case() -> None:
         )
     )
     assert visitor.on_replay_event(
-        event=aspf_execution_fibration.AspfRunBoundaryEvent(
+        aspf_execution_fibration.AspfRunBoundaryEvent(
             boundary="equivalence_surface_row",
             payload={},
         )

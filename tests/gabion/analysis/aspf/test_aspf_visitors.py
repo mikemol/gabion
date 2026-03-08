@@ -268,7 +268,7 @@ def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
 def test_replay_event_dispatch_rejects_unknown_event_type() -> None:
     visitor = NullAspfTraversalVisitor()
     with pytest.raises(NeverRaise):
-        visitor.on_replay_event(event=object())  # type: ignore[arg-type]
+        visitor.on_replay_event(object())  # type: ignore[arg-type]
 
 
 def test_two_cell_replay_normalization_uses_nested_representatives_and_skip_outcome() -> None:

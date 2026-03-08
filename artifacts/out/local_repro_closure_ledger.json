@@ -2661,6 +2661,56 @@
         "targeted_pytest_fiber_scalar_sentinel_contract_rule": "pass",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-DISPATCH1",
+      "summary": "Add hard-fail fiber type-dispatch contract rule and convert ASPF replay routing to singledispatchmethod.",
+      "timestamp_utc": "2026-03-08T00:37:44Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 86,
+        "fiber_scalar_sentinel_contract": 270,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 0,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 272,
+        "fiber_type_dispatch_contract": 863,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 356,
+      "total_after": 1222,
+      "notes": [
+        "Added fiber_type_dispatch_contract_rule with hard-fail diagnostics for isinstance/type guards, match type(...) routing, and type-keyed dispatch tables.",
+        "Enforced singledispatch contract requirements: never(...) in base handlers and concrete register classes only.",
+        "Converted ASPF replay routing surfaces from manual dispatch tables/isinstance ladders to singledispatchmethod and updated replay callsites/tests to positional dispatch."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_aspf_visitors_execution_fibration_runtime_policy": "pass"
+      }
     }
   ],
   "generated_by": "codex",

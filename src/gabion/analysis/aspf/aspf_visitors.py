@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from functools import singledispatchmethod
 import hashlib
 from typing import Callable, Iterable, Literal, Mapping, Protocol, TypeAlias, cast
 
@@ -107,62 +108,7 @@ AspfTraceReplayEvent: TypeAlias = (
 class AspfEventReplayVisitor(Protocol):
     """Canonical low-level ASPF replay hook protocol."""
 
-    def on_replay_event(self, *, event: AspfTraceReplayEvent) -> None: ...
-
-
-AspfReplayDispatchFn: TypeAlias = Callable[["NullAspfTraversalVisitor", AspfTraceReplayEvent], None]
-
-
-def _dispatch_one_cell(
-    visitor: "NullAspfTraversalVisitor",
-    event: AspfTraceReplayEvent,
-) -> None:
-    payload = cast(AspfOneCellEvent, event)
-    visitor.on_trace_one_cell(index=payload.index, one_cell=payload.payload)
-
-
-def _dispatch_two_cell(
-    visitor: "NullAspfTraversalVisitor",
-    event: AspfTraceReplayEvent,
-) -> None:
-    payload = cast(AspfTwoCellEvent, event)
-    visitor.on_trace_two_cell_witness(index=payload.index, witness=payload.payload)
-
-
-def _dispatch_cofibration(
-    visitor: "NullAspfTraversalVisitor",
-    event: AspfTraceReplayEvent,
-) -> None:
-    payload = cast(AspfCofibrationEvent, event)
-    visitor.on_trace_cofibration(index=payload.index, cofibration=payload.payload)
-
-
-def _dispatch_surface_update(
-    visitor: "NullAspfTraversalVisitor",
-    event: AspfTraceReplayEvent,
-) -> None:
-    payload = cast(AspfSurfaceUpdateEvent, event)
-    visitor.on_trace_surface_representative(
-        surface=payload.surface,
-        representative=payload.representative,
-    )
-
-
-def _dispatch_run_boundary(
-    visitor: "NullAspfTraversalVisitor",
-    event: AspfTraceReplayEvent,
-) -> None:
-    payload = cast(AspfRunBoundaryEvent, event)
-    visitor.on_equivalence_surface_row(index=0, row=payload.payload)
-
-
-_REPLAY_EVENT_DISPATCH_TABLE: Mapping[type[object], AspfReplayDispatchFn] = {
-    AspfOneCellEvent: _dispatch_one_cell,
-    AspfTwoCellEvent: _dispatch_two_cell,
-    AspfCofibrationEvent: _dispatch_cofibration,
-    AspfSurfaceUpdateEvent: _dispatch_surface_update,
-    AspfRunBoundaryEvent: _dispatch_run_boundary,
-}
+    def on_replay_event(self, event: AspfTraceReplayEvent) -> None: ...
 
 
 @dataclass
@@ -208,11 +154,32 @@ class NullAspfTraversalVisitor:
     ) -> None:
         pass
 
-    def on_replay_event(self, *, event: AspfTraceReplayEvent) -> None:
-        dispatch = _REPLAY_EVENT_DISPATCH_TABLE.get(type(event))
-        if dispatch is None:
-            never("invalid aspf replay event", kind=type(event).__name__)
-        dispatch(self, event)
+    @singledispatchmethod
+    def on_replay_event(self, event: AspfTraceReplayEvent) -> None:
+        never("invalid aspf replay event", kind=type(event).__name__)
+
+    @on_replay_event.register
+    def _(self, event: AspfOneCellEvent) -> None:
+        self.on_trace_one_cell(index=event.index, one_cell=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfTwoCellEvent) -> None:
+        self.on_trace_two_cell_witness(index=event.index, witness=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfCofibrationEvent) -> None:
+        self.on_trace_cofibration(index=event.index, cofibration=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfSurfaceUpdateEvent) -> None:
+        self.on_trace_surface_representative(
+            surface=event.surface,
+            representative=event.representative,
+        )
+
+    @on_replay_event.register
+    def _(self, event: AspfRunBoundaryEvent) -> None:
+        self.on_equivalence_surface_row(index=0, row=event.payload)
 
 
 def traverse_forest_to_visitor(*, forest: Forest, visitor: AspfTraversalVisitor) -> None:
@@ -240,11 +207,11 @@ class TwoCellReplayNormalizationKind(StrEnum):
 @dataclass(frozen=True)
 class TwoCellReplayNormalizationOutcome:
     kind: TwoCellReplayNormalizationKind
-    payload: Mapping[str, object] = field(default_factory=dict)
+    payload: Mapping[str, JSONValue] = field(default_factory=dict)
 
 
 def _normalize_two_cell_witness_for_replay(
-    witness: Mapping[str, object],
+    witness: Mapping[str, JSONValue],
 ) -> TwoCellReplayNormalizationOutcome:
     normalized = {str(key): witness[key] for key in witness}
     witness_id = str(normalized.get("witness_id", "")).strip()
@@ -276,17 +243,17 @@ def adapt_live_event_stream_to_visitor(
     visitor: AspfEventReplayVisitor,
 ) -> None:
     for index, one_cell in enumerate(one_cells):
-        visitor.on_replay_event(event=AspfOneCellEvent(index=index, payload=one_cell))
+        visitor.on_replay_event(AspfOneCellEvent(index=index, payload=one_cell))
 
     for index, witness in enumerate(two_cell_witnesses):
         normalized_witness = _normalize_two_cell_witness_for_replay(witness)
         if normalized_witness.kind is TwoCellReplayNormalizationKind.VALID:
             visitor.on_replay_event(
-                event=AspfTwoCellEvent(index=index, payload=normalized_witness.payload)
+                AspfTwoCellEvent(index=index, payload=normalized_witness.payload)
             )
 
     for index, cofibration in enumerate(cofibration_witnesses):
-        visitor.on_replay_event(event=AspfCofibrationEvent(index=index, payload=cofibration))
+        visitor.on_replay_event(AspfCofibrationEvent(index=index, payload=cofibration))
 
     ordered_surfaces = sort_once(
         [str(surface) for surface in surface_representatives],
@@ -294,7 +261,7 @@ def adapt_live_event_stream_to_visitor(
     )
     for surface in ordered_surfaces:
         visitor.on_replay_event(
-            event=AspfSurfaceUpdateEvent(
+            AspfSurfaceUpdateEvent(
                 surface=surface,
                 representative=str(surface_representatives.get(surface, "")),
             )
@@ -307,7 +274,7 @@ def adapt_trace_event_iterator_to_visitor(
     visitor: AspfEventReplayVisitor,
 ) -> None:
     for event in events:
-        visitor.on_replay_event(event=event)
+        visitor.on_replay_event(event)
 
 
 def adapt_event_log_reader_iterator_to_visitor(
@@ -317,7 +284,7 @@ def adapt_event_log_reader_iterator_to_visitor(
 ) -> None:
     for row in event_log_rows:
         visitor.on_replay_event(
-            event=AspfRunBoundaryEvent(boundary="equivalence_surface_row", payload=row)
+            AspfRunBoundaryEvent(boundary="equivalence_surface_row", payload=row)
         )
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import singledispatchmethod
 import hashlib
 import json
 import os
@@ -484,7 +485,7 @@ def finalize_execution_trace(
     exit_code: int | None = None,
     analysis_state: str | None = None,
 ) -> AspfFinalizationArtifacts | None:
-    if state is None:
+    if state in (None,):
         return None
     merge_imported_trace_paths(state=state, paths=state.controls.aspf_import_trace)
     merge_imported_trace_paths(state=state, paths=state.controls.aspf_import_state)
@@ -751,14 +752,14 @@ def _adapt_streamed_trace_events_to_visitor(
         sequence = int(event.get("sequence", event.get("index", event.get("line", 0))))
         payload = cast(Mapping[str, object], event.get("payload", {}))
         if kind == "one_cell":
-            visitor.on_replay_event(event=AspfOneCellEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(AspfOneCellEvent(index=sequence, payload=payload))
         elif kind == "two_cell":
-            visitor.on_replay_event(event=AspfTwoCellEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(AspfTwoCellEvent(index=sequence, payload=payload))
         elif kind == "cofibration":
-            visitor.on_replay_event(event=AspfCofibrationEvent(index=sequence, payload=payload))
+            visitor.on_replay_event(AspfCofibrationEvent(index=sequence, payload=payload))
         elif kind == "surface_update":
             visitor.on_replay_event(
-                event=AspfSurfaceUpdateEvent(
+                AspfSurfaceUpdateEvent(
                     surface=str(event.get("surface", "")),
                     representative=str(event.get("representative", "")),
                 )
@@ -771,26 +772,34 @@ def _adapt_streamed_trace_events_to_visitor(
 class _ImportedTraceMergeVisitor:
     state: AspfExecutionTraceState
 
-    def on_replay_event(self, *, event: AspfTraceReplayEvent) -> None:
-        if isinstance(event, AspfOneCellEvent):
-            _merge_one_cell_payload(state=self.state, one_cell_payload=event.payload)
-            return None
-        if isinstance(event, AspfTwoCellEvent):
-            _merge_two_cell_payload(state=self.state, witness_payload=event.payload)
-            return None
-        if isinstance(event, AspfCofibrationEvent):
-            _merge_cofibration_payload(state=self.state, cofibration_payload=event.payload)
-            return None
-        if isinstance(event, AspfSurfaceUpdateEvent):
-            _merge_surface_representative(
-                state=self.state,
-                surface=event.surface,
-                representative=event.representative,
-            )
-            return None
-        if isinstance(event, AspfRunBoundaryEvent):
-            return None
+    @singledispatchmethod
+    def on_replay_event(self, event: AspfTraceReplayEvent) -> None:
         never("invalid imported trace replay event", event_kind=type(event).__name__)
+
+    @on_replay_event.register
+    def _(self, event: AspfOneCellEvent) -> None:
+        _merge_one_cell_payload(state=self.state, one_cell_payload=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfTwoCellEvent) -> None:
+        _merge_two_cell_payload(state=self.state, witness_payload=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfCofibrationEvent) -> None:
+        _merge_cofibration_payload(state=self.state, cofibration_payload=event.payload)
+
+    @on_replay_event.register
+    def _(self, event: AspfSurfaceUpdateEvent) -> None:
+        _merge_surface_representative(
+            state=self.state,
+            surface=event.surface,
+            representative=event.representative,
+        )
+
+    @on_replay_event.register
+    def _(self, event: AspfRunBoundaryEvent) -> None:
+        run_boundary_event = event
+        _ = run_boundary_event
 
 
 def _merge_imported_trace_with_visitor(
@@ -915,13 +924,13 @@ def derive_trace_payload_from_sinks(
 
 
 def _optional_path(value: object) -> Path | None:
-    if value is None:
+    if value in (None,):
         return None
     return Path(str(value).strip())
 
 
 def _path_sequence(value: object) -> tuple[Path, ...]:
-    if value is None:
+    if value in (None,):
         return ()
     return tuple(Path(str(item).strip()) for item in value)
 

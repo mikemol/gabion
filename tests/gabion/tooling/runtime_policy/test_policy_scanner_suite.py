@@ -43,6 +43,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_scalar_sentinel_contract")
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_type_dispatch_contract") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
@@ -88,6 +89,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["branchless"] == []
     assert normalized.violations_by_rule["defensive_fallback"] == []
     assert normalized.violations_by_rule["fiber_scalar_sentinel_contract"] == []
+    assert normalized.violations_by_rule["fiber_type_dispatch_contract"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
     assert normalized.violations_by_rule["no_legacy_monolith_import"] == []
     assert normalized.violations_by_rule["orchestrator_primitive_barrel"] == []
@@ -139,6 +141,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
     assert normalized["fiber_scalar_sentinel_contract"] == []
+    assert normalized["fiber_type_dispatch_contract"] == []
     assert normalized["typing_surface"] == []
     assert normalized["runtime_narrowing_boundary"] == []
     assert normalized["aspf_normalization_idempotence"] == []
@@ -159,6 +162,31 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
         files=(external_file.resolve(),),
     )
     assert result.total_violations() == 0
+
+
+def test_policy_scanner_suite_flags_fiber_type_dispatch_contract(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/type_route_sample.py",
+        "\n".join(
+            [
+                "def route(value: object) -> object:",
+                "    if isinstance(value, str):",
+                "        return value",
+                "    return value",
+            ]
+        )
+        + "\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="fiber_type_dispatch_contract",
+    )
+    assert violations
+    assert any(item.get("kind") == "manual_type_guard" for item in violations)
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_retired_monolith_module_file::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -261,7 +289,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     )
     _write(
         root / "src/gabion/fallback_sample.py",
-        "def normalize(value):\n    if isinstance(value, str):\n        return None\n    return value\n",
+        "def normalize(value):\n    if value:\n        return None\n    return value\n",
     )
     _write(
         root / "baselines/branchless_policy_baseline.json",
@@ -336,6 +364,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_type_dispatch_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []
