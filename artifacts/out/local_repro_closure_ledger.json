@@ -3210,6 +3210,62 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-PM0-B9",
+      "summary": "Global marker purge foundation batch 9: remove decision/boundary marker comments from next 25 alphabetical src files and refresh deterministic marker inventory snapshot.",
+      "timestamp_utc": "2026-03-08T01:46:21Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 4965,
+        "defensive_fallback": 87,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 5383,
+        "defensive_fallback": 93,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "marker_inventory": {
+        "file": "out/scout/marker_inventory_head.json",
+        "batch_size": 25,
+        "marker_files_before_count": 74,
+        "marker_files_after_count": 49
+      },
+      "total_before": 6079,
+      "total_after": 6503,
+      "notes": [
+        "Purged marker text only (`gabion:decision_protocol_module`, `gabion:boundary_normalization_module`) from the next deterministic alphabetical batch of 25 src files.",
+        "Refreshed deterministic before/after inventory plus batch membership in out/scout/marker_inventory_head.json.",
+        "Resolved workflow-policy fallout in server payload helpers by strictifying non-boundary signatures to JSONValue-typed mappings while keeping fiber_type_dispatch_contract flat at 758."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_policy_scanner_suite": "pass"
+      }
     }
   ],
   "generated_by": "codex",

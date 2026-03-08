@@ -1,7 +1,4 @@
 from __future__ import annotations
-# gabion:decision_protocol_module
-# gabion:boundary_normalization_module
-
 import ast
 import hashlib
 import json
@@ -1697,7 +1694,7 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
 
 
 def _require_payload(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
     *,
     command: str,
 ) -> dict[str, object]:
@@ -1752,7 +1749,7 @@ def _parse_impact_command_payload(
 
 
 def _ordered_command_response(
-    response: Mapping[str, object],
+    response: Mapping[str, JSONValue],
     *,
     command: str,
 ) -> dict[str, object]:
@@ -1772,9 +1769,9 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
 
 
 def _normalize_dataflow_boundary_controls(
-    payload: dict[str, object],
-) -> dict[str, object]:
-    normalized_updates: dict[str, object] = {}
+    payload: dict[str, JSONValue],
+) -> dict[str, JSONValue]:
+    normalized_updates: dict[str, JSONValue] = {}
     for key in ("language", "ingest_profile"):
         raw_value = payload.get(key)
         if raw_value is None:
@@ -1801,11 +1798,11 @@ def _normalize_dataflow_boundary_controls(
     )
 
 
-def _normalize_dataflow_response_envelope(response: Mapping[str, object]) -> DataflowResponseEnvelopeDTO:
+def _normalize_dataflow_response_envelope(response: Mapping[str, JSONValue]) -> DataflowResponseEnvelopeDTO:
     return orchestrator_primitives._normalize_dataflow_response(response)
 
 
-def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
+def _normalize_dataflow_response(response: Mapping[str, JSONValue]) -> dict[str, object]:
     return orchestrator_primitives._serialize_dataflow_response(
         _normalize_dataflow_response_envelope(response)
     )
@@ -2356,7 +2353,7 @@ class StructureReuseOptions:
     min_count: int | None
 
 
-def _parse_snapshot_diff_paths(payload: Mapping[str, object]) -> SnapshotDiffPaths | None:
+def _parse_snapshot_diff_paths(payload: Mapping[str, JSONValue]) -> SnapshotDiffPaths | None:
     baseline_path = payload.get("baseline")
     current_path = payload.get("current")
     if not baseline_path or not current_path:
@@ -2364,7 +2361,7 @@ def _parse_snapshot_diff_paths(payload: Mapping[str, object]) -> SnapshotDiffPat
     return SnapshotDiffPaths(baseline=Path(str(baseline_path)), current=Path(str(current_path)))
 
 
-def _parse_structure_reuse_options(payload: Mapping[str, object]) -> StructureReuseOptions | None:
+def _parse_structure_reuse_options(payload: Mapping[str, JSONValue]) -> StructureReuseOptions | None:
     snapshot_path = payload.get("snapshot")
     if not snapshot_path:
         return None
@@ -2571,7 +2568,7 @@ class DirectProbeExecutionError(ParityProbeError):
 
 
 def _normalize_impact_payload(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
     *,
     workspace_root: str | None,
 ) -> ImpactPayloadDTO:
@@ -2947,7 +2944,7 @@ def _direct_command_executor(
 
 
 def _strip_parity_ignored_keys(
-    payload: Mapping[str, object],
+    payload: Mapping[str, JSONValue],
     *,
     ignored_keys: tuple[str, ...],
 ) -> dict[str, object]:
@@ -2958,7 +2955,7 @@ def _strip_parity_ignored_keys(
 
 
 def _normalize_probe_payload(
-    probe_payload: Mapping[str, object],
+    probe_payload: Mapping[str, JSONValue],
     *,
     root: Path,
     command: str,

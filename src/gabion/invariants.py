@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 """Invariant markers for Gabion analysis."""
 
 from __future__ import annotations
