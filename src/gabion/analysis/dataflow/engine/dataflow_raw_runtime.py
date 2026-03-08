@@ -6,13 +6,15 @@ import argparse
 import json
 import sys
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, cast
 
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.baseline_io import load_json
 from gabion.analysis.dataflow.io.dataflow_baseline_gates import _resolve_baseline_path
+from gabion.analysis.dataflow.engine.dataflow_adapter_contract import (
+    normalize_adapter_contract,
+)
 from gabion.analysis.dataflow.engine.dataflow_contracts import AnalysisResult, AuditConfig
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
 from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths
@@ -20,7 +22,7 @@ from gabion.analysis.dataflow.io.dataflow_reporting import (
     compute_violations as _compute_violations, render_report as _emit_report)
 from gabion.analysis.dataflow.io.dataflow_run_outputs import (
     DataflowRunOutputContext as _RunImplOutputContextCore, finalize_run_outputs as _finalize_run_outputs_impl)
-from gabion.analysis.foundation.json_types import JSONValue, JSONObject
+from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.marker_protocol import DEFAULT_MARKER_ALIASES
 from gabion.analysis.foundation.resume_codec import mapping_or_none
 from gabion.analysis.foundation.timeout_context import (
@@ -30,47 +32,6 @@ from gabion.analysis.core.type_fingerprints import (
 from gabion.config import (
     dataflow_adapter_payload, dataflow_deadline_roots, dataflow_defaults, dataflow_required_surfaces, decision_defaults, decision_ignore_list, decision_require_tiers, decision_tier_map, exception_defaults, exception_marker_family, exception_never_list, fingerprint_defaults, merge_payload, synthesis_defaults)
 from gabion.invariants import never
-
-
-@dataclass(frozen=True)
-class AdapterCapabilities:
-    bundle_inference: bool = True
-    decision_surfaces: bool = True
-    type_flow: bool = True
-    exception_obligations: bool = True
-    rewrite_plan_support: bool = True
-
-
-def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
-    if type(payload) is not dict:
-        return AdapterCapabilities()
-    raw = cast(dict[object, object], payload)
-
-    def _read(name: str, default: bool = True) -> bool:
-        value = raw.get(name)
-        if type(value) is bool:
-            return bool(value)
-        return default
-
-    return AdapterCapabilities(
-        bundle_inference=_read("bundle_inference"),
-        decision_surfaces=_read("decision_surfaces"),
-        type_flow=_read("type_flow"),
-        exception_obligations=_read("exception_obligations"),
-        rewrite_plan_support=_read("rewrite_plan_support"),
-    )
-
-
-def normalize_adapter_contract(payload: object) -> JSONObject:
-    if type(payload) is not dict:
-        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
-    raw = cast(dict[object, object], payload)
-    name = str(raw.get("name", "native") or "native")
-    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
-    return {
-        "name": name,
-        "capabilities": {str(key): bool(capabilities[key]) for key in capabilities},
-    }
 
 
 def _resolve_synth_registry_path(path, root: Path):
@@ -321,19 +282,23 @@ def _normalize_transparent_decorators(
     value: object,
 ) -> object:
     check_deadline()
-    if value is not None:
-        items: list[str] = []
-        value_type = type(value)
-        if value_type is str:
-            items = [part.strip() for part in cast(str, value).split(",") if part.strip()]
-        elif value_type in {list, tuple, set}:
-            for item in cast(Iterable[object], value):
+    items: list[str] = []
+    match value:
+        case str() as text_value:
+            items = [part.strip() for part in text_value.split(",") if part.strip()]
+        case list() | tuple() | set() as iterable_values:
+            for item in iterable_values:
                 check_deadline()
-                if type(item) is str:
-                    parts = [part.strip() for part in cast(str, item).split(",") if part.strip()]
-                    items.extend(parts)
-        if items:
-            return set(items)
+                match item:
+                    case str() as item_text:
+                        parts = [part.strip() for part in item_text.split(",") if part.strip()]
+                        items.extend(parts)
+                    case _:
+                        pass
+        case _:
+            pass
+    if items:
+        return set(items)
     return None
 
 
@@ -510,11 +475,16 @@ def _run_impl(
     )
     deadline_roots = set(dataflow_deadline_roots(merged))
     adapter_payload = dataflow_adapter_payload(merged)
-    required_analysis_surfaces = {
-        str(item)
-        for item in dataflow_required_surfaces(merged)
-        if type(item) is str and str(item)
-    }
+    required_analysis_surfaces: set[str] = set()
+    for item in dataflow_required_surfaces(merged):
+        check_deadline()
+        match item:
+            case str() as required_surface:
+                normalized_surface = required_surface.strip()
+                if normalized_surface:
+                    required_analysis_surfaces.add(normalized_surface)
+            case _:
+                pass
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,

@@ -206,15 +206,9 @@ def _phase_identity_tokens(
             root_identity = str(root.get("identity", "") or "").strip()
             if root_identity:
                 components.append(f"root_identity:{root_identity}")
-        active_path_value = transition_v2.get("active_path")
-        if isinstance(active_path_value, list) and active_path_value:
-            active_nodes = [
-                str(node).strip()
-                for node in active_path_value
-                if isinstance(node, str) and str(node).strip()
-            ]
-            if active_nodes and len(active_nodes) == len(active_path_value):
-                components.append(f"active_path:{'|'.join(active_nodes)}")
+        active_nodes = _normalized_nonempty_str_list(transition_v2.get("active_path"))
+        if active_nodes:
+            components.append(f"active_path:{'|'.join(active_nodes)}")
 
     has_identity_anchor = any(
         token.startswith(
@@ -291,17 +285,11 @@ def _collection_identity_tokens(
             f"in_progress_digest:{_payload_digest({str(key): in_progress[key] for key in in_progress})}"
         )
 
-    completed_paths = payload.get("completed_paths")
-    if isinstance(completed_paths, list):
-        normalized_paths = [
-            str(path).strip()
-            for path in completed_paths
-            if isinstance(path, str) and str(path).strip()
-        ]
-        if normalized_paths and len(normalized_paths) == len(completed_paths):
-            components.append(
-                f"completed_paths:{sha1('|'.join(normalized_paths).encode('utf-8')).hexdigest()}"
-            )
+    normalized_paths = _normalized_nonempty_str_list(payload.get("completed_paths"))
+    if normalized_paths:
+        components.append(
+            f"completed_paths:{sha1('|'.join(normalized_paths).encode('utf-8')).hexdigest()}"
+        )
 
     has_identity_anchor = any(
         token.startswith(
@@ -325,9 +313,35 @@ def _collection_identity_tokens(
 
 def _positive_int_or_none(value: object) -> int | None:
     check_deadline()
-    if type(value) is int and value > 0:
-        return int(value)
-    return None
+    match value:
+        case bool():
+            return None
+        case int() as int_value if int_value > 0:
+            return int_value
+        case _:
+            return None
+
+
+def _normalized_nonempty_str_list(value: JSONValue | None) -> list[str]:
+    check_deadline()
+    match value:
+        case list() as raw_items if raw_items:
+            normalized_items: list[str] = []
+            for item in raw_items:
+                check_deadline()
+                match item:
+                    case str() as item_text:
+                        normalized_item = item_text.strip()
+                        if not normalized_item:
+                            return []
+                        normalized_items.append(normalized_item)
+                    case _:
+                        return []
+            if len(normalized_items) == len(raw_items):
+                return normalized_items
+            return []
+        case _:
+            return []
 
 
 def _payload_digest(payload: Mapping[str, JSONValue]) -> str:

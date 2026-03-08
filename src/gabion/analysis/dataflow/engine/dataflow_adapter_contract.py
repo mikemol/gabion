@@ -3,7 +3,6 @@ from __future__ import annotations
 """Adapter contract normalization owner surface."""
 
 from dataclasses import dataclass
-from typing import cast
 
 from gabion.analysis.foundation.json_types import JSONObject
 
@@ -18,35 +17,37 @@ class AdapterCapabilities:
 
 
 def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
-    if type(payload) is not dict:
-        return AdapterCapabilities()
-    raw = cast(dict[object, object], payload)
+    match payload:
+        case dict() as raw:
+            def _read(name: str, default: bool = True) -> bool:
+                match raw.get(name):
+                    case bool() as bool_value:
+                        return bool_value
+                    case _:
+                        return default
 
-    def _read(name: str, default: bool = True) -> bool:
-        value = raw.get(name)
-        if type(value) is bool:
-            return bool(value)
-        return default
-
-    return AdapterCapabilities(
-        bundle_inference=_read("bundle_inference"),
-        decision_surfaces=_read("decision_surfaces"),
-        type_flow=_read("type_flow"),
-        exception_obligations=_read("exception_obligations"),
-        rewrite_plan_support=_read("rewrite_plan_support"),
-    )
+            return AdapterCapabilities(
+                bundle_inference=_read("bundle_inference"),
+                decision_surfaces=_read("decision_surfaces"),
+                type_flow=_read("type_flow"),
+                exception_obligations=_read("exception_obligations"),
+                rewrite_plan_support=_read("rewrite_plan_support"),
+            )
+        case _:
+            return AdapterCapabilities()
 
 
 def normalize_adapter_contract(payload: object) -> JSONObject:
-    if type(payload) is not dict:
-        return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
-    raw = cast(dict[object, object], payload)
-    name = str(raw.get("name", "native") or "native")
-    capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
-    return {
-        "name": name,
-        "capabilities": {str(key): bool(capabilities[key]) for key in capabilities},
-    }
+    match payload:
+        case dict() as raw:
+            name = str(raw.get("name", "native") or "native")
+            capabilities = parse_adapter_capabilities(raw.get("capabilities")).__dict__
+            return {
+                "name": name,
+                "capabilities": {str(key): bool(capabilities[key]) for key in capabilities},
+            }
+        case _:
+            return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
 
 
 __all__ = [

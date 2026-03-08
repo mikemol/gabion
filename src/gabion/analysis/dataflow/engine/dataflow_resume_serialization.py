@@ -378,12 +378,15 @@ def _serialize_call_args(call: CallArgs) -> JSONObject:
 
 def _deserialize_call_args(payload: Mapping[str, JSONValue]):
     callee = payload.get("callee")
-    if type(callee) is not str:
-        return None
+    match callee:
+        case str() as callee_name:
+            pass
+        case _:
+            return None
     star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
     span = int_tuple4_or_none(payload.get("span"))
     return CallArgs(
-        callee=callee,
+        callee=callee_name,
         pos_map=str_map_from_mapping(payload.get("pos_map")),
         kw_map=str_map_from_mapping(payload.get("kw_map")),
         const_pos=str_map_from_mapping(payload.get("const_pos")),
@@ -471,13 +474,16 @@ def _deserialize_class_info_for_resume(
 ):
     qual = payload.get("qual")
     module = payload.get("module")
-    if type(qual) is not str or type(module) is not str:
-        return None
+    match (qual, module):
+        case (str() as qual_name, str() as module_name):
+            pass
+        case _:
+            return None
     bases = str_list_from_sequence(payload.get("bases"))
     methods = str_set_from_sequence(payload.get("methods"))
     return ClassInfo(
-        qual=qual,
-        module=module,
+        qual=qual_name,
+        module=module_name,
         bases=bases,
         methods=methods,
     )

@@ -85,15 +85,17 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
     parent = parents.get(child)
     while parent is not None:
         check_deadline()
-        if type(parent) is ast.Call:
-            call_parent = cast(ast.Call, parent)
-            if child in call_parent.args:
-                return call_parent, True
-            for kw in call_parent.keywords:
-                check_deadline()
-                if child is kw or child is kw.value:
+        match parent:
+            case ast.Call() as call_parent:
+                if child in call_parent.args:
                     return call_parent, True
-            return call_parent, False
+                for kw in call_parent.keywords:
+                    check_deadline()
+                    if child is kw or child is kw.value:
+                        return call_parent, True
+                return call_parent, False
+            case _:
+                pass
         child = parent
         parent = parents.get(child)
     return None, False
@@ -118,23 +120,21 @@ def _return_aliases(
 
     def _alias_from_expr(expr = None):
         check_deadline()
-        if expr is not None:
-            expr_type = type(expr)
-            if expr_type is ast.Name:
-                name_node = cast(ast.Name, expr)
-                if name_node.id in param_set:
-                    return [name_node.id]
-            if expr_type in {ast.Tuple, ast.List}:
-                sequence_node = cast(ast.Tuple | ast.List, expr)
+        match expr:
+            case ast.Name(id=name) if name in param_set:
+                return [name]
+            case ast.Tuple(elts=elts) | ast.List(elts=elts):
                 names: list[str] = []
-                for elt in sequence_node.elts:
+                for elt in elts:
                     check_deadline()
-                    if type(elt) is ast.Name and cast(ast.Name, elt).id in param_set:
-                        names.append(cast(ast.Name, elt).id)
-                    else:
-                        return None
+                    match elt:
+                        case ast.Name(id=name) if name in param_set:
+                            names.append(name)
+                        case _:
+                            return None
                 return names
-        return None
+            case _:
+                return None
 
     for expr in collector.returns:
         check_deadline()
@@ -186,25 +186,21 @@ def _collect_return_aliases(
 
 
 def _const_repr(node: ast.AST):
-    node_type = type(node)
-    if node_type is ast.Constant:
-        return repr(cast(ast.Constant, node).value)
-    if node_type is ast.UnaryOp:
-        unary_node = cast(ast.UnaryOp, node)
-        if type(unary_node.op) in {ast.USub, ast.UAdd} and type(unary_node.operand) is ast.Constant:
+    match node:
+        case ast.Constant(value=value):
+            return repr(value)
+        case ast.UnaryOp(op=ast.USub() | ast.UAdd(), operand=ast.Constant()):
             try:
-                return ast.unparse(unary_node)
+                return ast.unparse(node)
             except _AST_UNPARSE_ERROR_TYPES:
                 return None
-    if node_type is ast.Attribute:
-        attribute_node = cast(ast.Attribute, node)
-        if attribute_node.attr.isupper():
+        case ast.Attribute(attr=attr) if attr.isupper():
             try:
-                return ast.unparse(attribute_node)
+                return ast.unparse(node)
             except _AST_UNPARSE_ERROR_TYPES:
                 return None
-        return None
-    return None
+        case _:
+            return None
 
 
 def _normalize_key_expr(
