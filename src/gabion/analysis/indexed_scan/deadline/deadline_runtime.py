@@ -5,12 +5,13 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import singledispatch
 from pathlib import Path
 from typing import cast
 
 from gabion.analysis.aspf.aspf import Forest, Node, NodeId
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo, OptionalString
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -18,6 +19,28 @@ from gabion.order_contract import sort_once
 from gabion.analysis.indexed_scan.deadline.deadline_fallback import fallback_deadline_arg_info as _fallback_deadline_arg_info
 
 OptionalAstCall = ast.Call | None
+
+
+def _leaf_ast_subclasses(base_type: type[ast.AST]) -> tuple[type[ast.AST], ...]:
+    node_types: list[type[ast.AST]] = []
+    for candidate in vars(ast).values():
+        try:
+            if issubclass(candidate, base_type) and candidate is not base_type:
+                node_types.append(candidate)
+        except TypeError:
+            continue
+    node_types_tuple = tuple(node_types)
+    return tuple(
+        node_type
+        for node_type in node_types_tuple
+        if not any(
+            candidate is not node_type and issubclass(candidate, node_type)
+            for candidate in node_types_tuple
+        )
+    )
+
+
+_AST_LEAF_EXPR_TYPES = _leaf_ast_subclasses(ast.expr)
 
 
 @dataclass(frozen=True)
@@ -175,20 +198,52 @@ def collect_call_edges_from_forest(
     return edges
 
 
+@singledispatch
+def _obligation_span_value(value: JSONValue, *, path: str, qual: str) -> int:
+    _ = path, qual
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_obligation_span_value.register
+def _(value: int, *, path: str, qual: str) -> int:
+    _ = path, qual
+    return value
+
+
+@_obligation_span_value.register(bool)
+def _(value: bool, *, path: str, qual: str) -> int:
+    _ = path, qual
+    _ = value
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@singledispatch
+def _obligation_span_carrier(value: JSONValue, *, path: str, qual: str) -> tuple[int, int, int, int]:
+    _ = path, qual
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_obligation_span_carrier.register(list)
+def _(value: list[object], *, path: str, qual: str) -> tuple[int, int, int, int]:
+    if len(value) != 4:
+        never("call resolution obligation requires span", path=path, qual=qual)
+    return (
+        _obligation_span_value(value[0], path=path, qual=qual),
+        _obligation_span_value(value[1], path=path, qual=qual),
+        _obligation_span_value(value[2], path=path, qual=qual),
+        _obligation_span_value(value[3], path=path, qual=qual),
+    )
+
+
 def _obligation_span(
     *,
     suite_node: Node,
 ) -> tuple[int, int, int, int]:
     raw_span = suite_node.meta.get("span")
-    if type(raw_span) is list and len(raw_span) == 4 and all(type(value) is int for value in raw_span):
-        return (int(raw_span[0]), int(raw_span[1]), int(raw_span[2]), int(raw_span[3]))
     caller_path = str(suite_node.meta.get("path", "") or "")
     caller_qual = str(suite_node.meta.get("qual", "") or "")
-    never(
-        "call resolution obligation requires span",
-        path=caller_path,
-        qual=caller_qual,
-    )
+    span = _obligation_span_carrier(raw_span, path=caller_path, qual=caller_qual)
+    return span
 
 
 def collect_call_resolution_obligations_from_forest(
@@ -369,6 +424,78 @@ def materialize_call_candidates(
                     )
 
 
+@singledispatch
+def _bind_call_arg_route(
+    value: ast.expr,
+    *,
+    index: int,
+    pos_params: list[str],
+    vararg: OptionalString,
+    mapping: dict[str, ast.AST],
+    star_args: list[ast.AST],
+) -> None:
+    _ = index, pos_params, vararg, mapping, star_args
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_bind_call_arg_route.register(ast.Starred)
+def _(
+    value: ast.Starred,
+    *,
+    index: int,
+    pos_params: list[str],
+    vararg: OptionalString,
+    mapping: dict[str, ast.AST],
+    star_args: list[ast.AST],
+) -> None:
+    _ = index, pos_params, vararg, mapping
+    star_args.append(value.value)
+
+
+def _bind_call_arg_non_star(
+    value: ast.expr,
+    *,
+    index: int,
+    pos_params: list[str],
+    vararg: OptionalString,
+    mapping: dict[str, ast.AST],
+    star_args: list[ast.AST],
+) -> None:
+    _ = star_args
+    if index < len(pos_params):
+        mapping[pos_params[index]] = value
+    elif vararg is not None:
+        mapping.setdefault(vararg, value)
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type is ast.Starred:
+        continue
+    _bind_call_arg_route.register(_runtime_type)(_bind_call_arg_non_star)
+
+
+@singledispatch
+def _expr_is_name(value: ast.expr) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_expr_is_name.register(ast.Name)
+def _(value: ast.Name) -> bool:
+    _ = value
+    return True
+
+
+def _expr_is_not_name(value: ast.expr) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type is ast.Name:
+        continue
+    _expr_is_name.register(_runtime_type)(_expr_is_not_name)
+
+
 def bind_call_args(
     call_node: ast.Call,
     callee: FunctionInfo,
@@ -388,13 +515,14 @@ def bind_call_args(
     star_kwargs: list[ast.AST] = []
     for idx, arg in enumerate(call_node.args):
         check_deadline()
-        if type(arg) is ast.Starred:
-            star_args.append(cast(ast.Starred, arg).value)
-            continue
-        if idx < len(pos_params):
-            mapping[pos_params[idx]] = arg
-        elif callee.vararg is not None:
-            mapping.setdefault(callee.vararg, arg)
+        _bind_call_arg_route(
+            arg,
+            index=idx,
+            pos_params=pos_params,
+            vararg=callee.vararg,
+            mapping=mapping,
+            star_args=star_args,
+        )
     for kw in call_node.keywords:
         check_deadline()
         if kw.arg is None:
@@ -413,11 +541,11 @@ def bind_call_args(
             )
             if param not in mapping
         ]
-        if len(star_args) == 1 and type(star_args[0]) is ast.Name:
+        if len(star_args) == 1 and _expr_is_name(star_args[0]):
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_args[0])
-        if len(star_kwargs) == 1 and type(star_kwargs[0]) is ast.Name:
+        if len(star_kwargs) == 1 and _expr_is_name(star_kwargs[0]):
             for param in remaining:
                 check_deadline()
                 mapping.setdefault(param, star_kwargs[0])
@@ -485,21 +613,80 @@ def caller_param_bindings_for_call(
     return mapping
 
 
-def is_deadline_origin_call(expr: ast.AST) -> bool:
-    if type(expr) is not ast.Call:
-        return False
-    callee = cast(ast.Call, expr).func
-    if type(callee) is ast.Name:
-        return cast(ast.Name, callee).id == "Deadline"
-    if type(callee) is ast.Attribute:
-        attr = cast(ast.Attribute, callee)
-        if attr.attr in {"from_timeout", "from_timeout_ms", "from_timeout_ticks"}:
-            value = attr.value
-            if type(value) is ast.Name and cast(ast.Name, value).id == "Deadline":
-                return True
-            if type(value) is ast.Attribute and cast(ast.Attribute, value).attr == "Deadline":
-                return True
+@singledispatch
+def _deadline_origin_attribute_value(value: ast.expr) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_deadline_origin_attribute_value.register(ast.Name)
+def _(value: ast.Name) -> bool:
+    return value.id == "Deadline"
+
+
+@_deadline_origin_attribute_value.register(ast.Attribute)
+def _(value: ast.Attribute) -> bool:
+    return value.attr == "Deadline"
+
+
+def _deadline_origin_attribute_value_false(_value: ast.expr) -> bool:
     return False
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type in {ast.Name, ast.Attribute}:
+        continue
+    _deadline_origin_attribute_value.register(_runtime_type)(_deadline_origin_attribute_value_false)
+
+
+@singledispatch
+def _deadline_origin_callee(callee: ast.expr) -> bool:
+    never("unregistered runtime type", value_type=type(callee).__name__)
+
+
+@_deadline_origin_callee.register(ast.Name)
+def _(callee: ast.Name) -> bool:
+    return callee.id == "Deadline"
+
+
+@_deadline_origin_callee.register(ast.Attribute)
+def _(callee: ast.Attribute) -> bool:
+    if callee.attr not in {"from_timeout", "from_timeout_ms", "from_timeout_ticks"}:
+        return False
+    return _deadline_origin_attribute_value(callee.value)
+
+
+def _deadline_origin_callee_false(_callee: ast.expr) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type in {ast.Name, ast.Attribute}:
+        continue
+    _deadline_origin_callee.register(_runtime_type)(_deadline_origin_callee_false)
+
+
+@singledispatch
+def _deadline_origin_expr(expr: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(expr).__name__)
+
+
+@_deadline_origin_expr.register(ast.Call)
+def _(expr: ast.Call) -> bool:
+    return _deadline_origin_callee(expr.func)
+
+
+def _deadline_origin_expr_false(_expr: ast.AST) -> bool:
+    return False
+
+
+for _runtime_type in _AST_LEAF_EXPR_TYPES:
+    if _runtime_type is ast.Call:
+        continue
+    _deadline_origin_expr.register(_runtime_type)(_deadline_origin_expr_false)
+
+
+def is_deadline_origin_call(expr: ast.AST) -> bool:
+    return _deadline_origin_expr(expr)
 
 
 def classify_deadline_expr(
